@@ -16,7 +16,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -53,7 +53,6 @@ from huggingface_hub.inference._common import (
     _stream_chat_completion_response,
     _stream_text_generation_response,
 )
-from huggingface_hub.inference._providers import PROVIDERS
 from huggingface_hub.utils import build_hf_headers
 
 from .testing_utils import with_production_testing
@@ -191,29 +190,36 @@ CHAT_COMPLETION_RESPONSE_FORMAT = {
     },
 }
 
-
-def get_providers_for_task(task_name: str) -> list[tuple[str, str]]:
-    """Get list of tuples (provider, recommended_model)
-    For HF inference, uses the recommended model from _RECOMMENDED_MODELS_FOR_VCR
-    For other providers, uses the first model from their SUPPORTED_MODELS
-    """
-    result = []
-    for provider, tasks in PROVIDERS.items():
-        if task_name in tasks and task_name in _RECOMMENDED_MODELS_FOR_VCR.get(provider, {}):
-            recommended_model = _RECOMMENDED_MODELS_FOR_VCR[provider][task_name]
-            result.append((provider, recommended_model))
-    return result
+API_KEY_ENV_VARIABLES = {
+    "hf-inference": "HF_TOKEN",
+    "fal-ai": "FAL_AI_KEY",
+    "replicate": "REPLICATE_KEY",
+    "sambanova": "SAMBANOVA_API_KEY",
+    "together": "TOGETHER_API_KEY",
+}
 
 
-@pytest.fixture(scope="module")
-def api_keys():
-    return {
-        "hf-inference": os.getenv("HF_TOKEN"),
-        "fal-ai": os.getenv("FAL_AI_KEY"),
-        "replicate": os.getenv("REPLICATE_KEY"),
-        "sambanova": os.getenv("SAMBANOVA_API_KEY"),
-        "together": os.getenv("TOGETHER_API_KEY"),
-    }
+def list_clients(task: str) -> list[Union[InferenceClient, pytest.param]]:
+    clients = []
+    for provider, tasks in _RECOMMENDED_MODELS_FOR_VCR.items():
+        if task in tasks:
+            env_variable = API_KEY_ENV_VARIABLES[provider]
+            api_key = os.getenv(env_variable)
+            if api_key:
+                clients.append(InferenceClient(model=tasks[task], provider=provider, token=api_key))
+            else:
+                clients.append(
+                    pytest.param(
+                        None,
+                        marks=pytest.mark.skip(
+                            reason=(
+                                f"API KEY not set for provider {provider}. "
+                                f"If you want to run this test, please set `{env_variable}` as an environment variable."
+                            )
+                        ),
+                    ),
+                )
+    return clients
 
 
 # Define fixtures for the files
@@ -250,10 +256,8 @@ class TestInferenceClient(TestBase):
 
         monkeypatch.setattr("huggingface_hub.inference._providers.hf_inference._fetch_recommended_models", mock_fetch)
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("audio-classification"))
-    def test_audio_classification(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, token=api_key)
+    @pytest.mark.parametrize("client", list_clients("audio-classification"))
+    def test_audio_classification(self, client: InferenceClient):
         output = client.audio_classification(self.audio_file)
         assert isinstance(output, list)
         assert len(output) > 0
@@ -261,10 +265,8 @@ class TestInferenceClient(TestBase):
             assert isinstance(item.score, float)
             assert isinstance(item.label, str)
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("audio-to-audio"))
-    def test_audio_to_audio(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("audio-to-audio"))
+    def test_audio_to_audio(self, client: InferenceClient):
         output = client.audio_to_audio(self.audio_file)
         assert isinstance(output, list)
         assert len(output) > 0
@@ -273,32 +275,22 @@ class TestInferenceClient(TestBase):
             assert isinstance(item.blob, bytes)
             assert item.content_type == "audio/flac"
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("automatic-speech-recognition"))
-    def test_automatic_speech_recognition(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("automatic-speech-recognition"))
+    def test_automatic_speech_recognition(self, client: InferenceClient):
         output = client.automatic_speech_recognition(self.audio_file)
         assert output.text.strip() == "A man said to the universe, Sir, I exist."
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("conversational"))
-    def test_chat_completion_no_stream(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
-        output = client.chat_completion(
-            model=model,
-            messages=CHAT_COMPLETION_MESSAGES,
-            stream=False,
-        )
+    @pytest.mark.parametrize("client", list_clients("conversational"))
+    def test_chat_completion_no_stream(self, client: InferenceClient):
+        output = client.chat_completion(messages=CHAT_COMPLETION_MESSAGES, stream=False)
         assert isinstance(output, ChatCompletionOutput)
         assert output.created < time.time()
         assert isinstance(output.choices, list)
         assert len(output.choices) == 1
         assert isinstance(output.choices[0], ChatCompletionOutputComplete)
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("conversational"))
-    def test_chat_completion_with_stream(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("conversational"))
+    def test_chat_completion_with_stream(self, client: InferenceClient):
         output = list(
             client.chat_completion(
                 messages=CHAT_COMPLETION_MESSAGES,
@@ -350,12 +342,9 @@ class TestInferenceClient(TestBase):
         )
 
     @pytest.mark.skip(reason="Schema not aligned between providers")
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("conversational"))
-    def test_chat_completion_with_tool(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("conversational"))
+    def test_chat_completion_with_tool(self, client: InferenceClient):
         response = client.chat_completion(
-            model=model,
             messages=CHAT_COMPLETION_TOOL_INSTRUCTIONS,
             tools=CHAT_COMPLETION_TOOLS,
             tool_choice="auto",
@@ -387,7 +376,6 @@ class TestInferenceClient(TestBase):
 
         # Now, test with tool_choice="get_current_weather"
         response = client.chat_completion(
-            model=model,
             messages=CHAT_COMPLETION_TOOL_INSTRUCTIONS,
             tools=CHAT_COMPLETION_TOOLS,
             tool_choice={
@@ -408,12 +396,9 @@ class TestInferenceClient(TestBase):
         }
 
     @pytest.mark.skip(reason="Schema not aligned between providers")
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("conversational"))
-    def test_chat_completion_with_response_format(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("conversational"))
+    def test_chat_completion_with_response_format(self, client: InferenceClient):
         response = client.chat_completion(
-            model=model,
             messages=CHAT_COMPLETION_RESPONSE_FORMAT_MESSAGE,
             response_format=CHAT_COMPLETION_RESPONSE_FORMAT,
             max_tokens=500,
@@ -440,10 +425,8 @@ class TestInferenceClient(TestBase):
                 model="meta-llama/Meta-Llama-3-70B-Instruct",
             )
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("document-question-answering"))
-    def test_document_question_answering(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key, model=model)
+    @pytest.mark.parametrize("client", list_clients("document-question-answering"))
+    def test_document_question_answering(self, client: InferenceClient):
         output = client.document_question_answering(self.document_file, "What is the purchase amount?")
         assert output == [
             DocumentQuestionAnsweringOutputElement(
@@ -454,27 +437,21 @@ class TestInferenceClient(TestBase):
             )
         ]
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("feature-extraction"))
-    def test_feature_extraction_with_transformers(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key, model=model)
+    @pytest.mark.parametrize("client", list_clients("feature-extraction"))
+    def test_feature_extraction_with_transformers(self, client: InferenceClient):
         embedding = client.feature_extraction("Hi, who are you?")
         assert isinstance(embedding, np.ndarray)
         assert embedding.shape == (1, 8, 768)
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("feature-extraction"))
-    def test_feature_extraction_with_sentence_transformers(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
-        embedding = client.feature_extraction("Hi, who are you?", model=model)
+    @pytest.mark.parametrize("client", list_clients("feature-extraction"))
+    def test_feature_extraction_with_sentence_transformers(self, client: InferenceClient):
+        embedding = client.feature_extraction("Hi, who are you?")
         assert isinstance(embedding, np.ndarray)
         assert embedding.shape == (1, 8, 768)
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("fill-mask"))
-    def test_fill_mask(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
-        output = client.fill_mask("The goal of life is <mask>.", model=model)
+    @pytest.mark.parametrize("client", list_clients("fill-mask"))
+    def test_fill_mask(self, client: InferenceClient):
+        output = client.fill_mask("The goal of life is <mask>.")
         assert output == [
             FillMaskOutputElement(
                 score=0.06897063553333282,
@@ -525,10 +502,8 @@ class TestInferenceClient(TestBase):
         with pytest.raises(ValueError):
             get_recommended_model("text-generation")
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("image-classification"))
-    def test_image_classification(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("image-classification"))
+    def test_image_classification(self, client: InferenceClient):
         output = client.image_classification(self.image_file)
         assert output == [
             ImageClassificationOutputElement(label="brassiere, bra, bandeau", score=0.1176738440990448),
@@ -538,10 +513,8 @@ class TestInferenceClient(TestBase):
             ImageClassificationOutputElement(label="fur coat", score=0.06151164695620537),
         ]
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("image-segmentation"))
-    def test_image_segmentation(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("image-segmentation"))
+    def test_image_segmentation(self, client: InferenceClient):
         output = client.image_segmentation(self.image_file)
         assert isinstance(output, list)
         assert len(output) > 0
@@ -557,18 +530,14 @@ class TestInferenceClient(TestBase):
     # def test_image_to_image(self) -> None:
     #     image = self.client.image_to_image(self.image_file, prompt="turn the woman into a man")
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("image-to-text"))
-    def test_image_to_text(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("image-to-text"))
+    def test_image_to_text(self, client: InferenceClient):
         caption = client.image_to_text(self.image_file)
         assert isinstance(caption, ImageToTextOutput)
         assert caption.generated_text == "a woman in a hat and dress posing for a photo"
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("object-detection"))
-    def test_object_detection(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("object-detection"))
+    def test_object_detection(self, client: InferenceClient):
         output = client.object_detection(self.image_file)
         assert output == [
             ObjectDetectionOutputElement(
@@ -576,17 +545,13 @@ class TestInferenceClient(TestBase):
             )
         ]
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("question-answering"))
-    def test_question_answering(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
-        output = client.question_answering(question="What is the meaning of life?", context="42", model=model)
+    @pytest.mark.parametrize("client", list_clients("question-answering"))
+    def test_question_answering(self, client: InferenceClient):
+        output = client.question_answering(question="What is the meaning of life?", context="42")
         assert output == QuestionAnsweringOutputElement(answer="42", end=2, score=1.4291124728060822e-08, start=0)
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("sentence-similarity"))
-    def test_sentence_similarity(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("sentence-similarity"))
+    def test_sentence_similarity(self, client: InferenceClient):
         scores = client.sentence_similarity(
             "Machine learning is so easy.",
             other_sentences=[
@@ -597,10 +562,8 @@ class TestInferenceClient(TestBase):
         )
         assert scores == [0.7785726189613342, 0.45876261591911316, 0.2906220555305481]
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("summarization"))
-    def test_summarization(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("summarization"))
+    def test_summarization(self, client: InferenceClient):
         summary = client.summarization(
             "The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest"
             " structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its"
@@ -620,10 +583,8 @@ class TestInferenceClient(TestBase):
         )
 
     @pytest.mark.skip(reason="This model is not available on InferenceAPI")
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("tabular-classification"))
-    def test_tabular_classification(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("tabular-classification"))
+    def test_tabular_classification(self, client: InferenceClient):
         table = {
             "fixed_acidity": ["7.4", "7.8", "10.3"],
             "volatile_acidity": ["0.7", "0.88", "0.32"],
@@ -641,10 +602,8 @@ class TestInferenceClient(TestBase):
         assert output == ["5", "5", "5"]
 
     @pytest.mark.skip(reason="This model is not available on InferenceAPI")
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("tabular-regression"))
-    def test_tabular_regression(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("tabular-regression"))
+    def test_tabular_regression(self, client: InferenceClient):
         table = {
             "Height": ["11.52", "12.48", "12.3778"],
             "Length1": ["23.2", "24", "23.9"],
@@ -656,10 +615,8 @@ class TestInferenceClient(TestBase):
         output = client.tabular_regression(table=table)
         assert output == [110, 120, 130]
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("table-question-answering"))
-    def test_table_question_answering(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("table-question-answering"))
+    def test_table_question_answering(self, client: InferenceClient):
         table = {
             "Repository": ["Transformers", "Datasets", "Tokenizers"],
             "Stars": ["36542", "4512", "3934"],
@@ -670,10 +627,8 @@ class TestInferenceClient(TestBase):
             answer="AVERAGE > 36542", cells=["36542"], coordinates=[[0, 1]], aggregator="AVERAGE"
         )
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("text-classification"))
-    def test_text_classification(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("text-classification"))
+    def test_text_classification(self, client: InferenceClient):
         output = client.text_classification("I like you")
         assert output == [
             TextClassificationOutputElement(label="POSITIVE", score=0.9998695850372314),
@@ -683,41 +638,31 @@ class TestInferenceClient(TestBase):
     def test_text_generation(self) -> None:
         """Tested separately in `test_inference_text_generation.py`."""
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("text-to-image"))
-    def test_text_to_image_default(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("text-to-image"))
+    def test_text_to_image_default(self, client: InferenceClient):
         image = client.text_to_image("An astronaut riding a horse on the moon.")
         assert isinstance(image, Image.Image)
 
     @pytest.mark.skip(reason="Need to check why fal.ai doesn't take image_size into account")
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("text-to-image"))
-    def test_text_to_image_with_parameters(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("text-to-image"))
+    def test_text_to_image_with_parameters(self, client: InferenceClient):
         image = client.text_to_image("An astronaut riding a horse on the moon.", height=256, width=256)
         assert isinstance(image, Image.Image)
         assert image.height == 256
         assert image.width == 256
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("text-to-speech"))
-    def test_text_to_speech(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("text-to-speech"))
+    def test_text_to_speech(self, client: InferenceClient):
         audio = client.text_to_speech("Hello world")
         assert isinstance(audio, bytes)
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("translation"))
-    def test_translation(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("translation"))
+    def test_translation(self, client: InferenceClient):
         output = client.translation("Hello world")
         assert output == TranslationOutput(translation_text="Hallo Welt")
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("translation"))
-    def test_translation_with_source_and_target_language(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("translation"))
+    def test_translation_with_source_and_target_language(self, client: InferenceClient):
         output_with_langs = client.translation(
             "Hello world", model="facebook/mbart-large-50-many-to-many-mmt", src_lang="en_XX", tgt_lang="fr_XX"
         )
@@ -729,13 +674,9 @@ class TestInferenceClient(TestBase):
         with pytest.raises(ValueError):
             client.translation("Hello world", model="facebook/mbart-large-50-many-to-many-mmt", tgt_lang="en_XX")
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("token-classification"))
-    def test_token_classification(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
-        output = client.token_classification(
-            model=model, text="My name is Sarah Jessica Parker but you can call me Jessica"
-        )
+    @pytest.mark.parametrize("client", list_clients("token-classification"))
+    def test_token_classification(self, client: InferenceClient):
+        output = client.token_classification(text="My name is Sarah Jessica Parker but you can call me Jessica")
         assert output == [
             TokenClassificationOutputElement(
                 score=0.9991335868835449, end=31, entity_group="PER", start=11, word="Sarah Jessica Parker"
@@ -745,11 +686,9 @@ class TestInferenceClient(TestBase):
             ),
         ]
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("visual-question-answering"))
-    def test_visual_question_answering(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
-        output = client.visual_question_answering(model=model, image=self.image_file, question="Who's in the picture?")
+    @pytest.mark.parametrize("client", list_clients("visual-question-answering"))
+    def test_visual_question_answering(self, client: InferenceClient):
+        output = client.visual_question_answering(image=self.image_file, question="Who's in the picture?")
         assert output == [
             VisualQuestionAnsweringOutputElement(score=0.938694417476654, answer="woman"),
             VisualQuestionAnsweringOutputElement(score=0.34311923384666443, answer="girl"),
@@ -758,16 +697,13 @@ class TestInferenceClient(TestBase):
             VisualQuestionAnsweringOutputElement(score=0.017770998179912567, answer="man"),
         ]
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("zero-shot-classification"))
-    def test_zero_shot_classification_single_label(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("zero-shot-classification"))
+    def test_zero_shot_classification_single_label(self, client: InferenceClient):
         output = client.zero_shot_classification(
             "A new model offers an explanation for how the Galilean satellites formed around the solar system's"
             "largest world. Konstantin Batygin did not set out to solve one of the solar system's most puzzling"
             " mysteries when he went for a run up a hill in Nice, France.",
             candidate_labels=["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"],
-            model=model,
         )
         assert output == [
             ZeroShotClassificationOutputElement(label="scientific discovery", score=0.796166181564331),
@@ -777,17 +713,14 @@ class TestInferenceClient(TestBase):
             ZeroShotClassificationOutputElement(label="robots", score=0.004559362772852182),
         ]
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("zero-shot-classification"))
-    def test_zero_shot_classification_multi_label(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("zero-shot-classification"))
+    def test_zero_shot_classification_multi_label(self, client: InferenceClient):
         output = client.zero_shot_classification(
             text="A new model offers an explanation for how the Galilean satellites formed around the solar system's"
             "largest world. Konstantin Batygin did not set out to solve one of the solar system's most puzzling"
             " mysteries when he went for a run up a hill in Nice, France.",
             candidate_labels=["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"],
             multi_label=True,
-            model=model,
         )
         assert output == [
             ZeroShotClassificationOutputElement(label="scientific discovery", score=0.9829296469688416),
@@ -797,12 +730,10 @@ class TestInferenceClient(TestBase):
             ZeroShotClassificationOutputElement(label="robots", score=0.000304485292872414),
         ]
 
-    @pytest.mark.parametrize("provider, model", get_providers_for_task("zero-shot-image-classification"))
-    def test_zero_shot_image_classification(self, provider, model, api_keys):
-        api_key = api_keys[provider]
-        client = InferenceClient(provider=provider, model=model, api_key=api_key)
+    @pytest.mark.parametrize("client", list_clients("zero-shot-image-classification"))
+    def test_zero_shot_image_classification(self, client: InferenceClient):
         output = client.zero_shot_image_classification(
-            image=self.image_file, candidate_labels=["tree", "woman", "cat"], model=model
+            image=self.image_file, candidate_labels=["tree", "woman", "cat"]
         )
         assert isinstance(output, list)
         assert len(output) > 0

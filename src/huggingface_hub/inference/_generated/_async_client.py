@@ -947,18 +947,15 @@ class AsyncInferenceClient:
         provider_helper = get_provider_helper(self.provider, task="conversational")
 
         # If model_id_or_url is a URL, we need to build the URL for chat completion endpoint.
-        if model_id_or_url.startswith(("http://", "https://")):
-            model_url = self._build_chat_completion_url(model_id_or_url)
+        if model_id_or_url is not None and model_id_or_url.startswith(("http://", "https://")):
+            model_url: str = self._build_chat_completion_url(model_id_or_url)
+            payload_model: str = "tgi"  # use a random string if not provided
         else:
             # Get the mapped provider model ID
-            model_id = provider_helper.map_model(model=model_id_or_url)
+            payload_model = provider_helper.map_model(model=model_id_or_url)
             # Build the URL for the provider
-            model_url = provider_helper.build_url(model=model_id)
+            model_url = provider_helper.build_url(model=payload_model)
 
-        # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
-        # If it's a ID on the Hub => use it. Otherwise, we use a random string.
-        # For URLs, use "tgi" as model name in payload
-        payload_model = "tgi" if model_id_or_url.startswith(("http://", "https://")) else model_id
         parameters = {
             "model": payload_model,
             "frequency_penalty": frequency_penalty,
