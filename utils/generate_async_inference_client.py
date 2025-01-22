@@ -174,7 +174,7 @@ ASYNC_POST_CODE = """
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
-        headers = dict()
+        headers: Dict[str, Any] = dict()
         if model is not None and (model.startswith("http://") or model.startswith("https://")):
             url = model
         else:
