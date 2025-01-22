@@ -1,0 +1,54 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - b96ba40c-6425-4b42-acaa-0be1248fbde9
+    method: GET
+    uri: https://huggingface.co/api/models/stabilityai/stable-diffusion-2-1
+  response:
+    body:
+      string: '{"_id":"638f7ae36c25af4071044105","id":"stabilityai/stable-diffusion-2-1","private":false,"pipeline_tag":"text-to-image","library_name":"diffusers","tags":["diffusers","safetensors","stable-diffusion","text-to-image","arxiv:2112.10752","arxiv:2202.00512","arxiv:1910.09700","license:openrail++","autotrain_compatible","endpoints_compatible","diffusers:StableDiffusionPipeline","region:us"],"downloads":1015720,"likes":3928,"modelId":"stabilityai/stable-diffusion-2-1","author":"stabilityai","sha":"5cae40e6a2745ae2b01ad92ae5043f95f23644d6","lastModified":"2023-07-05T16:19:17.000Z","gated":false,"inference":"warm","disabled":false,"model-index":null,"config":{"diffusers":{"_class_name":"StableDiffusionPipeline"}},"cardData":{"license":"openrail++","tags":["stable-diffusion","text-to-image"],"pinned":true},"siblings":[{"rfilename":".gitattributes"},{"rfilename":"README.md"},{"rfilename":"feature_extractor/preprocessor_config.json"},{"rfilename":"model_index.json"},{"rfilename":"scheduler/scheduler_config.json"},{"rfilename":"text_encoder/config.json"},{"rfilename":"text_encoder/model.fp16.safetensors"},{"rfilename":"text_encoder/model.safetensors"},{"rfilename":"text_encoder/pytorch_model.bin"},{"rfilename":"text_encoder/pytorch_model.fp16.bin"},{"rfilename":"tokenizer/merges.txt"},{"rfilename":"tokenizer/special_tokens_map.json"},{"rfilename":"tokenizer/tokenizer_config.json"},{"rfilename":"tokenizer/vocab.json"},{"rfilename":"unet/config.json"},{"rfilename":"unet/diffusion_pytorch_model.bin"},{"rfilename":"unet/diffusion_pytorch_model.fp16.bin"},{"rfilename":"unet/diffusion_pytorch_model.fp16.safetensors"},{"rfilename":"unet/diffusion_pytorch_model.safetensors"},{"rfilename":"v2-1_768-ema-pruned.ckpt"},{"rfilename":"v2-1_768-ema-pruned.safetensors"},{"rfilename":"v2-1_768-nonema-pruned.ckpt"},{"rfilename":"v2-1_768-nonema-pruned.safetensors"},{"rfilename":"vae/config.json"},{"rfilename":"vae/diffusion_pytorch_model.bin"},{"rfilename":"vae/diffusion_pytorch_model.fp16.bin"},{"rfilename":"vae/diffusion_pytorch_model.fp16.safetensors"},{"rfilename":"vae/diffusion_pytorch_model.safetensors"}],"spaces":["microsoft/HuggingGPT","multimodalart/dreambooth-training","kadirnar/Video-Diffusion-WebUI","aliabid94/AutoGPT","VAST-AI/CharacterGen","PAIR/StreamingT2V","JingyeChen22/TextDiffuser","shgao/EditAnything","Nymbo/HH-ImgGen","ChenyangSi/FreeU","garibida/ReNoise-Inversion","vorstcavry/ai","MirageML/dreambooth","TencentARC/ColorFlow","tetrisd/Diffusion-Attentive-Attribution-Maps","baulab/ConceptSliders","kamiyamai/stable-diffusion-webui","jeasinema/UltraEdit-SD3","trysem/SD-2.1-Img2Img","multimodalart/civitai-to-hf","ennov8ion/3dart-Models","Nymbo/image_gen_supaqueue","kxic/EscherNet","Truepic/watermarked-content-credentials","cownclown/Image-and-3D-Model-Creator","carloscar/stable-diffusion-webui-controlnet-docker","Komorebizyd/DrawApp","prs-eth/rollingdepth","Truepic/ai-content-credentials","ennov8ion/comicbook-models","Nick088/stable-diffusion-arena","SUPERSHANKY/Finetuned_Diffusion_Max","nasttam/Image-and-3D-Model-Creator","IAmXenos21/stable-diffusion-webui-VORST2","svjack/AIIDiffusion","AlStable/AlPrompt","Fabrice-TIERCELIN/Text-to-Audio","Nymbo/Flood","EPFL-VILAB/ViPer","showlab/Show-o","yuan2023/Stable-Diffusion-ControlNet-WebUI","estusgroup/ai-qr-code-generator-beta-v2","decodemai/Stable-Diffusion-Ads","akhaliq/webui-orangemixs","gaspar-avit/Movie_Poster_Generator","xnetba/text2image","Make-A-Protagonist/Make-A-Protagonist-inference","yuan2023/stable-diffusion-webui-controlnet-docker","SVGRender/DiffSketcher","samthakur/stable-diffusion-2.1","taesiri/HuggingGPT-Lite","mindtube/Diffusion50XX","kamwoh/dreamcreature","sky24h/Stable-Makeup-unofficial","AI-ML-API-tutorials/ai-sticker-maker","rhfeiyang/Art-Free-Diffusion","YeOldHermit/StableDiffusion_AnythingV3_ModelCamenduru","Datasculptor/ImageGPT","Omnibus/Video-Diffusion-WebUI","Adam111/stable-diffusion-webui","vs4vijay/stable-diffusion","Yasu55/stable-diffusion-webui","ennov8ion/stablediffusion-models","sagarkarn/text2image","JoPmt/Multi-SD_Cntrl_Cny_Pse_Img2Img","JoPmt/Txt-to-video","imseldrith/Text-to-Image2","duchaba/sd_prompt_helper","Crossper6/stable-diffusion-webui","bobu5/SD-webui-controlnet-docker","JoPmt/Vid2Vid_Cntrl_Canny_Multi_SD","lianzhou/stable-diffusion-webui","Missinginaction/stablediffusionwithnofilter","achyuth1344/stable-diffusion-webui","ennov8ion/Scifi-Models","ennov8ion/semirealistic-models","ennov8ion/FantasyArt-Models","ennov8ion/dreamlike-models","meowingamogus69/stable-diffusion-webui-controlnet-docker","Ababababababbababa/SD-2.1-Img2Img","noes14155/img_All_models","Dagfinn1962/prodia2","tokeron/DiffusionLens","dilightnet/DiLightNet","Nymbo/Game-Creator","JoPmt/Img2Img_SD_Control_Canny_Pose_Multi","nihun/image-gen","AnimeStudio/anime-models","Emma02/LVM","pieeetre/stable-diffusion-webui","VincentZB/Stable-Diffusion-ControlNet-WebUI","luluneko1/stable-diffusion-webui","MathysL/AutoGPT4","voltcutter/stable-diffusion-webui","Duskfallcrew/newdreambooth-toclone","Dao3/Top-20-Models","Proveedy/dreambooth-trainingv15","MetaWabbit/Auto-GPT","Shriharsh/Text_To_Image","pikto/Diffuser"],"createdAt":"2022-12-06T17:24:51.000Z","usedStorage":57147037677}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '5204'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Wed, 22 Jan 2025 18:24:46 GMT
+      ETag:
+      - W/"1454-32uEi6TyuaGiZXENOHB0lYqMKCI"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 e47c282d2c53705a367f9e376a2eab28.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - _zL1bIJbONpKnGKV11WalfKg3AseDTIy4apS8njN3TF1VHNNm7qBxQ==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-679137ee-6c94201668eccebe49f4c219;b96ba40c-6425-4b42-acaa-0be1248fbde9
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+version: 1

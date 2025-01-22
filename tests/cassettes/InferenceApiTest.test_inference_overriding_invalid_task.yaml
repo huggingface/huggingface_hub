@@ -1,0 +1,107 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - e3510979-5d21-4bc5-b19b-88217f02822b
+    method: GET
+    uri: https://huggingface.co/api/models/bert-base-uncased
+  response:
+    body:
+      string: Temporary Redirect. Redirecting to /api/models/google-bert/bert-base-uncased
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '76'
+      Content-Type:
+      - text/plain; charset=utf-8
+      Date:
+      - Wed, 22 Jan 2025 18:24:33 GMT
+      Location:
+      - /api/models/google-bert/bert-base-uncased
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin, Accept
+      Via:
+      - 1.1 4587dd93b6f56d2b3f35f25ef2cabe70.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - QYfF2QIo7x2Nqc7z0DJulCrvKxsbjnoa0HJn44f7xPFCmn0J8KXZ5g==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-679137e1-10c621dc54b6dd8948e428ed;e3510979-5d21-4bc5-b19b-88217f02822b
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 307
+      message: Temporary Redirect
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - e3510979-5d21-4bc5-b19b-88217f02822b
+    method: GET
+    uri: https://huggingface.co/api/models/google-bert/bert-base-uncased
+  response:
+    body:
+      string: '{"_id":"621ffdc036468d709f174338","id":"google-bert/bert-base-uncased","private":false,"pipeline_tag":"fill-mask","library_name":"transformers","tags":["transformers","pytorch","tf","jax","rust","coreml","onnx","safetensors","bert","fill-mask","exbert","en","dataset:bookcorpus","dataset:wikipedia","arxiv:1810.04805","license:apache-2.0","autotrain_compatible","endpoints_compatible","region:us"],"downloads":72376843,"likes":2065,"modelId":"google-bert/bert-base-uncased","author":"google-bert","sha":"86b5e0934494bd15c9632b12f734a8a67f723594","lastModified":"2024-02-19T11:06:12.000Z","gated":false,"inference":"warm","disabled":false,"mask_token":"[MASK]","widgetData":[{"text":"Paris
+        is the [MASK] of France."},{"text":"The goal of life is [MASK]."}],"model-index":null,"config":{"architectures":["BertForMaskedLM"],"model_type":"bert","tokenizer_config":{}},"cardData":{"language":"en","tags":["exbert"],"license":"apache-2.0","datasets":["bookcorpus","wikipedia"]},"transformersInfo":{"auto_model":"AutoModelForMaskedLM","pipeline_tag":"fill-mask","processor":"AutoTokenizer"},"siblings":[{"rfilename":".gitattributes"},{"rfilename":"LICENSE"},{"rfilename":"README.md"},{"rfilename":"config.json"},{"rfilename":"coreml/fill-mask/float32_model.mlpackage/Data/com.apple.CoreML/model.mlmodel"},{"rfilename":"coreml/fill-mask/float32_model.mlpackage/Data/com.apple.CoreML/weights/weight.bin"},{"rfilename":"coreml/fill-mask/float32_model.mlpackage/Manifest.json"},{"rfilename":"flax_model.msgpack"},{"rfilename":"model.onnx"},{"rfilename":"model.safetensors"},{"rfilename":"pytorch_model.bin"},{"rfilename":"rust_model.ot"},{"rfilename":"tf_model.h5"},{"rfilename":"tokenizer.json"},{"rfilename":"tokenizer_config.json"},{"rfilename":"vocab.txt"}],"spaces":["mteb/leaderboard","microsoft/HuggingGPT","Vision-CAIR/minigpt4","lnyan/stablediffusion-infinity","multimodalart/latentdiffusion","Salesforce/BLIP","mrfakename/MeloTTS","shi-labs/Versatile-Diffusion","yizhangliu/Grounded-Segment-Anything","cvlab/zero123-live","xinyu1205/recognize-anything","AIGC-Audio/AudioGPT","hilamanor/audioEditing","Audio-AGI/AudioSep","jadechoghari/OpenMusic","m-ric/chunk_visualizer","DAMO-NLP-SG/Video-LLaMA","gligen/demo","declare-lab/mustango","Yiwen-ntu/MeshAnything","shgao/EditAnything","LiruiZhao/Diffree","exbert-project/exbert","Vision-CAIR/MiniGPT-v2","Yuliang/ECON","THUdyh/Oryx","IDEA-Research/Grounded-SAM","Awiny/Image2Paragraph","ShilongLiu/Grounding_DINO_demo","eswardivi/Podcastify","liuyuan-pal/SyncDreamer","haotiz/glip-zeroshot-demo","nateraw/lavila","sam-hq-team/sam-hq","abyildirim/inst-inpaint","TencentARC/BrushEdit","merve/Grounding_DINO_demo","Yiwen-ntu/MeshAnythingV2","Pinwheel/GLIP-BLIP-Object-Detection-VQA","Junfeng5/GLEE_demo","shi-labs/Matting-Anything","fffiloni/Video-Matting-Anything","linfanluntan/Grounded-SAM","magicr/BuboGPT","Nick088/Audio-SR","OpenGVLab/InternGPT","clip-italian/clip-italian-demo","hongfz16/3DTopia","Vision-CAIR/MiniGPT4-video","yenniejun/tokenizers-languages","mmlab-ntu/relate-anything-model","nikigoli/countgd","byeongjun-park/HarmonyView","keras-io/bert-semantic-similarity","MirageML/sjc","amphion/PicoAudio","NAACL2022/CLIP-Caption-Reward","society-ethics/model-card-regulatory-check","fffiloni/miniGPT4-Video-Zero","Gladiator/Text-Summarizer","fffiloni/vta-ldm","milyiyo/reimagine-it","AIGC-Audio/AudioLCM","ethanchern/Anole","ysharma/text-to-image-to-video","OpenGVLab/VideoChatGPT","avid-ml/bias-detection","LittleFrog/IntrinsicAnything","RitaParadaRamos/SmallCapDemo","llizhx/TinyGPT-V","acmc/whatsapp-chats-finetuning-formatter","kaushalya/medclip-roco","AIGC-Audio/Make_An_Audio","flax-community/koclip","sasha/BiasDetection","TencentARC/VLog","ynhe/AskAnything","Pusheen/LoCo","pseudolab/AI_Tutor_BERT","ZebangCheng/Emotion-LLaMA","sonalkum/GAMA","flax-community/clip-reply-demo","SeViLA/SeViLA","PSLD/PSLD","AnimaLab/bias-test-gpt-pairs","optimum/auto-benchmark","Volkopat/SegmentAnythingxGroundingDINO","thewhole/GaussianDreamer_Demo","CosmoAI/BhagwatGeeta","codelion/Grounding_DINO_demo","phyloforfun/VoucherVision","wenkai/FAPM_demo","flosstradamus/FluxMusicGUI","AILab-CVC/SEED-LLaMA","ALM/CALM","tornadoslims/instruct-pix2pix","MykolaL/evp","zdou0830/desco","attention-refocusing/Attention-refocusing","sasha/WinoBiasCheck"],"createdAt":"2022-03-02T23:29:04.000Z","safetensors":{"parameters":{"F32":110106428},"total":110106428},"usedStorage":12904182200}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '4420'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Wed, 22 Jan 2025 18:24:33 GMT
+      ETag:
+      - W/"1144-0lLZ4rZ6fR3gbhjw06/nTxkknu0"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 4587dd93b6f56d2b3f35f25ef2cabe70.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - pdTj3oTK7I_em8rndxqLMzArrdGyjf0TWg4K55lOjqBIC88u9k0Weg==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-679137e1-082086a975745c011675ebbc;e3510979-5d21-4bc5-b19b-88217f02822b
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+version: 1
