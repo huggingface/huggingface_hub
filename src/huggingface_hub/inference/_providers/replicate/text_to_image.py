@@ -33,7 +33,10 @@ def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict:
 def prepare_payload(inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
     payload = {
         "json": {
-            "input": {"prompt": inputs, **{k: v for k, v in parameters.items() if v is not None}},
+            "input": {
+                "prompt": inputs,
+                **{k: v for k, v in parameters.items() if v is not None},
+            },
         }
     }
     model = parameters.get("model")

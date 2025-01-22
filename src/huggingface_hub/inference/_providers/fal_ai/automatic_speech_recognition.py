@@ -36,12 +36,12 @@ def prepare_payload(
         # If input is a URL, pass it directly
         audio_url = inputs
     else:
-        # Handle bytes or file inputs
-        if isinstance(inputs, bytes):
-            audio_b64 = base64.b64encode(inputs).decode()
-        else:
-            audio_b64 = base64.b64encode(inputs.read()).decode()
+        # If input is a file path, read it first
+        if isinstance(inputs, str):
+            with open(inputs, "rb") as f:
+                inputs = f.read()
 
+        audio_b64 = base64.b64encode(inputs).decode()
         content_type = "audio/mpeg"
         audio_url = f"data:{content_type};base64,{audio_b64}"
 

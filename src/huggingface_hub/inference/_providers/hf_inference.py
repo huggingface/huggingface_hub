@@ -87,7 +87,7 @@ class HFInferenceTask:
         )
 
     def map_model(self, model: str) -> str:
-        return model
+        return model if model is not None else get_recommended_model(self.task)
 
     def prepare_headers(self, headers: Dict, *, token: Optional[str] = None) -> Dict:
         return headers
@@ -95,7 +95,7 @@ class HFInferenceTask:
     def prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(inputs, (bytes, Path)):
             raise ValueError(f"Unexpected binary inputs. Got {inputs}")  # type: ignore
-
+        _ = parameters.pop("model")
         return {
             "json": {
                 "inputs": inputs,

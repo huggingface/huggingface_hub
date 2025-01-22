@@ -31,8 +31,15 @@ def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict:
 
 
 def prepare_payload(inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    parameters = {k: v for k, v in parameters.items() if v is not None}
+    if "image_size" not in parameters and "width" in parameters and "height" in parameters:
+        parameters["image_size"] = {
+            "width": parameters.pop("width"),
+            "height": parameters.pop("height"),
+        }
+
     return {
-        "json": {"prompt": inputs, **{k: v for k, v in parameters.items() if v is not None}},
+        "json": {"prompt": inputs, **parameters},
     }
 
 
