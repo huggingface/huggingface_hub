@@ -199,9 +199,7 @@ class AsyncInferenceClient:
             self.headers.update(headers)
 
         # Configure provider
-        if provider is None:
-            provider = "hf-inference"
-        self.provider = provider
+        self.provider = provider if provider is not None else "hf-inference"
 
         self.cookies = cookies
         self.timeout = timeout
