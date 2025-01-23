@@ -1,62 +1,12 @@
 interactions:
 - request:
     body: null
-    headers:
-      user-agent:
-      - unknown/None; hf_hub/0.25.0.dev0; python/3.10.12; torch/2.4.0; tensorflow/2.17.0;
-        fastcore/1.5.23
+    headers: {}
     method: POST
     uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-8B-Instruct
   response:
     body:
-      string: 'data: {"index":1,"token":{"id":279,"text":" the","logprob":-0.63378906,"special":false},"generated_text":"
-        the","details":null}
-
-
-        '
-    headers:
-      Access-Control-Allow-Credentials:
-      - 'true'
-      Access-Control-Allow-Origin:
-      - '*'
-      Cache-Control:
-      - no-cache
-      Connection:
-      - keep-alive
-      Content-Type:
-      - text/event-stream
-      Date:
-      - Fri, 30 Aug 2024 13:58:50 GMT
-      Transfer-Encoding:
-      - chunked
-      Vary:
-      - origin, access-control-request-method, access-control-request-headers, Origin,
-        Access-Control-Request-Method, Access-Control-Request-Headers
-      x-accel-buffering:
-      - 'no'
-      x-compute-characters:
-      - '41'
-      x-compute-type:
-      - 2-a10-g
-      x-request-id:
-      - 8ZMGhj7Cj90UK12dSJhfj
-      x-sha:
-      - 5206a32e0bd3067aef1ce90f5528ade7d866253f
-    status:
-      code: 200
-      message: OK
-- request:
-    body: null
-    headers:
-      user-agent:
-      - unknown/None; hf_hub/0.25.0.dev0; python/3.10.12; torch/2.4.0; tensorflow/2.17.0;
-        fastcore/1.5.23
-    method: POST
-    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-8B-Instruct
-  response:
-    body:
-      string: 'data: {"index":1,"token":{"id":279,"text":" the","logprob":-0.63378906,"special":false},"generated_text":"
-        the","details":null}
+      string: 'data: {"index":1,"token":{"id":11,"text":",","logprob":-1.4208984,"special":false},"generated_text":",","details":null}
 
 
         '
@@ -66,34 +16,35 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '129'
+      - '121'
       Content-Type:
       - text/event-stream
       Date:
-      - Fri, 30 Aug 2024 13:58:51 GMT
+      - Wed, 22 Jan 2025 17:44:31 GMT
       Vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
       x-compute-type:
       - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /
       x-request-id:
-      - gG5snagDwsUuzxQUSHpfs
+      - bRdR7l
       x-sha:
-      - 5206a32e0bd3067aef1ce90f5528ade7d866253f
+      - 0e9e39f249a16976918f6564b8830bc894c89659
     status:
       code: 200
       message: OK
 - request:
     body: null
-    headers:
-      user-agent:
-      - unknown/None; hf_hub/0.25.0.dev0; python/3.10.12; torch/2.4.0; tensorflow/2.17.0;
-        fastcore/1.5.23
+    headers: {}
     method: POST
     uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-8B-Instruct
   response:
     body:
-      string: 'data: {"index":1,"token":{"id":279,"text":" the","logprob":-0.63378906,"special":false},"generated_text":"
-        the","details":null}
+      string: 'data: {"index":1,"token":{"id":11,"text":",","logprob":-1.4208984,"special":false},"generated_text":",","details":null}
 
 
         '
@@ -103,34 +54,35 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '129'
+      - '121'
       Content-Type:
       - text/event-stream
       Date:
-      - Fri, 30 Aug 2024 13:58:51 GMT
+      - Wed, 22 Jan 2025 17:44:31 GMT
       Vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
       x-compute-type:
       - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /
       x-request-id:
-      - 8PS-J7-J2QKF0FyOb9War
+      - q5HLPH
       x-sha:
-      - 5206a32e0bd3067aef1ce90f5528ade7d866253f
+      - 0e9e39f249a16976918f6564b8830bc894c89659
     status:
       code: 200
       message: OK
 - request:
     body: null
-    headers:
-      user-agent:
-      - unknown/None; hf_hub/0.25.0.dev0; python/3.10.12; torch/2.4.0; tensorflow/2.17.0;
-        fastcore/1.5.23
+    headers: {}
     method: POST
     uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-8B-Instruct
   response:
     body:
-      string: 'data: {"index":1,"token":{"id":279,"text":" the","logprob":-0.63378906,"special":false},"generated_text":"
-        the","details":null}
+      string: 'data: {"index":1,"token":{"id":11,"text":",","logprob":-1.4208984,"special":false},"generated_text":",","details":null}
 
 
         '
@@ -140,19 +92,62 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '129'
+      - '121'
       Content-Type:
       - text/event-stream
       Date:
-      - Fri, 30 Aug 2024 13:58:52 GMT
+      - Wed, 22 Jan 2025 17:44:31 GMT
       Vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
       x-compute-type:
       - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /
       x-request-id:
-      - _MFpbB44jCKcoM8wai66z
+      - 5Ct7hH
       x-sha:
-      - 5206a32e0bd3067aef1ce90f5528ade7d866253f
+      - 0e9e39f249a16976918f6564b8830bc894c89659
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-8B-Instruct
+  response:
+    body:
+      string: 'data: {"index":1,"token":{"id":11,"text":",","logprob":-1.4208984,"special":false},"generated_text":",","details":null}
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '121'
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 22 Jan 2025 17:44:32 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
+      x-compute-type:
+      - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /
+      x-request-id:
+      - fSMNf-
+      x-sha:
+      - 0e9e39f249a16976918f6564b8830bc894c89659
     status:
       code: 200
       message: OK

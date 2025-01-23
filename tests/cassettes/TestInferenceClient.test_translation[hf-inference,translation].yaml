@@ -1,0 +1,52 @@
+interactions:
+- request:
+    body: '{"inputs": "Hello world", "parameters": {}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '43'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 26a010bf-ef83-4693-a340-191632c57637
+    method: POST
+    uri: https://api-inference.huggingface.co/models/t5-small
+  response:
+    body:
+      string: '[{"translation_text":"Hallo Welt"}]'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 14:13:34 GMT
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-credentials:
+      - 'true'
+      access-control-expose-headers:
+      - x-compute-type, x-compute-time
+      server:
+      - uvicorn
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-characters:
+      - '11'
+      x-compute-time:
+      - '0.080'
+      x-compute-type:
+      - cpu
+      x-request-id:
+      - kLgqzz6DHuGB58ygyFTrM
+      x-sha:
+      - df1b051c49625cf57a3d0d8d3863ed4d13564fe4
+    status:
+      code: 200
+      message: OK
+version: 1

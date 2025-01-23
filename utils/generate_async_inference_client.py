@@ -171,13 +171,20 @@ def _rename_to_AsyncInferenceClient(code: str) -> str:
 ASYNC_POST_CODE = """
         aiohttp = _import_aiohttp()
 
-        url = self._resolve_url(model, task)
-
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
-        # Set Accept header if relevant
-        headers = dict()
+        headers: Dict[str, Any] = dict()
+        if model is not None and (model.startswith("http://") or model.startswith("https://")):
+            url = model
+        else:
+            if task is None:
+                raise ValueError("`task` is required when passing a provider.")
+            provider_helper = get_provider_helper(self.provider, task=task)
+            url = provider_helper.build_url(model=model)
+            # Override headers with provider-specific headers
+            headers = provider_helper.prepare_headers(headers, token=self.token)  # type: ignore
+
         if task in TASKS_EXPECTING_IMAGES and "Accept" not in headers:
             headers["Accept"] = "image/png"
 
@@ -504,7 +511,7 @@ def _add_get_client_session(code: str) -> str:
             Trust environment settings for proxy configuration if the parameter is `True` (`False` by default).""",
     )
 
-    # insert `_get_client_session` before `_resolve_url` method
+    # insert `_get_client_session` before `get_endpoint_info` method
     client_session_code = """
 
     def _get_client_session(self, headers: Optional[Dict] = None) -> "ClientSession":
@@ -549,7 +556,7 @@ def _add_get_client_session(code: str) -> str:
         return session
 
 """
-    code = _add_before(code, "\n    def _resolve_url(", client_session_code)
+    code = _add_before(code, "\n    async def get_endpoint_info(", client_session_code)
 
     # Add self._sessions attribute in __init__
     code = _add_before(
