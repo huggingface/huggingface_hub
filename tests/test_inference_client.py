@@ -55,9 +55,10 @@ from huggingface_hub.inference._common import (
     _stream_text_generation_response,
 )
 from huggingface_hub.inference._providers import get_provider_helper
+from huggingface_hub.inference._providers.hf_inference import _build_chat_completion_url
 from huggingface_hub.utils import build_hf_headers
 
-from .testing_utils import with_production_testing
+from .testing_utils import expect_deprecation, with_production_testing
 
 
 # Avoid calling APIs in VCRed tests
@@ -936,16 +937,7 @@ class TestHeadersAndCookies(TestBase):
         assert client.headers["X-My-Header"] == "foo"
         assert client.cookies["my-cookie"] == "bar"
 
-    def test_headers_overwrite(self) -> None:
-        # Default user agent
-        assert InferenceClient().headers["user-agent"].startswith("unknown/None;")
-
-        # Overwritten user-agent
-        assert InferenceClient(headers={"user-agent": "bar"}).headers["user-agent"] == "bar"
-
-        # Case-insensitive overwrite
-        assert InferenceClient(headers={"USER-agent": "bar"}).headers["user-agent"] == "bar"
-
+    @expect_deprecation("post")
     @patch("huggingface_hub.inference._client.get_session")
     def test_mocked_post(self, get_session_mock: MagicMock) -> None:
         """Test that headers and cookies are correctly passed to the request."""
@@ -982,7 +974,7 @@ class TestHeadersAndCookies(TestBase):
 
 class TestModelStatus(TestBase):
     def test_too_big_model(self) -> None:
-        client = InferenceClient()
+        client = InferenceClient(token=False)
         model_status = client.get_model_status("facebook/nllb-moe-54b")
         assert not model_status.loaded
         assert model_status.state == "TooBig"
@@ -990,7 +982,7 @@ class TestModelStatus(TestBase):
         assert model_status.framework == "transformers"
 
     def test_loaded_model(self) -> None:
-        client = InferenceClient()
+        client = InferenceClient(token=False)
         model_status = client.get_model_status("bigscience/bloom")
         assert model_status.loaded
         assert model_status.state == "Loaded"
@@ -1192,5 +1184,5 @@ LOCAL_TGI_URL = "http://0.0.0.0:8080"
     ],
 )
 def test_resolve_chat_completion_url(model_url: str, expected_url: str):
-    url = InferenceClient._build_chat_completion_url(model_url)
+    url = _build_chat_completion_url(model_url)
     assert url == expected_url

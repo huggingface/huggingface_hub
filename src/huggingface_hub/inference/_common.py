@@ -18,6 +18,7 @@ import base64
 import io
 import json
 import logging
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -72,6 +73,34 @@ ContentT = Union[BinaryT, PathT, UrlT]
 TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RequestParameters:
+    url: str
+    task: str
+    model: Optional[str]
+    json: Optional[Union[str, Dict, List]]
+    data: Optional[ContentT]
+    headers: Dict[str, Any]
+
+
+class TaskProviderHelper(ABC):
+    """Protocol defining the interface for task-specific provider helpers."""
+
+    @abstractmethod
+    def prepare_request(
+        self,
+        *,
+        inputs: Any,
+        parameters: Dict[str, Any],
+        headers: Dict,
+        model: Optional[str],
+        api_key: Optional[str],
+        extra_payload: Optional[Dict[str, Any]] = None,
+    ) -> RequestParameters: ...
+    @abstractmethod
+    def get_response(self, response: Union[bytes, Dict]) -> Any: ...
 
 
 # Add dataclass for ModelStatus. We use this dataclass in get_model_status function.

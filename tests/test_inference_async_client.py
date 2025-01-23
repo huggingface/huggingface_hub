@@ -46,7 +46,7 @@ from huggingface_hub.inference._common import ValidationError as TextGenerationV
 from huggingface_hub.inference._common import _get_unsupported_text_generation_kwargs
 
 from .test_inference_client import CHAT_COMPLETE_NON_TGI_MODEL, CHAT_COMPLETION_MESSAGES, CHAT_COMPLETION_MODEL
-from .testing_utils import with_production_testing
+from .testing_utils import expect_deprecation, with_production_testing
 
 
 @pytest.fixture(autouse=True)
@@ -293,7 +293,7 @@ def test_sync_vs_async_signatures() -> None:
 
 @pytest.mark.asyncio
 async def test_get_status_too_big_model() -> None:
-    model_status = await AsyncInferenceClient().get_model_status("facebook/nllb-moe-54b")
+    model_status = await AsyncInferenceClient(token=False).get_model_status("facebook/nllb-moe-54b")
     assert model_status.loaded is False
     assert model_status.state == "TooBig"
     assert model_status.compute_type == "cpu"
@@ -302,7 +302,7 @@ async def test_get_status_too_big_model() -> None:
 
 @pytest.mark.asyncio
 async def test_get_status_loaded_model() -> None:
-    model_status = await AsyncInferenceClient().get_model_status("bigscience/bloom")
+    model_status = await AsyncInferenceClient(token=False).get_model_status("bigscience/bloom")
     assert model_status.loaded is True
     assert model_status.state == "Loaded"
     assert isinstance(model_status.compute_type, dict)  # e.g. {'gpu': {'gpu': 'a100', 'count': 8}}
@@ -312,13 +312,13 @@ async def test_get_status_loaded_model() -> None:
 @pytest.mark.asyncio
 async def test_get_status_unknown_model() -> None:
     with pytest.raises(ClientResponseError):
-        await AsyncInferenceClient().get_model_status("unknown/model")
+        await AsyncInferenceClient(token=False).get_model_status("unknown/model")
 
 
 @pytest.mark.asyncio
 async def test_get_status_model_as_url() -> None:
     with pytest.raises(NotImplementedError):
-        await AsyncInferenceClient().get_model_status("https://unkown/model")
+        await AsyncInferenceClient(token=False).get_model_status("https://unkown/model")
 
 
 @pytest.mark.asyncio
@@ -355,8 +355,9 @@ class CustomException(Exception):
 async def test_close_connection_on_post_error(mock_close: Mock, mock_post: Mock) -> None:
     async_client = AsyncInferenceClient()
 
-    with pytest.raises(CustomException):
-        await async_client.post(model="http://127.0.0.1/api", json={})
+    with pytest.warns(FutureWarning, match=f".*'post'.*"):
+        with pytest.raises(CustomException):
+            await async_client.post(model="http://127.0.0.1/api", json={})
 
     mock_close.assert_called_once()
 

@@ -1,36 +1,27 @@
-# mypy: disable-error-code="dict-item"
-from typing import Any, Dict, Optional, Protocol, Union
+from typing import Dict
 
-from . import fal_ai, replicate, sambanova, together
+from .._common import TaskProviderHelper
+
+# from . import fal_ai, replicate, sambanova, together
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
 
 
-class TaskProviderHelper(Protocol):
-    """Protocol defining the interface for task-specific provider helpers."""
-
-    def build_url(self, model: Optional[str] = None) -> str: ...
-    def map_model(self, model: Optional[str] = None) -> str: ...
-    def prepare_headers(self, headers: Dict, *, token: Optional[str] = None) -> Dict: ...
-    def prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]: ...
-    def get_response(self, response: Union[bytes, Dict]) -> Any: ...
-
-
 PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
-    "replicate": {
-        "text-to-image": replicate.text_to_image,
-    },
-    "fal-ai": {
-        "text-to-image": fal_ai.text_to_image,
-        "automatic-speech-recognition": fal_ai.automatic_speech_recognition,
-    },
-    "sambanova": {
-        "conversational": sambanova.conversational,
-    },
-    "together": {
-        "text-to-image": together.text_to_image,
-        "conversational": together.conversational,
-        "text-generation": together.text_generation,
-    },
+    # "replicate": {
+    #     "text-to-image": replicate.text_to_image,
+    # },
+    # "fal-ai": {
+    #     "text-to-image": fal_ai.text_to_image,
+    #     "automatic-speech-recognition": fal_ai.automatic_speech_recognition,
+    # },
+    # "sambanova": {
+    #     "conversational": sambanova.conversational,
+    # },
+    # "together": {
+    #     "text-to-image": together.text_to_image,
+    #     "conversational": together.conversational,
+    #     "text-generation": together.text_generation,
+    # },
     "hf-inference": {
         "text-to-image": HFInferenceTask("text-to-image"),
         "conversational": HFInferenceConversational(),
