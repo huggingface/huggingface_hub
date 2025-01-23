@@ -95,6 +95,7 @@ The API is designed to be simple. Not all parameters and options are available o
 [this page](https://huggingface.co/docs/api-inference/detailed_parameters) if you are interested in learning more about
 all the parameters available for each task.
 
+</Tip>
 ### Using a specific provider
 
 If you want to use a specific provider, you can specify it when initializing the client, the default provider is "hf-inference", the Hugging Face Serverless Inference API.
