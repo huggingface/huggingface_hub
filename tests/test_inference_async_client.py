@@ -46,7 +46,7 @@ from huggingface_hub.inference._common import ValidationError as TextGenerationV
 from huggingface_hub.inference._common import _get_unsupported_text_generation_kwargs
 
 from .test_inference_client import CHAT_COMPLETE_NON_TGI_MODEL, CHAT_COMPLETION_MESSAGES, CHAT_COMPLETION_MODEL
-from .testing_utils import expect_deprecation, with_production_testing
+from .testing_utils import with_production_testing
 
 
 @pytest.fixture(autouse=True)
@@ -355,7 +355,7 @@ class CustomException(Exception):
 async def test_close_connection_on_post_error(mock_close: Mock, mock_post: Mock) -> None:
     async_client = AsyncInferenceClient()
 
-    with pytest.warns(FutureWarning, match=f".*'post'.*"):
+    with pytest.warns(FutureWarning, match=".*'post'.*"):
         with pytest.raises(CustomException):
             await async_client.post(model="http://127.0.0.1/api", json={})
 
