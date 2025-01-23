@@ -1030,7 +1030,7 @@ class TestOpenAICompatibility(TestBase):
     def test_base_url_and_api_key(self):
         client = InferenceClient(
             base_url="https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
-            api_key="my-api-key",
+            api_key=os.getenv("HF_TOKEN"),
         )
         output = client.chat.completions.create(
             model="meta-llama/Meta-Llama-3-8B-Instruct",
@@ -1044,7 +1044,7 @@ class TestOpenAICompatibility(TestBase):
         assert "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" in output.choices[0].message.content
 
     def test_without_base_url(self):
-        client = InferenceClient()
+        client = InferenceClient(token=os.getenv("HF_TOKEN"))
         output = client.chat.completions.create(
             model="meta-llama/Meta-Llama-3-8B-Instruct",
             messages=[
@@ -1057,7 +1057,7 @@ class TestOpenAICompatibility(TestBase):
         assert "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" in output.choices[0].message.content
 
     def test_with_stream_true(self):
-        client = InferenceClient()
+        client = InferenceClient(token=os.getenv("HF_TOKEN"))
         output = client.chat.completions.create(
             model="meta-llama/Meta-Llama-3-8B-Instruct",
             messages=[
