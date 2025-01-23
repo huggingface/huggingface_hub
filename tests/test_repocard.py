@@ -265,20 +265,25 @@ class RepocardMetadataTest(unittest.TestCase):
 
 
 @with_production_testing
-def test_load_from_hub_if_repo_id_or_path_is_a_dir(monkeypatch):
+def test_load_from_hub_if_repo_id_or_path_is_a_dir(monkeypatch, tmp_path):
     """If `repo_id_or_path` happens to be both a `repo_id` and a local directory, the card must be loaded from the Hub.
 
     Path can only be a file path.
 
     Regression test for https://github.com/huggingface/huggingface_hub/issues/2768.
     """
-    with SoftTemporaryDirectory() as tmpdir:
-        monkeypatch.chdir(tmpdir)
-        repo_id = "openai-community/gpt2"
-        (Path(tmpdir) / "openai-community" / "gpt2").mkdir(parents=True)
+    repo_id = "openai-community/gpt2"
+    monkeypatch.chdir(tmp_path)
 
-        card = RepoCard.load(repo_id)
-        assert "GPT-2" in str(card)  # loaded from Hub
+    test_dir = tmp_path / "openai-community"
+    test_dir.mkdir()
+
+    model_dir = test_dir / "gpt2"
+    model_dir.mkdir()
+
+    card = RepoCard.load(repo_id)
+    assert "GPT-2" in str(card)  # loaded from Hub
+    assert Path(repo_id).is_dir()
 
 
 class RepocardMetadataUpdateTest(unittest.TestCase):
