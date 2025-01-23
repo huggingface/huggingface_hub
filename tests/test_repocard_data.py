@@ -63,6 +63,12 @@ class BaseCardDataTest(unittest.TestCase):
         self.assertTrue("foo" in metadata)
         self.assertFalse("FOO" in metadata)
 
+        # default value
+        # Should return default when key is not in metadata
+        self.assertEqual(metadata.get("FOO", "default"), "default")
+        # Should return default when key is in metadata but value is None
+        metadata.FOO = None
+        self.assertEqual(metadata.get("FOO", "default"), "default")
         # export
         self.assertEqual(str(metadata), "foo: BAR")
 
