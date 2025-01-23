@@ -4,6 +4,7 @@ from .._common import TaskProviderHelper
 
 # from . import fal_ai, replicate, sambanova, together
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
+from .together import TogetherTextGenerationTask, TogetherTextToImageTask
 
 
 PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
@@ -17,11 +18,11 @@ PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
     # "sambanova": {
     #     "conversational": sambanova.conversational,
     # },
-    # "together": {
-    #     "text-to-image": together.text_to_image,
-    #     "conversational": together.conversational,
-    #     "text-generation": together.text_generation,
-    # },
+    "together": {
+        "text-to-image": TogetherTextToImageTask(),
+        "conversational": TogetherTextGenerationTask("conversational"),
+        "text-generation": TogetherTextGenerationTask("text-generation"),
+    },
     "hf-inference": {
         "text-to-image": HFInferenceTask("text-to-image"),
         "conversational": HFInferenceConversational(),

@@ -1,22 +1,9 @@
-import logging
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _b64_encode, _open_as_binary
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
-
-
-# TYPES
-UrlT = str
-PathT = Union[str, Path]
-BinaryT = Union[bytes, BinaryIO]
-ContentT = Union[BinaryT, PathT, UrlT]
-
-# Use to set a Accept: image/png header
-TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
-
-logger = logging.getLogger(__name__)
 
 
 ## RECOMMENDED MODELS

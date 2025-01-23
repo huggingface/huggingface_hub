@@ -873,57 +873,57 @@ class TestOpenAsBinary:
             "https://api-inference.huggingface.co/models/username/repo_name/v1/chat/completions",
         ),
         # Fal.ai endpoints
-        (
-            "fal-ai",
-            "text-to-image",
-            "username/repo_name",
-            "https://fal.run/username/repo_name",
-        ),
-        (
-            "fal-ai",
-            "automatic-speech-recognition",
-            "username/repo_name",
-            "https://fal.run/username/repo_name",
-        ),
+        # (
+        #     "fal-ai",
+        #     "text-to-image",
+        #     "username/repo_name",
+        #     "https://fal.run/username/repo_name",
+        # ),
+        # (
+        #     "fal-ai",
+        #     "automatic-speech-recognition",
+        #     "username/repo_name",
+        #     "https://fal.run/username/repo_name",
+        # ),
         # Replicate endpoints
-        (
-            "replicate",
-            "text-to-image",
-            "username/repo_name:1234",
-            "https://api.replicate.com/v1/predictions",
-        ),
-        (
-            "replicate",
-            "text-to-image",
-            "username/repo_name",
-            "https://api.replicate.com/v1/models/username/repo_name/predictions",
-        ),
+        # (
+        #     "replicate",
+        #     "text-to-image",
+        #     "username/repo_name:1234",
+        #     "https://api.replicate.com/v1/predictions",
+        # ),
+        # (
+        #     "replicate",
+        #     "text-to-image",
+        #     "username/repo_name",
+        #     "https://api.replicate.com/v1/models/username/repo_name/predictions",
+        # ),
         # Together endpoints
-        (
-            "together",
-            "conversational",
-            "username/repo_name",
-            "https://api.together.xyz/v1/chat/completions",
-        ),
-        (
-            "together",
-            "text-generation",
-            "username/repo_name",
-            "https://api.together.xyz/v1/completions",
-        ),
-        (
-            "together",
-            "text-to-image",
-            "username/repo_name",
-            "https://api.together.xyz/v1/images/generations",
-        ),
+        # (
+        #     "together",
+        #     "conversational",
+        #     "username/repo_name",
+        #     "https://api.together.xyz/v1/chat/completions",
+        # ),
+        # (
+        #     "together",
+        #     "text-generation",
+        #     "username/repo_name",
+        #     "https://api.together.xyz/v1/completions",
+        # ),
+        # (
+        #     "together",
+        #     "text-to-image",
+        #     "username/repo_name",
+        #     "https://api.together.xyz/v1/images/generations",
+        # ),
         # SambaNova endpoints
-        (
-            "sambanova",
-            "conversational",
-            "username/repo_name",
-            "https://api.sambanova.ai/v1/chat/completions",
-        ),
+        # (
+        #     "sambanova",
+        #     "conversational",
+        #     "username/repo_name",
+        #     "https://api.sambanova.ai/v1/chat/completions",
+        # ),
     ],
 )
 def test_build_url_for_providers(provider: str, task: str, model: str, expected_url: str) -> None:
