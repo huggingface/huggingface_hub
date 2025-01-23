@@ -673,7 +673,7 @@ class AsyncInferenceClient:
                 Grammar constraints. Can be either a JSONSchema or a regex.
             seed (Optional[`int`], *optional*):
                 Seed for reproducible control flow. Defaults to None.
-            stop (Optional[`str`], *optional*):
+            stop (`List[str]`, *optional*):
                 Up to four strings which trigger the end of the response.
                 Defaults to None.
             stream (`bool`, *optional*):
@@ -783,6 +783,34 @@ class AsyncInferenceClient:
 
         for chunk in output:
             print(chunk.choices[0].delta.content)
+        ```
+
+        Example using a third-party provider directly:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient(
+        ...     provider="together",  # Use Together AI provider
+        ...     api_key="<together_api_key>",  # Pass your Together API key directly
+        ... )
+        >>> await client.chat_completion(
+        ...     model="meta-llama/Meta-Llama-3-8B-Instruct",
+        ...     messages=[{"role": "user", "content": "What is the capital of France?"}],
+        ... )
+        ```
+
+        Example using a third-party provider through Hugging Face Routing:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient(
+        ...     provider="sambanova",  # Use Sambanova provider
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> await client.chat_completion(
+        ...     model="meta-llama/Meta-Llama-3-8B-Instruct",
+        ...     messages=[{"role": "user", "content": "What is the capital of France?"}],
+        ... )
         ```
 
         Example using Image + Text as input:
@@ -2583,6 +2611,21 @@ class AsyncInferenceClient:
         ...     model="stabilityai/stable-diffusion-2-1",
         ... )
         >>> image.save("better_astronaut.png")
+        ```
+
+        Example using fal.ai provider:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient(
+        ...     provider="fal-ai",  # Use fal.ai provider
+        ...     api_key="fal-ai-api-key",  # Pass your fal.ai API key
+        ... )
+        >>> image = await client.text_to_image(
+        ...     "A majestic lion in a fantasy forest",
+        ...     model="black-forest-labs/FLUX.1-schnell",
+        ... )
+        >>> image.save("lion.png")
         ```
         """
 
