@@ -222,7 +222,6 @@ class CardData:
     def get(self, key: str, default: Any = None) -> Any:
         """Get value for a given metadata key."""
         value = self.__dict__.get(key)
-        #
         return default if value is None else value
 
     def pop(self, key: str, default: Any = None) -> Any:
