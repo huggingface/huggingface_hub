@@ -7,7 +7,6 @@ rendered properly in your Markdown viewer.
 Inference is the process of using a trained model to make predictions on new data. Because this process can be compute-intensive, running on a dedicated or external service can be an interesting option.  
 The `huggingface_hub`  library provides a unified interface to run inference across multiple services for models hosted on the Hugging Face Hub:
 1.  [Inference API](https://huggingface.co/docs/api-inference/index): a serverless solution that allows you to run accelerated inference on Hugging Face's infrastructure for free. This service is a fast way to get started, test different models, and prototype AI products.
-
 2. Third-party providers: various serverless solution provided by external providers (Together, Sambanova, etc.). These providers offer production-ready APIs on a pay-a-you-go model. This is the fastest way to integrate AI in your products with a maintenance-free and scalable solution. Refer to the [Supported providers and tasks](#supported-providers-and-tasks) section for a list of supported providers.      
 3. [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index): a product to easily deploy models to production. Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
 
@@ -125,7 +124,7 @@ When using the Hugging Face Inference API (default provider), each task comes wi
 However, this recommendation can change over time, so it's best to explicitly set a model once you've decided which one to use. 
 For third-party providers, you must always specify a model that is compatible with that provider.
 
-Visit the [Models](https://huggingface.co/models) page on the Hub to explore models available through the Inference API, or check the provider's documentation for their supported models.
+Visit the [Models](https://huggingface.co/models?inference=warm) page on the Hub to explore models available through the Inference API, or check the provider's documentation for their supported models.
 
 </Tip>
 
@@ -248,35 +247,35 @@ You might wonder why using [`InferenceClient`] instead of OpenAI's client? There
 
 [`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models. It has a simple API that supports the most common tasks. Here is a table showing which providers support which tasks:
 
-| Domain          | Task                                                             | HF Inference | Replicate | fal-ai | Sambanova | Together |
-|-----------------|----------------------------------------------------------------|--------------|-----------|---------|-----------|-----------|
-| **Audio**       | [`~InferenceClient.audio_classification`]                        | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.audio_to_audio`]                              | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.automatic_speech_recognition`]                | ✅           | ❌         | ✅       | ❌         | ❌         |
-|                 | [`~InferenceClient.text_to_speech`]                              | ✅           | ❌         | ❌       | ❌         | ❌         |
-| **Computer Vision** | [`~InferenceClient.image_classification`]                    | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.image_segmentation`]                          | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.image_to_image`]                              | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.image_to_text`]                               | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.object_detection`]                            | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.text_to_image`]                               | ✅           | ✅         | ✅       | ❌         | ✅         |
-|                 | [`~InferenceClient.zero_shot_image_classification`]              | ✅           | ❌         | ❌       | ❌         | ❌         |
-| **Multimodal**  | [`~InferenceClient.document_question_answering`]                | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.visual_question_answering`]                   | ✅           | ❌         | ❌       | ❌         | ❌         |
-| **NLP**         | [`~InferenceClient.chat_completion`]                            | ✅           | ❌         | ❌       | ✅         | ✅         |
-|                 | [`~InferenceClient.feature_extraction`]                          | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.fill_mask`]                                   | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.question_answering`]                          | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.sentence_similarity`]                         | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.summarization`]                               | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.table_question_answering`]                    | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.text_classification`]                         | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.text_generation`]                             | ✅           | ❌         | ❌       | ❌         | ✅         |
-|                 | [`~InferenceClient.token_classification`]                        | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.translation`]                                 | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.zero_shot_classification`]                    | ✅           | ❌         | ❌       | ❌         | ❌         |
-| **Tabular**     | [`~InferenceClient.tabular_classification`]                      | ✅           | ❌         | ❌       | ❌         | ❌         |
-|                 | [`~InferenceClient.tabular_regression`]                          | ✅           | ❌         | ❌       | ❌         | ❌         |
+| Domain              | Task                                                | HF Inference | Replicate | fal-ai | Sambanova | Together |
+| ------------------- | --------------------------------------------------- | ------------ | --------- | ------ | --------- | -------- |
+| **Audio**           | [`~InferenceClient.audio_classification`]           | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.audio_to_audio`]                 | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.automatic_speech_recognition`]   | ✅            | ❌         | ✅      | ❌         | ❌        |
+|                     | [`~InferenceClient.text_to_speech`]                 | ✅            | ❌         | ❌      | ❌         | ❌        |
+| **Computer Vision** | [`~InferenceClient.image_classification`]           | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.image_segmentation`]             | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.image_to_image`]                 | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.image_to_text`]                  | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.object_detection`]               | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.text_to_image`]                  | ✅            | ✅         | ✅      | ❌         | ✅        |
+|                     | [`~InferenceClient.zero_shot_image_classification`] | ✅            | ❌         | ❌      | ❌         | ❌        |
+| **Multimodal**      | [`~InferenceClient.document_question_answering`]    | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.visual_question_answering`]      | ✅            | ❌         | ❌      | ❌         | ❌        |
+| **NLP**             | [`~InferenceClient.chat_completion`]                | ✅            | ❌         | ❌      | ✅         | ✅        |
+|                     | [`~InferenceClient.feature_extraction`]             | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.fill_mask`]                      | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.question_answering`]             | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.sentence_similarity`]            | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.summarization`]                  | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.table_question_answering`]       | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.text_classification`]            | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.text_generation`]                | ✅            | ❌         | ❌      | ❌         | ✅        |
+|                     | [`~InferenceClient.token_classification`]           | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.translation`]                    | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.zero_shot_classification`]       | ✅            | ❌         | ❌      | ❌         | ❌        |
+| **Tabular**         | [`~InferenceClient.tabular_classification`]         | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.tabular_regression`]             | ✅            | ❌         | ❌      | ❌         | ❌        |
 
 <Tip>
 

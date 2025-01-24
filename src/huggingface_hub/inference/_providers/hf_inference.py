@@ -1,22 +1,9 @@
-import logging
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.inference._common import _b64_encode, _open_as_binary
+from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _b64_encode, _open_as_binary
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
-
-
-# TYPES
-UrlT = str
-PathT = Union[str, Path]
-BinaryT = Union[bytes, BinaryIO]
-ContentT = Union[BinaryT, PathT, UrlT]
-
-# Use to set a Accept: image/png header
-TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
-
-logger = logging.getLogger(__name__)
 
 
 ## RECOMMENDED MODELS
@@ -69,15 +56,46 @@ def get_recommended_model(task: str) -> str:
     return model
 
 
-class HFInferenceTask:
+class HFInferenceTask(TaskProviderHelper):
     """Base class for HF Inference API tasks."""
 
     def __init__(self, task: str):
         self.task = task
 
-    def build_url(self, model: Optional[str] = None) -> str:
-        if model is None:
-            model = get_recommended_model(self.task)
+    def prepare_request(
+        self,
+        *,
+        inputs: Any,
+        parameters: Dict[str, Any],
+        headers: Dict,
+        model: Optional[str],
+        api_key: Optional[str],
+        extra_payload: Optional[Dict[str, Any]] = None,
+    ) -> RequestParameters:
+        if extra_payload is None:
+            extra_payload = {}
+        mapped_model = self.map_model(model)
+        url = self.build_url(mapped_model)
+        data, json = self._prepare_payload(inputs, parameters=parameters, model=model, extra_payload=extra_payload)
+        headers = self.prepare_headers(headers=headers, api_key=api_key)
+
+        return RequestParameters(
+            url=url,
+            task=self.task,
+            model=mapped_model,
+            json=json,
+            data=data,
+            headers=headers,
+        )
+
+    def map_model(self, model: Optional[str]) -> str:
+        return model if model is not None else get_recommended_model(self.task)
+
+    def build_url(self, model: str) -> str:
+        # hf-inference provider can handle URLs (e.g. Inference Endpoints or TGI deployment)
+        if model.startswith(("http://", "https://")):
+            return model
+
         return (
             # Feature-extraction and sentence-similarity are the only cases where we handle models with several tasks.
             f"{BASE_URL}/pipeline/{self.task}/{model}"
@@ -86,21 +104,20 @@ class HFInferenceTask:
             else f"{BASE_URL}/models/{model}"
         )
 
-    def map_model(self, model: str) -> str:
-        return model if model is not None else get_recommended_model(self.task)
+    def prepare_headers(self, headers: Dict, *, api_key: Optional[Union[bool, str]] = None) -> Dict:
+        return {**build_hf_headers(token=api_key), **headers}
 
-    def prepare_headers(self, headers: Dict, *, token: Optional[str] = None) -> Dict:
-        return headers
-
-    def prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
-        if isinstance(inputs, (bytes, Path)):
-            raise ValueError(f"Unexpected binary inputs. Got {inputs}")  # type: ignore
-        _ = parameters.pop("model")
-        return {
-            "json": {
-                "inputs": inputs,
-                "parameters": {k: v for k, v in parameters.items() if v is not None},
-            }
+    def _prepare_payload(
+        self, inputs: Any, parameters: Dict[str, Any], model: Optional[str], extra_payload: Dict[str, Any]
+    ) -> Tuple[Any, Any]:
+        if isinstance(inputs, bytes):
+            raise ValueError(f"Unexpected binary input for task {self.task}.")
+        if isinstance(inputs, Path):
+            raise ValueError(f"Unexpected path input for task {self.task} (got {inputs})")
+        return None, {
+            "inputs": inputs,
+            "parameters": {k: v for k, v in parameters.items() if v is not None},
+            **extra_payload,
         }
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
@@ -108,10 +125,11 @@ class HFInferenceTask:
 
 
 class HFInferenceBinaryInputTask(HFInferenceTask):
-    def prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    def _prepare_payload(
+        self, inputs: Any, parameters: Dict[str, Any], model: Optional[str], extra_payload: Dict[str, Any]
+    ) -> Tuple[Any, Any]:
         parameters = {k: v for k, v in parameters.items() if v is not None}
-        _ = parameters.pop("model")  # model is not a valid parameter for hf-inference tasks
-        has_parameters = len(parameters) > 0
+        has_parameters = len(parameters) > 0 or len(extra_payload) > 0
 
         # Raise if not a binary object or a local path or a URL.
         if not isinstance(inputs, (bytes, Path)) and not isinstance(inputs, str):
@@ -121,22 +139,64 @@ class HFInferenceBinaryInputTask(HFInferenceTask):
         if not has_parameters:
             with _open_as_binary(inputs) as data:
                 data_as_bytes = data if isinstance(data, bytes) else data.read()
-                return {"data": data_as_bytes}
+                return data_as_bytes, None
 
         # Otherwise encode as b64
-        return {"json": {"inputs": _b64_encode(inputs), "parameters": parameters}}
+        return None, {"inputs": _b64_encode(inputs), "parameters": parameters, **extra_payload}
 
 
 class HFInferenceConversational(HFInferenceTask):
     def __init__(self):
-        super().__init__("conversational")
+        super().__init__("text-generation")
 
-    def build_url(self, model: Optional[str] = None) -> str:
-        if model is None:
-            model = get_recommended_model("text-generation")
-        return f"{BASE_URL}/models/{model}/v1/chat/completions"
+    def prepare_request(
+        self,
+        *,
+        inputs: Any,
+        parameters: Dict[str, Any],
+        headers: Dict,
+        model: Optional[str],
+        api_key: Optional[str],
+        extra_payload: Optional[Dict[str, Any]] = None,
+    ) -> RequestParameters:
+        model = self.map_model(model)
+        payload_model = parameters.get("model") or model
 
-    def prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
-        parameters = {key: value for key, value in parameters.items() if value is not None}
-        model = parameters.get("model")
-        return {"model": model, "messages": inputs, **parameters}
+        if payload_model is None or payload_model.startswith(("http://", "https://")):
+            payload_model = "tgi"  # use a random string if not provided
+
+        json = {
+            **{key: value for key, value in parameters.items() if value is not None},
+            "model": payload_model,
+            "messages": inputs,
+            **(extra_payload or {}),
+        }
+        headers = self.prepare_headers(headers=headers, api_key=api_key)
+
+        return RequestParameters(
+            url=self.build_url(model),
+            task=self.task,
+            model=model,
+            json=json,
+            data=None,
+            headers=headers,
+        )
+
+    def build_url(self, model: str) -> str:
+        base_url = model if model.startswith(("http://", "https://")) else f"{BASE_URL}/models/{model}"
+        return _build_chat_completion_url(base_url)
+
+
+def _build_chat_completion_url(model_url: str) -> str:
+    # Strip trailing /
+    model_url = model_url.rstrip("/")
+
+    # Append /chat/completions if not already present
+    if model_url.endswith("/v1"):
+        model_url += "/chat/completions"
+
+    # Append /v1/chat/completions if not already present
+    if not model_url.endswith("/chat/completions"):
+        model_url += "/v1/chat/completions"
+
+    return model_url
