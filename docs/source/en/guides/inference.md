@@ -247,35 +247,35 @@ You might wonder why using [`InferenceClient`] instead of OpenAI's client? There
 
 [`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models. It has a simple API that supports the most common tasks. Here is a table showing which providers support which tasks:
 
-| Domain          | Task                                                                                                                                             | HF Inference | Replicate | fal-ai | Sambanova | Together | Documentation                             |
-|-----------------|--------------------------------------------------------------------------------------------------------------------------------------------------|--------------|-----------|---------|-----------|-----------|-------------------------------------------|
-| **Audio**       | Audio Classification                                                                                                                              | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.audio_classification`]  |
-|                 | Audio-to-Audio                                                                                                                                    | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.audio_to_audio`]        |
-|                 | Automatic Speech Recognition                                                                                                                      | ✅           | ❌         | ✅       | ❌         | ❌         | [`~InferenceClient.automatic_speech_recognition`] |
-|                 | Text-to-Speech                                                                                                                                    | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.text_to_speech`]        |
-| **Computer Vision** | Image Classification                                                                                                                         | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.image_classification`]  |
-|                 | Image Segmentation                                                                                                                                | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.image_segmentation`]    |
-|                 | Image-to-Image                                                                                                                                    | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.image_to_image`]        |
-|                 | Image-to-Text                                                                                                                                     | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.image_to_text`]         |
-|                 | Object Detection                                                                                                                                  | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.object_detection`]      |
-|                 | Text-to-Image                                                                                                                                     | ✅           | ✅         | ✅       | ❌         | ✅         | [`~InferenceClient.text_to_image`]         |
-|                 | Zero-Shot-Image-Classification                                                                                                                    | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.zero_shot_image_classification`] |
-| **Multimodal**  | Documentation Question Answering                                                                                                                 | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.document_question_answering`] |
-|                 | Visual Question Answering                                                                                                                         | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.visual_question_answering`] |
-| **NLP**         | Chat Completion                                                                                                                                  | ✅           | ❌         | ❌       | ✅         | ✅         | [`~InferenceClient.chat_completion`]       |
-|                 | Feature Extraction                                                                                                                                | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.feature_extraction`]    |
-|                 | Fill Mask                                                                                                                                         | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.fill_mask`]            |
-|                 | Question Answering                                                                                                                                | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.question_answering`]    |
-|                 | Sentence Similarity                                                                                                                               | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.sentence_similarity`]   |
-|                 | Summarization                                                                                                                                     | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.summarization`]         |
-|                 | Table Question Answering                                                                                                                          | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.table_question_answering`] |
-|                 | Text Classification                                                                                                                               | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.text_classification`]   |
-|                 | Text Generation                                                                                                                                   | ✅           | ❌         | ❌       | ❌         | ✅         | [`~InferenceClient.text_generation`]       |
-|                 | Token Classification                                                                                                                              | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.token_classification`]  |
-|                 | Translation                                                                                                                                       | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.translation`]           |
-|                 | Zero Shot Classification                                                                                                                          | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.zero_shot_classification`] |
-| **Tabular**     | Tabular Classification                                                                                                                           | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.tabular_classification`] |
-|                 | Tabular Regression                                                                                                                                | ✅           | ❌         | ❌       | ❌         | ❌         | [`~InferenceClient.tabular_regression`]    |
+| Domain              | Task                                                | HF Inference | Replicate | fal-ai | Sambanova | Together | Documentation |
+| ------------------- | --------------------------------------------------- | ------------ | --------- | ------ | --------- | -------- | ------------- |
+| **Audio**           | [`~InferenceClient.audio_classification`]           | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.audio_to_audio`]                 | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.automatic_speech_recognition`]   | ✅            | ❌         | ✅      | ❌         | ❌        |
+|                     | [`~InferenceClient.text_to_speech`]                 | ✅            | ❌         | ❌      | ❌         | ❌        |
+| **Computer Vision** | [`~InferenceClient.image_classification`]           | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.image_segmentation`]             | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.image_to_image`]                 | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.image_to_text`]                  | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.object_detection`]               | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.text_to_image`]                  | ✅            | ✅         | ✅      | ❌         | ✅        |
+|                     | [`~InferenceClient.zero_shot_image_classification`] | ✅            | ❌         | ❌      | ❌         | ❌        |
+| **Multimodal**      | [`~InferenceClient.document_question_answering`]    | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.visual_question_answering`]      | ✅            | ❌         | ❌      | ❌         | ❌        |
+| **NLP**             | [`~InferenceClient.chat_completion`]                | ✅            | ❌         | ❌      | ✅         | ✅        |
+|                     | [`~InferenceClient.feature_extraction`]             | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.fill_mask`]                      | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.question_answering`]             | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.sentence_similarity`]            | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.summarization`]                  | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.table_question_answering`]       | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.text_classification`]            | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.text_generation`]                | ✅            | ❌         | ❌      | ❌         | ✅        |
+|                     | [`~InferenceClient.token_classification`]           | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.translation`]                    | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.zero_shot_classification`]       | ✅            | ❌         | ❌      | ❌         | ❌        |
+| **Tabular**         | [`~InferenceClient.tabular_classification`]         | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.tabular_regression`]             | ✅            | ❌         | ❌      | ❌         | ❌        |
 
 <Tip>
 
