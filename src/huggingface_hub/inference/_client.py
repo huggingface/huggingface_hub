@@ -746,7 +746,7 @@ class InferenceClient:
             print(chunk.choices[0].delta.content)
         ```
 
-        Example using a third-party provider directly:
+        Example using a third-party provider directly. Usage will be billed on your Together AI account.
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient(
@@ -759,7 +759,7 @@ class InferenceClient:
         ... )
         ```
 
-        Example using a third-party provider through Hugging Face Routing:
+        Example using a third-party provider through Hugging Face Routing. Usage will be billed on your Hugging Face account.
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient(

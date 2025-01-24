@@ -785,29 +785,27 @@ class AsyncInferenceClient:
             print(chunk.choices[0].delta.content)
         ```
 
-        Example using a third-party provider directly:
+        Example using a third-party provider directly. Usage will be billed on your Together AI account.
         ```py
-        # Must be run in an async context
-        >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient(
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
         ...     provider="together",  # Use Together AI provider
         ...     api_key="<together_api_key>",  # Pass your Together API key directly
         ... )
-        >>> await client.chat_completion(
+        >>> client.chat_completion(
         ...     model="meta-llama/Meta-Llama-3-8B-Instruct",
         ...     messages=[{"role": "user", "content": "What is the capital of France?"}],
         ... )
         ```
 
-        Example using a third-party provider through Hugging Face Routing:
+        Example using a third-party provider through Hugging Face Routing. Usage will be billed on your Hugging Face account.
         ```py
-        # Must be run in an async context
-        >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient(
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
         ...     provider="sambanova",  # Use Sambanova provider
         ...     api_key="hf_...",  # Pass your HF token
         ... )
-        >>> await client.chat_completion(
+        >>> client.chat_completion(
         ...     model="meta-llama/Meta-Llama-3-8B-Instruct",
         ...     messages=[{"role": "user", "content": "What is the capital of France?"}],
         ... )

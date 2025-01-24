@@ -5,12 +5,11 @@ rendered properly in your Markdown viewer.
 # Run Inference on servers
 
 Inference is the process of using a trained model to make predictions on new data. Because this process can be compute-intensive, running on a dedicated or external service can be an interesting option.  
-The `huggingface_hub` 
-library provides a unified interface to run inference across multiple services for Hugging Face hosted models: 
-1. **Hugging Face Inference API**: A serverless solution for hosted models.
-2. **Inference Endpoints**: Fully managed infrastructure for production deployments.
-3. **Third-party providers**: Various external inference services
-Refer to the [Supported provider and tasks](#supported-provider-and-tasks) section for a list of supported providers.
+The `huggingface_hub`  library provides a unified interface to run inference across multiple services for models hosted on the Hugging Face Hub:
+1.  [Inference API](https://huggingface.co/docs/api-inference/index): a serverless solution that allows you to run accelerated inference on Hugging Face's infrastructure for free. This service is a fast way to get started, test different models, and prototype AI products.
+
+2. Third-party providers: various serverless solution provided by external providers (Together, Sambanova, etc.). These providers offer production-ready APIs on a pay-a-you-go model. This is the fastest way to integrate AI in your products with a maintenance-free and scalable solution. Refer to the [Supported providers and tasks](#supported-providers-and-tasks) section for a list of supported providers.      
+3. [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index): a product to easily deploy models to production. Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
 
 These services can be called with the [`InferenceClient`] object. It acts as a replacement for the legacy
 [`InferenceApi`] client, adding specific support for tasks and third-party providers.
@@ -47,8 +46,8 @@ Let's get started with a text-to-image task:
 
 ```
 
-In the example above, we initialized an [`InferenceClient`] with a third-party provider, "replicate". When using a provider, you must specify the model you want to use, either as a parameter to the task or at the client level. 
-Without a specified provider, the client connects to the Serverless Inference API and can automatically select a model if none is specified. For more details, see the [~InferenceClient.text_to_image] documentation.
+In the example above, we initialized an [`InferenceClient`] with a third-party provider, [Replicate](https://replicate.com/). When using a provider, you must specify the model you want to use. The model id must be the id of the model on the Hugging Face Hub, not the id of the model from the third-party provider.
+In our example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a file. For more details, check out the [`~InferenceClient.text_to_image`] documentation.
 
 Let's now see an example using the [~`InferenceClient.chat_completion`] API. This task uses an LLM to generate a response from a list of messages:
 
@@ -86,7 +85,7 @@ Let's now see an example using the [~`InferenceClient.chat_completion`] API. Thi
 )
 ```
 
-In the example above, we used a third-party provider ("together") and specified which model we want to use (`"meta-llama/Meta-Llama-3-8B-Instruct"`). We then gave a list of messages to complete (here, a single question) and passed an additional parameter to the API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be accessed with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
+In the example above, we used a third-party provider ([Together AI](https://www.together.ai/)) and specified which model we want to use (`"meta-llama/Meta-Llama-3-8B-Instruct"`). We then gave a list of messages to complete (here, a single question) and passed an additional parameter to the API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be accessed with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
 
 
 <Tip warning={true}>
@@ -96,10 +95,10 @@ The API is designed to be simple. Not all parameters and options are available o
 all the parameters available for each task.
 
 </Tip>
+
 ### Using a specific provider
 
-If you want to use a specific provider, you can specify it when initializing the client, the default provider is "hf-inference", the Hugging Face Serverless Inference API.
-Refer to the [Supported provider and tasks](#supported-provider-and-tasks) section for a list of supported providers.
+If you want to use a specific provider, you can specify it when initializing the client. The default provider is "hf-inference", the Hugging Face Serverless Inference API. Refer to the [Supported providers and tasks](#supported-providers-and-tasks) section for a list of supported providers.
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -122,7 +121,7 @@ What if you want to use a specific model? You can specify it either as a paramet
 
 <Tip>
 
-When using the default provider (i.e.Hugging Face Inference API), each task comes with a recommended model from the 200k+ models available on the Hub. 
+When using the Hugging Face Inference API (default provider), each task comes with a recommended model from the 200k+ models available on the Hub. 
 However, this recommendation can change over time, so it's best to explicitly set a model once you've decided which one to use. 
 For third-party providers, you must always specify a model that is compatible with that provider.
 
@@ -180,14 +179,6 @@ using our provider keys, and the usage will be billed directly to your Hugging F
     token="hf_****"  # Your HF token 
 )
 ```
-
-<Tip>
-
-Authentication is NOT mandatory when using the Hugging Face Inference API. However, authenticated users get a higher 
-free-tier to play with the service. Token is also mandatory if you want to run inference on your private models or 
-on private endpoints.
-
-</Tip>
 
 ## OpenAI compatibility
 
@@ -253,7 +244,7 @@ You might wonder why using [`InferenceClient`] instead of OpenAI's client? There
 
 </Tip>
 
-## Supported provider and tasks
+## Supported providers and tasks
 
 [`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models. It has a simple API that supports the most common tasks. Here is a table showing which providers support which tasks:
 
