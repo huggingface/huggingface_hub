@@ -5,7 +5,10 @@ from typing import Any, Dict, Optional, Union
 
 from huggingface_hub.constants import INFERENCE_PROXY_TEMPLATE
 from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper
-from huggingface_hub.utils import build_hf_headers
+from huggingface_hub.utils import build_hf_headers, logging
+
+
+logger = logging.get_logger(__name__)
 
 
 BASE_URL = "https://api.together.xyz"
@@ -87,8 +90,13 @@ class TogetherTask(TaskProviderHelper, ABC):
         # Route to the proxy if the api_key is a HF TOKEN
         if api_key.startswith("hf_"):
             base_url = INFERENCE_PROXY_TEMPLATE.format(provider="together")
+            logger.info(
+                "Routing the call through Hugging Face's infrastructure using our provider keys, "
+                "and the usage will be billed directly to your Hugging Face account"
+            )
         else:
             base_url = BASE_URL
+            logger.info("Interacting directly with Together's service using the provided API key")
         mapped_model = self._map_model(model)
         payload = self._prepare_payload(inputs, parameters=parameters)
 

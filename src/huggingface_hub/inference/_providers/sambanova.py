@@ -2,7 +2,10 @@ from typing import Any, Dict, Optional, Union
 
 from huggingface_hub.constants import INFERENCE_PROXY_TEMPLATE
 from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper
-from huggingface_hub.utils import build_hf_headers
+from huggingface_hub.utils import build_hf_headers, logging
+
+
+logger = logging.get_logger(__name__)
 
 
 BASE_URL = "https://api.sambanova.ai"
@@ -46,9 +49,13 @@ class SambanovaConversationalTask(TaskProviderHelper):
         # Route to the proxy if the api_key is a HF TOKEN
         if api_key.startswith("hf_"):
             base_url = INFERENCE_PROXY_TEMPLATE.format(provider="sambanova")
+            logger.info(
+                "Routing the call through Hugging Face's infrastructure using our provider keys, "
+                "and the usage will be billed directly to your Hugging Face account"
+            )
         else:
             base_url = BASE_URL
-
+            logger.info("Interacting directly with Sambanova's service using the provided API key")
         headers = {**build_hf_headers(token=api_key), **headers}
 
         mapped_model = self._map_model(model)

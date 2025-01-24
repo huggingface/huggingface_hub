@@ -5,7 +5,10 @@ from typing import Any, Dict, Optional, Union
 
 from huggingface_hub.constants import INFERENCE_PROXY_TEMPLATE
 from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper
-from huggingface_hub.utils import build_hf_headers, get_session
+from huggingface_hub.utils import build_hf_headers, get_session, logging
+
+
+logger = logging.get_logger(__name__)
 
 
 BASE_URL = "https://fal.run"
@@ -49,9 +52,14 @@ class FalAITask(TaskProviderHelper, ABC):
         # Route to the proxy if the api_key is a HF TOKEN
         if api_key.startswith("hf_"):
             base_url = INFERENCE_PROXY_TEMPLATE.format(provider="fal-ai")
+            logger.info(
+                "Routing the call through Hugging Face's infrastructure using our provider keys, "
+                "and the usage will be billed directly to your Hugging Face account"
+            )
         else:
             base_url = BASE_URL
             headers["authorization"] = f"Key {api_key}"
+            logger.info("Interacting directly with fal.ai's service using the provided API key")
 
         payload = self._prepare_payload(inputs, parameters=parameters)
 
