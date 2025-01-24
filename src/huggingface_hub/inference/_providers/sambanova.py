@@ -49,13 +49,10 @@ class SambanovaConversationalTask(TaskProviderHelper):
         # Route to the proxy if the api_key is a HF TOKEN
         if api_key.startswith("hf_"):
             base_url = INFERENCE_PROXY_TEMPLATE.format(provider="sambanova")
-            logger.info(
-                "Routing the call through Hugging Face's infrastructure using your HF token, "
-                "and the usage will be billed directly to your Hugging Face account"
-            )
+            logger.info("Calling Sambanova provider through Hugging Face proxy.")
         else:
             base_url = BASE_URL
-            logger.info("Calling Sambanova provider through Hugging Face proxy.")
+            logger.info("Calling Sambanova provider directly.")
         headers = {**build_hf_headers(token=api_key), **headers}
 
         mapped_model = self._map_model(model)

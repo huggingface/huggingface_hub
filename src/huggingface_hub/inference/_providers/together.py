@@ -90,13 +90,10 @@ class TogetherTask(TaskProviderHelper, ABC):
         # Route to the proxy if the api_key is a HF TOKEN
         if api_key.startswith("hf_"):
             base_url = INFERENCE_PROXY_TEMPLATE.format(provider="together")
-            logger.info(
-                "Routing the call through Hugging Face's infrastructure using your HF token, "
-                "and the usage will be billed directly to your Hugging Face account"
-            )
+            logger.info("Calling Together provider through Hugging Face proxy.")
         else:
             base_url = BASE_URL
-            logger.info("Calling Together provider through Hugging Face proxy.")
+            logger.info("Calling Together provider directly.")
         mapped_model = self._map_model(model)
         payload = self._prepare_payload(inputs, parameters=parameters)
 
