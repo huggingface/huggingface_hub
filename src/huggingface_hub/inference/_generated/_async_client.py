@@ -2870,7 +2870,7 @@ class AsyncInferenceClient:
         """
         provider_helper = get_provider_helper(self.provider, task="visual-question-answering")
         request_parameters = provider_helper.prepare_request(
-            inputs=None,
+            inputs=image,
             parameters={"top_k": top_k},
             headers=self.headers,
             model=model or self.model,
