@@ -50,7 +50,7 @@ class SambanovaConversationalTask(TaskProviderHelper):
         if api_key.startswith("hf_"):
             base_url = INFERENCE_PROXY_TEMPLATE.format(provider="sambanova")
             logger.info(
-                "Routing the call through Hugging Face's infrastructure using our provider keys, "
+                "Routing the call through Hugging Face's infrastructure using your HF token, "
                 "and the usage will be billed directly to your Hugging Face account"
             )
         else:
