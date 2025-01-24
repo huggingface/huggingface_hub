@@ -43,7 +43,8 @@ class SambanovaConversationalTask(TaskProviderHelper):
 
         if api_key is None:
             raise ValueError("You must provide an api_key to work with Sambanova API.")
-        headers = build_hf_headers(token=api_key)
+
+        headers = {**build_hf_headers(token=api_key), **headers}
 
         payload = {
             "messages": inputs,

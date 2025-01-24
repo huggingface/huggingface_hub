@@ -82,7 +82,7 @@ class TogetherTask(TaskProviderHelper, ABC):
         mapped_model = self._map_model(model)
         if api_key is None:
             raise ValueError("You must provide an api_key to work with Together API.")
-        headers = build_hf_headers(token=api_key)
+        headers = {**build_hf_headers(token=api_key), **headers}
 
         parameters["model"] = mapped_model
         payload = self._prepare_payload(inputs, parameters=parameters)

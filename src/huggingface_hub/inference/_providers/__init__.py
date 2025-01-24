@@ -1,8 +1,7 @@
 from typing import Dict
 
 from .._common import TaskProviderHelper
-
-# from . import fal_ai, replicate, sambanova, together
+from .fal_ai import FalAIAutomaticSpeechRecognitionTask, FalAITextToImageTask
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
 from .replicate import ReplicateTextToImageTask
 from .sambanova import SambanovaConversationalTask
@@ -10,20 +9,9 @@ from .together import TogetherTextGenerationTask, TogetherTextToImageTask
 
 
 PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
-    "replicate": {
-        "text-to-image": ReplicateTextToImageTask(),
-    },
-    # "fal-ai": {
-    #     "text-to-image": fal_ai.text_to_image,
-    #     "automatic-speech-recognition": fal_ai.automatic_speech_recognition,
-    # },
-    "sambanova": {
-        "conversational": SambanovaConversationalTask(),
-    },
-    "together": {
-        "text-to-image": TogetherTextToImageTask(),
-        "conversational": TogetherTextGenerationTask("conversational"),
-        "text-generation": TogetherTextGenerationTask("text-generation"),
+    "fal-ai": {
+        "text-to-image": FalAITextToImageTask(),
+        "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),
     },
     "hf-inference": {
         "text-to-image": HFInferenceTask("text-to-image"),
@@ -52,6 +40,17 @@ PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
         "translation": HFInferenceTask("translation"),
         "summarization": HFInferenceTask("summarization"),
         "visual-question-answering": HFInferenceBinaryInputTask("visual-question-answering"),
+    },
+    "replicate": {
+        "text-to-image": ReplicateTextToImageTask(),
+    },
+    "sambanova": {
+        "conversational": SambanovaConversationalTask(),
+    },
+    "together": {
+        "text-to-image": TogetherTextToImageTask(),
+        "conversational": TogetherTextGenerationTask("conversational"),
+        "text-generation": TogetherTextGenerationTask("text-generation"),
     },
 }
 

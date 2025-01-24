@@ -41,8 +41,11 @@ class ReplicateTextToImageTask(TaskProviderHelper):
 
         if api_key is None:
             raise ValueError("You must provide an api_key to work with Replicate API.")
-        headers = build_hf_headers(token=api_key)
-        headers["Prefer"] = "wait"
+        headers = {
+            **build_hf_headers(token=api_key),
+            **headers,
+            "Prefer": "wait",
+        }
 
         payload = self._prepare_payload(inputs, parameters=parameters, model=mapped_model)
 
