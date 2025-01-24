@@ -55,7 +55,7 @@ class SambanovaConversationalTask(TaskProviderHelper):
             )
         else:
             base_url = BASE_URL
-            logger.info("Interacting directly with Sambanova's service using the provided API key")
+            logger.info("Calling Sambanova provider through Hugging Face proxy.")
         headers = {**build_hf_headers(token=api_key), **headers}
 
         mapped_model = self._map_model(model)

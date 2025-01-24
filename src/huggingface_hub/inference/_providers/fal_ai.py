@@ -59,7 +59,7 @@ class FalAITask(TaskProviderHelper, ABC):
         else:
             base_url = BASE_URL
             headers["authorization"] = f"Key {api_key}"
-            logger.info("Interacting directly with fal.ai's service using the provided API key")
+            logger.info("Calling fal.ai provider through Hugging Face proxy.")
 
         payload = self._prepare_payload(inputs, parameters=parameters)
 

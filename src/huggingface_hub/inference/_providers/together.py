@@ -96,7 +96,7 @@ class TogetherTask(TaskProviderHelper, ABC):
             )
         else:
             base_url = BASE_URL
-            logger.info("Interacting directly with Together's service using the provided API key")
+            logger.info("Calling Together provider through Hugging Face proxy.")
         mapped_model = self._map_model(model)
         payload = self._prepare_payload(inputs, parameters=parameters)
 

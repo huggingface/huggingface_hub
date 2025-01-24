@@ -52,7 +52,7 @@ class ReplicateTextToImageTask(TaskProviderHelper):
             )
         else:
             base_url = BASE_URL
-            logger.info("Interacting directly with Replicate's service using the provided API key")
+            logger.info("Calling Replicate provider through Hugging Face proxy.")
         mapped_model = self._map_model(model)
         url = _build_url(base_url, mapped_model)
 
