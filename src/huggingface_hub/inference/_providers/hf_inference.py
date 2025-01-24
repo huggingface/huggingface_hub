@@ -165,8 +165,6 @@ class HFInferenceConversational(HFInferenceTask):
         if payload_model is None or payload_model.startswith(("http://", "https://")):
             payload_model = "tgi"  # use a random string if not provided
 
-        base_url = model if model.startswith(("http://", "https://")) else f"{BASE_URL}/models/{model}"
-        url = _build_chat_completion_url(base_url)
         json = {
             **{key: value for key, value in parameters.items() if value is not None},
             "model": payload_model,
@@ -175,7 +173,18 @@ class HFInferenceConversational(HFInferenceTask):
         }
         headers = self.prepare_headers(headers=headers, api_key=api_key)
 
-        return RequestParameters(url=url, task=self.task, model=model, json=json, data=None, headers=headers)
+        return RequestParameters(
+            url=self.build_url(model),
+            task=self.task,
+            model=model,
+            json=json,
+            data=None,
+            headers=headers,
+        )
+
+    def build_url(self, model: str) -> str:
+        base_url = model if model.startswith(("http://", "https://")) else f"{BASE_URL}/models/{model}"
+        return _build_chat_completion_url(base_url)
 
 
 def _build_chat_completion_url(model_url: str) -> str:
