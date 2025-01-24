@@ -1188,6 +1188,7 @@ def test_resolve_chat_completion_url(model_url: str, expected_url: str):
     assert url == expected_url
 
 
+@with_production_testing
 class TestHFInferenceProvider:
     from huggingface_hub.inference._providers.hf_inference import HFInferenceTask
 
@@ -1208,11 +1209,11 @@ class TestHFInferenceProvider:
         assert request.headers["authorization"] == "Bearer hf_test_token"
         assert request.json == {"inputs": "this is a dummy input", "parameters": {}}
 
-    @pytest.mark.skip(reason="Not implemented")
     def test_get_response(self):
-        pass
+        pytest.skip("Not implemented yet")
 
 
+@with_production_testing
 class TestFalAIProvider:
     from huggingface_hub.inference._providers.fal_ai import FalAITextToImageTask
 
@@ -1253,11 +1254,11 @@ class TestFalAIProvider:
         assert request.url.startswith("https://huggingface.co/api/inference-proxy/fal-ai")
         assert request.headers["authorization"] == "Bearer hf_test_token"
 
-    @pytest.mark.skip(reason="Not implemented")
     def test_get_response(self):
-        pass
+        pytest.skip("Not implemented yet")
 
 
+@with_production_testing
 class TestReplicateProvider:
     from huggingface_hub.inference._providers.replicate import ReplicateTextToImageTask
 
@@ -1297,11 +1298,11 @@ class TestReplicateProvider:
         )
         assert request.url.startswith("https://huggingface.co/api/inference-proxy/replicate")
 
-    @pytest.mark.skip(reason="Not implemented")
     def test_get_response(self):
-        pass
+        pytest.skip("Not implemented yet")
 
 
+@with_production_testing
 class TestTogetherProvider:
     from huggingface_hub.inference._providers.together import TogetherTextGenerationTask
 
@@ -1340,11 +1341,11 @@ class TestTogetherProvider:
         )
         assert request.url.startswith("https://huggingface.co/api/inference-proxy/together")
 
-    @pytest.mark.skip(reason="Not implemented")
     def test_get_response(self):
-        pass
+        pytest.skip("Not implemented yet")
 
 
+@with_production_testing
 class TestSambanovaProvider:
     from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
 
@@ -1383,6 +1384,5 @@ class TestSambanovaProvider:
         )
         assert request.url.startswith("https://huggingface.co/api/inference-proxy/sambanova")
 
-    @pytest.mark.skip(reason="Not implemented")
     def test_get_response(self):
-        pass
+        pytest.skip("Not implemented yet")
