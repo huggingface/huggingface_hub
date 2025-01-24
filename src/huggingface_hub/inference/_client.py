@@ -187,17 +187,7 @@ class InferenceClient:
                 " `api_key` is an alias for `token` to make the API compatible with OpenAI's client."
                 " It has the exact same behavior as `token`."
             )
-        if provider is not None:
-            if base_url is not None:
-                raise ValueError(
-                    "Cannot specify both `provider` and `base_url`. The `provider` argument is used to"
-                    " specify an inference provider, while `base_url` is for custom endpoints."
-                )
-            if model is not None and (model.startswith("http://") or model.startswith("https://")):
-                raise ValueError(
-                    "Cannot use a URL as `model` when `provider` is specified. The provider handles building"
-                    " the appropriate URL for the model. Either remove the `provider` argument or pass a model ID instead."
-                )
+
         self.model: Optional[str] = model
         self.token: Optional[str] = token if token is not None else api_key
         self.headers = headers if headers is not None else {}
