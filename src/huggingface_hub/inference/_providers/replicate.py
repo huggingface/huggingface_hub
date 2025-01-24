@@ -1,6 +1,7 @@
 import json
 from typing import Any, Dict, Optional, Union
 
+from huggingface_hub.constants import INFERENCE_PROXY_TEMPLATE
 from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper
 from huggingface_hub.utils import build_hf_headers, get_session
 
@@ -15,10 +16,10 @@ SUPPORTED_MODELS = {
 }
 
 
-def _build_url(model: str) -> str:
+def _build_url(base_url: str, model: str) -> str:
     if ":" in model:
-        return f"{BASE_URL}/v1/predictions"
-    return f"{BASE_URL}/v1/models/{model}/predictions"
+        return f"{base_url}/v1/predictions"
+    return f"{base_url}/v1/models/{model}/predictions"
 
 
 class ReplicateTextToImageTask(TaskProviderHelper):
@@ -36,11 +37,17 @@ class ReplicateTextToImageTask(TaskProviderHelper):
         api_key: Optional[str],
         extra_payload: Optional[Dict[str, Any]] = None,
     ) -> RequestParameters:
-        mapped_model = self._map_model(model)
-        url = _build_url(mapped_model)
-
         if api_key is None:
             raise ValueError("You must provide an api_key to work with Replicate API.")
+
+        # Route to the proxy if the api_key is a HF TOKEN
+        if api_key.startswith("hf_"):
+            base_url = INFERENCE_PROXY_TEMPLATE.format(provider="replicate")
+        else:
+            base_url = BASE_URL
+        mapped_model = self._map_model(model)
+        url = _build_url(base_url, mapped_model)
+
         headers = {
             **build_hf_headers(token=api_key),
             **headers,

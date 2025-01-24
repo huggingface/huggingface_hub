@@ -3,6 +3,7 @@ import json
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 
+from huggingface_hub.constants import INFERENCE_PROXY_TEMPLATE
 from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper
 from huggingface_hub.utils import build_hf_headers, get_session
 
@@ -36,20 +37,26 @@ class FalAITask(TaskProviderHelper, ABC):
         api_key: Optional[str],
         extra_payload: Optional[Dict[str, Any]] = None,
     ) -> RequestParameters:
-        mapped_model = self._map_model(model)
-
         if api_key is None:
-            raise ValueError("You must provide an api_key to work with Together API.")
+            raise ValueError("You must provide an api_key to work with fal.ai API.")
+
+        mapped_model = self._map_model(model)
         headers = {
             **build_hf_headers(token=api_key),
             **headers,
-            "authorization": f"Key {api_key}",
         }
+
+        # Route to the proxy if the api_key is a HF TOKEN
+        if api_key.startswith("hf_"):
+            base_url = INFERENCE_PROXY_TEMPLATE.format(provider="fal-ai")
+        else:
+            base_url = BASE_URL
+            headers["authorization"] = f"Key {api_key}"
 
         payload = self._prepare_payload(inputs, parameters=parameters)
 
         return RequestParameters(
-            url=f"{BASE_URL}/{mapped_model}",
+            url=f"{base_url}/{mapped_model}",
             task=self.task,
             model=mapped_model,
             json=payload,
