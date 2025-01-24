@@ -5,6 +5,7 @@ from .._common import TaskProviderHelper
 # from . import fal_ai, replicate, sambanova, together
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
 from .replicate import ReplicateTextToImageTask
+from .sambanova import SambanovaConversationalTask
 from .together import TogetherTextGenerationTask, TogetherTextToImageTask
 
 
@@ -16,9 +17,9 @@ PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
     #     "text-to-image": fal_ai.text_to_image,
     #     "automatic-speech-recognition": fal_ai.automatic_speech_recognition,
     # },
-    # "sambanova": {
-    #     "conversational": sambanova.conversational,
-    # },
+    "sambanova": {
+        "conversational": SambanovaConversationalTask(),
+    },
     "together": {
         "text-to-image": TogetherTextToImageTask(),
         "conversational": TogetherTextGenerationTask("conversational"),
