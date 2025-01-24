@@ -1,7 +1,7 @@
 import json
 from typing import Any, Dict, Optional, Union
 
-from huggingface_hub.constants import INFERENCE_PROXY_TEMPLATE
+from huggingface_hub import constants
 from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper
 from huggingface_hub.utils import build_hf_headers, get_session, logging
 
@@ -45,7 +45,7 @@ class ReplicateTextToImageTask(TaskProviderHelper):
 
         # Route to the proxy if the api_key is a HF TOKEN
         if api_key.startswith("hf_"):
-            base_url = INFERENCE_PROXY_TEMPLATE.format(provider="replicate")
+            base_url = constants.INFERENCE_PROXY_TEMPLATE.format(provider="replicate")
             logger.info("Calling Replicate provider through Hugging Face proxy.")
         else:
             base_url = BASE_URL
