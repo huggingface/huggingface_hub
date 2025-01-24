@@ -125,7 +125,7 @@ When using the Hugging Face Inference API (default provider), each task comes wi
 However, this recommendation can change over time, so it's best to explicitly set a model once you've decided which one to use. 
 For third-party providers, you must always specify a model that is compatible with that provider.
 
-Visit the [Models](https://huggingface.co/models) page on the Hub to explore models available through the Inference API, or check the provider's documentation for their supported models.
+Visit the [Models](https://huggingface.co/models?inference=warm) page on the Hub to explore models available through the Inference API, or check the provider's documentation for their supported models.
 
 </Tip>
 
