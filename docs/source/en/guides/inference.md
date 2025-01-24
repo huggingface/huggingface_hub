@@ -7,7 +7,6 @@ rendered properly in your Markdown viewer.
 Inference is the process of using a trained model to make predictions on new data. Because this process can be compute-intensive, running on a dedicated or external service can be an interesting option.  
 The `huggingface_hub`  library provides a unified interface to run inference across multiple services for models hosted on the Hugging Face Hub:
 1.  [Inference API](https://huggingface.co/docs/api-inference/index): a serverless solution that allows you to run accelerated inference on Hugging Face's infrastructure for free. This service is a fast way to get started, test different models, and prototype AI products.
-
 2. Third-party providers: various serverless solution provided by external providers (Together, Sambanova, etc.). These providers offer production-ready APIs on a pay-a-you-go model. This is the fastest way to integrate AI in your products with a maintenance-free and scalable solution. Refer to the [Supported providers and tasks](#supported-providers-and-tasks) section for a list of supported providers.      
 3. [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index): a product to easily deploy models to production. Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
 
