@@ -4,13 +4,14 @@ from .._common import TaskProviderHelper
 
 # from . import fal_ai, replicate, sambanova, together
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
+from .replicate import ReplicateTextToImageTask
 from .together import TogetherTextGenerationTask, TogetherTextToImageTask
 
 
 PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
-    # "replicate": {
-    #     "text-to-image": replicate.text_to_image,
-    # },
+    "replicate": {
+        "text-to-image": ReplicateTextToImageTask(),
+    },
     # "fal-ai": {
     #     "text-to-image": fal_ai.text_to_image,
     #     "automatic-speech-recognition": fal_ai.automatic_speech_recognition,

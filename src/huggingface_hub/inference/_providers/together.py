@@ -100,10 +100,10 @@ class TogetherTask(TaskProviderHelper, ABC):
         if model is None:
             raise ValueError("Please provide a model available on Together.")
         if self.task not in SUPPORTED_MODELS:
-            raise ValueError(f"Task {self.task} not supported by Together.")
+            raise ValueError(f"Task {self.task} not supported with Together.")
         mapped_model = SUPPORTED_MODELS[self.task].get(model)
         if mapped_model is None:
-            raise ValueError(f"Model {model} is not supported by Together for task {self.task}.")
+            raise ValueError(f"Model {model} is not supported with Together for task {self.task}.")
         return mapped_model
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
