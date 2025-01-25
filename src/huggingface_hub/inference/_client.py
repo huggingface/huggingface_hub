@@ -1280,7 +1280,7 @@ class InferenceClient:
         image: ContentT,
         prompt: Optional[str] = None,
         *,
-        negative_prompt: Optional[List[str]] = None,
+        negative_prompt: Optional[str] = None,
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
         model: Optional[str] = None,
@@ -1301,8 +1301,8 @@ class InferenceClient:
                 The input image for translation. It can be raw bytes, an image file, or a URL to an online image.
             prompt (`str`, *optional*):
                 The text prompt to guide the image generation.
-            negative_prompt (`List[str]`, *optional*):
-                One or several prompt to guide what NOT to include in image generation.
+            negative_prompt (`str`, *optional*):
+                One prompt to guide what NOT to include in image generation.
             num_inference_steps (`int`, *optional*):
                 For diffusion models. The number of denoising steps. More denoising steps usually lead to a higher
                 quality image at the expense of slower inference.
@@ -2377,7 +2377,7 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        negative_prompt: Optional[List[str]] = None,
+        negative_prompt: Optional[str] = None,
         height: Optional[float] = None,
         width: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
@@ -2400,8 +2400,8 @@ class InferenceClient:
         Args:
             prompt (`str`):
                 The prompt to generate an image from.
-            negative_prompt (`List[str`, *optional*):
-                One or several prompt to guide what NOT to include in image generation.
+            negative_prompt (`str`, *optional*):
+                One prompt to guide what NOT to include in image generation.
             height (`float`, *optional*):
                 The height in pixels of the image to generate.
             width (`float`, *optional*):

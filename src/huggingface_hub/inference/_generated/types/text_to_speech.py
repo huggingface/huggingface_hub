@@ -76,8 +76,7 @@ class TextToSpeechGenerationParameters(BaseInferenceType):
 class TextToSpeechParameters(BaseInferenceType):
     """Additional inference parameters for Text To Speech"""
 
-    # Will be deprecated in the future when the renaming to `generation_parameters` is implemented in transformers
-    generate_kwargs: Optional[TextToSpeechGenerationParameters] = None
+    generation_parameters: Optional[TextToSpeechGenerationParameters] = None
     """Parametrization of the text generation process"""
 
 
@@ -93,12 +92,9 @@ class TextToSpeechInput(BaseInferenceType):
 
 @dataclass
 class TextToSpeechOutput(BaseInferenceType):
-    """Outputs for Text to Speech inference
-    Outputs of inference for the Text To Audio task
-    """
+    """Outputs of inference for the Text To Speech task"""
 
     audio: Any
-    """The generated audio waveform."""
-    sampling_rate: Any
-    text_to_speech_output_sampling_rate: Optional[float] = None
+    """The generated audio"""
+    sampling_rate: Optional[float] = None
     """The sampling rate of the generated audio waveform."""
