@@ -615,6 +615,10 @@ class InferenceClient:
 
         </Tip>
 
+        <Tip>
+        Some parameters might not be supported by some providers.
+        </Tip>
+
         Args:
             messages (List of [`ChatCompletionInputMessage`]):
                 Conversation history consisting of roles and content pairs.
@@ -628,14 +632,14 @@ class InferenceClient:
                 Penalizes new tokens based on their existing frequency
                 in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
             logit_bias (`List[float]`, *optional*):
-                UNUSED. Currently not implemented in text-generation-inference (TGI). Kept as a parameter for OpenAI compatibility.
+                Adjusts the likelihood of specific tokens appearing in the generated output.
             logprobs (`bool`, *optional*):
                 Whether to return log probabilities of the output tokens or not. If true, returns the log
                 probabilities of each output token returned in the content of message.
             max_tokens (`int`, *optional*):
                 Maximum number of tokens allowed in the response. Defaults to 100.
             n (`int`, *optional*):
-                UNUSED. Currently not implemented in text-generation-inference (TGI). Kept as a parameter for OpenAI compatibility.
+                The number of completions to generate for each prompt.
             presence_penalty (`float`, *optional*):
                 Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the
                 text so far, increasing the model's likelihood to talk about new topics.
