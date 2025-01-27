@@ -15,6 +15,3 @@ hf_transfer: package_reference/environment_variables#hfhubenablehftransfer
 
 # Rename webhooks_server to webhooks
 guides/webhooks_server: guides/webhooks
-
-# Rename supported-tasks to supported-providers-and-tasks
-guides/inference#supported-tasks: guides/inference#supported-providers-and-tasks

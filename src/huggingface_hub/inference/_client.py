@@ -2487,6 +2487,20 @@ class InferenceClient:
         ... )
         >>> image.save("lion.png")
         ```
+
+        Example using a third-party provider through Hugging Face Routing. Usage will be billed on your Hugging Face account.
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",  # Use replicate provider
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> image = client.text_to_image(
+        ...     "An astronaut riding a horse on the moon.",
+        ...     model="black-forest-labs/FLUX.1-dev",
+        ... )
+        >>> image.save("astronaut.png")
+        ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-image")
         request_parameters = provider_helper.prepare_request(
