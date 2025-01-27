@@ -97,6 +97,5 @@ class TextToAudioOutput(BaseInferenceType):
 
     audio: Any
     """The generated audio waveform."""
-    sampling_rate: Any
-    text_to_audio_output_sampling_rate: Optional[float] = None
+    sampling_rate: float
     """The sampling rate of the generated audio waveform."""
