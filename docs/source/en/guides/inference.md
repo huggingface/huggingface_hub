@@ -48,7 +48,7 @@ Let's get started with a text-to-image task:
 In the example above, we initialized an [`InferenceClient`] with a third-party provider, [Replicate](https://replicate.com/). When using a provider, you must specify the model you want to use. The model id must be the id of the model on the Hugging Face Hub, not the id of the model from the third-party provider.
 In our example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a file. For more details, check out the [`~InferenceClient.text_to_image`] documentation.
 
-Let's now see an example using the [~`InferenceClient.chat_completion`] API. This task uses an LLM to generate a response from a list of messages:
+Let's now see an example using the [`~InferenceClient.chat_completion`] API. This task uses an LLM to generate a response from a list of messages:
 
 ```python
 >>> from huggingface_hub import InferenceClient
