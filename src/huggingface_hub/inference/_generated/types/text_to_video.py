@@ -14,11 +14,11 @@ class TextToVideoParameters(BaseInferenceType):
     """Additional inference parameters for Text To Video"""
 
     guidance_scale: Optional[float] = None
-    """A higher guidance scale value encourages the model to generate images closely linked to
+    """A higher guidance scale value encourages the model to generate videos closely linked to
     the text prompt, but values too high may cause saturation and other artifacts.
     """
     negative_prompt: Optional[List[str]] = None
-    """One or several prompt to guide what NOT to include in image generation."""
+    """One or several prompt to guide what NOT to include in video generation."""
     num_frames: Optional[float] = None
     """The num_frames parameter determines how many video frames are generated."""
     num_inference_steps: Optional[int] = None

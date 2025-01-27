@@ -2058,15 +2058,6 @@ class InferenceClient:
         """
         Given a prompt, generate the following text.
 
-        API endpoint is supposed to run with the `text-generation-inference` backend (TGI). This backend is the
-        go-to solution to run large language models at scale. However, for some smaller models (e.g. "gpt2") the
-        default `transformers` + `api-inference` solution is still in use. Both approaches have very similar APIs, but
-        not exactly the same. This method is compatible with both approaches but some parameters are only available for
-        `text-generation-inference`. If some parameters are ignored, a warning message is triggered but the process
-        continues correctly.
-
-        To learn more about the TGI project, please refer to https://github.com/huggingface/text-generation-inference.
-
         <Tip>
 
         If you want to generate a response from chat messages, you should use the [`InferenceClient.chat_completion`] method.
@@ -2474,6 +2465,61 @@ class InferenceClient:
         response = provider_helper.get_response(response)
         return _bytes_to_image(response)
 
+    def text_to_video(
+        self,
+        prompt: str,
+        *,
+        model: Optional[str] = None,
+        guidance_scale: Optional[float] = None,
+        negative_prompt: Optional[List[str]] = None,
+        num_frames: Optional[float] = None,
+        num_inference_steps: Optional[int] = None,
+        seed: Optional[int] = None,
+    ) -> bytes:
+        """
+        Generate a video based on a given text.
+
+        Args:
+            prompt (`str`):
+                The prompt to generate a video from.
+            model (`str`, *optional*):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. If not provided, the default recommended text-to-video model will be used.
+                Defaults to None.
+            guidance_scale (`float`, *optional*):
+                A higher guidance scale value encourages the model to generate images closely linked to the text
+                prompt, but values too high may cause saturation and other artifacts.
+            negative_prompt (`List[str]`, *optional*):
+                One or several prompt to guide what NOT to include in image generation.
+            num_frames (`float`, *optional*):
+                The num_frames parameter determines how many video frames are generated.
+            num_inference_steps (`int`, *optional*):
+                The number of denoising steps. More denoising steps usually lead to a higher quality image at the
+                expense of slower inference.
+            seed (`int`, *optional*):
+                Seed for the random number generator.
+
+        Returns:
+            `bytes`: The generated video.
+        """
+        provider_helper = get_provider_helper(self.provider, task="text-to-video")
+        request_parameters = provider_helper.prepare_request(
+            inputs=prompt,
+            parameters={
+                "guidance_scale": guidance_scale,
+                "negative_prompt": negative_prompt,
+                "num_frames": num_frames,
+                "num_inference_steps": num_inference_steps,
+                "seed": seed,
+            },
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
+        response = provider_helper.get_response(response)
+        return response
+
     def text_to_speech(
         self,
         text: str,
@@ -2598,6 +2644,7 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
+        response = provider_helper.get_response(response)
         return response
 
     def token_classification(
