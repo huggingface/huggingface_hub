@@ -647,7 +647,7 @@ class InferenceClient:
                 Grammar constraints. Can be either a JSONSchema or a regex.
             seed (Optional[`int`], *optional*):
                 Seed for reproducible control flow. Defaults to None.
-            stop (Optional[`str`], *optional*):
+            stop (`List[str]`, *optional*):
                 Up to four strings which trigger the end of the response.
                 Defaults to None.
             stream (`bool`, *optional*):
@@ -754,6 +754,32 @@ class InferenceClient:
 
         for chunk in output:
             print(chunk.choices[0].delta.content)
+        ```
+
+        Example using a third-party provider directly. Usage will be billed on your Together AI account.
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="together",  # Use Together AI provider
+        ...     api_key="<together_api_key>",  # Pass your Together API key directly
+        ... )
+        >>> client.chat_completion(
+        ...     model="meta-llama/Meta-Llama-3-8B-Instruct",
+        ...     messages=[{"role": "user", "content": "What is the capital of France?"}],
+        ... )
+        ```
+
+        Example using a third-party provider through Hugging Face Routing. Usage will be billed on your Hugging Face account.
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="sambanova",  # Use Sambanova provider
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> client.chat_completion(
+        ...     model="meta-llama/Meta-Llama-3-8B-Instruct",
+        ...     messages=[{"role": "user", "content": "What is the capital of France?"}],
+        ... )
         ```
 
         Example using Image + Text as input:
@@ -2442,6 +2468,33 @@ class InferenceClient:
         ... )
         >>> image.save("better_astronaut.png")
         ```
+        Example using a third-party provider directly. Usage will be billed on your fal.ai account.
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="fal-ai",  # Use fal.ai provider
+        ...     api_key="fal-ai-api-key",  # Pass your fal.ai API key
+        ... )
+        >>> image = client.text_to_image(
+        ...     "A majestic lion in a fantasy forest",
+        ...     model="black-forest-labs/FLUX.1-schnell",
+        ... )
+        >>> image.save("lion.png")
+        ```
+
+        Example using a third-party provider through Hugging Face Routing. Usage will be billed on your Hugging Face account.
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",  # Use replicate provider
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> image = client.text_to_image(
+        ...     "An astronaut riding a horse on the moon.",
+        ...     model="black-forest-labs/FLUX.1-dev",
+        ... )
+        >>> image.save("astronaut.png")
+        ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-image")
         request_parameters = provider_helper.prepare_request(
@@ -2501,6 +2554,38 @@ class InferenceClient:
 
         Returns:
             `bytes`: The generated video.
+
+        Example:
+
+        Example using a third-party provider directly. Usage will be billed on your fal.ai account.
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="fal-ai",  # Using fal.ai provider
+        ...     api_key="fal-ai-api-key",  # Pass your fal.ai API key
+        ... )
+        >>> video = client.text_to_video(
+        ...     "A majestic lion running in a fantasy forest",
+        ...     model="tencent/HunyuanVideo",
+        ... )
+        >>> with open("lion.mp4", "wb") as file:
+        ...     file.write(video)
+        ```
+
+        Example using a third-party provider through Hugging Face Routing. Usage will be billed on your Hugging Face account.
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",  # Using replicate provider
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> video = client.text_to_video(
+        ...     "A cat running in a park",
+        ...     model="genmo/mochi-1-preview",
+        ... )
+        >>> with open("cat.mp4", "wb") as file:
+        ...     file.write(video)
+        ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-video")
         request_parameters = provider_helper.prepare_request(
@@ -2616,6 +2701,32 @@ class InferenceClient:
 
         >>> audio = client.text_to_speech("Hello world")
         >>> Path("hello_world.flac").write_bytes(audio)
+        ```
+
+        Example using a third-party provider directly. Usage will be billed on your Replicate account.
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",
+        ...     api_key="your-replicate-api-key",  # Pass your Replicate API key directly
+        ... )
+        >>> audio = client.text_to_speech(
+        ...     text="Hello world",
+        ...     model="OuteAI/OuteTTS-0.3-500M",
+        ... )
+        ```
+
+        Example using a third-party provider through Hugging Face Routing. Usage will be billed on your Hugging Face account.
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> audio =client.text_to_speech(
+        ...     text="Hello world",
+        ...     model="OuteAI/OuteTTS-0.3-500M",
+        ... )
         ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-speech")
