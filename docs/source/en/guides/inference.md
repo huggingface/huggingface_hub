@@ -64,7 +64,7 @@ Let's now see an example using the [~`InferenceClient.chat_completion`] API. Thi
     api_key="my_together_api_key",
 )
 >>> client.chat_completion(messages, max_tokens=100)
->>> ChatCompletionOutput(
+ChatCompletionOutput(
     choices=[
         ChatCompletionOutputComplete(
             finish_reason="eos_token",
