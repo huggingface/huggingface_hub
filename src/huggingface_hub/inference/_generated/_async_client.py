@@ -2528,16 +2528,14 @@ class AsyncInferenceClient:
         ... )
         >>> image.save("better_astronaut.png")
         ```
-
-        Example using fal.ai provider:
+        Example using a third-party provider directly. Usage will be billed on your fal.ai account.
         ```py
-        # Must be run in an async context
-        >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient(
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
         ...     provider="fal-ai",  # Use fal.ai provider
         ...     api_key="fal-ai-api-key",  # Pass your fal.ai API key
         ... )
-        >>> image = await client.text_to_image(
+        >>> image = client.text_to_image(
         ...     "A majestic lion in a fantasy forest",
         ...     model="black-forest-labs/FLUX.1-schnell",
         ... )
@@ -2616,6 +2614,38 @@ class AsyncInferenceClient:
 
         Returns:
             `bytes`: The generated video.
+
+        Example:
+
+        Example using a third-party provider directly. Usage will be billed on your fal.ai account.
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="fal-ai",  # Using fal.ai provider
+        ...     api_key="fal-ai-api-key",  # Pass your fal.ai API key
+        ... )
+        >>> video = client.text_to_video(
+        ...     "A majestic lion running in a fantasy forest",
+        ...     model="tencent/HunyuanVideo",
+        ... )
+        >>> with open("lion.mp4", "wb") as file:
+        ...     file.write(video)
+        ```
+
+        Example using a third-party provider through Hugging Face Routing. Usage will be billed on your Hugging Face account.
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",  # Using replicate provider
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> video = client.text_to_video(
+        ...     "A cat running in a park",
+        ...     model="genmo/mochi-1-preview",
+        ... )
+        >>> with open("cat.mp4", "wb") as file:
+        ...     file.write(video)
+        ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-video")
         request_parameters = provider_helper.prepare_request(
@@ -2732,6 +2762,32 @@ class AsyncInferenceClient:
 
         >>> audio = await client.text_to_speech("Hello world")
         >>> Path("hello_world.flac").write_bytes(audio)
+        ```
+
+        Example using a third-party provider directly. Usage will be billed on your Replicate account.
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",
+        ...     api_key="your-replicate-api-key",  # Pass your Replicate API key directly
+        ... )
+        >>> audio = client.text_to_speech(
+        ...     text="Hello world",
+        ...     model="OuteAI/OuteTTS-0.3-500M",
+        ... )
+        ```
+
+        Example using a third-party provider through Hugging Face Routing. Usage will be billed on your Hugging Face account.
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> audio =client.text_to_speech(
+        ...     text="Hello world",
+        ...     model="OuteAI/OuteTTS-0.3-500M",
+        ... )
         ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-speech")
