@@ -1,9 +1,9 @@
 from typing import Dict
 
 from .._common import TaskProviderHelper
-from .fal_ai import FalAIAutomaticSpeechRecognitionTask, FalAITextToImageTask
+from .fal_ai import FalAIAutomaticSpeechRecognitionTask, FalAITextToImageTask, FalAITextToVideoTask
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
-from .replicate import ReplicateTextToImageTask
+from .replicate import ReplicateTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask
 from .together import TogetherTextGenerationTask, TogetherTextToImageTask
 
@@ -12,6 +12,7 @@ PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
     "fal-ai": {
         "text-to-image": FalAITextToImageTask(),
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),
+        "text-to-video": FalAITextToVideoTask(),
     },
     "hf-inference": {
         "text-to-image": HFInferenceTask("text-to-image"),
@@ -42,7 +43,9 @@ PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
         "visual-question-answering": HFInferenceBinaryInputTask("visual-question-answering"),
     },
     "replicate": {
-        "text-to-image": ReplicateTextToImageTask(),
+        "text-to-image": ReplicateTask("text-to-image"),
+        "text-to-speech": ReplicateTextToSpeechTask(),
+        "text-to-video": ReplicateTask("text-to-video"),
     },
     "sambanova": {
         "conversational": SambanovaConversationalTask(),

@@ -1,10 +1,9 @@
 import base64
-import json
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import constants
-from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper
+from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict
 from huggingface_hub.utils import build_hf_headers, logging
 
 
@@ -16,6 +15,8 @@ BASE_URL = "https://api.together.xyz"
 SUPPORTED_MODELS = {
     "conversational": {
         "databricks/dbrx-instruct": "databricks/dbrx-instruct",
+        "deepseek-ai/DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
+        "deepseek-ai/DeepSeek-V3": "deepseek-ai/DeepSeek-V3",
         "deepseek-ai/deepseek-llm-67b-chat": "deepseek-ai/deepseek-llm-67b-chat",
         "google/gemma-2-9b-it": "google/gemma-2-9b-it",
         "google/gemma-2b-it": "google/gemma-2-27b-it",
@@ -59,6 +60,7 @@ SUPPORTED_MODELS = {
         "stabilityai/stable-diffusion-xl-base-1.0": "stabilityai/stable-diffusion-xl-base-1.0",
     },
 }
+
 
 PER_TASK_ROUTES = {
     "conversational": "v1/chat/completions",
@@ -142,8 +144,5 @@ class TogetherTextToImageTask(TogetherTask):
         return payload
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
-        if isinstance(response, bytes):
-            response_dict = json.loads(response)
-        else:
-            response_dict = response
+        response_dict = _as_dict(response)
         return base64.b64decode(response_dict["data"][0]["b64_json"])
