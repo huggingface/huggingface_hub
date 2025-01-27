@@ -2,7 +2,7 @@ import pytest
 
 from huggingface_hub.inference._providers.fal_ai import FalAITextToImageTask
 from huggingface_hub.inference._providers.hf_inference import HFInferenceTask
-from huggingface_hub.inference._providers.replicate import ReplicateTextToImageTask
+from huggingface_hub.inference._providers.replicate import ReplicateTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
 from huggingface_hub.inference._providers.together import TogetherTextGenerationTask
 
@@ -80,7 +80,7 @@ class TestFalAIProvider:
 
 
 class TestReplicateProvider:
-    helper = ReplicateTextToImageTask()
+    helper = ReplicateTask("text-to-image")
 
     def test_prepare_request(self):
         # Test with custom replicate key
