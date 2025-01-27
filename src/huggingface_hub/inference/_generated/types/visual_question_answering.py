@@ -15,7 +15,7 @@ class VisualQuestionAnsweringInputData(BaseInferenceType):
 
     image: Any
     """The image."""
-    question: Any
+    question: str
     """The question to answer based on the image."""
 
 

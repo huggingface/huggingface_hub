@@ -3,8 +3,12 @@ import json
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 
+from huggingface_hub import constants
 from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper
-from huggingface_hub.utils import build_hf_headers
+from huggingface_hub.utils import build_hf_headers, logging
+
+
+logger = logging.get_logger(__name__)
 
 
 BASE_URL = "https://api.together.xyz"
@@ -57,9 +61,9 @@ SUPPORTED_MODELS = {
 }
 
 PER_TASK_ROUTES = {
-    "conversational": f"{BASE_URL}/v1/chat/completions",
-    "text-generation": f"{BASE_URL}/v1/completions",
-    "text-to-image": f"{BASE_URL}/v1/images/generations",
+    "conversational": "v1/chat/completions",
+    "text-generation": "v1/completions",
+    "text-to-image": "v1/images/generations",
 }
 
 
@@ -79,16 +83,22 @@ class TogetherTask(TaskProviderHelper, ABC):
         api_key: Optional[str],
         extra_payload: Optional[Dict[str, Any]] = None,
     ) -> RequestParameters:
-        mapped_model = self._map_model(model)
         if api_key is None:
             raise ValueError("You must provide an api_key to work with Together API.")
         headers = {**build_hf_headers(token=api_key), **headers}
 
-        parameters["model"] = mapped_model
+        # Route to the proxy if the api_key is a HF TOKEN
+        if api_key.startswith("hf_"):
+            base_url = constants.INFERENCE_PROXY_TEMPLATE.format(provider="together")
+            logger.info("Calling Together provider through Hugging Face proxy.")
+        else:
+            base_url = BASE_URL
+            logger.info("Calling Together provider directly.")
+        mapped_model = self._map_model(model)
         payload = self._prepare_payload(inputs, parameters=parameters)
 
         return RequestParameters(
-            url=PER_TASK_ROUTES[self.task],
+            url=f"{base_url}/{PER_TASK_ROUTES[self.task]}",
             task=self.task,
             model=mapped_model,
             json=payload,

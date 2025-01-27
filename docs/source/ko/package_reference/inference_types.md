@@ -324,6 +324,16 @@ rendered properly in your Markdown viewer.
 
 
 
+## text_to_video[[huggingface_hub.TextToVideoInput]]
+
+[[autodoc]] huggingface_hub.TextToVideoInput
+
+[[autodoc]] huggingface_hub.TextToVideoOutput
+
+[[autodoc]] huggingface_hub.TextToVideoParameters
+
+
+
 ## token_classification[[huggingface_hub.TokenClassificationInput]]
 
 [[autodoc]] huggingface_hub.TokenClassificationInput
