@@ -2714,6 +2714,7 @@ class InferenceClient:
         ...     text="Hello world",
         ...     model="OuteAI/OuteTTS-0.3-500M",
         ... )
+        >>> Path("hello_world.flac").write_bytes(audio)
         ```
 
         Example using a third-party provider through Hugging Face Routing. Usage will be billed on your Hugging Face account.
@@ -2727,6 +2728,7 @@ class InferenceClient:
         ...     text="Hello world",
         ...     model="OuteAI/OuteTTS-0.3-500M",
         ... )
+        >>> Path("hello_world.flac").write_bytes(audio)
         ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-speech")
