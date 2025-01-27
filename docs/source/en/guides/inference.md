@@ -252,7 +252,7 @@ You might wonder why using [`InferenceClient`] instead of OpenAI's client? There
 | **Audio**           | [`~InferenceClient.audio_classification`]           | ✅            | ❌         | ❌      | ❌         | ❌        |
 |                     | [`~InferenceClient.audio_to_audio`]                 | ✅            | ❌         | ❌      | ❌         | ❌        |
 |                     | [`~InferenceClient.automatic_speech_recognition`]   | ✅            | ❌         | ✅      | ❌         | ❌        |
-|                     | [`~InferenceClient.text_to_speech`]                 | ✅            | ❌         | ❌      | ❌         | ❌        |
+|                     | [`~InferenceClient.text_to_speech`]                 | ✅            | ✅         | ❌      | ❌         | ❌        |
 | **Computer Vision** | [`~InferenceClient.image_classification`]           | ✅            | ❌         | ❌      | ❌         | ❌        |
 |                     | [`~InferenceClient.image_segmentation`]             | ✅            | ❌         | ❌      | ❌         | ❌        |
 |                     | [`~InferenceClient.image_to_image`]                 | ✅            | ❌         | ❌      | ❌         | ❌        |
