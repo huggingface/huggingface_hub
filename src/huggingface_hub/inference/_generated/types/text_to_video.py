@@ -23,7 +23,7 @@ class TextToVideoParameters(BaseInferenceType):
     """The num_frames parameter determines how many video frames are generated."""
     num_inference_steps: Optional[int] = None
     """The number of denoising steps. More denoising steps usually lead to a higher quality
-    image at the expense of slower inference.
+    video at the expense of slower inference.
     """
     seed: Optional[int] = None
     """Seed for the random number generator."""

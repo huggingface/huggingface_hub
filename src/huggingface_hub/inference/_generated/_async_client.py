@@ -2547,14 +2547,14 @@ class AsyncInferenceClient:
                 Inference Endpoint. If not provided, the default recommended text-to-video model will be used.
                 Defaults to None.
             guidance_scale (`float`, *optional*):
-                A higher guidance scale value encourages the model to generate images closely linked to the text
+                A higher guidance scale value encourages the model to generate videos closely linked to the text
                 prompt, but values too high may cause saturation and other artifacts.
             negative_prompt (`List[str]`, *optional*):
                 One or several prompt to guide what NOT to include in image generation.
             num_frames (`float`, *optional*):
                 The num_frames parameter determines how many video frames are generated.
             num_inference_steps (`int`, *optional*):
-                The number of denoising steps. More denoising steps usually lead to a higher quality image at the
+                The number of denoising steps. More denoising steps usually lead to a higher quality video at the
                 expense of slower inference.
             seed (`int`, *optional*):
                 Seed for the random number generator.

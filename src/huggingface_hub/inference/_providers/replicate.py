@@ -113,6 +113,7 @@ class ReplicateTask(TaskProviderHelper):
         if response_dict.get("output") is None:
             raise TimeoutError(
                 f"Inference request timed out after 60 seconds. No output generated for model {response_dict.get('model')}"
+                "The model might be in cold state or starting up. Please try again later."
             )
         output_url = (
             response_dict["output"] if isinstance(response_dict["output"], str) else response_dict["output"][0]
@@ -130,7 +131,7 @@ class ReplicateTextToSpeechTask(ReplicateTask):
         parameters: Dict[str, Any],
         model: str,
     ) -> Dict[str, Any]:
-        # The following payload might work only for a subset of Replicate models.
+        # The following payload might work only for a subset of text-to-speech Replicate models.
         payload: Dict[str, Any] = {
             "input": {
                 "inputs": inputs,
