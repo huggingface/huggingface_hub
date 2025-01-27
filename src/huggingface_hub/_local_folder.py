@@ -49,6 +49,8 @@ a16a55fda99d2f2e7b69cce5cf93ff4ad3049930
 ```
 """
 
+import base64
+import hashlib
 import logging
 import os
 import time
@@ -84,7 +86,7 @@ class LocalDownloadFilePaths:
 
     def incomplete_path(self, etag: str) -> Path:
         """Return the path where a file will be temporarily downloaded before being moved to `file_path`."""
-        return self.metadata_path.with_suffix(f".{etag}.incomplete")
+        return self.metadata_path.parent / f"{_short_hash(self.metadata_path.name)}.{etag}.incomplete"
 
 
 @dataclass(frozen=True)
@@ -424,3 +426,7 @@ def _huggingface_dir(local_dir: Path) -> Path:
         except OSError:
             pass
     return path
+
+
+def _short_hash(filename: str) -> str:
+    return base64.urlsafe_b64encode(hashlib.sha1(filename.encode()).digest()).decode()
