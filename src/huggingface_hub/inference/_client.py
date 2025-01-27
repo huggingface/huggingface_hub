@@ -40,7 +40,6 @@ import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Union, overload
 
 from requests import HTTPError
-from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.errors import BadRequestError, InferenceTimeoutError
@@ -48,16 +47,15 @@ from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
     ModelStatus,
+    RequestParameters,
     _b64_encode,
     _b64_to_image,
     _bytes_to_dict,
     _bytes_to_image,
     _bytes_to_list,
-    _fetch_recommended_models,
     _get_unsupported_text_generation_kwargs,
     _import_numpy,
     _open_as_binary,
-    _prepare_payload,
     _set_unsupported_text_generation_kwargs,
     _stream_chat_completion_response,
     _stream_text_generation_response,
@@ -104,8 +102,9 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
+from huggingface_hub.inference._providers import HFInferenceTask, get_provider_helper
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
-from huggingface_hub.utils._deprecation import _deprecate_arguments
+from huggingface_hub.utils._deprecation import _deprecate_arguments, _deprecate_method
 
 
 if TYPE_CHECKING:
@@ -123,7 +122,7 @@ class InferenceClient:
     Initialize a new Inference Client.
 
     [`InferenceClient`] aims to provide a unified experience to perform inference. The client can be used
-    seamlessly with either the (free) Inference API or self-hosted Inference Endpoints.
+    seamlessly with either the (free) Inference API, self-hosted Inference Endpoints, or third-party Inference Providers.
 
     Args:
         model (`str`, `optional`):
@@ -134,6 +133,10 @@ class InferenceClient:
             arguments are mutually exclusive. If using `base_url` for chat completion, the `/chat/completions` suffix
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
+        provider (`str`, *optional*):
+                Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, `"sambanova"` or `"hf-inference"`.
+                defaults to hf-inference (Hugging Face Serverless Inference API).
+                If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str` or `bool`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
             Pass `token=False` if you don't want to send your token to the server.
@@ -161,7 +164,8 @@ class InferenceClient:
         self,
         model: Optional[str] = None,
         *,
-        token: Union[str, bool, None] = None,
+        provider: Optional[str] = None,
+        token: Optional[str] = None,
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
@@ -185,12 +189,12 @@ class InferenceClient:
             )
 
         self.model: Optional[str] = model
-        self.token: Union[str, bool, None] = token if token is not None else api_key
-        self.headers: CaseInsensitiveDict[str] = CaseInsensitiveDict(
-            build_hf_headers(token=self.token)  # 'authorization' + 'user-agent'
-        )
-        if headers is not None:
-            self.headers.update(headers)
+        self.token: Optional[str] = token if token is not None else api_key
+        self.headers = headers if headers is not None else {}
+
+        # Configure provider
+        self.provider = provider if provider is not None else "hf-inference"
+
         self.cookies = cookies
         self.timeout = timeout
         self.proxies = proxies
@@ -234,6 +238,14 @@ class InferenceClient:
         stream: bool = False,
     ) -> Union[bytes, Iterable[bytes]]: ...
 
+    @_deprecate_method(
+        version="0.31.0",
+        message=(
+            "Making direct POST requests to the inference server is not supported anymore. "
+            "Please use task methods instead (e.g. `InferenceClient.chat_completion`). "
+            "If your use case is not supported, please open an issue in https://github.com/huggingface/huggingface_hub."
+        ),
+    )
     def post(
         self,
         *,
@@ -246,53 +258,62 @@ class InferenceClient:
         """
         Make a POST request to the inference server.
 
-        Args:
-            json (`Union[str, Dict, List]`, *optional*):
-                The JSON data to send in the request body, specific to each task. Defaults to None.
-            data (`Union[str, Path, bytes, BinaryIO]`, *optional*):
-                The content to send in the request body, specific to each task.
-                It can be raw bytes, a pointer to an opened file, a local file path,
-                or a URL to an online resource (image, audio file,...). If both `json` and `data` are passed,
-                `data` will take precedence. At least `json` or `data` must be provided. Defaults to None.
-            model (`str`, *optional*):
-                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
-                Inference Endpoint. Will override the model defined at the instance level. Defaults to None.
-            task (`str`, *optional*):
-                The task to perform on the inference. All available tasks can be found
-                [here](https://huggingface.co/tasks). Used only to default to a recommended model if `model` is not
-                provided. At least `model` or `task` must be provided. Defaults to None.
-            stream (`bool`, *optional*):
-                Whether to iterate over streaming APIs.
-
-        Returns:
-            bytes: The raw bytes returned by the server.
-
-        Raises:
-            [`InferenceTimeoutError`]:
-                If the model is unavailable or the request times out.
-            `HTTPError`:
-                If the request fails with an HTTP error status code other than HTTP 503.
+        This method is deprecated and will be removed in the future.
+        Please use task methods instead (e.g. `InferenceClient.chat_completion`).
         """
-        url = self._resolve_url(model, task)
+        if self.provider != "hf-inference":
+            raise ValueError(
+                "Cannot use `post` with another provider than `hf-inference`. "
+                "`InferenceClient.post` is deprecated and should not be used directly anymore."
+            )
+        provider_helper = HFInferenceTask(task or "unknown")
+        url = provider_helper.build_url(provider_helper.map_model(model))
+        headers = provider_helper.prepare_headers(headers=self.headers, api_key=self.token)
+        return self._inner_post(
+            request_parameters=RequestParameters(
+                url=url,
+                task=task or "unknown",
+                model=model or "unknown",
+                json=json,
+                data=data,
+                headers=headers,
+            ),
+            stream=stream,
+        )
 
-        if data is not None and json is not None:
-            warnings.warn("Ignoring `json` as `data` is passed as binary.")
+    @overload
+    def _inner_post(  # type: ignore[misc]
+        self, request_parameters: RequestParameters, *, stream: Literal[False] = ...
+    ) -> bytes: ...
 
-        # Set Accept header if relevant
-        headers = self.headers.copy()
-        if task in TASKS_EXPECTING_IMAGES and "Accept" not in headers:
-            headers["Accept"] = "image/png"
+    @overload
+    def _inner_post(  # type: ignore[misc]
+        self, request_parameters: RequestParameters, *, stream: Literal[True] = ...
+    ) -> Iterable[bytes]: ...
+
+    @overload
+    def _inner_post(
+        self, request_parameters: RequestParameters, *, stream: bool = False
+    ) -> Union[bytes, Iterable[bytes]]: ...
+
+    def _inner_post(
+        self, request_parameters: RequestParameters, *, stream: bool = False
+    ) -> Union[bytes, Iterable[bytes]]:
+        """Make a request to the inference server."""
+        # TODO: this should be handled in provider helpers directly
+        if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
+            request_parameters.headers["Accept"] = "image/png"
 
         t0 = time.time()
         timeout = self.timeout
         while True:
-            with _open_as_binary(data) as data_as_binary:
+            with _open_as_binary(request_parameters.data) as data_as_binary:
                 try:
                     response = get_session().post(
-                        url,
-                        json=json,
+                        request_parameters.url,
+                        json=request_parameters.json,
                         data=data_as_binary,
-                        headers=headers,
+                        headers=request_parameters.headers,
                         cookies=self.cookies,
                         timeout=self.timeout,
                         stream=stream,
@@ -300,21 +321,21 @@ class InferenceClient:
                     )
                 except TimeoutError as error:
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                    raise InferenceTimeoutError(f"Inference call timed out: {url}") from error  # type: ignore
+                    raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
 
             try:
                 hf_raise_for_status(response)
                 return response.iter_lines() if stream else response.content
             except HTTPError as error:
-                if error.response.status_code == 422 and task is not None:
+                if error.response.status_code == 422 and request_parameters.task != "unknown":
                     error.args = (
-                        f"{error.args[0]}\nMake sure '{task}' task is supported by the model.",
+                        f"{error.args[0]}\nMake sure '{request_parameters.task}' task is supported by the model.",
                     ) + error.args[1:]
                 if error.response.status_code == 503:
                     # If Model is unavailable, either raise a TimeoutError...
                     if timeout is not None and time.time() - t0 > timeout:
                         raise InferenceTimeoutError(
-                            f"Model not loaded on the server: {url}. Please retry with a higher timeout (current:"
+                            f"Model not loaded on the server: {request_parameters.url}. Please retry with a higher timeout (current:"
                             f" {self.timeout}).",
                             request=error.request,
                             response=error.response,
@@ -322,8 +343,10 @@ class InferenceClient:
                     # ...or wait 1s and retry
                     logger.info(f"Waiting for model to be loaded on the server: {error}")
                     time.sleep(1)
-                    if "X-wait-for-model" not in headers and url.startswith(INFERENCE_ENDPOINT):
-                        headers["X-wait-for-model"] = "1"
+                    if "X-wait-for-model" not in request_parameters.headers and request_parameters.url.startswith(
+                        INFERENCE_ENDPOINT
+                    ):
+                        request_parameters.headers["X-wait-for-model"] = "1"
                     if timeout is not None:
                         timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
                     continue
@@ -374,9 +397,15 @@ class InferenceClient:
         ]
         ```
         """
-        parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
-        payload = _prepare_payload(audio, parameters=parameters, expect_binary=True)
-        response = self.post(**payload, model=model, task="audio-classification")
+        provider_helper = get_provider_helper(self.provider, task="audio-classification")
+        request_parameters = provider_helper.prepare_request(
+            inputs=audio,
+            parameters={"function_to_apply": function_to_apply, "top_k": top_k},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         return AudioClassificationOutputElement.parse_obj_as_list(response)
 
     def audio_to_audio(
@@ -416,7 +445,15 @@ class InferenceClient:
                     f.write(item.blob)
         ```
         """
-        response = self.post(data=audio, model=model, task="audio-to-audio")
+        provider_helper = get_provider_helper(self.provider, task="audio-to-audio")
+        request_parameters = provider_helper.prepare_request(
+            inputs=audio,
+            parameters={},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         audio_output = AudioToAudioOutputElement.parse_obj_as_list(response)
         for item in audio_output:
             item.blob = base64.b64decode(item.blob)
@@ -437,7 +474,8 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for ASR. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for ASR will be used.
-
+            parameters (Dict[str, Any], *optional*):
+                Additional parameters to pass to the model.
         Returns:
             [`AutomaticSpeechRecognitionOutput`]: An item containing the transcribed text and optionally the timestamp chunks.
 
@@ -455,7 +493,15 @@ class InferenceClient:
         "hello world"
         ```
         """
-        response = self.post(data=audio, model=model, task="automatic-speech-recognition")
+        provider_helper = get_provider_helper(self.provider, task="automatic-speech-recognition")
+        request_parameters = provider_helper.prepare_request(
+            inputs=audio,
+            parameters={},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         return AutomaticSpeechRecognitionOutput.parse_obj_as_instance(response)
 
     @overload
@@ -576,25 +622,20 @@ class InferenceClient:
                 The model to use for chat-completion. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for chat-based text-generation will be used.
                 See https://huggingface.co/tasks/text-generation for more details.
-
                 If `model` is a model ID, it is passed to the server as the `model` parameter. If you want to define a
                 custom URL while setting `model` in the request payload, you must set `base_url` when initializing [`InferenceClient`].
             frequency_penalty (`float`, *optional*):
                 Penalizes new tokens based on their existing frequency
                 in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
             logit_bias (`List[float]`, *optional*):
-                Modify the likelihood of specified tokens appearing in the completion. Accepts a JSON object that maps tokens
-                (specified by their token ID in the tokenizer) to an associated bias value from -100 to 100. Mathematically,
-                the bias is added to the logits generated by the model prior to sampling. The exact effect will vary per model,
-                but values between -1 and 1 should decrease or increase likelihood of selection; values like -100 or 100 should
-                result in a ban or exclusive selection of the relevant token. Defaults to None.
+                UNUSED. Currently not implemented in text-generation-inference (TGI). Kept as a parameter for OpenAI compatibility.
             logprobs (`bool`, *optional*):
                 Whether to return log probabilities of the output tokens or not. If true, returns the log
                 probabilities of each output token returned in the content of message.
             max_tokens (`int`, *optional*):
                 Maximum number of tokens allowed in the response. Defaults to 100.
             n (`int`, *optional*):
-                UNUSED.
+                UNUSED. Currently not implemented in text-generation-inference (TGI). Kept as a parameter for OpenAI compatibility.
             presence_penalty (`float`, *optional*):
                 Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the
                 text so far, increasing the model's likelihood to talk about new topics.
@@ -859,67 +900,49 @@ class InferenceClient:
         '{\n\n"activity": "bike ride",\n"animals": ["puppy", "cat", "raccoon"],\n"animals_seen": 3,\n"location": "park"}'
         ```
         """
-        model_url = self._resolve_chat_completion_url(model)
+        # Get the provider helper
+        provider_helper = get_provider_helper(self.provider, task="conversational")
 
-        # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
-        # If it's a ID on the Hub => use it. Otherwise, we use a random string.
-        model_id = model or self.model or "tgi"
-        if model_id.startswith(("http://", "https://")):
-            model_id = "tgi"  # dummy value
+        # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
+        # `self.base_url` and `self.model` takes precedence over 'model' argument for building URL.
+        # `model` takes precedence for payload value.
+        model_id_or_url = self.base_url or self.model or model
+        payload_model = model or self.model
 
-        payload = dict(
-            model=model_id,
-            messages=messages,
-            frequency_penalty=frequency_penalty,
-            logit_bias=logit_bias,
-            logprobs=logprobs,
-            max_tokens=max_tokens,
-            n=n,
-            presence_penalty=presence_penalty,
-            response_format=response_format,
-            seed=seed,
-            stop=stop,
-            temperature=temperature,
-            tool_choice=tool_choice,
-            tool_prompt=tool_prompt,
-            tools=tools,
-            top_logprobs=top_logprobs,
-            top_p=top_p,
-            stream=stream,
-            stream_options=stream_options,
+        # Prepare the payload
+        parameters = {
+            "model": payload_model,
+            "frequency_penalty": frequency_penalty,
+            "logit_bias": logit_bias,
+            "logprobs": logprobs,
+            "max_tokens": max_tokens,
+            "n": n,
+            "presence_penalty": presence_penalty,
+            "response_format": response_format,
+            "seed": seed,
+            "stop": stop,
+            "temperature": temperature,
+            "tool_choice": tool_choice,
+            "tool_prompt": tool_prompt,
+            "tools": tools,
+            "top_logprobs": top_logprobs,
+            "top_p": top_p,
+            "stream": stream,
+            "stream_options": stream_options,
+        }
+        request_parameters = provider_helper.prepare_request(
+            inputs=messages,
+            parameters=parameters,
+            headers=self.headers,
+            model=model_id_or_url,
+            api_key=self.token,
         )
-        payload = {key: value for key, value in payload.items() if value is not None}
-        data = self.post(model=model_url, json=payload, stream=stream)
+        data = self._inner_post(request_parameters, stream=stream)
 
         if stream:
             return _stream_chat_completion_response(data)  # type: ignore[arg-type]
 
         return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
-
-    def _resolve_chat_completion_url(self, model: Optional[str] = None) -> str:
-        # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
-        # `self.base_url` and `self.model` takes precedence over 'model' argument only in `chat_completion`.
-        model_id_or_url = self.base_url or self.model or model or self.get_recommended_model("text-generation")
-
-        # Resolve URL if it's a model ID
-        model_url = (
-            model_id_or_url
-            if model_id_or_url.startswith(("http://", "https://"))
-            else self._resolve_url(model_id_or_url, task="text-generation")
-        )
-
-        # Strip trailing /
-        model_url = model_url.rstrip("/")
-
-        # Append /chat/completions if not already present
-        if model_url.endswith("/v1"):
-            model_url += "/chat/completions"
-
-        # Append /v1/chat/completions if not already present
-        if not model_url.endswith("/chat/completions"):
-            model_url += "/v1/chat/completions"
-
-        return model_url
 
     def document_question_answering(
         self,
@@ -987,18 +1010,24 @@ class InferenceClient:
         ```
         """
         inputs: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
-        parameters = {
-            "doc_stride": doc_stride,
-            "handle_impossible_answer": handle_impossible_answer,
-            "lang": lang,
-            "max_answer_len": max_answer_len,
-            "max_question_len": max_question_len,
-            "max_seq_len": max_seq_len,
-            "top_k": top_k,
-            "word_boxes": word_boxes,
-        }
-        payload = _prepare_payload(inputs, parameters=parameters)
-        response = self.post(**payload, model=model, task="document-question-answering")
+        provider_helper = get_provider_helper(self.provider, task="document-question-answering")
+        request_parameters = provider_helper.prepare_request(
+            inputs=inputs,
+            parameters={
+                "doc_stride": doc_stride,
+                "handle_impossible_answer": handle_impossible_answer,
+                "lang": lang,
+                "max_answer_len": max_answer_len,
+                "max_question_len": max_question_len,
+                "max_seq_len": max_seq_len,
+                "top_k": top_k,
+                "word_boxes": word_boxes,
+            },
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         return DocumentQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
     def feature_extraction(
@@ -1056,14 +1085,20 @@ class InferenceClient:
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
         ```
         """
-        parameters = {
-            "normalize": normalize,
-            "prompt_name": prompt_name,
-            "truncate": truncate,
-            "truncation_direction": truncation_direction,
-        }
-        payload = _prepare_payload(text, parameters=parameters)
-        response = self.post(**payload, model=model, task="feature-extraction")
+        provider_helper = get_provider_helper(self.provider, task="feature-extraction")
+        request_parameters = provider_helper.prepare_request(
+            inputs=text,
+            parameters={
+                "normalize": normalize,
+                "prompt_name": prompt_name,
+                "truncate": truncate,
+                "truncation_direction": truncation_direction,
+            },
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
 
@@ -1111,9 +1146,15 @@ class InferenceClient:
         ]
         ```
         """
-        parameters = {"targets": targets, "top_k": top_k}
-        payload = _prepare_payload(text, parameters=parameters)
-        response = self.post(**payload, model=model, task="fill-mask")
+        provider_helper = get_provider_helper(self.provider, task="fill-mask")
+        request_parameters = provider_helper.prepare_request(
+            inputs=text,
+            parameters={"targets": targets, "top_k": top_k},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         return FillMaskOutputElement.parse_obj_as_list(response)
 
     def image_classification(
@@ -1154,9 +1195,15 @@ class InferenceClient:
         [ImageClassificationOutputElement(label='Blenheim spaniel', score=0.9779096841812134), ...]
         ```
         """
-        parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
-        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
-        response = self.post(**payload, model=model, task="image-classification")
+        provider_helper = get_provider_helper(self.provider, task="image-classification")
+        request_parameters = provider_helper.prepare_request(
+            inputs=image,
+            parameters={"function_to_apply": function_to_apply, "top_k": top_k},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         return ImageClassificationOutputElement.parse_obj_as_list(response)
 
     def image_segmentation(
@@ -1209,14 +1256,20 @@ class InferenceClient:
         [ImageSegmentationOutputElement(score=0.989008, label='LABEL_184', mask=<PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>), ...]
         ```
         """
-        parameters = {
-            "mask_threshold": mask_threshold,
-            "overlap_mask_area_threshold": overlap_mask_area_threshold,
-            "subtask": subtask,
-            "threshold": threshold,
-        }
-        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
-        response = self.post(**payload, model=model, task="image-segmentation")
+        provider_helper = get_provider_helper(self.provider, task="audio-classification")
+        request_parameters = provider_helper.prepare_request(
+            inputs=image,
+            parameters={
+                "mask_threshold": mask_threshold,
+                "overlap_mask_area_threshold": overlap_mask_area_threshold,
+                "subtask": subtask,
+                "threshold": threshold,
+            },
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
             item.mask = _b64_to_image(item.mask)  # type: ignore [assignment]
@@ -1227,7 +1280,7 @@ class InferenceClient:
         image: ContentT,
         prompt: Optional[str] = None,
         *,
-        negative_prompt: Optional[List[str]] = None,
+        negative_prompt: Optional[str] = None,
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
         model: Optional[str] = None,
@@ -1248,8 +1301,8 @@ class InferenceClient:
                 The input image for translation. It can be raw bytes, an image file, or a URL to an online image.
             prompt (`str`, *optional*):
                 The text prompt to guide the image generation.
-            negative_prompt (`List[str]`, *optional*):
-                One or several prompt to guide what NOT to include in image generation.
+            negative_prompt (`str`, *optional*):
+                One prompt to guide what NOT to include in image generation.
             num_inference_steps (`int`, *optional*):
                 For diffusion models. The number of denoising steps. More denoising steps usually lead to a higher
                 quality image at the expense of slower inference.
@@ -1279,16 +1332,22 @@ class InferenceClient:
         >>> image.save("tiger.jpg")
         ```
         """
-        parameters = {
-            "prompt": prompt,
-            "negative_prompt": negative_prompt,
-            "target_size": target_size,
-            "num_inference_steps": num_inference_steps,
-            "guidance_scale": guidance_scale,
-            **kwargs,
-        }
-        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
-        response = self.post(**payload, model=model, task="image-to-image")
+        provider_helper = get_provider_helper(self.provider, task="image-to-image")
+        request_parameters = provider_helper.prepare_request(
+            inputs=image,
+            parameters={
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "target_size": target_size,
+                "num_inference_steps": num_inference_steps,
+                "guidance_scale": guidance_scale,
+                **kwargs,
+            },
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         return _bytes_to_image(response)
 
     def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> ImageToTextOutput:
@@ -1324,92 +1383,17 @@ class InferenceClient:
         'a dog laying on the grass next to a flower pot '
         ```
         """
-        response = self.post(data=image, model=model, task="image-to-text")
+        provider_helper = get_provider_helper(self.provider, task="image-to-text")
+        request_parameters = provider_helper.prepare_request(
+            inputs=image,
+            parameters={},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         output = ImageToTextOutput.parse_obj(response)
         return output[0] if isinstance(output, list) else output
-
-    def list_deployed_models(
-        self, frameworks: Union[None, str, Literal["all"], List[str]] = None
-    ) -> Dict[str, List[str]]:
-        """
-        List models deployed on the Serverless Inference API service.
-
-        This helper checks deployed models framework by framework. By default, it will check the 4 main frameworks that
-        are supported and account for 95% of the hosted models. However, if you want a complete list of models you can
-        specify `frameworks="all"` as input. Alternatively, if you know before-hand which framework you are interested
-        in, you can also restrict to search to this one (e.g. `frameworks="text-generation-inference"`). The more
-        frameworks are checked, the more time it will take.
-
-        <Tip warning={true}>
-
-        This endpoint method does not return a live list of all models available for the Serverless Inference API service.
-        It searches over a cached list of models that were recently available and the list may not be up to date.
-        If you want to know the live status of a specific model, use [`~InferenceClient.get_model_status`].
-
-        </Tip>
-
-        <Tip>
-
-        This endpoint method is mostly useful for discoverability. If you already know which model you want to use and want to
-        check its availability, you can directly use [`~InferenceClient.get_model_status`].
-
-        </Tip>
-
-        Args:
-            frameworks (`Literal["all"]` or `List[str]` or `str`, *optional*):
-                The frameworks to filter on. By default only a subset of the available frameworks are tested. If set to
-                "all", all available frameworks will be tested. It is also possible to provide a single framework or a
-                custom set of frameworks to check.
-
-        Returns:
-            `Dict[str, List[str]]`: A dictionary mapping task names to a sorted list of model IDs.
-
-        Example:
-        ```python
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-
-        # Discover zero-shot-classification models currently deployed
-        >>> models = client.list_deployed_models()
-        >>> models["zero-shot-classification"]
-        ['Narsil/deberta-large-mnli-zero-cls', 'facebook/bart-large-mnli', ...]
-
-        # List from only 1 framework
-        >>> client.list_deployed_models("text-generation-inference")
-        {'text-generation': ['bigcode/starcoder', 'meta-llama/Llama-2-70b-chat-hf', ...], ...}
-        ```
-        """
-        # Resolve which frameworks to check
-        if frameworks is None:
-            frameworks = MAIN_INFERENCE_API_FRAMEWORKS
-        elif frameworks == "all":
-            frameworks = ALL_INFERENCE_API_FRAMEWORKS
-        elif isinstance(frameworks, str):
-            frameworks = [frameworks]
-        frameworks = list(set(frameworks))
-
-        # Fetch them iteratively
-        models_by_task: Dict[str, List[str]] = {}
-
-        def _unpack_response(framework: str, items: List[Dict]) -> None:
-            for model in items:
-                if framework == "sentence-transformers":
-                    # Model running with the `sentence-transformers` framework can work with both tasks even if not
-                    # branded as such in the API response
-                    models_by_task.setdefault("feature-extraction", []).append(model["model_id"])
-                    models_by_task.setdefault("sentence-similarity", []).append(model["model_id"])
-                else:
-                    models_by_task.setdefault(model["task"], []).append(model["model_id"])
-
-        for framework in frameworks:
-            response = get_session().get(f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=self.headers)
-            hf_raise_for_status(response)
-            _unpack_response(framework, response.json())
-
-        # Sort alphabetically for discoverability and return
-        for task, models in models_by_task.items():
-            models_by_task[task] = sorted(set(models), key=lambda x: x.lower())
-        return models_by_task
 
     def object_detection(
         self, image: ContentT, *, model: Optional[str] = None, threshold: Optional[float] = None
@@ -1450,11 +1434,15 @@ class InferenceClient:
         [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=ObjectDetectionBoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
         ```
         """
-        parameters = {
-            "threshold": threshold,
-        }
-        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
-        response = self.post(**payload, model=model, task="object-detection")
+        provider_helper = get_provider_helper(self.provider, task="object-detection")
+        request_parameters = provider_helper.prepare_request(
+            inputs=image,
+            parameters={"threshold": threshold},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         return ObjectDetectionOutputElement.parse_obj_as_list(response)
 
     def question_answering(
@@ -1519,22 +1507,24 @@ class InferenceClient:
         QuestionAnsweringOutputElement(answer='Clara', end=16, score=0.9326565265655518, start=11)
         ```
         """
-        parameters = {
-            "align_to_words": align_to_words,
-            "doc_stride": doc_stride,
-            "handle_impossible_answer": handle_impossible_answer,
-            "max_answer_len": max_answer_len,
-            "max_question_len": max_question_len,
-            "max_seq_len": max_seq_len,
-            "top_k": top_k,
-        }
-        inputs: Dict[str, Any] = {"question": question, "context": context}
-        payload = _prepare_payload(inputs, parameters=parameters)
-        response = self.post(
-            **payload,
-            model=model,
-            task="question-answering",
+        provider_helper = get_provider_helper(self.provider, task="question-answering")
+        request_parameters = provider_helper.prepare_request(
+            inputs=None,
+            parameters={
+                "align_to_words": align_to_words,
+                "doc_stride": doc_stride,
+                "handle_impossible_answer": handle_impossible_answer,
+                "max_answer_len": max_answer_len,
+                "max_question_len": max_question_len,
+                "max_seq_len": max_seq_len,
+                "top_k": top_k,
+            },
+            extra_payload={"question": question, "context": context},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
         )
+        response = self._inner_post(request_parameters)
         # Parse the response as a single `QuestionAnsweringOutputElement` when top_k is 1 or not provided, or a list of `QuestionAnsweringOutputElement` to ensure backward compatibility.
         output = QuestionAnsweringOutputElement.parse_obj(response)
         return output
@@ -1579,11 +1569,16 @@ class InferenceClient:
         [0.7785726189613342, 0.45876261591911316, 0.2906220555305481]
         ```
         """
-        response = self.post(
-            json={"inputs": {"source_sentence": sentence, "sentences": other_sentences}},
-            model=model,
-            task="sentence-similarity",
+        provider_helper = get_provider_helper(self.provider, task="sentence-similarity")
+        request_parameters = provider_helper.prepare_request(
+            inputs=None,
+            parameters={},
+            extra_payload={"source_sentence": sentence, "sentences": other_sentences},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
         )
+        response = self._inner_post(request_parameters)
         return _bytes_to_list(response)
 
     @_deprecate_arguments(
@@ -1645,8 +1640,15 @@ class InferenceClient:
                 "generate_parameters": generate_parameters,
                 "truncation": truncation,
             }
-        payload = _prepare_payload(text, parameters=parameters)
-        response = self.post(**payload, model=model, task="summarization")
+        provider_helper = get_provider_helper(self.provider, task="summarization")
+        request_parameters = provider_helper.prepare_request(
+            inputs=text,
+            parameters=parameters,
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         return SummarizationOutput.parse_obj_as_list(response)[0]
 
     def table_question_answering(
@@ -1699,21 +1701,16 @@ class InferenceClient:
         TableQuestionAnsweringOutputElement(answer='36542', coordinates=[[0, 1]], cells=['36542'], aggregator='AVERAGE')
         ```
         """
-        parameters = {
-            "padding": padding,
-            "sequential": sequential,
-            "truncation": truncation,
-        }
-        inputs = {
-            "query": query,
-            "table": table,
-        }
-        payload = _prepare_payload(inputs, parameters=parameters)
-        response = self.post(
-            **payload,
-            model=model,
-            task="table-question-answering",
+        provider_helper = get_provider_helper(self.provider, task="table-question-answering")
+        request_parameters = provider_helper.prepare_request(
+            inputs=None,
+            parameters={"model": model, "padding": padding, "sequential": sequential, "truncation": truncation},
+            extra_payload={"query": query, "table": table},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
         )
+        response = self._inner_post(request_parameters)
         return TableQuestionAnsweringOutputElement.parse_obj_as_instance(response)
 
     def tabular_classification(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[str]:
@@ -1758,11 +1755,16 @@ class InferenceClient:
         ["5", "5", "5"]
         ```
         """
-        response = self.post(
-            json={"table": table},
-            model=model,
-            task="tabular-classification",
+        provider_helper = get_provider_helper(self.provider, task="tabular-classification")
+        request_parameters = provider_helper.prepare_request(
+            inputs=None,
+            extra_payload={"table": table},
+            parameters={},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
         )
+        response = self._inner_post(request_parameters)
         return _bytes_to_list(response)
 
     def tabular_regression(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[float]:
@@ -1802,7 +1804,16 @@ class InferenceClient:
         [110, 120, 130]
         ```
         """
-        response = self.post(json={"table": table}, model=model, task="tabular-regression")
+        provider_helper = get_provider_helper(self.provider, task="tabular-regression")
+        request_parameters = provider_helper.prepare_request(
+            inputs=None,
+            parameters={},
+            extra_payload={"table": table},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         return _bytes_to_list(response)
 
     def text_classification(
@@ -1848,16 +1859,18 @@ class InferenceClient:
         ]
         ```
         """
-        parameters = {
-            "function_to_apply": function_to_apply,
-            "top_k": top_k,
-        }
-        payload = _prepare_payload(text, parameters=parameters)
-        response = self.post(
-            **payload,
-            model=model,
-            task="text-classification",
+        provider_helper = get_provider_helper(self.provider, task="text-classification")
+        request_parameters = provider_helper.prepare_request(
+            inputs=text,
+            parameters={
+                "function_to_apply": function_to_apply,
+                "top_k": top_k,
+            },
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
         )
+        response = self._inner_post(request_parameters)
         return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
@@ -2272,12 +2285,6 @@ class InferenceClient:
             "typical_p": typical_p,
             "watermark": watermark,
         }
-        parameters = {k: v for k, v in parameters.items() if v is not None}
-        payload = {
-            "inputs": prompt,
-            "parameters": parameters,
-            "stream": stream,
-        }
 
         # Remove some parameters if not a TGI server
         unsupported_kwargs = _get_unsupported_text_generation_kwargs(model)
@@ -2310,9 +2317,19 @@ class InferenceClient:
                     " Please pass `stream=False` as input."
                 )
 
+        provider_helper = get_provider_helper(self.provider, task="text-generation")
+        request_parameters = provider_helper.prepare_request(
+            inputs=prompt,
+            parameters=parameters,
+            extra_payload={"stream": stream},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+
         # Handle errors separately for more precise error messages
         try:
-            bytes_output = self.post(json=payload, model=model, task="text-generation", stream=stream)  # type: ignore
+            bytes_output = self._inner_post(request_parameters, stream=stream)
         except HTTPError as e:
             match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
             if isinstance(e, BadRequestError) and match:
@@ -2322,7 +2339,7 @@ class InferenceClient:
                     prompt=prompt,
                     details=details,
                     stream=stream,
-                    model=model,
+                    model=model or self.model,
                     adapter_id=adapter_id,
                     best_of=best_of,
                     decoder_input_details=decoder_input_details,
@@ -2360,7 +2377,7 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        negative_prompt: Optional[List[str]] = None,
+        negative_prompt: Optional[str] = None,
         height: Optional[float] = None,
         width: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
@@ -2383,8 +2400,8 @@ class InferenceClient:
         Args:
             prompt (`str`):
                 The prompt to generate an image from.
-            negative_prompt (`List[str`, *optional*):
-                One or several prompt to guide what NOT to include in image generation.
+            negative_prompt (`str`, *optional*):
+                One prompt to guide what NOT to include in image generation.
             height (`float`, *optional*):
                 The height in pixels of the image to generate.
             width (`float`, *optional*):
@@ -2431,20 +2448,26 @@ class InferenceClient:
         >>> image.save("better_astronaut.png")
         ```
         """
-
-        parameters = {
-            "negative_prompt": negative_prompt,
-            "height": height,
-            "width": width,
-            "num_inference_steps": num_inference_steps,
-            "guidance_scale": guidance_scale,
-            "scheduler": scheduler,
-            "target_size": target_size,
-            "seed": seed,
-            **kwargs,
-        }
-        payload = _prepare_payload(prompt, parameters=parameters)
-        response = self.post(**payload, model=model, task="text-to-image")
+        provider_helper = get_provider_helper(self.provider, task="text-to-image")
+        request_parameters = provider_helper.prepare_request(
+            inputs=prompt,
+            parameters={
+                "negative_prompt": negative_prompt,
+                "height": height,
+                "width": width,
+                "num_inference_steps": num_inference_steps,
+                "guidance_scale": guidance_scale,
+                "scheduler": scheduler,
+                "target_size": target_size,
+                "seed": seed,
+                **kwargs,
+            },
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
+        response = provider_helper.get_response(response)
         return _bytes_to_image(response)
 
     def text_to_speech(
@@ -2545,26 +2568,32 @@ class InferenceClient:
         >>> Path("hello_world.flac").write_bytes(audio)
         ```
         """
-        parameters = {
-            "do_sample": do_sample,
-            "early_stopping": early_stopping,
-            "epsilon_cutoff": epsilon_cutoff,
-            "eta_cutoff": eta_cutoff,
-            "max_length": max_length,
-            "max_new_tokens": max_new_tokens,
-            "min_length": min_length,
-            "min_new_tokens": min_new_tokens,
-            "num_beam_groups": num_beam_groups,
-            "num_beams": num_beams,
-            "penalty_alpha": penalty_alpha,
-            "temperature": temperature,
-            "top_k": top_k,
-            "top_p": top_p,
-            "typical_p": typical_p,
-            "use_cache": use_cache,
-        }
-        payload = _prepare_payload(text, parameters=parameters)
-        response = self.post(**payload, model=model, task="text-to-speech")
+        provider_helper = get_provider_helper(self.provider, task="text-to-speech")
+        request_parameters = provider_helper.prepare_request(
+            inputs=text,
+            parameters={
+                "do_sample": do_sample,
+                "early_stopping": early_stopping,
+                "epsilon_cutoff": epsilon_cutoff,
+                "eta_cutoff": eta_cutoff,
+                "max_length": max_length,
+                "max_new_tokens": max_new_tokens,
+                "min_length": min_length,
+                "min_new_tokens": min_new_tokens,
+                "num_beam_groups": num_beam_groups,
+                "num_beams": num_beams,
+                "penalty_alpha": penalty_alpha,
+                "temperature": temperature,
+                "top_k": top_k,
+                "top_p": top_p,
+                "typical_p": typical_p,
+                "use_cache": use_cache,
+            },
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         return response
 
     def token_classification(
@@ -2626,18 +2655,19 @@ class InferenceClient:
         ]
         ```
         """
-
-        parameters = {
-            "aggregation_strategy": aggregation_strategy,
-            "ignore_labels": ignore_labels,
-            "stride": stride,
-        }
-        payload = _prepare_payload(text, parameters=parameters)
-        response = self.post(
-            **payload,
-            model=model,
-            task="token-classification",
+        provider_helper = get_provider_helper(self.provider, task="token-classification")
+        request_parameters = provider_helper.prepare_request(
+            inputs=text,
+            parameters={
+                "aggregation_strategy": aggregation_strategy,
+                "ignore_labels": ignore_labels,
+                "stride": stride,
+            },
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
         )
+        response = self._inner_post(request_parameters)
         return TokenClassificationOutputElement.parse_obj_as_list(response)
 
     def translation(
@@ -2710,15 +2740,22 @@ class InferenceClient:
 
         if src_lang is None and tgt_lang is not None:
             raise ValueError("You cannot specify `tgt_lang` without specifying `src_lang`.")
-        parameters = {
-            "src_lang": src_lang,
-            "tgt_lang": tgt_lang,
-            "clean_up_tokenization_spaces": clean_up_tokenization_spaces,
-            "truncation": truncation,
-            "generate_parameters": generate_parameters,
-        }
-        payload = _prepare_payload(text, parameters=parameters)
-        response = self.post(**payload, model=model, task="translation")
+
+        provider_helper = get_provider_helper(self.provider, task="translation")
+        request_parameters = provider_helper.prepare_request(
+            inputs=text,
+            parameters={
+                "src_lang": src_lang,
+                "tgt_lang": tgt_lang,
+                "clean_up_tokenization_spaces": clean_up_tokenization_spaces,
+                "truncation": truncation,
+                "generate_parameters": generate_parameters,
+            },
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
         return TranslationOutput.parse_obj_as_list(response)[0]
 
     def visual_question_answering(
@@ -2767,10 +2804,16 @@ class InferenceClient:
         ]
         ```
         """
-        payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
-        if top_k is not None:
-            payload.setdefault("parameters", {})["top_k"] = top_k
-        response = self.post(json=payload, model=model, task="visual-question-answering")
+        provider_helper = get_provider_helper(self.provider, task="visual-question-answering")
+        request_parameters = provider_helper.prepare_request(
+            inputs=image,
+            parameters={"top_k": top_k},
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
+            extra_payload={"question": question, "image": _b64_encode(image)},
+        )
+        response = self._inner_post(request_parameters)
         return VisualQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
     @_deprecate_arguments(
@@ -2876,17 +2919,20 @@ class InferenceClient:
             candidate_labels = labels
         elif candidate_labels is None:
             raise ValueError("Must specify `candidate_labels`")
-        parameters = {
-            "candidate_labels": candidate_labels,
-            "multi_label": multi_label,
-            "hypothesis_template": hypothesis_template,
-        }
-        payload = _prepare_payload(text, parameters=parameters)
-        response = self.post(
-            **payload,
-            task="zero-shot-classification",
-            model=model,
+
+        provider_helper = get_provider_helper(self.provider, task="zero-shot-classification")
+        request_parameters = provider_helper.prepare_request(
+            inputs=text,
+            parameters={
+                "candidate_labels": candidate_labels,
+                "multi_label": multi_label,
+                "hypothesis_template": hypothesis_template,
+            },
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
         )
+        response = self._inner_post(request_parameters)
         output = _bytes_to_dict(response)
         return [
             ZeroShotClassificationOutputElement.parse_obj_as_instance({"label": label, "score": score})
@@ -2959,71 +3005,108 @@ class InferenceClient:
         # Raise ValueError if input is less than 2 labels
         if len(candidate_labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare.")
-        parameters = {
-            "candidate_labels": candidate_labels,
-            "hypothesis_template": hypothesis_template,
-        }
-        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
-        response = self.post(
-            **payload,
-            model=model,
-            task="zero-shot-image-classification",
+
+        provider_helper = get_provider_helper(self.provider, task="zero-shot-image-classification")
+        request_parameters = provider_helper.prepare_request(
+            inputs=image,
+            parameters={
+                "candidate_labels": candidate_labels,
+                "hypothesis_template": hypothesis_template,
+            },
+            headers=self.headers,
+            model=model or self.model,
+            api_key=self.token,
         )
+        response = self._inner_post(request_parameters)
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
-    def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
-        model = model or self.model or self.base_url
-
-        # If model is already a URL, ignore `task` and return directly
-        if model is not None and (model.startswith("http://") or model.startswith("https://")):
-            return model
-
-        # # If no model but task is set => fetch the recommended one for this task
-        if model is None:
-            if task is None:
-                raise ValueError(
-                    "You must specify at least a model (repo_id or URL) or a task, either when instantiating"
-                    " `InferenceClient` or when making a request."
-                )
-            model = self.get_recommended_model(task)
-            logger.info(
-                f"Using recommended model {model} for task {task}. Note that it is"
-                f" encouraged to explicitly set `model='{model}'` as the recommended"
-                " models list might get updated without prior notice."
-            )
-
-        # Compute InferenceAPI url
-        return (
-            # Feature-extraction and sentence-similarity are the only cases where we handle models with several tasks.
-            f"{INFERENCE_ENDPOINT}/pipeline/{task}/{model}"
-            if task in ("feature-extraction", "sentence-similarity")
-            # Otherwise, we use the default endpoint
-            else f"{INFERENCE_ENDPOINT}/models/{model}"
-        )
-
-    @staticmethod
-    def get_recommended_model(task: str) -> str:
+    def list_deployed_models(
+        self, frameworks: Union[None, str, Literal["all"], List[str]] = None
+    ) -> Dict[str, List[str]]:
         """
-        Get the model Hugging Face recommends for the input task.
+        List models deployed on the Serverless Inference API service.
+
+        This helper checks deployed models framework by framework. By default, it will check the 4 main frameworks that
+        are supported and account for 95% of the hosted models. However, if you want a complete list of models you can
+        specify `frameworks="all"` as input. Alternatively, if you know before-hand which framework you are interested
+        in, you can also restrict to search to this one (e.g. `frameworks="text-generation-inference"`). The more
+        frameworks are checked, the more time it will take.
+
+        <Tip warning={true}>
+
+        This endpoint method does not return a live list of all models available for the Serverless Inference API service.
+        It searches over a cached list of models that were recently available and the list may not be up to date.
+        If you want to know the live status of a specific model, use [`~InferenceClient.get_model_status`].
+
+        </Tip>
+
+        <Tip>
+
+        This endpoint method is mostly useful for discoverability. If you already know which model you want to use and want to
+        check its availability, you can directly use [`~InferenceClient.get_model_status`].
+
+        </Tip>
 
         Args:
-            task (`str`):
-                The Hugging Face task to get which model Hugging Face recommends.
-                All available tasks can be found [here](https://huggingface.co/tasks).
+            frameworks (`Literal["all"]` or `List[str]` or `str`, *optional*):
+                The frameworks to filter on. By default only a subset of the available frameworks are tested. If set to
+                "all", all available frameworks will be tested. It is also possible to provide a single framework or a
+                custom set of frameworks to check.
 
         Returns:
-            `str`: Name of the model recommended for the input task.
+            `Dict[str, List[str]]`: A dictionary mapping task names to a sorted list of model IDs.
 
-        Raises:
-            `ValueError`: If Hugging Face has no recommendation for the input task.
+        Example:
+        ```python
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+
+        # Discover zero-shot-classification models currently deployed
+        >>> models = client.list_deployed_models()
+        >>> models["zero-shot-classification"]
+        ['Narsil/deberta-large-mnli-zero-cls', 'facebook/bart-large-mnli', ...]
+
+        # List from only 1 framework
+        >>> client.list_deployed_models("text-generation-inference")
+        {'text-generation': ['bigcode/starcoder', 'meta-llama/Llama-2-70b-chat-hf', ...], ...}
+        ```
         """
-        model = _fetch_recommended_models().get(task)
-        if model is None:
-            raise ValueError(
-                f"Task {task} has no recommended model. Please specify a model"
-                " explicitly. Visit https://huggingface.co/tasks for more info."
+        if self.provider != "hf-inference":
+            raise ValueError(f"Listing deployed models is not supported on '{self.provider}'.")
+
+        # Resolve which frameworks to check
+        if frameworks is None:
+            frameworks = MAIN_INFERENCE_API_FRAMEWORKS
+        elif frameworks == "all":
+            frameworks = ALL_INFERENCE_API_FRAMEWORKS
+        elif isinstance(frameworks, str):
+            frameworks = [frameworks]
+        frameworks = list(set(frameworks))
+
+        # Fetch them iteratively
+        models_by_task: Dict[str, List[str]] = {}
+
+        def _unpack_response(framework: str, items: List[Dict]) -> None:
+            for model in items:
+                if framework == "sentence-transformers":
+                    # Model running with the `sentence-transformers` framework can work with both tasks even if not
+                    # branded as such in the API response
+                    models_by_task.setdefault("feature-extraction", []).append(model["model_id"])
+                    models_by_task.setdefault("sentence-similarity", []).append(model["model_id"])
+                else:
+                    models_by_task.setdefault(model["task"], []).append(model["model_id"])
+
+        for framework in frameworks:
+            response = get_session().get(
+                f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
             )
-        return model
+            hf_raise_for_status(response)
+            _unpack_response(framework, response.json())
+
+        # Sort alphabetically for discoverability and return
+        for task, models in models_by_task.items():
+            models_by_task[task] = sorted(set(models), key=lambda x: x.lower())
+        return models_by_task
 
     def get_endpoint_info(self, *, model: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -3068,6 +3151,9 @@ class InferenceClient:
         }
         ```
         """
+        if self.provider != "hf-inference":
+            raise ValueError(f"Getting endpoint info is not supported on '{self.provider}'.")
+
         model = model or self.model
         if model is None:
             raise ValueError("Model id not provided.")
@@ -3076,7 +3162,7 @@ class InferenceClient:
         else:
             url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
 
-        response = get_session().get(url, headers=self.headers)
+        response = get_session().get(url, headers=build_hf_headers(token=self.token))
         hf_raise_for_status(response)
         return response.json()
 
@@ -3102,6 +3188,9 @@ class InferenceClient:
         True
         ```
         """
+        if self.provider != "hf-inference":
+            raise ValueError(f"Health check is not supported on '{self.provider}'.")
+
         model = model or self.model
         if model is None:
             raise ValueError("Model id not provided.")
@@ -3111,7 +3200,7 @@ class InferenceClient:
             )
         url = model.rstrip("/") + "/health"
 
-        response = get_session().get(url, headers=self.headers)
+        response = get_session().get(url, headers=build_hf_headers(token=self.token))
         return response.status_code == 200
 
     def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
@@ -3144,6 +3233,9 @@ class InferenceClient:
         ModelStatus(loaded=True, state='Loaded', compute_type='gpu', framework='text-generation-inference')
         ```
         """
+        if self.provider != "hf-inference":
+            raise ValueError(f"Getting model status is not supported on '{self.provider}'.")
+
         model = model or self.model
         if model is None:
             raise ValueError("Model id not provided.")
@@ -3151,7 +3243,7 @@ class InferenceClient:
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
         url = f"{INFERENCE_ENDPOINT}/status/{model}"
 
-        response = get_session().get(url, headers=self.headers)
+        response = get_session().get(url, headers=build_hf_headers(token=self.token))
         hf_raise_for_status(response)
         response_data = response.json()
 

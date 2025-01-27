@@ -1,50 +1,50 @@
 interactions:
 - request:
     body: null
-    headers:
-      user-agent:
-      - unknown/None; hf_hub/0.25.0.dev0; python/3.10.12; torch/2.3.1; tensorflow/2.17.0;
-        fastcore/1.5.23
+    headers: {}
     method: POST
     uri: https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions
   response:
     body:
-      string: 'data:{"id":"","object":"text_completion","created":1724071633,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"Deep"},"logprobs":null,"finish_reason":null}]}
+      string: 'data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"Deep"},"logprobs":null,"finish_reason":null}],"usage":null}
 
 
-        data:{"id":"","object":"text_completion","created":1724071633,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
-        learning"},"logprobs":null,"finish_reason":null}]}
+        data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        Learning"},"logprobs":null,"finish_reason":null}],"usage":null}
 
 
-        data:{"id":"","object":"text_completion","created":1724071633,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
-        is"},"logprobs":null,"finish_reason":null}]}
+        data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        is"},"logprobs":null,"finish_reason":null}],"usage":null}
 
 
-        data:{"id":"","object":"text_completion","created":1724071633,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
-        a"},"logprobs":null,"finish_reason":null}]}
+        data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        a"},"logprobs":null,"finish_reason":null}],"usage":null}
 
 
-        data:{"id":"","object":"text_completion","created":1724071633,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
-        sub"},"logprobs":null,"finish_reason":null}]}
+        data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        sub"},"logprobs":null,"finish_reason":null}],"usage":null}
 
 
-        data:{"id":"","object":"text_completion","created":1724071633,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"field"},"logprobs":null,"finish_reason":null}]}
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"field"},"logprobs":null,"finish_reason":null}],"usage":null}
 
 
-        data:{"id":"","object":"text_completion","created":1724071633,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
-        of"},"logprobs":null,"finish_reason":null}]}
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        of"},"logprobs":null,"finish_reason":null}],"usage":null}
 
 
-        data:{"id":"","object":"text_completion","created":1724071633,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
-        machine"},"logprobs":null,"finish_reason":null}]}
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        machine"},"logprobs":null,"finish_reason":null}],"usage":null}
 
 
-        data:{"id":"","object":"text_completion","created":1724071633,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
-        learning"},"logprobs":null,"finish_reason":null}]}
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        learning"},"logprobs":null,"finish_reason":null}],"usage":null}
 
 
-        data:{"id":"","object":"text_completion","created":1724071633,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
-        that"},"logprobs":null,"finish_reason":"length"}]}
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        that"},"logprobs":null,"finish_reason":"length"}],"usage":null}
+
+
+        data: [DONE]
 
 
         '
@@ -54,19 +54,166 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '2526'
+      - '2740'
       Content-Type:
       - text/event-stream
       Date:
-      - Mon, 19 Aug 2024 13:01:29 GMT
+      - Wed, 22 Jan 2025 17:13:49 GMT
       Vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
       x-compute-type:
       - cache
       x-request-id:
-      - w9oS4KSPCoEAOi6QV7-cX
+      - Qld_TNrCGull9a7UbIVYF
       x-sha:
-      - b70e0c9a2d9e14bd1e812d3c398e5f313e93b473
+      - 892b3d7a7b1cf10c7a701c60881cd93df615734c
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions
+  response:
+    body:
+      string: 'data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"Deep"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        Learning"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        is"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        a"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        sub"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"field"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        of"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        machine"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        learning"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        that"},"logprobs":null,"finish_reason":"length"}],"usage":null}
+
+
+        data: [DONE]
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '2740'
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 22 Jan 2025 17:14:30 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
+      x-compute-type:
+      - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /v1/chat/completions
+      x-request-id:
+      - pbbafA
+      x-sha:
+      - 892b3d7a7b1cf10c7a701c60881cd93df615734c
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions
+  response:
+    body:
+      string: 'data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"Deep"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        Learning"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        is"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        a"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        sub"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"field"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        of"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        machine"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        learning"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+
+        data: {"object":"chat.completion.chunk","id":"","created":1737565428,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        that"},"logprobs":null,"finish_reason":"length"}],"usage":null}
+
+
+        data: [DONE]
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '2740'
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 22 Jan 2025 17:28:05 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-type:
+      - cache
+      x-request-id:
+      - 2g_S7nqJzNvGTpWcnXvgS
+      x-sha:
+      - 892b3d7a7b1cf10c7a701c60881cd93df615734c
     status:
       code: 200
       message: OK

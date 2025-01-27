@@ -1,0 +1,196 @@
+interactions:
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+      "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '205'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 3b2cdd60-84e7-4835-8010-1391e64807ac
+    method: POST
+    uri: https://api.together.xyz/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA5RW224bRwx991cQekoMyfUlvr65aREESNzCdp/qIKBmqV02s5wNZ1ayEuTfC85o
+        dbEdFH2RjeWQPDw85Mz3PYARV6MrGF0enh0eTc8uL1x1fn5xcjoamy1M/yGXzO4aTAcutJ2nxEGK
+        2SlhIvM/Oj85Pz19c3F0nA1tqMibW0sJJ95ji798tH8/2L+Tk4OjycWvk/cSk/YuTe57nYYSstPQ
+        dpbx708lRRPYUbQPewAA3/MvwGjGwrH5rIQxiKWiEHOIbI2UYb05Ozm6PL08Ozk9uzg7Ob08PDxc
+        H/Gh7jRMLbT03q+/s1T0OLqCzcmWYsSaRlfr7AAjDd6+jDBGjgklrZMb6iCJJBP3G1EHnlCFpQaO
+        gBD7aaQEYQYtuoaFNvbUYAKWefBzipAagj6SnURNPGPH6EGo1/wnLYJ+ifDq+uYmvoYFpwba3ifu
+        PIHHJWmEFAAF/fIbAUoFLIm0U0pQYcIDuG8o0rOAqAQVRa6FKovQcssugyn96rVEm/XiTAyGz6xN
+        36LAVJFlXOAQuqZAgU6DoxhLkQQsXV9QAAsgNEyK6hp26KFFEdKDB3mQ+4bgCy3BNajoEinHxC5a
+        ymqHWVS6MoejA9jf/7hLw/7+Fez2IQs0ggti3cuteMJcmBW2XBAhl6gCCRVFCAoPI2MsSBw/jGDR
+        sGuG6v5HaceG8ybIxLMQKiRFibOgLRqlGfLvG/aw6zyTiUd+5mKd2k0/BvQ+LAbKc812KrMAZZgf
+        QcmXlA13EaaUFkSyFWlGaB2PBw9yYpg/oNYE2IZeUukDJvwpw0pfe1Zj9QWvDLnIBTN3SxAqmisY
+        DUWHKZFKzJLbBcvlRNbyg7wxdG9D2/Upn0EPXViQ/ic2U7oNF0rKrDzxX6MsCPottKtJXXPZYlJ+
+        hNCRFpjZ5cXas7p3YTVo/JNA7J2padb7oqAFVwSKUpdVYFpwJf4YWJzvK5Z6o/7CASnMOXIQq/99
+        izWBkgu1sHmOoex2qCiRK18i1S1JKX6ckdckq0rWijUxoAePUvcWczPXlueeHhM4b0txtsJocSWx
+        RS67KHIcb/yziP1WzmQhdhJn2d11RK7ZLsHyla+TFCbZLS5jorawPreLA9brOQ4KuQ3TYCvE3N8G
+        SRp8Pi845xqHfaZ2ynxOzedPpYpd4vlqioZquSWIpDaZs6DkMCaWepxRti1JRTpgKsV1W4HQ9oug
+        OMpauAstDZvUNl4i1wh/7SnaHWC7+8nGK52n7b6bHPuVdp9dE2/tmjDYf1m4WVDgrIpMFlcUtno5
+        tPuWXK9qrXsW7vZZuEhfe2s1+tX6ib1rbFZi6d3Q3fUmCVJDbIKmSSJtoaU26BJefbi7//h6nclS
+        XENadpmd25ub1SUZobNL0fUe1S9hQd5PYs/pZTBD99+thDUnwGpOGlF5p6x310/LGrQoNQgtyuKK
+        aAMfCxTMO6Rlj3lX0CNnGWzG/I85KXo/ftJAm3eloWX8zTZfQzBj8tWLrwMj0JxIcOpXpyuakw9d
+        Hq8wgxi6Jl+R9jCD6/frkchIHcpqs1oorLBLhnhYXxnw9jsmheA/O/Q+P8A+rQw/9obf8kbrd15H
+        qyfc5xS+kMT8CCsRR5vn45bxeLCmkNBvGc6P9yzJj38BAAD//wMAsSec0aUKAAA=
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-Ray:
+      - 90601b698cd77835-CDG
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Wed, 22 Jan 2025 14:06:53 GMT
+      ETag:
+      - W/"aa5-nYKDGsWLcuU9C6QjHkmApLWomm4"
+      Retry-After:
+      - '2'
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=15552000; includeSubDomains
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Accept-Encoding
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-api-call-end:
+      - '2025-01-22T14:06:53.319Z'
+      x-api-call-start:
+      - '2025-01-22T14:06:52.578Z'
+      x-api-received:
+      - '2025-01-22T14:06:52.567Z'
+      x-inference-version:
+      - v2
+      x-ratelimit:
+      - 'false'
+      x-ratelimit-limit:
+      - '100'
+      x-ratelimit-limit-tokens:
+      - '1000'
+      x-ratelimit-remaining:
+      - '199'
+      x-ratelimit-remaining-tokens:
+      - '1000'
+      x-ratelimit-reset:
+      - '2'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+      "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '205'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 2ad92466-595e-4647-9e7f-2a5b3c6d86ad
+    method: POST
+    uri: https://api.together.xyz/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        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
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-Ray:
+      - 90602157a9636f5e-CDG
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Wed, 22 Jan 2025 14:10:56 GMT
+      ETag:
+      - W/"d67-nw31QA+XqwscB6p5mudUhjQ3vxE"
+      Retry-After:
+      - '2'
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=15552000; includeSubDomains
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Accept-Encoding
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-api-call-end:
+      - '2025-01-22T14:10:56.647Z'
+      x-api-call-start:
+      - '2025-01-22T14:10:55.503Z'
+      x-api-received:
+      - '2025-01-22T14:10:55.380Z'
+      x-inference-version:
+      - v2
+      x-ratelimit:
+      - 'false'
+      x-ratelimit-limit:
+      - '100'
+      x-ratelimit-limit-tokens:
+      - '1000'
+      x-ratelimit-remaining:
+      - '199'
+      x-ratelimit-remaining-tokens:
+      - '1000'
+      x-ratelimit-reset:
+      - '2'
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -308,3 +308,22 @@ class BadRequestError(HfHubHTTPError, ValueError):
     huggingface_hub.utils._errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
     ```
     """
+
+
+# DDUF file format ERROR
+
+
+class DDUFError(Exception):
+    """Base exception for errors related to the DDUF format."""
+
+
+class DDUFCorruptedFileError(DDUFError):
+    """Exception thrown when the DDUF file is corrupted."""
+
+
+class DDUFExportError(DDUFError):
+    """Base exception for errors during DDUF export."""
+
+
+class DDUFInvalidEntryNameError(DDUFExportError):
+    """Exception thrown when the entry name is invalid."""

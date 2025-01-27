@@ -1,0 +1,109 @@
+interactions:
+- request:
+    body: '{"model": "meta-llama/Llama-3.1-8B-Instruct", "messages": [{"role": "system",
+      "content": "You are a helpful assistant."}, {"role": "user", "content": "What
+      is deep learning?"}], "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '194'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - e8ee0418-6fed-4215-b10a-fe79f5df03fb
+    method: POST
+    uri: https://api-inference.huggingface.co/models/meta-llama/Llama-3.1-8B-Instruct/v1/chat/completions
+  response:
+    body:
+      string: '{"object":"chat.completion","id":"","created":1737555075,"model":"meta-llama/Llama-3.1-8B-Instruct","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"message":{"role":"assistant","content":"Deep
+        learning is a subfield of artificial intelligence (AI) that focuses on the
+        development of algorithms inspired by the structure and function of the brain.
+        In traditional machine learning, algorithms are trained to perform a specific
+        task by analyzing patterns in data. However, deep learning uses a hierarchy
+        of neural networks, where each layer processes the data in a way that allows
+        the algorithm to learn complex representations of the input data.\n\nThe key
+        characteristics of deep learning are:\n\n1. **Hierarchical representation**:
+        Deep learning algorithms learn to represent the input data in a hierarchical
+        manner, with each layer representing a higher-level abstraction of the input.\n2.
+        **Multiple layers**: Deep learning algorithms typically consist of multiple
+        layers, each with a different type of neuron (node).\n3. **Non-linear transformations**:
+        Deep learning algorithms use non-linear transformations to map the input data
+        to a higher-dimensional space, allowing the algorithm to learn complex patterns.\n4.
+        **Backpropagation**: Deep learning algorithms use backpropagation, a type
+        of supervised learning, to adjust the weights of the neurons in each layer
+        to minimize the difference between the predicted output and the actual output.\n\nDeep
+        learning has many applications, including:\n\n1. **Image recognition**: Deep
+        learning algorithms can recognize objects, scenes, and activities in images.\n2.
+        **Natural language processing**: Deep learning algorithms can understand and
+        generate human language.\n3. **Speech recognition**: Deep learning algorithms
+        can recognize and generate spoken language.\n4. **Robotics**: Deep learning
+        algorithms can control robots and other systems.\n5. **Healthcare**: Deep
+        learning algorithms can analyze medical images and diagnose diseases.\n\nSome
+        popular deep learning architectures include:\n\n1. **Convolutional neural
+        networks (CNNs)**: CNNs are commonly used for image recognition and processing.\n2.
+        **Recurrent neural networks (RNNs)**: RNNs are commonly used for natural language
+        processing and time-series analysis.\n3. **Long short-term memory (LSTM) networks**:
+        LSTMs are a type of RNN that is well suited for sequential data.\n4. **Generative
+        adversarial networks (GANs)**: GANs are commonly used for generating synthetic
+        data.\n\nDeep learning has many benefits, including:\n\n1. **Improved accuracy**:
+        Deep learning algorithms can achieve high accuracy in many tasks.\n2. **Automated
+        feature extraction**: Deep learning algorithms can extract features from the
+        input data automatically.\n3. **Flexibility**: Deep learning algorithms can
+        be used for a wide range of tasks.\n\nHowever, deep learning also has some
+        challenges and limitations, including:\n\n1. **Computational requirements**:
+        Deep learning algorithms require a significant amount of computational resources.\n2.
+        **Data requirements**: Deep learning algorithms require large amounts of labeled
+        data to train.\n3. **Overfitting**: Deep learning algorithms can overfit the
+        training data, resulting in poor performance on test data.\n\nOverall, deep
+        learning is a powerful tool for solving complex problems in AI, and it has
+        many applications in a wide range of fields. However, it also requires significant
+        computational resources and large amounts of labeled data to train."},"logprobs":null,"finish_reason":"stop"}],"usage":{"prompt_tokens":46,"completion_tokens":614,"total_tokens":660}}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 14:11:15 GMT
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-credentials:
+      - 'true'
+      access-control-allow-origin:
+      - '*'
+      vary:
+      - origin, access-control-request-method, access-control-request-headers, Origin,
+        Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-characters:
+      - '283'
+      x-compute-time:
+      - '17.286564231'
+      x-compute-type:
+      - 2-a10-g
+      x-generated-tokens:
+      - '614'
+      x-inference-time:
+      - '17278'
+      x-prompt-tokens:
+      - '46'
+      x-queue-time:
+      - '7'
+      x-request-id:
+      - oCggVq-YVN7plYDR2MMRF
+      x-sha:
+      - 0e9e39f249a16976918f6564b8830bc894c89659
+      x-time-per-token:
+      - '28'
+      x-total-time:
+      - '17286'
+      x-validation-time:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

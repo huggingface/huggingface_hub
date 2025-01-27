@@ -1,36 +1,34 @@
 interactions:
 - request:
     body: null
-    headers:
-      user-agent:
-      - unknown/None; hf_hub/0.24.0.dev0; python/3.10.12; torch/2.3.1; tensorflow/2.15.0;
-        fastcore/1.5.23
+    headers: {}
     method: POST
     uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct/v1/chat/completions
   response:
     body:
-      string: '{"id":"","object":"text_completion","created":1720603859,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"message":{"role":"assistant","content":"1, 2, 3, 4, 5, 6, 7, 8, 9, 10!"},"logprobs":null,"finish_reason":"eos_token"}],"usage":{"prompt_tokens":25,"completion_tokens":34,"total_tokens":59}}'
+      string: '{"object":"chat.completion","id":"","created":1737562626,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"message":{"role":"assistant","content":"1,
+        2, 3, 4, 5, 6, 7, 8, 9, 10!"},"logprobs":null,"finish_reason":"stop"}],"usage":{"prompt_tokens":25,"completion_tokens":30,"total_tokens":55}}'
     headers:
       Access-Control-Allow-Credentials:
       - 'true'
       Connection:
       - keep-alive
       Content-Length:
-      - '371'
+      - '351'
       Content-Type:
       - application/json
       Date:
-      - Wed, 10 Jul 2024 09:37:03 GMT
+      - Wed, 22 Jan 2025 17:49:42 GMT
       Vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
       x-compute-time:
-      - '0.79170697'
+      - '0.977408595'
       x-compute-type:
       - cache
       x-request-id:
-      - 5i2r4xvmzRAE5J2qdwQOi
+      - rdYV1pm_3fgQAq8hEiv0F
       x-sha:
-      - e1945c40cd546c78e41f1151f4db032b271faeaa
+      - 5f0b02c75b57c5855da9ae460ce51323ea669d8a
     status:
       code: 200
       message: OK

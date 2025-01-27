@@ -152,7 +152,10 @@ class InferenceEndpoint:
                 "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
                 "Please wait for the Inference Endpoint to be deployed using `endpoint.wait()` and try again."
             )
-        return InferenceClient(model=self.url, token=self._token)
+        return InferenceClient(
+            model=self.url,
+            token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
+        )
 
     @property
     def async_client(self) -> AsyncInferenceClient:
@@ -169,7 +172,10 @@ class InferenceEndpoint:
                 "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
                 "Please wait for the Inference Endpoint to be deployed using `endpoint.wait()` and try again."
             )
-        return AsyncInferenceClient(model=self.url, token=self._token)
+        return AsyncInferenceClient(
+            model=self.url,
+            token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
+        )
 
     def wait(self, timeout: Optional[int] = None, refresh_every: int = 5) -> "InferenceEndpoint":
         """Wait for the Inference Endpoint to be deployed.

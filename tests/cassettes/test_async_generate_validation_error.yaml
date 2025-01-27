@@ -1,16 +1,13 @@
 interactions:
 - request:
     body: null
-    headers:
-      user-agent:
-      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
-        fastcore/1.5.23
+    headers: {}
     method: POST
-    uri: https://api-inference.huggingface.co/models/google/flan-t5-xxl
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
   response:
     body:
       string: '{"error":"Input validation error: `inputs` tokens + `max_new_tokens`
-        must be <= 1512. Given: 2 `inputs` tokens and 10000 `max_new_tokens`","error_type":"validation"}'
+        must be <= 1024. Given: 1 `inputs` tokens and 10000 `max_new_tokens`","error_type":"validation"}'
     headers:
       Access-Control-Allow-Credentials:
       - 'true'
@@ -21,17 +18,86 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Wed, 28 Jun 2023 11:10:49 GMT
+      - Wed, 22 Jan 2025 17:13:48 GMT
       Transfer-Encoding:
       - chunked
       Vary:
-      - origin, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers, Origin,
+        Access-Control-Request-Method, Access-Control-Request-Headers
       x-request-id:
-      - 150LdPvga5vff_3f0MeMv
+      - gYbcMd2J6c31JZQUQtaf_
       x-sha:
-      - ad196ce8c46191d6a52592960835ff96d30152b5
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
     status:
       code: 422
       message: Unprocessable Entity
-    url: https://api-inference.huggingface.co/models/google/flan-t5-xxl
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+  response:
+    body:
+      string: '{"error":"Input validation error: `inputs` tokens + `max_new_tokens`
+        must be <= 1024. Given: 1 `inputs` tokens and 10000 `max_new_tokens`","error_type":"validation"}'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 17:14:28 GMT
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - origin, access-control-request-method, access-control-request-headers, Origin,
+        Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /
+      x-request-id:
+      - zvKfBM
+      x-sha:
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    status:
+      code: 422
+      message: Unprocessable Entity
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+  response:
+    body:
+      string: '{"error":"Input validation error: `inputs` tokens + `max_new_tokens`
+        must be <= 1024. Given: 1 `inputs` tokens and 10000 `max_new_tokens`","error_type":"validation"}'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 17:28:03 GMT
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - origin, access-control-request-method, access-control-request-headers, Origin,
+        Access-Control-Request-Method, Access-Control-Request-Headers
+      x-request-id:
+      - dxz7g5TKvRFiO-juS4waQ
+      x-sha:
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    status:
+      code: 422
+      message: Unprocessable Entity
 version: 1

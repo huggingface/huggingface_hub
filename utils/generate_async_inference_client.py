@@ -40,8 +40,8 @@ def generate_async_client_code(code: str) -> str:
     code = _rename_to_AsyncInferenceClient(code)
 
     # Refactor `.post` method to be async + adapt calls
-    code = _make_post_async(code)
-    code = _await_post_method_call(code)
+    code = _make_inner_post_async(code)
+    code = _await_inner_post_method_call(code)
     code = _use_async_streaming_util(code)
 
     # Make all tasks-method async
@@ -168,29 +168,23 @@ def _rename_to_AsyncInferenceClient(code: str) -> str:
     return code.replace("class InferenceClient:", "class AsyncInferenceClient:", 1)
 
 
-ASYNC_POST_CODE = """
+ASYNC_INNER_POST_CODE = """
         aiohttp = _import_aiohttp()
 
-        url = self._resolve_url(model, task)
-
-        if data is not None and json is not None:
-            warnings.warn("Ignoring `json` as `data` is passed as binary.")
-
-        # Set Accept header if relevant
-        headers = dict()
-        if task in TASKS_EXPECTING_IMAGES and "Accept" not in headers:
-            headers["Accept"] = "image/png"
+        # TODO: this should be handled in provider helpers directly
+        if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
+            request_parameters.headers["Accept"] = "image/png"
 
         t0 = time.time()
         timeout = self.timeout
         while True:
-            with _open_as_binary(data) as data_as_binary:
+            with _open_as_binary(request_parameters.data) as data_as_binary:
                 # Do not use context manager as we don't want to close the connection immediately when returning
                 # a stream
-                session = self._get_client_session(headers=headers)
+                session = self._get_client_session(headers=request_parameters.headers)
 
                 try:
-                    response = await session.post(url, json=json, data=data_as_binary, proxy=self.proxies)
+                    response = await session.post(request_parameters.url, json=request_parameters.json, data=data_as_binary, proxy=self.proxies)
                     response_error_payload = None
                     if response.status != 200:
                         try:
@@ -207,25 +201,25 @@ ASYNC_POST_CODE = """
                 except asyncio.TimeoutError as error:
                     await session.close()
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                    raise InferenceTimeoutError(f"Inference call timed out: {url}") from error  # type: ignore
+                    raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
                 except aiohttp.ClientResponseError as error:
                     error.response_error_payload = response_error_payload
                     await session.close()
-                    if response.status == 422 and task is not None:
-                        error.message += f". Make sure '{task}' task is supported by the model."
+                    if response.status == 422 and request_parameters.task != "unknown":
+                        error.message += f". Make sure '{request_parameters.task}' task is supported by the model."
                     if response.status == 503:
                         # If Model is unavailable, either raise a TimeoutError...
                         if timeout is not None and time.time() - t0 > timeout:
                             raise InferenceTimeoutError(
-                                f"Model not loaded on the server: {url}. Please retry with a higher timeout"
+                                f"Model not loaded on the server: {request_parameters.url}. Please retry with a higher timeout"
                                 f" (current: {self.timeout}).",
                                 request=error.request,
                                 response=error.response,
                             ) from error
                         # ...or wait 1s and retry
                         logger.info(f"Waiting for model to be loaded on the server: {error}")
-                        if "X-wait-for-model" not in headers and url.startswith(INFERENCE_ENDPOINT):
-                            headers["X-wait-for-model"] = "1"
+                        if "X-wait-for-model" not in request_parameters.headers and request_parameters.url.startswith(INFERENCE_ENDPOINT):
+                            request_parameters.headers["X-wait-for-model"] = "1"
                         await asyncio.sleep(1)
                         if timeout is not None:
                             timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
@@ -262,22 +256,23 @@ ASYNC_POST_CODE = """
         await asyncio.gather(*[session.close() for session in self._sessions.keys()])"""
 
 
-def _make_post_async(code: str) -> str:
-    # Update AsyncInferenceClient.post() implementation (use aiohttp instead of requests)
+def _make_inner_post_async(code: str) -> str:
+    # Update AsyncInferenceClient._inner_post() implementation (use aiohttp instead of requests)
     code = re.sub(
         r"""
-        def[ ]post\( # definition
+        def[ ]_inner_post\( # definition
             (\n.*?\"\"\".*?\"\"\"\n) # Group1: docstring
             .*? # implementation (to be overwritten)
         (\n\W*def ) # Group2: next method
         """,
-        repl=rf"async def post(\1{ASYNC_POST_CODE}\2",
+        repl=rf"async def _inner_post(\1{ASYNC_INNER_POST_CODE}\2",
         string=code,
         count=1,
         flags=re.DOTALL | re.VERBOSE,
     )
     # Update `post`'s type annotations
-    return code.replace("Iterable[bytes]", "AsyncIterable[bytes]", 2)
+    code = code.replace("    def _inner_post(", "    async def _inner_post(")
+    return code.replace("Iterable[bytes]", "AsyncIterable[bytes]")
 
 
 def _rename_HTTPError_to_ClientResponseError_in_docstring(code: str) -> str:
@@ -378,8 +373,8 @@ def _adapt_chat_completion_to_async(code: str) -> str:
     return code
 
 
-def _await_post_method_call(code: str) -> str:
-    return code.replace("self.post(", "await self.post(")
+def _await_inner_post_method_call(code: str) -> str:
+    return code.replace("self._inner_post(", "await self._inner_post(")
 
 
 def _update_example_code_block(code_block: str) -> str:
@@ -430,12 +425,12 @@ def _use_async_streaming_util(code: str) -> str:
 
 def _adapt_get_model_status(code: str) -> str:
     sync_snippet = """
-        response = get_session().get(url, headers=self.headers)
+        response = get_session().get(url, headers=build_hf_headers(token=self.token))
         hf_raise_for_status(response)
         response_data = response.json()"""
 
     async_snippet = """
-        async with self._get_client_session() as client:
+        async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
             response = await client.get(url, proxy=self.proxies)
             response.raise_for_status()
             response_data = await response.json()"""
@@ -446,13 +441,13 @@ def _adapt_get_model_status(code: str) -> str:
 def _adapt_list_deployed_models(code: str) -> str:
     sync_snippet = """
         for framework in frameworks:
-            response = get_session().get(f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=self.headers)
+            response = get_session().get(f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token))
             hf_raise_for_status(response)
             _unpack_response(framework, response.json())""".strip()
 
     async_snippet = """
         async def _fetch_framework(framework: str) -> None:
-            async with self._get_client_session() as client:
+            async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
                 response = await client.get(f"{INFERENCE_ENDPOINT}/framework/{framework}", proxy=self.proxies)
                 response.raise_for_status()
                 _unpack_response(framework, await response.json())
@@ -466,12 +461,12 @@ def _adapt_list_deployed_models(code: str) -> str:
 
 def _adapt_info_and_health_endpoints(code: str) -> str:
     info_sync_snippet = """
-        response = get_session().get(url, headers=self.headers)
+        response = get_session().get(url, headers=build_hf_headers(token=self.token))
         hf_raise_for_status(response)
         return response.json()"""
 
     info_async_snippet = """
-        async with self._get_client_session() as client:
+        async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
             response = await client.get(url, proxy=self.proxies)
             response.raise_for_status()
             return await response.json()"""
@@ -479,11 +474,11 @@ def _adapt_info_and_health_endpoints(code: str) -> str:
     code = code.replace(info_sync_snippet, info_async_snippet)
 
     health_sync_snippet = """
-        response = get_session().get(url, headers=self.headers)
+        response = get_session().get(url, headers=build_hf_headers(token=self.token))
         return response.status_code == 200"""
 
     health_async_snippet = """
-        async with self._get_client_session() as client:
+        async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
             response = await client.get(url, proxy=self.proxies)
             return response.status == 200"""
 
@@ -504,7 +499,7 @@ def _add_get_client_session(code: str) -> str:
             Trust environment settings for proxy configuration if the parameter is `True` (`False` by default).""",
     )
 
-    # insert `_get_client_session` before `_resolve_url` method
+    # insert `_get_client_session` before `get_endpoint_info` method
     client_session_code = """
 
     def _get_client_session(self, headers: Optional[Dict] = None) -> "ClientSession":
@@ -549,7 +544,7 @@ def _add_get_client_session(code: str) -> str:
         return session
 
 """
-    code = _add_before(code, "\n    def _resolve_url(", client_session_code)
+    code = _add_before(code, "\n    async def get_endpoint_info(", client_session_code)
 
     # Add self._sessions attribute in __init__
     code = _add_before(

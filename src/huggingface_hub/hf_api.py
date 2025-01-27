@@ -158,6 +158,8 @@ ExpandModelProperty_T = Literal[
     "transformersInfo",
     "trendingScore",
     "widgetData",
+    "usedStorage",
+    "resourceGroup",
 ]
 
 ExpandDatasetProperty_T = Literal[
@@ -178,6 +180,8 @@ ExpandDatasetProperty_T = Literal[
     "sha",
     "trendingScore",
     "tags",
+    "usedStorage",
+    "resourceGroup",
 ]
 
 ExpandSpaceProperty_T = Literal[
@@ -197,6 +201,8 @@ ExpandSpaceProperty_T = Literal[
     "subdomain",
     "tags",
     "trendingScore",
+    "usedStorage",
+    "resourceGroup",
 ]
 
 USERNAME_PLACEHOLDER = "hf_user"
@@ -1113,33 +1119,6 @@ class SpaceInfo:
 
 
 @dataclass
-class MetricInfo:
-    """
-    Contains information about a metric on the Hub.
-
-    Attributes:
-        id (`str`):
-            ID of the metric. E.g. `"accuracy"`.
-        space_id (`str`):
-            ID of the space associated with the metric. E.g. `"Accuracy"`.
-        description (`str`):
-            Description of the metric.
-    """
-
-    id: str
-    space_id: str
-    description: Optional[str]
-
-    def __init__(self, **kwargs):
-        self.id = kwargs.pop("id")
-        self.space_id = kwargs.pop("spaceId")
-        self.description = kwargs.pop("description", None)
-        # backwards compatibility
-        self.spaceId = self.space_id
-        self.__dict__.update(**kwargs)
-
-
-@dataclass
 class CollectionItem:
     """
     Contains information about an item of a Collection (model, dataset, Space or paper).
@@ -1809,7 +1788,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"` and `"resourceGroup"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -2029,7 +2008,7 @@ class HfApi:
             expand (`List[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"` and `"trendingScore"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`, `"usedStorage"` and `"resourceGroup"`.
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `last_modified`,
                 the `card_data` and  the files. Can contain useful information such as the
@@ -2157,19 +2136,6 @@ class HfApi:
                 item["siblings"] = None
             yield DatasetInfo(**item)
 
-    def list_metrics(self) -> List[MetricInfo]:
-        """
-        Get the public list of all the metrics on huggingface.co
-
-        Returns:
-            `List[MetricInfo]`: a list of [`MetricInfo`] objects which.
-        """
-        path = f"{self.endpoint}/api/metrics"
-        r = get_session().get(path)
-        hf_raise_for_status(r)
-        d = r.json()
-        return [MetricInfo(**x) for x in d]
-
     @validate_hf_hub_args
     def list_spaces(
         self,
@@ -2220,7 +2186,7 @@ class HfApi:
             expand (`List[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"trendingScore"`.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"` and `"resourceGroup"`.
             full (`bool`, *optional*):
                 Whether to fetch all Spaces data, including the `last_modified`, `siblings`
                 and `card_data` fields.
@@ -2281,57 +2247,6 @@ class HfApi:
             yield SpaceInfo(**item)
 
     @validate_hf_hub_args
-    def like(
-        self,
-        repo_id: str,
-        *,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
-    ) -> None:
-        """
-        Like a given repo on the Hub (e.g. set as favorite).
-
-        See also [`unlike`] and [`list_liked_repos`].
-
-        Args:
-            repo_id (`str`):
-                The repository to like. Example: `"user/my-cool-model"`.
-
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-
-            repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if liking a dataset or space, `None` or
-                `"model"` if liking a model. Default is `None`.
-
-        Raises:
-            [`~utils.RepositoryNotFoundError`]:
-                If repository is not found (error 404): wrong repo_id/repo_type, private
-                but not authenticated or repo does not exist.
-
-        Example:
-        ```python
-        >>> from huggingface_hub import like, list_liked_repos, unlike
-        >>> like("gpt2")
-        >>> "gpt2" in list_liked_repos().models
-        True
-        >>> unlike("gpt2")
-        >>> "gpt2" in list_liked_repos().models
-        False
-        ```
-        """
-        if repo_type is None:
-            repo_type = constants.REPO_TYPE_MODEL
-        response = get_session().post(
-            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
-            headers=self._build_hf_headers(token=token),
-        )
-        hf_raise_for_status(response)
-
-    @validate_hf_hub_args
     def unlike(
         self,
         repo_id: str,
@@ -2342,7 +2257,9 @@ class HfApi:
         """
         Unlike a given repo on the Hub (e.g. remove from favorite list).
 
-        See also [`like`] and [`list_liked_repos`].
+        To prevent spam usage, it is not possible to `like` a repository from a script.
+
+        See also [`list_liked_repos`].
 
         Args:
             repo_id (`str`):
@@ -2365,9 +2282,8 @@ class HfApi:
 
         Example:
         ```python
-        >>> from huggingface_hub import like, list_liked_repos, unlike
-        >>> like("gpt2")
-        >>> "gpt2" in list_liked_repos().models
+        >>> from huggingface_hub import list_liked_repos, unlike
+        >>> "gpt2" in list_liked_repos().models # we assume you have already liked gpt2
         True
         >>> unlike("gpt2")
         >>> "gpt2" in list_liked_repos().models
@@ -2394,7 +2310,7 @@ class HfApi:
         This list is public so token is optional. If `user` is not passed, it defaults to
         the logged in user.
 
-        See also [`like`] and [`unlike`].
+        See also [`unlike`].
 
         Args:
             user (`str`, *optional*):
@@ -2468,7 +2384,7 @@ class HfApi:
         """
         List all users who liked a given repo on the hugging Face Hub.
 
-        See also [`like`] and [`list_liked_repos`].
+        See also [`list_liked_repos`].
 
         Args:
             repo_id (`str`):
@@ -2531,7 +2447,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"` and `"resourceGroup"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2605,7 +2521,7 @@ class HfApi:
             expand (`List[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `files_metadata` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"` and `"trendingScore"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`,`"usedStorage"` and `"resourceGroup"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2655,7 +2571,7 @@ class HfApi:
         revision: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
-        expand: Optional[List[ExpandModelProperty_T]] = None,
+        expand: Optional[List[ExpandSpaceProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> SpaceInfo:
         """
@@ -2678,7 +2594,7 @@ class HfApi:
             expand (`List[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"trendingScore"`.
+                Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"` and `"resourceGroup"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2959,7 +2875,7 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated by a `/`.
             revision (`str`, *optional*):
-                The revision of the model repository from which to get the information.
+                The revision of the repository from which to get the information.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or space, `None` or `"model"` if uploading to
                 a model. Default is `None`.
@@ -3650,7 +3566,7 @@ class HfApi:
             repo_id (`str`, *optional*):
                 A namespace (user or an organization) and a repo name separated by a `/`.
             private (`bool`, *optional*, defaults to `False`):
-                Whether the model repo should be private.
+                Whether the repository should be private.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -3712,7 +3628,7 @@ class HfApi:
                 * "manual": The repository is gated, and access requests require manual approval.
                 * False : The repository is not gated, and anyone can access it.
             private (`bool`, *optional*):
-                Whether the model repo should be private.
+                Whether the repository should be private.
             token (`Union[str, bool, None]`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token,
                 which is the recommended method for authentication (see
@@ -4053,6 +3969,14 @@ class HfApi:
             free_memory=False,  # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
         )
 
+        files_to_copy = _fetch_files_to_copy(
+            copies=copies,
+            repo_type=repo_type,
+            repo_id=repo_id,
+            headers=headers,
+            revision=unquoted_revision,
+            endpoint=self.endpoint,
+        )
         # Remove no-op operations (files that have not changed)
         operations_without_no_op = []
         for operation in operations:
@@ -4063,6 +3987,16 @@ class HfApi:
             ):
                 # File already exists on the Hub and has not changed: we can skip it.
                 logger.debug(f"Skipping upload for '{operation.path_in_repo}' as the file has not changed.")
+                continue
+            if (
+                isinstance(operation, CommitOperationCopy)
+                and operation._dest_oid is not None
+                and operation._dest_oid == operation._src_oid
+            ):
+                # Source and destination files are identical - skip
+                logger.debug(
+                    f"Skipping copy for '{operation.src_path_in_repo}' -> '{operation.path_in_repo}' as the content of the source file is the same as the destination file."
+                )
                 continue
             operations_without_no_op.append(operation)
         if len(operations) != len(operations_without_no_op):
@@ -4092,14 +4026,6 @@ class HfApi:
                 oid=info.sha,  # type: ignore[arg-type]
             )
 
-        files_to_copy = _fetch_files_to_copy(
-            copies=copies,
-            repo_type=repo_type,
-            repo_id=repo_id,
-            headers=headers,
-            revision=unquoted_revision,
-            endpoint=self.endpoint,
-        )
         commit_payload = _prepare_commit_payload(
             operations=operations,
             files_to_copy=files_to_copy,
@@ -5234,7 +5160,7 @@ class HfApi:
             filename (`str`):
                 The name of the file in the repo.
             subfolder (`str`, *optional*):
-                An optional value corresponding to a folder inside the model repo.
+                An optional value corresponding to a folder inside the repository.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if downloading from a dataset or space,
                 `None` or `"model"` if downloading from a model. Default is `None`.
@@ -5459,8 +5385,6 @@ class HfApi:
         Args:
             repo_id (`str`):
                 A user or an organization name and a repo name separated by a `/`.
-            filename (`str`):
-                The name of the file in the repo.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if the file is in a dataset or space, `None` or `"model"` if in a
                 model. Default is `None`.
@@ -5648,7 +5572,7 @@ class HfApi:
         if metadata_size <= 100000:
             metadata_as_bytes = response.content[8 : 8 + metadata_size]
         else:  # 3.b. Request full metadata
-            response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size+7}"})
+            response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"})
             hf_raise_for_status(response)
             metadata_as_bytes = response.content
 
@@ -8611,7 +8535,13 @@ class HfApi:
 
     @validate_hf_hub_args
     def reject_access_request(
-        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
+        self,
+        repo_id: str,
+        user: str,
+        *,
+        repo_type: Optional[str] = None,
+        rejection_reason: Optional[str],
+        token: Union[bool, str, None] = None,
     ) -> None:
         """
         Reject an access request from a user for a given gated repo.
@@ -8630,6 +8560,8 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repo to reject access request for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
+            rejection_reason (`str`, *optional*):
+                Optional rejection reason that will be visible to the user (max 200 characters).
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -8649,7 +8581,9 @@ class HfApi:
             [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request is already in the rejected list.
         """
-        self._handle_access_request(repo_id, user, "rejected", repo_type=repo_type, token=token)
+        self._handle_access_request(
+            repo_id, user, "rejected", repo_type=repo_type, rejection_reason=rejection_reason, token=token
+        )
 
     @validate_hf_hub_args
     def _handle_access_request(
@@ -8658,6 +8592,7 @@ class HfApi:
         user: str,
         status: Literal["accepted", "rejected", "pending"],
         repo_type: Optional[str] = None,
+        rejection_reason: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> None:
         if repo_type not in constants.REPO_TYPES:
@@ -8665,10 +8600,17 @@ class HfApi:
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
 
+        payload = {"user": user, "status": status}
+
+        if rejection_reason is not None:
+            if status != "rejected":
+                raise ValueError("`rejection_reason` can only be passed when rejecting an access request.")
+            payload["rejectionReason"] = rejection_reason
+
         response = get_session().post(
             f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
             headers=self._build_hf_headers(token=token),
-            json={"user": user, "status": status},
+            json=payload,
         )
         hf_raise_for_status(response)
 
@@ -9564,7 +9506,6 @@ list_repo_refs = api.list_repo_refs
 list_repo_commits = api.list_repo_commits
 list_repo_tree = api.list_repo_tree
 get_paths_info = api.get_paths_info
-list_metrics = api.list_metrics
 
 get_model_tags = api.get_model_tags
 get_dataset_tags = api.get_dataset_tags
@@ -9599,7 +9540,6 @@ run_as_future = api.run_as_future
 # Activity API
 list_liked_repos = api.list_liked_repos
 list_repo_likers = api.list_repo_likers
-like = api.like
 unlike = api.unlike
 
 # Community API

@@ -18,6 +18,7 @@ import base64
 import io
 import json
 import logging
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,11 +50,8 @@ from huggingface_hub.errors import (
     ValidationError,
 )
 
-from ..constants import ENDPOINT
 from ..utils import (
-    build_hf_headers,
     get_session,
-    hf_raise_for_status,
     is_aiohttp_available,
     is_numpy_available,
     is_pillow_available,
@@ -75,6 +73,34 @@ ContentT = Union[BinaryT, PathT, UrlT]
 TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RequestParameters:
+    url: str
+    task: str
+    model: Optional[str]
+    json: Optional[Union[str, Dict, List]]
+    data: Optional[ContentT]
+    headers: Dict[str, Any]
+
+
+class TaskProviderHelper(ABC):
+    """Protocol defining the interface for task-specific provider helpers."""
+
+    @abstractmethod
+    def prepare_request(
+        self,
+        *,
+        inputs: Any,
+        parameters: Dict[str, Any],
+        headers: Dict,
+        model: Optional[str],
+        api_key: Optional[str],
+        extra_payload: Optional[Dict[str, Any]] = None,
+    ) -> RequestParameters: ...
+    @abstractmethod
+    def get_response(self, response: Union[bytes, Dict]) -> Any: ...
 
 
 # Add dataclass for ModelStatus. We use this dataclass in get_model_status function.
@@ -139,30 +165,6 @@ def _import_pil_image():
     from PIL import Image
 
     return Image
-
-
-## RECOMMENDED MODELS
-
-# Will be globally fetched only once (see '_fetch_recommended_models')
-_RECOMMENDED_MODELS: Optional[Dict[str, Optional[str]]] = None
-
-
-def _fetch_recommended_models() -> Dict[str, Optional[str]]:
-    global _RECOMMENDED_MODELS
-    if _RECOMMENDED_MODELS is None:
-        response = get_session().get(f"{ENDPOINT}/api/tasks", headers=build_hf_headers())
-        hf_raise_for_status(response)
-        _RECOMMENDED_MODELS = {
-            task: _first_or_none(details["widgetModels"]) for task, details in response.json().items()
-        }
-    return _RECOMMENDED_MODELS
-
-
-def _first_or_none(items: List[Any]) -> Optional[Any]:
-    try:
-        return items[0] or None
-    except IndexError:
-        return None
 
 
 ## ENCODING / DECODING UTILS

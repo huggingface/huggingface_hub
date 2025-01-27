@@ -92,7 +92,7 @@ extras["typing"] = [
 ]
 
 extras["quality"] = [
-    "ruff>=0.5.0",
+    "ruff>=0.9.0",
     "mypy==1.5.1",
     "libcst==1.4.0",
 ]
@@ -138,4 +138,5 @@ setup(
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     include_package_data=True,
+    package_data={"huggingface_hub": ["py.typed"]},  # Needed for wheel installation
 )

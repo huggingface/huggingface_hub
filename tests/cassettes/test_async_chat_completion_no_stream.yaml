@@ -1,57 +1,106 @@
 interactions:
 - request:
     body: null
-    headers:
-      user-agent:
-      - unknown/None; hf_hub/0.22.0.dev0; python/3.10.12; torch/2.2.0; tensorflow/2.15.0.post1;
-        fastcore/1.5.23
+    headers: {}
     method: POST
     uri: https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions
   response:
     body:
-      string: '{"id":"","object":"text_completion","created":1710439507,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"1.4.3-sha-e6bb3ff","choices":[{"index":0,"message":{"role":"assistant","content":"Deep
-        learning is a subfield of machine learning that"},"logprobs":null,"finish_reason":"length"}],"usage":{"prompt_tokens":47,"completion_tokens":10,"total_tokens":57}}'
+      string: '{"object":"chat.completion","id":"","created":1737562589,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"message":{"role":"assistant","content":"Deep
+        learning is a subfield of machine learning that"},"logprobs":null,"finish_reason":"length"}],"usage":{"prompt_tokens":46,"completion_tokens":10,"total_tokens":56}}'
     headers:
       Access-Control-Allow-Credentials:
       - 'true'
-      Access-Control-Allow-Origin:
-      - '*'
       Connection:
       - keep-alive
+      Content-Length:
+      - '368'
       Content-Type:
       - application/json
       Date:
-      - Thu, 14 Mar 2024 18:05:07 GMT
-      Transfer-Encoding:
-      - chunked
+      - Wed, 22 Jan 2025 17:13:49 GMT
       Vary:
-      - origin, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-      x-compute-characters:
-      - '103'
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
       x-compute-time:
-      - '0.362352731'
+      - '0.162654297'
       x-compute-type:
-      - 1-a10-g
-      x-generated-tokens:
-      - '10'
-      x-inference-time:
-      - '357'
-      x-prompt-tokens:
-      - '47'
-      x-queue-time:
-      - '4'
+      - cache
       x-request-id:
-      - q7E6J7NjMSoSFA3lPK44i
+      - -55WJ_HtFUHU5s3SgP0Zn
       x-sha:
-      - b70e0c9a2d9e14bd1e812d3c398e5f313e93b473
-      x-time-per-token:
-      - '35'
-      x-total-time:
-      - '362'
-      x-validation-time:
-      - '0'
+      - 892b3d7a7b1cf10c7a701c60881cd93df615734c
     status:
       code: 200
       message: OK
-    url: https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions
+  response:
+    body:
+      string: '{"object":"chat.completion","id":"","created":1737562589,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"message":{"role":"assistant","content":"Deep
+        learning is a subfield of machine learning that"},"logprobs":null,"finish_reason":"length"}],"usage":{"prompt_tokens":46,"completion_tokens":10,"total_tokens":56}}'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '368'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 17:14:29 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
+      x-compute-time:
+      - '0.162654297'
+      x-compute-type:
+      - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /v1/chat/completions
+      x-request-id:
+      - 74leo_
+      x-sha:
+      - 892b3d7a7b1cf10c7a701c60881cd93df615734c
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions
+  response:
+    body:
+      string: '{"object":"chat.completion","id":"","created":1737562589,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"message":{"role":"assistant","content":"Deep
+        learning is a subfield of machine learning that"},"logprobs":null,"finish_reason":"length"}],"usage":{"prompt_tokens":46,"completion_tokens":10,"total_tokens":56}}'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '368'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 17:28:04 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.162654297'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - n4xQKhEjg8gwmMWMeKMd-
+      x-sha:
+      - 892b3d7a7b1cf10c7a701c60881cd93df615734c
+    status:
+      code: 200
+      message: OK
 version: 1

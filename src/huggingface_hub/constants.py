@@ -2,6 +2,7 @@ import os
 import re
 import typing
 from typing import Literal, Optional, Tuple
+from urllib.parse import urljoin
 
 
 # Possible values for env variables
@@ -63,9 +64,11 @@ _staging_mode = _is_true(os.environ.get("HUGGINGFACE_CO_STAGING"))
 
 _HF_DEFAULT_ENDPOINT = "https://huggingface.co"
 _HF_DEFAULT_STAGING_ENDPOINT = "https://hub-ci.huggingface.co"
-ENDPOINT = os.getenv("HF_ENDPOINT") or (_HF_DEFAULT_STAGING_ENDPOINT if _staging_mode else _HF_DEFAULT_ENDPOINT)
+ENDPOINT = os.getenv("HF_ENDPOINT", "").rstrip("/") or (
+    _HF_DEFAULT_STAGING_ENDPOINT if _staging_mode else _HF_DEFAULT_ENDPOINT
+)
 
-HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
+HUGGINGFACE_CO_URL_TEMPLATE = urljoin(ENDPOINT, "/{repo_id}/resolve/{revision}/{filename}")
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
 HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
 HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
@@ -75,6 +78,8 @@ INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-infere
 # See https://huggingface.co/docs/inference-endpoints/index
 INFERENCE_ENDPOINTS_ENDPOINT = "https://api.endpoints.huggingface.cloud/v2"
 
+# Proxy for third-party providers
+INFERENCE_PROXY_TEMPLATE = urljoin(ENDPOINT, "/api/inference-proxy/{provider}")
 
 REPO_ID_SEPARATOR = "--"
 # ^ this substring is not allowed in repo_ids on hf.co

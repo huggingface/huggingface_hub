@@ -171,7 +171,7 @@ class RepoCard:
             ```
         """
 
-        if Path(repo_id_or_path).exists():
+        if Path(repo_id_or_path).is_file():
             card_path = Path(repo_id_or_path)
         elif isinstance(repo_id_or_path, str):
             card_path = Path(

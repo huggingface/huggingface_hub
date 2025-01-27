@@ -325,6 +325,16 @@ This part of the lib is still under development and will be improved in future r
 
 
 
+## text_to_video
+
+[[autodoc]] huggingface_hub.TextToVideoInput
+
+[[autodoc]] huggingface_hub.TextToVideoOutput
+
+[[autodoc]] huggingface_hub.TextToVideoParameters
+
+
+
 ## token_classification
 
 [[autodoc]] huggingface_hub.TokenClassificationInput

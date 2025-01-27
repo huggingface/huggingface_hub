@@ -167,12 +167,12 @@ def test_get_client_ready():
     # => Client available
     client = endpoint.client
     assert isinstance(client, InferenceClient)
-    assert "my-token" in client.headers["Authorization"]
+    assert client.token == "my-token"
 
     # => AsyncClient available
     async_client = endpoint.async_client
     assert isinstance(async_client, AsyncInferenceClient)
-    assert "my-token" in async_client.headers["Authorization"]
+    assert async_client.token == "my-token"
 
 
 @patch("huggingface_hub.hf_api.HfApi.get_inference_endpoint")

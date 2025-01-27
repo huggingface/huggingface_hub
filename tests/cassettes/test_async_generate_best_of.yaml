@@ -1,40 +1,103 @@
 interactions:
 - request:
     body: null
-    headers:
-      user-agent:
-      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
-        fastcore/1.5.23
+    headers: {}
     method: POST
-    uri: https://api-inference.huggingface.co/models/google/flan-t5-xxl
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
   response:
     body:
-      string: '[{"generated_text":"","details":{"finish_reason":"length","generated_tokens":1,"seed":6270333398812658761,"prefill":[{"id":0,"text":"<pad>","logprob":null}],"tokens":[{"id":3,"text":"
-        ","logprob":-2.0058594,"special":false}],"best_of_sequences":[{"generated_text":"super","finish_reason":"length","generated_tokens":1,"seed":1747517474421013729,"prefill":[{"id":0,"text":"<pad>","logprob":null}],"tokens":[{"id":1355,"text":"
-        super","logprob":-9.484375,"special":false}]}]}}]'
+      string: '[{"generated_text":"us","details":{"finish_reason":"length","generated_tokens":1,"seed":18435558523380366744,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":385,"text":"us","logprob":-7.5679407,"special":false}],"best_of_sequences":[{"generated_text":"esh","finish_reason":"length","generated_tokens":1,"seed":8244064336017720203,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":5069,"text":"esh","logprob":-10.5153055,"special":false}]}]}}]'
     headers:
       Access-Control-Allow-Credentials:
       - 'true'
       Connection:
       - keep-alive
       Content-Length:
-      - '475'
+      - '482'
       Content-Type:
       - application/json
       Date:
-      - Wed, 28 Jun 2023 11:10:48 GMT
+      - Wed, 22 Jan 2025 17:13:48 GMT
       Vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
       x-compute-time:
-      - '59'
+      - '0.026805116'
       x-compute-type:
       - cache
       x-request-id:
-      - UZNvXhDkv_krGEbjvx8Pi
+      - Nh6FAVf7Kki3IJuw4ec7G
       x-sha:
-      - ad196ce8c46191d6a52592960835ff96d30152b5
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
     status:
       code: 200
       message: OK
-    url: https://api-inference.huggingface.co/models/google/flan-t5-xxl
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+  response:
+    body:
+      string: '[{"generated_text":"us","details":{"finish_reason":"length","generated_tokens":1,"seed":18435558523380366744,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":385,"text":"us","logprob":-7.5679407,"special":false}],"best_of_sequences":[{"generated_text":"esh","finish_reason":"length","generated_tokens":1,"seed":8244064336017720203,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":5069,"text":"esh","logprob":-10.5153055,"special":false}]}]}}]'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '482'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 17:14:27 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
+      x-compute-time:
+      - '0.026805116'
+      x-compute-type:
+      - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /
+      x-request-id:
+      - 4Zltp6
+      x-sha:
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+  response:
+    body:
+      string: '[{"generated_text":"us","details":{"finish_reason":"length","generated_tokens":1,"seed":18435558523380366744,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":385,"text":"us","logprob":-7.5679407,"special":false}],"best_of_sequences":[{"generated_text":"esh","finish_reason":"length","generated_tokens":1,"seed":8244064336017720203,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":5069,"text":"esh","logprob":-10.5153055,"special":false}]}]}}]'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '482'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 17:28:03 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.026805116'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - va2EzQonBrx7_JgukzLGI
+      x-sha:
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    status:
+      code: 200
+      message: OK
 version: 1

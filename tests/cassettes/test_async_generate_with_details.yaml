@@ -1,39 +1,103 @@
 interactions:
 - request:
     body: null
-    headers:
-      user-agent:
-      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
-        fastcore/1.5.23
+    headers: {}
     method: POST
-    uri: https://api-inference.huggingface.co/models/google/flan-t5-xxl
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
   response:
     body:
-      string: '[{"generated_text":"","details":{"finish_reason":"length","generated_tokens":1,"seed":null,"prefill":[{"id":0,"text":"<pad>","logprob":null}],"tokens":[{"id":3,"text":"
-        ","logprob":-2.0078125,"special":false}]}}]'
+      string: '[{"generated_text":".","details":{"finish_reason":"length","generated_tokens":1,"seed":null,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":13,"text":".","logprob":-2.877385,"special":false}]}}]'
     headers:
       Access-Control-Allow-Credentials:
       - 'true'
       Connection:
       - keep-alive
       Content-Length:
-      - '212'
+      - '215'
       Content-Type:
       - application/json
       Date:
-      - Wed, 28 Jun 2023 11:10:47 GMT
+      - Wed, 22 Jan 2025 17:13:47 GMT
       Vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
       x-compute-time:
-      - '60'
+      - '0.025312611'
       x-compute-type:
       - cache
       x-request-id:
-      - xRLXLRG8hYGeww6snaG8C
+      - QgS1XqLOTWLsPVKyYEXwd
       x-sha:
-      - ad196ce8c46191d6a52592960835ff96d30152b5
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
     status:
       code: 200
       message: OK
-    url: https://api-inference.huggingface.co/models/google/flan-t5-xxl
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+  response:
+    body:
+      string: '[{"generated_text":".","details":{"finish_reason":"length","generated_tokens":1,"seed":null,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":13,"text":".","logprob":-2.877385,"special":false}]}}]'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '215'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 17:14:27 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
+      x-compute-time:
+      - '0.025312611'
+      x-compute-type:
+      - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /
+      x-request-id:
+      - paKvsr
+      x-sha:
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+  response:
+    body:
+      string: '[{"generated_text":".","details":{"finish_reason":"length","generated_tokens":1,"seed":null,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":13,"text":".","logprob":-2.877385,"special":false}]}}]'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '215'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 17:28:03 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.025312611'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - 4GVvABYlFwVwDFLvK4gZg
+      x-sha:
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    status:
+      code: 200
+      message: OK
 version: 1

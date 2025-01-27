@@ -1,0 +1,70 @@
+interactions:
+- request:
+    body: '{"inputs": " Ravens Ravens reaction reaction reaction scarcity scarcity
+      scarcity escaped escaped escaped finish finish finishminingmining reson reson
+      reson anything anything anythingFootnoteFootnoteFootnote Hood Hood Hood Joan
+      Joan Joan Hood Hood Dav Dav ancestral Hood Hood knees Hood Hoodchychy Hood Hood
+      mobile Hood Hood anything anything conviction conviction conviction pursuits
+      pursuits pursuits Hood Hood pieces pieces whatsoever anything anything bought
+      bought bought whatsoever whatsoever whatsoever960960960COLCOL whatsoever whatsoever
+      departing departing departing whatsoever whatsoever Talks whatsoever whatsoever
+      J J whatsoever whatsoever dates dates dates Trudeau Trudeau Trudeau Direction
+      Direction Direction Dynamics Dynamics Dynamics pseudo pseudo pseudocookiecookiecookiecontrolcontrolcontrol
+      Syl Syl Syl hijacked hijacked Silk Silk Silkawawawcontrolcontrolawaw tort tort
+      tort futures futures futurescontrolcontrol futures futuresLynLynLyn Scots Scots",
+      "parameters": {}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '989'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 3b51e0f7-0537-463b-816d-4d716a4b679c
+    method: POST
+    uri: https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6
+  response:
+    body:
+      string: '[{"summary_text":"JoeJoe reaction reaction reaction anything anything
+        anything 275 275 275 anything anythingFootnote 275 275FootnoteFootnoteFootnote
+        dominance dominance dominance commit commit commitzenszenszens anything anything
+        Hood Hood Hoodensions Hood Hood knees Hood HoodmapsmapsFootnoteFootnotemapsmapsmaps
+        anything anything conviction conviction convictionFootnoteFootnote Hood HoodFootnote
+        HoodFootnoteFootnote grounded grounded grounded cinem cinem cinem hijacked
+        Lys Lys Lys cinem cinem Inside Inside Inside Syl Promotion Promotion Promotion
+        maj maj Siberian Siberian Siberian accent accent accent plate platecookiecookiecookie
+        vary vary vary dictator vary varyiatesiatesiatesawawawgowgowgow Gmail Gmail
+        Federation Federation Federation unsuccessfully unsuccessfully unsuccessfully
+        Kis Kis Kis Federation Federation bothered bothered bothered blended bothered
+        botheredigig Coming Coming Comingcookiecookie Coming Coming805805805 Coming
+        Coming"}]'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '956'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 14:19:35 GMT
+      access-control-allow-credentials:
+      - 'true'
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '5.040'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - _iLemgL4sAVBBVxsRJooy
+      x-sha:
+      - a4f8f3ea906ed274767e9906dbaede7531d660ff
+    status:
+      code: 200
+      message: OK
+version: 1

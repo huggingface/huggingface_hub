@@ -13,6 +13,7 @@ import os
 import shutil
 import stat
 import tempfile
+import time
 from functools import partial
 from pathlib import Path
 from typing import Callable, Generator, Optional, Union
@@ -83,7 +84,9 @@ def _set_write_permission_and_retry(func, path, excinfo):
 
 
 @contextlib.contextmanager
-def WeakFileLock(lock_file: Union[str, Path]) -> Generator[BaseFileLock, None, None]:
+def WeakFileLock(
+    lock_file: Union[str, Path], *, timeout: Optional[float] = None
+) -> Generator[BaseFileLock, None, None]:
     """A filelock with some custom logic.
 
     This filelock is weaker than the default filelock in that:
@@ -91,31 +94,40 @@ def WeakFileLock(lock_file: Union[str, Path]) -> Generator[BaseFileLock, None, N
     2. It will default to a SoftFileLock if the filesystem does not support flock.
 
     An INFO log message is emitted every 10 seconds if the lock is not acquired immediately.
+    If a timeout is provided, a `filelock.Timeout` exception is raised if the lock is not acquired within the timeout.
     """
-    lock = FileLock(lock_file, timeout=constants.FILELOCK_LOG_EVERY_SECONDS)
+    log_interval = constants.FILELOCK_LOG_EVERY_SECONDS
+    lock = FileLock(lock_file, timeout=log_interval)
+    start_time = time.time()
+
     while True:
+        elapsed_time = time.time() - start_time
+        if timeout is not None and elapsed_time >= timeout:
+            raise Timeout(str(lock_file))
+
         try:
-            lock.acquire()
+            lock.acquire(timeout=min(log_interval, timeout - elapsed_time) if timeout else log_interval)
         except Timeout:
-            logger.info("still waiting to acquire lock on %s", lock_file)
+            logger.info(
+                f"Still waiting to acquire lock on {lock_file} (elapsed: {time.time() - start_time:.1f} seconds)"
+            )
         except NotImplementedError as e:
             if "use SoftFileLock instead" in str(e):
-                # It's possible that the system does support flock, expect for one partition or filesystem.
-                # In this case, let's default to a SoftFileLock.
                 logger.warning(
                     "FileSystem does not appear to support flock. Falling back to SoftFileLock for %s", lock_file
                 )
-                lock = SoftFileLock(lock_file, timeout=constants.FILELOCK_LOG_EVERY_SECONDS)
+                lock = SoftFileLock(lock_file, timeout=log_interval)
                 continue
         else:
             break
 
-    yield lock
-
     try:
-        return lock.release()
-    except OSError:
+        yield lock
+    finally:
         try:
-            Path(lock_file).unlink()
+            lock.release()
         except OSError:
-            pass
+            try:
+                Path(lock_file).unlink()
+            except OSError:
+                pass

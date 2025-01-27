@@ -59,7 +59,6 @@ from huggingface_hub.hf_api import (
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
-    MetricInfo,
     ModelInfo,
     RepoSibling,
     RepoUrl,
@@ -442,17 +441,6 @@ class CommitApiTest(HfApiCommonTest):
         self.assertIsInstance(url, RepoUrl)
         self.assertEqual(url.repo_id, f"{USER}/{REPO_NAME}")
         self._api.delete_repo(repo_id=url.repo_id)
-
-    def test_create_repo_org_token_fail(self):
-        REPO_NAME = repo_name("org")
-        with pytest.raises(HfHubHTTPError, match="Invalid username or password"):
-            self._api.create_repo(repo_id=REPO_NAME, token="api_org_dummy_token")
-
-    @patch("huggingface_hub.utils._headers.get_token", return_value="api_org_dummy_token")
-    def test_create_repo_org_token_none_fail(self, mock_get_token: Mock):
-        with pytest.raises(HfHubHTTPError, match="Invalid username or password"):
-            with patch.object(self._api, "token", None):  # no default token
-                self._api.create_repo(repo_id=repo_name("org"))
 
     def test_create_repo_already_exists_but_no_write_permission(self):
         # Create under other user namespace
@@ -1115,6 +1103,37 @@ class CommitApiTest(HfApiCommonTest):
         assert logs.records[1].levelname == "WARNING"
 
     @use_tmp_repo()
+    def test_prevent_empty_commit_if_no_new_copy(self, repo_url: RepoUrl) -> None:
+        # Add 2 regular identical files and 2 LFS identical files
+        self._api.create_commit(
+            repo_id=repo_url.repo_id,
+            commit_message="initial commit",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"Regular file content", path_in_repo="file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"Regular file content", path_in_repo="file_copy.txt"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs.bin"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs_copy.bin"),
+            ],
+        )
+        with self.assertLogs("huggingface_hub", level="INFO") as logs:
+            self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                commit_message="Empty commit",
+                operations=[
+                    CommitOperationCopy(src_path_in_repo="file.txt", path_in_repo="file_copy.txt"),
+                    CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs_copy.bin"),
+                ],
+            )
+        assert logs.records[0].message == "Removing 2 file(s) from commit that have not changed."
+        assert logs.records[0].levelname == "INFO"
+
+        assert (
+            logs.records[1].message
+            == "No files have been modified since last commit. Skipping to prevent empty commit."
+        )
+        assert logs.records[1].levelname == "WARNING"
+
+    @use_tmp_repo()
     def test_empty_commit_on_pr(self, repo_url: RepoUrl) -> None:
         """
         Regression test for #2411. Revision was quoted twice, leading to a HTTP 404.
@@ -1193,12 +1212,85 @@ class CommitApiTest(HfApiCommonTest):
         assert paths_info["lfs3.bin"].title == "second commit"
 
     @use_tmp_repo()
+    def test_continue_commit_if_copy_is_identical(self, repo_url: RepoUrl) -> None:
+        self._api.create_commit(
+            repo_id=repo_url.repo_id,
+            commit_message="initial commit",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file_copy.txt"),
+                CommitOperationAdd(path_or_fileobj=b"content 2.0", path_in_repo="file2.txt"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content 1.0", path_in_repo="lfs.bin"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content 1.0", path_in_repo="lfs_copy.bin"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content 2.0", path_in_repo="lfs2.bin"),
+            ],
+        )
+        with self.assertLogs("huggingface_hub", level="DEBUG") as logs:
+            self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                commit_message="second commit",
+                operations=[
+                    # Did not change => will be removed from commit
+                    CommitOperationCopy(src_path_in_repo="file.txt", path_in_repo="file_copy.txt"),
+                    # Change => will be kept
+                    CommitOperationCopy(src_path_in_repo="file2.txt", path_in_repo="file.txt"),
+                    # New file => will be kept
+                    CommitOperationCopy(src_path_in_repo="file2.txt", path_in_repo="file3.txt"),
+                    # Did not change => will be removed from commit
+                    CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs_copy.bin"),
+                    # Change => will be kept
+                    CommitOperationCopy(src_path_in_repo="lfs2.bin", path_in_repo="lfs.bin"),
+                    # New file => will be kept
+                    CommitOperationCopy(src_path_in_repo="lfs2.bin", path_in_repo="lfs3.bin"),
+                ],
+            )
+        debug_logs = [log.message for log in logs.records if log.levelname == "DEBUG"]
+        info_logs = [log.message for log in logs.records if log.levelname == "INFO"]
+        warning_logs = [log.message for log in logs.records if log.levelname == "WARNING"]
+
+        assert (
+            "Skipping copy for 'file.txt' -> 'file_copy.txt' as the content of the source file is the same as the destination file."
+            in debug_logs
+        )
+        assert (
+            "Skipping copy for 'lfs.bin' -> 'lfs_copy.bin' as the content of the source file is the same as the destination file."
+            in debug_logs
+        )
+        assert "Removing 2 file(s) from commit that have not changed." in info_logs
+        assert len(warning_logs) == 0  # no warnings since the commit is not empty
+
+        paths_info = {
+            item.path: item.last_commit
+            for item in self._api.get_paths_info(
+                repo_id=repo_url.repo_id,
+                paths=[
+                    "file.txt",
+                    "file_copy.txt",
+                    "file3.txt",
+                    "lfs.bin",
+                    "lfs_copy.bin",
+                    "lfs3.bin",
+                ],
+                expand=True,
+            )
+        }
+
+        # Check which files are in the last commit
+        assert paths_info["file.txt"].title == "second commit"
+        assert paths_info["file_copy.txt"].title == "initial commit"
+        assert paths_info["file3.txt"].title == "second commit"
+        assert paths_info["lfs.bin"].title == "second commit"
+        assert paths_info["lfs_copy.bin"].title == "initial commit"
+        assert paths_info["lfs3.bin"].title == "second commit"
+
+    @use_tmp_repo()
     def test_continue_commit_if_only_deletion(self, repo_url: RepoUrl) -> None:
         self._api.create_commit(
             repo_id=repo_url.repo_id,
             commit_message="initial commit",
             operations=[
                 CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file_copy.txt"),
                 CommitOperationAdd(path_or_fileobj=b"content 2.0", path_in_repo="file2.txt"),
             ],
         )
@@ -1209,6 +1301,8 @@ class CommitApiTest(HfApiCommonTest):
                 operations=[
                     # Did not change => will be removed from commit
                     CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                    # identical to file.txt => will be removed from commit
+                    CommitOperationCopy(src_path_in_repo="file.txt", path_in_repo="file_copy.txt"),
                     # Delete operation => kept in any case
                     CommitOperationDelete(path_in_repo="file2.txt"),
                 ],
@@ -1218,7 +1312,11 @@ class CommitApiTest(HfApiCommonTest):
         warning_logs = [log.message for log in logs.records if log.levelname == "WARNING"]
 
         assert "Skipping upload for 'file.txt' as the file has not changed." in debug_logs
-        assert "Removing 1 file(s) from commit that have not changed." in info_logs
+        assert (
+            "Skipping copy for 'file.txt' -> 'file_copy.txt' as the content of the source file is the same as the destination file."
+            in debug_logs
+        )
+        assert "Removing 2 file(s) from commit that have not changed." in info_logs
         assert len(warning_logs) == 0  # no warnings since the commit is not empty
 
         remote_files = self._api.list_repo_files(repo_id=repo_url.repo_id)
@@ -1739,9 +1837,6 @@ class HfApiPublicStagingTest(unittest.TestCase):
     def test_staging_list_models(self):
         self._api.list_models()
 
-    def test_staging_list_metrics(self):
-        self._api.list_metrics()
-
 
 class HfApiPublicProductionTest(unittest.TestCase):
     @with_production_testing
@@ -2192,12 +2287,6 @@ class HfApiPublicProductionTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self._api.space_info("HuggingFaceH4/zephyr-chat", expand=["author"], files_metadata=True)
 
-    def test_list_metrics(self):
-        metrics = self._api.list_metrics()
-        self.assertGreater(len(metrics), 10)
-        self.assertIsInstance(metrics[0], MetricInfo)
-        assert any(metric.description for metric in metrics)
-
     def test_filter_models_by_author(self):
         models = list(self._api.list_models(author="muellerzr"))
         assert len(models) > 0
@@ -2328,13 +2417,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert "wikipedia" in spaces[0].datasets
 
     def test_list_spaces_linked(self):
-        space_id = "open-llm-leaderboard/open_llm_leaderboard"
+        space_id = "stabilityai/stable-diffusion"
 
-        spaces = list(self._api.list_spaces(search=space_id))
+        spaces = [space for space in self._api.list_spaces(search=space_id) if space.id == space_id]
         assert spaces[0].models is None
         assert spaces[0].datasets is None
 
-        spaces = list(self._api.list_spaces(search=space_id, linked=True))
+        spaces = [space for space in self._api.list_spaces(search=space_id, linked=True) if space.id == space_id]
         assert spaces[0].models is not None
         assert spaces[0].datasets is not None
 
@@ -2953,72 +3042,9 @@ class ActivityApiTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.api = HfApi()  # no auth!
 
-    def test_like_and_unlike_repo(self) -> None:
-        # Create and like a private and a public repo
-        repo_id_private = self.api.create_repo(repo_name(), token=TOKEN, private=True).repo_id
-        self.api.like(repo_id_private, token=TOKEN)
-
-        repo_id_public = self.api.create_repo(repo_name(), token=TOKEN, private=False).repo_id
-        self.api.like(repo_id_public, token=TOKEN)
-
-        # Get likes as public and authenticated
-        likes = self.api.list_liked_repos(USER)
-        likes_with_auth = self.api.list_liked_repos(USER, token=TOKEN)
-
-        # Public repo is shown in liked repos
-        self.assertIn(repo_id_public, likes.models)
-        self.assertIn(repo_id_public, likes_with_auth.models)
-
-        # Private repo is NOT shown in liked repos, even when authenticated
-        # This is by design. See https://github.com/huggingface/moon-landing/pull/4879 (internal link)
-        self.assertNotIn(repo_id_private, likes.models)
-        self.assertNotIn(repo_id_private, likes_with_auth.models)
-
-        # Unlike repo and check not in liked list
-        self.api.unlike(repo_id_public, token=TOKEN)
-        self.api.unlike(repo_id_private, token=TOKEN)
-        likes_after_unlike = self.api.list_liked_repos(USER)
-        self.assertNotIn(repo_id_public, likes_after_unlike.models)  # Unliked
-
-        # Cleanup
-        self.api.delete_repo(repo_id_public, token=TOKEN)
-        self.api.delete_repo(repo_id_private, token=TOKEN)
-
-    def test_like_missing_repo(self) -> None:
-        with self.assertRaises(RepositoryNotFoundError):
-            self.api.like("missing_repo_id", token=TOKEN)
-
+    def test_unlike_missing_repo(self) -> None:
         with self.assertRaises(RepositoryNotFoundError):
             self.api.unlike("missing_repo_id", token=TOKEN)
-
-    def test_like_twice(self) -> None:
-        # Create and like repo
-        repo_id = self.api.create_repo(repo_name(), token=TOKEN, private=True).repo_id
-
-        # Can like twice
-        self.api.like(repo_id, token=TOKEN)
-        self.api.like(repo_id, token=TOKEN)
-
-        # Can unlike twice
-        self.api.unlike(repo_id, token=TOKEN)
-        self.api.unlike(repo_id, token=TOKEN)
-
-        # Cleanup
-        self.api.delete_repo(repo_id, token=TOKEN)
-
-    def test_list_liked_repos_no_auth(self) -> None:
-        # Create a repo + like
-        repo_id = self.api.create_repo(repo_name(), exist_ok=True, token=TOKEN).repo_id
-        self.api.like(repo_id, token=TOKEN)
-
-        # Fetch liked repos without auth
-        likes = self.api.list_liked_repos(USER, token=False)
-        self.assertEqual(likes.user, USER)
-        self.assertGreater(len(likes.models) + len(likes.datasets) + len(likes.spaces), 0)
-        self.assertIn(repo_id, likes.models)
-
-        # Cleanup
-        self.api.delete_repo(repo_id, token=TOKEN)
 
     def test_list_likes_repos_auth_and_implicit_user(self) -> None:
         # User is implicit
@@ -3264,9 +3290,12 @@ class TestCommitInBackground(HfApiCommonTest):
     @use_tmp_repo()
     def test_run_as_future(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
-        self._api.run_as_future(self._api.like, repo_id)
+        # update repo visibility to private
+        self._api.run_as_future(self._api.update_repo_settings, repo_id=repo_id, private=True)
         future_1 = self._api.run_as_future(self._api.model_info, repo_id=repo_id)
-        self._api.run_as_future(self._api.unlike, repo_id)
+
+        # update repo visibility to public
+        self._api.run_as_future(self._api.update_repo_settings, repo_id=repo_id, private=False)
         future_2 = self._api.run_as_future(self._api.model_info, repo_id=repo_id)
 
         self.assertIsInstance(future_1, Future)
@@ -3281,8 +3310,8 @@ class TestCommitInBackground(HfApiCommonTest):
         assert future_2.done()
 
         # Like/unlike is correct
-        self.assertEqual(info_1.likes, 1)
-        self.assertEqual(info_2.likes, 0)
+        self.assertEqual(info_1.private, True)
+        self.assertEqual(info_2.private, False)
 
 
 class TestDownloadHfApiAlias(unittest.TestCase):
@@ -4084,7 +4113,7 @@ class AccessRequestAPITest(HfApiCommonTest):
         assert requests[0].username == OTHER_USER
 
         # Reject access
-        self._api.reject_access_request(self.repo_id, OTHER_USER)
+        self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
         requests = self._api.list_pending_access_requests(self.repo_id)
         assert len(requests) == 0  # not pending anymore
         requests = self._api.list_rejected_access_requests(self.repo_id)
@@ -4110,9 +4139,9 @@ class AccessRequestAPITest(HfApiCommonTest):
             self._api.accept_access_request(self.repo_id, OTHER_USER)
 
         # Cannot reject to already rejected
-        self._api.reject_access_request(self.repo_id, OTHER_USER)
+        self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
         with self.assertRaises(HTTPError):
-            self._api.reject_access_request(self.repo_id, OTHER_USER)
+            self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
 
         # Cannot cancel to already cancelled
         self._api.cancel_access_request(self.repo_id, OTHER_USER)

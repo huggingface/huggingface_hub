@@ -103,6 +103,12 @@ class CommitOperationCopy:
     src_path_in_repo: str
     path_in_repo: str
     src_revision: Optional[str] = None
+    # set to the OID of the file to be copied if it has already been uploaded
+    # useful to determine if a commit will be empty or not.
+    _src_oid: Optional[str] = None
+    # set to the OID of the file to copy to if it has already been uploaded
+    # useful to determine if a commit will be empty or not.
+    _dest_oid: Optional[str] = None
 
     def __post_init__(self):
         self.src_path_in_repo = _validate_path_in_repo(self.src_path_in_repo)
@@ -400,7 +406,7 @@ def _upload_lfs_files(
         if batch_errors_chunk:
             message = "\n".join(
                 [
-                    f'Encountered error for file with OID {err.get("oid")}: `{err.get("error", {}).get("message")}'
+                    f"Encountered error for file with OID {err.get('oid')}: `{err.get('error', {}).get('message')}"
                     for err in batch_errors_chunk
                 ]
             )
@@ -595,19 +601,38 @@ def _fetch_files_to_copy(
 
     hf_api = HfApi(endpoint=endpoint, headers=headers)
     files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]] = {}
+    # Store (path, revision) -> oid mapping
+    oid_info: Dict[Tuple[str, Optional[str]], Optional[str]] = {}
+    # 1. Fetch OIDs for destination paths in batches.
+    dest_paths = [op.path_in_repo for op in copies]
+    for offset in range(0, len(dest_paths), FETCH_LFS_BATCH_SIZE):
+        dest_repo_files = hf_api.get_paths_info(
+            repo_id=repo_id,
+            paths=dest_paths[offset : offset + FETCH_LFS_BATCH_SIZE],
+            revision=revision,
+            repo_type=repo_type,
+        )
+        for file in dest_repo_files:
+            if not isinstance(file, RepoFolder):
+                oid_info[(file.path, revision)] = file.blob_id
+
+    # 2. Group by source revision and fetch source file info in batches.
     for src_revision, operations in groupby(copies, key=lambda op: op.src_revision):
         operations = list(operations)  # type: ignore
-        paths = [op.src_path_in_repo for op in operations]
-        for offset in range(0, len(paths), FETCH_LFS_BATCH_SIZE):
+        src_paths = [op.src_path_in_repo for op in operations]
+        for offset in range(0, len(src_paths), FETCH_LFS_BATCH_SIZE):
             src_repo_files = hf_api.get_paths_info(
                 repo_id=repo_id,
-                paths=paths[offset : offset + FETCH_LFS_BATCH_SIZE],
+                paths=src_paths[offset : offset + FETCH_LFS_BATCH_SIZE],
                 revision=src_revision or revision,
                 repo_type=repo_type,
             )
+
             for src_repo_file in src_repo_files:
                 if isinstance(src_repo_file, RepoFolder):
                     raise NotImplementedError("Copying a folder is not implemented.")
+                oid_info[(src_repo_file.path, src_revision)] = src_repo_file.blob_id
+                # If it's an LFS file, store the RepoFile object. Otherwise, download raw bytes.
                 if src_repo_file.lfs:
                     files_to_copy[(src_repo_file.path, src_revision)] = src_repo_file
                 else:
@@ -622,12 +647,16 @@ def _fetch_files_to_copy(
                     response = get_session().get(url, headers=headers)
                     hf_raise_for_status(response)
                     files_to_copy[(src_repo_file.path, src_revision)] = response.content
+        # 3. Ensure all operations found a corresponding file in the Hub
+        #  and track src/dest OIDs for each operation.
         for operation in operations:
             if (operation.src_path_in_repo, src_revision) not in files_to_copy:
                 raise EntryNotFoundError(
                     f"Cannot copy {operation.src_path_in_repo} at revision "
                     f"{src_revision or revision}: file is missing on repo."
                 )
+            operation._src_oid = oid_info.get((operation.src_path_in_repo, operation.src_revision))
+            operation._dest_oid = oid_info.get((operation.path_in_repo, revision))
     return files_to_copy
 
 

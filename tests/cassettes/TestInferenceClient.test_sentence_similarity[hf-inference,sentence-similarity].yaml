@@ -1,0 +1,53 @@
+interactions:
+- request:
+    body: '{"inputs": {"source_sentence": "Machine learning is so easy.", "sentences":
+      ["Deep learning is so straightforward.", "This is so difficult, like rocket
+      science.", "I can''t believe how much I struggled with this."]}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '215'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 0434ff33-56fe-49db-9380-17b81e41f756
+    method: POST
+    uri: https://api-inference.huggingface.co/pipeline/sentence-similarity/sentence-transformers/all-MiniLM-L6-v2
+  response:
+    body:
+      string: '[0.7785724997520447,0.4587624967098236,0.29062220454216003]'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '59'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 14:27:52 GMT
+      access-control-allow-credentials:
+      - 'true'
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
+      x-compute-time:
+      - '0.023'
+      x-compute-type:
+      - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /
+      x-request-id:
+      - SacwcW
+      x-sha:
+      - fa97f6e7cb1a59073dff9e6b13e2715cf7475ac9
+    status:
+      code: 200
+      message: OK
+version: 1
