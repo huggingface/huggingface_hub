@@ -149,6 +149,7 @@ from .text_to_speech import (
     TextToSpeechOutput,
     TextToSpeechParameters,
 )
+from .text_to_video import TextToVideoInput, TextToVideoOutput, TextToVideoParameters
 from .token_classification import (
     TokenClassificationAggregationStrategy,
     TokenClassificationInput,

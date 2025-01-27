@@ -398,6 +398,9 @@ _SUBMOD_ATTRS = {
         "TextToSpeechInput",
         "TextToSpeechOutput",
         "TextToSpeechParameters",
+        "TextToVideoInput",
+        "TextToVideoOutput",
+        "TextToVideoParameters",
         "TokenClassificationAggregationStrategy",
         "TokenClassificationInput",
         "TokenClassificationOutputElement",
@@ -705,6 +708,9 @@ __all__ = [
     "TextToSpeechInput",
     "TextToSpeechOutput",
     "TextToSpeechParameters",
+    "TextToVideoInput",
+    "TextToVideoOutput",
+    "TextToVideoParameters",
     "TokenClassificationAggregationStrategy",
     "TokenClassificationInput",
     "TokenClassificationOutputElement",
@@ -1334,6 +1340,9 @@ if TYPE_CHECKING:  # pragma: no cover
         TextToSpeechInput,  # noqa: F401
         TextToSpeechOutput,  # noqa: F401
         TextToSpeechParameters,  # noqa: F401
+        TextToVideoInput,  # noqa: F401
+        TextToVideoOutput,  # noqa: F401
+        TextToVideoParameters,  # noqa: F401
         TokenClassificationAggregationStrategy,  # noqa: F401
         TokenClassificationInput,  # noqa: F401
         TokenClassificationOutputElement,  # noqa: F401
