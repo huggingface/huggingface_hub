@@ -102,7 +102,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
-from huggingface_hub.inference._providers import HFInferenceTask, get_provider_helper
+from huggingface_hub.inference._providers import PROVIDER_T, HFInferenceTask, get_provider_helper
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
 from huggingface_hub.utils._deprecation import _deprecate_arguments, _deprecate_method
 
@@ -164,7 +164,7 @@ class InferenceClient:
         self,
         model: Optional[str] = None,
         *,
-        provider: Optional[str] = None,
+        provider: Optional[PROVIDER_T] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,

@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Literal
 
 from .._common import TaskProviderHelper
 from .fal_ai import FalAIAutomaticSpeechRecognitionTask, FalAITextToImageTask, FalAITextToVideoTask
@@ -8,7 +8,15 @@ from .sambanova import SambanovaConversationalTask
 from .together import TogetherTextGenerationTask, TogetherTextToImageTask
 
 
-PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
+PROVIDER_T = Literal[
+    "fal-ai",
+    "hf-inference",
+    "replicate",
+    "sambanova",
+    "together",
+]
+
+PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     "fal-ai": {
         "text-to-image": FalAITextToImageTask(),
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),
@@ -58,7 +66,7 @@ PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
 }
 
 
-def get_provider_helper(provider: str, task: str) -> TaskProviderHelper:
+def get_provider_helper(provider: PROVIDER_T, task: str) -> TaskProviderHelper:
     """Get provider helper instance by name and task.
 
     Args:
