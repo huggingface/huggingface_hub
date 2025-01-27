@@ -79,12 +79,16 @@ def test_local_download_paths(tmp_path: Path):
     assert paths.metadata_path.parent.is_dir()
     assert paths.lock_path.parent.is_dir()
 
-    # Incomplete path are etag-based
-    assert (
-        paths.incomplete_path("etag123")
-        == tmp_path / ".cache" / "huggingface" / "download" / "path" / "in" / "repo.txt.etag123.incomplete"
-    )
+    # Incomplete paths are etag-based
+    incomplete_path = paths.incomplete_path("etag123")
+    assert incomplete_path.parent == tmp_path / ".cache" / "huggingface" / "download" / "path" / "in"
+    assert incomplete_path.name.endswith(".etag123.incomplete")
     assert paths.incomplete_path("etag123").parent.is_dir()
+
+    # Incomplete paths are unique per file per etag
+    other_paths = get_local_download_paths(tmp_path, "path/in/repo_other.txt")
+    other_incomplete_path = other_paths.incomplete_path("etag123")
+    assert incomplete_path != other_incomplete_path  # different .incomplete files to prevent concurrency issues
 
 
 def test_local_download_paths_are_recreated_each_time(tmp_path: Path):
