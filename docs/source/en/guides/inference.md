@@ -259,6 +259,7 @@ You might wonder why using [`InferenceClient`] instead of OpenAI's client? There
 |                     | [`~InferenceClient.image_to_text`]                  | ✅            | ❌         | ❌      | ❌         | ❌        |
 |                     | [`~InferenceClient.object_detection`]               | ✅            | ❌         | ❌      | ❌         | ❌        |
 |                     | [`~InferenceClient.text_to_image`]                  | ✅            | ✅         | ✅      | ❌         | ✅        |
+|                     | [`~InferenceClient.text_to_video`]                  | ❌            | ✅         | ✅      | ❌         | ❌        |
 |                     | [`~InferenceClient.zero_shot_image_classification`] | ✅            | ❌         | ❌      | ❌         | ❌        |
 | **Multimodal**      | [`~InferenceClient.document_question_answering`]    | ✅            | ❌         | ❌      | ❌         | ❌        |
 |                     | [`~InferenceClient.visual_question_answering`]      | ✅            | ❌         | ❌      | ❌         | ❌        |
