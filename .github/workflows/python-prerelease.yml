@@ -1,12 +1,10 @@
 name: Python prerelease
 
 on:
-  #   push:
-  #     tags:
-  #       - v*.rc*
-  push: # TODO: remove this before merging
-    branches:
-      - automating-release-candidate-testing
+  push:
+    tags:
+      - v*.rc*
+
 jobs:
   test_on_transformers:
     runs-on: ubuntu-latest
@@ -15,8 +13,7 @@ jobs:
     steps:
       - name: Extract version from tag
         id: get-version
-        # run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-        run: echo "VERSION=v0.27.0rc1" >> $GITHUB_OUTPUT # TODO: remove this before merging
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Checkout transformers
         uses: actions/checkout@v4
