@@ -1,0 +1,55 @@
+name: Python prerelease
+
+on:
+  push:
+    tags:
+      - v*.rc*
+
+jobs:
+  test_on_transformers:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Extract version from tag
+        id: get-version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Checkout transformers
+        uses: actions/checkout@v4
+        with:
+          repository: huggingface/transformers
+          path: transformers
+          token: ${{ secrets.HUGGINGFACE_HUB_AUTOMATIC_RC_TESTING }}
+
+      - name: Configure Git
+        run: |
+          cd transformers
+          git config user.name "Hugging Face Bot (RC Testing)"
+          git config user.email "bot@huggingface.co"
+
+      - name: Create test branch and update dependencies
+        id: create-pr
+        run: |
+          cd transformers
+          VERSION=${{ steps.get-version.outputs.VERSION }}
+          BRANCH_NAME="ci-test-huggingface-hub-${VERSION}"
+
+          # Create and checkout new branch
+          git checkout -b $BRANCH_NAME
+
+          # Update dependencies using sed
+          sed -i -E 's/"huggingface-hub>=0.*"/"huggingface-hub=='${VERSION}'"/' setup.py
+          sed -i -E 's/"huggingface-hub>=0.*"/"huggingface-hub=='${VERSION}'"/' src/transformers/dependency_versions_table.py
+
+          # Commit and push changes
+          git --no-pager diff
+          git add setup.py src/transformers/dependency_versions_table.py
+          git commit -m "Test hfh ${VERSION}"
+          git push --set-upstream origin $BRANCH_NAME
+
+      - name: Print URLs for manual check
+        run: |
+          VERSION=${{ steps.get-version.outputs.VERSION }}
+          echo "https://github.com/huggingface/transformers/actions"
+          echo "https://github.com/huggingface/transformers/compare/main...ci-test-huggingface-hub-${VERSION}"
