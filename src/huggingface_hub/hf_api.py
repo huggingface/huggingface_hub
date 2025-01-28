@@ -3341,7 +3341,7 @@ class HfApi:
             branch = constants.DEFAULT_REVISION
 
         # Prepare request
-        url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/super-squash/{branch}"
+        url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/super-squash/{quote(branch, safe='')}"
         headers = self._build_hf_headers(token=token)
         commit_message = commit_message or f"Super-squash branch '{branch}' using huggingface_hub"
 
