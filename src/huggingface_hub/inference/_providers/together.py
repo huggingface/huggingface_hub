@@ -20,9 +20,7 @@ SUPPORTED_MODELS = {
         "deepseek-ai/deepseek-llm-67b-chat": "deepseek-ai/deepseek-llm-67b-chat",
         "google/gemma-2-9b-it": "google/gemma-2-9b-it",
         "google/gemma-2b-it": "google/gemma-2-27b-it",
-        "llava-hf/llava-v1.6-mistral-7b-hf": "llava-hf/llava-v1.6-mistral-7b-hf",
         "meta-llama/Llama-2-13b-chat-hf": "meta-llama/Llama-2-13b-chat-hf",
-        "meta-llama/Llama-2-70b-hf": "meta-llama/Llama-2-70b-hf",
         "meta-llama/Llama-2-7b-chat-hf": "meta-llama/Llama-2-7b-chat-hf",
         "meta-llama/Llama-3.2-11B-Vision-Instruct": "meta-llama/Llama-Vision-Free",
         "meta-llama/Llama-3.2-3B-Instruct": "meta-llama/Llama-3.2-3B-Instruct-Turbo",
@@ -48,6 +46,7 @@ SUPPORTED_MODELS = {
         "scb10x/llama-3-typhoon-v1.5x-70b-instruct-awq": "scb10x/scb10x-llama3-typhoon-v1-5x-4f316",
     },
     "text-generation": {
+        "meta-llama/Llama-2-70b-hf": "meta-llama/Llama-2-70b-hf",
         "meta-llama/Meta-Llama-3-8B": "meta-llama/Meta-Llama-3-8B",
         "mistralai/Mixtral-8x7B-v0.1": "mistralai/Mixtral-8x7B-v0.1",
     },
