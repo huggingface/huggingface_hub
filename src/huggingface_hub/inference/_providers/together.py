@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import constants
 from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict
-from huggingface_hub.utils import build_hf_headers, logging
+from huggingface_hub.utils import build_hf_headers, get_token, logging
 
 
 logger = logging.get_logger(__name__)
@@ -29,7 +29,7 @@ SUPPORTED_MODELS = {
         "meta-llama/Llama-3.2-90B-Vision-Instruct": "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
         "meta-llama/Llama-3.3-70B-Instruct": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
         "meta-llama/Meta-Llama-3-70B-Instruct": "meta-llama/Llama-3-70b-chat-hf",
-        "meta-llama/Meta-Llama-3-8B-Instruct": "togethercomputer/Llama-3-8b-chat-hf-int4",
+        "meta-llama/Meta-Llama-3-8B-Instruct": "meta-llama/Meta-Llama-3-8B-Instruct-Turbo",
         "meta-llama/Meta-Llama-3.1-405B-Instruct": "meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo",
         "meta-llama/Meta-Llama-3.1-70B-Instruct": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
         "meta-llama/Meta-Llama-3.1-8B-Instruct": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
@@ -86,7 +86,11 @@ class TogetherTask(TaskProviderHelper, ABC):
         extra_payload: Optional[Dict[str, Any]] = None,
     ) -> RequestParameters:
         if api_key is None:
-            raise ValueError("You must provide an api_key to work with Together API.")
+            api_key = get_token()
+        if api_key is None:
+            raise ValueError(
+                "You must provide an api_key to work with Together API or log in with `huggingface-cli login`."
+            )
         headers = {**build_hf_headers(token=api_key), **headers}
 
         # Route to the proxy if the api_key is a HF TOKEN
@@ -97,6 +101,8 @@ class TogetherTask(TaskProviderHelper, ABC):
             base_url = BASE_URL
             logger.info("Calling Together provider directly.")
         mapped_model = self._map_model(model)
+        if "model" in parameters:
+            parameters["model"] = mapped_model
         payload = self._prepare_payload(inputs, parameters=parameters)
 
         return RequestParameters(
