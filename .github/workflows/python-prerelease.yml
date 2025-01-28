@@ -23,12 +23,12 @@ jobs:
         with:
           repository: huggingface/transformers
           path: transformers
-          token: ${{ secrets.TOKEN_INFERENCE_SYNC_BOT }}
+          token: ${{ secrets.HUGGINGFACE_HUB_AUTOMATIC_RC_TESTING }}
 
       - name: Configure Git
         run: |
           cd transformers
-          git config user.name "Hugging Face Bot"
+          git config user.name "Hugging Face Bot (RC Testing)"
           git config user.email "bot@huggingface.co"
 
       - name: Create test branch and update dependencies
