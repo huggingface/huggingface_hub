@@ -3077,7 +3077,7 @@ class ActivityApiTest(unittest.TestCase):
 
 class TestSquashHistory(HfApiCommonTest):
     @use_tmp_repo()
-    def test_super_squash_history(self, repo_url: RepoUrl) -> None:
+    def test_super_squash_history_on_branch(self, repo_url: RepoUrl) -> None:
         # Upload + update file on main
         repo_id = repo_url.repo_id
         self._api.upload_file(repo_id=repo_id, path_in_repo="file.txt", path_or_fileobj=b"content")
@@ -3096,16 +3096,43 @@ class TestSquashHistory(HfApiCommonTest):
         branch_commits = self._api.list_repo_commits(repo_id=repo_id, revision="v0.1")
 
         # Main branch has been squashed but initial commits still exists on other branch
-        self.assertEqual(len(squashed_main_commits), 1)
-        self.assertEqual(squashed_main_commits[0].title, "Super-squash branch 'main' using huggingface_hub")
-        self.assertEqual(len(branch_commits), 5)
-        self.assertEqual(branch_commits[-1].title, "initial commit")
+        assert len(squashed_main_commits) == 1
+        assert squashed_main_commits[0].title == "Super-squash branch 'main' using huggingface_hub"
+        assert len(branch_commits) == 5
+        assert branch_commits[-1].title == "initial commit"
 
         # Squash history on branch
         self._api.super_squash_history(repo_id=repo_id, branch="v0.1")
         squashed_branch_commits = self._api.list_repo_commits(repo_id=repo_id, revision="v0.1")
-        self.assertEqual(len(squashed_branch_commits), 1)
-        self.assertEqual(squashed_branch_commits[0].title, "Super-squash branch 'v0.1' using huggingface_hub")
+        assert len(squashed_branch_commits) == 1
+        assert squashed_branch_commits[0].title == "Super-squash branch 'v0.1' using huggingface_hub"
+
+    @use_tmp_repo()
+    def test_super_squash_history_on_special_ref(self, repo_url: RepoUrl) -> None:
+        """Regression test for https://github.com/huggingface/dataset-viewer/pull/3131.
+
+        In practice, it doesn't make any sense to super squash a PR as it will not be mergeable anymore.
+        The only case where it's useful is for the dataset-viewer on refs/convert/parquet.
+        """
+        repo_id = repo_url.repo_id
+        pr = self._api.create_pull_request(repo_id=repo_id, title="Test super squash on PR")
+
+        # Upload + update file on PR
+        self._api.upload_file(
+            repo_id=repo_id, path_in_repo="file.txt", path_or_fileobj=b"content", revision=pr.git_reference
+        )
+        self._api.upload_file(
+            repo_id=repo_id, path_in_repo="lfs.bin", path_or_fileobj=b"content", revision=pr.git_reference
+        )
+        self._api.upload_file(
+            repo_id=repo_id, path_in_repo="file.txt", path_or_fileobj=b"another_content", revision=pr.git_reference
+        )
+
+        # Squash history PR
+        self._api.super_squash_history(repo_id=repo_id, branch=pr.git_reference)
+
+        squashed_branch_commits = self._api.list_repo_commits(repo_id=repo_id, revision=pr.git_reference)
+        assert len(squashed_branch_commits) == 1
 
 
 @pytest.mark.vcr
