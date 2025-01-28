@@ -1,11 +1,12 @@
 name: Python prerelease
 
 on:
-  workflow_dispatch: # TODO: remove this before merging
-#   push:
-#     tags:
-#       - v*.rc*
-
+  #   push:
+  #     tags:
+  #       - v*.rc*
+  push: # TODO: remove this before merging
+    branches:
+      - automating-release-candidate-testing
 jobs:
   test_on_transformers:
     runs-on: ubuntu-latest
