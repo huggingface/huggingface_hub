@@ -513,7 +513,7 @@ def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: Res
             server_errors.append(response.text)
 
     # Strip all server messages
-    server_errors = [line.strip() for line in server_errors if line.strip()]
+    server_errors = [str(line).strip() for line in server_errors if str(line).strip()]
 
     # Deduplicate server messages (keep order)
     # taken from https://stackoverflow.com/a/17016257
