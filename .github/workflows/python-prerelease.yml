@@ -3,7 +3,7 @@ name: Python prerelease
 on:
   push:
     tags:
-      - "v*.rc*"
+      - v*
 
 jobs:
   test_on_transformers:
@@ -13,7 +13,13 @@ jobs:
     steps:
       - name: Extract version from tag
         id: get-version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+\.rc[0-9]+$ ]]; then
+            echo "Tag does not match the required prerelease format. Canceling the job."
+            exit 0
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Checkout transformers
         uses: actions/checkout@v4
