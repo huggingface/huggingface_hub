@@ -232,7 +232,7 @@ A `.cache/huggingface/` folder is created at the root of your local directory co
 
 <Tip>
 
-For more details on how downloading to a local file works, check out the [download](./download.md#download-files-to-a-local-folder) guide.
+For more details on how downloading to a local file works, check out the [download](./download#download-files-to-a-local-folder) guide.
 
 </Tip>
 
