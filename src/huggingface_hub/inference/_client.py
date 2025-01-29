@@ -1611,19 +1611,10 @@ class InferenceClient:
         response = self._inner_post(request_parameters)
         return _bytes_to_list(response)
 
-    @_deprecate_arguments(
-        version="0.29",
-        deprecated_args=["parameters"],
-        custom_message=(
-            "The `parameters` argument is deprecated and will be removed in a future version. "
-            "Provide individual parameters instead: `clean_up_tokenization_spaces`, `generate_parameters`, and `truncation`."
-        ),
-    )
     def summarization(
         self,
         text: str,
         *,
-        parameters: Optional[Dict[str, Any]] = None,
         model: Optional[str] = None,
         clean_up_tokenization_spaces: Optional[bool] = None,
         generate_parameters: Optional[Dict[str, Any]] = None,
@@ -1635,9 +1626,6 @@ class InferenceClient:
         Args:
             text (`str`):
                 The input text to summarize.
-            parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for summarization. Check out this [page](https://huggingface.co/docs/api-inference/detailed_parameters#summarization-task)
-                for more details.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for summarization will be used.
@@ -1664,12 +1652,11 @@ class InferenceClient:
         SummarizationOutput(generated_text="The Eiffel tower is one of the most famous landmarks in the world....")
         ```
         """
-        if parameters is None:
-            parameters = {
-                "clean_up_tokenization_spaces": clean_up_tokenization_spaces,
-                "generate_parameters": generate_parameters,
-                "truncation": truncation,
-            }
+        parameters = {
+            "clean_up_tokenization_spaces": clean_up_tokenization_spaces,
+            "generate_parameters": generate_parameters,
+            "truncation": truncation,
+        }
         provider_helper = get_provider_helper(self.provider, task="summarization")
         request_parameters = provider_helper.prepare_request(
             inputs=text,

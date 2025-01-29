@@ -59,7 +59,7 @@ When you create a repository, you can set your repository visibility with the `p
 >>> create_repo("lysandre/test-private", private=True)
 ```
 
-If you want to change the repository visibility at a later time, you can use the [`update_repo_visibility`] function.
+If you want to change the repository visibility at a later time, you can use the [`update_repo_settings`] function.
 
 <Tip>
 
