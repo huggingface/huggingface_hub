@@ -4,6 +4,7 @@ from .._common import TaskProviderHelper
 from .fal_ai import FalAIAutomaticSpeechRecognitionTask, FalAITextToImageTask, FalAITextToVideoTask
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
+from .runware import RunwareTextToImageTask
 from .sambanova import SambanovaConversationalTask
 from .together import TogetherTextGenerationTask, TogetherTextToImageTask
 
@@ -12,6 +13,7 @@ PROVIDER_T = Literal[
     "fal-ai",
     "hf-inference",
     "replicate",
+    "runware",
     "sambanova",
     "together",
 ]
@@ -54,6 +56,9 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-image": ReplicateTask("text-to-image"),
         "text-to-speech": ReplicateTextToSpeechTask(),
         "text-to-video": ReplicateTask("text-to-video"),
+    },
+    "runware": {
+        "text-to-image": RunwareTextToImageTask(),
     },
     "sambanova": {
         "conversational": SambanovaConversationalTask(),
