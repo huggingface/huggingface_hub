@@ -282,7 +282,7 @@ To mitigate this issue, you can set the `HF_HUB_DOWNLOAD_TIMEOUT` environment va
 export HF_HUB_DOWNLOAD_TIMEOUT=30
 ```
 
-For more details, check out the [environment variables reference](../package_reference/environment_variables#hfhubdownloadtimeout).And rerun your download command.
+For more details, check out the [environment variables reference](../package_reference/environment_variables#hfhubdownloadtimeout). And rerun your download command.
 
 ## huggingface-cli upload
 
