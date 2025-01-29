@@ -2614,6 +2614,7 @@ class InferenceClient:
         early_stopping: Optional[Union[bool, "TextToSpeechEarlyStoppingEnum"]] = None,
         epsilon_cutoff: Optional[float] = None,
         eta_cutoff: Optional[float] = None,
+        genres: Optional[str] = None,
         max_length: Optional[int] = None,
         max_new_tokens: Optional[int] = None,
         min_length: Optional[int] = None,
@@ -2653,6 +2654,8 @@ class InferenceClient:
                 probability, scaled by sqrt(eta_cutoff). In the paper, suggested values range from 3e-4 to 2e-3,
                 depending on the size of the model. See [Truncation Sampling as Language Model
                 Desmoothing](https://hf.co/papers/2210.15191) for more details.
+            genres (`str`, *optional*):
+                The genres to use for the music generation (if relevant for the model).
             max_length (`int`, *optional*):
                 The maximum length (in tokens) of the generated text, including the input.
             max_new_tokens (`int`, *optional*):
@@ -2739,6 +2742,7 @@ class InferenceClient:
                 "early_stopping": early_stopping,
                 "epsilon_cutoff": epsilon_cutoff,
                 "eta_cutoff": eta_cutoff,
+                "genres": genres,
                 "max_length": max_length,
                 "max_new_tokens": max_new_tokens,
                 "min_length": min_length,

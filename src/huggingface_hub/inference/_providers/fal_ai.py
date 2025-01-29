@@ -28,6 +28,9 @@ SUPPORTED_MODELS = {
         "stabilityai/stable-diffusion-3.5-large": "fal-ai/stable-diffusion-v35-large",
         "Kwai-Kolors/Kolors": "fal-ai/kolors",
     },
+    "text-to-speech": {
+        "m-a-p/YuE-s1-7B-anneal-en-cot": "fal-ai/yue",
+    },
     "text-to-video": {
         "genmo/mochi-1-preview": "fal-ai/mochi-v1",
         "tencent/HunyuanVideo": "fal-ai/hunyuan-video",
@@ -143,6 +146,22 @@ class FalAITextToImageTask(FalAITask):
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         url = _as_dict(response)["images"][0]["url"]
+        return get_session().get(url).content
+
+
+class FalAITextToSpeechTask(FalAITask):
+    def __init__(self):
+        super().__init__("text-to-speech")
+
+    def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        parameters = {k: v for k, v in parameters.items() if v is not None}
+        return {
+            "lyrics": inputs,
+            **parameters,
+        }
+
+    def get_response(self, response: Union[bytes, Dict]) -> Any:
+        url = _as_dict(response)["audio"]["url"]
         return get_session().get(url).content
 
 
