@@ -27,7 +27,7 @@ class TestHFInferenceProvider:
             api_key="hf_test_token",
         )
 
-        assert request.url == "https://api-inference.huggingface.co/models/username/repo_name"
+        assert request.url == "https://huggingface.co/api/inference-proxy/hf-inference/models/username/repo_name"
         assert request.task == "text-classification"
         assert request.model == "username/repo_name"
         assert request.headers["authorization"] == "Bearer hf_test_token"
