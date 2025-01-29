@@ -17,7 +17,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 878ea8c8-e390-4079-8d13-e4e7d64dc2d4
     method: POST
-    uri: https://api-inference.huggingface.co/models/openai/clip-vit-base-patch32
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/openai/clip-vit-base-patch32
   response:
     body:
       string: '[{"score":0.998569130897522,"label":"woman"},{"score":0.0012490371009334922,"label":"cat"},{"score":0.00018181487394031137,"label":"tree"}]'

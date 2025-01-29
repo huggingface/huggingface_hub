@@ -15,7 +15,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 31b9171d-7054-49d0-b24c-9038ca30094e
     method: POST
-    uri: https://api-inference.huggingface.co/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english
   response:
     body:
       string: '{"error":"Model distilbert/distilbert-base-uncased-finetuned-sst-2-english
@@ -56,7 +56,7 @@ interactions:
       X-wait-for-model:
       - '1'
     method: POST
-    uri: https://api-inference.huggingface.co/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english
   response:
     body:
       string: '[[{"label":"POSITIVE","score":0.9998695850372314},{"label":"NEGATIVE","score":0.00013043530634604394}]]'

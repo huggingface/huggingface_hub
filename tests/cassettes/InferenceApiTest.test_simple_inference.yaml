@@ -121,7 +121,7 @@ interactions:
       X-Amzn-Trace-Id:
       - c5d6dbee-a766-43de-af2a-801dce1c3d8c
     method: POST
-    uri: https://api-inference.huggingface.co/pipeline/fill-mask/bert-base-uncased
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/pipeline/fill-mask/bert-base-uncased
   response:
     body:
       string: '[{"score":0.800057053565979,"token":2023,"token_str":"this","sequence":"hi,

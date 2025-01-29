@@ -3,7 +3,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/openai-community/gpt2
   response:
     body:
       string: 'data: {"index":1,"token":{"id":13,"text":".","logprob":-2.877385,"special":false},"generated_text":".","details":{"finish_reason":"length","generated_tokens":1,"seed":null,"input_length":1}}
@@ -36,7 +36,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/openai-community/gpt2
   response:
     body:
       string: 'data: {"index":1,"token":{"id":13,"text":".","logprob":-2.877385,"special":false},"generated_text":".","details":{"finish_reason":"length","generated_tokens":1,"seed":null,"input_length":1}}
@@ -74,7 +74,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/openai-community/gpt2
   response:
     body:
       string: 'data: {"index":1,"token":{"id":13,"text":".","logprob":-2.877385,"special":false},"generated_text":".","details":{"finish_reason":"length","generated_tokens":1,"seed":null,"input_length":1}}

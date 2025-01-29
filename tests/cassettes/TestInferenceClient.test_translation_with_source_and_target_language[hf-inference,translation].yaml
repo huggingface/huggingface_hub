@@ -16,7 +16,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 9f29ce66-ff40-4392-a4c6-940b1e7c3378
     method: POST
-    uri: https://api-inference.huggingface.co/models/facebook/mbart-large-50-many-to-many-mmt
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/facebook/mbart-large-50-many-to-many-mmt
   response:
     body:
       string: '[{"translation_text":"Hello world"}]'

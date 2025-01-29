@@ -118,7 +118,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 9af17110-dd6c-43b3-976f-50b533762cd3
     method: POST
-    uri: https://api-inference.huggingface.co/pipeline/question-answering/deepset/roberta-base-squad2
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/pipeline/question-answering/deepset/roberta-base-squad2
   response:
     body:
       string: '{"error":["Error in `inputs.context`: field required"]}'

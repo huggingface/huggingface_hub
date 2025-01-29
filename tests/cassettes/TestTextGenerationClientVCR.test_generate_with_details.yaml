@@ -20,7 +20,7 @@ interactions:
       - unknown/None; hf_hub/0.24.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
         fastcore/1.5.23
     method: POST
-    uri: https://api-inference.huggingface.co/models/google/flan-t5-xxl
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/google/flan-t5-xxl
   response:
     body:
       string: '[{"generated_text":"","details":{"finish_reason":"length","generated_tokens":1,"seed":null,"prefill":[{"id":0,"text":"<pad>","logprob":null}],"tokens":[{"id":3,"text":"

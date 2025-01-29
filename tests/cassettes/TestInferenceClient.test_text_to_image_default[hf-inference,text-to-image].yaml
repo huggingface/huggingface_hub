@@ -15,7 +15,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 33373114-c224-4606-9794-963281e96fd1
     method: POST
-    uri: https://api-inference.huggingface.co/models/CompVis/stable-diffusion-v1-4
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/CompVis/stable-diffusion-v1-4
   response:
     body:
       string: !!binary |

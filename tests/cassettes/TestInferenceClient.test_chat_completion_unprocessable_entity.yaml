@@ -17,7 +17,7 @@ interactions:
       X-Amzn-Trace-Id:
       - ad258f7a-bcc6-4b6b-a218-e7f2957d9e36
     method: POST
-    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-70B-Instruct/v1/chat/completions
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/meta-llama/Meta-Llama-3-70B-Instruct/v1/chat/completions
   response:
     body:
       string: 'Failed to deserialize the JSON body into the target type: messages:

@@ -20,7 +20,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 7c3bb50a-a835-426d-b257-15eddabff2e9
     method: POST
-    uri: https://api-inference.huggingface.co/models/facebook/bart-large-mnli
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/facebook/bart-large-mnli
   response:
     body:
       string: '{"sequence":"A new model offers an explanation for how the Galilean

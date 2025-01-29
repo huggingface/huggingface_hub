@@ -3,7 +3,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-8B-Instruct
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/meta-llama/Meta-Llama-3.1-8B-Instruct
   response:
     body:
       string: 'data: {"index":1,"token":{"id":11,"text":",","logprob":-1.4208984,"special":false},"generated_text":",","details":null}
@@ -41,7 +41,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-8B-Instruct
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/meta-llama/Meta-Llama-3.1-8B-Instruct
   response:
     body:
       string: 'data: {"index":1,"token":{"id":11,"text":",","logprob":-1.4208984,"special":false},"generated_text":",","details":null}
@@ -79,7 +79,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-8B-Instruct
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/meta-llama/Meta-Llama-3.1-8B-Instruct
   response:
     body:
       string: 'data: {"index":1,"token":{"id":11,"text":",","logprob":-1.4208984,"special":false},"generated_text":",","details":null}
@@ -117,7 +117,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-8B-Instruct
+    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/meta-llama/Meta-Llama-3.1-8B-Instruct
   response:
     body:
       string: 'data: {"index":1,"token":{"id":11,"text":",","logprob":-1.4208984,"special":false},"generated_text":",","details":null}
