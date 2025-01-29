@@ -208,10 +208,13 @@ class HfApiEndpointsTest(HfApiCommonTest):
 
     def test_update_repo_visibility(self):
         repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
-        res = self._api.update_repo_settings(repo_id=repo_id, private=True)
-        assert res["private"]
-        res = self._api.update_repo_settings(repo_id=repo_id, private=False)
-        assert not res["private"]
+
+        self._api.update_repo_settings(repo_id=repo_id, private=True)
+        assert self._api.model_info(repo_id).private
+
+        self._api.update_repo_settings(repo_id=repo_id, private=False)
+        assert not self._api.model_info(repo_id).private
+
         self._api.delete_repo(repo_id=repo_id)
 
     def test_move_repo_normal_usage(self):
