@@ -53,7 +53,6 @@ from .testing_utils import (
     DUMMY_RENAMED_NEW_MODEL_ID,
     DUMMY_RENAMED_OLD_MODEL_ID,
     SAMPLE_DATASET_IDENTIFIER,
-    expect_deprecation,
     repo_name,
     use_tmp_repo,
     with_production_testing,
@@ -143,7 +142,6 @@ class StagingDownloadTests(unittest.TestCase):
                     repo_id=repo_url.repo_id, filename=".gitattributes", token=OTHER_TOKEN, cache_dir=tmpdir
                 )
 
-    @expect_deprecation("update_repo_visibility")
     @use_tmp_repo()
     def test_download_regular_file_from_private_renamed_repo(self, repo_url: RepoUrl) -> None:
         """Regression test for #1999.
@@ -154,7 +152,7 @@ class StagingDownloadTests(unittest.TestCase):
         repo_id_after = repo_url.repo_id + "_renamed"
 
         # Make private + rename + upload regular file
-        self._api.update_repo_visibility(repo_id_before, private=True)
+        self._api.update_repo_settings(repo_id_before, private=True)
         self._api.upload_file(repo_id=repo_id_before, path_in_repo="file.txt", path_or_fileobj=b"content")
         self._api.move_repo(repo_id_before, repo_id_after)
 

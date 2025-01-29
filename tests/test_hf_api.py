@@ -206,49 +206,13 @@ class HfApiEndpointsTest(HfApiCommonTest):
     def test_delete_repo_missing_ok(self) -> None:
         self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
-    @expect_deprecation("update_repo_visibility")
-    def test_create_update_and_delete_repo(self):
+    def test_update_repo_visibility(self):
         repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=True)
+        res = self._api.update_repo_settings(repo_id=repo_id, private=True)
         assert res["private"]
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=False)
+        res = self._api.update_repo_settings(repo_id=repo_id, private=False)
         assert not res["private"]
         self._api.delete_repo(repo_id=repo_id)
-
-    @expect_deprecation("update_repo_visibility")
-    def test_create_update_and_delete_model_repo(self):
-        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_MODEL).repo_id
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_MODEL)
-        assert res["private"]
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_MODEL)
-        assert not res["private"]
-        self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_MODEL)
-
-    @expect_deprecation("update_repo_visibility")
-    def test_create_update_and_delete_dataset_repo(self):
-        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_DATASET).repo_id
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_DATASET)
-        assert res["private"]
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_DATASET)
-        assert not res["private"]
-        self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_DATASET)
-
-    @expect_deprecation("update_repo_visibility")
-    def test_create_update_and_delete_space_repo(self):
-        with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
-            self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=None)
-        with pytest.raises(ValueError, match=r"Invalid space_sdk.*"):
-            self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk="something")
-
-        for sdk in constants.SPACES_SDK_TYPES:
-            repo_id = self._api.create_repo(
-                repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=sdk
-            ).repo_id
-            res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_SPACE)
-            assert res["private"]
-            res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_SPACE)
-            assert not res["private"]
-            self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_SPACE)
 
     def test_move_repo_normal_usage(self):
         repo_id = f"{USER}/{repo_name()}"

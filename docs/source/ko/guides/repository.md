@@ -49,7 +49,7 @@ Hub에 리포지토리를 생성하고 관리하려면, 로그인이 되어 있�
 >>> create_repo("lysandre/test-private", private=True)
 ```
 
-추후 리포지토리 가시성을 변경하고 싶다면, [`update_repo_visibility`] 함수를 이용해 바꿀 수 있습니다.
+추후 리포지토리 가시성을 변경하고 싶다면, [`update_repo_settings`] 함수를 이용해 바꿀 수 있습니다.
 
 ### 리포지토리 삭제[[delete-a-repository]]
 
@@ -128,8 +128,8 @@ Spaces를 위한 특정 설정들(하드웨어, 환경변수 등)을 구성하�
 리포지토리는 공개 또는 비공개로 설정할 수 있습니다. 비공개 리포지토리는 해당 저장소의 사용자 혹은 소속된 조직의 구성원만 볼 수 있습니다. 다음과 같이 리포지토리를 비공개로 변경할 수 있습니다.
 
 ```py
->>> from huggingface_hub import update_repo_visibility
->>> update_repo_visibility(repo_id=repo_id, private=True)
+>>> from huggingface_hub import update_repo_settings
+>>> update_repo_settings(repo_id=repo_id, private=True)
 ```
 
 ### 리포지토리 이름 변경[[rename-your-repository]]

@@ -55,7 +55,7 @@ Hugging Face Hub是一组 Git 存储库。[Git](https://git-scm.com/)是软件�
 >>> create_repo("lysandre/test-private", private=True)
 ```
 
-如果你想在以后更改仓库的可见性，你可以使用[`update_repo_visibility`] 函数
+如果你想在以后更改仓库的可见性，你可以使用[`update_repo_settings`] 函数
 
 ### 删除一个仓库
 
@@ -142,8 +142,8 @@ GitRefs(
 请运行以下代码将存储库更改为私有：
 
 ```py
->>> from huggingface_hub import update_repo_visibility
->>> update_repo_visibility(repo_id=repo_id, private=True)
+>>> from huggingface_hub import update_repo_settings
+>>> update_repo_settings(repo_id=repo_id, private=True)
 ```
 
 ### 重命名您的存储库
