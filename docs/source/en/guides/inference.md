@@ -11,7 +11,7 @@ The `huggingface_hub` library provides a unified interface to run inference acro
 2.  [Third-party providers](#supported-providers-and-tasks): various serverless solution provided by external providers (Together, Sambanova, etc.). These providers offer production-ready APIs on a pay-a-you-go model. This is the fastest way to integrate AI in your products with a maintenance-free and scalable solution. Refer to the [Supported providers and tasks](#supported-providers-and-tasks) section for a list of supported providers.
 3.  [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index): a product to easily deploy models to production. Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
 
-These services can be called with the [`InferenceClient`] object. It acts as a replacement for the legacy
+These services can all be called from the [`InferenceClient`] object. It acts as a replacement for the legacy
 [`InferenceApi`] client, adding specific support for tasks and third-party providers.
 Learn how to migrate to the new client in the [Legacy InferenceAPI client](#legacy-inferenceapi-client) section.
 
