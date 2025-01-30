@@ -64,48 +64,19 @@ class TestValidCacheUtils(unittest.TestCase):
     def setUp(self) -> None:
         """Setup a clean cache for tests that will remain valid in all tests."""
         # Download latest main
-        snapshot_download(
-            repo_id=MODEL_ID,
-            repo_type="model",
-            cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
-        )
+        snapshot_download(repo_id=MODEL_ID, repo_type="model", cache_dir=self.cache_dir)
 
         # Download latest commit which is same as `main`
-        snapshot_download(
-            repo_id=MODEL_ID,
-            revision=REPO_A_MAIN_HASH,
-            repo_type="model",
-            cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
-        )
+        snapshot_download(repo_id=MODEL_ID, revision=REPO_A_MAIN_HASH, repo_type="model", cache_dir=self.cache_dir)
 
         # Download the first commit
-        snapshot_download(
-            repo_id=MODEL_ID,
-            revision=REPO_A_OTHER_HASH,
-            repo_type="model",
-            cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
-        )
+        snapshot_download(repo_id=MODEL_ID, revision=REPO_A_OTHER_HASH, repo_type="model", cache_dir=self.cache_dir)
 
         # Download from a PR
-        snapshot_download(
-            repo_id=MODEL_ID,
-            revision="refs/pr/1",
-            repo_type="model",
-            cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
-        )
+        snapshot_download(repo_id=MODEL_ID, revision="refs/pr/1", repo_type="model", cache_dir=self.cache_dir)
 
         # Download a Dataset repo from "main"
-        snapshot_download(
-            repo_id=DATASET_ID,
-            revision="main",
-            repo_type="dataset",
-            cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
-        )
+        snapshot_download(repo_id=DATASET_ID, revision="main", repo_type="dataset", cache_dir=self.cache_dir)
 
     @unittest.skipIf(os.name == "nt", "Windows cache is tested separately")
     def test_scan_cache_on_valid_cache_unix(self) -> None:
@@ -357,12 +328,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
     def setUp(self) -> None:
         """Setup a clean cache for tests that will get corrupted/modified in tests."""
         # Download latest main
-        snapshot_download(
-            repo_id=MODEL_ID,
-            repo_type="model",
-            cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
-        )
+        snapshot_download(repo_id=MODEL_ID, repo_type="model", cache_dir=self.cache_dir)
 
         self.repo_path = self.cache_dir / MODEL_PATH
         self.refs_path = self.repo_path / "refs"
