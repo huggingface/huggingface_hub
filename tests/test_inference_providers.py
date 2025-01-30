@@ -128,7 +128,7 @@ class TestFalAIProvider:
                 api_key=None,
             )
 
-        # Test HF token routing
+        # Test routing
         request = helper.prepare_request(
             inputs="test input",
             parameters={},
@@ -212,7 +212,7 @@ class TestReplicateProvider:
                 api_key=None,
             )
 
-        # Test HF token routing
+        # Test routing
         request = helper.prepare_request(
             inputs="test input",
             parameters={},
