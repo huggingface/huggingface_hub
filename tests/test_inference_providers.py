@@ -46,7 +46,7 @@ class TestHFInferenceProvider:
     def test_prepare_request_conversational(self):
         helper = HFInferenceConversational()
         request = helper.prepare_request(
-            inputs=[{"role": "user", "content": "Hello!"}],
+            inputs=[{"role": "user", "content": "dummy text input"}],
             parameters={},
             headers={},
             model="username/repo_name",
@@ -58,7 +58,7 @@ class TestHFInferenceProvider:
         assert request.model == "username/repo_name"
         assert request.json == {
             "model": "username/repo_name",
-            "messages": [{"role": "user", "content": "Hello!"}],
+            "messages": [{"role": "user", "content": "dummy text input"}],
         }
 
     @pytest.mark.parametrize(
@@ -66,11 +66,11 @@ class TestHFInferenceProvider:
         [
             (
                 HFInferenceTask("text-classification"),
-                "this is a dummy input",
+                "dummy text input",
                 {},
                 None,
                 {
-                    "inputs": "this is a dummy input",
+                    "inputs": "dummy text input",
                     "parameters": {},
                 },
             ),
@@ -109,7 +109,7 @@ class TestFalAIProvider:
 
         # Test with custom fal.ai key
         request = helper.prepare_request(
-            inputs="test input",
+            inputs="dummy text input",
             parameters={},
             headers={},
             model="black-forest-labs/FLUX.1-dev",
@@ -121,7 +121,7 @@ class TestFalAIProvider:
         # Test with missing token
         with pytest.raises(ValueError, match="You must provide an api_key to work with fal.ai API."):
             helper.prepare_request(
-                inputs="test input",
+                inputs="dummy text input",
                 parameters={},
                 headers={},
                 model="black-forest-labs/FLUX.1-dev",
@@ -130,7 +130,7 @@ class TestFalAIProvider:
 
         # Test routing
         request = helper.prepare_request(
-            inputs="test input",
+            inputs="dummy text input",
             parameters={},
             headers={},
             model="black-forest-labs/FLUX.1-dev",
@@ -193,7 +193,7 @@ class TestReplicateProvider:
 
         # Test with custom replicate key
         request = helper.prepare_request(
-            inputs="test input",
+            inputs="dummy text input",
             parameters={},
             headers={},
             model="black-forest-labs/FLUX.1-schnell",
@@ -205,7 +205,7 @@ class TestReplicateProvider:
         # Test with missing token
         with pytest.raises(ValueError, match="You must provide an api_key to work with Replicate API."):
             helper.prepare_request(
-                inputs="test input",
+                inputs="dummy text input",
                 parameters={},
                 headers={},
                 model="black-forest-labs/FLUX.1-schnell",
@@ -214,7 +214,7 @@ class TestReplicateProvider:
 
         # Test routing
         request = helper.prepare_request(
-            inputs="test input",
+            inputs="dummy text input",
             parameters={},
             headers={},
             model="black-forest-labs/FLUX.1-schnell",
