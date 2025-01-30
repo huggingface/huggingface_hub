@@ -49,7 +49,7 @@ Wenn Sie ein Repository erstellen, können Sie mit dem Parameter `private` die S
 >>> create_repo("lysandre/test-private", private=True)
 ```
 
-Wenn Sie die Sichtbarkeit des Repositories zu einem späteren Zeitpunkt ändern möchten, können Sie die Funktion [`update_repo_visibility`] verwenden.
+Wenn Sie die Sichtbarkeit des Repositories zu einem späteren Zeitpunkt ändern möchten, können Sie die Funktion [`update_repo_settings`] verwenden.
 
 ### Ein Repository löschen
 
@@ -130,8 +130,8 @@ Einige Einstellungen sind spezifisch für Spaces (Hardware, Umgebungsvariablen,.
 Ein Repository kann öffentlich oder privat sein. Ein privates Repository ist nur für Sie oder die Mitglieder der Organisation sichtbar, in der das Repository sich befindet. Ändern Sie ein Repository wie im Folgenden gezeigt in ein privates:
 
 ```py
->>> from huggingface_hub import update_repo_visibility
->>> update_repo_visibility(repo_id=repo_id, private=True)
+>>> from huggingface_hub import update_repo_settings
+>>> update_repo_settings(repo_id=repo_id, private=True)
 ```
 
 ### Benennen Sie Ihr Repository um

@@ -122,9 +122,9 @@ class AsyncInferenceClient:
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
-                Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, `"sambanova"` or `"hf-inference"`.
-                defaults to hf-inference (Hugging Face Serverless Inference API).
-                If model is a URL or `base_url` is passed, then `provider` is not used.
+            Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, `"sambanova"` or `"hf-inference"`.
+            defaults to hf-inference (Hugging Face Serverless Inference API).
+            If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str` or `bool`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
             Pass `token=False` if you don't want to send your token to the server.
@@ -179,7 +179,7 @@ class AsyncInferenceClient:
                 " It has the exact same behavior as `token`."
             )
 
-        self.model: Optional[str] = model
+        self.model: Optional[str] = base_url or model
         self.token: Optional[str] = token if token is not None else api_key
         self.headers = headers if headers is not None else {}
 
@@ -190,9 +190,6 @@ class AsyncInferenceClient:
         self.timeout = timeout
         self.trust_env = trust_env
         self.proxies = proxies
-
-        # OpenAI compatibility
-        self.base_url = base_url
 
         # Keep track of the sessions to close them properly
         self._sessions: Dict["ClientSession", Set["ClientResponse"]] = dict()
@@ -977,9 +974,9 @@ class AsyncInferenceClient:
         provider_helper = get_provider_helper(self.provider, task="conversational")
 
         # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
-        # `self.base_url` and `self.model` takes precedence over 'model' argument for building URL.
+        # `self.model` takes precedence over 'model' argument for building URL.
         # `model` takes precedence for payload value.
-        model_id_or_url = self.base_url or self.model or model
+        model_id_or_url = self.model or model
         payload_model = model or self.model
 
         # Prepare the payload
@@ -1664,19 +1661,10 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return _bytes_to_list(response)
 
-    @_deprecate_arguments(
-        version="0.29",
-        deprecated_args=["parameters"],
-        custom_message=(
-            "The `parameters` argument is deprecated and will be removed in a future version. "
-            "Provide individual parameters instead: `clean_up_tokenization_spaces`, `generate_parameters`, and `truncation`."
-        ),
-    )
     async def summarization(
         self,
         text: str,
         *,
-        parameters: Optional[Dict[str, Any]] = None,
         model: Optional[str] = None,
         clean_up_tokenization_spaces: Optional[bool] = None,
         generate_parameters: Optional[Dict[str, Any]] = None,
@@ -1688,9 +1676,6 @@ class AsyncInferenceClient:
         Args:
             text (`str`):
                 The input text to summarize.
-            parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for summarization. Check out this [page](https://huggingface.co/docs/api-inference/detailed_parameters#summarization-task)
-                for more details.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for summarization will be used.
@@ -1718,12 +1703,11 @@ class AsyncInferenceClient:
         SummarizationOutput(generated_text="The Eiffel tower is one of the most famous landmarks in the world....")
         ```
         """
-        if parameters is None:
-            parameters = {
-                "clean_up_tokenization_spaces": clean_up_tokenization_spaces,
-                "generate_parameters": generate_parameters,
-                "truncation": truncation,
-            }
+        parameters = {
+            "clean_up_tokenization_spaces": clean_up_tokenization_spaces,
+            "generate_parameters": generate_parameters,
+            "truncation": truncation,
+        }
         provider_helper = get_provider_helper(self.provider, task="summarization")
         request_parameters = provider_helper.prepare_request(
             inputs=text,
@@ -3259,7 +3243,7 @@ class AsyncInferenceClient:
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
     ) -> Dict[str, List[str]]:
         """
-        List models deployed on the Serverless Inference API service.
+        List models deployed on the HF Serverless Inference API service.
 
         This helper checks deployed models framework by framework. By default, it will check the 4 main frameworks that
         are supported and account for 95% of the hosted models. However, if you want a complete list of models you can
@@ -3269,7 +3253,7 @@ class AsyncInferenceClient:
 
         <Tip warning={true}>
 
-        This endpoint method does not return a live list of all models available for the Serverless Inference API service.
+        This endpoint method does not return a live list of all models available for the HF Inference API service.
         It searches over a cached list of models that were recently available and the list may not be up to date.
         If you want to know the live status of a specific model, use [`~InferenceClient.get_model_status`].
 
@@ -3486,7 +3470,7 @@ class AsyncInferenceClient:
 
     async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
-        Get the status of a model hosted on the Inference API.
+        Get the status of a model hosted on the HF Inference API.
 
         <Tip>
 
@@ -3498,7 +3482,7 @@ class AsyncInferenceClient:
         Args:
             model (`str`, *optional*):
                 Identifier of the model for witch the status gonna be checked. If model is not provided,
-                the model associated with this instance of [`InferenceClient`] will be used. Only InferenceAPI service can be checked so the
+                the model associated with this instance of [`InferenceClient`] will be used. Only HF Inference API service can be checked so the
                 identifier cannot be a URL.
 
 
