@@ -107,11 +107,11 @@ class TaskProviderHelper(ABC):
 @dataclass
 class ModelStatus:
     """
-    This Dataclass represents the model status in the Hugging Face Inference API.
+    This Dataclass represents the model status in the HF Inference API.
 
     Args:
         loaded (`bool`):
-            If the model is currently loaded into Hugging Face's InferenceAPI. Models
+            If the model is currently loaded into HF's Inference API. Models
             are loaded on-demand, leading to the user's first request taking longer.
             If a model is loaded, you can be assured that it is in a healthy state.
         state (`str`):
