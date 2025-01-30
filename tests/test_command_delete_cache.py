@@ -23,7 +23,7 @@ from .testing_utils import handle_injection
 
 class TestDeleteCacheHelpers(unittest.TestCase):
     def test_get_tui_choices_from_scan_empty(self) -> None:
-        choices = _get_tui_choices_from_scan(repos={}, preselected=[])
+        choices = _get_tui_choices_from_scan(repos={}, preselected=[], sort_by_size=None)
         self.assertEqual(len(choices), 1)
         self.assertIsInstance(choices[0], Choice)
         self.assertEqual(choices[0].value, _CANCEL_DELETION_STR)
@@ -38,6 +38,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
                 "a_revision_id_that_does_not_exist",  # unknown but will not complain
                 "older_hash_id",  # only the oldest revision from model_2
             ],
+            sort_by_size=None,  # Don't sort by size to maintain original order
         )
         self.assertEqual(len(choices), 8)
 
@@ -86,6 +87,52 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         self.assertEqual(choices[7].value, "abcdef123456789")
         self.assertEqual(choices[7].name, "abcdef12: main, refs/pr/1 # modified 2 years ago")
         self.assertFalse(choices[7].enabled)
+
+    def test_get_tui_choices_from_scan_with_sort_descending(self) -> None:
+        """Test sorting by descending size."""
+        choices = _get_tui_choices_from_scan(
+            repos=_get_cache_mock().repos,
+            preselected=[],
+            sort_by_size="descending",
+        )
+
+        # Verify repo order: gpt2 (3.6G) -> dummy_dataset (8M) -> dummy_model (1.4K)
+        self.assertIsInstance(choices[1], Separator)
+        self.assertIn("gpt2", choices[1]._line)
+
+        self.assertIsInstance(choices[3], Separator)
+        self.assertIn("dummy_dataset", choices[3]._line)
+
+        self.assertIsInstance(choices[5], Separator)
+        self.assertIn("dummy_model", choices[5]._line)
+
+    def test_get_tui_choices_from_scan_with_sort_ascending(self) -> None:
+        """Test sorting by ascending size."""
+        choices = _get_tui_choices_from_scan(
+            repos=_get_cache_mock().repos,
+            preselected=[],
+            sort_by_size="ascending",
+        )
+
+        # Verify repo order: dummy_model (1.4K) -> dummy_dataset (8M) -> gpt2 (3.6G)
+        # Indexes after sorting:
+        # [0] Cancel choice
+        # [1] dummy_model separator
+        # [2] older_hash_id choice
+        # [3] recent_hash_id choice
+        # [4] dummy_dataset separator
+        # [5] dataset_revision_hash_id choice
+        # [6] gpt2 separator
+        # [7] abcdef123456789 choice
+
+        self.assertIsInstance(choices[1], Separator)
+        self.assertIn("dummy_model", choices[1]._line)
+
+        self.assertIsInstance(choices[4], Separator)
+        self.assertIn("dummy_dataset", choices[4]._line)
+
+        self.assertIsInstance(choices[6], Separator)
+        self.assertIn("gpt2", choices[6]._line)
 
     def test_get_expectations_str_on_no_deletion_item(self) -> None:
         """Test `_get_instructions` when `_CANCEL_DELETION_STR` is passed."""
@@ -191,8 +238,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         # Run manual review
         with capture_output() as output:
             selected_hashes = _manual_review_no_tui(
-                hf_cache_info=cache_mock,
-                preselected=["abcdef123456789", "older_hash_id"],
+                hf_cache_info=cache_mock, preselected=["abcdef123456789", "older_hash_id"], sort_by_size="descending"
             )
 
         # Tmp file has been created but is now deleted
@@ -254,6 +300,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
 
     def setUp(self) -> None:
         self.args = Mock()
+        self.args.sort = None
         self.command = DeleteCacheCommand(self.args)
 
     def test_run_and_delete_with_tui(
@@ -280,7 +327,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         cache_mock = mock_scan_cache_dir.return_value
 
         # Step 2: manual review
-        mock__manual_review_tui.assert_called_once_with(cache_mock, preselected=[])
+        mock__manual_review_tui.assert_called_once_with(cache_mock, preselected=[], sort_by_size=None)
 
         # Step 3: ask confirmation
         mock__get_expectations_str.assert_called_once_with(cache_mock, ["hash_1", "hash_2"])
@@ -352,7 +399,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         cache_mock = mock_scan_cache_dir.return_value
 
         # Step 2: manual review
-        mock__manual_review_no_tui.assert_called_once_with(cache_mock, preselected=[])
+        mock__manual_review_no_tui.assert_called_once_with(cache_mock, preselected=[], sort_by_size=None)
 
         # Step 3: ask confirmation
         mock__get_expectations_str.assert_called_once_with(cache_mock, ["hash_1", "hash_2"])
@@ -369,6 +416,25 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
             "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n",
         )
 
+    def test_run_with_sorting(self):
+        """Test command run with sorting enabled."""
+        self.args.sort = "descending"
+        self.command = DeleteCacheCommand(self.args)
+
+        mock_scan_cache_dir = Mock()
+        mock_scan_cache_dir.return_value = _get_cache_mock()
+
+        with (
+            patch("huggingface_hub.commands.delete_cache.scan_cache_dir", mock_scan_cache_dir),
+            patch("huggingface_hub.commands.delete_cache._manual_review_tui") as mock_review,
+        ):
+            self.command.disable_tui = False
+            self.command.run()
+
+            mock_review.assert_called_once_with(
+                mock_scan_cache_dir.return_value, preselected=[], sort_by_size="descending"
+            )
+
 
 def _get_cache_mock() -> Mock:
     # First model with 1 revision
@@ -378,6 +444,7 @@ def _get_cache_mock() -> Mock:
     model_1.size_on_disk_str = "3.6G"
     model_1.last_accessed = 1660000000
     model_1.last_accessed_str = "2 hours ago"
+    model_1.size_on_disk = 3.6 * 1024**3  # 3.6 GiB
 
     model_1_revision_1 = Mock()
     model_1_revision_1.commit_hash = "abcdef123456789"
@@ -394,6 +461,7 @@ def _get_cache_mock() -> Mock:
     model_2.size_on_disk_str = "1.4K"
     model_2.last_accessed = 1550000000
     model_2.last_accessed_str = "2 years ago"
+    model_2.size_on_disk = 1.4 * 1024  # 1.4K
 
     model_2_revision_1 = Mock()
     model_2_revision_1.commit_hash = "recent_hash_id"
@@ -416,6 +484,7 @@ def _get_cache_mock() -> Mock:
     dataset_1.size_on_disk_str = "8M"
     dataset_1.last_accessed = 1660000000
     dataset_1.last_accessed_str = "2 weeks ago"
+    dataset_1.size_on_disk = 8 * 1024**2  # 8 MiB
 
     dataset_1_revision_1 = Mock()
     dataset_1_revision_1.commit_hash = "dataset_revision_hash_id"

@@ -18,6 +18,7 @@ Usage:
     huggingface-cli delete-cache
     huggingface-cli delete-cache --disable-tui
     huggingface-cli delete-cache --dir ~/.cache/huggingface/hub
+    huggingface-cli delete-cache --sort
 
 NOTE:
     This command is based on `InquirerPy` to build the multiselect menu in the terminal.
@@ -50,7 +51,6 @@ NOTE:
 TODO: add support for `huggingface-cli delete-cache aaaaaa bbbbbb cccccc (...)` ?
 TODO: add "--keep-last" arg to delete revisions that are not on `main` ref
 TODO: add "--filter" arg to filter repositories by name ?
-TODO: add "--sort" arg to sort by size ?
 TODO: add "--limit" arg to limit to X repos ?
 TODO: add "-y" arg for immediate deletion ?
 See discussions in https://github.com/huggingface/huggingface_hub/issues/1025.
@@ -120,11 +120,23 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
             ),
         )
 
+        delete_cache_parser.add_argument(
+            "--sort",
+            nargs="?",
+            choices=["descending", "ascending"],
+            const="descending",
+            help=(
+                "Sort repositories by size. Defaults to descending when flag is used without value. "
+                "Choices: descending (default), ascending"
+            ),
+        )
+
         delete_cache_parser.set_defaults(func=DeleteCacheCommand)
 
     def __init__(self, args: Namespace) -> None:
         self.cache_dir: Optional[str] = args.dir
         self.disable_tui: bool = args.disable_tui
+        self.sort_by_size: Optional[str] = args.sort
 
     def run(self):
         """Run `delete-cache` command with or without TUI."""
@@ -133,9 +145,9 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
 
         # Manual review from the user
         if self.disable_tui:
-            selected_hashes = _manual_review_no_tui(hf_cache_info, preselected=[])
+            selected_hashes = _manual_review_no_tui(hf_cache_info, preselected=[], sort_by_size=self.sort_by_size)
         else:
-            selected_hashes = _manual_review_tui(hf_cache_info, preselected=[])
+            selected_hashes = _manual_review_tui(hf_cache_info, preselected=[], sort_by_size=self.sort_by_size)
 
         # If deletion is not cancelled
         if len(selected_hashes) > 0 and _CANCEL_DELETION_STR not in selected_hashes:
@@ -164,13 +176,21 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
 
 
 @require_inquirer_py
-def _manual_review_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) -> List[str]:
+def _manual_review_tui(
+    hf_cache_info: HFCacheInfo,
+    preselected: List[str],
+    sort_by_size: Optional[str] = None,
+) -> List[str]:
     """Ask the user for a manual review of the revisions to delete.
 
     Displays a multi-select menu in the terminal (TUI).
     """
     # Define multiselect list
-    choices = _get_tui_choices_from_scan(repos=hf_cache_info.repos, preselected=preselected)
+    choices = _get_tui_choices_from_scan(
+        repos=hf_cache_info.repos,
+        preselected=preselected,
+        sort_by_size=sort_by_size,
+    )
     checkbox = inquirer.checkbox(
         message="Select revisions to delete:",
         choices=choices,  # List of revisions with some pre-selection
@@ -213,7 +233,11 @@ def _ask_for_confirmation_tui(message: str, default: bool = True) -> bool:
     return inquirer.confirm(message, default=default).execute()
 
 
-def _get_tui_choices_from_scan(repos: Iterable[CachedRepoInfo], preselected: List[str]) -> List:
+def _get_tui_choices_from_scan(
+    repos: Iterable[CachedRepoInfo],
+    preselected: List[str],
+    sort_by_size: Optional[str] = None,
+) -> List:
     """Build a list of choices from the scanned repos.
 
     Args:
@@ -221,6 +245,8 @@ def _get_tui_choices_from_scan(repos: Iterable[CachedRepoInfo], preselected: Lis
             List of scanned repos on which we want to delete revisions.
         preselected (*List[`str`]*):
             List of revision hashes that will be preselected.
+        sort_by_size (*Optional[str]*):
+            Sorting direction. Choices: "descending" (default), "ascending".
 
     Return:
         The list of choices to pass to `inquirer.checkbox`.
@@ -237,8 +263,16 @@ def _get_tui_choices_from_scan(repos: Iterable[CachedRepoInfo], preselected: Lis
         )
     )
 
-    # Display a separator per repo and a Choice for each revisions of the repo
-    for repo in sorted(repos, key=_repo_sorting_order):
+    # Sort repos by size if requested, otherwise by type and last accessed
+    sorted_repos = sorted(
+        repos,
+        key=lambda repo: (
+            (-repo.size_on_disk if sort_by_size == "descending" else repo.size_on_disk)
+            if sort_by_size
+            else (repo.repo_type, repo.last_accessed)
+        ),
+    )
+    for repo in sorted_repos:
         # Repo as separator
         choices.append(
             Separator(
@@ -264,7 +298,11 @@ def _get_tui_choices_from_scan(repos: Iterable[CachedRepoInfo], preselected: Lis
     return choices
 
 
-def _manual_review_no_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) -> List[str]:
+def _manual_review_no_tui(
+    hf_cache_info: HFCacheInfo,
+    preselected: List[str],
+    sort_by_size: Optional[str] = None,
+) -> List[str]:
     """Ask the user for a manual review of the revisions to delete.
 
     Used when TUI is disabled. Manual review happens in a separate tmp file that the
@@ -275,7 +313,15 @@ def _manual_review_no_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) ->
     os.close(fd)
 
     lines = []
-    for repo in sorted(hf_cache_info.repos, key=_repo_sorting_order):
+    sorted_repos = sorted(
+        hf_cache_info.repos,
+        key=lambda repo: (
+            (-repo.size_on_disk if sort_by_size == "descending" else repo.size_on_disk)
+            if sort_by_size
+            else (repo.repo_type, repo.last_accessed)
+        ),
+    )
+    for repo in sorted_repos:
         lines.append(
             f"\n# {repo.repo_type.capitalize()} {repo.repo_id} ({repo.size_on_disk_str},"
             f" used {repo.last_accessed_str})"
@@ -416,11 +462,6 @@ _MANUAL_REVIEW_NO_TUI_INSTRUCTIONS = f"""
 # REVISIONS
 # ------------
 """.strip()
-
-
-def _repo_sorting_order(repo: CachedRepoInfo) -> Any:
-    # First split by Dataset/Model, then sort by last accessed (oldest first)
-    return (repo.repo_type, repo.last_accessed)
 
 
 def _revision_sorting_order(revision: CachedRevisionInfo) -> Any:
