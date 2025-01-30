@@ -1615,11 +1615,80 @@ class HfApi:
         self._thread_pool
         return self._thread_pool.submit(fn, *args, **kwargs)
 
+
+    def _get_token_source(self, token: Optional[Union[bool, str]] = None) -> str:
+        """
+        Determine the source of the token being used.
+        
+        Args:
+            token: The token parameter passed to whoami
+            
+        Returns:
+            str: Source of the token ("parameter", "environment", "file", "colab", or "unknown")
+        """
+        if isinstance(token, str):
+            return "parameter"
+        
+        if os.getenv("HF_TOKEN") is not None:
+            return "environment"
+            
+        token_path = Path.home() / ".cache/huggingface/token"
+        if token_path.exists():
+            return "file"
+            
+        try:
+            from google.colab import auth
+            if auth.has_oauth2_token():
+                return "colab"
+        except ImportError:
+            pass
+            
+        return "unknown"
+
+    def _get_token_error_message(self, source: str) -> str:
+        """
+        Generate a detailed error message based on the token source.
+        
+        Args:
+            source: The source of the token ("parameter", "environment", "file", "colab", or "unknown")
+            
+        Returns:
+            str: Customized error message
+        """
+        base_message = "Invalid user token. "
+        
+        if source == "parameter":
+            return base_message + (
+                "The token you provided as parameter is invalid. Please verify it's correct "
+                "or remove it to use the default authentication method."
+            )
+        elif source == "environment":
+            return base_message + (
+                "The token from HF_TOKEN environment variable is invalid. "
+                "Note that HF_TOKEN takes precedence over the token file. "
+                "Either update HF_TOKEN or unset it to use the token from `huggingface-cli login`."
+            )
+        elif source == "file":
+            return base_message + (
+                "The token stored in ~/.cache/huggingface/token is invalid. "
+                "Please run `huggingface-cli login` to update it."
+            )
+        elif source == "colab":
+            return base_message + (
+                "The token from Google Colab vault is invalid. "
+                "Please run `huggingface-cli login` in your Colab notebook to update it."
+            )
+        else:
+            return base_message + (
+                "Please make sure you are properly logged in by executing `huggingface-cli login`, "
+                "or provide a valid token."
+            )
+
     @validate_hf_hub_args
     def whoami(self, token: Union[bool, str, None] = None) -> Dict:
         """
         Call HF API to know "whoami".
-
+        
         Args:
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
@@ -1627,34 +1696,27 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
         """
+        effective_token = token or self.token or True
+        
         r = get_session().get(
             f"{self.endpoint}/api/whoami-v2",
-            headers=self._build_hf_headers(
-                # If `token` is provided and not `None`, it will be used by default.
-                # Otherwise, the token must be retrieved from cache or env variable.
-                token=(token or self.token or True),
-            ),
+            headers=self._build_hf_headers(token=effective_token),
         )
+        
         try:
             hf_raise_for_status(r)
         except HTTPError as e:
+            token_source = self._get_token_source(token)
+            error_message = self._get_token_error_message(token_source)
+            
             raise HTTPError(
-                "Invalid user token. If you didn't pass a user token, make sure you "
-                "are properly logged in by executing `huggingface-cli login`, and "
-                "if you did pass a user token, double-check it's correct.",
+                error_message,
                 request=e.request,
                 response=e.response,
             ) from e
+            
         return r.json()
-
-    @_deprecate_method(
-        version="1.0",
-        message=(
-            "Permissions are more complex than when `get_token_permission` was first introduced. "
-            "OAuth and fine-grain tokens allows for more detailed permissions. "
-            "If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key."
-        ),
-    )
+    
     def get_token_permission(
         self, token: Union[bool, str, None] = None
     ) -> Literal["read", "write", "fineGrained", None]:
