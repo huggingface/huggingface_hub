@@ -188,7 +188,7 @@ class InferenceClient:
                 " It has the exact same behavior as `token`."
             )
 
-        self.model: Optional[str] = model
+        self.model: Optional[str] = base_url or model
         self.token: Optional[str] = token if token is not None else api_key
         self.headers = headers if headers is not None else {}
 
@@ -198,9 +198,6 @@ class InferenceClient:
         self.cookies = cookies
         self.timeout = timeout
         self.proxies = proxies
-
-        # OpenAI compatibility
-        self.base_url = base_url
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
@@ -328,9 +325,12 @@ class InferenceClient:
                 return response.iter_lines() if stream else response.content
             except HTTPError as error:
                 if error.response.status_code == 422 and request_parameters.task != "unknown":
-                    error.args = (
-                        f"{error.args[0]}\nMake sure '{request_parameters.task}' task is supported by the model.",
-                    ) + error.args[1:]
+                    msg = str(error.args[0])
+                    print(error.response.text)
+                    if len(error.response.text) > 0:
+                        msg += f"\n{error.response.text}\n"
+                    msg += f"\nMake sure '{request_parameters.task}' task is supported by the model."
+                    error.args = (msg,) + error.args[1:]
                 if error.response.status_code == 503:
                     # If Model is unavailable, either raise a TimeoutError...
                     if timeout is not None and time.time() - t0 > timeout:
@@ -934,9 +934,9 @@ class InferenceClient:
         provider_helper = get_provider_helper(self.provider, task="conversational")
 
         # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
-        # `self.base_url` and `self.model` takes precedence over 'model' argument for building URL.
+        # `self.model` takes precedence over 'model' argument for building URL.
         # `model` takes precedence for payload value.
-        model_id_or_url = self.base_url or self.model or model
+        model_id_or_url = self.model or model
         payload_model = model or self.model
 
         # Prepare the payload
