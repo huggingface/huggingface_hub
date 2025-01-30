@@ -179,7 +179,7 @@ class AsyncInferenceClient:
                 " It has the exact same behavior as `token`."
             )
 
-        self.model: Optional[str] = model
+        self.model: Optional[str] = base_url or model
         self.token: Optional[str] = token if token is not None else api_key
         self.headers = headers if headers is not None else {}
 
@@ -190,9 +190,6 @@ class AsyncInferenceClient:
         self.timeout = timeout
         self.trust_env = trust_env
         self.proxies = proxies
-
-        # OpenAI compatibility
-        self.base_url = base_url
 
         # Keep track of the sessions to close them properly
         self._sessions: Dict["ClientSession", Set["ClientResponse"]] = dict()
@@ -977,9 +974,9 @@ class AsyncInferenceClient:
         provider_helper = get_provider_helper(self.provider, task="conversational")
 
         # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
-        # `self.base_url` and `self.model` takes precedence over 'model' argument for building URL.
+        # `self.model` takes precedence over 'model' argument for building URL.
         # `model` takes precedence for payload value.
-        model_id_or_url = self.base_url or self.model or model
+        model_id_or_url = self.model or model
         payload_model = model or self.model
 
         # Prepare the payload
