@@ -141,10 +141,21 @@ class TogetherTextToImageTask(TogetherTask):
         super().__init__("text-to-image")
 
     def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        parameters = {k: v for k, v in parameters.items() if v is not None}
+        if "num_inference_steps" in parameters:
+            parameters["steps"] = parameters.pop("num_inference_steps")
+        if "guidance_scale" in parameters:
+            parameters["guidance"] = parameters.pop("guidance_scale")
+        if "target_size" in parameters and parameters["target_size"] is not None:
+            # Override width and height with target_size
+            target_size = parameters.pop("target_size")
+            parameters["width"] = target_size[0]
+            parameters["height"] = target_size[1]
+
         payload = {
             "prompt": inputs,
             "response_format": "base64",
-            **{k: v for k, v in parameters.items() if v is not None},
+            **parameters,
         }
         return payload
 

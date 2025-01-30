@@ -134,7 +134,8 @@ class FalAITextToImageTask(FalAITask):
 
     def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
         parameters = {k: v for k, v in parameters.items() if v is not None}
-        if "image_size" not in parameters and "width" in parameters and "height" in parameters:
+        parameters["image_size"] = parameters.pop("target_size")
+        if parameters["image_size"] is not None and "width" in parameters and "height" in parameters:
             parameters["image_size"] = {
                 "width": parameters.pop("width"),
                 "height": parameters.pop("height"),

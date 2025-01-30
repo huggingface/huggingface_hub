@@ -510,8 +510,6 @@ class AsyncInferenceClient:
             model (`str`, *optional*):
                 The model to use for ASR. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for ASR will be used.
-            parameters (Dict[str, Any], *optional*):
-                Additional parameters to pass to the model.
         Returns:
             [`AutomaticSpeechRecognitionOutput`]: An item containing the transcribed text and optionally the timestamp chunks.
 
@@ -2466,7 +2464,7 @@ class AsyncInferenceClient:
         scheduler: Optional[str] = None,
         target_size: Optional[TextToImageTargetSize] = None,
         seed: Optional[int] = None,
-        **kwargs,
+        extra_parameters: Optional[Dict[str, Any]] = None,
     ) -> "Image":
         """
         Generate an image based on a given text using a specified model.
@@ -2502,6 +2500,9 @@ class AsyncInferenceClient:
                 The size in pixel of the output image
             seed (`int`, *optional*):
                 Seed for the random number generator.
+            extra_parameters (`Dict[str, Any]`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
 
         Returns:
             `Image`: The generated image.
@@ -2568,7 +2569,7 @@ class AsyncInferenceClient:
                 "scheduler": scheduler,
                 "target_size": target_size,
                 "seed": seed,
-                **kwargs,
+                **(extra_parameters or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -2588,6 +2589,7 @@ class AsyncInferenceClient:
         num_frames: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
         seed: Optional[int] = None,
+        extra_parameters: Optional[Dict[str, Any]] = None,
     ) -> bytes:
         """
         Generate a video based on a given text.
@@ -2611,6 +2613,9 @@ class AsyncInferenceClient:
                 expense of slower inference.
             seed (`int`, *optional*):
                 Seed for the random number generator.
+            extra_parameters (`Dict[str, Any]`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
 
         Returns:
             `bytes`: The generated video.
@@ -2656,6 +2661,7 @@ class AsyncInferenceClient:
                 "num_frames": num_frames,
                 "num_inference_steps": num_inference_steps,
                 "seed": seed,
+                **(extra_parameters or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -2686,6 +2692,7 @@ class AsyncInferenceClient:
         top_p: Optional[float] = None,
         typical_p: Optional[float] = None,
         use_cache: Optional[bool] = None,
+        extra_parameters: Optional[Dict[str, Any]] = None,
     ) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
@@ -2743,7 +2750,9 @@ class AsyncInferenceClient:
                 paper](https://hf.co/papers/2202.00666) for more details.
             use_cache (`bool`, *optional*):
                 Whether the model should use the past last key/values attentions to speed up decoding
-
+            extra_parameters (`Dict[str, Any]`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
         Returns:
             `bytes`: The generated audio.
 
@@ -2812,6 +2821,7 @@ class AsyncInferenceClient:
                 "top_p": top_p,
                 "typical_p": typical_p,
                 "use_cache": use_cache,
+                **(extra_parameters or {}),
             },
             headers=self.headers,
             model=model or self.model,
