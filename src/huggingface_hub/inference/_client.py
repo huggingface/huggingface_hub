@@ -3175,7 +3175,7 @@ class InferenceClient:
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
     ) -> Dict[str, List[str]]:
         """
-        List models deployed on the Serverless Inference API service.
+        List models deployed on the HF Serverless Inference API service.
 
         This helper checks deployed models framework by framework. By default, it will check the 4 main frameworks that
         are supported and account for 95% of the hosted models. However, if you want a complete list of models you can
@@ -3185,7 +3185,7 @@ class InferenceClient:
 
         <Tip warning={true}>
 
-        This endpoint method does not return a live list of all models available for the Serverless Inference API service.
+        This endpoint method does not return a live list of all models available for the HF Inference API service.
         It searches over a cached list of models that were recently available and the list may not be up to date.
         If you want to know the live status of a specific model, use [`~InferenceClient.get_model_status`].
 
@@ -3356,7 +3356,7 @@ class InferenceClient:
 
     def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
-        Get the status of a model hosted on the Inference API.
+        Get the status of a model hosted on the HF Inference API.
 
         <Tip>
 
@@ -3368,7 +3368,7 @@ class InferenceClient:
         Args:
             model (`str`, *optional*):
                 Identifier of the model for witch the status gonna be checked. If model is not provided,
-                the model associated with this instance of [`InferenceClient`] will be used. Only InferenceAPI service can be checked so the
+                the model associated with this instance of [`InferenceClient`] will be used. Only HF Inference API service can be checked so the
                 identifier cannot be a URL.
 
 
