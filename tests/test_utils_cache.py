@@ -17,7 +17,6 @@ from huggingface_hub.utils._cache_manager import (
     _try_delete_path,
 )
 
-from .testing_constants import TOKEN
 from .testing_utils import (
     rmtree_with_retry,
     with_production_testing,
