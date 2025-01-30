@@ -134,9 +134,9 @@ class InferenceClient:
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
-                Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, `"sambanova"` or `"hf-inference"`.
-                defaults to hf-inference (Hugging Face Serverless Inference API).
-                If model is a URL or `base_url` is passed, then `provider` is not used.
+            Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, `"sambanova"` or `"hf-inference"`.
+            defaults to hf-inference (Hugging Face Serverless Inference API).
+            If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str` or `bool`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
             Pass `token=False` if you don't want to send your token to the server.
