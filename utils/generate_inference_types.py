@@ -18,7 +18,7 @@ import argparse
 import ast
 import re
 from pathlib import Path
-from typing import Dict, List, Literal, NoReturn
+from typing import Dict, List, Literal, NoReturn, Union
 
 from helpers import check_and_update_file_content, format_source_code
 
@@ -244,7 +244,7 @@ class DeprecatedRemover(ast.NodeTransformer):
                 return "@deprecated" in node.next_sibling.value.value.lower()
         return False
 
-    def visit_ClassDef(self, node: ast.ClassDef) -> ast.ClassDef | None:
+    def visit_ClassDef(self, node: ast.ClassDef) -> Union[ast.ClassDef, None]:
         if self.is_deprecated(node):
             return None
 
