@@ -142,10 +142,16 @@ class TogetherTextToImageTask(TogetherTask):
         super().__init__("text-to-image")
 
     def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        parameters = {k: v for k, v in parameters.items() if v is not None}
+        if "num_inference_steps" in parameters:
+            parameters["steps"] = parameters.pop("num_inference_steps")
+        if "guidance_scale" in parameters:
+            parameters["guidance"] = parameters.pop("guidance_scale")
+
         payload = {
             "prompt": inputs,
             "response_format": "base64",
-            **{k: v for k, v in parameters.items() if v is not None},
+            **parameters,
         }
         return payload
 

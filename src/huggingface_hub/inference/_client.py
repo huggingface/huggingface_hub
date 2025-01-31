@@ -92,7 +92,6 @@ from huggingface_hub.inference._generated.types import (
     TextGenerationInputGrammarType,
     TextGenerationOutput,
     TextGenerationStreamOutput,
-    TextToImageTargetSize,
     TextToSpeechEarlyStoppingEnum,
     TokenClassificationAggregationStrategy,
     TokenClassificationOutputElement,
@@ -474,8 +473,6 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for ASR. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for ASR will be used.
-            parameters (Dict[str, Any], *optional*):
-                Additional parameters to pass to the model.
         Returns:
             [`AutomaticSpeechRecognitionOutput`]: An item containing the transcribed text and optionally the timestamp chunks.
 
@@ -2392,9 +2389,8 @@ class InferenceClient:
         guidance_scale: Optional[float] = None,
         model: Optional[str] = None,
         scheduler: Optional[str] = None,
-        target_size: Optional[TextToImageTargetSize] = None,
         seed: Optional[int] = None,
-        **kwargs,
+        extra_parameters: Optional[Dict[str, Any]] = None,
     ) -> "Image":
         """
         Generate an image based on a given text using a specified model.
@@ -2426,10 +2422,11 @@ class InferenceClient:
                 Defaults to None.
             scheduler (`str`, *optional*):
                 Override the scheduler with a compatible one.
-            target_size (`TextToImageTargetSize`, *optional*):
-                The size in pixel of the output image
             seed (`int`, *optional*):
                 Seed for the random number generator.
+            extra_parameters (`Dict[str, Any]`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
 
         Returns:
             `Image`: The generated image.
@@ -2482,6 +2479,21 @@ class InferenceClient:
         ... )
         >>> image.save("astronaut.png")
         ```
+
+        Example using Replicate provider with extra parameters
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",  # Use replicate provider
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> image = client.text_to_image(
+        ...     "An astronaut riding a horse on the moon.",
+        ...     model="black-forest-labs/FLUX.1-schnell",
+        ...     extra_parameters={"output_quality": 100},
+        ... )
+        >>> image.save("astronaut.png")
+        ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-image")
         request_parameters = provider_helper.prepare_request(
@@ -2493,9 +2505,8 @@ class InferenceClient:
                 "num_inference_steps": num_inference_steps,
                 "guidance_scale": guidance_scale,
                 "scheduler": scheduler,
-                "target_size": target_size,
                 "seed": seed,
-                **kwargs,
+                **(extra_parameters or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -2515,6 +2526,7 @@ class InferenceClient:
         num_frames: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
         seed: Optional[int] = None,
+        extra_parameters: Optional[Dict[str, Any]] = None,
     ) -> bytes:
         """
         Generate a video based on a given text.
@@ -2538,6 +2550,9 @@ class InferenceClient:
                 expense of slower inference.
             seed (`int`, *optional*):
                 Seed for the random number generator.
+            extra_parameters (`Dict[str, Any]`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
 
         Returns:
             `bytes`: The generated video.
@@ -2583,6 +2598,7 @@ class InferenceClient:
                 "num_frames": num_frames,
                 "num_inference_steps": num_inference_steps,
                 "seed": seed,
+                **(extra_parameters or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -2613,6 +2629,7 @@ class InferenceClient:
         top_p: Optional[float] = None,
         typical_p: Optional[float] = None,
         use_cache: Optional[bool] = None,
+        extra_parameters: Optional[Dict[str, Any]] = None,
     ) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
@@ -2670,7 +2687,9 @@ class InferenceClient:
                 paper](https://hf.co/papers/2202.00666) for more details.
             use_cache (`bool`, *optional*):
                 Whether the model should use the past last key/values attentions to speed up decoding
-
+            extra_parameters (`Dict[str, Any]`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
         Returns:
             `bytes`: The generated audio.
 
@@ -2717,6 +2736,20 @@ class InferenceClient:
         ... )
         >>> Path("hello_world.flac").write_bytes(audio)
         ```
+        Example using Replicate provider with extra parameters
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",  # Use replicate provider
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> audio = client.text_to_speech(
+        ...     "Hello, my name is Kororo, an awesome text-to-speech model.",
+        ...     model="hexgrad/Kokoro-82M",
+        ...     extra_parameters={"voice": "af_nicole"},
+        ... )
+        >>> Path("hello.flac").write_bytes(audio)
+        ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-speech")
         request_parameters = provider_helper.prepare_request(
@@ -2738,6 +2771,7 @@ class InferenceClient:
                 "top_p": top_p,
                 "typical_p": typical_p,
                 "use_cache": use_cache,
+                **(extra_parameters or {}),
             },
             headers=self.headers,
             model=model or self.model,

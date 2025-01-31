@@ -90,6 +90,7 @@ CORE_PARAMETERS = {
     "question",  # For QA tasks
     "context",  # For QA tasks
     "labels",  # For classification tasks
+    "extra_parameters",  # For extra parameters
 }
 
 #### NODE VISITORS (READING THE CODE)
