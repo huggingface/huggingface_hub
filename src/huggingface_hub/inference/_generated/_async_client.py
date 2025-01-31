@@ -2674,7 +2674,6 @@ class AsyncInferenceClient:
         early_stopping: Optional[Union[bool, "TextToSpeechEarlyStoppingEnum"]] = None,
         epsilon_cutoff: Optional[float] = None,
         eta_cutoff: Optional[float] = None,
-        genres: Optional[str] = None,
         max_length: Optional[int] = None,
         max_new_tokens: Optional[int] = None,
         min_length: Optional[int] = None,
@@ -2715,8 +2714,6 @@ class AsyncInferenceClient:
                 probability, scaled by sqrt(eta_cutoff). In the paper, suggested values range from 3e-4 to 2e-3,
                 depending on the size of the model. See [Truncation Sampling as Language Model
                 Desmoothing](https://hf.co/papers/2210.15191) for more details.
-            genres (`str`, *optional*):
-                The genres to use for the music generation (if relevant for the model).
             max_length (`int`, *optional*):
                 The maximum length (in tokens) of the generated text, including the input.
             max_new_tokens (`int`, *optional*):
@@ -2811,6 +2808,37 @@ class AsyncInferenceClient:
         ... )
         >>> Path("hello.flac").write_bytes(audio)
         ```
+
+        Example music-gen using fal.ai provider
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> lyrics = '''
+        ... [verse]
+        ... In the town where I was born
+        ... Lived a man who sailed to sea
+        ... And he told us of his life
+        ... In the land of submarines
+        ... So we sailed on to the sun
+        ... 'Til we found a sea of green
+        ... And we lived beneath the waves
+        ... In our yellow submarine
+
+        ... [chorus]
+        ... We all live in a yellow submarine
+        ... Yellow submarine, yellow submarine
+        ... We all live in a yellow submarine
+        ... Yellow submarine, yellow submarine
+        ... '''
+        >>> genres = "pavarotti-style tenor voice"
+        >>> client = InferenceClient(
+        ...     provider="fal-ai",
+        ...     model="m-a-p/YuE-s1-7B-anneal-en-cot",
+        ...     api_key=...,
+        ... )
+        >>> audio = client.text_to_speech(lyrics, extra_parameters={"genres": genres})
+        >>> with open("output.mp3", "wb") as f:
+        ...     f.write(audio)
+        ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-speech")
         request_parameters = provider_helper.prepare_request(
@@ -2820,7 +2848,6 @@ class AsyncInferenceClient:
                 "early_stopping": early_stopping,
                 "epsilon_cutoff": epsilon_cutoff,
                 "eta_cutoff": eta_cutoff,
-                "genres": genres,
                 "max_length": max_length,
                 "max_new_tokens": max_new_tokens,
                 "min_length": min_length,
