@@ -2751,7 +2751,7 @@ class InferenceClient:
         >>> Path("hello.flac").write_bytes(audio)
         ```
 
-        Example music-gen using fal.ai provider
+        Example music-gen using "YuE-s1-7B-anneal-en-cot" on fal.ai
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> lyrics = '''
