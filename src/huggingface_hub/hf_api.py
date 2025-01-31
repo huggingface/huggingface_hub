@@ -3548,7 +3548,7 @@ class HfApi:
             if not missing_ok:
                 raise
 
-    @_deprecate_method(version="0.29", message="Please use `update_repo_settings` instead.")
+    @_deprecate_method(version="0.32", message="Please use `update_repo_settings` instead.")
     @validate_hf_hub_args
     def update_repo_visibility(
         self,

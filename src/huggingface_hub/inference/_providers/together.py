@@ -16,8 +16,8 @@ SUPPORTED_MODELS = {
     "conversational": {
         "databricks/dbrx-instruct": "databricks/dbrx-instruct",
         "deepseek-ai/DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
-        "deepseek-ai/DeepSeek-V3": "deepseek-ai/DeepSeek-V3",
         "deepseek-ai/deepseek-llm-67b-chat": "deepseek-ai/deepseek-llm-67b-chat",
+        "deepseek-ai/DeepSeek-V3": "deepseek-ai/DeepSeek-V3",
         "google/gemma-2-9b-it": "google/gemma-2-9b-it",
         "google/gemma-2b-it": "google/gemma-2-27b-it",
         "meta-llama/Llama-2-13b-chat-hf": "meta-llama/Llama-2-13b-chat-hf",
@@ -33,6 +33,7 @@ SUPPORTED_MODELS = {
         "meta-llama/Meta-Llama-3.1-8B-Instruct": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
         "microsoft/WizardLM-2-8x22B": "microsoft/WizardLM-2-8x22B",
         "mistralai/Mistral-7B-Instruct-v0.3": "mistralai/Mistral-7B-Instruct-v0.3",
+        "mistralai/Mistral-Small-24B-Instruct-2501": "mistralai/Mistral-Small-24B-Instruct-2501",
         "mistralai/Mixtral-8x22B-Instruct-v0.1": "mistralai/Mixtral-8x22B-Instruct-v0.1",
         "mistralai/Mixtral-8x7B-Instruct-v0.1": "mistralai/Mixtral-8x7B-Instruct-v0.1",
         "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO": "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO",

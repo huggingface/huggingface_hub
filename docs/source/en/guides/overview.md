@@ -60,7 +60,7 @@ Take a look at these guides to learn how to use huggingface_hub to solve real-wo
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
         Inference
       </div><p class="text-gray-700">
-        How to make predictions using the accelerated Inference API?
+        How to make predictions using the HF Inference API and other Inference Providers?
       </p>
     </a>
 
