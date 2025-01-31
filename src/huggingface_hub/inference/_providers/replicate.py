@@ -23,7 +23,7 @@ SUPPORTED_MODELS = {
         "stabilityai/stable-diffusion-xl-base-1.0": "stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc",
     },
     "text-to-speech": {
-        "OuteAI/OuteTTS-0.3-500M": "jbilcke/oute-tts:39a59319327b27327fa3095149c5a746e7f2aee18c75055c3368237a6503cd26",
+        "hexgrad/Kokoro-82M": "jaaari/kokoro-82m:f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
     },
     "text-to-video": {
         "genmo/mochi-1-preview": "genmoai/mochi-1:1944af04d098ef69bed7f9d335d102e652203f268ec4aaa2d836f6217217e460",
@@ -138,7 +138,7 @@ class ReplicateTextToSpeechTask(ReplicateTask):
         # The following payload might work only for a subset of text-to-speech Replicate models.
         payload: Dict[str, Any] = {
             "input": {
-                "inputs": inputs,
+                "text": inputs,
                 **{k: v for k, v in parameters.items() if v is not None},
             },
         }
