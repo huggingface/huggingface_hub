@@ -132,6 +132,10 @@ HF_ASSETS_CACHE = os.getenv("HF_ASSETS_CACHE", HUGGINGFACE_ASSETS_CACHE)
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
 
+# If set, log level will be set to DEBUG and all requests made to the Hub will be logged
+# as curl commands for reproducibility.
+HF_DEBUG = _is_true(os.environ.get("HF_DEBUG"))
+
 # Opt-out from telemetry requests
 HF_HUB_DISABLE_TELEMETRY = (
     _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY"))  # HF-specific env variable

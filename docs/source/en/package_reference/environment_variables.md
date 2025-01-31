@@ -83,6 +83,10 @@ The following environment variables expect a boolean value. The variable will be
 as `True` if its value is one of `{"1", "ON", "YES", "TRUE"}` (case-insensitive). Any other value
 (or undefined) will be considered as `False`.
 
+### HF_DEBUG
+
+If set, the log level for the `huggingface_hub` logger is set to DEBUG. Additionally, all requests made by HF libraries will be logged as equivalent cURL commands for easier debugging and reproducibility.
+
 ### HF_HUB_OFFLINE
 
 If set, no HTTP calls will be made to the Hugging Face Hub. If you try to download files, only the cached files will be accessed. If no cache file is detected, an error is raised This is useful in case your network is slow and you don't care about having the latest version of a file.
@@ -159,11 +163,11 @@ Please note that using `hf_transfer` comes with certain limitations. Since it is
 In order to standardize all environment variables within the Hugging Face ecosystem, some variables have been marked as deprecated. Although they remain functional, they no longer take precedence over their replacements. The following table outlines the deprecated variables and their corresponding alternatives:
 
 
-| Deprecated Variable | Replacement |
-| --- | --- |
-| `HUGGINGFACE_HUB_CACHE` | `HF_HUB_CACHE` |
-| `HUGGINGFACE_ASSETS_CACHE` | `HF_ASSETS_CACHE` |
-| `HUGGING_FACE_HUB_TOKEN` | `HF_TOKEN` |
+| Deprecated Variable         | Replacement        |
+| --------------------------- | ------------------ |
+| `HUGGINGFACE_HUB_CACHE`     | `HF_HUB_CACHE`     |
+| `HUGGINGFACE_ASSETS_CACHE`  | `HF_ASSETS_CACHE`  |
+| `HUGGING_FACE_HUB_TOKEN`    | `HF_TOKEN`         |
 | `HUGGINGFACE_HUB_VERBOSITY` | `HF_HUB_VERBOSITY` |
 
 ## From external tools

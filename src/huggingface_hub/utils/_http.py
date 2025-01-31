@@ -22,6 +22,7 @@ import time
 import uuid
 from functools import lru_cache
 from http import HTTPStatus
+from shlex import quote
 from typing import Callable, Optional, Tuple, Type, Union
 
 import requests
@@ -82,13 +83,15 @@ class UniqueRequestIdAdapter(HTTPAdapter):
             request.headers[X_AMZN_TRACE_ID] = request.headers.get(X_REQUEST_ID) or str(uuid.uuid4())
 
         # Add debug log
-        has_token = str(request.headers.get("authorization", "")).startswith("Bearer hf_")
+        has_token = len(str(request.headers.get("authorization", ""))) > 0
         logger.debug(
             f"Request {request.headers[X_AMZN_TRACE_ID]}: {request.method} {request.url} (authenticated: {has_token})"
         )
 
     def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
         """Catch any RequestException to append request id to the error message for debugging."""
+        if constants.HF_DEBUG:
+            logger.debug(f"Send: {_curlify(request)}")
         try:
             return super().send(request, *args, **kwargs)
         except requests.RequestException as e:
@@ -549,3 +552,41 @@ def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: Res
 
     # Return
     return error_type(final_error_message.strip(), response=response, server_message=server_message or None)
+
+
+def _curlify(request: requests.PreparedRequest) -> str:
+    """Convert a `requests.PreparedRequest` into a curl command (str).
+
+    Used for debug purposes only.
+
+    Implementation vendored from https://github.com/ofw/curlify/blob/master/curlify.py.
+    MIT License Copyright (c) 2016 Egor.
+    """
+    parts = [
+        ("curl", None),
+        ("-X", request.method),
+    ]
+
+    for k, v in sorted(request.headers.items()):
+        if k.lower() == "authorization":
+            v = "<TOKEN>"  # Hide authorization header, no matter its value (can be Bearer, Key, etc.)
+        parts += [("-H", "{0}: {1}".format(k, v))]
+
+    if request.body:
+        body = request.body
+        if isinstance(body, bytes):
+            body = body.decode("utf-8")
+        if len(body) > 1000:
+            body = body[:1000] + " ... [truncated]"
+        parts += [("-d", body)]
+
+    parts += [(None, request.url)]
+
+    flat_parts = []
+    for k, v in parts:
+        if k:
+            flat_parts.append(quote(k))
+        if v:
+            flat_parts.append(quote(v))
+
+    return " ".join(flat_parts)
