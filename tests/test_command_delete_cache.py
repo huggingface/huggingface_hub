@@ -250,6 +250,50 @@ class TestDeleteCacheHelpers(unittest.TestCase):
             "Invalid input. Must be one of ('y', 'yes', '1', 'n', 'no', '0', '')\n",
         )
 
+    def test_get_tui_choices_from_scan_with_different_sorts(self) -> None:
+        """Test different sorting modes."""
+        cache_mock = _get_cache_mock()
+
+        # Test size sorting (largest first) - order: gpt2 (3.6G) -> dummy_dataset (8M) -> dummy_model (1.4K)
+        size_choices = _get_tui_choices_from_scan(cache_mock.repos, [], sort_by="size")
+        # Separators at positions 1, 3, 5
+        self.assertIsInstance(size_choices[1], Separator)
+        self.assertIn("gpt2", size_choices[1]._line)
+        self.assertIsInstance(size_choices[3], Separator)
+        self.assertIn("dummy_dataset", size_choices[3]._line)
+        self.assertIsInstance(size_choices[5], Separator)
+        self.assertIn("dummy_model", size_choices[5]._line)
+
+        # Test alphabetical sorting - order: dummy_dataset -> dummy_model -> gpt2
+        alpha_choices = _get_tui_choices_from_scan(cache_mock.repos, [], sort_by="alphabetical")
+        # Separators at positions 1, 3, 6 (dummy_model has 2 revisions)
+        self.assertIsInstance(alpha_choices[1], Separator)
+        self.assertIn("dummy_dataset", alpha_choices[1]._line)
+        self.assertIsInstance(alpha_choices[3], Separator)
+        self.assertIn("dummy_model", alpha_choices[3]._line)
+        self.assertIsInstance(alpha_choices[6], Separator)
+        self.assertIn("gpt2", alpha_choices[6]._line)
+
+        # Test lastUpdated sorting - order: dummy_dataset (1 day) -> gpt2 (2 years) -> dummy_model (3 years)
+        updated_choices = _get_tui_choices_from_scan(cache_mock.repos, [], sort_by="lastUpdated")
+        # Separators at positions 1, 3, 5
+        self.assertIsInstance(updated_choices[1], Separator)
+        self.assertIn("dummy_dataset", updated_choices[1]._line)
+        self.assertIsInstance(updated_choices[3], Separator)
+        self.assertIn("gpt2", updated_choices[3]._line)
+        self.assertIsInstance(updated_choices[5], Separator)
+        self.assertIn("dummy_model", updated_choices[5]._line)
+
+        # Test lastUsed sorting - order: gpt2 (2h) -> dummy_dataset (2w) -> dummy_model (2y)
+        used_choices = _get_tui_choices_from_scan(cache_mock.repos, [], sort_by="lastUsed")
+        # Separators at positions 1, 3, 5
+        self.assertIsInstance(used_choices[1], Separator)
+        self.assertIn("gpt2", used_choices[1]._line)
+        self.assertIsInstance(used_choices[3], Separator)
+        self.assertIn("dummy_dataset", used_choices[3]._line)
+        self.assertIsInstance(used_choices[5], Separator)
+        self.assertIn("dummy_model", used_choices[5]._line)
+
 
 @patch("huggingface_hub.commands.delete_cache._ask_for_confirmation_no_tui")
 @patch("huggingface_hub.commands.delete_cache._get_expectations_str")
@@ -415,7 +459,7 @@ def _get_cache_mock() -> Mock:
     model_1_revision_1 = Mock()
     model_1_revision_1.commit_hash = "abcdef123456789"
     model_1_revision_1.refs = {"main", "refs/pr/1"}
-    # model_1_revision_1.last_modified = 123456789  # timestamp
+    model_1_revision_1.last_modified = 123456789  # 2 years ago
     model_1_revision_1.last_modified_str = "2 years ago"
 
     model_1.revisions = {model_1_revision_1}
@@ -432,13 +476,13 @@ def _get_cache_mock() -> Mock:
     model_2_revision_1 = Mock()
     model_2_revision_1.commit_hash = "recent_hash_id"
     model_2_revision_1.refs = {"main"}
-    model_2_revision_1.last_modified = 123456789  # newer timestamp
+    model_2_revision_1.last_modified = 123456789  # 2 years ago
     model_2_revision_1.last_modified_str = "2 years ago"
 
     model_2_revision_2 = Mock()
     model_2_revision_2.commit_hash = "older_hash_id"
     model_2_revision_2.refs = {}
-    model_2_revision_2.last_modified = 12345678  # older timestamp
+    model_2_revision_2.last_modified = 12345678  # 3 years ago
     model_2_revision_2.last_modified_str = "3 years ago"
 
     model_2.revisions = {model_2_revision_1, model_2_revision_2}
@@ -455,6 +499,7 @@ def _get_cache_mock() -> Mock:
     dataset_1_revision_1 = Mock()
     dataset_1_revision_1.commit_hash = "dataset_revision_hash_id"
     dataset_1_revision_1.refs = {}
+    dataset_1_revision_1.last_modified = 1234567890  # 1 day ago (newest)
     dataset_1_revision_1.last_modified_str = "1 day ago"
 
     dataset_1.revisions = {dataset_1_revision_1}

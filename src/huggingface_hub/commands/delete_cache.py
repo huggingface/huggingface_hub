@@ -123,9 +123,15 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         delete_cache_parser.add_argument(
             "--sort",
             nargs="?",
-            choices=["size"],
+            choices=["size", "alphabetical", "lastUpdated", "lastUsed"],
             const="size",
-            help=("Sort repositories by size in descending order. Currently only 'size' is supported."),
+            help=(
+                "Sort repositories by the specified criteria. Options: "
+                "'size' (largest first), "
+                "'alphabetical' (A-Z), "
+                "'lastUpdated' (newest first), "
+                "'lastUsed' (most recent first)"
+            ),
         )
 
         delete_cache_parser.set_defaults(func=DeleteCacheCommand)
@@ -243,7 +249,7 @@ def _get_tui_choices_from_scan(
         preselected (*List[`str`]*):
             List of revision hashes that will be preselected.
         sort_by (*Optional[str]*):
-            Sorting direction. Choices: "size".
+            Sorting direction. Choices: "size", "alphabetical", "lastUpdated", "lastUsed".
 
     Return:
         The list of choices to pass to `inquirer.checkbox`.
@@ -259,11 +265,18 @@ def _get_tui_choices_from_scan(
         )
     )
 
-    # Sort repos by size if requested, otherwise maintain original order
+    # Sort repos based on specified criteria
     sorted_repos = sorted(
         repos,
-        key=lambda repo: (-repo.size_on_disk if sort_by == "size" else (repo.repo_type, repo.repo_id)),
+        key=lambda repo: {
+            "size": lambda r: -r.size_on_disk,  # largest first
+            "alphabetical": lambda r: (r.repo_type, r.repo_id.lower()),  # by type then name
+            "lastUpdated": lambda r: -max(rev.last_modified for rev in r.revisions),  # newest first
+            "lastUsed": lambda r: -r.last_accessed,  # most recently used first
+            None: lambda r: (r.repo_type, r.repo_id),  # default stable order
+        }[sort_by](repo),
     )
+
     for repo in sorted_repos:
         # Repo as separator
         choices.append(
