@@ -77,7 +77,6 @@ from huggingface_hub.inference._generated.types import (
     TextGenerationInputGrammarType,
     TextGenerationOutput,
     TextGenerationStreamOutput,
-    TextToImageTargetSize,
     TextToSpeechEarlyStoppingEnum,
     TokenClassificationAggregationStrategy,
     TokenClassificationOutputElement,
@@ -2462,7 +2461,6 @@ class AsyncInferenceClient:
         guidance_scale: Optional[float] = None,
         model: Optional[str] = None,
         scheduler: Optional[str] = None,
-        target_size: Optional[TextToImageTargetSize] = None,
         seed: Optional[int] = None,
         extra_parameters: Optional[Dict[str, Any]] = None,
     ) -> "Image":
@@ -2496,8 +2494,6 @@ class AsyncInferenceClient:
                 Defaults to None.
             scheduler (`str`, *optional*):
                 Override the scheduler with a compatible one.
-            target_size (`TextToImageTargetSize`, *optional*):
-                The size in pixel of the output image
             seed (`int`, *optional*):
                 Seed for the random number generator.
             extra_parameters (`Dict[str, Any]`, *optional*):
@@ -2582,7 +2578,6 @@ class AsyncInferenceClient:
                 "num_inference_steps": num_inference_steps,
                 "guidance_scale": guidance_scale,
                 "scheduler": scheduler,
-                "target_size": target_size,
                 "seed": seed,
                 **(extra_parameters or {}),
             },

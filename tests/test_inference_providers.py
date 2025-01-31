@@ -325,7 +325,8 @@ class TestTogetherProvider:
                 {
                     "num_inference_steps": 25,
                     "guidance_scale": 7,
-                    "target_size": (512, 512),
+                    "width": 512,
+                    "height": 512,
                 },
                 {
                     "prompt": "a beautiful image of a cat",

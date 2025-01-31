@@ -146,11 +146,6 @@ class TogetherTextToImageTask(TogetherTask):
             parameters["steps"] = parameters.pop("num_inference_steps")
         if "guidance_scale" in parameters:
             parameters["guidance"] = parameters.pop("guidance_scale")
-        if "target_size" in parameters and parameters["target_size"] is not None:
-            # Override width and height with target_size
-            target_size = parameters.pop("target_size")
-            parameters["width"] = target_size[0]
-            parameters["height"] = target_size[1]
 
         payload = {
             "prompt": inputs,
