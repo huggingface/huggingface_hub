@@ -1,7 +1,12 @@
 from typing import Dict, Literal
 
 from .._common import TaskProviderHelper
-from .fal_ai import FalAIAutomaticSpeechRecognitionTask, FalAITextToImageTask, FalAITextToVideoTask
+from .fal_ai import (
+    FalAIAutomaticSpeechRecognitionTask,
+    FalAITextToImageTask,
+    FalAITextToSpeechTask,
+    FalAITextToVideoTask,
+)
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask
@@ -18,8 +23,9 @@ PROVIDER_T = Literal[
 
 PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     "fal-ai": {
-        "text-to-image": FalAITextToImageTask(),
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),
+        "text-to-image": FalAITextToImageTask(),
+        "text-to-speech": FalAITextToSpeechTask(),
         "text-to-video": FalAITextToVideoTask(),
     },
     "hf-inference": {

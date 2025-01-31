@@ -35,8 +35,6 @@ class TextToImageParameters(BaseInferenceType):
     """Override the scheduler with a compatible one."""
     seed: Optional[int] = None
     """Seed for the random number generator."""
-    target_size: Optional[TextToImageTargetSize] = None
-    """The size in pixel of the output image"""
 
 
 @dataclass
