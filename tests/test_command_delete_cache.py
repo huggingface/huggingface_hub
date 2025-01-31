@@ -23,7 +23,7 @@ from .testing_utils import handle_injection
 
 class TestDeleteCacheHelpers(unittest.TestCase):
     def test_get_tui_choices_from_scan_empty(self) -> None:
-        choices = _get_tui_choices_from_scan(repos={}, preselected=[], sort_by_size=None)
+        choices = _get_tui_choices_from_scan(repos={}, preselected=[], sort_by=None)
         self.assertEqual(len(choices), 1)
         self.assertIsInstance(choices[0], Choice)
         self.assertEqual(choices[0].value, _CANCEL_DELETION_STR)
@@ -38,7 +38,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
                 "a_revision_id_that_does_not_exist",  # unknown but will not complain
                 "older_hash_id",  # only the oldest revision from model_2
             ],
-            sort_by_size=None,  # Don't sort by size to maintain original order
+            sort_by=None,  # Don't sort to maintain original order
         )
         self.assertEqual(len(choices), 8)
 
@@ -88,13 +88,9 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         self.assertEqual(choices[7].name, "abcdef12: main, refs/pr/1 # modified 2 years ago")
         self.assertFalse(choices[7].enabled)
 
-    def test_get_tui_choices_from_scan_with_sort_descending(self) -> None:
-        """Test sorting by descending size."""
-        choices = _get_tui_choices_from_scan(
-            repos=_get_cache_mock().repos,
-            preselected=[],
-            sort_by_size="descending",
-        )
+    def test_get_tui_choices_from_scan_with_sort_size(self) -> None:
+        """Test sorting by size."""
+        choices = _get_tui_choices_from_scan(repos=_get_cache_mock().repos, preselected=[], sort_by="size")
 
         # Verify repo order: gpt2 (3.6G) -> dummy_dataset (8M) -> dummy_model (1.4K)
         self.assertIsInstance(choices[1], Separator)
@@ -105,34 +101,6 @@ class TestDeleteCacheHelpers(unittest.TestCase):
 
         self.assertIsInstance(choices[5], Separator)
         self.assertIn("dummy_model", choices[5]._line)
-
-    def test_get_tui_choices_from_scan_with_sort_ascending(self) -> None:
-        """Test sorting by ascending size."""
-        choices = _get_tui_choices_from_scan(
-            repos=_get_cache_mock().repos,
-            preselected=[],
-            sort_by_size="ascending",
-        )
-
-        # Verify repo order: dummy_model (1.4K) -> dummy_dataset (8M) -> gpt2 (3.6G)
-        # Indexes after sorting:
-        # [0] Cancel choice
-        # [1] dummy_model separator
-        # [2] older_hash_id choice
-        # [3] recent_hash_id choice
-        # [4] dummy_dataset separator
-        # [5] dataset_revision_hash_id choice
-        # [6] gpt2 separator
-        # [7] abcdef123456789 choice
-
-        self.assertIsInstance(choices[1], Separator)
-        self.assertIn("dummy_model", choices[1]._line)
-
-        self.assertIsInstance(choices[4], Separator)
-        self.assertIn("dummy_dataset", choices[4]._line)
-
-        self.assertIsInstance(choices[6], Separator)
-        self.assertIn("gpt2", choices[6]._line)
 
     def test_get_expectations_str_on_no_deletion_item(self) -> None:
         """Test `_get_instructions` when `_CANCEL_DELETION_STR` is passed."""
@@ -238,7 +206,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         # Run manual review
         with capture_output() as output:
             selected_hashes = _manual_review_no_tui(
-                hf_cache_info=cache_mock, preselected=["abcdef123456789", "older_hash_id"], sort_by_size="descending"
+                hf_cache_info=cache_mock, preselected=["abcdef123456789", "older_hash_id"], sort_by=None
             )
 
         # Tmp file has been created but is now deleted
@@ -327,7 +295,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         cache_mock = mock_scan_cache_dir.return_value
 
         # Step 2: manual review
-        mock__manual_review_tui.assert_called_once_with(cache_mock, preselected=[], sort_by_size=None)
+        mock__manual_review_tui.assert_called_once_with(cache_mock, preselected=[], sort_by=None)
 
         # Step 3: ask confirmation
         mock__get_expectations_str.assert_called_once_with(cache_mock, ["hash_1", "hash_2"])
@@ -399,7 +367,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         cache_mock = mock_scan_cache_dir.return_value
 
         # Step 2: manual review
-        mock__manual_review_no_tui.assert_called_once_with(cache_mock, preselected=[], sort_by_size=None)
+        mock__manual_review_no_tui.assert_called_once_with(cache_mock, preselected=[], sort_by=None)
 
         # Step 3: ask confirmation
         mock__get_expectations_str.assert_called_once_with(cache_mock, ["hash_1", "hash_2"])
@@ -418,7 +386,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
 
     def test_run_with_sorting(self):
         """Test command run with sorting enabled."""
-        self.args.sort = "descending"
+        self.args.sort = "size"
         self.command = DeleteCacheCommand(self.args)
 
         mock_scan_cache_dir = Mock()
@@ -431,9 +399,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
             self.command.disable_tui = False
             self.command.run()
 
-            mock_review.assert_called_once_with(
-                mock_scan_cache_dir.return_value, preselected=[], sort_by_size="descending"
-            )
+            mock_review.assert_called_once_with(mock_scan_cache_dir.return_value, preselected=[], sort_by="size")
 
 
 def _get_cache_mock() -> Mock:

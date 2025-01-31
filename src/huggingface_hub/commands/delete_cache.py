@@ -123,12 +123,9 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         delete_cache_parser.add_argument(
             "--sort",
             nargs="?",
-            choices=["descending", "ascending"],
-            const="descending",
-            help=(
-                "Sort repositories by size. Defaults to descending when flag is used without value. "
-                "Choices: descending (default), ascending"
-            ),
+            choices=["size"],
+            const="size",
+            help=("Sort repositories by size in descending order. Currently only 'size' is supported."),
         )
 
         delete_cache_parser.set_defaults(func=DeleteCacheCommand)
@@ -136,7 +133,7 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
     def __init__(self, args: Namespace) -> None:
         self.cache_dir: Optional[str] = args.dir
         self.disable_tui: bool = args.disable_tui
-        self.sort_by_size: Optional[str] = args.sort
+        self.sort_by: Optional[str] = args.sort
 
     def run(self):
         """Run `delete-cache` command with or without TUI."""
@@ -145,9 +142,9 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
 
         # Manual review from the user
         if self.disable_tui:
-            selected_hashes = _manual_review_no_tui(hf_cache_info, preselected=[], sort_by_size=self.sort_by_size)
+            selected_hashes = _manual_review_no_tui(hf_cache_info, preselected=[], sort_by=self.sort_by)
         else:
-            selected_hashes = _manual_review_tui(hf_cache_info, preselected=[], sort_by_size=self.sort_by_size)
+            selected_hashes = _manual_review_tui(hf_cache_info, preselected=[], sort_by=self.sort_by)
 
         # If deletion is not cancelled
         if len(selected_hashes) > 0 and _CANCEL_DELETION_STR not in selected_hashes:
@@ -179,7 +176,7 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
 def _manual_review_tui(
     hf_cache_info: HFCacheInfo,
     preselected: List[str],
-    sort_by_size: Optional[str] = None,
+    sort_by: Optional[str] = None,
 ) -> List[str]:
     """Ask the user for a manual review of the revisions to delete.
 
@@ -189,7 +186,7 @@ def _manual_review_tui(
     choices = _get_tui_choices_from_scan(
         repos=hf_cache_info.repos,
         preselected=preselected,
-        sort_by_size=sort_by_size,
+        sort_by=sort_by,
     )
     checkbox = inquirer.checkbox(
         message="Select revisions to delete:",
@@ -236,7 +233,7 @@ def _ask_for_confirmation_tui(message: str, default: bool = True) -> bool:
 def _get_tui_choices_from_scan(
     repos: Iterable[CachedRepoInfo],
     preselected: List[str],
-    sort_by_size: Optional[str] = None,
+    sort_by: Optional[str] = None,
 ) -> List:
     """Build a list of choices from the scanned repos.
 
@@ -245,16 +242,15 @@ def _get_tui_choices_from_scan(
             List of scanned repos on which we want to delete revisions.
         preselected (*List[`str`]*):
             List of revision hashes that will be preselected.
-        sort_by_size (*Optional[str]*):
-            Sorting direction. Choices: "descending" (default), "ascending".
+        sort_by (*Optional[str]*):
+            Sorting direction. Choices: "size".
 
     Return:
         The list of choices to pass to `inquirer.checkbox`.
     """
     choices: List[Union[Choice, Separator]] = []
 
-    # First choice is to cancel the deletion. If selected, nothing will be deleted,
-    # no matter the other selected items.
+    # First choice is to cancel the deletion
     choices.append(
         Choice(
             _CANCEL_DELETION_STR,
@@ -263,14 +259,10 @@ def _get_tui_choices_from_scan(
         )
     )
 
-    # Sort repos by size if requested, otherwise by type and last accessed
+    # Sort repos by size if requested, otherwise maintain original order
     sorted_repos = sorted(
         repos,
-        key=lambda repo: (
-            (-repo.size_on_disk if sort_by_size == "descending" else repo.size_on_disk)
-            if sort_by_size
-            else (repo.repo_type, repo.last_accessed)
-        ),
+        key=lambda repo: (-repo.size_on_disk if sort_by == "size" else (repo.repo_type, repo.repo_id)),
     )
     for repo in sorted_repos:
         # Repo as separator
@@ -301,7 +293,7 @@ def _get_tui_choices_from_scan(
 def _manual_review_no_tui(
     hf_cache_info: HFCacheInfo,
     preselected: List[str],
-    sort_by_size: Optional[str] = None,
+    sort_by: Optional[str] = None,
 ) -> List[str]:
     """Ask the user for a manual review of the revisions to delete.
 
@@ -315,11 +307,7 @@ def _manual_review_no_tui(
     lines = []
     sorted_repos = sorted(
         hf_cache_info.repos,
-        key=lambda repo: (
-            (-repo.size_on_disk if sort_by_size == "descending" else repo.size_on_disk)
-            if sort_by_size
-            else (repo.repo_type, repo.last_accessed)
-        ),
+        key=lambda repo: -repo.size_on_disk if sort_by == "size" else 1,
     )
     for repo in sorted_repos:
         lines.append(
@@ -360,9 +348,9 @@ def _manual_review_no_tui(
         ):
             break
 
-    # 4. Return selected_hashes
+    # 4. Return selected_hashes sorted to maintain stable order
     os.remove(tmp_path)
-    return selected_hashes
+    return sorted(selected_hashes)  # Sort to maintain stable order
 
 
 def _ask_for_confirmation_no_tui(message: str, default: bool = True) -> bool:
