@@ -23,7 +23,7 @@ import uuid
 from functools import lru_cache
 from http import HTTPStatus
 from shlex import quote
-from typing import Callable, Optional, Tuple, Type, Union
+from typing import Any, Callable, List, Optional, Tuple, Type, Union
 
 import requests
 from requests import HTTPError, Response
@@ -562,7 +562,7 @@ def _curlify(request: requests.PreparedRequest) -> str:
     Implementation vendored from https://github.com/ofw/curlify/blob/master/curlify.py.
     MIT License Copyright (c) 2016 Egor.
     """
-    parts = [
+    parts: List[Tuple[Any, Any]] = [
         ("curl", None),
         ("-X", request.method),
     ]
