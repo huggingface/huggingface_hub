@@ -15,6 +15,7 @@
 """Contains a tool to generate `src/huggingface_hub/inference/_generated/types`."""
 
 import argparse
+import ast
 import re
 from pathlib import Path
 from typing import Dict, List, Literal, NoReturn
@@ -227,6 +228,64 @@ def _list_type_aliases(content: str) -> List[str]:
     return [alias_class for alias_class, _ in TYPE_ALIAS_REGEX.findall(content)]
 
 
+class DeprecatedRemover(ast.NodeTransformer):
+    def is_deprecated(self, node: ast.AST) -> bool:
+        """Check if a node has @deprecated in its docstring."""
+        if isinstance(node, ast.ClassDef):
+            docstring = ast.get_docstring(node)
+            return docstring is not None and "@deprecated" in docstring.lower()
+        elif isinstance(node, ast.AnnAssign):
+            if (
+                hasattr(node, "next_sibling")
+                and isinstance(node.next_sibling, ast.Expr)
+                and isinstance(node.next_sibling.value, ast.Constant)
+                and isinstance(node.next_sibling.value.value, str)
+            ):
+                return "@deprecated" in node.next_sibling.value.value.lower()
+        return False
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> ast.ClassDef | None:
+        if self.is_deprecated(node):
+            return None
+
+        new_body = []
+        i = 0
+        while i < len(node.body):
+            item = node.body[i]
+            if isinstance(item, ast.AnnAssign):
+                # Look ahead to see if next item is a docstring
+                if (
+                    i + 1 < len(node.body)
+                    and isinstance(node.body[i + 1], ast.Expr)
+                    and isinstance(node.body[i + 1].value, ast.Constant)
+                ):
+                    item.next_sibling = node.body[i + 1]
+
+            if isinstance(item, ast.AnnAssign) and self.is_deprecated(item):
+                i += 2  # Skip both the field and its docstring
+            else:
+                new_body.append(item)
+                i += 1
+
+        node.body = new_body
+        return node
+
+
+def _clean_deprecated_fields(content: str) -> str:
+    """Remove deprecated classes and fields using AST."""
+    header = ""
+    for line in content.split("\n"):
+        if line.strip().startswith("#"):
+            header += line + "\n"
+
+    tree = ast.parse(content)
+    transformer = DeprecatedRemover()
+    cleaned_tree = transformer.visit(tree)
+    result = ast.unparse(cleaned_tree)
+
+    return header + result
+
+
 def fix_inference_classes(content: str, module_name: str) -> str:
     content = _inherit_from_base(content)
     content = _delete_empty_lines(content)
@@ -283,9 +342,8 @@ def check_inference_types(update: bool) -> NoReturn:
     for file in INFERENCE_TYPES_FOLDER_PATH.glob("*.py"):
         if file.name in IGNORE_FILES:
             continue
-
         content = file.read_text()
-
+        content = _clean_deprecated_fields(content)
         fixed_content = fix_inference_classes(content, module_name=file.stem)
         formatted_content = format_source_code(fixed_content)
         dataclasses[file.stem] = _list_dataclasses(formatted_content)
