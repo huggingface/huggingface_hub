@@ -2556,6 +2556,21 @@ class AsyncInferenceClient:
         ... )
         >>> image.save("astronaut.png")
         ```
+
+        Example using Replicate provider with extra parameters
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",  # Use replicate provider
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> image = client.text_to_image(
+        ...     "An astronaut riding a horse on the moon.",
+        ...     model="black-forest-labs/FLUX.1-schnell",
+        ...     extra_parameters={"output_quality": 100},
+        ... )
+        >>> image.save("astronaut.png")
+        ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-image")
         request_parameters = provider_helper.prepare_request(
@@ -2799,6 +2814,20 @@ class AsyncInferenceClient:
         ...     model="OuteAI/OuteTTS-0.3-500M",
         ... )
         >>> Path("hello_world.flac").write_bytes(audio)
+        ```
+        Example using Replicate provider with extra parameters
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",  # Use replicate provider
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> audio = client.text_to_speech(
+        ...     "Hello, my name is Kororo, an awesome text-to-speech model.",
+        ...     model="hexgrad/Kokoro-82M",
+        ...     extra_parameters={"voice": "af_nicole"},
+        ... )
+        >>> Path("hello.flac").write_bytes(audio)
         ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-speech")
