@@ -239,14 +239,14 @@ class TestReplicateProvider:
             ),
             (
                 ReplicateTextToSpeechTask(),
-                "OuteAI/OuteTTS-0.3-500M",
+                "hexgrad/Kokoro-82M",
                 "Hello world",
                 {},
                 {
                     "input": {
-                        "inputs": "Hello world",
+                        "text": "Hello world",
                     },
-                    "version": "39a59319327b27327fa3095149c5a746e7f2aee18c75055c3368237a6503cd26",
+                    "version": "f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
                 },
             ),
             (
