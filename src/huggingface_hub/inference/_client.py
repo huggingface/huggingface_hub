@@ -2750,6 +2750,37 @@ class InferenceClient:
         ... )
         >>> Path("hello.flac").write_bytes(audio)
         ```
+
+        Example music-gen using "YuE-s1-7B-anneal-en-cot" on fal.ai
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> lyrics = '''
+        ... [verse]
+        ... In the town where I was born
+        ... Lived a man who sailed to sea
+        ... And he told us of his life
+        ... In the land of submarines
+        ... So we sailed on to the sun
+        ... 'Til we found a sea of green
+        ... And we lived beneath the waves
+        ... In our yellow submarine
+
+        ... [chorus]
+        ... We all live in a yellow submarine
+        ... Yellow submarine, yellow submarine
+        ... We all live in a yellow submarine
+        ... Yellow submarine, yellow submarine
+        ... '''
+        >>> genres = "pavarotti-style tenor voice"
+        >>> client = InferenceClient(
+        ...     provider="fal-ai",
+        ...     model="m-a-p/YuE-s1-7B-anneal-en-cot",
+        ...     api_key=...,
+        ... )
+        >>> audio = client.text_to_speech(lyrics, extra_parameters={"genres": genres})
+        >>> with open("output.mp3", "wb") as f:
+        ...     f.write(audio)
+        ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-speech")
         request_parameters = provider_helper.prepare_request(
