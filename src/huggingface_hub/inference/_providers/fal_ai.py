@@ -154,10 +154,9 @@ class FalAITextToSpeechTask(FalAITask):
         super().__init__("text-to-speech")
 
     def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
-        parameters = {k: v for k, v in parameters.items() if v is not None}
         return {
             "lyrics": inputs,
-            **parameters,
+            **{k: v for k, v in parameters.items() if v is not None},
         }
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
