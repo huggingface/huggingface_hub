@@ -1616,6 +1616,8 @@ class HfApi:
         return self._thread_pool.submit(fn, *args, **kwargs)
 
 
+    from huggingface_hub.utils._auth import _get_token_from_google_colab, _get_token_from_environment, _get_token_from_file
+
     def _get_token_source(self, token: Optional[Union[bool, str]] = None) -> str:
         """
         Determine the source of the token being used.
@@ -1629,20 +1631,16 @@ class HfApi:
         if isinstance(token, str):
             return "parameter"
         
-        if os.getenv("HF_TOKEN") is not None:
+        # Use the helper functions to check token sources
+        if _get_token_from_environment():
             return "environment"
-            
-        token_path = Path.home() / ".cache/huggingface/token"
-        if token_path.exists():
+        
+        if _get_token_from_file():
             return "file"
-            
-        try:
-            from google.colab import auth
-            if auth.has_oauth2_token():
-                return "colab"
-        except ImportError:
-            pass
-            
+        
+        if _get_token_from_google_colab():
+            return "colab"
+        
         return "unknown"
 
     def _get_token_error_message(self, source: str) -> str:
@@ -1684,6 +1682,7 @@ class HfApi:
                 "or provide a valid token."
             )
 
+    
     @validate_hf_hub_args
     def whoami(self, token: Union[bool, str, None] = None) -> Dict:
         """
@@ -1696,8 +1695,9 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
         """
-        effective_token = token or self.token or True
-        
+        # Get the effective token using the helper function get_token
+        effective_token = get_token(token or self.token or True)
+
         r = get_session().get(
             f"{self.endpoint}/api/whoami-v2",
             headers=self._build_hf_headers(token=effective_token),
@@ -1706,17 +1706,42 @@ class HfApi:
         try:
             hf_raise_for_status(r)
         except HTTPError as e:
-            token_source = self._get_token_source(token)
-            error_message = self._get_token_error_message(token_source)
+            error_message = "Invalid user token."
+
+            # Check which token is the effective one and generate the error message accordingly
+            if effective_token == _get_token_from_google_colab():
+                error_message += (
+                    " The token from Google Colab vault is invalid. "
+                    "Please run `huggingface-cli login` in your Colab notebook to update it."
+                )
+            elif effective_token == _get_token_from_environment():
+                error_message += (
+                    " The token from HF_TOKEN environment variable is invalid. "
+                    "Note that HF_TOKEN takes precedence over the token file. "
+                    "Either update HF_TOKEN or unset it to use the token from `huggingface-cli login`."
+                )
+            elif effective_token == _get_token_from_file():
+                error_message += (
+                    " The token stored in ~/.cache/huggingface/token is invalid. "
+                    "Please run `huggingface-cli login` to update it."
+                )
+            else:
+                error_message += (
+                    " Please make sure you are properly logged in by executing `huggingface-cli login`, "
+                    "or provide a valid token."
+                )
             
-            raise HTTPError(
-                error_message,
-                request=e.request,
-                response=e.response,
-            ) from e
-            
+            raise HTTPError(error_message, request=e.request, response=e.response) from e
+
         return r.json()
-    
+    @_deprecate_method(
+        version="1.0",
+        message=(
+            "Permissions are more complex than when `get_token_permission` was first introduced. "
+            "OAuth and fine-grain tokens allows for more detailed permissions. "
+            "If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key."
+        ),
+    )    
     def get_token_permission(
         self, token: Union[bool, str, None] = None
     ) -> Literal["read", "write", "fineGrained", None]:
