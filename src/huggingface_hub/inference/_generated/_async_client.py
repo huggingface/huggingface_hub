@@ -2446,7 +2446,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         scheduler: Optional[str] = None,
         seed: Optional[int] = None,
-        extra_parameters: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> "Image":
         """
         Generate an image based on a given text using a specified model.
@@ -2480,7 +2480,7 @@ class AsyncInferenceClient:
                 Override the scheduler with a compatible one.
             seed (`int`, *optional*):
                 Seed for the random number generator.
-            extra_parameters (`Dict[str, Any]`, *optional*):
+            extra_body (`Dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
 
@@ -2547,7 +2547,7 @@ class AsyncInferenceClient:
         >>> image = client.text_to_image(
         ...     "An astronaut riding a horse on the moon.",
         ...     model="black-forest-labs/FLUX.1-schnell",
-        ...     extra_parameters={"output_quality": 100},
+        ...     extra_body={"output_quality": 100},
         ... )
         >>> image.save("astronaut.png")
         ```
@@ -2563,7 +2563,7 @@ class AsyncInferenceClient:
                 "guidance_scale": guidance_scale,
                 "scheduler": scheduler,
                 "seed": seed,
-                **(extra_parameters or {}),
+                **(extra_body or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -2583,7 +2583,7 @@ class AsyncInferenceClient:
         num_frames: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
         seed: Optional[int] = None,
-        extra_parameters: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> bytes:
         """
         Generate a video based on a given text.
@@ -2607,7 +2607,7 @@ class AsyncInferenceClient:
                 expense of slower inference.
             seed (`int`, *optional*):
                 Seed for the random number generator.
-            extra_parameters (`Dict[str, Any]`, *optional*):
+            extra_body (`Dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
 
@@ -2655,7 +2655,7 @@ class AsyncInferenceClient:
                 "num_frames": num_frames,
                 "num_inference_steps": num_inference_steps,
                 "seed": seed,
-                **(extra_parameters or {}),
+                **(extra_body or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -2686,7 +2686,7 @@ class AsyncInferenceClient:
         top_p: Optional[float] = None,
         typical_p: Optional[float] = None,
         use_cache: Optional[bool] = None,
-        extra_parameters: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
@@ -2744,7 +2744,7 @@ class AsyncInferenceClient:
                 paper](https://hf.co/papers/2202.00666) for more details.
             use_cache (`bool`, *optional*):
                 Whether the model should use the past last key/values attentions to speed up decoding
-            extra_parameters (`Dict[str, Any]`, *optional*):
+            extra_body (`Dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
         Returns:
@@ -2804,7 +2804,7 @@ class AsyncInferenceClient:
         >>> audio = client.text_to_speech(
         ...     "Hello, my name is Kororo, an awesome text-to-speech model.",
         ...     model="hexgrad/Kokoro-82M",
-        ...     extra_parameters={"voice": "af_nicole"},
+        ...     extra_body={"voice": "af_nicole"},
         ... )
         >>> Path("hello.flac").write_bytes(audio)
         ```
@@ -2835,7 +2835,7 @@ class AsyncInferenceClient:
         ...     model="m-a-p/YuE-s1-7B-anneal-en-cot",
         ...     api_key=...,
         ... )
-        >>> audio = client.text_to_speech(lyrics, extra_parameters={"genres": genres})
+        >>> audio = client.text_to_speech(lyrics, extra_body={"genres": genres})
         >>> with open("output.mp3", "wb") as f:
         ...     f.write(audio)
         ```
@@ -2860,7 +2860,7 @@ class AsyncInferenceClient:
                 "top_p": top_p,
                 "typical_p": typical_p,
                 "use_cache": use_cache,
-                **(extra_parameters or {}),
+                **(extra_body or {}),
             },
             headers=self.headers,
             model=model or self.model,
