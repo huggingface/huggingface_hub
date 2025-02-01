@@ -651,7 +651,7 @@ class AsyncInferenceClient:
         </Tip>
 
         <Tip>
-        You can pass provider-specific parameters to the model by using the `extra_body` parameter.
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
         </Tip>
 
         Args:
@@ -2466,7 +2466,7 @@ class AsyncInferenceClient:
         </Tip>
 
         <Tip>
-        You can pass provider-specific parameters to the model by using the `extra_body` parameter.
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
         </Tip>
 
         Args:
@@ -2601,7 +2601,7 @@ class AsyncInferenceClient:
         Generate a video based on a given text.
 
         <Tip>
-        You can pass provider-specific parameters to the model by using the `extra_body` parameter.
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
         </Tip>
 
         Args:
@@ -2708,7 +2708,7 @@ class AsyncInferenceClient:
         Synthesize an audio of a voice pronouncing a given text.
 
         <Tip>
-        You can pass provider-specific parameters to the model by using the `extra_body` parameter.
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
         </Tip>
 
         Args:
