@@ -983,6 +983,156 @@ class TestHttpGet(unittest.TestCase):
         self.assertEqual(mock.call_args_list[2].kwargs["headers"], {"Range": "bytes=30-"})
         self.assertEqual(mock.call_args_list[3].kwargs["headers"], {"Range": "bytes=60-"})
 
+    def test_http_get_with_suffix_ranges(self):
+        def _iter_content_1() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            raise requests.exceptions.SSLError("Fake SSLError")
+
+        def _iter_content_2() -> Iterable[bytes]:
+            yield b"0" * 10
+            raise requests.ReadTimeout("Fake ReadTimeout")
+
+        def _iter_content_3() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+            raise requests.ConnectionError("Fake ConnectionError")
+
+        def _iter_content_4() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+
+        with patch("huggingface_hub.file_download._request_wrapper") as mock:
+            mock.return_value.headers = {"Content-Length": 100}
+            mock.return_value.iter_content.side_effect = [
+                _iter_content_1(),
+                _iter_content_2(),
+                _iter_content_3(),
+                _iter_content_4(),
+            ]
+
+            temp_file = io.BytesIO()
+
+            with self.assertLogs("huggingface_hub.file_download", level="WARNING") as records:
+                http_get("fake_url", temp_file=temp_file, headers={"Range": "bytes=-100"})
+
+        # Check 3 warnings
+        self.assertEqual(len(records.records), 3)
+
+        # Check final value
+        self.assertEqual(temp_file.tell(), 100)
+        self.assertEqual(temp_file.getvalue(), b"0" * 100)
+
+        # Check number of calls + correct range headers
+        self.assertEqual(len(mock.call_args_list), 4)
+        self.assertEqual(mock.call_args_list[0].kwargs["headers"], {"Range": "bytes=-100"})
+        self.assertEqual(mock.call_args_list[1].kwargs["headers"], {"Range": "bytes=-80"})
+        self.assertEqual(mock.call_args_list[2].kwargs["headers"], {"Range": "bytes=-70"})
+        self.assertEqual(mock.call_args_list[3].kwargs["headers"], {"Range": "bytes=-40"})
+
+    def test_http_get_with_prefix_ranges(self):
+        def _iter_content_1() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            raise requests.exceptions.SSLError("Fake SSLError")
+
+        def _iter_content_2() -> Iterable[bytes]:
+            yield b"0" * 10
+            raise requests.ReadTimeout("Fake ReadTimeout")
+
+        def _iter_content_3() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+            raise requests.ConnectionError("Fake ConnectionError")
+
+        def _iter_content_4() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+
+        with patch("huggingface_hub.file_download._request_wrapper") as mock:
+            mock.return_value.headers = {"Content-Length": 100}
+            mock.return_value.iter_content.side_effect = [
+                _iter_content_1(),
+                _iter_content_2(),
+                _iter_content_3(),
+                _iter_content_4(),
+            ]
+
+            temp_file = io.BytesIO()
+
+            with self.assertLogs("huggingface_hub.file_download", level="WARNING") as records:
+                http_get("fake_url", temp_file=temp_file, headers={"Range": "bytes=15-"})
+
+        # Check 3 warnings
+        self.assertEqual(len(records.records), 3)
+
+        # Check final value
+        self.assertEqual(temp_file.tell(), 100)
+        self.assertEqual(temp_file.getvalue(), b"0" * 100)
+
+        # Check number of calls + correct range headers
+        self.assertEqual(len(mock.call_args_list), 4)
+        self.assertEqual(mock.call_args_list[0].kwargs["headers"], {"Range": "bytes=15-"})
+        self.assertEqual(mock.call_args_list[1].kwargs["headers"], {"Range": "bytes=35-"})
+        self.assertEqual(mock.call_args_list[2].kwargs["headers"], {"Range": "bytes=45-"})
+        self.assertEqual(mock.call_args_list[3].kwargs["headers"], {"Range": "bytes=75-"})
+
+    def test_http_get_with_double_closed_ranges(self):
+        def _iter_content_1() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            raise requests.exceptions.SSLError("Fake SSLError")
+
+        def _iter_content_2() -> Iterable[bytes]:
+            yield b"0" * 10
+            raise requests.ReadTimeout("Fake ReadTimeout")
+
+        def _iter_content_3() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+            raise requests.ConnectionError("Fake ConnectionError")
+
+        def _iter_content_4() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+
+        with patch("huggingface_hub.file_download._request_wrapper") as mock:
+            mock.return_value.headers = {"Content-Length": 100}
+            mock.return_value.iter_content.side_effect = [
+                _iter_content_1(),
+                _iter_content_2(),
+                _iter_content_3(),
+                _iter_content_4(),
+            ]
+
+            temp_file = io.BytesIO()
+
+            with self.assertLogs("huggingface_hub.file_download", level="WARNING") as records:
+                http_get("fake_url", temp_file=temp_file, headers={"Range": "bytes=15-114"})
+
+        # Check 3 warnings
+        self.assertEqual(len(records.records), 3)
+
+        # Check final value
+        self.assertEqual(temp_file.tell(), 100)
+        self.assertEqual(temp_file.getvalue(), b"0" * 100)
+
+        # Check number of calls + correct range headers
+        self.assertEqual(len(mock.call_args_list), 4)
+        self.assertEqual(mock.call_args_list[0].kwargs["headers"], {"Range": "bytes=15-114"})
+        self.assertEqual(mock.call_args_list[1].kwargs["headers"], {"Range": "bytes=35-114"})
+        self.assertEqual(mock.call_args_list[2].kwargs["headers"], {"Range": "bytes=45-114"})
+        self.assertEqual(mock.call_args_list[3].kwargs["headers"], {"Range": "bytes=75-114"})
+
 
 class CreateSymlinkTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "No symlinks on Windows")
