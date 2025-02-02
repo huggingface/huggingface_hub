@@ -364,7 +364,57 @@ def http_get(
     initial_headers = headers
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
-        headers["Range"] = "bytes=%d-" % (resume_size,)
+        original_range = headers.get("Range")
+        if original_range:
+            if "," in original_range:
+                # multiple range, supported by HTTP but cannot determine how to resume
+                # so just replace it and raise a warning
+                warnings.warn(
+                    f"Multiple ranges detected - {original_range!r}, using full range after resume", UserWarning
+                )
+                headers["Range"] = f"bytes={resume_size}-"
+            else:
+                range_match = re.match(r"^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$", original_range, re.IGNORECASE)
+                # check the range format
+                if not range_match:
+                    # invalid format, not supported by HTTP
+                    raise RuntimeError(f"Invalid range format - {original_range!r}.")
+                else:
+                    start_str, end_str = range_match.groups()
+
+                    # suffix range（e.g. bytes=-500）
+                    if not start_str:
+                        if not end_str:
+                            # invalid format, not supported by HTTP
+                            raise RuntimeError(f"Invalid range format - {original_range!r}.")
+                        else:
+                            suffix_value = int(end_str)
+                            new_suffix_value = suffix_value - resume_size
+                            if new_suffix_value <= 0:
+                                # If the file is already fully downloaded, we don't need to download it again.
+                                return
+                            else:
+                                headers["Range"] = f"bytes=-{new_suffix_value}"
+                    else:
+                        # calculate new start position
+                        start = int(start_str)
+                        new_start = start + resume_size
+                        end = int(end_str) if end_str else None
+
+                        # process range check
+                        if end is not None and new_start > end:
+                            # If the file is already fully downloaded, we don't need to download it again.
+                            return
+                        else:
+                            # set the new range
+                            if end is not None:
+                                new_range = f"bytes={new_start}-{end}"
+                            else:
+                                new_range = f"bytes={new_start}-"
+                            headers["Range"] = new_range
+        else:
+            # simple resume case
+            headers["Range"] = f"bytes={resume_size}-"
 
     r = _request_wrapper(
         method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT
