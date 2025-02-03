@@ -1687,7 +1687,6 @@ class HfApi:
     def whoami(self, token: Union[bool, str, None] = None) -> Dict:
         """
         Call HF API to know "whoami".
-        
         Args:
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
