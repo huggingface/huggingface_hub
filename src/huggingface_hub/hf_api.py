@@ -1653,8 +1653,7 @@ class HfApi:
                 )
             elif effective_token == _get_token_from_file():
                 error_message += (
-                    " The token stored in ~/.cache/huggingface/token is invalid. "
-                    "Please run `huggingface-cli login` to update it."
+                    " The token stored is invalid. Please run `huggingface-cli login` to update it."
                 )
             else:
                 error_message += (
