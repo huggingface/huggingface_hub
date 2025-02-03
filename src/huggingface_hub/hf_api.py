@@ -1740,7 +1740,7 @@ class HfApi:
             "OAuth and fine-grain tokens allows for more detailed permissions. "
             "If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key."
         ),
-    )    
+    )
     def get_token_permission(
         self, token: Union[bool, str, None] = None
     ) -> Literal["read", "write", "fineGrained", None]:
