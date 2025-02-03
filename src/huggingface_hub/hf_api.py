@@ -1615,74 +1615,6 @@ class HfApi:
         self._thread_pool
         return self._thread_pool.submit(fn, *args, **kwargs)
 
-
-    from huggingface_hub.utils._auth import _get_token_from_google_colab, _get_token_from_environment, _get_token_from_file
-
-    def _get_token_source(self, token: Optional[Union[bool, str]] = None) -> str:
-        """
-        Determine the source of the token being used.
-        
-        Args:
-            token: The token parameter passed to whoami
-            
-        Returns:
-            str: Source of the token ("parameter", "environment", "file", "colab", or "unknown")
-        """
-        if isinstance(token, str):
-            return "parameter"
-        
-        # Use the helper functions to check token sources
-        if _get_token_from_environment():
-            return "environment"
-        
-        if _get_token_from_file():
-            return "file"
-        
-        if _get_token_from_google_colab():
-            return "colab"
-        
-        return "unknown"
-
-    def _get_token_error_message(self, source: str) -> str:
-        """
-        Generate a detailed error message based on the token source.
-        
-        Args:
-            source: The source of the token ("parameter", "environment", "file", "colab", or "unknown")
-            
-        Returns:
-            str: Customized error message
-        """
-        base_message = "Invalid user token. "
-        
-        if source == "parameter":
-            return base_message + (
-                "The token you provided as parameter is invalid. Please verify it's correct "
-                "or remove it to use the default authentication method."
-            )
-        elif source == "environment":
-            return base_message + (
-                "The token from HF_TOKEN environment variable is invalid. "
-                "Note that HF_TOKEN takes precedence over the token file. "
-                "Either update HF_TOKEN or unset it to use the token from `huggingface-cli login`."
-            )
-        elif source == "file":
-            return base_message + (
-                "The token stored in ~/.cache/huggingface/token is invalid. "
-                "Please run `huggingface-cli login` to update it."
-            )
-        elif source == "colab":
-            return base_message + (
-                "The token from Google Colab vault is invalid. "
-                "Please run `huggingface-cli login` in your Colab notebook to update it."
-            )
-        else:
-            return base_message + (
-                "Please make sure you are properly logged in by executing `huggingface-cli login`, "
-                "or provide a valid token."
-            )
-
-    
     @validate_hf_hub_args
     def whoami(self, token: Union[bool, str, None] = None) -> Dict:
         """
@@ -1712,13 +1644,13 @@ class HfApi:
             if effective_token == _get_token_from_google_colab():
                 error_message += (
                     " The token from Google Colab vault is invalid. "
-                    "Please run `huggingface-cli login` in your Colab notebook to update it."
+                    "Please update it from the UI."
                 )
             elif effective_token == _get_token_from_environment():
                 error_message += (
                     " The token from HF_TOKEN environment variable is invalid. "
-                    "Note that HF_TOKEN takes precedence over the token file. "
-                    "Either update HF_TOKEN or unset it to use the token from `huggingface-cli login`."
+                    "Note that HF_TOKEN takes precedence over `huggingface-cli login`."
+                    
                 )
             elif effective_token == _get_token_from_file():
                 error_message += (
@@ -1727,9 +1659,8 @@ class HfApi:
                 )
             else:
                 error_message += (
-                    " Please make sure you are properly logged in by executing `huggingface-cli login`, "
-                    "or provide a valid token."
-                )
+	                    " The token stored is invalid. Please run `huggingface-cli login` to update it."
+	                )
             
             raise HTTPError(error_message, request=e.request, response=e.response) from e
 
