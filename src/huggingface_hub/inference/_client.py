@@ -524,6 +524,7 @@ class InferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        extra_body: Optional[Dict] = None,
     ) -> ChatCompletionOutput: ...
 
     @overload
@@ -549,6 +550,7 @@ class InferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        extra_body: Optional[Dict] = None,
     ) -> Iterable[ChatCompletionStreamOutput]: ...
 
     @overload
@@ -574,6 +576,7 @@ class InferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        extra_body: Optional[Dict] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]: ...
 
     def chat_completion(
@@ -599,6 +602,7 @@ class InferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        extra_body: Optional[Dict] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:
         """
         A method for completing conversations using a specified language model.
@@ -613,7 +617,7 @@ class InferenceClient:
         </Tip>
 
         <Tip>
-        Some parameters might not be supported by some providers.
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
         </Tip>
 
         Args:
@@ -668,7 +672,9 @@ class InferenceClient:
             tools (List of [`ChatCompletionInputTool`], *optional*):
                 A list of tools the model may call. Currently, only functions are supported as a tool. Use this to
                 provide a list of functions the model may generate JSON inputs for.
-
+            extra_body (`Dict`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
         Returns:
             [`ChatCompletionOutput`] or Iterable of [`ChatCompletionStreamOutput`]:
             Generated text returned from the server:
@@ -753,7 +759,7 @@ class InferenceClient:
             print(chunk.choices[0].delta.content)
         ```
 
-        Example using a third-party provider directly. Usage will be billed on your Together AI account.
+        Example using a third-party provider directly with extra (provider-specific) parameters. Usage will be billed on your Together AI account.
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient(
@@ -763,6 +769,7 @@ class InferenceClient:
         >>> client.chat_completion(
         ...     model="meta-llama/Meta-Llama-3-8B-Instruct",
         ...     messages=[{"role": "user", "content": "What is the capital of France?"}],
+        ...     extra_body={"safety_model": "Meta-Llama/Llama-Guard-7b"},
         ... )
         ```
 
@@ -956,6 +963,7 @@ class InferenceClient:
             "top_p": top_p,
             "stream": stream,
             "stream_options": stream_options,
+            **(extra_body or {}),
         }
         request_parameters = provider_helper.prepare_request(
             inputs=messages,
@@ -2390,7 +2398,7 @@ class InferenceClient:
         model: Optional[str] = None,
         scheduler: Optional[str] = None,
         seed: Optional[int] = None,
-        extra_parameters: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> "Image":
         """
         Generate an image based on a given text using a specified model.
@@ -2399,6 +2407,10 @@ class InferenceClient:
 
         You must have `PIL` installed if you want to work with images (`pip install Pillow`).
 
+        </Tip>
+
+        <Tip>
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
         </Tip>
 
         Args:
@@ -2424,7 +2436,7 @@ class InferenceClient:
                 Override the scheduler with a compatible one.
             seed (`int`, *optional*):
                 Seed for the random number generator.
-            extra_parameters (`Dict[str, Any]`, *optional*):
+            extra_body (`Dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
 
@@ -2490,7 +2502,7 @@ class InferenceClient:
         >>> image = client.text_to_image(
         ...     "An astronaut riding a horse on the moon.",
         ...     model="black-forest-labs/FLUX.1-schnell",
-        ...     extra_parameters={"output_quality": 100},
+        ...     extra_body={"output_quality": 100},
         ... )
         >>> image.save("astronaut.png")
         ```
@@ -2506,7 +2518,7 @@ class InferenceClient:
                 "guidance_scale": guidance_scale,
                 "scheduler": scheduler,
                 "seed": seed,
-                **(extra_parameters or {}),
+                **(extra_body or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -2526,10 +2538,14 @@ class InferenceClient:
         num_frames: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
         seed: Optional[int] = None,
-        extra_parameters: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> bytes:
         """
         Generate a video based on a given text.
+
+        <Tip>
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
+        </Tip>
 
         Args:
             prompt (`str`):
@@ -2550,7 +2566,7 @@ class InferenceClient:
                 expense of slower inference.
             seed (`int`, *optional*):
                 Seed for the random number generator.
-            extra_parameters (`Dict[str, Any]`, *optional*):
+            extra_body (`Dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
 
@@ -2598,7 +2614,7 @@ class InferenceClient:
                 "num_frames": num_frames,
                 "num_inference_steps": num_inference_steps,
                 "seed": seed,
-                **(extra_parameters or {}),
+                **(extra_body or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -2629,10 +2645,14 @@ class InferenceClient:
         top_p: Optional[float] = None,
         typical_p: Optional[float] = None,
         use_cache: Optional[bool] = None,
-        extra_parameters: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
+
+        <Tip>
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
+        </Tip>
 
         Args:
             text (`str`):
@@ -2687,7 +2707,7 @@ class InferenceClient:
                 paper](https://hf.co/papers/2202.00666) for more details.
             use_cache (`bool`, *optional*):
                 Whether the model should use the past last key/values attentions to speed up decoding
-            extra_parameters (`Dict[str, Any]`, *optional*):
+            extra_body (`Dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
         Returns:
@@ -2746,7 +2766,7 @@ class InferenceClient:
         >>> audio = client.text_to_speech(
         ...     "Hello, my name is Kororo, an awesome text-to-speech model.",
         ...     model="hexgrad/Kokoro-82M",
-        ...     extra_parameters={"voice": "af_nicole"},
+        ...     extra_body={"voice": "af_nicole"},
         ... )
         >>> Path("hello.flac").write_bytes(audio)
         ```
@@ -2777,7 +2797,7 @@ class InferenceClient:
         ...     model="m-a-p/YuE-s1-7B-anneal-en-cot",
         ...     api_key=...,
         ... )
-        >>> audio = client.text_to_speech(lyrics, extra_parameters={"genres": genres})
+        >>> audio = client.text_to_speech(lyrics, extra_body={"genres": genres})
         >>> with open("output.mp3", "wb") as f:
         ...     f.write(audio)
         ```
@@ -2802,7 +2822,7 @@ class InferenceClient:
                 "top_p": top_p,
                 "typical_p": typical_p,
                 "use_cache": use_cache,
-                **(extra_parameters or {}),
+                **(extra_body or {}),
             },
             headers=self.headers,
             model=model or self.model,
