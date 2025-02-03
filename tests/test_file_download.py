@@ -982,42 +982,41 @@ class TestHttpGet:
         assert mock.call_args_list[3].kwargs["headers"] == {"Range": "bytes=60-"}
 
     @pytest.mark.parametrize(
-    "initial_range,expected_ranges",
-    [
-        # Test suffix ranges (bytes=-100)
-        (
-            "bytes=-100",
-            [
+        "initial_range,expected_ranges",
+        [
+            # Test suffix ranges (bytes=-100)
+            (
                 "bytes=-100",
-                "bytes=-80",
-                "bytes=-70",
-                "bytes=-40",
-            ]
-        ),
-        # Test prefix ranges (bytes=15-)
-        (
-            "bytes=15-",
-            [
+                [
+                    "bytes=-100",
+                    "bytes=-80",
+                    "bytes=-70",
+                    "bytes=-40",
+                ],
+            ),
+            # Test prefix ranges (bytes=15-)
+            (
                 "bytes=15-",
-                "bytes=35-",
-                "bytes=45-",
-                "bytes=75-",  
-            ]
-        ),
-        # Test double closed ranges (bytes=15-114)
-        (
-            "bytes=15-114",
-            [
-                "bytes=15-114",  
-                "bytes=35-114", 
-                "bytes=45-114",  
-                "bytes=75-114",  
-            ]
-        ),
-    ],
+                [
+                    "bytes=15-",
+                    "bytes=35-",
+                    "bytes=45-",
+                    "bytes=75-",
+                ],
+            ),
+            # Test double closed ranges (bytes=15-114)
+            (
+                "bytes=15-114",
+                [
+                    "bytes=15-114",
+                    "bytes=35-114",
+                    "bytes=45-114",
+                    "bytes=75-114",
+                ],
+            ),
+        ],
     )
-    def test_http_get_with_range_headers(self, caplog,initial_range: str, expected_ranges: List[str]):
- 
+    def test_http_get_with_range_headers(self, caplog, initial_range: str, expected_ranges: List[str]):
         def _iter_content_1() -> Iterable[bytes]:
             yield b"0" * 10
             yield b"0" * 10
@@ -1060,6 +1059,7 @@ class TestHttpGet:
         assert len(mock.call_args_list) == 4
         for i, expected_range in enumerate(expected_ranges):
             assert mock.call_args_list[i].kwargs["headers"] == {"Range": expected_range}
+
 
 class CreateSymlinkTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "No symlinks on Windows")
