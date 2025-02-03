@@ -1614,9 +1614,9 @@ class HfApi:
             self._thread_pool = ThreadPoolExecutor(max_workers=1)
         self._thread_pool
         return self._thread_pool.submit(fn, *args, **kwargs)
-
-    @validate_hf_hub_args
+    
     from huggingface_hub.utils._auth import _get_token_from_google_colab, _get_token_from_environment, _get_token_from_file
+    @validate_hf_hub_args
     def whoami(self, token: Union[bool, str, None] = None) -> Dict:
         """
         Call HF API to know "whoami".
@@ -1629,17 +1629,14 @@ class HfApi:
         """
         # Get the effective token using the helper function get_token
         effective_token = get_token(token or self.token or True)
-
         r = get_session().get(
             f"{self.endpoint}/api/whoami-v2",
             headers=self._build_hf_headers(token=effective_token),
         )
-        
         try:
             hf_raise_for_status(r)
         except HTTPError as e:
             error_message = "Invalid user token."
-
             # Check which token is the effective one and generate the error message accordingly
             if effective_token == _get_token_from_google_colab():
                 error_message += (
@@ -1650,7 +1647,6 @@ class HfApi:
                 error_message += (
                     " The token from HF_TOKEN environment variable is invalid. "
                     "Note that HF_TOKEN takes precedence over `huggingface-cli login`."
-                    
                 )
             elif effective_token == _get_token_from_file():
                 error_message += (
@@ -1660,9 +1656,7 @@ class HfApi:
                 error_message += (
 	                    " The token stored is invalid. Please run `huggingface-cli login` to update it."
 	                )
-            
             raise HTTPError(error_message, request=e.request, response=e.response) from e
-
         return r.json()
     @_deprecate_method(
         version="1.0",
