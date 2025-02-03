@@ -1616,6 +1616,7 @@ class HfApi:
         return self._thread_pool.submit(fn, *args, **kwargs)
 
     @validate_hf_hub_args
+    from huggingface_hub.utils._auth import _get_token_from_google_colab, _get_token_from_environment, _get_token_from_file
     def whoami(self, token: Union[bool, str, None] = None) -> Dict:
         """
         Call HF API to know "whoami".
