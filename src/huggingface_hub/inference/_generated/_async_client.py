@@ -2451,8 +2451,8 @@ class AsyncInferenceClient:
         prompt: str,
         *,
         negative_prompt: Optional[str] = None,
-        height: Optional[float] = None,
-        width: Optional[float] = None,
+        height: Optional[int] = None,
+        width: Optional[int] = None,
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
         model: Optional[str] = None,
@@ -2478,8 +2478,8 @@ class AsyncInferenceClient:
                 The prompt to generate an image from.
             negative_prompt (`str`, *optional*):
                 One prompt to guide what NOT to include in image generation.
-            height (`float`, *optional*):
-                The height in pixels of the image to generate.
+            height (`int`, *optional*):
+                The height in pixels of the output image
             width (`float`, *optional*):
                 The width in pixels of the image to generate.
             num_inference_steps (`int`, *optional*):
