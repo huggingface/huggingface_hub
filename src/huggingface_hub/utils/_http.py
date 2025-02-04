@@ -594,12 +594,47 @@ def _curlify(request: requests.PreparedRequest) -> str:
 
 
 class EmptyRangeHeader(Exception):
+    """
+    Exception raised when the adjusted Range header becomes empty or invalid.
+
+    This occurs when:
+    - The suffix range adjustment results in non-positive values
+    - The calculated start position exceeds the end position in a ranged request
+
+    :param msg: Explanation of the error condition
+    :type msg: str
+    """
+
     pass
 
 
 def adjust_range_header(original_range: str, resume_size: int) -> str:
     """
-    Adjust HTTP Range header to account for resume position.
+    Adjust HTTP Range header to account for resume position during partial downloads.
+
+    Handles multiple range types:
+    - Simple byte ranges (bytes=0-100)
+    - Suffix ranges (bytes=-500)
+    - Multiple ranges (converted to single range with warning)
+    - Resume positions beyond requested range
+
+    :param original_range: Original Range header string from request
+    :type original_range: str
+    :param resume_size: Number of bytes already downloaded (resume position)
+    :type resume_size: int
+
+    :return: Adjusted Range header string
+    :rtype: str
+
+    :raises RuntimeError: For invalid/malformed range headers
+    :raises EmptyRangeHeader: When adjustment results in invalid/empty range
+    :raises ValueError: If resume_size is negative
+
+    Example usage:
+        >>> adjust_range_header("bytes=0-100", 50)
+        'bytes=50-100'
+        >>> adjust_range_header("bytes=-500", 200)
+        'bytes=-300'
     """
     if resume_size > 0:
         if original_range:
