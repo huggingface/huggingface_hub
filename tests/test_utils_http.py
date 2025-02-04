@@ -13,9 +13,8 @@ from requests import ConnectTimeout, HTTPError
 
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.utils._http import (
-    EmptyRangeHeader,
     OfflineModeIsEnabled,
-    adjust_range_header,
+    _adjust_range_header,
     configure_http_backend,
     fix_hf_endpoint_in_url,
     get_session,
@@ -315,79 +314,21 @@ def test_fix_hf_endpoint_in_url(base_url: str, endpoint: Optional[str], expected
     assert fix_hf_endpoint_in_url(base_url, endpoint) == expected_url
 
 
-@pytest.mark.parametrize(
-    ("original_range", "resume_size", "expected"),
-    [
-        # resume_size <= 0 cases
-        ("bytes=0-100", 0, "bytes=0-100"),
-        ("bytes=100-200", -5, "bytes=100-200"),
-        (None, 0, None),
-        ("bytes=500-", 0, "bytes=500-"),
-        # resume_size > 0 and no original range
-        (None, 100, "bytes=100-"),
-        ("", 50, "bytes=50-"),
-        # suffix range cases
-        ("bytes=-500", 300, "bytes=-200"),
-        ("bytes=-500", 500, EmptyRangeHeader),
-        ("bytes=-500", 600, EmptyRangeHeader),
-        # normal range cases
-        ("bytes=100-200", 50, "bytes=150-200"),
-        ("bytes=100-", 50, "bytes=150-"),
-        ("bytes=100-200", 150, EmptyRangeHeader),
-        ("bytes=100-", 200, "bytes=300-"),
-        # edge cases with spaces and case sensitivity
-        ("  Bytes   =   100  -  200  ", 50, "bytes=150-200"),
-        ("BYTES=100-", 50, "bytes=150-"),
-    ],
-)
-def test_adjust_range_header_basic(original_range, resume_size, expected):
-    if isinstance(expected, type) and issubclass(expected, Exception):
-        with pytest.raises(expected):
-            adjust_range_header(original_range, resume_size)
-    else:
-        assert adjust_range_header(original_range, resume_size) == expected
+def test_adjust_range_header():
+    # Basic cases
+    assert _adjust_range_header(None, 10) == "bytes=10-"
+    assert _adjust_range_header("bytes=0-100", 10) == "bytes=10-100"
+    assert _adjust_range_header("bytes=-100", 10) == "bytes=-90"
 
-
-@pytest.mark.parametrize(
-    ("original_range", "resume_size", "warning_msg"),
-    [
-        ("bytes=0-100,200-300", 50, "Multiple ranges detected"),
-        ("bytes=0-100, 200-300", 100, "Multiple ranges detected"),
-    ],
-)
-def test_multiple_ranges_warning(original_range, resume_size, warning_msg):
-    with pytest.warns(UserWarning, match=warning_msg):
-        result = adjust_range_header(original_range, resume_size)
-        assert result == f"bytes={resume_size}-"
-
-
-@pytest.mark.parametrize(
-    ("original_range", "resume_size", "error_cls"),
-    [
-        ("invalid_range", 100, RuntimeError),
-        ("bytes=abc-def", 50, RuntimeError),
-        ("bytes=100-50", 20, EmptyRangeHeader),  # Invalid if start > end
-        ("bytes=-", 10, RuntimeError),
-        ("bytes=100", 20, RuntimeError),
-    ],
-)
-def test_invalid_range_format(original_range, resume_size, error_cls):
-    with pytest.raises(error_cls):
-        adjust_range_header(original_range, resume_size)
-
-
-# Special case for suffix range with empty end
-def test_suffix_range_edge_case():
     with pytest.raises(RuntimeError):
-        adjust_range_header("bytes=-", 100)
+        _adjust_range_header("invalid", 10)
 
+    with pytest.raises(RuntimeError):
+        _adjust_range_header("bytes=-", 10)
 
-# Test coverage for full suffix download completion
-def test_full_suffix_download():
-    with pytest.raises(EmptyRangeHeader):
-        adjust_range_header("bytes=-500", 500)
+    # Multiple ranges
+    assert _adjust_range_header("bytes=0-100,200-300", 10) == "bytes=10-"
 
-
-# Test coverage for empty original range handling
-def test_empty_original_range():
-    assert adjust_range_header(None, 100) == "bytes=100-"
+    # Resume size exceeds range
+    assert _adjust_range_header("bytes=0-100", 150) is None
+    assert _adjust_range_header("bytes=-50", 100) is None

@@ -59,7 +59,7 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._http import EmptyRangeHeader, adjust_range_header
+from .utils._http import _adjust_range_header
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
@@ -364,14 +364,10 @@ def http_get(
 
     initial_headers = headers
     headers = copy.deepcopy(headers) or {}
-    original_range = headers.get("Range")
-    try:
-        new_range = adjust_range_header(original_range, int(resume_size))
-    except EmptyRangeHeader:
-        # If the file is already fully downloaded, we don't need to download it again.
-        return
-    if new_range:
-        headers["Range"] = new_range
+    if resume_size > 0:
+        adjusted_range = _adjust_range_header(headers.get("Range"), resume_size)
+        if adjusted_range is not None:
+            headers["Range"] = adjusted_range
 
     r = _request_wrapper(
         method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT

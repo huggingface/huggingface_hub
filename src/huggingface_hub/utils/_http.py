@@ -593,101 +593,39 @@ def _curlify(request: requests.PreparedRequest) -> str:
     return " ".join(flat_parts)
 
 
-class EmptyRangeHeader(Exception):
+def _adjust_range_header(original_range: str, resume_size: int) -> Optional[str]:
     """
-    Exception raised when the adjusted Range header becomes empty or invalid.
-
-    This occurs when:
-    - The suffix range adjustment results in non-positive values
-    - The calculated start position exceeds the end position in a ranged request
-
-    :param msg: Explanation of the error condition
-    :type msg: str
+    Adjust HTTP Range header to account for resume position.
     """
+    if not original_range:
+        return f"bytes={resume_size}-"
 
-    pass
+    if "," in original_range:
+        warnings.warn(f"Multiple ranges detected - {original_range!r}, using full range after resume", UserWarning)
+        return f"bytes={resume_size}-"
+    # Regex to parse HTTP Range header
+    range_regex = re.compile(r"^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$", re.IGNORECASE)
 
+    match = range_regex.match(original_range)
+    if not match:
+        raise RuntimeError(f"Invalid range format - {original_range!r}.")
+    start, end = match.groups()
 
-def adjust_range_header(original_range: str, resume_size: int) -> str:
-    """
-    Adjust HTTP Range header to account for resume position during partial downloads.
+    if not start:
+        if not end:
+            raise RuntimeError(f"Invalid range format - {original_range!r}.")
 
-    Handles multiple range types:
-    - Simple byte ranges (bytes=0-100)
-    - Suffix ranges (bytes=-500)
-    - Multiple ranges (converted to single range with warning)
-    - Resume positions beyond requested range
+        new_suffix = int(end) - resume_size
+        if new_suffix <= 0:
+            return None
+        return f"bytes=-{new_suffix}"
 
-    :param original_range: Original Range header string from request
-    :type original_range: str
-    :param resume_size: Number of bytes already downloaded (resume position)
-    :type resume_size: int
+    start = int(start)
+    new_start = start + resume_size
+    if end:
+        end = int(end)
+        if new_start > end:
+            return None
+        return f"bytes={new_start}-{end}"
 
-    :return: Adjusted Range header string
-    :rtype: str
-
-    :raises RuntimeError: For invalid/malformed range headers
-    :raises EmptyRangeHeader: When adjustment results in invalid/empty range
-    :raises ValueError: If resume_size is negative
-
-    Example usage:
-        >>> adjust_range_header("bytes=0-100", 50)
-        'bytes=50-100'
-        >>> adjust_range_header("bytes=-500", 200)
-        'bytes=-300'
-    """
-    if resume_size > 0:
-        if original_range:
-            if "," in original_range:
-                # multiple range, supported by HTTP but cannot determine how to resume
-                # so just replace it and raise a warning
-                warnings.warn(
-                    f"Multiple ranges detected - {original_range!r}, using full range after resume", UserWarning
-                )
-                return f"bytes={resume_size}-"
-            else:
-                range_match = re.match(r"^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$", original_range, re.IGNORECASE)
-                # check the range format
-                if not range_match:
-                    # invalid format, not supported by HTTP
-                    raise RuntimeError(f"Invalid range format - {original_range!r}.")
-                else:
-                    start_str, end_str = range_match.groups()
-
-                    # suffix range（e.g. bytes=-500）
-                    if not start_str:
-                        if not end_str:
-                            # invalid format, not supported by HTTP
-                            raise RuntimeError(f"Invalid range format - {original_range!r}.")
-                        else:
-                            suffix_value = int(end_str)
-                            new_suffix_value = suffix_value - resume_size
-                            if new_suffix_value <= 0:
-                                # If the file is already fully downloaded, we don't need to download it again.
-                                raise EmptyRangeHeader(
-                                    f"Adjusted header is empty, which suffix is {new_suffix_value!r}."
-                                )
-                            else:
-                                return f"bytes=-{new_suffix_value}"
-                    else:
-                        # calculate new start position
-                        start = int(start_str)
-                        new_start = start + resume_size
-                        end = int(end_str) if end_str else None
-
-                        # process range check
-                        if end is not None and new_start > end:
-                            # If the file is already fully downloaded, we don't need to download it again.
-                            raise EmptyRangeHeader(f"Adjusted header is empty, which range is [{new_start}, {end}].")
-                        else:
-                            # set the new range
-                            if end is not None:
-                                new_range = f"bytes={new_start}-{end}"
-                            else:
-                                new_range = f"bytes={new_start}-"
-                            return new_range
-        else:
-            # simple resume case
-            return f"bytes={resume_size}-"
-    else:
-        return original_range
+    return f"bytes={new_start}-"
