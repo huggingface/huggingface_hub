@@ -593,6 +593,10 @@ def _curlify(request: requests.PreparedRequest) -> str:
     return " ".join(flat_parts)
 
 
+# Regex to parse HTTP Range header
+RANGE_REGEX = re.compile(r"^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$", re.IGNORECASE)
+
+
 def _adjust_range_header(original_range: Optional[str], resume_size: int) -> Optional[str]:
     """
     Adjust HTTP Range header to account for resume position.
@@ -603,10 +607,8 @@ def _adjust_range_header(original_range: Optional[str], resume_size: int) -> Opt
     if "," in original_range:
         warnings.warn(f"Multiple ranges detected - {original_range!r}, using full range after resume", UserWarning)
         return f"bytes={resume_size}-"
-    # Regex to parse HTTP Range header
-    range_regex = re.compile(r"^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$", re.IGNORECASE)
 
-    match = range_regex.match(original_range)
+    match = RANGE_REGEX.match(original_range)
     if not match:
         raise RuntimeError(f"Invalid range format - {original_range!r}.")
     start, end = match.groups()
