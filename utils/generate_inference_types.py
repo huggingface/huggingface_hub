@@ -17,8 +17,9 @@
 import argparse
 import re
 from pathlib import Path
-from typing import Dict, List, Literal, NoReturn
+from typing import Dict, List, Literal, NoReturn, Optional
 
+import libcst as cst
 from helpers import check_and_update_file_content, format_source_code
 
 
@@ -227,6 +228,62 @@ def _list_type_aliases(content: str) -> List[str]:
     return [alias_class for alias_class, _ in TYPE_ALIAS_REGEX.findall(content)]
 
 
+class DeprecatedRemover(cst.CSTTransformer):
+    def is_deprecated(self, docstring: Optional[str]) -> bool:
+        """Check if a docstring contains @deprecated."""
+        return docstring is not None and "@deprecated" in docstring.lower()
+
+    def get_docstring(self, body: List[cst.BaseStatement]) -> Optional[str]:
+        """Extract docstring from a body of statements."""
+        if not body:
+            return None
+        first = body[0]
+        if isinstance(first, cst.SimpleStatementLine):
+            expr = first.body[0]
+            if isinstance(expr, cst.Expr) and isinstance(expr.value, cst.SimpleString):
+                return expr.value.evaluated_value
+        return None
+
+    def leave_ClassDef(self, original_node: cst.ClassDef, updated_node: cst.ClassDef) -> Optional[cst.ClassDef]:
+        """Handle class definitions - remove if deprecated."""
+        docstring = self.get_docstring(original_node.body.body)
+        if self.is_deprecated(docstring):
+            return cst.RemoveFromParent()
+
+        new_body = []
+        statements = list(updated_node.body.body)
+        i = 0
+        while i < len(statements):
+            stmt = statements[i]
+
+            # Check if this is a field (AnnAssign)
+            if isinstance(stmt, cst.SimpleStatementLine) and isinstance(stmt.body[0], cst.AnnAssign):
+                # Look ahead for docstring
+                next_docstring = None
+                if i + 1 < len(statements):
+                    next_docstring = self.get_docstring([statements[i + 1]])
+
+                if self.is_deprecated(next_docstring):
+                    i += 2  # Skip both the field and its docstring
+                    continue
+
+            new_body.append(stmt)
+            i += 1
+
+        if not new_body:
+            return cst.RemoveFromParent()
+
+        return updated_node.with_changes(body=updated_node.body.with_changes(body=new_body))
+
+
+def _clean_deprecated_fields(content: str) -> str:
+    """Remove deprecated classes and fields using libcst."""
+    source_tree = cst.parse_module(content)
+    transformer = DeprecatedRemover()
+    modified_tree = source_tree.visit(transformer)
+    return modified_tree.code
+
+
 def fix_inference_classes(content: str, module_name: str) -> str:
     content = _inherit_from_base(content)
     content = _delete_empty_lines(content)
@@ -283,9 +340,8 @@ def check_inference_types(update: bool) -> NoReturn:
     for file in INFERENCE_TYPES_FOLDER_PATH.glob("*.py"):
         if file.name in IGNORE_FILES:
             continue
-
         content = file.read_text()
-
+        content = _clean_deprecated_fields(content)
         fixed_content = fix_inference_classes(content, module_name=file.stem)
         formatted_content = format_source_code(fixed_content)
         dataclasses[file.stem] = _list_dataclasses(formatted_content)

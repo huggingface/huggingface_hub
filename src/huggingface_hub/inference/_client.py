@@ -92,7 +92,6 @@ from huggingface_hub.inference._generated.types import (
     TextGenerationInputGrammarType,
     TextGenerationOutput,
     TextGenerationStreamOutput,
-    TextToImageTargetSize,
     TextToSpeechEarlyStoppingEnum,
     TokenClassificationAggregationStrategy,
     TokenClassificationOutputElement,
@@ -134,9 +133,9 @@ class InferenceClient:
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
-                Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, `"sambanova"` or `"hf-inference"`.
-                defaults to hf-inference (Hugging Face Serverless Inference API).
-                If model is a URL or `base_url` is passed, then `provider` is not used.
+            Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, `"sambanova"` or `"hf-inference"`.
+            defaults to hf-inference (Hugging Face Serverless Inference API).
+            If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str` or `bool`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
             Pass `token=False` if you don't want to send your token to the server.
@@ -188,7 +187,7 @@ class InferenceClient:
                 " It has the exact same behavior as `token`."
             )
 
-        self.model: Optional[str] = model
+        self.model: Optional[str] = base_url or model
         self.token: Optional[str] = token if token is not None else api_key
         self.headers = headers if headers is not None else {}
 
@@ -198,9 +197,6 @@ class InferenceClient:
         self.cookies = cookies
         self.timeout = timeout
         self.proxies = proxies
-
-        # OpenAI compatibility
-        self.base_url = base_url
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
@@ -328,9 +324,12 @@ class InferenceClient:
                 return response.iter_lines() if stream else response.content
             except HTTPError as error:
                 if error.response.status_code == 422 and request_parameters.task != "unknown":
-                    error.args = (
-                        f"{error.args[0]}\nMake sure '{request_parameters.task}' task is supported by the model.",
-                    ) + error.args[1:]
+                    msg = str(error.args[0])
+                    print(error.response.text)
+                    if len(error.response.text) > 0:
+                        msg += f"\n{error.response.text}\n"
+                    msg += f"\nMake sure '{request_parameters.task}' task is supported by the model."
+                    error.args = (msg,) + error.args[1:]
                 if error.response.status_code == 503:
                     # If Model is unavailable, either raise a TimeoutError...
                     if timeout is not None and time.time() - t0 > timeout:
@@ -464,6 +463,7 @@ class InferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
+        extra_body: Optional[Dict] = None,
     ) -> AutomaticSpeechRecognitionOutput:
         """
         Perform automatic speech recognition (ASR or audio-to-text) on the given audio content.
@@ -474,8 +474,9 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for ASR. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for ASR will be used.
-            parameters (Dict[str, Any], *optional*):
-                Additional parameters to pass to the model.
+            extra_body (`Dict`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
         Returns:
             [`AutomaticSpeechRecognitionOutput`]: An item containing the transcribed text and optionally the timestamp chunks.
 
@@ -496,7 +497,7 @@ class InferenceClient:
         provider_helper = get_provider_helper(self.provider, task="automatic-speech-recognition")
         request_parameters = provider_helper.prepare_request(
             inputs=audio,
-            parameters={},
+            parameters={**(extra_body or {})},
             headers=self.headers,
             model=model or self.model,
             api_key=self.token,
@@ -527,6 +528,7 @@ class InferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        extra_body: Optional[Dict] = None,
     ) -> ChatCompletionOutput: ...
 
     @overload
@@ -552,6 +554,7 @@ class InferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        extra_body: Optional[Dict] = None,
     ) -> Iterable[ChatCompletionStreamOutput]: ...
 
     @overload
@@ -577,6 +580,7 @@ class InferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        extra_body: Optional[Dict] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]: ...
 
     def chat_completion(
@@ -602,6 +606,7 @@ class InferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        extra_body: Optional[Dict] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:
         """
         A method for completing conversations using a specified language model.
@@ -616,7 +621,7 @@ class InferenceClient:
         </Tip>
 
         <Tip>
-        Some parameters might not be supported by some providers.
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
         </Tip>
 
         Args:
@@ -671,7 +676,9 @@ class InferenceClient:
             tools (List of [`ChatCompletionInputTool`], *optional*):
                 A list of tools the model may call. Currently, only functions are supported as a tool. Use this to
                 provide a list of functions the model may generate JSON inputs for.
-
+            extra_body (`Dict`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
         Returns:
             [`ChatCompletionOutput`] or Iterable of [`ChatCompletionStreamOutput`]:
             Generated text returned from the server:
@@ -756,7 +763,7 @@ class InferenceClient:
             print(chunk.choices[0].delta.content)
         ```
 
-        Example using a third-party provider directly. Usage will be billed on your Together AI account.
+        Example using a third-party provider directly with extra (provider-specific) parameters. Usage will be billed on your Together AI account.
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient(
@@ -766,6 +773,7 @@ class InferenceClient:
         >>> client.chat_completion(
         ...     model="meta-llama/Meta-Llama-3-8B-Instruct",
         ...     messages=[{"role": "user", "content": "What is the capital of France?"}],
+        ...     extra_body={"safety_model": "Meta-Llama/Llama-Guard-7b"},
         ... )
         ```
 
@@ -934,9 +942,9 @@ class InferenceClient:
         provider_helper = get_provider_helper(self.provider, task="conversational")
 
         # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
-        # `self.base_url` and `self.model` takes precedence over 'model' argument for building URL.
+        # `self.model` takes precedence over 'model' argument for building URL.
         # `model` takes precedence for payload value.
-        model_id_or_url = self.base_url or self.model or model
+        model_id_or_url = self.model or model
         payload_model = model or self.model
 
         # Prepare the payload
@@ -959,6 +967,7 @@ class InferenceClient:
             "top_p": top_p,
             "stream": stream,
             "stream_options": stream_options,
+            **(extra_body or {}),
         }
         request_parameters = provider_helper.prepare_request(
             inputs=messages,
@@ -1611,19 +1620,10 @@ class InferenceClient:
         response = self._inner_post(request_parameters)
         return _bytes_to_list(response)
 
-    @_deprecate_arguments(
-        version="0.29",
-        deprecated_args=["parameters"],
-        custom_message=(
-            "The `parameters` argument is deprecated and will be removed in a future version. "
-            "Provide individual parameters instead: `clean_up_tokenization_spaces`, `generate_parameters`, and `truncation`."
-        ),
-    )
     def summarization(
         self,
         text: str,
         *,
-        parameters: Optional[Dict[str, Any]] = None,
         model: Optional[str] = None,
         clean_up_tokenization_spaces: Optional[bool] = None,
         generate_parameters: Optional[Dict[str, Any]] = None,
@@ -1635,9 +1635,6 @@ class InferenceClient:
         Args:
             text (`str`):
                 The input text to summarize.
-            parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for summarization. Check out this [page](https://huggingface.co/docs/api-inference/detailed_parameters#summarization-task)
-                for more details.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for summarization will be used.
@@ -1664,12 +1661,11 @@ class InferenceClient:
         SummarizationOutput(generated_text="The Eiffel tower is one of the most famous landmarks in the world....")
         ```
         """
-        if parameters is None:
-            parameters = {
-                "clean_up_tokenization_spaces": clean_up_tokenization_spaces,
-                "generate_parameters": generate_parameters,
-                "truncation": truncation,
-            }
+        parameters = {
+            "clean_up_tokenization_spaces": clean_up_tokenization_spaces,
+            "generate_parameters": generate_parameters,
+            "truncation": truncation,
+        }
         provider_helper = get_provider_helper(self.provider, task="summarization")
         request_parameters = provider_helper.prepare_request(
             inputs=text,
@@ -2399,15 +2395,14 @@ class InferenceClient:
         prompt: str,
         *,
         negative_prompt: Optional[str] = None,
-        height: Optional[float] = None,
-        width: Optional[float] = None,
+        height: Optional[int] = None,
+        width: Optional[int] = None,
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
         model: Optional[str] = None,
         scheduler: Optional[str] = None,
-        target_size: Optional[TextToImageTargetSize] = None,
         seed: Optional[int] = None,
-        **kwargs,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> "Image":
         """
         Generate an image based on a given text using a specified model.
@@ -2418,15 +2413,19 @@ class InferenceClient:
 
         </Tip>
 
+        <Tip>
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
+        </Tip>
+
         Args:
             prompt (`str`):
                 The prompt to generate an image from.
             negative_prompt (`str`, *optional*):
                 One prompt to guide what NOT to include in image generation.
-            height (`float`, *optional*):
-                The height in pixels of the image to generate.
-            width (`float`, *optional*):
-                The width in pixels of the image to generate.
+            height (`int`, *optional*):
+                The height in pixels of the output image
+            width (`int`, *optional*):
+                The width in pixels of the output image
             num_inference_steps (`int`, *optional*):
                 The number of denoising steps. More denoising steps usually lead to a higher quality image at the
                 expense of slower inference.
@@ -2439,10 +2438,11 @@ class InferenceClient:
                 Defaults to None.
             scheduler (`str`, *optional*):
                 Override the scheduler with a compatible one.
-            target_size (`TextToImageTargetSize`, *optional*):
-                The size in pixel of the output image
             seed (`int`, *optional*):
                 Seed for the random number generator.
+            extra_body (`Dict[str, Any]`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
 
         Returns:
             `Image`: The generated image.
@@ -2495,6 +2495,21 @@ class InferenceClient:
         ... )
         >>> image.save("astronaut.png")
         ```
+
+        Example using Replicate provider with extra parameters
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",  # Use replicate provider
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> image = client.text_to_image(
+        ...     "An astronaut riding a horse on the moon.",
+        ...     model="black-forest-labs/FLUX.1-schnell",
+        ...     extra_body={"output_quality": 100},
+        ... )
+        >>> image.save("astronaut.png")
+        ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-image")
         request_parameters = provider_helper.prepare_request(
@@ -2506,9 +2521,8 @@ class InferenceClient:
                 "num_inference_steps": num_inference_steps,
                 "guidance_scale": guidance_scale,
                 "scheduler": scheduler,
-                "target_size": target_size,
                 "seed": seed,
-                **kwargs,
+                **(extra_body or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -2528,9 +2542,14 @@ class InferenceClient:
         num_frames: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
         seed: Optional[int] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> bytes:
         """
         Generate a video based on a given text.
+
+        <Tip>
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
+        </Tip>
 
         Args:
             prompt (`str`):
@@ -2551,6 +2570,9 @@ class InferenceClient:
                 expense of slower inference.
             seed (`int`, *optional*):
                 Seed for the random number generator.
+            extra_body (`Dict[str, Any]`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
 
         Returns:
             `bytes`: The generated video.
@@ -2596,6 +2618,7 @@ class InferenceClient:
                 "num_frames": num_frames,
                 "num_inference_steps": num_inference_steps,
                 "seed": seed,
+                **(extra_body or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -2626,9 +2649,14 @@ class InferenceClient:
         top_p: Optional[float] = None,
         typical_p: Optional[float] = None,
         use_cache: Optional[bool] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
+
+        <Tip>
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
+        </Tip>
 
         Args:
             text (`str`):
@@ -2683,7 +2711,9 @@ class InferenceClient:
                 paper](https://hf.co/papers/2202.00666) for more details.
             use_cache (`bool`, *optional*):
                 Whether the model should use the past last key/values attentions to speed up decoding
-
+            extra_body (`Dict[str, Any]`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
         Returns:
             `bytes`: The generated audio.
 
@@ -2730,6 +2760,51 @@ class InferenceClient:
         ... )
         >>> Path("hello_world.flac").write_bytes(audio)
         ```
+        Example using Replicate provider with extra parameters
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient(
+        ...     provider="replicate",  # Use replicate provider
+        ...     api_key="hf_...",  # Pass your HF token
+        ... )
+        >>> audio = client.text_to_speech(
+        ...     "Hello, my name is Kororo, an awesome text-to-speech model.",
+        ...     model="hexgrad/Kokoro-82M",
+        ...     extra_body={"voice": "af_nicole"},
+        ... )
+        >>> Path("hello.flac").write_bytes(audio)
+        ```
+
+        Example music-gen using "YuE-s1-7B-anneal-en-cot" on fal.ai
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> lyrics = '''
+        ... [verse]
+        ... In the town where I was born
+        ... Lived a man who sailed to sea
+        ... And he told us of his life
+        ... In the land of submarines
+        ... So we sailed on to the sun
+        ... 'Til we found a sea of green
+        ... And we lived beneath the waves
+        ... In our yellow submarine
+
+        ... [chorus]
+        ... We all live in a yellow submarine
+        ... Yellow submarine, yellow submarine
+        ... We all live in a yellow submarine
+        ... Yellow submarine, yellow submarine
+        ... '''
+        >>> genres = "pavarotti-style tenor voice"
+        >>> client = InferenceClient(
+        ...     provider="fal-ai",
+        ...     model="m-a-p/YuE-s1-7B-anneal-en-cot",
+        ...     api_key=...,
+        ... )
+        >>> audio = client.text_to_speech(lyrics, extra_body={"genres": genres})
+        >>> with open("output.mp3", "wb") as f:
+        ...     f.write(audio)
+        ```
         """
         provider_helper = get_provider_helper(self.provider, task="text-to-speech")
         request_parameters = provider_helper.prepare_request(
@@ -2751,6 +2826,7 @@ class InferenceClient:
                 "top_p": top_p,
                 "typical_p": typical_p,
                 "use_cache": use_cache,
+                **(extra_body or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -3188,7 +3264,7 @@ class InferenceClient:
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
     ) -> Dict[str, List[str]]:
         """
-        List models deployed on the Serverless Inference API service.
+        List models deployed on the HF Serverless Inference API service.
 
         This helper checks deployed models framework by framework. By default, it will check the 4 main frameworks that
         are supported and account for 95% of the hosted models. However, if you want a complete list of models you can
@@ -3198,7 +3274,7 @@ class InferenceClient:
 
         <Tip warning={true}>
 
-        This endpoint method does not return a live list of all models available for the Serverless Inference API service.
+        This endpoint method does not return a live list of all models available for the HF Inference API service.
         It searches over a cached list of models that were recently available and the list may not be up to date.
         If you want to know the live status of a specific model, use [`~InferenceClient.get_model_status`].
 
@@ -3369,7 +3445,7 @@ class InferenceClient:
 
     def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
-        Get the status of a model hosted on the Inference API.
+        Get the status of a model hosted on the HF Inference API.
 
         <Tip>
 
@@ -3381,7 +3457,7 @@ class InferenceClient:
         Args:
             model (`str`, *optional*):
                 Identifier of the model for witch the status gonna be checked. If model is not provided,
-                the model associated with this instance of [`InferenceClient`] will be used. Only InferenceAPI service can be checked so the
+                the model associated with this instance of [`InferenceClient`] will be used. Only HF Inference API service can be checked so the
                 identifier cannot be a URL.
 
 

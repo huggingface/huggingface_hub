@@ -24,7 +24,7 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: "Please include the Python logs if you can."
+      description: "Please include the Python logs if you can. If possible, run the code with `HF_DEBUG=1` as environment variable."
       render: shell
   - type: textarea
     id: system-info

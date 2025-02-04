@@ -53,7 +53,6 @@ from .testing_utils import (
     DUMMY_RENAMED_NEW_MODEL_ID,
     DUMMY_RENAMED_OLD_MODEL_ID,
     SAMPLE_DATASET_IDENTIFIER,
-    expect_deprecation,
     repo_name,
     use_tmp_repo,
     with_production_testing,
@@ -143,7 +142,6 @@ class StagingDownloadTests(unittest.TestCase):
                     repo_id=repo_url.repo_id, filename=".gitattributes", token=OTHER_TOKEN, cache_dir=tmpdir
                 )
 
-    @expect_deprecation("update_repo_visibility")
     @use_tmp_repo()
     def test_download_regular_file_from_private_renamed_repo(self, repo_url: RepoUrl) -> None:
         """Regression test for #1999.
@@ -154,7 +152,7 @@ class StagingDownloadTests(unittest.TestCase):
         repo_id_after = repo_url.repo_id + "_renamed"
 
         # Make private + rename + upload regular file
-        self._api.update_repo_visibility(repo_id_before, private=True)
+        self._api.update_repo_settings(repo_id_before, private=True)
         self._api.upload_file(repo_id=repo_id_before, path_in_repo="file.txt", path_or_fileobj=b"content")
         self._api.move_repo(repo_id_before, repo_id_after)
 
@@ -193,18 +191,18 @@ class CachedDownloadTests(unittest.TestCase):
                 )
 
     def test_private_repo_and_file_cached_locally(self):
-        api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-        repo_id = api.create_repo(repo_id=repo_name(), private=True).repo_id
-        api.upload_file(path_or_fileobj=b"content", path_in_repo=constants.CONFIG_NAME, repo_id=repo_id)
+        api = HfApi(endpoint=ENDPOINT_STAGING)
+        repo_id = api.create_repo(repo_id=repo_name(), private=True, token=TOKEN).repo_id
+        api.upload_file(path_or_fileobj=b"content", path_in_repo="config.json", repo_id=repo_id, token=TOKEN)
 
         with SoftTemporaryDirectory() as tmpdir:
             # Download a first time with token => file is cached
-            filepath_1 = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir, token=TOKEN)
+            filepath_1 = api.hf_hub_download(repo_id, filename="config.json", cache_dir=tmpdir, token=TOKEN)
 
             # Download without token => return cached file
-            filepath_2 = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir)
+            filepath_2 = api.hf_hub_download(repo_id, filename="config.json", cache_dir=tmpdir, token=False)
 
-            self.assertEqual(filepath_1, filepath_2)
+            assert filepath_1 == filepath_2
 
     def test_file_cached_and_read_only_access(self):
         """Should works if file is already cached and user has read-only permission.

@@ -1170,3 +1170,12 @@ LOCAL_TGI_URL = "http://0.0.0.0:8080"
 def test_resolve_chat_completion_url(model_url: str, expected_url: str):
     url = _build_chat_completion_url(model_url)
     assert url == expected_url
+
+
+def test_pass_url_as_base_url():
+    client = InferenceClient(base_url="http://localhost:8082/v1/")
+    provider = get_provider_helper("hf-inference", "text-generation")
+    request = provider.prepare_request(
+        inputs="The huggingface_hub library is ", parameters={}, headers={}, model=client.model, api_key=None
+    )
+    assert request.url == "http://localhost:8082/v1/"

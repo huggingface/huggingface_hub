@@ -2,7 +2,6 @@ import os
 import re
 import typing
 from typing import Literal, Optional, Tuple
-from urllib.parse import urljoin
 
 
 # Possible values for env variables
@@ -68,7 +67,7 @@ ENDPOINT = os.getenv("HF_ENDPOINT", "").rstrip("/") or (
     _HF_DEFAULT_STAGING_ENDPOINT if _staging_mode else _HF_DEFAULT_ENDPOINT
 )
 
-HUGGINGFACE_CO_URL_TEMPLATE = urljoin(ENDPOINT, "/{repo_id}/resolve/{revision}/{filename}")
+HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
 HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
 HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
@@ -79,7 +78,7 @@ INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-infere
 INFERENCE_ENDPOINTS_ENDPOINT = "https://api.endpoints.huggingface.cloud/v2"
 
 # Proxy for third-party providers
-INFERENCE_PROXY_TEMPLATE = urljoin(ENDPOINT, "/api/inference-proxy/{provider}")
+INFERENCE_PROXY_TEMPLATE = ENDPOINT + "/api/inference-proxy/{provider}"
 
 REPO_ID_SEPARATOR = "--"
 # ^ this substring is not allowed in repo_ids on hf.co
@@ -132,6 +131,10 @@ HF_HUB_CACHE = os.getenv("HF_HUB_CACHE", HUGGINGFACE_HUB_CACHE)
 HF_ASSETS_CACHE = os.getenv("HF_ASSETS_CACHE", HUGGINGFACE_ASSETS_CACHE)
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
+
+# If set, log level will be set to DEBUG and all requests made to the Hub will be logged
+# as curl commands for reproducibility.
+HF_DEBUG = _is_true(os.environ.get("HF_DEBUG"))
 
 # Opt-out from telemetry requests
 HF_HUB_DISABLE_TELEMETRY = (

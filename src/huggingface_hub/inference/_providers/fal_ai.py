@@ -17,16 +17,19 @@ SUPPORTED_MODELS = {
         "openai/whisper-large-v3": "fal-ai/whisper",
     },
     "text-to-image": {
-        "black-forest-labs/FLUX.1-schnell": "fal-ai/flux/schnell",
         "black-forest-labs/FLUX.1-dev": "fal-ai/flux/dev",
-        "playgroundai/playground-v2.5-1024px-aesthetic": "fal-ai/playground-v25",
+        "black-forest-labs/FLUX.1-schnell": "fal-ai/flux/schnell",
         "ByteDance/SDXL-Lightning": "fal-ai/lightning-models",
-        "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS": "fal-ai/pixart-sigma",
-        "stabilityai/stable-diffusion-3-medium": "fal-ai/stable-diffusion-v3-medium",
-        "Warlord-K/Sana-1024": "fal-ai/sana",
         "fal/AuraFlow-v0.2": "fal-ai/aura-flow",
-        "stabilityai/stable-diffusion-3.5-large": "fal-ai/stable-diffusion-v35-large",
         "Kwai-Kolors/Kolors": "fal-ai/kolors",
+        "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS": "fal-ai/pixart-sigma",
+        "playgroundai/playground-v2.5-1024px-aesthetic": "fal-ai/playground-v25",
+        "stabilityai/stable-diffusion-3-medium": "fal-ai/stable-diffusion-v3-medium",
+        "stabilityai/stable-diffusion-3.5-large": "fal-ai/stable-diffusion-v35-large",
+        "Warlord-K/Sana-1024": "fal-ai/sana",
+    },
+    "text-to-speech": {
+        "m-a-p/YuE-s1-7B-anneal-en-cot": "fal-ai/yue",
     },
     "text-to-video": {
         "genmo/mochi-1-preview": "fal-ai/mochi-v1",
@@ -134,7 +137,7 @@ class FalAITextToImageTask(FalAITask):
 
     def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
         parameters = {k: v for k, v in parameters.items() if v is not None}
-        if "image_size" not in parameters and "width" in parameters and "height" in parameters:
+        if "width" in parameters and "height" in parameters:
             parameters["image_size"] = {
                 "width": parameters.pop("width"),
                 "height": parameters.pop("height"),
@@ -143,6 +146,21 @@ class FalAITextToImageTask(FalAITask):
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         url = _as_dict(response)["images"][0]["url"]
+        return get_session().get(url).content
+
+
+class FalAITextToSpeechTask(FalAITask):
+    def __init__(self):
+        super().__init__("text-to-speech")
+
+    def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "lyrics": inputs,
+            **{k: v for k, v in parameters.items() if v is not None},
+        }
+
+    def get_response(self, response: Union[bytes, Dict]) -> Any:
+        url = _as_dict(response)["audio"]["url"]
         return get_session().get(url).content
 
 

@@ -308,8 +308,6 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.TextToImageParameters
 
-[[autodoc]] huggingface_hub.TextToImageTargetSize
-
 
 
 ## text_to_speech[[huggingface_hub.TextToSpeechGenerationParameters]]
