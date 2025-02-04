@@ -392,7 +392,6 @@ _SUBMOD_ATTRS = {
         "TextToImageInput",
         "TextToImageOutput",
         "TextToImageParameters",
-        "TextToImageTargetSize",
         "TextToSpeechEarlyStoppingEnum",
         "TextToSpeechGenerationParameters",
         "TextToSpeechInput",
@@ -702,7 +701,6 @@ __all__ = [
     "TextToImageInput",
     "TextToImageOutput",
     "TextToImageParameters",
-    "TextToImageTargetSize",
     "TextToSpeechEarlyStoppingEnum",
     "TextToSpeechGenerationParameters",
     "TextToSpeechInput",
@@ -1334,7 +1332,6 @@ if TYPE_CHECKING:  # pragma: no cover
         TextToImageInput,  # noqa: F401
         TextToImageOutput,  # noqa: F401
         TextToImageParameters,  # noqa: F401
-        TextToImageTargetSize,  # noqa: F401
         TextToSpeechEarlyStoppingEnum,  # noqa: F401
         TextToSpeechGenerationParameters,  # noqa: F401
         TextToSpeechInput,  # noqa: F401

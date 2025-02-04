@@ -2395,8 +2395,8 @@ class InferenceClient:
         prompt: str,
         *,
         negative_prompt: Optional[str] = None,
-        height: Optional[float] = None,
-        width: Optional[float] = None,
+        height: Optional[int] = None,
+        width: Optional[int] = None,
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
         model: Optional[str] = None,
@@ -2422,10 +2422,10 @@ class InferenceClient:
                 The prompt to generate an image from.
             negative_prompt (`str`, *optional*):
                 One prompt to guide what NOT to include in image generation.
-            height (`float`, *optional*):
-                The height in pixels of the image to generate.
-            width (`float`, *optional*):
-                The width in pixels of the image to generate.
+            height (`int`, *optional*):
+                The height in pixels of the output image
+            width (`int`, *optional*):
+                The width in pixels of the output image
             num_inference_steps (`int`, *optional*):
                 The number of denoising steps. More denoising steps usually lead to a higher quality image at the
                 expense of slower inference.

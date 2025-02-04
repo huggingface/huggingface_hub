@@ -10,14 +10,6 @@ from .base import BaseInferenceType
 
 
 @dataclass
-class TextToImageTargetSize(BaseInferenceType):
-    """The size in pixel of the output image"""
-
-    height: int
-    width: int
-
-
-@dataclass
 class TextToImageParameters(BaseInferenceType):
     """Additional inference parameters for Text To Image"""
 
@@ -25,6 +17,8 @@ class TextToImageParameters(BaseInferenceType):
     """A higher guidance scale value encourages the model to generate images closely linked to
     the text prompt, but values too high may cause saturation and other artifacts.
     """
+    height: Optional[int] = None
+    """The height in pixels of the output image"""
     negative_prompt: Optional[str] = None
     """One prompt to guide what NOT to include in image generation."""
     num_inference_steps: Optional[int] = None
@@ -35,6 +29,8 @@ class TextToImageParameters(BaseInferenceType):
     """Override the scheduler with a compatible one."""
     seed: Optional[int] = None
     """Seed for the random number generator."""
+    width: Optional[int] = None
+    """The width in pixels of the output image"""
 
 
 @dataclass
