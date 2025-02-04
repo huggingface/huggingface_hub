@@ -125,6 +125,7 @@ from .utils import tqdm as hf_tqdm
 from .utils._deprecation import _deprecate_method
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
+from .utils._auth import _get_token_from_google_colab, _get_token_from_environment, _get_token_from_file
 
 
 R = TypeVar("R")  # Return type
@@ -1615,7 +1616,7 @@ class HfApi:
         self._thread_pool
         return self._thread_pool.submit(fn, *args, **kwargs)
     
-    from huggingface_hub.utils._auth import _get_token_from_google_colab, _get_token_from_environment, _get_token_from_file
+    
     @validate_hf_hub_args
     def whoami(self, token: Union[bool, str, None] = None) -> Dict:
         """
