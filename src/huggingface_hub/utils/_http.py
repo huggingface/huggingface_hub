@@ -593,7 +593,7 @@ def _curlify(request: requests.PreparedRequest) -> str:
     return " ".join(flat_parts)
 
 
-def _adjust_range_header(original_range: str, resume_size: int) -> Optional[str]:
+def _adjust_range_header(original_range: Optional[str], resume_size: int) -> Optional[str]:
     """
     Adjust HTTP Range header to account for resume position.
     """

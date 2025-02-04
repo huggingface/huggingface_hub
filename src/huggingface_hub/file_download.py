@@ -309,7 +309,7 @@ def http_get(
     temp_file: BinaryIO,
     *,
     proxies: Optional[Dict] = None,
-    resume_size: float = 0,
+    resume_size: int = 0,
     headers: Optional[Dict[str, str]] = None,
     expected_size: Optional[int] = None,
     displayed_filename: Optional[str] = None,
@@ -330,7 +330,7 @@ def http_get(
             The file-like object where to save the file.
         proxies (`dict`, *optional*):
             Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
-        resume_size (`float`, *optional*):
+        resume_size (`int`, *optional*):
             The number of bytes already downloaded. If set to 0 (default), the whole file is download. If set to a
             positive number, the download will resume at the given position.
         headers (`dict`, *optional*):
