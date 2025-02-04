@@ -99,7 +99,7 @@ class AutomaticSpeechRecognitionInput(BaseInferenceType):
 class AutomaticSpeechRecognitionOutputChunk(BaseInferenceType):
     text: str
     """A chunk of text identified by the model"""
-    timestamps: List[float]
+    timestamp: List[float]
     """The start and end timestamps corresponding with the text"""
 
 

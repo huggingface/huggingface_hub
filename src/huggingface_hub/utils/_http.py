@@ -576,10 +576,10 @@ def _curlify(request: requests.PreparedRequest) -> str:
     if request.body:
         body = request.body
         if isinstance(body, bytes):
-            body = body.decode("utf-8")
+            body = body.decode("utf-8", errors="ignore")
         if len(body) > 1000:
             body = body[:1000] + " ... [truncated]"
-        parts += [("-d", body)]
+        parts += [("-d", body.replace("\n", ""))]
 
     parts += [(None, request.url)]
 
