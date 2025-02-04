@@ -2424,8 +2424,8 @@ class InferenceClient:
                 One prompt to guide what NOT to include in image generation.
             height (`int`, *optional*):
                 The height in pixels of the output image
-            width (`float`, *optional*):
-                The width in pixels of the image to generate.
+            width (`int`, *optional*):
+                The width in pixels of the output image
             num_inference_steps (`int`, *optional*):
                 The number of denoising steps. More denoising steps usually lead to a higher quality image at the
                 expense of slower inference.
