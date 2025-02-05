@@ -120,7 +120,6 @@ class TogetherTask(TaskProviderHelper, ABC):
         )
 
     def _map_model(self, model: Optional[str]) -> str:
-        """Default implementation for mapping model HF model IDs to provider model IDs."""
         if model is None:
             raise ValueError("Please provide a HF model ID supported by Together.")
         provider_mapping = _get_provider_mapping(model, "together")
