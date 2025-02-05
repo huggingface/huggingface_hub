@@ -106,7 +106,7 @@ class ReplicateTask(TaskProviderHelper):
                 )
             if status == "staging":
                 logger.warning(
-                    f"Model {model} is in staging mode for provider Replicate and may not be ready for use."
+                    f"Model {model} is in staging mode for provider Replicate. Meant for test purposes only."
                 )
             return provider_mapping["providerId"]
         if self.task not in SUPPORTED_MODELS:

@@ -41,7 +41,6 @@ from typing import (
 
 from requests import HTTPError
 
-from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.errors import (
     GenerationError,
     IncompleteGenerationError,
@@ -52,9 +51,7 @@ from huggingface_hub.errors import (
 )
 
 from ..utils import (
-    build_hf_headers,
     get_session,
-    hf_raise_for_status,
     is_aiohttp_available,
     is_numpy_available,
     is_pillow_available,
@@ -115,13 +112,10 @@ def _fetch_provider_mappings(model: str) -> Dict:
     """
     Fetch provider mappings for a model from the Hub.
     """
-    headers = build_hf_headers()
-    path = f"{ENDPOINT}/api/models/{model}"
-    params = {"expand": ["inferenceProviderMapping"]}
+    from huggingface_hub.hf_api import model_info
 
-    response = get_session().get(path, headers=headers, params=params)
-    hf_raise_for_status(response)
-    provider_mapping = response.json().get("inferenceProviderMapping")
+    info = model_info(model, expand=["inferenceProviderMapping"])
+    provider_mapping = info.inference_provider_mapping
     if provider_mapping is None:
         raise ValueError(f"No provider mapping found for model {model}")
     return provider_mapping

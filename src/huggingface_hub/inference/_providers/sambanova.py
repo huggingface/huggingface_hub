@@ -93,7 +93,7 @@ class SambanovaConversationalTask(TaskProviderHelper):
                 )
             if status == "staging":
                 logger.warning(
-                    f"Model {model} is in staging mode for provider Sambanova and may not be ready for use."
+                    f"Model {model} is in staging mode for provider Sambanova. Meant for test purposes only."
                 )
             return provider_mapping["providerId"]
 

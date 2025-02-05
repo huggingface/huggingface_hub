@@ -98,7 +98,7 @@ class FalAITask(TaskProviderHelper, ABC):
                     f"Supported task: {provider_task}."
                 )
             if status == "staging":
-                logger.warning(f"Model {model} is in staging mode for provider fal.ai and may not be ready for use.")
+                logger.warning(f"Model {model} is in staging mode for provider fal.ai. Meant for test purposes only.")
             return provider_mapping["providerId"]
         if self.task not in SUPPORTED_MODELS:
             raise ValueError(f"Task {self.task} not supported with fal.ai.")
