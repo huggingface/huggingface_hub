@@ -17,7 +17,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 7f2df9d9-e0ff-4b1b-831b-e83b3123685b
     method: POST
-    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct/v1/chat/completions
+    uri: https://router.huggingface.co/hf-inference/models/meta-llama/Meta-Llama-3-8B-Instruct/v1/chat/completions
   response:
     body:
       string: 'data: {"object":"chat.completion.chunk","id":"","created":1737558139,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"1"},"logprobs":null,"finish_reason":null}],"usage":null}

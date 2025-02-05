@@ -16,7 +16,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 95d72510-afc2-4df3-ba03-11e660f87bb6
     method: POST
-    uri: https://api-inference.huggingface.co/models/naver-clova-ix/donut-base-finetuned-docvqa
+    uri: https://router.huggingface.co/hf-inference/models/naver-clova-ix/donut-base-finetuned-docvqa
   response:
     body:
       string: '{"error":"Model naver-clova-ix/donut-base-finetuned-docvqa is currently
@@ -58,7 +58,7 @@ interactions:
       X-wait-for-model:
       - '1'
     method: POST
-    uri: https://api-inference.huggingface.co/models/naver-clova-ix/donut-base-finetuned-docvqa
+    uri: https://router.huggingface.co/hf-inference/models/naver-clova-ix/donut-base-finetuned-docvqa
   response:
     body:
       string: '[{"answer":"$1,0000,000,00"}]'

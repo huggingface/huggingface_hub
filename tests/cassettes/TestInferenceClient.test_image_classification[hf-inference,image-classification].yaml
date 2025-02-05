@@ -3489,7 +3489,7 @@ interactions:
       X-Amzn-Trace-Id:
       - e243d335-d22c-4764-acc3-b87ac1361be8
     method: POST
-    uri: https://api-inference.huggingface.co/models/google/vit-base-patch16-224
+    uri: https://router.huggingface.co/hf-inference/models/google/vit-base-patch16-224
   response:
     body:
       string: '[{"label":"brassiere, bra, bandeau","score":0.11767438799142838},{"label":"sombrero","score":0.09572819620370865},{"label":"cowboy

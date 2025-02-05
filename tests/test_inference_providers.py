@@ -17,14 +17,6 @@ from huggingface_hub.inference._providers.sambanova import SambanovaConversation
 from huggingface_hub.inference._providers.together import TogetherTextGenerationTask, TogetherTextToImageTask
 
 
-@pytest.fixture(autouse=True)
-def patch_inference_proxy_template(monkeypatch):
-    monkeypatch.setattr(
-        "huggingface_hub.constants.INFERENCE_PROXY_TEMPLATE",
-        "https://huggingface.co/api/inference-proxy/{provider}",
-    )
-
-
 class TestHFInferenceProvider:
     def test_prepare_request(self):
         helper = HFInferenceTask("text-classification")
@@ -36,7 +28,7 @@ class TestHFInferenceProvider:
             api_key="hf_test_token",
         )
 
-        assert request.url == "https://api-inference.huggingface.co/models/username/repo_name"
+        assert request.url == "https://router.huggingface.co/hf-inference/models/username/repo_name"
         assert request.task == "text-classification"
         assert request.model == "username/repo_name"
         assert request.headers["authorization"] == "Bearer hf_test_token"
@@ -53,7 +45,9 @@ class TestHFInferenceProvider:
             api_key="hf_test_token",
         )
 
-        assert request.url == "https://api-inference.huggingface.co/models/username/repo_name/v1/chat/completions"
+        assert (
+            request.url == "https://router.huggingface.co/hf-inference/models/username/repo_name/v1/chat/completions"
+        )
         assert request.task == "text-generation"
         assert request.model == "username/repo_name"
         assert request.json == {
@@ -137,7 +131,7 @@ class TestFalAIProvider:
             api_key="hf_test_token",
         )
         assert request.headers["authorization"] == "Bearer hf_test_token"
-        assert request.url.startswith("https://huggingface.co/api/inference-proxy/fal-ai")
+        assert request.url.startswith("https://router.huggingface.co/fal-ai")
 
     @pytest.mark.parametrize(
         "helper,inputs,parameters,expected_payload",
@@ -220,7 +214,7 @@ class TestReplicateProvider:
             model="black-forest-labs/FLUX.1-schnell",
             api_key="hf_test_token",
         )
-        assert request.url.startswith("https://huggingface.co/api/inference-proxy/replicate")
+        assert request.url.startswith("https://router.huggingface.co/replicate")
 
     @pytest.mark.parametrize(
         "helper,model,inputs,parameters,expected_payload",
@@ -306,7 +300,7 @@ class TestTogetherProvider:
             model="meta-llama/Meta-Llama-3-70B-Instruct",
             api_key="hf_test_token",
         )
-        assert request.url.startswith("https://huggingface.co/api/inference-proxy/together")
+        assert request.url.startswith("https://router.huggingface.co/together")
 
     @pytest.mark.parametrize(
         "helper,inputs,parameters,expected_payload",
@@ -381,7 +375,7 @@ class TestSambanovaProvider:
             model="meta-llama/Llama-3.1-8B-Instruct",
             api_key="hf_test_token",
         )
-        assert request.url.startswith("https://huggingface.co/api/inference-proxy/sambanova")
+        assert request.url.startswith("https://router.huggingface.co/sambanova")
 
     def test_get_response(self):
         pytest.skip("Not implemented yet")
