@@ -80,17 +80,19 @@ class HFInferenceTask(TaskProviderHelper):
     ) -> RequestParameters:
         if extra_payload is None:
             extra_payload = {}
-        mapped_model = self.map_model(model, provider="hf-inference", task=self.task, conversational=conversational)
-        url = self.build_url(mapped_model)
-        data, json = self._prepare_payload(
-            inputs, parameters=parameters, model=mapped_model, extra_payload=extra_payload
-        )
+        if model is None:
+            model = get_recommended_model(self.task)
+        else:
+            model = self.map_model(model, provider="hf-inference", task=self.task, conversational=conversational)
+
+        url = self.build_url(model)
+        data, json = self._prepare_payload(inputs, parameters=parameters, model=model, extra_payload=extra_payload)
         headers = self.prepare_headers(headers=headers, api_key=api_key)
 
         return RequestParameters(
             url=url,
             task=self.task,
-            model=mapped_model,
+            model=model,
             json=json,
             data=data,
             headers=headers,
