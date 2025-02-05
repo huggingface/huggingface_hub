@@ -79,7 +79,7 @@ class HFInferenceTask(TaskProviderHelper):
     ) -> RequestParameters:
         if extra_payload is None:
             extra_payload = {}
-        model = self.map_model(model=model)
+        model = self.map_model(model)
         url = self.build_url(model)
         data, json = self._prepare_payload(inputs, parameters=parameters, model=model, extra_payload=extra_payload)
         headers = self.prepare_headers(headers=headers, api_key=api_key)

@@ -63,7 +63,7 @@ class SambanovaConversationalTask(TaskProviderHelper):
             logger.info("Calling Sambanova provider directly.")
         headers = {**build_hf_headers(token=api_key), **headers}
 
-        mapped_model = self.map_model(model=model)
+        mapped_model = self.map_model(model)
         payload = {
             "messages": inputs,
             **{k: v for k, v in parameters.items() if v is not None},

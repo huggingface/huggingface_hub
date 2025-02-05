@@ -71,7 +71,7 @@ class ReplicateTask(TaskProviderHelper):
             base_url = BASE_URL
             logger.info("Calling Replicate provider directly.")
 
-        mapped_model = self.map_model(model=model)
+        mapped_model = self.map_model(model)
         url = _build_url(base_url, mapped_model)
 
         headers = {

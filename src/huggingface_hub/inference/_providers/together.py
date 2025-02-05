@@ -105,7 +105,7 @@ class TogetherTask(TaskProviderHelper, ABC):
         else:
             base_url = BASE_URL
             logger.info("Calling Together provider directly.")
-        mapped_model = self.map_model(model=model)
+        mapped_model = self.map_model(model)
         if "model" in parameters:
             parameters["model"] = mapped_model
         payload = self._prepare_payload(inputs, parameters=parameters)
