@@ -112,7 +112,7 @@ def _fetch_provider_mappings(model: str) -> Dict:
     """
     Fetch provider mappings for a model from the Hub.
     """
-    from huggingface_hub.hf_api import model_info
+    from ..hf_api import model_info
 
     info = model_info(model, expand=["inferenceProviderMapping"])
     provider_mapping = info.inference_provider_mapping
