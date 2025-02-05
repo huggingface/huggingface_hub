@@ -91,11 +91,14 @@ class FalAITask(TaskProviderHelper, ABC):
         provider_mapping = _get_provider_mapping(model, "fal-ai")
         if provider_mapping:
             provider_task = provider_mapping.get("task")
+            status = provider_mapping.get("status")
             if provider_task != self.task:
                 raise ValueError(
                     f"Model {model} is not supported for task {self.task} and provider fal.ai. "
                     f"Supported task: {provider_task}."
                 )
+            if status == "staging":
+                logger.warning(f"Model {model} is in staging mode for provider fal.ai and may not be ready for use.")
             return provider_mapping["providerId"]
         if self.task not in SUPPORTED_MODELS:
             raise ValueError(f"Task {self.task} not supported with fal.ai.")

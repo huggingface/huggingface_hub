@@ -126,11 +126,14 @@ class TogetherTask(TaskProviderHelper, ABC):
 
         if provider_mapping:
             provider_task = provider_mapping.get("task")
+            status = provider_mapping.get("status")
             if provider_task != self.task:
                 raise ValueError(
                     f"Model {model} is not supported for task {self.task} and provider Together. "
                     f"Supported task: {provider_task}."
                 )
+            if status == "staging":
+                logger.warning(f"Model {model} is in staging mode for provider Together and may not be ready for use.")
             return provider_mapping["providerId"]
 
         if self.task not in SUPPORTED_MODELS:

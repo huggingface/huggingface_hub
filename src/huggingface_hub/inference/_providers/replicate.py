@@ -97,11 +97,16 @@ class ReplicateTask(TaskProviderHelper):
         provider_mapping = _get_provider_mapping(model, "replicate")
         if provider_mapping:
             provider_task = provider_mapping.get("task")
+            status = provider_mapping.get("status")
 
             if provider_task != self.task:
                 raise ValueError(
                     f"Model {model} is not supported for task {self.task} and provider Replicate. "
                     f"Supported task: {provider_task}."
+                )
+            if status == "staging":
+                logger.warning(
+                    f"Model {model} is in staging mode for provider Replicate and may not be ready for use."
                 )
             return provider_mapping["providerId"]
         if self.task not in SUPPORTED_MODELS:
