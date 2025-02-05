@@ -463,6 +463,7 @@ class InferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
+        extra_body: Optional[Dict] = None,
     ) -> AutomaticSpeechRecognitionOutput:
         """
         Perform automatic speech recognition (ASR or audio-to-text) on the given audio content.
@@ -473,6 +474,9 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for ASR. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for ASR will be used.
+            extra_body (`Dict`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
         Returns:
             [`AutomaticSpeechRecognitionOutput`]: An item containing the transcribed text and optionally the timestamp chunks.
 
@@ -493,7 +497,7 @@ class InferenceClient:
         provider_helper = get_provider_helper(self.provider, task="automatic-speech-recognition")
         request_parameters = provider_helper.prepare_request(
             inputs=audio,
-            parameters={},
+            parameters={**(extra_body or {})},
             headers=self.headers,
             model=model or self.model,
             api_key=self.token,
@@ -2391,8 +2395,8 @@ class InferenceClient:
         prompt: str,
         *,
         negative_prompt: Optional[str] = None,
-        height: Optional[float] = None,
-        width: Optional[float] = None,
+        height: Optional[int] = None,
+        width: Optional[int] = None,
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
         model: Optional[str] = None,
@@ -2418,10 +2422,10 @@ class InferenceClient:
                 The prompt to generate an image from.
             negative_prompt (`str`, *optional*):
                 One prompt to guide what NOT to include in image generation.
-            height (`float`, *optional*):
-                The height in pixels of the image to generate.
-            width (`float`, *optional*):
-                The width in pixels of the image to generate.
+            height (`int`, *optional*):
+                The height in pixels of the output image
+            width (`int`, *optional*):
+                The width in pixels of the output image
             num_inference_steps (`int`, *optional*):
                 The number of denoising steps. More denoising steps usually lead to a higher quality image at the
                 expense of slower inference.
