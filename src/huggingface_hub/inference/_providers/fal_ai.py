@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import constants
-from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict
+from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict, _get_provider_model_id
 from huggingface_hub.utils import build_hf_headers, get_session, get_token, logging
 
 
@@ -36,7 +36,7 @@ class FalAITask(TaskProviderHelper, ABC):
             raise ValueError(
                 "You must provide an api_key to work with fal.ai API or log in with `huggingface-cli login`."
             )
-        mapped_model = self.map_model(model, provider="fal-ai", task=self.task, conversational=conversational)
+        mapped_model = self.map_model(model=model, task=self.task, conversational=conversational)
         headers = {
             **build_hf_headers(token=api_key),
             **headers,
@@ -61,6 +61,17 @@ class FalAITask(TaskProviderHelper, ABC):
             data=None,
             headers=headers,
         )
+
+    def map_model(
+        self,
+        model: Optional[str],
+        task: str,
+        conversational: bool = False,
+    ) -> str:
+        """Default implementation for mapping model HF model IDs to provider model IDs."""
+        if model is None:
+            raise ValueError("Please provide a HF model ID supported by fal.ai.")
+        return _get_provider_model_id(model, "fal-ai", task, conversational)
 
     @abstractmethod
     def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]: ...

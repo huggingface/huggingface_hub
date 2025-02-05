@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import constants
-from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict
+from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict, _get_provider_model_id
 from huggingface_hub.utils import build_hf_headers, get_token, logging
 
 
@@ -52,7 +52,7 @@ class TogetherTask(TaskProviderHelper, ABC):
         else:
             base_url = BASE_URL
             logger.info("Calling Together provider directly.")
-        mapped_model = self.map_model(model, provider="together", task=self.task, conversational=conversational)
+        mapped_model = self.map_model(model=model, task=self.task, conversational=conversational)
         if "model" in parameters:
             parameters["model"] = mapped_model
         payload = self._prepare_payload(inputs, parameters=parameters)
@@ -65,6 +65,17 @@ class TogetherTask(TaskProviderHelper, ABC):
             data=None,
             headers=headers,
         )
+
+    def map_model(
+        self,
+        model: Optional[str],
+        task: str,
+        conversational: bool = False,
+    ) -> str:
+        """Default implementation for mapping model HF model IDs to provider model IDs."""
+        if model is None:
+            raise ValueError("Please provide a HF model ID supported by Together.")
+        return _get_provider_model_id(model, "together", task, conversational)
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         return response

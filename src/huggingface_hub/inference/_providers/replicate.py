@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import constants
-from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict
+from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict, _get_provider_model_id
 from huggingface_hub.utils import build_hf_headers, get_session, get_token, logging
 
 
@@ -47,7 +47,7 @@ class ReplicateTask(TaskProviderHelper):
             base_url = BASE_URL
             logger.info("Calling Replicate provider directly.")
 
-        mapped_model = self.map_model(model, provider="replicate", task=self.task, conversational=conversational)
+        mapped_model = self.map_model(model=model, task=self.task, conversational=conversational)
         url = _build_url(base_url, mapped_model)
 
         headers = {
@@ -66,6 +66,17 @@ class ReplicateTask(TaskProviderHelper):
             data=None,
             headers=headers,
         )
+
+    def map_model(
+        self,
+        model: Optional[str],
+        task: str,
+        conversational: bool = False,
+    ) -> str:
+        """Default implementation for mapping model HF model IDs to provider model IDs."""
+        if model is None:
+            raise ValueError("Please provide a HF model ID supported by Replicate.")
+        return _get_provider_model_id(model, "replicate", task, conversational)
 
     def _prepare_payload(
         self,

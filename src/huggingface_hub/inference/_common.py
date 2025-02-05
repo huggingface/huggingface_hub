@@ -107,14 +107,6 @@ class TaskProviderHelper(ABC):
     @abstractmethod
     def get_response(self, response: Union[bytes, Dict]) -> Any: ...
 
-    def map_model(
-        self, model: Optional[str], provider: str, task: Optional[str] = None, conversational: bool = False
-    ) -> str:
-        """Default implementation for mapping model IDs to provider-specific IDs."""
-        if model is None:
-            raise ValueError(f"Please provide a model available on {provider}.")
-        return _get_provider_model_id(model, provider, task, conversational)
-
 
 #### Fetching Inference Providers model mapping
 _PROVIDER_MAPPINGS: Optional[Dict[str, Dict]] = None
@@ -136,17 +128,10 @@ def _fetch_provider_mappings(model: str) -> Dict:
     return provider_mapping
 
 
-def _get_provider_model_id(
-    model: str, provider: str, task: Optional[str] = None, chat_completion: bool = False
-) -> str:
+def _get_provider_model_id(model: str, provider: str, task: str, conversational: bool = False) -> str:
     """
     Map a model ID to a provider-specific ID.
     """
-    if provider == "hf-inference":
-        return model
-
-    if task is None:
-        raise ValueError("task must be specified when using a third-party provider")
 
     global _PROVIDER_MAPPINGS
     if _PROVIDER_MAPPINGS is None:
@@ -159,7 +144,7 @@ def _get_provider_model_id(
         raise ValueError(f"Model {model} is not supported by provider {provider}")
 
     provider_task = provider_mapping.get("task")
-    requested_task = "conversational" if task == "text-generation" and chat_completion else task
+    requested_task = "conversational" if task == "text-generation" and conversational else task
 
     if provider_task != requested_task:
         raise ValueError(
