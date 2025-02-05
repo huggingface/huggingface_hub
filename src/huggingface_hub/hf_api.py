@@ -122,10 +122,10 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
+from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_method
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
-from .utils._auth import _get_token_from_google_colab, _get_token_from_environment, _get_token_from_file
 
 
 R = TypeVar("R")  # Return type
@@ -1615,8 +1615,7 @@ class HfApi:
             self._thread_pool = ThreadPoolExecutor(max_workers=1)
         self._thread_pool
         return self._thread_pool.submit(fn, *args, **kwargs)
-    
-    
+
     @validate_hf_hub_args
     def whoami(self, token: Union[bool, str, None] = None) -> Dict:
         """
@@ -1640,25 +1639,19 @@ class HfApi:
             error_message = "Invalid user token."
             # Check which token is the effective one and generate the error message accordingly
             if effective_token == _get_token_from_google_colab():
-                error_message += (
-                    " The token from Google Colab vault is invalid. "
-                    "Please update it from the UI."
-                )
+                error_message += " The token from Google Colab vault is invalid. Please update it from the UI."
             elif effective_token == _get_token_from_environment():
                 error_message += (
                     " The token from HF_TOKEN environment variable is invalid. "
                     "Note that HF_TOKEN takes precedence over `huggingface-cli login`."
                 )
             elif effective_token == _get_token_from_file():
-                error_message += (
-                    " The token stored is invalid. Please run `huggingface-cli login` to update it."
-                )
+                error_message += " The token stored is invalid. Please run `huggingface-cli login` to update it."
             else:
-                error_message += (
-	                    " The token stored is invalid. Please run `huggingface-cli login` to update it."
-	                )
+                error_message += " The token stored is invalid. Please run `huggingface-cli login` to update it."
             raise HTTPError(error_message, request=e.request, response=e.response) from e
         return r.json()
+
     @_deprecate_method(
         version="1.0",
         message=(
