@@ -2,12 +2,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.inference._common import (
-    RequestParameters,
-    TaskProviderHelper,
-    _b64_encode,
-    _open_as_binary,
-)
+from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _b64_encode, _open_as_binary
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
 
 
@@ -81,9 +76,7 @@ class HFInferenceTask(TaskProviderHelper):
             extra_payload = {}
         mapped_model = self.map_model(model)
         url = self.build_url(mapped_model)
-        data, json = self._prepare_payload(
-            inputs, parameters=parameters, model=mapped_model, extra_payload=extra_payload
-        )
+        data, json = self._prepare_payload(inputs, parameters=parameters, model=model, extra_payload=extra_payload)
         headers = self.prepare_headers(headers=headers, api_key=api_key)
 
         return RequestParameters(
