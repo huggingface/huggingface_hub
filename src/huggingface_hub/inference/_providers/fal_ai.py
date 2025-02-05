@@ -12,31 +12,6 @@ logger = logging.get_logger(__name__)
 
 BASE_URL = "https://fal.run"
 
-SUPPORTED_MODELS = {
-    "automatic-speech-recognition": {
-        "openai/whisper-large-v3": "fal-ai/whisper",
-    },
-    "text-to-image": {
-        "black-forest-labs/FLUX.1-dev": "fal-ai/flux/dev",
-        "black-forest-labs/FLUX.1-schnell": "fal-ai/flux/schnell",
-        "ByteDance/SDXL-Lightning": "fal-ai/lightning-models",
-        "fal/AuraFlow-v0.2": "fal-ai/aura-flow",
-        "Kwai-Kolors/Kolors": "fal-ai/kolors",
-        "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS": "fal-ai/pixart-sigma",
-        "playgroundai/playground-v2.5-1024px-aesthetic": "fal-ai/playground-v25",
-        "stabilityai/stable-diffusion-3-medium": "fal-ai/stable-diffusion-v3-medium",
-        "stabilityai/stable-diffusion-3.5-large": "fal-ai/stable-diffusion-v35-large",
-        "Warlord-K/Sana-1024": "fal-ai/sana",
-    },
-    "text-to-speech": {
-        "m-a-p/YuE-s1-7B-anneal-en-cot": "fal-ai/yue",
-    },
-    "text-to-video": {
-        "genmo/mochi-1-preview": "fal-ai/mochi-v1",
-        "tencent/HunyuanVideo": "fal-ai/hunyuan-video",
-    },
-}
-
 
 class FalAITask(TaskProviderHelper, ABC):
     """Base class for FalAI API tasks."""
@@ -53,6 +28,7 @@ class FalAITask(TaskProviderHelper, ABC):
         model: Optional[str],
         api_key: Optional[str],
         extra_payload: Optional[Dict[str, Any]] = None,
+        conversational: bool = False,
     ) -> RequestParameters:
         if api_key is None:
             api_key = get_token()
@@ -60,8 +36,7 @@ class FalAITask(TaskProviderHelper, ABC):
             raise ValueError(
                 "You must provide an api_key to work with fal.ai API or log in with `huggingface-cli login`."
             )
-
-        mapped_model = self._map_model(model)
+        mapped_model = self.map_model(model, conversational=conversational)
         headers = {
             **build_hf_headers(token=api_key),
             **headers,
@@ -86,16 +61,6 @@ class FalAITask(TaskProviderHelper, ABC):
             data=None,
             headers=headers,
         )
-
-    def _map_model(self, model: Optional[str]) -> str:
-        if model is None:
-            raise ValueError("Please provide a model available on FalAI.")
-        if self.task not in SUPPORTED_MODELS:
-            raise ValueError(f"Task {self.task} not supported with FalAI.")
-        mapped_model = SUPPORTED_MODELS[self.task].get(model)
-        if mapped_model is None:
-            raise ValueError(f"Model {model} is not supported with FalAI for task {self.task}.")
-        return mapped_model
 
     @abstractmethod
     def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]: ...

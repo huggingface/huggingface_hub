@@ -1015,6 +1015,7 @@ class AsyncInferenceClient:
             headers=self.headers,
             model=model_id_or_url,
             api_key=self.token,
+            conversational=True,
         )
         data = await self._inner_post(request_parameters, stream=stream)
 

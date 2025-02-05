@@ -12,55 +12,6 @@ logger = logging.get_logger(__name__)
 
 BASE_URL = "https://api.together.xyz"
 
-SUPPORTED_MODELS = {
-    "conversational": {
-        "databricks/dbrx-instruct": "databricks/dbrx-instruct",
-        "deepseek-ai/DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
-        "deepseek-ai/deepseek-llm-67b-chat": "deepseek-ai/deepseek-llm-67b-chat",
-        "deepseek-ai/DeepSeek-V3": "deepseek-ai/DeepSeek-V3",
-        "google/gemma-2-9b-it": "google/gemma-2-9b-it",
-        "google/gemma-2b-it": "google/gemma-2-27b-it",
-        "meta-llama/Llama-2-13b-chat-hf": "meta-llama/Llama-2-13b-chat-hf",
-        "meta-llama/Llama-2-7b-chat-hf": "meta-llama/Llama-2-7b-chat-hf",
-        "meta-llama/Llama-3.2-11B-Vision-Instruct": "meta-llama/Llama-Vision-Free",
-        "meta-llama/Llama-3.2-3B-Instruct": "meta-llama/Llama-3.2-3B-Instruct-Turbo",
-        "meta-llama/Llama-3.2-90B-Vision-Instruct": "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
-        "meta-llama/Llama-3.3-70B-Instruct": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-        "meta-llama/Meta-Llama-3-70B-Instruct": "meta-llama/Llama-3-70b-chat-hf",
-        "meta-llama/Meta-Llama-3-8B-Instruct": "meta-llama/Meta-Llama-3-8B-Instruct-Turbo",
-        "meta-llama/Meta-Llama-3.1-405B-Instruct": "meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo",
-        "meta-llama/Meta-Llama-3.1-70B-Instruct": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-        "meta-llama/Meta-Llama-3.1-8B-Instruct": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-        "microsoft/WizardLM-2-8x22B": "microsoft/WizardLM-2-8x22B",
-        "mistralai/Mistral-7B-Instruct-v0.3": "mistralai/Mistral-7B-Instruct-v0.3",
-        "mistralai/Mistral-Small-24B-Instruct-2501": "mistralai/Mistral-Small-24B-Instruct-2501",
-        "mistralai/Mixtral-8x22B-Instruct-v0.1": "mistralai/Mixtral-8x22B-Instruct-v0.1",
-        "mistralai/Mixtral-8x7B-Instruct-v0.1": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-        "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO": "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO",
-        "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF": "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
-        "Qwen/Qwen2-72B-Instruct": "Qwen/Qwen2-72B-Instruct",
-        "Qwen/Qwen2.5-72B-Instruct": "Qwen/Qwen2.5-72B-Instruct-Turbo",
-        "Qwen/Qwen2.5-7B-Instruct": "Qwen/Qwen2.5-7B-Instruct-Turbo",
-        "Qwen/Qwen2.5-Coder-32B-Instruct": "Qwen/Qwen2.5-Coder-32B-Instruct",
-        "Qwen/QwQ-32B-Preview": "Qwen/QwQ-32B-Preview",
-        "scb10x/llama-3-typhoon-v1.5-8b-instruct": "scb10x/scb10x-llama3-typhoon-v1-5-8b-instruct",
-        "scb10x/llama-3-typhoon-v1.5x-70b-instruct-awq": "scb10x/scb10x-llama3-typhoon-v1-5x-4f316",
-    },
-    "text-generation": {
-        "meta-llama/Llama-2-70b-hf": "meta-llama/Llama-2-70b-hf",
-        "meta-llama/Meta-Llama-3-8B": "meta-llama/Meta-Llama-3-8B",
-        "mistralai/Mixtral-8x7B-v0.1": "mistralai/Mixtral-8x7B-v0.1",
-    },
-    "text-to-image": {
-        "black-forest-labs/FLUX.1-Canny-dev": "black-forest-labs/FLUX.1-canny",
-        "black-forest-labs/FLUX.1-Depth-dev": "black-forest-labs/FLUX.1-depth",
-        "black-forest-labs/FLUX.1-dev": "black-forest-labs/FLUX.1-dev",
-        "black-forest-labs/FLUX.1-Redux-dev": "black-forest-labs/FLUX.1-redux",
-        "black-forest-labs/FLUX.1-schnell": "black-forest-labs/FLUX.1-pro",
-        "stabilityai/stable-diffusion-xl-base-1.0": "stabilityai/stable-diffusion-xl-base-1.0",
-    },
-}
-
 
 PER_TASK_ROUTES = {
     "conversational": "v1/chat/completions",
@@ -84,6 +35,7 @@ class TogetherTask(TaskProviderHelper, ABC):
         model: Optional[str],
         api_key: Optional[str],
         extra_payload: Optional[Dict[str, Any]] = None,
+        conversational: bool = False,
     ) -> RequestParameters:
         if api_key is None:
             api_key = get_token()
@@ -100,7 +52,7 @@ class TogetherTask(TaskProviderHelper, ABC):
         else:
             base_url = BASE_URL
             logger.info("Calling Together provider directly.")
-        mapped_model = self._map_model(model)
+        mapped_model = self.map_model(model, conversational=conversational)
         if "model" in parameters:
             parameters["model"] = mapped_model
         payload = self._prepare_payload(inputs, parameters=parameters)
@@ -113,16 +65,6 @@ class TogetherTask(TaskProviderHelper, ABC):
             data=None,
             headers=headers,
         )
-
-    def _map_model(self, model: Optional[str]) -> str:
-        if model is None:
-            raise ValueError("Please provide a model available on Together.")
-        if self.task not in SUPPORTED_MODELS:
-            raise ValueError(f"Task {self.task} not supported with Together.")
-        mapped_model = SUPPORTED_MODELS[self.task].get(model)
-        if mapped_model is None:
-            raise ValueError(f"Model {model} is not supported with Together for task {self.task}.")
-        return mapped_model
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         return response

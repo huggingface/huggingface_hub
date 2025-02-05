@@ -2,7 +2,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _b64_encode, _open_as_binary
+from huggingface_hub.inference._common import (
+    RequestParameters,
+    TaskProviderHelper,
+    _b64_encode,
+    _open_as_binary,
+)
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
 
 
@@ -71,12 +76,15 @@ class HFInferenceTask(TaskProviderHelper):
         model: Optional[str],
         api_key: Optional[str],
         extra_payload: Optional[Dict[str, Any]] = None,
+        conversational: bool = False,
     ) -> RequestParameters:
         if extra_payload is None:
             extra_payload = {}
-        mapped_model = self.map_model(model)
+        mapped_model = self.map_model(model, conversational=conversational)
         url = self.build_url(mapped_model)
-        data, json = self._prepare_payload(inputs, parameters=parameters, model=model, extra_payload=extra_payload)
+        data, json = self._prepare_payload(
+            inputs, parameters=parameters, model=mapped_model, extra_payload=extra_payload
+        )
         headers = self.prepare_headers(headers=headers, api_key=api_key)
 
         return RequestParameters(
@@ -87,9 +95,6 @@ class HFInferenceTask(TaskProviderHelper):
             data=data,
             headers=headers,
         )
-
-    def map_model(self, model: Optional[str]) -> str:
-        return model if model is not None else get_recommended_model(self.task)
 
     def build_url(self, model: str) -> str:
         # hf-inference provider can handle URLs (e.g. Inference Endpoints or TGI deployment)
@@ -158,9 +163,10 @@ class HFInferenceConversational(HFInferenceTask):
         model: Optional[str],
         api_key: Optional[str],
         extra_payload: Optional[Dict[str, Any]] = None,
+        conversational: bool = False,
     ) -> RequestParameters:
-        model = self.map_model(model)
-        payload_model = parameters.get("model") or model
+        mapped_model = self.map_model(model, conversational=conversational)
+        payload_model = parameters.get("model") or mapped_model
 
         if payload_model is None or payload_model.startswith(("http://", "https://")):
             payload_model = "tgi"  # use a random string if not provided
@@ -174,9 +180,9 @@ class HFInferenceConversational(HFInferenceTask):
         headers = self.prepare_headers(headers=headers, api_key=api_key)
 
         return RequestParameters(
-            url=self.build_url(model),
+            url=self.build_url(mapped_model),
             task=self.task,
-            model=model,
+            model=mapped_model,
             json=json,
             data=None,
             headers=headers,

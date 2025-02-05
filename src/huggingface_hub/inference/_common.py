@@ -49,6 +49,7 @@ from huggingface_hub.errors import (
     UnknownError,
     ValidationError,
 )
+from huggingface_hub.hf_api import HfApi
 
 from ..utils import (
     get_session,
@@ -98,9 +99,65 @@ class TaskProviderHelper(ABC):
         model: Optional[str],
         api_key: Optional[str],
         extra_payload: Optional[Dict[str, Any]] = None,
+        conversational: bool = False,
     ) -> RequestParameters: ...
     @abstractmethod
     def get_response(self, response: Union[bytes, Dict]) -> Any: ...
+
+    def map_model(self, model: Optional[str], chat_completion: bool = False) -> str:
+        """Default implementation for mapping model IDs to provider-specific IDs."""
+        if model is None:
+            raise ValueError(f"Please provide a model available on {self.provider}.")
+        return _get_provider_model_id(model, self.provider, self.task, chat_completion)
+
+
+#### Fetching Inference Providers model mapping
+_PROVIDER_MAPPINGS: Optional[Dict[str, Dict]] = None
+
+
+def _fetch_provider_mappings(model: str) -> Dict:
+    """
+    Fetch provider mappings for a model from the Hub.
+    """
+    try:
+        info = HfApi().model_info(model, expand=["inferenceProviderMapping"])
+        return info.get("inferenceProviderMapping", {})
+    except Exception as e:
+        raise ValueError(f"Failed to get provider mapping for model {model}: {e}")
+
+
+def _get_provider_model_id(
+    model: str, provider: str, task: Optional[str] = None, chat_completion: bool = False
+) -> str:
+    """
+    Map a model ID to a provider-specific ID.
+    """
+    if provider == "hf-inference":
+        return model
+
+    if task is None:
+        raise ValueError("task must be specified when using a third-party provider")
+
+    global _PROVIDER_MAPPINGS
+    if _PROVIDER_MAPPINGS is None:
+        _PROVIDER_MAPPINGS = _fetch_provider_mappings(model)
+        if not _PROVIDER_MAPPINGS:
+            logger.warning(f"No provider mappings found for model {model}")
+
+    provider_mapping = _PROVIDER_MAPPINGS.get(provider, {})
+    if not provider_mapping:
+        raise ValueError(f"Model {model} is not supported by provider {provider}")
+
+    provider_task = provider_mapping.get("task")
+    requested_task = "conversational" if task == "text-generation" and chat_completion else task
+
+    if provider_task != requested_task:
+        raise ValueError(
+            f"Model {model} is not supported for task {requested_task} and provider {provider}. "
+            f"Supported task: {provider_task}."
+        )
+
+    return provider_mapping.get("providerId", model)
 
 
 # Add dataclass for ModelStatus. We use this dataclass in get_model_status function.

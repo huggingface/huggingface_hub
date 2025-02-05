@@ -975,6 +975,7 @@ class InferenceClient:
             headers=self.headers,
             model=model_id_or_url,
             api_key=self.token,
+            conversational=True,
         )
         data = self._inner_post(request_parameters, stream=stream)
 
