@@ -59,7 +59,7 @@ class FalAITask(TaskProviderHelper, ABC):
             raise ValueError(
                 "You must provide an api_key to work with fal.ai API or log in with `huggingface-cli login`."
             )
-        mapped_model = self.map_model(model)
+        mapped_model = self._map_model(model)
         headers = {
             **build_hf_headers(token=api_key),
             **headers,
@@ -85,10 +85,7 @@ class FalAITask(TaskProviderHelper, ABC):
             headers=headers,
         )
 
-    def map_model(
-        self,
-        model: Optional[str],
-    ) -> str:
+    def _map_model(self, model: Optional[str]) -> str:
         """Default implementation for mapping model HF model IDs to provider model IDs."""
         if model is None:
             raise ValueError("Please provide a HF model ID supported by fal.ai.")

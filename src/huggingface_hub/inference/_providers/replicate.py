@@ -71,7 +71,7 @@ class ReplicateTask(TaskProviderHelper):
             base_url = BASE_URL
             logger.info("Calling Replicate provider directly.")
 
-        mapped_model = self.map_model(model)
+        mapped_model = self._map_model(model)
         url = _build_url(base_url, mapped_model)
 
         headers = {
@@ -91,7 +91,7 @@ class ReplicateTask(TaskProviderHelper):
             headers=headers,
         )
 
-    def map_model(self, model: Optional[str]) -> str:
+    def _map_model(self, model: Optional[str]) -> str:
         """Default implementation for mapping model HF model IDs to provider model IDs."""
         if model is None:
             raise ValueError("Please provide a HF model ID supported by Replicate.")

@@ -63,7 +63,7 @@ class SambanovaConversationalTask(TaskProviderHelper):
             logger.info("Calling Sambanova provider directly.")
         headers = {**build_hf_headers(token=api_key), **headers}
 
-        mapped_model = self.map_model(model)
+        mapped_model = self._map_model(model)
         payload = {
             "messages": inputs,
             **{k: v for k, v in parameters.items() if v is not None},
@@ -79,7 +79,7 @@ class SambanovaConversationalTask(TaskProviderHelper):
             headers=headers,
         )
 
-    def map_model(self, model: Optional[str]) -> str:
+    def _map_model(self, model: Optional[str]) -> str:
         """Default implementation for mapping model HF model IDs to provider model IDs."""
         if model is None:
             raise ValueError("Please provide a HF model ID supported by Sambanova.")
