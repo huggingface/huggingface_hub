@@ -1620,6 +1620,7 @@ class HfApi:
     def whoami(self, token: Union[bool, str, None] = None) -> Dict:
         """
         Call HF API to know "whoami".
+
         Args:
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
@@ -1646,8 +1647,6 @@ class HfApi:
                     "Note that HF_TOKEN takes precedence over `huggingface-cli login`."
                 )
             elif effective_token == _get_token_from_file():
-                error_message += " The token stored is invalid. Please run `huggingface-cli login` to update it."
-            else:
                 error_message += " The token stored is invalid. Please run `huggingface-cli login` to update it."
             raise HTTPError(error_message, request=e.request, response=e.response) from e
         return r.json()
