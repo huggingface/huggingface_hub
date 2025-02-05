@@ -50,6 +50,7 @@ from huggingface_hub.errors import (
     ValidationError,
 )
 
+from ..hf_api import model_info
 from ..utils import (
     get_session,
     is_aiohttp_available,
@@ -63,7 +64,7 @@ if TYPE_CHECKING:
     from aiohttp import ClientResponse, ClientSession
     from PIL.Image import Image
 
-    from ..hf_api import model_info
+
 # TYPES
 UrlT = str
 PathT = Union[str, Path]
