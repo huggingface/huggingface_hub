@@ -128,11 +128,10 @@ def _fetch_provider_mappings(model: str) -> Dict:
     return provider_mapping
 
 
-def _get_provider_model_id(model: str, provider: str, task: str, conversational: bool = False) -> str:
+def _get_provider_mapping(model: str, provider: str) -> Dict:
     """
     Map a model ID to a provider-specific ID.
     """
-
     global _PROVIDER_MAPPINGS
     if _PROVIDER_MAPPINGS is None:
         _PROVIDER_MAPPINGS = _fetch_provider_mappings(model)
@@ -140,19 +139,8 @@ def _get_provider_model_id(model: str, provider: str, task: str, conversational:
             logger.warning(f"No provider mappings found for model {model}")
 
     provider_mapping = _PROVIDER_MAPPINGS.get(provider, {})
-    if not provider_mapping:
-        raise ValueError(f"Model {model} is not supported by provider {provider}")
 
-    provider_task = provider_mapping.get("task")
-    requested_task = "conversational" if task == "text-generation" and conversational else task
-
-    if provider_task != requested_task:
-        raise ValueError(
-            f"Model {model} is not supported for task {requested_task} and provider {provider}. "
-            f"Supported task: {provider_task}."
-        )
-
-    return provider_mapping.get("providerId", model)
+    return provider_mapping
 
 
 # Add dataclass for ModelStatus. We use this dataclass in get_model_status function.

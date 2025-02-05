@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import constants
-from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict, _get_provider_model_id
+from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict, _get_provider_mapping
 from huggingface_hub.utils import build_hf_headers, get_session, get_token, logging
 
 
@@ -11,6 +11,30 @@ logger = logging.get_logger(__name__)
 
 
 BASE_URL = "https://fal.run"
+SUPPORTED_MODELS = {
+    "automatic-speech-recognition": {
+        "openai/whisper-large-v3": "fal-ai/whisper",
+    },
+    "text-to-image": {
+        "black-forest-labs/FLUX.1-dev": "fal-ai/flux/dev",
+        "black-forest-labs/FLUX.1-schnell": "fal-ai/flux/schnell",
+        "ByteDance/SDXL-Lightning": "fal-ai/lightning-models",
+        "fal/AuraFlow-v0.2": "fal-ai/aura-flow",
+        "Kwai-Kolors/Kolors": "fal-ai/kolors",
+        "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS": "fal-ai/pixart-sigma",
+        "playgroundai/playground-v2.5-1024px-aesthetic": "fal-ai/playground-v25",
+        "stabilityai/stable-diffusion-3-medium": "fal-ai/stable-diffusion-v3-medium",
+        "stabilityai/stable-diffusion-3.5-large": "fal-ai/stable-diffusion-v35-large",
+        "Warlord-K/Sana-1024": "fal-ai/sana",
+    },
+    "text-to-speech": {
+        "m-a-p/YuE-s1-7B-anneal-en-cot": "fal-ai/yue",
+    },
+    "text-to-video": {
+        "genmo/mochi-1-preview": "fal-ai/mochi-v1",
+        "tencent/HunyuanVideo": "fal-ai/hunyuan-video",
+    },
+}
 
 
 class FalAITask(TaskProviderHelper, ABC):
@@ -36,7 +60,7 @@ class FalAITask(TaskProviderHelper, ABC):
             raise ValueError(
                 "You must provide an api_key to work with fal.ai API or log in with `huggingface-cli login`."
             )
-        mapped_model = self.map_model(model=model, task=self.task, conversational=conversational)
+        mapped_model = self.map_model(model=model)
         headers = {
             **build_hf_headers(token=api_key),
             **headers,
@@ -65,13 +89,25 @@ class FalAITask(TaskProviderHelper, ABC):
     def map_model(
         self,
         model: Optional[str],
-        task: str,
-        conversational: bool = False,
     ) -> str:
         """Default implementation for mapping model HF model IDs to provider model IDs."""
         if model is None:
             raise ValueError("Please provide a HF model ID supported by fal.ai.")
-        return _get_provider_model_id(model, "fal-ai", task, conversational)
+        provider_mapping = _get_provider_mapping(model, "fal-ai")
+        if provider_mapping:
+            provider_task = provider_mapping.get("task")
+            if provider_task != self.task:
+                raise ValueError(
+                    f"Model {model} is not supported for task {self.task} and provider fal.ai. "
+                    f"Supported task: {provider_task}."
+                )
+            return provider_mapping["providerId"]
+        if self.task not in SUPPORTED_MODELS:
+            raise ValueError(f"Task {self.task} not supported with fal.ai.")
+        mapped_model = SUPPORTED_MODELS[self.task].get(model)
+        if mapped_model is None:
+            raise ValueError(f"Model {model} is not supported with fal.ai for task {self.task}.")
+        return mapped_model
 
     @abstractmethod
     def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]: ...

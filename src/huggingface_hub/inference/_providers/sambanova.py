@@ -1,7 +1,11 @@
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import constants
-from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _get_provider_model_id
+from huggingface_hub.inference._common import (
+    RequestParameters,
+    TaskProviderHelper,
+    _get_provider_mapping,
+)
 from huggingface_hub.utils import build_hf_headers, get_token, logging
 
 
@@ -9,6 +13,23 @@ logger = logging.get_logger(__name__)
 
 
 BASE_URL = "https://api.sambanova.ai"
+
+SUPPORTED_MODELS = {
+    "conversational": {
+        "Qwen/Qwen2.5-Coder-32B-Instruct": "Qwen2.5-Coder-32B-Instruct",
+        "Qwen/Qwen2.5-72B-Instruct": "Qwen2.5-72B-Instruct",
+        "Qwen/QwQ-32B-Preview": "QwQ-32B-Preview",
+        "meta-llama/Llama-3.3-70B-Instruct": "Meta-Llama-3.3-70B-Instruct",
+        "meta-llama/Llama-3.2-1B": "Meta-Llama-3.2-1B-Instruct",
+        "meta-llama/Llama-3.2-3B": "Meta-Llama-3.2-3B-Instruct",
+        "meta-llama/Llama-3.2-11B-Vision-Instruct": "Llama-3.2-11B-Vision-Instruct",
+        "meta-llama/Llama-3.2-90B-Vision-Instruct": "Llama-3.2-90B-Vision-Instruct",
+        "meta-llama/Llama-3.1-8B-Instruct": "Meta-Llama-3.1-8B-Instruct",
+        "meta-llama/Llama-3.1-70B-Instruct": "Meta-Llama-3.1-70B-Instruct",
+        "meta-llama/Llama-3.1-405B-Instruct": "Meta-Llama-3.1-405B-Instruct",
+        "meta-llama/Llama-Guard-3-8B": "Meta-Llama-Guard-3-8B",
+    },
+}
 
 
 class SambanovaConversationalTask(TaskProviderHelper):
@@ -43,7 +64,7 @@ class SambanovaConversationalTask(TaskProviderHelper):
             logger.info("Calling Sambanova provider directly.")
         headers = {**build_hf_headers(token=api_key), **headers}
 
-        mapped_model = self.map_model(model=model, task=self.task, conversational=conversational)
+        mapped_model = self.map_model(model=model)
         payload = {
             "messages": inputs,
             **{k: v for k, v in parameters.items() if v is not None},
@@ -59,16 +80,26 @@ class SambanovaConversationalTask(TaskProviderHelper):
             headers=headers,
         )
 
-    def map_model(
-        self,
-        model: Optional[str],
-        task: str,
-        conversational: bool = False,
-    ) -> str:
+    def map_model(self, model: Optional[str]) -> str:
         """Default implementation for mapping model HF model IDs to provider model IDs."""
         if model is None:
             raise ValueError("Please provide a HF model ID supported by Sambanova.")
-        return _get_provider_model_id(model, "sambanova", task, conversational)
+        provider_mapping = _get_provider_mapping(model, "sambanova")
+        if provider_mapping:
+            provider_task = provider_mapping.get("task")
+            if provider_task != self.task:
+                raise ValueError(
+                    f"Model {model} is not supported for task {self.task} and provider Sambanova. "
+                    f"Supported task: {provider_task}."
+                )
+            return provider_mapping["providerId"]
+
+        if self.task not in SUPPORTED_MODELS:
+            raise ValueError(f"Task {self.task} not supported with Sambanova.")
+        mapped_model = SUPPORTED_MODELS[self.task].get(model)
+        if mapped_model is None:
+            raise ValueError(f"Model {model} is not supported with Sambanova for task {self.task}.")
+        return mapped_model
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         return response
