@@ -102,7 +102,6 @@ class TaskProviderHelper(ABC):
         model: Optional[str],
         api_key: Optional[str],
         extra_payload: Optional[Dict[str, Any]] = None,
-        conversational: bool = False,
     ) -> RequestParameters: ...
     @abstractmethod
     def get_response(self, response: Union[bytes, Dict]) -> Any: ...

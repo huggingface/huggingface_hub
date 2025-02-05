@@ -55,7 +55,6 @@ class ReplicateTask(TaskProviderHelper):
         model: Optional[str],
         api_key: Optional[str],
         extra_payload: Optional[Dict[str, Any]] = None,
-        conversational: bool = False,
     ) -> RequestParameters:
         if api_key is None:
             api_key = get_token()

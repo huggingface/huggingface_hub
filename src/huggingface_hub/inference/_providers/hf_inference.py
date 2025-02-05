@@ -76,7 +76,6 @@ class HFInferenceTask(TaskProviderHelper):
         model: Optional[str],
         api_key: Optional[str],
         extra_payload: Optional[Dict[str, Any]] = None,
-        conversational: bool = False,
     ) -> RequestParameters:
         if extra_payload is None:
             extra_payload = {}
