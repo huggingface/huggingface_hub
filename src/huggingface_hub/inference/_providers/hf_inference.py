@@ -165,10 +165,9 @@ class HFInferenceConversational(HFInferenceTask):
         model: Optional[str],
         api_key: Optional[str],
         extra_payload: Optional[Dict[str, Any]] = None,
-        conversational: bool = False,
     ) -> RequestParameters:
-        mapped_model = self.map_model(model)
-        payload_model = parameters.get("model") or mapped_model
+        model = self.map_model(model)
+        payload_model = parameters.get("model") or model
 
         if payload_model is None or payload_model.startswith(("http://", "https://")):
             payload_model = "tgi"  # use a random string if not provided
@@ -182,9 +181,9 @@ class HFInferenceConversational(HFInferenceTask):
         headers = self.prepare_headers(headers=headers, api_key=api_key)
 
         return RequestParameters(
-            url=self.build_url(mapped_model),
+            url=self.build_url(model),
             task=self.task,
-            model=mapped_model,
+            model=model,
             json=json,
             data=None,
             headers=headers,
