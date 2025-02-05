@@ -1630,10 +1630,10 @@ class HfApi:
                 To disable authentication, pass `False`.
         """
         # Get the effective token using the helper function get_token
-        effective_token = get_token(token or self.token or True)
+        effective_token = token or self.token or get_token()
         r = get_session().get(
             f"{self.endpoint}/api/whoami-v2",
-            headers=self._build_hf_headers(token=effective_token),
+            headers=self._build_hf_headers(token=effective_token or True),
         )
         try:
             hf_raise_for_status(r)
