@@ -263,7 +263,8 @@ class InferenceClient:
                 "`InferenceClient.post` is deprecated and should not be used directly anymore."
             )
         provider_helper = HFInferenceTask(task or "unknown")
-        url = provider_helper.build_url(provider_helper.map_model(model))
+        mapped_model = provider_helper.map_model(model, provider="hf-inference", task=task)
+        url = provider_helper.build_url(mapped_model)
         headers = provider_helper.prepare_headers(headers=self.headers, api_key=self.token)
         return self._inner_post(
             request_parameters=RequestParameters(

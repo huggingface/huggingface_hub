@@ -728,6 +728,8 @@ class ModelInfo:
             Status of the model on the inference API.
             Warm models are available for immediate use. Cold models will be loaded on first inference call.
             Frozen models are not available in Inference API.
+        inference_provider_mapping (`Dict`, *optional*):
+            Model's inference provider mapping.
         likes (`int`):
             Number of likes of the model.
         library_name (`str`, *optional*):
@@ -759,6 +761,7 @@ class ModelInfo:
             Model's safetensors information.
         security_repo_status (`Dict`, *optional*):
             Model's security scan status.
+
     """
 
     id: str
@@ -773,6 +776,7 @@ class ModelInfo:
     gated: Optional[Literal["auto", "manual", False]]
     gguf: Optional[Dict]
     inference: Optional[Literal["warm", "cold", "frozen"]]
+    inference_provider_mapping: Optional[Dict]
     likes: Optional[int]
     library_name: Optional[str]
     tags: Optional[List[str]]
@@ -806,6 +810,7 @@ class ModelInfo:
         self.library_name = kwargs.pop("library_name", None)
         self.gguf = kwargs.pop("gguf", None)
         self.inference = kwargs.pop("inference", None)
+        self.inference_provider_mapping = kwargs.pop("inferenceProviderMapping", None)
         self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
         self.mask_token = kwargs.pop("mask_token", None)

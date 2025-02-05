@@ -36,7 +36,7 @@ class FalAITask(TaskProviderHelper, ABC):
             raise ValueError(
                 "You must provide an api_key to work with fal.ai API or log in with `huggingface-cli login`."
             )
-        mapped_model = self.map_model(model, conversational=conversational)
+        mapped_model = self.map_model(model, provider="fal-ai", task=self.task, conversational=conversational)
         headers = {
             **build_hf_headers(token=api_key),
             **headers,

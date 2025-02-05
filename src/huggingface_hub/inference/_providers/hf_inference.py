@@ -80,7 +80,7 @@ class HFInferenceTask(TaskProviderHelper):
     ) -> RequestParameters:
         if extra_payload is None:
             extra_payload = {}
-        mapped_model = self.map_model(model, conversational=conversational)
+        mapped_model = self.map_model(model, provider="hf-inference", task=self.task, conversational=conversational)
         url = self.build_url(mapped_model)
         data, json = self._prepare_payload(
             inputs, parameters=parameters, model=mapped_model, extra_payload=extra_payload
@@ -165,7 +165,7 @@ class HFInferenceConversational(HFInferenceTask):
         extra_payload: Optional[Dict[str, Any]] = None,
         conversational: bool = False,
     ) -> RequestParameters:
-        mapped_model = self.map_model(model, conversational=conversational)
+        mapped_model = self.map_model(model, provider="hf-inference", task=self.task, conversational=conversational)
         payload_model = parameters.get("model") or mapped_model
 
         if payload_model is None or payload_model.startswith(("http://", "https://")):

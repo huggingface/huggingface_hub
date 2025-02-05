@@ -49,7 +49,6 @@ from huggingface_hub.errors import (
     UnknownError,
     ValidationError,
 )
-from huggingface_hub.hf_api import HfApi
 
 from ..utils import (
     get_session,
@@ -64,6 +63,7 @@ if TYPE_CHECKING:
     from aiohttp import ClientResponse, ClientSession
     from PIL.Image import Image
 
+    from ..hf_api import model_info
 # TYPES
 UrlT = str
 PathT = Union[str, Path]
@@ -104,11 +104,13 @@ class TaskProviderHelper(ABC):
     @abstractmethod
     def get_response(self, response: Union[bytes, Dict]) -> Any: ...
 
-    def map_model(self, model: Optional[str], chat_completion: bool = False) -> str:
+    def map_model(
+        self, model: Optional[str], provider: str, task: Optional[str] = None, conversational: bool = False
+    ) -> str:
         """Default implementation for mapping model IDs to provider-specific IDs."""
         if model is None:
-            raise ValueError(f"Please provide a model available on {self.provider}.")
-        return _get_provider_model_id(model, self.provider, self.task, chat_completion)
+            raise ValueError(f"Please provide a model available on {provider}.")
+        return _get_provider_model_id(model, provider, task, conversational)
 
 
 #### Fetching Inference Providers model mapping
@@ -119,11 +121,11 @@ def _fetch_provider_mappings(model: str) -> Dict:
     """
     Fetch provider mappings for a model from the Hub.
     """
-    try:
-        info = HfApi().model_info(model, expand=["inferenceProviderMapping"])
-        return info.get("inferenceProviderMapping", {})
-    except Exception as e:
-        raise ValueError(f"Failed to get provider mapping for model {model}: {e}")
+    info = model_info(model, expand=["inferenceProviderMapping"])
+    provider_mapping = info.inference_provider_mapping
+    if provider_mapping is None:
+        raise ValueError(f"No provider mapping found for model {model}")
+    return provider_mapping
 
 
 def _get_provider_model_id(
