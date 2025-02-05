@@ -17,7 +17,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 8d85d25c-c080-4a42-8281-08ffe6df1e51
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/google/tapas-base-finetuned-wtq
+    uri: https://router.huggingface.co/hf-inference/models/google/tapas-base-finetuned-wtq
   response:
     body:
       string: '{"answer":"AVERAGE > 36542","coordinates":[[0,1]],"cells":["36542"],"aggregator":"AVERAGE"}'

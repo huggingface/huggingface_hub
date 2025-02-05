@@ -16,7 +16,7 @@ interactions:
       X-Amzn-Trace-Id:
       - bc8215b9-5548-4313-a0ad-4acacc909054
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/dbmdz/bert-large-cased-finetuned-conll03-english
+    uri: https://router.huggingface.co/hf-inference/models/dbmdz/bert-large-cased-finetuned-conll03-english
   response:
     body:
       string: '{"error":"Model dbmdz/bert-large-cased-finetuned-conll03-english is
@@ -58,7 +58,7 @@ interactions:
       X-wait-for-model:
       - '1'
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/dbmdz/bert-large-cased-finetuned-conll03-english
+    uri: https://router.huggingface.co/hf-inference/models/dbmdz/bert-large-cased-finetuned-conll03-english
   response:
     body:
       string: '[{"entity_group":"PER","score":0.9991335868835449,"word":"Sarah Jessica

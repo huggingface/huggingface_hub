@@ -22,7 +22,7 @@ interactions:
       - unknown/None; hf_hub/0.22.0.dev0; python/3.10.12; torch/2.2.0; tensorflow/2.15.0.post1;
         fastcore/1.5.23
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/google/flan-t5-large
+    uri: https://router.huggingface.co/hf-inference/models/google/flan-t5-large
   response:
     body:
       string: '{"error":"The following `model_kwargs` are not used by the model: [''return_full_text'',
@@ -80,7 +80,7 @@ interactions:
       - unknown/None; hf_hub/0.22.0.dev0; python/3.10.12; torch/2.2.0; tensorflow/2.15.0.post1;
         fastcore/1.5.23
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/google/flan-t5-large
+    uri: https://router.huggingface.co/hf-inference/models/google/flan-t5-large
   response:
     body:
       string: '[{"generated_text":"I am at work"}]'

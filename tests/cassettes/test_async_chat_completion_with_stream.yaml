@@ -3,7 +3,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions
+    uri: https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions
   response:
     body:
       string: 'data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"Deep"},"logprobs":null,"finish_reason":null}],"usage":null}
@@ -74,7 +74,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions
+    uri: https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions
   response:
     body:
       string: 'data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"Deep"},"logprobs":null,"finish_reason":null}],"usage":null}
@@ -150,7 +150,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions
+    uri: https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions
   response:
     body:
       string: 'data: {"object":"chat.completion.chunk","id":"","created":1737565427,"model":"HuggingFaceH4/zephyr-7b-beta","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"delta":{"role":"assistant","content":"Deep"},"logprobs":null,"finish_reason":null}],"usage":null}

@@ -830,7 +830,6 @@ class TestOpenAsBinary:
             assert content == content_bytes
 
 
-@with_production_testing
 @pytest.mark.parametrize(
     "provider,task,model,expected_url",
     [
@@ -839,21 +838,21 @@ class TestOpenAsBinary:
             "hf-inference",
             "text-classification",
             "username/repo_name",
-            "https://huggingface.co/api/inference-proxy/hf-inference/models/username/repo_name",
+            "https://router.huggingface.co/hf-inference/models/username/repo_name",
         ),
         # HF Inference - pipeline endpoints
         (
             "hf-inference",
             "feature-extraction",
             "username/repo_name",
-            "https://huggingface.co/api/inference-proxy/hf-inference/pipeline/feature-extraction/username/repo_name",
+            "https://router.huggingface.co/hf-inference/pipeline/feature-extraction/username/repo_name",
         ),
         # HF Inference - chat endpoints
         (
             "hf-inference",
             "conversational",
             "username/repo_name",
-            "https://huggingface.co/api/inference-proxy/hf-inference/models/username/repo_name/v1/chat/completions",
+            "https://router.huggingface.co/hf-inference/models/username/repo_name/v1/chat/completions",
         ),
         # Fal.ai endpoints
         # (
@@ -933,7 +932,7 @@ class TestHeadersAndCookies(TestBase):
 
         expected_headers = build_hf_headers()
         get_session_mock().post.assert_called_once_with(
-            "https://huggingface.co/api/inference-proxy/hf-inference/models/username/repo_name",
+            "https://router.huggingface.co/hf-inference/models/username/repo_name",
             json=None,
             data=b"content",
             headers={**expected_headers, "X-My-Header": "foo"},

@@ -78,7 +78,7 @@ INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-infere
 INFERENCE_ENDPOINTS_ENDPOINT = "https://api.endpoints.huggingface.cloud/v2"
 
 # Proxy for third-party providers
-INFERENCE_PROXY_TEMPLATE = ENDPOINT + "/api/inference-proxy/{provider}"
+INFERENCE_PROXY_TEMPLATE = "https://router.huggingface.co/{provider}"
 
 REPO_ID_SEPARATOR = "--"
 # ^ this substring is not allowed in repo_ids on hf.co

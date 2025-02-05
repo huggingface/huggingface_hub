@@ -16,7 +16,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 38fba685-c633-42e7-8815-fa9ca92c69bf
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech
+    uri: https://router.huggingface.co/hf-inference/models/alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech
   response:
     body:
       string: '[{"score":0.9987353682518005,"label":"male"},{"score":0.0012646110262721777,"label":"female"}]'
@@ -61,7 +61,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 52b71104-6dba-4cc3-94c2-958d19d63c94
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech
+    uri: https://router.huggingface.co/hf-inference/models/alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech
   response:
     body:
       string: '[{"score":0.9987353682518005,"label":"male"},{"score":0.0012646110262721777,"label":"female"}]'

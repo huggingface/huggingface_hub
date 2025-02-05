@@ -15,7 +15,7 @@ interactions:
       X-Amzn-Trace-Id:
       - fdfb4d31-2977-44ec-8d50-364fce3adbd5
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/espnet/kan-bayashi_ljspeech_vits
+    uri: https://router.huggingface.co/hf-inference/models/espnet/kan-bayashi_ljspeech_vits
   response:
     body:
       string: '{"error":"Model espnet/kan-bayashi_ljspeech_vits is currently loading","estimated_time":20.0}'
@@ -55,7 +55,7 @@ interactions:
       X-wait-for-model:
       - '1'
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/espnet/kan-bayashi_ljspeech_vits
+    uri: https://router.huggingface.co/hf-inference/models/espnet/kan-bayashi_ljspeech_vits
   response:
     body:
       string: !!binary |

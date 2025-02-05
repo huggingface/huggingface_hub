@@ -20,7 +20,7 @@ interactions:
       - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
         fastcore/1.5.23
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/gpt2
+    uri: https://router.huggingface.co/hf-inference/models/gpt2
   response:
     body:
       string: '{"error":"The following `model_kwargs` are not used by the model: [''watermark'',
@@ -77,7 +77,7 @@ interactions:
       - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
         fastcore/1.5.23
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/gpt2
+    uri: https://router.huggingface.co/hf-inference/models/gpt2
   response:
     body:
       string: '[{"generated_text":" 3 4 5 6 7 8 9 10 11 12"}]'
@@ -125,7 +125,7 @@ interactions:
       - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
         fastcore/1.5.23
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/gpt2
+    uri: https://router.huggingface.co/hf-inference/models/gpt2
   response:
     body:
       string: '[{"generated_text":" 7 8 9 10 11 12 13 14 15 16"}]'
@@ -179,7 +179,7 @@ interactions:
       - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
         fastcore/1.5.23
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/gpt2
+    uri: https://router.huggingface.co/hf-inference/models/gpt2
   response:
     body:
       string: '[{"generated_text":" 3 4 5 6 7 8 9 10 11 12"}]'

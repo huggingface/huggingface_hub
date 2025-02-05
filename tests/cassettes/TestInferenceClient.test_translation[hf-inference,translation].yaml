@@ -15,7 +15,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 57e6a3f3-2aa9-4bca-abc7-85efec20bfaa
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/t5-small
+    uri: https://router.huggingface.co/hf-inference/models/t5-small
   response:
     body:
       string: '[{"translation_text":"Hallo Welt"}]'

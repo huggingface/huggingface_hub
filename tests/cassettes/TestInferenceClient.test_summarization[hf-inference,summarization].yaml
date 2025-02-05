@@ -27,7 +27,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 3b51e0f7-0537-463b-816d-4d716a4b679c
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/sshleifer/distilbart-cnn-12-6
+    uri: https://router.huggingface.co/hf-inference/models/sshleifer/distilbart-cnn-12-6
   response:
     body:
       string: '[{"summary_text":"JoeJoe reaction reaction reaction anything anything

@@ -15,7 +15,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 04dba8c2-2015-48bf-861b-d69722ca3c00
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/dandelin/vilt-b32-finetuned-vqa
+    uri: https://router.huggingface.co/hf-inference/models/dandelin/vilt-b32-finetuned-vqa
   response:
     body:
       string: '[{"score":0.9386942982673645,"answer":"woman"},{"score":0.3431190550327301,"answer":"girl"},{"score":0.08407800644636154,"answer":"lady"},{"score":0.05075192078948021,"answer":"female"},{"score":0.017771074548363686,"answer":"man"}]'

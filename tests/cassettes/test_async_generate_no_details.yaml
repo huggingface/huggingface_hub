@@ -3,7 +3,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/openai-community/gpt2
+    uri: https://router.huggingface.co/hf-inference/models/openai-community/gpt2
   response:
     body:
       string: '[{"generated_text":"."}]'
@@ -35,7 +35,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/openai-community/gpt2
+    uri: https://router.huggingface.co/hf-inference/models/openai-community/gpt2
   response:
     body:
       string: '[{"generated_text":"."}]'
@@ -67,7 +67,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/openai-community/gpt2
+    uri: https://router.huggingface.co/hf-inference/models/openai-community/gpt2
   response:
     body:
       string: '[{"generated_text":"."}]'

@@ -17,7 +17,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 81d3ad41-5c57-4790-8e87-53c24ab9ef47
     method: POST
-    uri: https://huggingface.co/api/inference-proxy/hf-inference/models/microsoft/DialoGPT-small/v1/chat/completions
+    uri: https://router.huggingface.co/hf-inference/models/microsoft/DialoGPT-small/v1/chat/completions
   response:
     body:
       string: '{"object":"chat.completion","id":"","created":1738149493,"model":"microsoft/DialoGPT-small","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"message":{"role":"assistant","content":"What
