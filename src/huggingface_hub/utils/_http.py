@@ -20,7 +20,6 @@ import re
 import threading
 import time
 import uuid
-import warnings
 from functools import lru_cache
 from http import HTTPStatus
 from shlex import quote
@@ -605,8 +604,7 @@ def _adjust_range_header(original_range: Optional[str], resume_size: int) -> Opt
         return f"bytes={resume_size}-"
 
     if "," in original_range:
-        warnings.warn(f"Multiple ranges detected - {original_range!r}, using full range after resume", UserWarning)
-        return f"bytes={resume_size}-"
+        raise ValueError(f"Multiple ranges detected - {original_range!r}, not supported yet.")
 
     match = RANGE_REGEX.match(original_range)
     if not match:
@@ -618,16 +616,18 @@ def _adjust_range_header(original_range: Optional[str], resume_size: int) -> Opt
             raise RuntimeError(f"Invalid range format - {original_range!r}.")
 
         new_suffix = int(end) - resume_size
+        new_range = f"bytes=-{new_suffix}"
         if new_suffix <= 0:
-            return None
-        return f"bytes=-{new_suffix}"
+            raise RuntimeError(f"Empty new range - {new_range!r}.")
+        return new_range
 
     start = int(start)
     new_start = start + resume_size
     if end:
         end = int(end)
+        new_range = f"bytes={new_start}-{end}"
         if new_start > end:
-            return None
-        return f"bytes={new_start}-{end}"
+            raise RuntimeError(f"Empty new range - {new_range!r}.")
+        return new_range
 
     return f"bytes={new_start}-"

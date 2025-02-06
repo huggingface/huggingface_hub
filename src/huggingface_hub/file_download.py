@@ -365,9 +365,7 @@ def http_get(
     initial_headers = headers
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
-        adjusted_range = _adjust_range_header(headers.get("Range"), resume_size)
-        if adjusted_range is not None:
-            headers["Range"] = adjusted_range
+        headers["Range"] = _adjust_range_header(headers.get("Range"), resume_size)
 
     r = _request_wrapper(
         method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT

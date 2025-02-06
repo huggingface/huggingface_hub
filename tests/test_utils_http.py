@@ -319,6 +319,7 @@ def test_adjust_range_header():
     assert _adjust_range_header(None, 10) == "bytes=10-"
     assert _adjust_range_header("bytes=0-100", 10) == "bytes=10-100"
     assert _adjust_range_header("bytes=-100", 10) == "bytes=-90"
+    assert _adjust_range_header("bytes=100-", 10) == "bytes=110-"
 
     with pytest.raises(RuntimeError):
         _adjust_range_header("invalid", 10)
@@ -327,8 +328,11 @@ def test_adjust_range_header():
         _adjust_range_header("bytes=-", 10)
 
     # Multiple ranges
-    assert _adjust_range_header("bytes=0-100,200-300", 10) == "bytes=10-"
+    with pytest.raises(ValueError):
+        _adjust_range_header("bytes=0-100,200-300", 10)
 
     # Resume size exceeds range
-    assert _adjust_range_header("bytes=0-100", 150) is None
-    assert _adjust_range_header("bytes=-50", 100) is None
+    with pytest.raises(RuntimeError):
+        _adjust_range_header("bytes=0-100", 150)
+    with pytest.raises(RuntimeError):
+        _adjust_range_header("bytes=-50", 100)
