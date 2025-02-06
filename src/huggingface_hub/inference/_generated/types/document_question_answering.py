@@ -3,13 +3,12 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, List, Optional, Union
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class DocumentQuestionAnsweringInputData(BaseInferenceType):
     """One (document, question) pair to answer"""
 
@@ -19,7 +18,7 @@ class DocumentQuestionAnsweringInputData(BaseInferenceType):
     """A question to ask of the document"""
 
 
-@dataclass
+@dataclass_with_extra
 class DocumentQuestionAnsweringParameters(BaseInferenceType):
     """Additional inference parameters for Document Question Answering"""
 
@@ -53,7 +52,7 @@ class DocumentQuestionAnsweringParameters(BaseInferenceType):
     """
 
 
-@dataclass
+@dataclass_with_extra
 class DocumentQuestionAnsweringInput(BaseInferenceType):
     """Inputs for Document Question Answering inference"""
 
@@ -63,7 +62,7 @@ class DocumentQuestionAnsweringInput(BaseInferenceType):
     """Additional inference parameters for Document Question Answering"""
 
 
-@dataclass
+@dataclass_with_extra
 class DocumentQuestionAnsweringOutputElement(BaseInferenceType):
     """Outputs of inference for the Document Question Answering task"""
 

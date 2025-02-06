@@ -3,13 +3,12 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Dict, List, Literal, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class TableQuestionAnsweringInputData(BaseInferenceType):
     """One (table, question) pair to answer"""
 
@@ -22,7 +21,7 @@ class TableQuestionAnsweringInputData(BaseInferenceType):
 Padding = Literal["do_not_pad", "longest", "max_length"]
 
 
-@dataclass
+@dataclass_with_extra
 class TableQuestionAnsweringParameters(BaseInferenceType):
     """Additional inference parameters for Table Question Answering"""
 
@@ -37,7 +36,7 @@ class TableQuestionAnsweringParameters(BaseInferenceType):
     """Activates and controls truncation."""
 
 
-@dataclass
+@dataclass_with_extra
 class TableQuestionAnsweringInput(BaseInferenceType):
     """Inputs for Table Question Answering inference"""
 
@@ -47,7 +46,7 @@ class TableQuestionAnsweringInput(BaseInferenceType):
     """Additional inference parameters for Table Question Answering"""
 
 
-@dataclass
+@dataclass_with_extra
 class TableQuestionAnsweringOutputElement(BaseInferenceType):
     """Outputs of inference for the Table Question Answering task"""
 

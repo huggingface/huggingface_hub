@@ -3,13 +3,12 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class SentenceSimilarityInputData(BaseInferenceType):
     sentences: List[str]
     """A list of strings which will be compared against the source_sentence."""
@@ -19,7 +18,7 @@ class SentenceSimilarityInputData(BaseInferenceType):
     """
 
 
-@dataclass
+@dataclass_with_extra
 class SentenceSimilarityInput(BaseInferenceType):
     """Inputs for Sentence similarity inference"""
 

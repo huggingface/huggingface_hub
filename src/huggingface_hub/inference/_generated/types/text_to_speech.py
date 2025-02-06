@@ -3,16 +3,15 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, Literal, Optional, Union
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 TextToSpeechEarlyStoppingEnum = Literal["never"]
 
 
-@dataclass
+@dataclass_with_extra
 class TextToSpeechGenerationParameters(BaseInferenceType):
     """Parametrization of the text generation process"""
 
@@ -72,7 +71,7 @@ class TextToSpeechGenerationParameters(BaseInferenceType):
     """Whether the model should use the past last key/values attentions to speed up decoding"""
 
 
-@dataclass
+@dataclass_with_extra
 class TextToSpeechParameters(BaseInferenceType):
     """Additional inference parameters for Text To Speech"""
 
@@ -81,7 +80,7 @@ class TextToSpeechParameters(BaseInferenceType):
     """Parametrization of the text generation process"""
 
 
-@dataclass
+@dataclass_with_extra
 class TextToSpeechInput(BaseInferenceType):
     """Inputs for Text To Speech inference"""
 
@@ -91,7 +90,7 @@ class TextToSpeechInput(BaseInferenceType):
     """Additional inference parameters for Text To Speech"""
 
 
-@dataclass
+@dataclass_with_extra
 class TextToSpeechOutput(BaseInferenceType):
     """Outputs of inference for the Text To Speech task"""
 
