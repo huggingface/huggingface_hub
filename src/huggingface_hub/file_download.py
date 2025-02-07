@@ -310,7 +310,7 @@ def http_get(
     *,
     proxies: Optional[Dict] = None,
     resume_size: int = 0,
-    headers: Optional[Dict[str, str]] = None,
+    headers: Optional[Dict[str, Any]] = None,
     expected_size: Optional[int] = None,
     displayed_filename: Optional[str] = None,
     _nb_retries: int = 5,
