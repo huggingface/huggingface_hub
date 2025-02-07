@@ -1,5 +1,5 @@
 import logging
-from functools import cache
+from functools import lru_cache
 from typing import Any, Dict, Optional
 
 from huggingface_hub import constants
@@ -62,7 +62,7 @@ def filter_none(d: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in d.items() if v is not None}
 
 
-@cache
+@lru_cache(maxsize=None)
 def _fetch_inference_provider_mapping(model: str) -> Dict:
     """
     Fetch provider mappings for a model from the Hub.

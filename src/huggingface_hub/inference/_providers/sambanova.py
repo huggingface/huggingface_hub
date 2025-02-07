@@ -1,12 +1,8 @@
 from typing import Any, Dict, Optional, Union
 
-from huggingface_hub.inference._common import (
-    RequestParameters,
-    TaskProviderHelper,
-)
+from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper
+from huggingface_hub.inference._providers._common import filter_none, get_base_url, get_mapped_model
 from huggingface_hub.utils import build_hf_headers, get_token, logging
-
-from ._common import filter_none, get_base_url, get_mapped_model
 
 
 logger = logging.get_logger(__name__)
