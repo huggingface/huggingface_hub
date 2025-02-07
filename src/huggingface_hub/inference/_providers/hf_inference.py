@@ -1,17 +1,13 @@
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from huggingface_hub.constants import ENDPOINT
+from huggingface_hub import constants
 from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _b64_encode, _open_as_binary
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
 
 
-## RECOMMENDED MODELS
-
 # Will be globally fetched only once (see '_fetch_recommended_models')
 _RECOMMENDED_MODELS: Optional[Dict[str, Optional[str]]] = None
-
-BASE_URL = "https://api-inference.huggingface.co"
 
 
 def _first_or_none(items: List[Any]) -> Optional[Any]:
@@ -24,7 +20,7 @@ def _first_or_none(items: List[Any]) -> Optional[Any]:
 def _fetch_recommended_models() -> Dict[str, Optional[str]]:
     global _RECOMMENDED_MODELS
     if _RECOMMENDED_MODELS is None:
-        response = get_session().get(f"{ENDPOINT}/api/tasks", headers=build_hf_headers())
+        response = get_session().get(f"{constants.ENDPOINT}/api/tasks", headers=build_hf_headers())
         hf_raise_for_status(response)
         _RECOMMENDED_MODELS = {
             task: _first_or_none(details["widgetModels"]) for task, details in response.json().items()
@@ -96,12 +92,13 @@ class HFInferenceTask(TaskProviderHelper):
         if model.startswith(("http://", "https://")):
             return model
 
+        base_url = constants.INFERENCE_PROXY_TEMPLATE.format(provider="hf-inference")
         return (
             # Feature-extraction and sentence-similarity are the only cases where we handle models with several tasks.
-            f"{BASE_URL}/pipeline/{self.task}/{model}"
+            f"{base_url}/pipeline/{self.task}/{model}"
             if self.task in ("feature-extraction", "sentence-similarity")
             # Otherwise, we use the default endpoint
-            else f"{BASE_URL}/models/{model}"
+            else f"{base_url}/models/{model}"
         )
 
     def prepare_headers(self, headers: Dict, *, api_key: Optional[Union[bool, str]] = None) -> Dict:
@@ -183,7 +180,11 @@ class HFInferenceConversational(HFInferenceTask):
         )
 
     def build_url(self, model: str) -> str:
-        base_url = model if model.startswith(("http://", "https://")) else f"{BASE_URL}/models/{model}"
+        base_url = (
+            model
+            if model.startswith(("http://", "https://"))
+            else f"{constants.INFERENCE_PROXY_TEMPLATE.format(provider='hf-inference')}/models/{model}"
+        )
         return _build_chat_completion_url(base_url)
 
 

@@ -3493,7 +3493,7 @@ interactions:
       X-Amzn-Trace-Id:
       - eea0639c-7422-4e71-a864-79df9dd2dfb1
     method: POST
-    uri: https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-base
+    uri: https://router.huggingface.co/hf-inference/models/Salesforce/blip-image-captioning-base
   response:
     body:
       string: '[{"generated_text":"a woman in a hat and dress posing for a photo"}]'

@@ -115,6 +115,7 @@ from .utils import (
     filter_repo_objects,
     fix_hf_endpoint_in_url,
     get_session,
+    get_token,
     hf_raise_for_status,
     logging,
     paginate,
@@ -122,6 +123,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
+from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_method
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -1633,24 +1635,27 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
         """
+        # Get the effective token using the helper function get_token
+        effective_token = token or self.token or get_token() or True
         r = get_session().get(
             f"{self.endpoint}/api/whoami-v2",
-            headers=self._build_hf_headers(
-                # If `token` is provided and not `None`, it will be used by default.
-                # Otherwise, the token must be retrieved from cache or env variable.
-                token=(token or self.token or True),
-            ),
+            headers=self._build_hf_headers(token=effective_token),
         )
         try:
             hf_raise_for_status(r)
         except HTTPError as e:
-            raise HTTPError(
-                "Invalid user token. If you didn't pass a user token, make sure you "
-                "are properly logged in by executing `huggingface-cli login`, and "
-                "if you did pass a user token, double-check it's correct.",
-                request=e.request,
-                response=e.response,
-            ) from e
+            error_message = "Invalid user token."
+            # Check which token is the effective one and generate the error message accordingly
+            if effective_token == _get_token_from_google_colab():
+                error_message += " The token from Google Colab vault is invalid. Please update it from the UI."
+            elif effective_token == _get_token_from_environment():
+                error_message += (
+                    " The token from HF_TOKEN environment variable is invalid. "
+                    "Note that HF_TOKEN takes precedence over `huggingface-cli login`."
+                )
+            elif effective_token == _get_token_from_file():
+                error_message += " The token stored is invalid. Please run `huggingface-cli login` to update it."
+            raise HTTPError(error_message, request=e.request, response=e.response) from e
         return r.json()
 
     @_deprecate_method(
@@ -1794,7 +1799,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"` and `"resourceGroup"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"` and `"resourceGroup"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -2453,7 +2458,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"` and `"resourceGroup"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"` and `"resourceGroup"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see

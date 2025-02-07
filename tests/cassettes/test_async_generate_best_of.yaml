@@ -3,7 +3,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+    uri: https://router.huggingface.co/hf-inference/models/openai-community/gpt2
   response:
     body:
       string: '[{"generated_text":"us","details":{"finish_reason":"length","generated_tokens":1,"seed":18435558523380366744,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":385,"text":"us","logprob":-7.5679407,"special":false}],"best_of_sequences":[{"generated_text":"esh","finish_reason":"length","generated_tokens":1,"seed":8244064336017720203,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":5069,"text":"esh","logprob":-10.5153055,"special":false}]}]}}]'
@@ -35,7 +35,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+    uri: https://router.huggingface.co/hf-inference/models/openai-community/gpt2
   response:
     body:
       string: '[{"generated_text":"us","details":{"finish_reason":"length","generated_tokens":1,"seed":18435558523380366744,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":385,"text":"us","logprob":-7.5679407,"special":false}],"best_of_sequences":[{"generated_text":"esh","finish_reason":"length","generated_tokens":1,"seed":8244064336017720203,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":5069,"text":"esh","logprob":-10.5153055,"special":false}]}]}}]'
@@ -72,7 +72,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+    uri: https://router.huggingface.co/hf-inference/models/openai-community/gpt2
   response:
     body:
       string: '[{"generated_text":"us","details":{"finish_reason":"length","generated_tokens":1,"seed":18435558523380366744,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":385,"text":"us","logprob":-7.5679407,"special":false}],"best_of_sequences":[{"generated_text":"esh","finish_reason":"length","generated_tokens":1,"seed":8244064336017720203,"prefill":[{"id":9288,"text":"test","logprob":null}],"tokens":[{"id":5069,"text":"esh","logprob":-10.5153055,"special":false}]}]}}]'

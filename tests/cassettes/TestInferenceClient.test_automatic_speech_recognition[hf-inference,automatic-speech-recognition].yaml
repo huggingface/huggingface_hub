@@ -1668,7 +1668,7 @@ interactions:
       X-Amzn-Trace-Id:
       - bd900989-e43c-405a-8bac-ad7c4c26fcd2
     method: POST
-    uri: https://api-inference.huggingface.co/models/jonatasgrosman/wav2vec2-large-xlsr-53-english
+    uri: https://router.huggingface.co/hf-inference/models/jonatasgrosman/wav2vec2-large-xlsr-53-english
   response:
     body:
       string: '{"text":"a man said to the universe sir i exist"}'
@@ -3365,7 +3365,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 0c1c2537-940b-4dec-b991-817f36c89848
     method: POST
-    uri: https://api-inference.huggingface.co/models/jonatasgrosman/wav2vec2-large-xlsr-53-english
+    uri: https://router.huggingface.co/hf-inference/models/jonatasgrosman/wav2vec2-large-xlsr-53-english
   response:
     body:
       string: '{"text":"a man said to the universe sir i exist"}'

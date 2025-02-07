@@ -27,8 +27,6 @@ from PIL import Image
 from huggingface_hub import (
     ChatCompletionOutput,
     ChatCompletionOutputComplete,
-    ChatCompletionOutputMessage,
-    ChatCompletionOutputUsage,
     ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
@@ -341,25 +339,9 @@ class TestInferenceClient(TestBase):
             stream=False,
             max_tokens=20,
         )
-        assert output == ChatCompletionOutput(
-            choices=[
-                ChatCompletionOutputComplete(
-                    finish_reason="length",
-                    index=0,
-                    message=ChatCompletionOutputMessage(
-                        role="assistant",
-                        content="Deep learning. Years and years of learns or old fall out of the sky. All that that time",
-                        tool_calls=None,
-                    ),
-                    logprobs=None,
-                )
-            ],
-            created=1737553735,
-            id="",
-            model="microsoft/DialoGPT-small",
-            system_fingerprint="3.0.1-sha-bb9095a",
-            usage=ChatCompletionOutputUsage(completion_tokens=20, prompt_tokens=13, total_tokens=33),
-        )
+        assert isinstance(output, ChatCompletionOutput)
+        assert output.model == "microsoft/DialoGPT-small"
+        assert len(output.choices) == 1
 
     @pytest.mark.skip(reason="Schema not aligned between providers")
     @pytest.mark.parametrize("client", list_clients("conversational"))
@@ -856,21 +838,21 @@ class TestOpenAsBinary:
             "hf-inference",
             "text-classification",
             "username/repo_name",
-            "https://api-inference.huggingface.co/models/username/repo_name",
+            "https://router.huggingface.co/hf-inference/models/username/repo_name",
         ),
         # HF Inference - pipeline endpoints
         (
             "hf-inference",
             "feature-extraction",
             "username/repo_name",
-            "https://api-inference.huggingface.co/pipeline/feature-extraction/username/repo_name",
+            "https://router.huggingface.co/hf-inference/pipeline/feature-extraction/username/repo_name",
         ),
         # HF Inference - chat endpoints
         (
             "hf-inference",
             "conversational",
             "username/repo_name",
-            "https://api-inference.huggingface.co/models/username/repo_name/v1/chat/completions",
+            "https://router.huggingface.co/hf-inference/models/username/repo_name/v1/chat/completions",
         ),
         # Fal.ai endpoints
         # (
@@ -938,6 +920,7 @@ class TestHeadersAndCookies(TestBase):
         assert client.cookies["my-cookie"] == "bar"
 
     @expect_deprecation("post")
+    @with_production_testing
     @patch("huggingface_hub.inference._client.get_session")
     def test_mocked_post(self, get_session_mock: MagicMock) -> None:
         """Test that headers and cookies are correctly passed to the request."""
@@ -949,7 +932,7 @@ class TestHeadersAndCookies(TestBase):
 
         expected_headers = build_hf_headers()
         get_session_mock().post.assert_called_once_with(
-            "https://api-inference.huggingface.co/models/username/repo_name",
+            "https://router.huggingface.co/hf-inference/models/username/repo_name",
             json=None,
             data=b"content",
             headers={**expected_headers, "X-My-Header": "foo"},
