@@ -34,7 +34,7 @@ def dataclass_with_extra(cls: Type[T]) -> Type[T]:
     This decorator only works with dataclasses that inherit from `BaseInferenceType`.
     """
     cls = dataclass(cls)
-    cls.__repr__ = _repr_with_extra
+    cls.__repr__ = _repr_with_extra  # type: ignore[method-assign]
     return cls
 
 
