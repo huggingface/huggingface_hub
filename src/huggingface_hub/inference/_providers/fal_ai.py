@@ -2,39 +2,16 @@ import base64
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 
-from huggingface_hub import constants
-from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict, _get_provider_mapping
+from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict
 from huggingface_hub.utils import build_hf_headers, get_session, get_token, logging
+
+from ._common import filter_none, get_base_url, get_mapped_model
 
 
 logger = logging.get_logger(__name__)
 
 
 BASE_URL = "https://fal.run"
-SUPPORTED_MODELS = {
-    "automatic-speech-recognition": {
-        "openai/whisper-large-v3": "fal-ai/whisper",
-    },
-    "text-to-image": {
-        "black-forest-labs/FLUX.1-dev": "fal-ai/flux/dev",
-        "black-forest-labs/FLUX.1-schnell": "fal-ai/flux/schnell",
-        "ByteDance/SDXL-Lightning": "fal-ai/lightning-models",
-        "fal/AuraFlow-v0.2": "fal-ai/aura-flow",
-        "Kwai-Kolors/Kolors": "fal-ai/kolors",
-        "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS": "fal-ai/pixart-sigma",
-        "playgroundai/playground-v2.5-1024px-aesthetic": "fal-ai/playground-v25",
-        "stabilityai/stable-diffusion-3-medium": "fal-ai/stable-diffusion-v3-medium",
-        "stabilityai/stable-diffusion-3.5-large": "fal-ai/stable-diffusion-v35-large",
-        "Warlord-K/Sana-1024": "fal-ai/sana",
-    },
-    "text-to-speech": {
-        "m-a-p/YuE-s1-7B-anneal-en-cot": "fal-ai/yue",
-    },
-    "text-to-video": {
-        "genmo/mochi-1-preview": "fal-ai/mochi-v1",
-        "tencent/HunyuanVideo": "fal-ai/hunyuan-video",
-    },
-}
 
 
 class FalAITask(TaskProviderHelper, ABC):
@@ -59,20 +36,13 @@ class FalAITask(TaskProviderHelper, ABC):
             raise ValueError(
                 "You must provide an api_key to work with fal.ai API or log in with `huggingface-cli login`."
             )
-        mapped_model = self._map_model(model)
-        headers = {
-            **build_hf_headers(token=api_key),
-            **headers,
-        }
+        mapped_model = get_mapped_model("fal-ai", model, self.task)
+        headers = {**build_hf_headers(token=api_key), **headers}
 
         # Route to the proxy if the api_key is a HF TOKEN
-        if api_key.startswith("hf_"):
-            base_url = constants.INFERENCE_PROXY_TEMPLATE.format(provider="fal-ai")
-            logger.info("Calling fal.ai provider through Hugging Face proxy.")
-        else:
-            base_url = BASE_URL
+        base_url = get_base_url("fai-ai", BASE_URL, api_key)
+        if not api_key.startswith("hf_"):
             headers["authorization"] = f"Key {api_key}"
-            logger.info("Calling fal.ai provider directly.")
 
         payload = self._prepare_payload(inputs, parameters=parameters)
 
@@ -84,28 +54,6 @@ class FalAITask(TaskProviderHelper, ABC):
             data=None,
             headers=headers,
         )
-
-    def _map_model(self, model: Optional[str]) -> str:
-        if model is None:
-            raise ValueError("Please provide a HF model ID supported by fal.ai.")
-        provider_mapping = _get_provider_mapping(model, "fal-ai")
-        if provider_mapping:
-            provider_task = provider_mapping.get("task")
-            status = provider_mapping.get("status")
-            if provider_task != self.task:
-                raise ValueError(
-                    f"Model {model} is not supported for task {self.task} and provider fal.ai. "
-                    f"Supported task: {provider_task}."
-                )
-            if status == "staging":
-                logger.warning(f"Model {model} is in staging mode for provider fal.ai. Meant for test purposes only.")
-            return provider_mapping["providerId"]
-        if self.task not in SUPPORTED_MODELS:
-            raise ValueError(f"Task {self.task} not supported with fal.ai.")
-        mapped_model = SUPPORTED_MODELS[self.task].get(model)
-        if mapped_model is None:
-            raise ValueError(f"Model {model} is not supported with fal.ai for task {self.task}.")
-        return mapped_model
 
     @abstractmethod
     def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]: ...
@@ -129,10 +77,7 @@ class FalAIAutomaticSpeechRecognitionTask(FalAITask):
             content_type = "audio/mpeg"
             audio_url = f"data:{content_type};base64,{audio_b64}"
 
-        return {
-            "audio_url": audio_url,
-            **{k: v for k, v in parameters.items() if v is not None},
-        }
+        return {"audio_url": audio_url, **filter_none(parameters)}
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         text = _as_dict(response)["text"]
@@ -146,7 +91,7 @@ class FalAITextToImageTask(FalAITask):
         super().__init__("text-to-image")
 
     def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
-        parameters = {k: v for k, v in parameters.items() if v is not None}
+        parameters = filter_none(parameters)
         if "width" in parameters and "height" in parameters:
             parameters["image_size"] = {
                 "width": parameters.pop("width"),
@@ -164,10 +109,7 @@ class FalAITextToSpeechTask(FalAITask):
         super().__init__("text-to-speech")
 
     def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "lyrics": inputs,
-            **{k: v for k, v in parameters.items() if v is not None},
-        }
+        return {"lyrics": inputs, **filter_none(parameters)}
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         url = _as_dict(response)["audio"]["url"]
@@ -179,8 +121,7 @@ class FalAITextToVideoTask(FalAITask):
         super().__init__("text-to-video")
 
     def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
-        parameters = {k: v for k, v in parameters.items() if v is not None}
-        return {"prompt": inputs, **parameters}
+        return {"prompt": inputs, **filter_none(parameters)}
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         url = _as_dict(response)["video"]["url"]

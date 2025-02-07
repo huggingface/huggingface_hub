@@ -50,12 +50,7 @@ from huggingface_hub.errors import (
     ValidationError,
 )
 
-from ..utils import (
-    get_session,
-    is_aiohttp_available,
-    is_numpy_available,
-    is_pillow_available,
-)
+from ..utils import get_session, is_aiohttp_available, is_numpy_available, is_pillow_available
 from ._generated.types import ChatCompletionStreamOutput, TextGenerationStreamOutput
 
 
@@ -102,38 +97,6 @@ class TaskProviderHelper(ABC):
     ) -> RequestParameters: ...
     @abstractmethod
     def get_response(self, response: Union[bytes, Dict]) -> Any: ...
-
-
-#### Fetching Inference Providers model mapping
-_PROVIDER_MAPPINGS: Optional[Dict[str, Dict]] = None
-
-
-def _fetch_provider_mappings(model: str) -> Dict:
-    """
-    Fetch provider mappings for a model from the Hub.
-    """
-    from ..hf_api import model_info
-
-    info = model_info(model, expand=["inferenceProviderMapping"])
-    provider_mapping = info.inference_provider_mapping
-    if provider_mapping is None:
-        raise ValueError(f"No provider mapping found for model {model}")
-    return provider_mapping
-
-
-def _get_provider_mapping(model: str, provider: str) -> Dict:
-    """
-    Map a model ID to a provider-specific ID.
-    """
-    global _PROVIDER_MAPPINGS
-    if _PROVIDER_MAPPINGS is None:
-        _PROVIDER_MAPPINGS = _fetch_provider_mappings(model)
-        if not _PROVIDER_MAPPINGS:
-            logger.warning(f"No provider mappings found for model {model}")
-
-    provider_mapping = _PROVIDER_MAPPINGS.get(provider, {})
-
-    return provider_mapping
 
 
 # Add dataclass for ModelStatus. We use this dataclass in get_model_status function.

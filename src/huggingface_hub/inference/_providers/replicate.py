@@ -1,39 +1,19 @@
 from typing import Any, Dict, Optional, Union
 
-from huggingface_hub import constants
 from huggingface_hub.inference._common import (
     RequestParameters,
     TaskProviderHelper,
     _as_dict,
-    _get_provider_mapping,
 )
 from huggingface_hub.utils import build_hf_headers, get_session, get_token, logging
+
+from ._common import filter_none, get_base_url, get_mapped_model
 
 
 logger = logging.get_logger(__name__)
 
 
 BASE_URL = "https://api.replicate.com"
-
-SUPPORTED_MODELS = {
-    "text-to-image": {
-        "black-forest-labs/FLUX.1-dev": "black-forest-labs/flux-dev",
-        "black-forest-labs/FLUX.1-schnell": "black-forest-labs/flux-schnell",
-        "ByteDance/Hyper-SD": "bytedance/hyper-flux-16step:382cf8959fb0f0d665b26e7e80b8d6dc3faaef1510f14ce017e8c732bb3d1eb7",
-        "ByteDance/SDXL-Lightning": "bytedance/sdxl-lightning-4step:5599ed30703defd1d160a25a63321b4dec97101d98b4674bcc56e41f62f35637",
-        "playgroundai/playground-v2.5-1024px-aesthetic": "playgroundai/playground-v2.5-1024px-aesthetic:a45f82a1382bed5c7aeb861dac7c7d191b0fdf74d8d57c4a0e6ed7d4d0bf7d24",
-        "stabilityai/stable-diffusion-3.5-large-turbo": "stability-ai/stable-diffusion-3.5-large-turbo",
-        "stabilityai/stable-diffusion-3.5-large": "stability-ai/stable-diffusion-3.5-large",
-        "stabilityai/stable-diffusion-3.5-medium": "stability-ai/stable-diffusion-3.5-medium",
-        "stabilityai/stable-diffusion-xl-base-1.0": "stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc",
-    },
-    "text-to-speech": {
-        "hexgrad/Kokoro-82M": "jaaari/kokoro-82m:f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
-    },
-    "text-to-video": {
-        "genmo/mochi-1-preview": "genmoai/mochi-1:1944af04d098ef69bed7f9d335d102e652203f268ec4aaa2d836f6217217e460",
-    },
-}
 
 
 def _build_url(base_url: str, model: str) -> str:
@@ -64,14 +44,9 @@ class ReplicateTask(TaskProviderHelper):
             )
 
         # Route to the proxy if the api_key is a HF TOKEN
-        if api_key.startswith("hf_"):
-            base_url = constants.INFERENCE_PROXY_TEMPLATE.format(provider="replicate")
-            logger.info("Calling Replicate provider through Hugging Face proxy.")
-        else:
-            base_url = BASE_URL
-            logger.info("Calling Replicate provider directly.")
+        base_url = get_base_url("replicate", BASE_URL, api_key)
 
-        mapped_model = self._map_model(model)
+        mapped_model = get_mapped_model("replicate", model, self.task)
         url = _build_url(base_url, mapped_model)
 
         headers = {
@@ -91,31 +66,6 @@ class ReplicateTask(TaskProviderHelper):
             headers=headers,
         )
 
-    def _map_model(self, model: Optional[str]) -> str:
-        if model is None:
-            raise ValueError("Please provide a HF model ID supported by Replicate.")
-        provider_mapping = _get_provider_mapping(model, "replicate")
-        if provider_mapping:
-            provider_task = provider_mapping.get("task")
-            status = provider_mapping.get("status")
-
-            if provider_task != self.task:
-                raise ValueError(
-                    f"Model {model} is not supported for task {self.task} and provider Replicate. "
-                    f"Supported task: {provider_task}."
-                )
-            if status == "staging":
-                logger.warning(
-                    f"Model {model} is in staging mode for provider Replicate. Meant for test purposes only."
-                )
-            return provider_mapping["providerId"]
-        if self.task not in SUPPORTED_MODELS:
-            raise ValueError(f"Task {self.task} not supported with Replicate.")
-        mapped_model = SUPPORTED_MODELS[self.task].get(model)
-        if mapped_model is None:
-            raise ValueError(f"Model {model} is not supported with Replicate for task {self.task}.")
-        return mapped_model
-
     def _prepare_payload(
         self,
         inputs: Any,
@@ -125,7 +75,7 @@ class ReplicateTask(TaskProviderHelper):
         payload: Dict[str, Any] = {
             "input": {
                 "prompt": inputs,
-                **{k: v for k, v in parameters.items() if v is not None},
+                **filter_none(parameters),
             }
         }
         if ":" in model:
@@ -157,12 +107,7 @@ class ReplicateTextToSpeechTask(ReplicateTask):
         model: str,
     ) -> Dict[str, Any]:
         # The following payload might work only for a subset of text-to-speech Replicate models.
-        payload: Dict[str, Any] = {
-            "input": {
-                "text": inputs,
-                **{k: v for k, v in parameters.items() if v is not None},
-            },
-        }
+        payload: Dict[str, Any] = {"input": {"text": inputs, **filter_none(parameters)}}
         if ":" in model:
             version = model.split(":", 1)[1]
             payload["version"] = version

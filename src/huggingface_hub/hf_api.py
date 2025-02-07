@@ -699,6 +699,19 @@ class RepoFolder:
 
 
 @dataclass
+class InferenceProviderMapping:
+    status: Literal["live", "staging"]
+    provider_id: str
+    task: str
+
+    def __init__(self, **kwargs):
+        self.status = kwargs.pop("status")
+        self.provider_id = kwargs.pop("providerId")
+        self.task = kwargs.pop("task")
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
 class ModelInfo:
     """
     Contains information about a model on the Hub.
@@ -788,7 +801,7 @@ class ModelInfo:
     gated: Optional[Literal["auto", "manual", False]]
     gguf: Optional[Dict]
     inference: Optional[Literal["warm", "cold", "frozen"]]
-    inference_provider_mapping: Optional[Dict]
+    inference_provider_mapping: Optional[Dict[str, InferenceProviderMapping]]
     likes: Optional[int]
     library_name: Optional[str]
     tags: Optional[List[str]]
@@ -821,8 +834,15 @@ class ModelInfo:
         self.likes = kwargs.pop("likes", None)
         self.library_name = kwargs.pop("library_name", None)
         self.gguf = kwargs.pop("gguf", None)
+
         self.inference = kwargs.pop("inference", None)
         self.inference_provider_mapping = kwargs.pop("inferenceProviderMapping", None)
+        if self.inference_provider_mapping:
+            self.inference_provider_mapping = {
+                provider: InferenceProviderMapping(**value)
+                for provider, value in self.inference_provider_mapping.items()
+            }
+
         self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
         self.mask_token = kwargs.pop("mask_token", None)
