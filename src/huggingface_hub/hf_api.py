@@ -3390,7 +3390,7 @@ class HfApi:
             raise ValueError('Invalid repo type')
 
         json: Dict[str, Any] = {'name': name, 'organization': organization}
-        if private is True:
+        if private is not None and private is not False:
             json['private'] = private
         if repo_type is not None:
             json['type'] = repo_type
@@ -9358,8 +9358,6 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
         raise RuntimeError(f"Unexpected response from the hub, expected a Pull Request URL but got: '{pr_url}'")
     return f'refs/pr/{re_match[1]}'
 
-
-cd
 
 api = HfApi()
 
