@@ -17,10 +17,7 @@ from huggingface_hub.inference._providers.hf_inference import (
 )
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
-from huggingface_hub.inference._providers.together import (
-    TogetherTextGenerationTask,
-    TogetherTextToImageTask,
-)
+from huggingface_hub.inference._providers.together import TogetherTextGenerationTask, TogetherTextToImageTask
 
 
 class TestFalAIProvider:

@@ -84,14 +84,13 @@ class TaskProviderHelper:
         """
         Return the response in the expected format.
 
-        To be implemented in subclasses.
-
-        Args:
-            response (Union[bytes, Dict]): The response from the API.
-        """
+        Override this method in subclasses for customized response handling."""
         return response
 
     def _prepare_api_key(self, api_key: Optional[str]) -> str:
+        """Return the API key to use for the request.
+
+        Usually not overwritten in subclasses."""
         if api_key is None:
             api_key = get_token()
         if api_key is None:
@@ -101,6 +100,9 @@ class TaskProviderHelper:
         return api_key
 
     def _prepare_mapped_model(self, model: Optional[str]) -> str:
+        """Return the mapped model ID to use for the request.
+
+        Usually not overwritten in subclasses."""
         if model is None:
             raise ValueError(f"Please provide an HF model ID supported by {self.provider}.")
 
@@ -125,14 +127,24 @@ class TaskProviderHelper:
         return provider_mapping.provider_id
 
     def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+        """Return the headers to use for the request.
+
+        Override this method in subclasses for customized headers.
+        """
         return {**build_hf_headers(token=api_key), **headers}
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
+        """Return the URL to use for the request.
+
+        Usually not overwritten in subclasses."""
         base_url = self._prepare_base_url(api_key)
         route = self._prepare_route(mapped_model)
         return f"{base_url}/{route}"
 
     def _prepare_base_url(self, api_key: str) -> str:
+        """Return the base URL to use for the request.
+
+        Usually not overwritten in subclasses."""
         # Route to the proxy if the api_key is a HF TOKEN
         if api_key.startswith("hf_"):
             logger.info(f"Calling '{self.provider}' provider through Hugging Face router.")
@@ -142,14 +154,28 @@ class TaskProviderHelper:
             return self.base_url
 
     def _prepare_route(self, mapped_model: str) -> str:
+        """Return the route to use for the request.
+
+        Override this method in subclasses for customized routes.
+        """
         return ""
 
     def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+        """Return the payload to use for the request, as a dict.
+
+        Override this method in subclasses for customized payloads.
+        Only one of `_prepare_payload` and `_prepare_body` should return a value.
+        """
         return None
 
     def _prepare_body(
         self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
     ) -> Optional[bytes]:
+        """Return the body to use for the request, as bytes.
+
+        Override this method in subclasses for customized body data.
+        Only one of `_prepare_payload` and `_prepare_body` should return a value.
+        """
         return None
 
 
