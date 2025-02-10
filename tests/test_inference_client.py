@@ -491,17 +491,17 @@ class TestInferenceClient(TestBase):
             ),
         ]
 
-    def test_hf_inferene_get_recommended_model_has_recommendation(self) -> None:
-        from huggingface_hub.inference._providers.hf_inference import get_recommended_model
+    def test_hf_inference_get_recommended_model_has_recommendation(self) -> None:
+        from huggingface_hub.inference._providers.hf_inference import HFInferenceTask
 
-        assert get_recommended_model("feature-extraction") == "facebook/bart-base"
-        assert get_recommended_model("translation") == "t5-small"
+        HFInferenceTask("feature-extraction")._prepare_mapped_model(None) == "facebook/bart-base"
+        HFInferenceTask("translation")._prepare_mapped_model(None) == "t5-small"
 
     def test_hf_inference_get_recommended_model_no_recommendation(self) -> None:
-        from huggingface_hub.inference._providers.hf_inference import get_recommended_model
+        from huggingface_hub.inference._providers.hf_inference import HFInferenceTask
 
         with pytest.raises(ValueError):
-            get_recommended_model("text-generation")
+            HFInferenceTask("text-generation")._prepare_mapped_model(None)
 
     @pytest.mark.parametrize("client", list_clients("image-classification"))
     def test_image_classification(self, client: InferenceClient):
