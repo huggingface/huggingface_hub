@@ -7,6 +7,7 @@ from huggingface_hub.inference._providers._common import recursive_merge
 from huggingface_hub.inference._providers.fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAITextToImageTask,
+    FalAITextToSpeechTask,
     FalAITextToVideoTask,
 )
 from huggingface_hub.inference._providers.hf_inference import (
@@ -21,7 +22,74 @@ from tests.testing_utils import with_production_testing
 
 
 class TestHFInferenceProvider:
-    @with_production_testing
+    def test_prepare_mapped_model(self, mocker):
+        helper = HFInferenceTask("text-classification")
+        assert helper._prepare_mapped_model("username/repo_name") == "username/repo_name"
+        assert helper._prepare_mapped_model("https://any-url.com") == "https://any-url.com"
+
+        with mocker.patch(
+            "huggingface_hub.inference._providers.hf_inference._fetch_recommended_models",
+            return_value={"text-classification": "username/repo_name"},
+        ):
+            assert helper._prepare_mapped_model(None) == "username/repo_name"
+
+            with pytest.raises(ValueError, match="Task unknown-task has no recommended model"):
+                assert HFInferenceTask("unknown-task")._prepare_mapped_model(None)
+
+    def test_prepare_url(self):
+        helper = HFInferenceTask("text-classification")
+        assert (
+            helper._prepare_url("hf_test_token", "username/repo_name")
+            == "https://router.huggingface.co/hf-inference/models/username/repo_name"
+        )
+
+        assert helper._prepare_url("hf_test_token", "https://any-url.com") == "https://any-url.com"
+
+    def test_prepare_payload(self):
+        helper = HFInferenceTask("text-classification")
+        assert helper._prepare_payload(
+            "dummy text input",
+            parameters={"a": 1, "b": None},
+            mapped_model="username/repo_name",
+        ) == {
+            "inputs": "dummy text input",
+            "parameters": {"a": 1},
+        }
+
+        with pytest.raises(ValueError, match="Unexpected binary input for task text-classification."):
+            helper._prepare_payload(b"dummy binary data", {}, "username/repo_name")
+
+    def test_prepare_body_binary_input(self):
+        helper = HFInferenceBinaryInputTask("image-classification")
+        assert (
+            helper._prepare_body(
+                b"dummy binary input",
+                parameters={},
+                mapped_model="username/repo_name",
+                extra_payload=None,
+            )
+            == b"dummy binary input"
+        )
+
+        assert (
+            helper._prepare_body(
+                b"dummy binary input",
+                parameters={"a": 1, "b": None},
+                mapped_model="username/repo_name",
+                extra_payload={"extra": "payload"},
+            )
+            == b'{"inputs": "ZHVtbXkgYmluYXJ5IGlucHV0", "parameters": {"a": 1}, "extra": "payload"}'
+            # base64.b64encode(b"dummy binary input")
+        )
+
+    def test_conversational_url(self):
+        helper = HFInferenceConversational()
+        helper._prepare_url(
+            "hf_test_token", "username/repo_name"
+        ) == "https://router.huggingface.co/hf-inference/models/username/repo_name/v1/chat/completions"
+        helper._prepare_url("hf_test_token", "https://any-url.com") == "https://any-url.com/v1/chat/completions"
+        helper._prepare_url("hf_test_token", "https://any-url.com/v1") == "https://any-url.com/v1/chat/completions"
+
     def test_prepare_request(self):
         helper = HFInferenceTask("text-classification")
         request = helper.prepare_request(
@@ -38,7 +106,6 @@ class TestHFInferenceProvider:
         assert request.headers["authorization"] == "Bearer hf_test_token"
         assert request.json == {"inputs": "this is a dummy input", "parameters": {}}
 
-    @with_production_testing
     def test_prepare_request_conversational(self):
         helper = HFInferenceConversational()
         request = helper.prepare_request(
@@ -59,130 +126,47 @@ class TestHFInferenceProvider:
             "messages": [{"role": "user", "content": "dummy text input"}],
         }
 
-    @pytest.mark.parametrize(
-        "helper,inputs,parameters,expected_data,expected_json",
-        [
-            (
-                HFInferenceTask("text-classification"),
-                "dummy text input",
-                {},
-                None,
-                {
-                    "inputs": "dummy text input",
-                    "parameters": {},
-                },
-            ),
-            (
-                HFInferenceBinaryInputTask("image-classification"),
-                b"dummy binary data",
-                {},
-                b"dummy binary data",
-                None,
-            ),
-            (
-                HFInferenceBinaryInputTask("text-to-image"),
-                b"dummy binary data",
-                {"threshold": 0.9},
-                None,
-                {
-                    "inputs": f"{base64.b64encode(b'dummy binary data').decode()}",
-                    "parameters": {"threshold": 0.9},
-                },
-            ),
-        ],
-        ids=["text-task", "binary-raw", "binary-with-params"],
-    )
-    def test_prepare_payload(self, helper, inputs, parameters, expected_data, expected_json):
-        data, json = helper._prepare_payload(inputs, parameters, model=None, extra_payload={})
-        assert data == expected_data
-        assert json == expected_json
-
-    def test_get_response(self):
-        pytest.skip("Not implemented yet")
-
 
 class TestFalAIProvider:
-    @with_production_testing
-    def test_prepare_request_no_routing(self):
-        request = FalAITextToImageTask().prepare_request(
-            inputs="dummy text input",
-            parameters={},
-            headers={},
-            model="black-forest-labs/FLUX.1-dev",
-            api_key="my_fal_ai_key",
-        )
-        assert request.url.startswith("https://fal.run/")
-        assert request.headers["authorization"] == "Key my_fal_ai_key"
+    def test_prepare_headers_fal_ai_key(self):
+        """When using direct call, must use Key authorization."""
+        headers = FalAITextToImageTask()._prepare_headers({}, "fal_ai_key")
+        assert headers["authorization"] == "Key fal_ai_key"
 
-    @with_production_testing
-    def test_prepare_request_with_routing(self):
-        request = FalAITextToImageTask().prepare_request(
-            inputs="dummy text input",
-            parameters={},
-            headers={},
-            model="black-forest-labs/FLUX.1-dev",
-            api_key="hf_test_token",
-        )
-        assert request.headers["authorization"] == "Bearer hf_test_token"
-        assert request.url.startswith("https://router.huggingface.co/fal-ai")
+    def test_prepare_headers_hf_key(self):
+        """When using routed call, must use Bearer authorization."""
+        headers = FalAITextToImageTask()._prepare_headers({}, "hf_token")
+        assert headers["authorization"] == "Bearer hf_token"
 
-    @with_production_testing
-    def test_prepare_request_no_api_key(self):
-        with pytest.raises(ValueError, match="You must provide an api_key to work with fal.ai API."):
-            FalAITextToImageTask().prepare_request(
-                inputs="dummy text input",
-                parameters={},
-                headers={},
-                model="black-forest-labs/FLUX.1-dev",
-                api_key=None,
-            )
+    def test_prepare_route(self):
+        url = FalAITextToImageTask()._prepare_url("hf_token", "username/repo_name")
+        assert url == "https://router.huggingface.co/fal-ai//username/repo_name"
 
-    @pytest.mark.parametrize(
-        "helper,inputs,parameters,expected_payload",
-        [
-            (
-                FalAITextToImageTask(),
-                "a beautiful cat",
-                {"width": 512, "height": 512},
-                {
-                    "prompt": "a beautiful cat",
-                    "image_size": {"width": 512, "height": 512},
-                },
-            ),
-            (
-                FalAITextToVideoTask(),
-                "a cat walking",
-                {"num_frames": 16},
-                {
-                    "prompt": "a cat walking",
-                    "num_frames": 16,
-                },
-            ),
-            (
-                FalAIAutomaticSpeechRecognitionTask(),
-                "https://example.com/audio.mp3",
-                {},
-                {
-                    "audio_url": "https://example.com/audio.mp3",
-                },
-            ),
-            (
-                FalAIAutomaticSpeechRecognitionTask(),
-                b"dummy audio data",
-                {},
-                {
-                    "audio_url": f"data:audio/mpeg;base64,{base64.b64encode(b'dummy audio data').decode()}",
-                },
-            ),
-        ],
-        ids=["text-to-image", "text-to-video", "speech-recognition-url", "speech-recognition-binary"],
-    )
-    def test_prepare_payload(self, helper, inputs, parameters, expected_payload):
-        payload = helper._prepare_payload(inputs, parameters)
-        assert payload == expected_payload
+    def test_automatic_speech_recognition_payload(self):
+        helper = FalAIAutomaticSpeechRecognitionTask()
+        payload = helper._prepare_payload("https://example.com/audio.mp3", {}, "username/repo_name")
+        assert payload == {"audio_url": "https://example.com/audio.mp3"}
 
-    def test_get_response(self):
-        pytest.skip("Not implemented yet")
+        payload = helper._prepare_payload(b"dummy_audio_data", {}, "username/repo_name")
+        assert payload == {"audio_url": f"data:audio/mpeg;base64,{base64.b64encode(b'dummy_audio_data').decode()}"}
+
+    def test_text_to_image_payload(self):
+        helper = FalAITextToImageTask()
+        payload = helper._prepare_payload("a beautiful cat", {"width": 512, "height": 512}, "username/repo_name")
+        assert payload == {
+            "prompt": "a beautiful cat",
+            "image_size": {"width": 512, "height": 512},
+        }
+
+    def test_text_to_speech_payload(self):
+        helper = FalAITextToSpeechTask()
+        payload = helper._prepare_payload("Hello world", {}, "username/repo_name")
+        assert payload == {"lyrics": "Hello world"}
+
+    def test_text_to_video_payload(self):
+        helper = FalAITextToVideoTask()
+        payload = helper._prepare_payload("a cat walking", {"num_frames": 16}, "username/repo_name")
+        assert payload == {"prompt": "a cat walking", "num_frames": 16}
 
 
 class TestReplicateProvider:
