@@ -46,6 +46,14 @@ class TestFalAIProvider:
         payload = helper._prepare_payload(b"dummy_audio_data", {}, "username/repo_name")
         assert payload == {"audio_url": f"data:audio/mpeg;base64,{base64.b64encode(b'dummy_audio_data').decode()}"}
 
+    def test_automatic_speech_recognition_response(self):
+        helper = FalAIAutomaticSpeechRecognitionTask()
+        response = helper.get_response({"text": "Hello world"})
+        assert response == "Hello world"
+
+        with pytest.raises(ValueError):
+            helper.get_response({"text": 123})
+
     def test_text_to_image_payload(self):
         helper = FalAITextToImageTask()
         payload = helper._prepare_payload("a beautiful cat", {"width": 512, "height": 512}, "username/repo_name")
