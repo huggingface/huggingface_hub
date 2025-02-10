@@ -1,75 +1,28 @@
 from typing import Any, Dict, Optional, Union
 
-from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict
-from huggingface_hub.inference._providers._common import filter_none, get_base_url, get_mapped_model
-from huggingface_hub.utils import build_hf_headers, get_session, get_token, logging
-
-
-logger = logging.get_logger(__name__)
-
-
-BASE_URL = "https://api.replicate.com"
-
-
-def _build_url(base_url: str, model: str) -> str:
-    if ":" in model:
-        return f"{base_url}/v1/predictions"
-    return f"{base_url}/v1/models/{model}/predictions"
+from huggingface_hub.inference._common import _as_dict
+from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
+from huggingface_hub.utils import get_session
 
 
 class ReplicateTask(TaskProviderHelper):
     def __init__(self, task: str):
-        self.task = task
+        super().__init__(provider="replicate", base_url="https://api.replicate.com", task=task)
 
-    def prepare_request(
-        self,
-        *,
-        inputs: Any,
-        parameters: Dict[str, Any],
-        headers: Dict,
-        model: Optional[str],
-        api_key: Optional[str],
-        extra_payload: Optional[Dict[str, Any]] = None,
-    ) -> RequestParameters:
-        if api_key is None:
-            api_key = get_token()
-        if api_key is None:
-            raise ValueError(
-                "You must provide an api_key to work with Replicate API or log in with `huggingface-cli login`."
-            )
+    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+        headers = super()._prepare_headers(headers, api_key)
+        headers["Prefer"] = "wait"
+        return headers
 
-        # Route to the proxy if the api_key is a HF TOKEN
-        base_url = get_base_url("replicate", BASE_URL, api_key)
+    def _prepare_route(self, mapped_model: str) -> str:
+        if ":" in mapped_model:
+            return "/v1/predictions"
+        return f"/v1/models/{mapped_model}/predictions"
 
-        mapped_model = get_mapped_model("replicate", model, self.task)
-        url = _build_url(base_url, mapped_model)
-
-        headers = {
-            **build_hf_headers(token=api_key),
-            **headers,
-            "Prefer": "wait",
-        }
-
-        payload = self._prepare_payload(inputs, parameters=parameters, model=mapped_model)
-
-        return RequestParameters(
-            url=url,
-            task=self.task,
-            model=mapped_model,
-            json=payload,
-            data=None,
-            headers=headers,
-        )
-
-    def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any], model: str) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {
-            "input": {
-                "prompt": inputs,
-                **filter_none(parameters),
-            }
-        }
-        if ":" in model:
-            version = model.split(":", 1)[1]
+    def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+        payload: Dict[str, Any] = {"input": {"prompt": inputs, **filter_none(parameters)}}
+        if ":" in mapped_model:
+            version = mapped_model.split(":", 1)[1]
             payload["version"] = version
         return payload
 
@@ -90,15 +43,7 @@ class ReplicateTextToSpeechTask(ReplicateTask):
     def __init__(self):
         super().__init__("text-to-speech")
 
-    def _prepare_payload(
-        self,
-        inputs: Any,
-        parameters: Dict[str, Any],
-        model: str,
-    ) -> Dict[str, Any]:
-        # The following payload might work only for a subset of text-to-speech Replicate models.
-        payload: Dict[str, Any] = {"input": {"text": inputs, **filter_none(parameters)}}
-        if ":" in model:
-            version = model.split(":", 1)[1]
-            payload["version"] = version
+    def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+        payload: Dict = super()._prepare_payload(inputs, parameters, mapped_model)  # type: ignore[assignment]
+        payload["input"]["text"] = inputs["input"].pop("prompt")  # rename "prompt" to "text" for TTS
         return payload

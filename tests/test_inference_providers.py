@@ -1,7 +1,9 @@
 import base64
+from typing import Dict
 
 import pytest
 
+from huggingface_hub.inference._providers._common import recursive_merge
 from huggingface_hub.inference._providers.fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAITextToImageTask,
@@ -382,3 +384,55 @@ class TestSambanovaProvider:
 
     def test_get_response(self):
         pytest.skip("Not implemented yet")
+
+
+@pytest.mark.parametrize(
+    "dict1, dict2, expected",
+    [
+        # Basic merge with non-overlapping keys
+        ({"a": 1}, {"b": 2}, {"a": 1, "b": 2}),
+        # Overwriting a key
+        ({"a": 1}, {"a": 2}, {"a": 2}),
+        # Empty dict merge
+        ({}, {"a": 1}, {"a": 1}),
+        ({"a": 1}, {}, {"a": 1}),
+        ({}, {}, {}),
+        # Nested dictionary merge
+        (
+            {"a": {"b": 1}},
+            {"a": {"c": 2}},
+            {"a": {"b": 1, "c": 2}},
+        ),
+        # Overwriting nested dictionary key
+        (
+            {"a": {"b": 1}},
+            {"a": {"b": 2}},
+            {"a": {"b": 2}},
+        ),
+        # Deep merge
+        (
+            {"a": {"b": {"c": 1}}},
+            {"a": {"b": {"d": 2}}},
+            {"a": {"b": {"c": 1, "d": 2}}},
+        ),
+        # Overwriting a nested value with a non-dict type
+        (
+            {"a": {"b": {"c": 1}}},
+            {"a": {"b": 2}},
+            {"a": {"b": 2}},  # Overwrites dict with integer
+        ),
+        # Merging dictionaries with different types
+        (
+            {"a": 1},
+            {"a": {"b": 2}},
+            {"a": {"b": 2}},  # Overwrites int with dict
+        ),
+    ],
+)
+def test_recursive_merge(dict1: Dict, dict2: Dict, expected: Dict):
+    initial_dict1 = dict1.copy()
+    initial_dict2 = dict2.copy()
+    assert recursive_merge(dict1, dict2) == expected
+    # does not mutate the inputs
+    assert dict1 == initial_dict1
+    assert dict2 == initial_dict2
