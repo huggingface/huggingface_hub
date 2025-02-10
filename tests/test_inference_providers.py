@@ -23,6 +23,48 @@ from huggingface_hub.inference._providers.together import (
 )
 
 
+class TestFalAIProvider:
+    def test_prepare_headers_fal_ai_key(self):
+        """When using direct call, must use Key authorization."""
+        headers = FalAITextToImageTask()._prepare_headers({}, "fal_ai_key")
+        assert headers["authorization"] == "Key fal_ai_key"
+
+    def test_prepare_headers_hf_key(self):
+        """When using routed call, must use Bearer authorization."""
+        headers = FalAITextToImageTask()._prepare_headers({}, "hf_token")
+        assert headers["authorization"] == "Bearer hf_token"
+
+    def test_prepare_route(self):
+        url = FalAITextToImageTask()._prepare_url("hf_token", "username/repo_name")
+        assert url == "https://router.huggingface.co/fal-ai//username/repo_name"
+
+    def test_automatic_speech_recognition_payload(self):
+        helper = FalAIAutomaticSpeechRecognitionTask()
+        payload = helper._prepare_payload("https://example.com/audio.mp3", {}, "username/repo_name")
+        assert payload == {"audio_url": "https://example.com/audio.mp3"}
+
+        payload = helper._prepare_payload(b"dummy_audio_data", {}, "username/repo_name")
+        assert payload == {"audio_url": f"data:audio/mpeg;base64,{base64.b64encode(b'dummy_audio_data').decode()}"}
+
+    def test_text_to_image_payload(self):
+        helper = FalAITextToImageTask()
+        payload = helper._prepare_payload("a beautiful cat", {"width": 512, "height": 512}, "username/repo_name")
+        assert payload == {
+            "prompt": "a beautiful cat",
+            "image_size": {"width": 512, "height": 512},
+        }
+
+    def test_text_to_speech_payload(self):
+        helper = FalAITextToSpeechTask()
+        payload = helper._prepare_payload("Hello world", {}, "username/repo_name")
+        assert payload == {"lyrics": "Hello world"}
+
+    def test_text_to_video_payload(self):
+        helper = FalAITextToVideoTask()
+        payload = helper._prepare_payload("a cat walking", {"num_frames": 16}, "username/repo_name")
+        assert payload == {"prompt": "a cat walking", "num_frames": 16}
+
+
 class TestHFInferenceProvider:
     def test_prepare_mapped_model(self, mocker):
         helper = HFInferenceTask("text-classification")
@@ -127,48 +169,6 @@ class TestHFInferenceProvider:
             "model": "username/repo_name",
             "messages": [{"role": "user", "content": "dummy text input"}],
         }
-
-
-class TestFalAIProvider:
-    def test_prepare_headers_fal_ai_key(self):
-        """When using direct call, must use Key authorization."""
-        headers = FalAITextToImageTask()._prepare_headers({}, "fal_ai_key")
-        assert headers["authorization"] == "Key fal_ai_key"
-
-    def test_prepare_headers_hf_key(self):
-        """When using routed call, must use Bearer authorization."""
-        headers = FalAITextToImageTask()._prepare_headers({}, "hf_token")
-        assert headers["authorization"] == "Bearer hf_token"
-
-    def test_prepare_route(self):
-        url = FalAITextToImageTask()._prepare_url("hf_token", "username/repo_name")
-        assert url == "https://router.huggingface.co/fal-ai//username/repo_name"
-
-    def test_automatic_speech_recognition_payload(self):
-        helper = FalAIAutomaticSpeechRecognitionTask()
-        payload = helper._prepare_payload("https://example.com/audio.mp3", {}, "username/repo_name")
-        assert payload == {"audio_url": "https://example.com/audio.mp3"}
-
-        payload = helper._prepare_payload(b"dummy_audio_data", {}, "username/repo_name")
-        assert payload == {"audio_url": f"data:audio/mpeg;base64,{base64.b64encode(b'dummy_audio_data').decode()}"}
-
-    def test_text_to_image_payload(self):
-        helper = FalAITextToImageTask()
-        payload = helper._prepare_payload("a beautiful cat", {"width": 512, "height": 512}, "username/repo_name")
-        assert payload == {
-            "prompt": "a beautiful cat",
-            "image_size": {"width": 512, "height": 512},
-        }
-
-    def test_text_to_speech_payload(self):
-        helper = FalAITextToSpeechTask()
-        payload = helper._prepare_payload("Hello world", {}, "username/repo_name")
-        assert payload == {"lyrics": "Hello world"}
-
-    def test_text_to_video_payload(self):
-        helper = FalAITextToVideoTask()
-        payload = helper._prepare_payload("a cat walking", {"num_frames": 16}, "username/repo_name")
-        assert payload == {"prompt": "a cat walking", "num_frames": 16}
 
 
 class TestReplicateProvider:
