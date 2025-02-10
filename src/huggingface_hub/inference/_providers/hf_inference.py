@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 from huggingface_hub import constants
 from huggingface_hub.inference._common import _b64_encode, _open_as_binary
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
-from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
+from huggingface_hub.utils import build_hf_headers, get_session, get_token, hf_raise_for_status
 
 
 class HFInferenceTask(TaskProviderHelper):
@@ -18,6 +18,10 @@ class HFInferenceTask(TaskProviderHelper):
             base_url=constants.INFERENCE_PROXY_TEMPLATE.format(provider="hf-inference"),
             task=task,
         )
+
+    def _prepare_api_key(self, api_key: Optional[str]) -> str:
+        # special case: for HF Inference we allow not providing an API key
+        return get_token()  # type: ignore[return-value]
 
     def _prepare_mapped_model(self, model: Optional[str]) -> str:
         if model is not None:
