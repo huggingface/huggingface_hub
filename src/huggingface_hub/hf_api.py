@@ -786,7 +786,6 @@ class ModelInfo:
             Model's safetensors information.
         security_repo_status (`Dict`, *optional*):
             Model's security scan status.
-
     """
 
     id: str

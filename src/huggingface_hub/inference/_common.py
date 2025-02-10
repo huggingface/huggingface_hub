@@ -58,7 +58,6 @@ if TYPE_CHECKING:
     from aiohttp import ClientResponse, ClientSession
     from PIL.Image import Image
 
-
 # TYPES
 UrlT = str
 PathT = Union[str, Path]
