@@ -107,15 +107,20 @@ class HFInferenceTask(TaskProviderHelper):
     def _prepare_payload(
         self, inputs: Any, parameters: Dict[str, Any], model: Optional[str], extra_payload: Dict[str, Any]
     ) -> Tuple[Any, Any]:
-        if isinstance(inputs, bytes):
+        if isinstance(inputs, bytes) and self.task not in ("latent-to-image"):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
         if isinstance(inputs, Path):
             raise ValueError(f"Unexpected path input for task {self.task} (got {inputs})")
-        return None, {
+        _data = None
+        _json = {
             "inputs": inputs,
             "parameters": {k: v for k, v in parameters.items() if v is not None},
             **extra_payload,
         }
+        if self.task in ("latent-to-image"):
+            _data = inputs
+            _json = None
+        return _data, _json
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         return response
