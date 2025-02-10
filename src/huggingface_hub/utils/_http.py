@@ -437,7 +437,6 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
 
         elif error_code == "RepoNotFound" or (
             response.status_code == 401
-            and error_message != "Invalid credentials in Authorization header"
             and response.request is not None
             and response.request.url is not None
             and REPO_API_REGEX.search(response.request.url) is not None
