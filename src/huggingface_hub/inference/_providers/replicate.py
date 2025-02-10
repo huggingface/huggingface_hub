@@ -45,5 +45,5 @@ class ReplicateTextToSpeechTask(ReplicateTask):
 
     def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         payload: Dict = super()._prepare_payload(inputs, parameters, mapped_model)  # type: ignore[assignment]
-        payload["input"]["text"] = inputs["input"].pop("prompt")  # rename "prompt" to "text" for TTS
+        payload["input"]["text"] = payload["input"].pop("prompt")  # rename "prompt" to "text" for TTS
         return payload

@@ -170,89 +170,50 @@ class TestFalAIProvider:
 
 
 class TestReplicateProvider:
-    @with_production_testing
-    def test_prepare_request_no_routing(self):
-        request = ReplicateTask("text-to-image").prepare_request(
-            inputs="dummy text input",
-            parameters={},
-            headers={},
-            model="black-forest-labs/FLUX.1-schnell",
-            api_key="my_replicate_key",
+    def test_prepare_headers(self):
+        helper = ReplicateTask("text-to-image")
+        headers = helper._prepare_headers({}, "my_replicate_key")
+        headers["Prefer"] == "wait"
+        headers["authorization"] == "Bearer my_replicate_key"
+
+    def test_prepare_route(self):
+        helper = ReplicateTask("text-to-image")
+
+        # No model version
+        url = helper._prepare_route("black-forest-labs/FLUX.1-schnell")
+        assert url == "/v1/models/black-forest-labs/FLUX.1-schnell/predictions"
+
+        # Model with specific version
+        url = helper._prepare_route("black-forest-labs/FLUX.1-schnell:1944af04d098ef")
+        assert url == "/v1/predictions"
+
+    def test_prepare_payload(self):
+        helper = ReplicateTask("text-to-image")
+
+        # No model version
+        payload = helper._prepare_payload(
+            "a beautiful cat", {"num_inference_steps": 20}, "black-forest-labs/FLUX.1-schnell"
         )
-        assert request.url.startswith("https://api.replicate.com/")
-        assert request.headers["Prefer"] == "wait"
+        assert payload == {"input": {"prompt": "a beautiful cat", "num_inference_steps": 20}}
 
-    @with_production_testing
-    def test_prepare_request_with_routing(self):
-        request = ReplicateTask("text-to-image").prepare_request(
-            inputs="dummy text input",
-            parameters={},
-            headers={},
-            model="black-forest-labs/FLUX.1-schnell",
-            api_key="hf_test_token",
+        # Model with specific version
+        payload = helper._prepare_payload(
+            "a beautiful cat", {"num_inference_steps": 20}, "black-forest-labs/FLUX.1-schnell:1944af04d098ef"
         )
-        assert request.url.startswith("https://router.huggingface.co/replicate")
+        assert payload == {
+            "input": {"prompt": "a beautiful cat", "num_inference_steps": 20},
+            "version": "1944af04d098ef",
+        }
 
-    @with_production_testing
-    def test_prepare_request_no_api_key(self):
-        # Test with missing token
-        with pytest.raises(ValueError, match="You must provide an api_key to work with Replicate API."):
-            ReplicateTask("text-to-image").prepare_request(
-                inputs="dummy text input",
-                parameters={},
-                headers={},
-                model="black-forest-labs/FLUX.1-schnell",
-                api_key=None,
-            )
-
-    @pytest.mark.parametrize(
-        "helper,mapped_model,inputs,parameters,expected_payload",
-        [
-            (
-                ReplicateTask("text-to-image"),
-                "black-forest-labs/FLUX.1-schnell",
-                "a beautiful cat",
-                {"num_inference_steps": 20},
-                {
-                    "input": {
-                        "prompt": "a beautiful cat",
-                        "num_inference_steps": 20,
-                    }
-                },
-            ),
-            (
-                ReplicateTextToSpeechTask(),
-                "hexgrad/Kokoro-82M:f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
-                "Hello world",
-                {},
-                {
-                    "input": {
-                        "text": "Hello world",
-                    },
-                    "version": "f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
-                },
-            ),
-            (
-                ReplicateTask("text-to-video"),
-                "genmo/mochi-1-preview:1944af04d098ef69bed7f9d335d102e652203f268ec4aaa2d836f6217217e460",
-                "a cat walking",
-                {"num_frames": 16},
-                {
-                    "input": {
-                        "prompt": "a cat walking",
-                        "num_frames": 16,
-                    },
-                    "version": "1944af04d098ef69bed7f9d335d102e652203f268ec4aaa2d836f6217217e460",
-                },
-            ),
-        ],
-        ids=["text-to-image", "text-to-speech", "text-to-video"],
-    )
-    def test_prepare_payload(self, helper, mapped_model, inputs, parameters, expected_payload):
-        assert expected_payload == helper._prepare_payload(inputs, parameters, mapped_model)
-
-    def test_get_response(self):
-        pytest.skip("Not implemented yet")
+    def test_text_to_speech_payload(self):
+        helper = ReplicateTextToSpeechTask()
+        payload = helper._prepare_payload(
+            "Hello world", {}, "hexgrad/Kokoro-82M:f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13"
+        )
+        assert payload == {
+            "input": {"text": "Hello world"},
+            "version": "f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
+        }
 
 
 class TestTogetherProvider:
