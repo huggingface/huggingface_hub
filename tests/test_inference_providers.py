@@ -17,8 +17,10 @@ from huggingface_hub.inference._providers.hf_inference import (
 )
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
-from huggingface_hub.inference._providers.together import TogetherTextGenerationTask, TogetherTextToImageTask
-from tests.testing_utils import with_production_testing
+from huggingface_hub.inference._providers.together import (
+    TogetherTextGenerationTask,
+    TogetherTextToImageTask,
+)
 
 
 class TestHFInferenceProvider:
@@ -27,14 +29,14 @@ class TestHFInferenceProvider:
         assert helper._prepare_mapped_model("username/repo_name") == "username/repo_name"
         assert helper._prepare_mapped_model("https://any-url.com") == "https://any-url.com"
 
-        with mocker.patch(
+        mocker.patch(
             "huggingface_hub.inference._providers.hf_inference._fetch_recommended_models",
             return_value={"text-classification": "username/repo_name"},
-        ):
-            assert helper._prepare_mapped_model(None) == "username/repo_name"
+        )
+        assert helper._prepare_mapped_model(None) == "username/repo_name"
 
-            with pytest.raises(ValueError, match="Task unknown-task has no recommended model"):
-                assert HFInferenceTask("unknown-task")._prepare_mapped_model(None)
+        with pytest.raises(ValueError, match="Task unknown-task has no recommended model"):
+            assert HFInferenceTask("unknown-task")._prepare_mapped_model(None)
 
     def test_prepare_url(self):
         helper = HFInferenceTask("text-classification")
@@ -216,119 +218,59 @@ class TestReplicateProvider:
         }
 
 
-class TestTogetherProvider:
-    @with_production_testing
-    def test_prepare_request_no_routing(self):
-        request = TogetherTextGenerationTask("conversational").prepare_request(
-            inputs="this is a dummy input",
-            parameters={},
-            headers={},
-            model="meta-llama/Meta-Llama-3-70B-Instruct",
-            api_key="my_together_key",
-        )
-        assert request.url.startswith("https://api.together.xyz/")
-        assert request.model == "meta-llama/Llama-3-70b-chat-hf"
-
-    @with_production_testing
-    def test_prepare_request_with_routing(self):
-        request = TogetherTextGenerationTask("conversational").prepare_request(
-            inputs="this is a dummy input",
-            parameters={},
-            headers={},
-            model="meta-llama/Meta-Llama-3-70B-Instruct",
-            api_key="hf_test_token",
-        )
-        assert request.url.startswith("https://router.huggingface.co/together")
-
-    @with_production_testing
-    def test_prepare_request_no_api_key(self):
-        with pytest.raises(ValueError, match="You must provide an api_key to work with Together API."):
-            TogetherTextGenerationTask("conversational").prepare_request(
-                inputs="this is a dummy input",
-                parameters={},
-                headers={},
-                model="meta-llama/Meta-Llama-3-70B-Instruct",
-                api_key=None,
-            )
-
-    @pytest.mark.parametrize(
-        "helper,inputs,parameters,expected_payload",
-        [
-            (
-                TogetherTextGenerationTask("conversational"),
-                [{"role": "user", "content": "Hello!"}],
-                {},
-                {
-                    "messages": [{"role": "user", "content": "Hello!"}],
-                },
-            ),
-            (
-                TogetherTextToImageTask(),
-                "a beautiful image of a cat",
-                {
-                    "num_inference_steps": 25,
-                    "guidance_scale": 7,
-                    "width": 512,
-                    "height": 512,
-                },
-                {
-                    "prompt": "a beautiful image of a cat",
-                    "response_format": "base64",
-                    "steps": 25,
-                    "guidance": 7,
-                    "width": 512,
-                    "height": 512,
-                },
-            ),
-        ],
-        ids=["conversational", "text-to-image"],
-    )
-    def test_prepare_payload(self, helper, inputs, parameters, expected_payload):
-        payload = helper._prepare_payload(inputs, parameters)
-        assert payload == expected_payload
-
-    def test_get_response(self):
-        pytest.skip("Not implemented yet")
-
-
 class TestSambanovaProvider:
-    @with_production_testing
-    def test_prepare_request_no_routing(self):
-        request = SambanovaConversationalTask().prepare_request(
-            inputs="this is a dummy input",
-            parameters={},
-            headers={},
-            model="meta-llama/Llama-3.1-8B-Instruct",
-            api_key="my_sambanova_key",
+    def test_prepare_route(self):
+        helper = SambanovaConversationalTask()
+        assert helper._prepare_route("meta-llama/Llama-3.1-8B-Instruct") == "/v1/chat/completions"
+
+    def test_prepare_payload(self):
+        helper = SambanovaConversationalTask()
+        payload = helper._prepare_payload(
+            [{"role": "user", "content": "Hello!"}], {}, "meta-llama/Llama-3.1-8B-Instruct"
         )
-        assert request.url.startswith("https://api.sambanova.ai/")
-        assert request.model == "Meta-Llama-3.1-8B-Instruct"
-        assert "messages" in request.json
+        assert payload == {
+            "messages": [{"role": "user", "content": "Hello!"}],
+            "model": "meta-llama/Llama-3.1-8B-Instruct",
+        }
 
-    @with_production_testing
-    def test_prepare_request_with_routing(self):
-        request = SambanovaConversationalTask().prepare_request(
-            inputs="this is a dummy input",
-            parameters={},
-            headers={},
-            model="meta-llama/Llama-3.1-8B-Instruct",
-            api_key="hf_test_token",
+
+class TestTogetherProvider:
+    def test_prepare_route(self):
+        helper = TogetherTextGenerationTask("text-generation")
+        assert helper._prepare_route("username/repo_name") == "/v1/completions"
+
+        helper = TogetherTextGenerationTask("conversational")
+        assert helper._prepare_route("username/repo_name") == "/v1/chat/completions"
+
+        helper = TogetherTextToImageTask()
+        assert helper._prepare_route("username/repo_name") == "/v1/images/generations"
+
+    def test_prepare_payload_conversational(self):
+        helper = TogetherTextGenerationTask("conversational")
+        payload = helper._prepare_payload(
+            [{"role": "user", "content": "Hello!"}], {}, "meta-llama/Llama-3.1-8B-Instruct"
         )
-        assert request.url.startswith("https://router.huggingface.co/sambanova")
+        assert payload == {
+            "messages": [{"role": "user", "content": "Hello!"}],
+            "model": "meta-llama/Llama-3.1-8B-Instruct",
+        }
 
-    @with_production_testing
-    def test_prepare_request_no_api_key(self):
-        with pytest.raises(ValueError, match="You must provide an api_key to work with Sambanova API."):
-            SambanovaConversationalTask().prepare_request(
-                inputs="this is a dummy input",
-                parameters={},
-                headers={},
-                model="meta-llama/Llama-3.1-8B-Instruct",
-                api_key=None,
-            )
-
-    def test_get_response(self):
-        pytest.skip("Not implemented yet")
+    def test_prepare_payload_text_to_image(self):
+        helper = TogetherTextToImageTask()
+        payload = helper._prepare_payload(
+            "a beautiful cat",
+            {"num_inference_steps": 10, "guidance_scale": 1, "width": 512, "height": 512},
+            "black-forest-labs/FLUX.1-schnell",
+        )
+        assert payload == {
+            "prompt": "a beautiful cat",
+            "response_format": "base64",
+            "width": 512,
+            "height": 512,
+            "steps": 10,  # renamed field
+            "guidance": 1,  # renamed field
+            "model": "black-forest-labs/FLUX.1-schnell",
+        }
 
 
 @pytest.mark.parametrize(
