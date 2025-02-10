@@ -45,7 +45,7 @@ class TogetherTask(TaskProviderHelper, ABC):
 
         # Route to the proxy if the api_key is a HF TOKEN
         base_url = get_base_url("together", BASE_URL, api_key)
-        mapped_model = mapped_model = get_mapped_model("fal-ai", model, self.task)
+        mapped_model = mapped_model = get_mapped_model("together", model, self.task)
 
         if "model" in parameters:
             parameters["model"] = mapped_model

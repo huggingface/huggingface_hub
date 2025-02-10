@@ -39,7 +39,7 @@ class FalAITask(TaskProviderHelper, ABC):
         headers = {**build_hf_headers(token=api_key), **headers}
 
         # Route to the proxy if the api_key is a HF TOKEN
-        base_url = get_base_url("fai-ai", BASE_URL, api_key)
+        base_url = get_base_url("fal-ai", BASE_URL, api_key)
         if not api_key.startswith("hf_"):
             headers["authorization"] = f"Key {api_key}"
 

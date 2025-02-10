@@ -15,9 +15,11 @@ from huggingface_hub.inference._providers.hf_inference import (
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
 from huggingface_hub.inference._providers.together import TogetherTextGenerationTask, TogetherTextToImageTask
+from tests.testing_utils import with_production_testing
 
 
 class TestHFInferenceProvider:
+    @with_production_testing
     def test_prepare_request(self):
         helper = HFInferenceTask("text-classification")
         request = helper.prepare_request(
@@ -34,7 +36,7 @@ class TestHFInferenceProvider:
         assert request.headers["authorization"] == "Bearer hf_test_token"
         assert request.json == {"inputs": "this is a dummy input", "parameters": {}}
 
-    # Testing conversational task separately
+    @with_production_testing
     def test_prepare_request_conversational(self):
         helper = HFInferenceConversational()
         request = helper.prepare_request(
@@ -98,11 +100,9 @@ class TestHFInferenceProvider:
 
 
 class TestFalAIProvider:
-    def test_prepare_request(self):
-        helper = FalAITextToImageTask()
-
-        # Test with custom fal.ai key
-        request = helper.prepare_request(
+    @with_production_testing
+    def test_prepare_request_no_routing(self):
+        request = FalAITextToImageTask().prepare_request(
             inputs="dummy text input",
             parameters={},
             headers={},
@@ -112,18 +112,9 @@ class TestFalAIProvider:
         assert request.url.startswith("https://fal.run/")
         assert request.headers["authorization"] == "Key my_fal_ai_key"
 
-        # Test with missing token
-        with pytest.raises(ValueError, match="You must provide an api_key to work with fal.ai API."):
-            helper.prepare_request(
-                inputs="dummy text input",
-                parameters={},
-                headers={},
-                model="black-forest-labs/FLUX.1-dev",
-                api_key=None,
-            )
-
-        # Test routing
-        request = helper.prepare_request(
+    @with_production_testing
+    def test_prepare_request_with_routing(self):
+        request = FalAITextToImageTask().prepare_request(
             inputs="dummy text input",
             parameters={},
             headers={},
@@ -132,6 +123,17 @@ class TestFalAIProvider:
         )
         assert request.headers["authorization"] == "Bearer hf_test_token"
         assert request.url.startswith("https://router.huggingface.co/fal-ai")
+
+    @with_production_testing
+    def test_prepare_request_no_api_key(self):
+        with pytest.raises(ValueError, match="You must provide an api_key to work with fal.ai API."):
+            FalAITextToImageTask().prepare_request(
+                inputs="dummy text input",
+                parameters={},
+                headers={},
+                model="black-forest-labs/FLUX.1-dev",
+                api_key=None,
+            )
 
     @pytest.mark.parametrize(
         "helper,inputs,parameters,expected_payload",
@@ -182,11 +184,9 @@ class TestFalAIProvider:
 
 
 class TestReplicateProvider:
-    def test_prepare_request(self):
-        helper = ReplicateTask("text-to-image")
-
-        # Test with custom replicate key
-        request = helper.prepare_request(
+    @with_production_testing
+    def test_prepare_request_no_routing(self):
+        request = ReplicateTask("text-to-image").prepare_request(
             inputs="dummy text input",
             parameters={},
             headers={},
@@ -196,18 +196,9 @@ class TestReplicateProvider:
         assert request.url.startswith("https://api.replicate.com/")
         assert request.headers["Prefer"] == "wait"
 
-        # Test with missing token
-        with pytest.raises(ValueError, match="You must provide an api_key to work with Replicate API."):
-            helper.prepare_request(
-                inputs="dummy text input",
-                parameters={},
-                headers={},
-                model="black-forest-labs/FLUX.1-schnell",
-                api_key=None,
-            )
-
-        # Test routing
-        request = helper.prepare_request(
+    @with_production_testing
+    def test_prepare_request_with_routing(self):
+        request = ReplicateTask("text-to-image").prepare_request(
             inputs="dummy text input",
             parameters={},
             headers={},
@@ -216,8 +207,20 @@ class TestReplicateProvider:
         )
         assert request.url.startswith("https://router.huggingface.co/replicate")
 
+    @with_production_testing
+    def test_prepare_request_no_api_key(self):
+        # Test with missing token
+        with pytest.raises(ValueError, match="You must provide an api_key to work with Replicate API."):
+            ReplicateTask("text-to-image").prepare_request(
+                inputs="dummy text input",
+                parameters={},
+                headers={},
+                model="black-forest-labs/FLUX.1-schnell",
+                api_key=None,
+            )
+
     @pytest.mark.parametrize(
-        "helper,model,inputs,parameters,expected_payload",
+        "helper,mapped_model,inputs,parameters,expected_payload",
         [
             (
                 ReplicateTask("text-to-image"),
@@ -233,7 +236,7 @@ class TestReplicateProvider:
             ),
             (
                 ReplicateTextToSpeechTask(),
-                "hexgrad/Kokoro-82M",
+                "hexgrad/Kokoro-82M:f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
                 "Hello world",
                 {},
                 {
@@ -245,7 +248,7 @@ class TestReplicateProvider:
             ),
             (
                 ReplicateTask("text-to-video"),
-                "genmo/mochi-1-preview",
+                "genmo/mochi-1-preview:1944af04d098ef69bed7f9d335d102e652203f268ec4aaa2d836f6217217e460",
                 "a cat walking",
                 {"num_frames": 16},
                 {
@@ -259,20 +262,17 @@ class TestReplicateProvider:
         ],
         ids=["text-to-image", "text-to-speech", "text-to-video"],
     )
-    def test_prepare_payload(self, helper, model, inputs, parameters, expected_payload):
-        mapped_model = helper._map_model(model)
-        payload = helper._prepare_payload(inputs, parameters, mapped_model)
-        assert payload == expected_payload
+    def test_prepare_payload(self, helper, mapped_model, inputs, parameters, expected_payload):
+        assert expected_payload == helper._prepare_payload(inputs, parameters, mapped_model)
 
     def test_get_response(self):
         pytest.skip("Not implemented yet")
 
 
 class TestTogetherProvider:
-    def test_prepare_request(self):
-        helper = TogetherTextGenerationTask("conversational")
-        # Test with custom together key
-        request = helper.prepare_request(
+    @with_production_testing
+    def test_prepare_request_no_routing(self):
+        request = TogetherTextGenerationTask("conversational").prepare_request(
             inputs="this is a dummy input",
             parameters={},
             headers={},
@@ -282,18 +282,9 @@ class TestTogetherProvider:
         assert request.url.startswith("https://api.together.xyz/")
         assert request.model == "meta-llama/Llama-3-70b-chat-hf"
 
-        # Test with missing token
-        with pytest.raises(ValueError, match="You must provide an api_key to work with Together API."):
-            helper.prepare_request(
-                inputs="this is a dummy input",
-                parameters={},
-                headers={},
-                model="meta-llama/Meta-Llama-3-70B-Instruct",
-                api_key=None,
-            )
-
-        # Test routing
-        request = helper.prepare_request(
+    @with_production_testing
+    def test_prepare_request_with_routing(self):
+        request = TogetherTextGenerationTask("conversational").prepare_request(
             inputs="this is a dummy input",
             parameters={},
             headers={},
@@ -301,6 +292,17 @@ class TestTogetherProvider:
             api_key="hf_test_token",
         )
         assert request.url.startswith("https://router.huggingface.co/together")
+
+    @with_production_testing
+    def test_prepare_request_no_api_key(self):
+        with pytest.raises(ValueError, match="You must provide an api_key to work with Together API."):
+            TogetherTextGenerationTask("conversational").prepare_request(
+                inputs="this is a dummy input",
+                parameters={},
+                headers={},
+                model="meta-llama/Meta-Llama-3-70B-Instruct",
+                api_key=None,
+            )
 
     @pytest.mark.parametrize(
         "helper,inputs,parameters,expected_payload",
@@ -343,10 +345,9 @@ class TestTogetherProvider:
 
 
 class TestSambanovaProvider:
-    def test_prepare_request(self):
-        helper = SambanovaConversationalTask()
-        # Test with custom sambanova key
-        request = helper.prepare_request(
+    @with_production_testing
+    def test_prepare_request_no_routing(self):
+        request = SambanovaConversationalTask().prepare_request(
             inputs="this is a dummy input",
             parameters={},
             headers={},
@@ -357,18 +358,9 @@ class TestSambanovaProvider:
         assert request.model == "Meta-Llama-3.1-8B-Instruct"
         assert "messages" in request.json
 
-        # Test with missing token
-        with pytest.raises(ValueError, match="You must provide an api_key to work with Sambanova API."):
-            helper.prepare_request(
-                inputs="this is a dummy input",
-                parameters={},
-                headers={},
-                model="meta-llama/Llama-3.1-8B-Instruct",
-                api_key=None,
-            )
-
-        # Test routing
-        request = helper.prepare_request(
+    @with_production_testing
+    def test_prepare_request_with_routing(self):
+        request = SambanovaConversationalTask().prepare_request(
             inputs="this is a dummy input",
             parameters={},
             headers={},
@@ -376,6 +368,17 @@ class TestSambanovaProvider:
             api_key="hf_test_token",
         )
         assert request.url.startswith("https://router.huggingface.co/sambanova")
+
+    @with_production_testing
+    def test_prepare_request_no_api_key(self):
+        with pytest.raises(ValueError, match="You must provide an api_key to work with Sambanova API."):
+            SambanovaConversationalTask().prepare_request(
+                inputs="this is a dummy input",
+                parameters={},
+                headers={},
+                model="meta-llama/Llama-3.1-8B-Instruct",
+                api_key=None,
+            )
 
     def test_get_response(self):
         pytest.skip("Not implemented yet")

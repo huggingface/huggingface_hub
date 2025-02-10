@@ -61,12 +61,7 @@ class ReplicateTask(TaskProviderHelper):
             headers=headers,
         )
 
-    def _prepare_payload(
-        self,
-        inputs: Any,
-        parameters: Dict[str, Any],
-        model: str,
-    ) -> Dict[str, Any]:
+    def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any], model: str) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
             "input": {
                 "prompt": inputs,
