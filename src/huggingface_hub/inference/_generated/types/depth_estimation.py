@@ -3,13 +3,12 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class DepthEstimationInput(BaseInferenceType):
     """Inputs for Depth Estimation inference"""
 
@@ -19,7 +18,7 @@ class DepthEstimationInput(BaseInferenceType):
     """Additional inference parameters for Depth Estimation"""
 
 
-@dataclass
+@dataclass_with_extra
 class DepthEstimationOutput(BaseInferenceType):
     """Outputs of inference for the Depth Estimation task"""
 

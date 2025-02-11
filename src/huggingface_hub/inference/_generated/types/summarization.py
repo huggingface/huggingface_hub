@@ -3,16 +3,15 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, Dict, Literal, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 SummarizationTruncationStrategy = Literal["do_not_truncate", "longest_first", "only_first", "only_second"]
 
 
-@dataclass
+@dataclass_with_extra
 class SummarizationParameters(BaseInferenceType):
     """Additional inference parameters for summarization."""
 
@@ -24,7 +23,7 @@ class SummarizationParameters(BaseInferenceType):
     """The truncation strategy to use."""
 
 
-@dataclass
+@dataclass_with_extra
 class SummarizationInput(BaseInferenceType):
     """Inputs for Summarization inference"""
 
@@ -34,7 +33,7 @@ class SummarizationInput(BaseInferenceType):
     """Additional inference parameters for summarization."""
 
 
-@dataclass
+@dataclass_with_extra
 class SummarizationOutput(BaseInferenceType):
     """Outputs of inference for the Summarization task"""
 

@@ -3,16 +3,15 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, Dict, Literal, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 Text2TextGenerationTruncationStrategy = Literal["do_not_truncate", "longest_first", "only_first", "only_second"]
 
 
-@dataclass
+@dataclass_with_extra
 class Text2TextGenerationParameters(BaseInferenceType):
     """Additional inference parameters for Text2text Generation"""
 
@@ -24,7 +23,7 @@ class Text2TextGenerationParameters(BaseInferenceType):
     """The truncation strategy to use"""
 
 
-@dataclass
+@dataclass_with_extra
 class Text2TextGenerationInput(BaseInferenceType):
     """Inputs for Text2text Generation inference"""
 
@@ -34,7 +33,7 @@ class Text2TextGenerationInput(BaseInferenceType):
     """Additional inference parameters for Text2text Generation"""
 
 
-@dataclass
+@dataclass_with_extra
 class Text2TextGenerationOutput(BaseInferenceType):
     """Outputs of inference for the Text2text Generation task"""
 

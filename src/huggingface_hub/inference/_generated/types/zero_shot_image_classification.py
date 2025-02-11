@@ -3,13 +3,12 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import List, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class ZeroShotImageClassificationParameters(BaseInferenceType):
     """Additional inference parameters for Zero Shot Image Classification"""
 
@@ -21,7 +20,7 @@ class ZeroShotImageClassificationParameters(BaseInferenceType):
     """
 
 
-@dataclass
+@dataclass_with_extra
 class ZeroShotImageClassificationInput(BaseInferenceType):
     """Inputs for Zero Shot Image Classification inference"""
 
@@ -31,7 +30,7 @@ class ZeroShotImageClassificationInput(BaseInferenceType):
     """Additional inference parameters for Zero Shot Image Classification"""
 
 
-@dataclass
+@dataclass_with_extra
 class ZeroShotImageClassificationOutputElement(BaseInferenceType):
     """Outputs of inference for the Zero Shot Image Classification task"""
 

@@ -19,7 +19,7 @@ import unittest
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, List
 from unittest.mock import Mock, patch
 
 import pytest
@@ -932,8 +932,8 @@ class TestHfHubDownloadRelativePaths(unittest.TestCase):
             _get_pointer_path("path/to/storage", "abcdef", relative_filename)
 
 
-class TestHttpGet(unittest.TestCase):
-    def test_http_get_with_ssl_and_timeout_error(self):
+class TestHttpGet:
+    def test_http_get_with_ssl_and_timeout_error(self, caplog):
         def _iter_content_1() -> Iterable[bytes]:
             yield b"0" * 10
             yield b"0" * 10
@@ -966,22 +966,99 @@ class TestHttpGet(unittest.TestCase):
 
             temp_file = io.BytesIO()
 
-            with self.assertLogs("huggingface_hub.file_download", level="WARNING") as records:
-                http_get("fake_url", temp_file=temp_file)
+            http_get("fake_url", temp_file=temp_file)
 
-        # Check 3 warnings
-        self.assertEqual(len(records.records), 3)
+        assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 3
 
         # Check final value
-        self.assertEqual(temp_file.tell(), 100)
-        self.assertEqual(temp_file.getvalue(), b"0" * 100)
+        assert temp_file.tell() == 100
+        assert temp_file.getvalue() == b"0" * 100
 
         # Check number of calls + correct range headers
-        self.assertEqual(len(mock.call_args_list), 4)
-        self.assertEqual(mock.call_args_list[0].kwargs["headers"], {})
-        self.assertEqual(mock.call_args_list[1].kwargs["headers"], {"Range": "bytes=20-"})
-        self.assertEqual(mock.call_args_list[2].kwargs["headers"], {"Range": "bytes=30-"})
-        self.assertEqual(mock.call_args_list[3].kwargs["headers"], {"Range": "bytes=60-"})
+        assert len(mock.call_args_list) == 4
+        assert mock.call_args_list[0].kwargs["headers"] == {}
+        assert mock.call_args_list[1].kwargs["headers"] == {"Range": "bytes=20-"}
+        assert mock.call_args_list[2].kwargs["headers"] == {"Range": "bytes=30-"}
+        assert mock.call_args_list[3].kwargs["headers"] == {"Range": "bytes=60-"}
+
+    @pytest.mark.parametrize(
+        "initial_range,expected_ranges",
+        [
+            # Test suffix ranges (bytes=-100)
+            (
+                "bytes=-100",
+                [
+                    "bytes=-100",
+                    "bytes=-80",
+                    "bytes=-70",
+                    "bytes=-40",
+                ],
+            ),
+            # Test prefix ranges (bytes=15-)
+            (
+                "bytes=15-",
+                [
+                    "bytes=15-",
+                    "bytes=35-",
+                    "bytes=45-",
+                    "bytes=75-",
+                ],
+            ),
+            # Test double closed ranges (bytes=15-114)
+            (
+                "bytes=15-114",
+                [
+                    "bytes=15-114",
+                    "bytes=35-114",
+                    "bytes=45-114",
+                    "bytes=75-114",
+                ],
+            ),
+        ],
+    )
+    def test_http_get_with_range_headers(self, caplog, initial_range: str, expected_ranges: List[str]):
+        def _iter_content_1() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            raise requests.exceptions.SSLError("Fake SSLError")
+
+        def _iter_content_2() -> Iterable[bytes]:
+            yield b"0" * 10
+            raise requests.ReadTimeout("Fake ReadTimeout")
+
+        def _iter_content_3() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+            raise requests.ConnectionError("Fake ConnectionError")
+
+        def _iter_content_4() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+
+        with patch("huggingface_hub.file_download._request_wrapper") as mock:
+            mock.return_value.headers = {"Content-Length": 100}
+            mock.return_value.iter_content.side_effect = [
+                _iter_content_1(),
+                _iter_content_2(),
+                _iter_content_3(),
+                _iter_content_4(),
+            ]
+
+            temp_file = io.BytesIO()
+
+            http_get("fake_url", temp_file=temp_file, headers={"Range": initial_range})
+
+        assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 3
+
+        assert temp_file.tell() == 100
+        assert temp_file.getvalue() == b"0" * 100
+
+        assert len(mock.call_args_list) == 4
+        for i, expected_range in enumerate(expected_ranges):
+            assert mock.call_args_list[i].kwargs["headers"] == {"Range": expected_range}
 
 
 class CreateSymlinkTest(unittest.TestCase):
