@@ -138,7 +138,7 @@ class TaskProviderHelper:
         Usually not overwritten in subclasses."""
         base_url = self._prepare_base_url(api_key)
         route = self._prepare_route(mapped_model)
-        return f"{base_url}/{route}"
+        return f"{base_url.rstrip('/')}/{route.lstrip('/')}"
 
     def _prepare_base_url(self, api_key: str) -> str:
         """Return the base URL to use for the request.
