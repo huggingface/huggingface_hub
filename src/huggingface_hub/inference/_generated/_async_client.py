@@ -44,6 +44,8 @@ from huggingface_hub.inference._common import (
     _import_numpy,
     _open_as_binary,
     _set_unsupported_text_generation_kwargs,
+    _tensor_shape_dtype,
+    _tensor_to_bytes,
     raise_text_generation_error,
 )
 from huggingface_hub.inference._generated.types import (
@@ -87,7 +89,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._providers import PROVIDER_T, HFInferenceTask, get_provider_helper
-from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
+from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status, is_torch_available
 from huggingface_hub.utils._deprecation import _deprecate_arguments, _deprecate_method
 
 from .._common import _async_yield_from, _import_aiohttp
@@ -97,6 +99,10 @@ if TYPE_CHECKING:
     import numpy as np
     from aiohttp import ClientResponse, ClientSession
     from PIL.Image import Image
+
+    if is_torch_available():
+        import torch
+
 
 logger = logging.getLogger(__name__)
 
@@ -1480,6 +1486,55 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         output = ImageToTextOutput.parse_obj(response)
         return output[0] if isinstance(output, list) else output
+
+    async def latent_to_image(self, latents: "torch.Tensor", *, model: Optional[str] = None) -> "Image":
+        """
+        Takes an input latents and return image.
+
+        <Tip warning={true}>
+
+        You must have `torch` installed if you want to work with tensors (`pip install torch`).
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        You must have `safetensors` installed if you want to work with tensors (`pip install safetensors`).
+
+        </Tip>
+
+        VAE model should match the model that generated the latents.
+
+        Args:
+            latents (`torch.Tensor`):
+                The input latent to decode.
+            model (`str`, *optional*):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+                Subfolder `vae` is automatically detected.
+
+        Returns:
+            `Image`: The generated image.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        """
+        provider_helper = get_provider_helper(self.provider, task="latent-to-image")
+        headers = self.headers
+        headers.update(_tensor_shape_dtype(tensor=latents))
+        request_parameters = provider_helper.prepare_request(
+            data=_tensor_to_bytes(tensor=latents),
+            headers=headers,
+            model=model or self.model,
+            api_key=self.token,
+        )
+        response = await self._inner_post(request_parameters)
+        response = provider_helper.get_response(response)
+        return _bytes_to_image(response)
 
     async def object_detection(
         self, image: ContentT, *, model: Optional[str] = None, threshold: Optional[float] = None

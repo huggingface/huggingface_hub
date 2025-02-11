@@ -55,6 +55,8 @@ from ..utils import (
     is_aiohttp_available,
     is_numpy_available,
     is_pillow_available,
+    is_safetensors_available,
+    is_torch_available,
 )
 from ._generated.types import ChatCompletionStreamOutput, TextGenerationStreamOutput
 
@@ -62,6 +64,9 @@ from ._generated.types import ChatCompletionStreamOutput, TextGenerationStreamOu
 if TYPE_CHECKING:
     from aiohttp import ClientResponse, ClientSession
     from PIL.Image import Image
+
+    if is_torch_available():
+        import torch
 
 # TYPES
 UrlT = str
@@ -167,6 +172,24 @@ def _import_pil_image():
     return Image
 
 
+def _import_torch():
+    """Make sure `torch` is installed on the machine."""
+    if not is_torch_available():
+        raise ImportError("Please install torch to use deal with tensors (`pip install torch`).")
+    import torch
+
+    return torch
+
+
+def _import_safetensors():
+    """Make sure `safetensors` is installed on the machine."""
+    if not is_safetensors_available():
+        raise ImportError("Please install safetensors to use deal with tensors (`pip install safetensors`).")
+    import safetensors.torch
+
+    return safetensors.torch
+
+
 ## ENCODING / DECODING UTILS
 
 
@@ -260,6 +283,20 @@ def _bytes_to_image(content: bytes) -> "Image":
 
 def _as_dict(response: Union[bytes, Dict]) -> Dict:
     return json.loads(response) if isinstance(response, bytes) else response
+
+
+def _tensor_to_bytes(tensor: "torch.Tensor") -> bytes:
+    safetensors = _import_safetensors()
+    data = safetensors._tobytes(tensor=tensor, name="tensor")
+    if not isinstance(data, bytes):
+        data = data.tobytes()
+    return data
+
+
+def _tensor_shape_dtype(tensor: "torch.Tensor") -> Dict[str, str]:
+    shape = json.dumps(list(tensor.shape))
+    dtype = str(tensor.dtype).split(".")[-1]
+    return {"shape": shape, "dtype": dtype}
 
 
 ## PAYLOAD UTILS
