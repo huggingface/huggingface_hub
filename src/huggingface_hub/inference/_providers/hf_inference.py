@@ -21,7 +21,7 @@ class HFInferenceTask(TaskProviderHelper):
 
     def _prepare_api_key(self, api_key: Optional[str]) -> str:
         # special case: for HF Inference we allow not providing an API key
-        return get_token()  # type: ignore[return-value]
+        return api_key or get_token()  # type: ignore[return-value]
 
     def _prepare_mapped_model(self, model: Optional[str]) -> str:
         if model is not None:
