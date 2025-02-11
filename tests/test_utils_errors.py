@@ -36,13 +36,25 @@ class TestErrorUtils(unittest.TestCase):
         assert context.exception.response.status_code == 403
         assert "Request ID: 123" in str(context.exception)
 
-    def test_hf_raise_for_status_401_repo_url(self) -> None:
+    def test_hf_raise_for_status_401_repo_url_not_invalid_token(self) -> None:
         response = Response()
         response.headers = {X_REQUEST_ID: 123}
         response.status_code = 401
         response.request = PreparedRequest()
         response.request.url = "https://huggingface.co/api/models/username/reponame"
         with self.assertRaisesRegex(RepositoryNotFoundError, "Repository Not Found") as context:
+            hf_raise_for_status(response)
+
+        assert context.exception.response.status_code == 401
+        assert "Request ID: 123" in str(context.exception)
+
+    def test_hf_raise_for_status_401_repo_url_invalid_token(self) -> None:
+        response = Response()
+        response.headers = {X_REQUEST_ID: 123, "X-Error-Message": "Invalid credentials in Authorization header"}
+        response.status_code = 401
+        response.request = PreparedRequest()
+        response.request.url = "https://huggingface.co/api/models/username/reponame"
+        with self.assertRaisesRegex(HfHubHTTPError, "Invalid credentials in Authorization header") as context:
             hf_raise_for_status(response)
 
         assert context.exception.response.status_code == 401
