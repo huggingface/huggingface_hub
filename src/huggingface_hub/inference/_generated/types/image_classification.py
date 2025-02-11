@@ -3,16 +3,15 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Literal, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 ImageClassificationOutputTransform = Literal["sigmoid", "softmax", "none"]
 
 
-@dataclass
+@dataclass_with_extra
 class ImageClassificationParameters(BaseInferenceType):
     """Additional inference parameters for Image Classification"""
 
@@ -22,7 +21,7 @@ class ImageClassificationParameters(BaseInferenceType):
     """When specified, limits the output to the top K most probable classes."""
 
 
-@dataclass
+@dataclass_with_extra
 class ImageClassificationInput(BaseInferenceType):
     """Inputs for Image Classification inference"""
 
@@ -34,7 +33,7 @@ class ImageClassificationInput(BaseInferenceType):
     """Additional inference parameters for Image Classification"""
 
 
-@dataclass
+@dataclass_with_extra
 class ImageClassificationOutputElement(BaseInferenceType):
     """Outputs of inference for the Image Classification task"""
 

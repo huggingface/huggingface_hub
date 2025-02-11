@@ -48,7 +48,7 @@ BASE_DATACLASS_REGEX = re.compile(
 
 INHERITED_DATACLASS_REGEX = re.compile(
     r"""
-    ^@dataclass
+    ^@dataclass_with_extra
     \nclass\s(\w+)\(BaseInferenceType\):
 """,
     re.VERBOSE | re.MULTILINE,
@@ -163,9 +163,10 @@ def _replace_class_name(content: str, cls: str, new_cls: str) -> str:
 
 def _inherit_from_base(content: str) -> str:
     content = content.replace(
-        "\nfrom dataclasses import", "\nfrom .base import BaseInferenceType\nfrom dataclasses import"
+        "\nfrom dataclasses import",
+        "\nfrom .base import BaseInferenceType, dataclass_with_extra\nfrom dataclasses import",
     )
-    content = BASE_DATACLASS_REGEX.sub(r"@dataclass\nclass \1(BaseInferenceType):\n", content)
+    content = BASE_DATACLASS_REGEX.sub(r"@dataclass_with_extra\nclass \1(BaseInferenceType):\n", content)
     return content
 
 

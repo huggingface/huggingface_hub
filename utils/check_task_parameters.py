@@ -74,7 +74,7 @@ TASKS_TO_SKIP = [
 
 PARAMETERS_DATACLASS_REGEX = re.compile(
     r"""
-    ^@dataclass
+    ^@dataclass_with_extra
     \nclass\s(\w+Parameters)\(BaseInferenceType\):
     """,
     re.VERBOSE | re.MULTILINE,

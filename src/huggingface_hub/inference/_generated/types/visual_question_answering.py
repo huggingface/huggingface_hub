@@ -3,13 +3,12 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class VisualQuestionAnsweringInputData(BaseInferenceType):
     """One (image, question) pair to answer"""
 
@@ -19,7 +18,7 @@ class VisualQuestionAnsweringInputData(BaseInferenceType):
     """The question to answer based on the image."""
 
 
-@dataclass
+@dataclass_with_extra
 class VisualQuestionAnsweringParameters(BaseInferenceType):
     """Additional inference parameters for Visual Question Answering"""
 
@@ -30,7 +29,7 @@ class VisualQuestionAnsweringParameters(BaseInferenceType):
     """
 
 
-@dataclass
+@dataclass_with_extra
 class VisualQuestionAnsweringInput(BaseInferenceType):
     """Inputs for Visual Question Answering inference"""
 
@@ -40,7 +39,7 @@ class VisualQuestionAnsweringInput(BaseInferenceType):
     """Additional inference parameters for Visual Question Answering"""
 
 
-@dataclass
+@dataclass_with_extra
 class VisualQuestionAnsweringOutputElement(BaseInferenceType):
     """Outputs of inference for the Visual Question Answering task"""
 

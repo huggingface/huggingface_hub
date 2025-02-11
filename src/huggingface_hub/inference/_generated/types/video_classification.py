@@ -3,16 +3,15 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, Literal, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 VideoClassificationOutputTransform = Literal["sigmoid", "softmax", "none"]
 
 
-@dataclass
+@dataclass_with_extra
 class VideoClassificationParameters(BaseInferenceType):
     """Additional inference parameters for Video Classification"""
 
@@ -26,7 +25,7 @@ class VideoClassificationParameters(BaseInferenceType):
     """When specified, limits the output to the top K most probable classes."""
 
 
-@dataclass
+@dataclass_with_extra
 class VideoClassificationInput(BaseInferenceType):
     """Inputs for Video Classification inference"""
 
@@ -36,7 +35,7 @@ class VideoClassificationInput(BaseInferenceType):
     """Additional inference parameters for Video Classification"""
 
 
-@dataclass
+@dataclass_with_extra
 class VideoClassificationOutputElement(BaseInferenceType):
     """Outputs of inference for the Video Classification task"""
 

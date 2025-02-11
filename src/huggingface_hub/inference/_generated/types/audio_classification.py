@@ -3,16 +3,15 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Literal, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 AudioClassificationOutputTransform = Literal["sigmoid", "softmax", "none"]
 
 
-@dataclass
+@dataclass_with_extra
 class AudioClassificationParameters(BaseInferenceType):
     """Additional inference parameters for Audio Classification"""
 
@@ -22,7 +21,7 @@ class AudioClassificationParameters(BaseInferenceType):
     """When specified, limits the output to the top K most probable classes."""
 
 
-@dataclass
+@dataclass_with_extra
 class AudioClassificationInput(BaseInferenceType):
     """Inputs for Audio Classification inference"""
 
@@ -34,7 +33,7 @@ class AudioClassificationInput(BaseInferenceType):
     """Additional inference parameters for Audio Classification"""
 
 
-@dataclass
+@dataclass_with_extra
 class AudioClassificationOutputElement(BaseInferenceType):
     """Outputs for Audio Classification inference"""
 

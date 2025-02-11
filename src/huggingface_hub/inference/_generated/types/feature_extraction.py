@@ -3,16 +3,15 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import List, Literal, Optional, Union
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 FeatureExtractionInputTruncationDirection = Literal["Left", "Right"]
 
 
-@dataclass
+@dataclass_with_extra
 class FeatureExtractionInput(BaseInferenceType):
     """Feature Extraction Input.
     Auto-generated from TEI specs.

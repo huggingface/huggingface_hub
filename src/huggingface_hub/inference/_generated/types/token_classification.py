@@ -3,16 +3,15 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import List, Literal, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 TokenClassificationAggregationStrategy = Literal["none", "simple", "first", "average", "max"]
 
 
-@dataclass
+@dataclass_with_extra
 class TokenClassificationParameters(BaseInferenceType):
     """Additional inference parameters for Token Classification"""
 
@@ -24,7 +23,7 @@ class TokenClassificationParameters(BaseInferenceType):
     """The number of overlapping tokens between chunks when splitting the input text."""
 
 
-@dataclass
+@dataclass_with_extra
 class TokenClassificationInput(BaseInferenceType):
     """Inputs for Token Classification inference"""
 
@@ -34,7 +33,7 @@ class TokenClassificationInput(BaseInferenceType):
     """Additional inference parameters for Token Classification"""
 
 
-@dataclass
+@dataclass_with_extra
 class TokenClassificationOutputElement(BaseInferenceType):
     """Outputs of inference for the Token Classification task"""
 
