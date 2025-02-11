@@ -1,6 +1,6 @@
 from typing import Dict, Literal
 
-from .._common import TaskProviderHelper
+from ._common import TaskProviderHelper
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAITextToImageTask,

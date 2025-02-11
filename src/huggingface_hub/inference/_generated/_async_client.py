@@ -258,8 +258,9 @@ class AsyncInferenceClient:
                 "`InferenceClient.post` is deprecated and should not be used directly anymore."
             )
         provider_helper = HFInferenceTask(task or "unknown")
-        url = provider_helper.build_url(provider_helper.map_model(model))
-        headers = provider_helper.prepare_headers(headers=self.headers, api_key=self.token)
+        mapped_model = provider_helper._prepare_mapped_model(model or self.model)
+        url = provider_helper._prepare_url(self.token, mapped_model)  # type: ignore[arg-type]
+        headers = provider_helper._prepare_headers(self.headers, self.token)  # type: ignore[arg-type]
         return await self._inner_post(
             request_parameters=RequestParameters(
                 url=url,

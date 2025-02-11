@@ -193,4 +193,262 @@ interactions:
     status:
       code: 200
       message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - 908a23ce-dac1-494d-8e14-a0fe2e5992bc
+    method: GET
+    uri: https://huggingface.co/api/models/meta-llama/Meta-Llama-3.1-8B-Instruct?expand=inferenceProviderMapping
+  response:
+    body:
+      string: Temporary Redirect. Redirecting to /api/models/meta-llama/Llama-3.1-8B-Instruct?expand=inferenceProviderMapping
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '111'
+      Content-Type:
+      - text/plain; charset=utf-8
+      Date:
+      - Tue, 11 Feb 2025 10:13:48 GMT
+      Location:
+      - /api/models/meta-llama/Llama-3.1-8B-Instruct?expand=inferenceProviderMapping
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin, Accept
+      Via:
+      - 1.1 c812f87630e842766e842cb048d8c94e.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - ydLLEoZmdolSHnfj9Tx-xrWJgI5hkO8UBxUvmhLlZORoDubrcjB_yA==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-67ab22dc-0d90f5f757d47f530b515be1;908a23ce-dac1-494d-8e14-a0fe2e5992bc
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 307
+      message: Temporary Redirect
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - 908a23ce-dac1-494d-8e14-a0fe2e5992bc
+    method: GET
+    uri: https://huggingface.co/api/models/meta-llama/Llama-3.1-8B-Instruct?expand=inferenceProviderMapping
+  response:
+    body:
+      string: '{"_id":"6698d8a0653e4babe21e1e7d","id":"meta-llama/Llama-3.1-8B-Instruct","inferenceProviderMapping":{"sambanova":{"status":"live","providerId":"Meta-Llama-3.1-8B-Instruct","task":"conversational"}}}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '199'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Tue, 11 Feb 2025 10:13:48 GMT
+      ETag:
+      - W/"c7-TZgW++vzRWhy4flOcxqeqWyrc+g"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 c812f87630e842766e842cb048d8c94e.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - zGtsJdqTl1lmx7dh1aNk-jIb3ZkP4PUtz8o50FKpJfgga4jCxXYhLA==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-67ab22dc-2491bf567e8f5c2878e8d8a7;908a23ce-dac1-494d-8e14-a0fe2e5992bc
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - a4c37ad7-2858-4226-812c-502d82d745b4
+    method: GET
+    uri: https://huggingface.co/api/models/meta-llama/Meta-Llama-3-8B-Instruct?expand=inferenceProviderMapping
+  response:
+    body:
+      string: '{"_id":"661f97d0b00f5f1f620c4f25","id":"meta-llama/Meta-Llama-3-8B-Instruct","inferenceProviderMapping":{"together":{"status":"live","providerId":"meta-llama/Meta-Llama-3-8B-Instruct-Turbo","task":"conversational"}}}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '216'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Tue, 11 Feb 2025 10:15:10 GMT
+      ETag:
+      - W/"d8-5cqbef+J/PoG1edjSKCp8gCkl6I"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 a355d8f903a0cf5525893c863fcdf216.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - ska12Q57Sgvyrale-7wGZtPcVkQn_082MdwCgXlIQviG2JEa9jqsJQ==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-67ab232e-1d6f99d010e3ff49587d8e1b;a4c37ad7-2858-4226-812c-502d82d745b4
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "meta-llama/Meta-Llama-3-8B-Instruct-Turbo",
+      "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '203'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 14127d21-e3d7-48f9-ac8b-9313a7165cbd
+    method: POST
+    uri: https://api.together.xyz/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        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
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-Ray:
+      - 91039384af5c2a55-CDG
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Tue, 11 Feb 2025 10:15:15 GMT
+      ETag:
+      - W/"10da-cmYXC1vN0j0+9Pay//l8albMmA8"
+      Retry-After:
+      - '2'
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=15552000; includeSubDomains
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Accept-Encoding
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-api-call-end:
+      - '2025-02-11T10:15:15.801Z'
+      x-api-call-start:
+      - '2025-02-11T10:15:11.064Z'
+      x-api-received:
+      - '2025-02-11T10:15:10.954Z'
+      x-inference-version:
+      - v2
+      x-ratelimit:
+      - 'false'
+      x-ratelimit-limit:
+      - '75'
+      x-ratelimit-limit-tokens:
+      - '16666'
+      x-ratelimit-remaining:
+      - '149'
+      x-ratelimit-remaining-tokens:
+      - '16269'
+      x-ratelimit-reset:
+      - '2'
+    status:
+      code: 200
+      message: OK
 version: 1

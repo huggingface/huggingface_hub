@@ -153,6 +153,7 @@ ExpandModelProperty_T = Literal[
     "model-index",
     "pipeline_tag",
     "private",
+    "resourceGroup",
     "safetensors",
     "sha",
     "siblings",
@@ -160,9 +161,8 @@ ExpandModelProperty_T = Literal[
     "tags",
     "transformersInfo",
     "trendingScore",
-    "widgetData",
     "usedStorage",
-    "resourceGroup",
+    "widgetData",
 ]
 
 ExpandDatasetProperty_T = Literal[
@@ -170,8 +170,8 @@ ExpandDatasetProperty_T = Literal[
     "cardData",
     "citation",
     "createdAt",
-    "disabled",
     "description",
+    "disabled",
     "downloads",
     "downloadsAllTime",
     "gated",
@@ -179,12 +179,12 @@ ExpandDatasetProperty_T = Literal[
     "likes",
     "paperswithcode_id",
     "private",
-    "siblings",
-    "sha",
-    "trendingScore",
-    "tags",
-    "usedStorage",
     "resourceGroup",
+    "sha",
+    "siblings",
+    "tags",
+    "trendingScore",
+    "usedStorage",
 ]
 
 ExpandSpaceProperty_T = Literal[
@@ -197,15 +197,15 @@ ExpandSpaceProperty_T = Literal[
     "likes",
     "models",
     "private",
+    "resourceGroup",
     "runtime",
     "sdk",
-    "siblings",
     "sha",
+    "siblings",
     "subdomain",
     "tags",
     "trendingScore",
     "usedStorage",
-    "resourceGroup",
 ]
 
 USERNAME_PLACEHOLDER = "hf_user"
@@ -699,6 +699,19 @@ class RepoFolder:
 
 
 @dataclass
+class InferenceProviderMapping:
+    status: Literal["live", "staging"]
+    provider_id: str
+    task: str
+
+    def __init__(self, **kwargs):
+        self.status = kwargs.pop("status")
+        self.provider_id = kwargs.pop("providerId")
+        self.task = kwargs.pop("task")
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
 class ModelInfo:
     """
     Contains information about a model on the Hub.
@@ -740,6 +753,8 @@ class ModelInfo:
             Status of the model on the inference API.
             Warm models are available for immediate use. Cold models will be loaded on first inference call.
             Frozen models are not available in Inference API.
+        inference_provider_mapping (`Dict`, *optional*):
+            Model's inference provider mapping.
         likes (`int`):
             Number of likes of the model.
         library_name (`str`, *optional*):
@@ -785,6 +800,7 @@ class ModelInfo:
     gated: Optional[Literal["auto", "manual", False]]
     gguf: Optional[Dict]
     inference: Optional[Literal["warm", "cold", "frozen"]]
+    inference_provider_mapping: Optional[Dict[str, InferenceProviderMapping]]
     likes: Optional[int]
     library_name: Optional[str]
     tags: Optional[List[str]]
@@ -817,7 +833,15 @@ class ModelInfo:
         self.likes = kwargs.pop("likes", None)
         self.library_name = kwargs.pop("library_name", None)
         self.gguf = kwargs.pop("gguf", None)
+
         self.inference = kwargs.pop("inference", None)
+        self.inference_provider_mapping = kwargs.pop("inferenceProviderMapping", None)
+        if self.inference_provider_mapping:
+            self.inference_provider_mapping = {
+                provider: InferenceProviderMapping(**value)
+                for provider, value in self.inference_provider_mapping.items()
+            }
+
         self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
         self.mask_token = kwargs.pop("mask_token", None)
