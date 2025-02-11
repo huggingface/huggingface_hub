@@ -14,6 +14,7 @@ from requests import ConnectTimeout, HTTPError
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.utils._http import (
     OfflineModeIsEnabled,
+    _adjust_range_header,
     configure_http_backend,
     fix_hf_endpoint_in_url,
     get_session,
@@ -311,3 +312,27 @@ def _is_uuid(string: str) -> bool:
 )
 def test_fix_hf_endpoint_in_url(base_url: str, endpoint: Optional[str], expected_url: str) -> None:
     assert fix_hf_endpoint_in_url(base_url, endpoint) == expected_url
+
+
+def test_adjust_range_header():
+    # Basic cases
+    assert _adjust_range_header(None, 10) == "bytes=10-"
+    assert _adjust_range_header("bytes=0-100", 10) == "bytes=10-100"
+    assert _adjust_range_header("bytes=-100", 10) == "bytes=-90"
+    assert _adjust_range_header("bytes=100-", 10) == "bytes=110-"
+
+    with pytest.raises(RuntimeError):
+        _adjust_range_header("invalid", 10)
+
+    with pytest.raises(RuntimeError):
+        _adjust_range_header("bytes=-", 10)
+
+    # Multiple ranges
+    with pytest.raises(ValueError):
+        _adjust_range_header("bytes=0-100,200-300", 10)
+
+    # Resume size exceeds range
+    with pytest.raises(RuntimeError):
+        _adjust_range_header("bytes=0-100", 150)
+    with pytest.raises(RuntimeError):
+        _adjust_range_header("bytes=-50", 100)
