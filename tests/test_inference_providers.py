@@ -59,15 +59,36 @@ class TestFalAIProvider:
             "image_size": {"width": 512, "height": 512},
         }
 
+    def test_text_to_image_response(self, mocker):
+        helper = FalAITextToImageTask()
+        mock = mocker.patch("huggingface_hub.inference._providers.fal_ai.get_session")
+        response = helper.get_response({"images": [{"url": "image_url"}]})
+        mock.return_value.get.assert_called_once_with("image_url")
+        assert response == mock.return_value.get.return_value.content
+
     def test_text_to_speech_payload(self):
         helper = FalAITextToSpeechTask()
         payload = helper._prepare_payload("Hello world", {}, "username/repo_name")
         assert payload == {"lyrics": "Hello world"}
 
+    def test_text_to_speech_response(self, mocker):
+        helper = FalAITextToSpeechTask()
+        mock = mocker.patch("huggingface_hub.inference._providers.fal_ai.get_session")
+        response = helper.get_response({"audio": {"url": "audio_url"}})
+        mock.return_value.get.assert_called_once_with("audio_url")
+        assert response == mock.return_value.get.return_value.content
+
     def test_text_to_video_payload(self):
         helper = FalAITextToVideoTask()
         payload = helper._prepare_payload("a cat walking", {"num_frames": 16}, "username/repo_name")
         assert payload == {"prompt": "a cat walking", "num_frames": 16}
+
+    def test_text_to_video_response(self, mocker):
+        helper = FalAITextToVideoTask()
+        mock = mocker.patch("huggingface_hub.inference._providers.fal_ai.get_session")
+        response = helper.get_response({"video": {"url": "video_url"}})
+        mock.return_value.get.assert_called_once_with("video_url")
+        assert response == mock.return_value.get.return_value.content
 
 
 class TestHFInferenceProvider:
