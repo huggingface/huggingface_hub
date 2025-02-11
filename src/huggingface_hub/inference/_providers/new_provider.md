@@ -8,7 +8,7 @@ Create a new file under `src/huggingface_hub/inference/_providers/{provider_name
 
 Implement the methods that require custom handling. Check out the base implementation to check default behavior. If you don't need to override a method, just remove it. At least one of `_prepare_payload` or `_prepare_body` must be overwritten.
 
-If different tasks require distinct implementations, you can define multiple subclasses. See `fal_ai.py` as an example.
+If the provider supports multiple tasks that require different implementations, create dedicated subclasses for each task, following the pattern shown in `fal_ai.py`.
 
 ```py
 from typing import Any, Dict, Optional, Union
