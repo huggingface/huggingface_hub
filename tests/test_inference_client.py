@@ -70,6 +70,9 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "text-to-image": "black-forest-labs/FLUX.1-dev",
         "automatic-speech-recognition": "openai/whisper-large-v3",
     },
+    "fireworks-ai": {
+        "conversational": "meta-llama/Llama-3.3-70B-Instruct",
+    },
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",
     },
@@ -105,17 +108,10 @@ _RECOMMENDED_MODELS_FOR_VCR = {
 API_KEY_ENV_VARIABLES = {
     "hf-inference": "HF_TOKEN",
     "fal-ai": "FAL_AI_KEY",
+    "fireworks-ai": "HF_TOKEN",
     "replicate": "REPLICATE_KEY",
     "sambanova": "SAMBANOVA_API_KEY",
     "together": "TOGETHER_API_KEY",
-}
-
-EXPECTED_URLS = {
-    "hf-inference": "https://api-inference.huggingface.co/models/username/repo_name",
-    "fal-ai": "https://fal.run/{model}",
-    "replicate": "https://api.replicate.com/v1/predictions",
-    "sambanova": "https://api.sambanova.ai/v1/models/username/repo_name/generate",
-    "together": "https://api.together.xyz/inference",
 }
 
 CHAT_COMPLETION_MODEL = "HuggingFaceH4/zephyr-7b-beta"

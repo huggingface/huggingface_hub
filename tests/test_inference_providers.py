@@ -10,6 +10,7 @@ from huggingface_hub.inference._providers.fal_ai import (
     FalAITextToSpeechTask,
     FalAITextToVideoTask,
 )
+from huggingface_hub.inference._providers.fireworks_ai import FireworksAIConversationalTask
 from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceBinaryInputTask,
     HFInferenceConversational,
@@ -89,6 +90,23 @@ class TestFalAIProvider:
         response = helper.get_response({"video": {"url": "video_url"}})
         mock.return_value.get.assert_called_once_with("video_url")
         assert response == mock.return_value.get.return_value.content
+
+
+class TestFireworksAIConversationalTask:
+    def test_prepare_url(self):
+        helper = FireworksAIConversationalTask()
+        url = helper._prepare_url("fireworks_token", "username/repo_name")
+        assert url == "https://api.fireworks.ai/inference/v1/chat/completions"
+
+    def test_prepare_payload(self):
+        helper = FireworksAIConversationalTask()
+        payload = helper._prepare_payload(
+            [{"role": "user", "content": "Hello!"}], {}, "meta-llama/Llama-3.1-8B-Instruct"
+        )
+        assert payload == {
+            "messages": [{"role": "user", "content": "Hello!"}],
+            "model": "meta-llama/Llama-3.1-8B-Instruct",
+        }
 
 
 class TestHFInferenceProvider:

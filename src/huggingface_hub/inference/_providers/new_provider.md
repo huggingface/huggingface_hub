@@ -1,0 +1,79 @@
+## How to add a new provider?
+
+Before adding a new provider to the `huggingface_hub` library, make sure it has already been added to `huggingface.js` and is working on the Hub. Support in the Python library comes as a second step. In this guide, we are considering that the first part is complete. 
+
+### 1. Implement the provider helper 
+
+Create a new file under `src/huggingface_hub/inference/_providers/{provider_name}.py` and copy-paste the following snippet.
+
+Implement the methods that require custom handling. Check out the base implementation to check default behavior. If you don't need to override a method, just remove it. At least one of `_prepare_payload` or `_prepare_body` must be overwritten.
+
+If different tasks require distinct implementations, you can define multiple subclasses. See `fal_ai.py` as an example.
+
+```py
+from typing import Any, Dict, Optional, Union
+
+from ._common import TaskProviderHelper
+
+
+class MyNewProviderTaskProviderHelper(TaskProviderHelper):
+    def __init__(self):
+        """Define high-level parameters."""
+        super().__init__(provider=..., base_url=..., task=...)
+
+    def get_response(self, response: Union[bytes, Dict]) -> Any:
+        """
+        Return the response in the expected format.
+
+        Override this method in subclasses for customized response handling."""
+        return super().get_response(response)
+
+    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+        """Return the headers to use for the request.
+
+        Override this method in subclasses for customized headers.
+        """
+        return super()._prepare_headers(headers, api_key)
+
+    def _prepare_route(self, mapped_model: str) -> str:
+        """Return the route to use for the request.
+
+        Override this method in subclasses for customized routes.
+        """
+        return super()._prepare_route(mapped_model)
+
+    def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+        """Return the payload to use for the request, as a dict.
+
+        Override this method in subclasses for customized payloads.
+        Only one of `_prepare_payload` and `_prepare_body` should return a value.
+        """
+        return super()._prepare_payload(inputs, parameters, mapped_model)
+
+    def _prepare_body(
+        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
+    ) -> Optional[bytes]:
+        """Return the body to use for the request, as bytes.
+
+        Override this method in subclasses for customized body data.
+        Only one of `_prepare_payload` and `_prepare_body` should return a value.
+        """
+        return super()._prepare_body(inputs, parameters, mapped_model, extra_payload)
+```
+
+### 2. Register the provider helper in `__init__.py`
+
+Go to `src/huggingface_hub/inference/_providers/__init__.py` and add your provider  to `PROVIDER_T` and `PROVIDERS`.
+Please try to respect alphabetical order.
+
+### 3. Update docstring in `InferenceClient.__init__` to document your provider
+
+### 4. Add static tests in `tests/test_inference_providers.py`
+
+You only have to add a test for overwritten methods.
+
+### 5. Add VCR tests in `tests/test_inference_client.py`
+
+- Add an entry in `_RECOMMENDED_MODELS_FOR_VCR` at the top of the test module. It contains a mapping task <> test model. Model id must be the HF model id.
+- Add an entry in `API_KEY_ENV_VARIABLES` to define which env variable should be used
+- Run tests locally with `pytest tests/test_inference_client.py -k <provider>` and commit the VCR cassettes.
