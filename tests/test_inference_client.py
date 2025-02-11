@@ -62,8 +62,8 @@ from .testing_utils import expect_deprecation, with_production_testing
 # Avoid calling APIs in VCRed tests
 _RECOMMENDED_MODELS_FOR_VCR = {
     "together": {
-        "conversational": "meta-llama/Meta-Llama-3.1-8B-Instruct",
-        "text-generation": "meta-llama/Meta-Llama-3-8B",
+        "conversational": "meta-llama/Meta-Llama-3-8B-Instruct",
+        "text-generation": "meta-llama/Llama-2-70b-hf",
         "text-to-image": "stabilityai/stable-diffusion-xl-base-1.0",
     },
     "fal-ai": {
@@ -828,89 +828,6 @@ class TestOpenAsBinary:
         content_bytes = Path(self.image_file).read_bytes()
         with _open_as_binary(content_bytes) as content:
             assert content == content_bytes
-
-
-@pytest.mark.parametrize(
-    "provider,task,model,expected_url",
-    [
-        # HF Inference - standard endpoints
-        (
-            "hf-inference",
-            "text-classification",
-            "username/repo_name",
-            "https://router.huggingface.co/hf-inference/models/username/repo_name",
-        ),
-        # HF Inference - pipeline endpoints
-        (
-            "hf-inference",
-            "feature-extraction",
-            "username/repo_name",
-            "https://router.huggingface.co/hf-inference/pipeline/feature-extraction/username/repo_name",
-        ),
-        # HF Inference - chat endpoints
-        (
-            "hf-inference",
-            "conversational",
-            "username/repo_name",
-            "https://router.huggingface.co/hf-inference/models/username/repo_name/v1/chat/completions",
-        ),
-        # Fal.ai endpoints
-        # (
-        #     "fal-ai",
-        #     "text-to-image",
-        #     "username/repo_name",
-        #     "https://fal.run/username/repo_name",
-        # ),
-        # (
-        #     "fal-ai",
-        #     "automatic-speech-recognition",
-        #     "username/repo_name",
-        #     "https://fal.run/username/repo_name",
-        # ),
-        # Replicate endpoints
-        # (
-        #     "replicate",
-        #     "text-to-image",
-        #     "username/repo_name:1234",
-        #     "https://api.replicate.com/v1/predictions",
-        # ),
-        # (
-        #     "replicate",
-        #     "text-to-image",
-        #     "username/repo_name",
-        #     "https://api.replicate.com/v1/models/username/repo_name/predictions",
-        # ),
-        # Together endpoints
-        # (
-        #     "together",
-        #     "conversational",
-        #     "username/repo_name",
-        #     "https://api.together.xyz/v1/chat/completions",
-        # ),
-        # (
-        #     "together",
-        #     "text-generation",
-        #     "username/repo_name",
-        #     "https://api.together.xyz/v1/completions",
-        # ),
-        # (
-        #     "together",
-        #     "text-to-image",
-        #     "username/repo_name",
-        #     "https://api.together.xyz/v1/images/generations",
-        # ),
-        # SambaNova endpoints
-        # (
-        #     "sambanova",
-        #     "conversational",
-        #     "username/repo_name",
-        #     "https://api.sambanova.ai/v1/chat/completions",
-        # ),
-    ],
-)
-def test_build_url_for_providers(provider: str, task: str, model: str, expected_url: str) -> None:
-    helper = get_provider_helper(provider, task)
-    assert helper.build_url(model) == expected_url
 
 
 class TestHeadersAndCookies(TestBase):

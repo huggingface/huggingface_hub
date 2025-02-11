@@ -65,4 +65,122 @@ interactions:
     status:
       code: 200
       message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - 9ffa6206-246c-4818-9b71-0b5f886c833a
+    method: GET
+    uri: https://huggingface.co/api/models/meta-llama/Llama-3.1-8B-Instruct?expand=inferenceProviderMapping
+  response:
+    body:
+      string: '{"_id":"6698d8a0653e4babe21e1e7d","id":"meta-llama/Llama-3.1-8B-Instruct","inferenceProviderMapping":{"sambanova":{"status":"live","providerId":"Meta-Llama-3.1-8B-Instruct","task":"conversational"}}}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '199'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Tue, 11 Feb 2025 10:15:45 GMT
+      ETag:
+      - W/"c7-TZgW++vzRWhy4flOcxqeqWyrc+g"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 c812f87630e842766e842cb048d8c94e.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - oPcw6CdgK1ExRwcu7yv590PB6x6xQTmIRLbOC84KlI9slKePlqwRGg==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-67ab2351-0759de70505018bd73a93c8b;9ffa6206-246c-4818-9b71-0b5f886c833a
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "Meta-Llama-3.1-8B-Instruct",
+      "max_tokens": 20, "stream": true}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '205'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 802f2477-2a5e-4d48-a3bd-b4ab26d64871
+    method: POST
+    uri: https://api.sambanova.ai/v1/chat/completions
+  response:
+    body:
+      string: 'data: {"choices":[{"delta":{"content":"","role":"assistant"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739268946,"id":"b32ba8ab-fb7b-4d5f-b53a-7882dac0324f","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion.chunk","system_fingerprint":"fastcoe"}
+
+
+        data: {"choices":[{"delta":{"content":"Deep learning is a subset of machine
+        learning that involves the use of artificial neural networks with multiple
+        ","role":"assistant"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739268946,"id":"b32ba8ab-fb7b-4d5f-b53a-7882dac0324f","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion.chunk","system_fingerprint":"fastcoe"}
+
+
+        data: {"choices":[{"delta":{"content":"layers to","role":"assistant"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739268946,"id":"b32ba8ab-fb7b-4d5f-b53a-7882dac0324f","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion.chunk","system_fingerprint":"fastcoe"}
+
+
+        data: {"choices":[{"delta":{"content":"","role":"assistant"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739268946,"id":"b32ba8ab-fb7b-4d5f-b53a-7882dac0324f","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion.chunk","system_fingerprint":"fastcoe"}
+
+
+        data: {"choices":[{"delta":{"content":""},"finish_reason":"length","index":0,"logprobs":null}],"created":1739268946,"id":"b32ba8ab-fb7b-4d5f-b53a-7882dac0324f","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion.chunk","system_fingerprint":"fastcoe"}
+
+
+        data: [DONE]
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Access-Control-Allow-Headers:
+      - DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization
+      Access-Control-Allow-Methods:
+      - GET, PUT, POST, DELETE, PATCH, OPTIONS
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Max-Age:
+      - '1728000'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - text/event-stream; charset=utf-8
+      Date:
+      - Tue, 11 Feb 2025 10:15:46 GMT
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: OK
 version: 1
