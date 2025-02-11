@@ -243,6 +243,18 @@ class TestReplicateProvider:
             "version": "f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
         }
 
+    def test_get_response_timeout(self):
+        helper = ReplicateTask("text-to-image")
+        with pytest.raises(TimeoutError, match="Inference request timed out after 60 seconds."):
+            helper.get_response({"model": "black-forest-labs/FLUX.1-schnell"})  # no 'output' key
+
+    def test_get_response_single_output(self, mocker):
+        helper = ReplicateTask("text-to-image")
+        mock = mocker.patch("huggingface_hub.inference._providers.replicate.get_session")
+        response = helper.get_response({"output": "https://example.com/image.jpg"})
+        mock.return_value.get.assert_called_once_with("https://example.com/image.jpg")
+        assert response == mock.return_value.get.return_value.content
+
 
 class TestSambanovaProvider:
     def test_prepare_route(self):
@@ -297,6 +309,11 @@ class TestTogetherProvider:
             "guidance": 1,  # renamed field
             "model": "black-forest-labs/FLUX.1-schnell",
         }
+
+    def test_text_to_image_get_response(self):
+        helper = TogetherTextToImageTask()
+        response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
+        assert response == b"image_bytes"
 
 
 @pytest.mark.parametrize(
