@@ -47,8 +47,8 @@ DUMMY_RENAMED_NEW_MODEL_ID = "hf-internal-testing/dummy-renamed"
 
 SAMPLE_DATASET_IDENTIFIER = "lhoestq/custom_squad"
 # Example dataset ids
-DUMMY_DATASET_ID = "lhoestq/test"
-DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"  # on branch "test-branch"
+DUMMY_DATASET_ID = "gaia-benchmark/GAIA"
+DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = "c603981e170e9e333934a39781d2ae3a2677e81f"  # on branch "test-branch"
 
 YES = ("y", "yes", "t", "true", "on", "1")
 NO = ("n", "no", "f", "false", "off", "0")
