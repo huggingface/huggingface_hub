@@ -175,8 +175,6 @@ ASYNC_INNER_POST_CODE = """
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        t0 = time.time()
-        timeout = self.timeout
         while True:
             with _open_as_binary(request_parameters.data) as data_as_binary:
                 # Do not use context manager as we don't want to close the connection immediately when returning
@@ -207,23 +205,6 @@ ASYNC_INNER_POST_CODE = """
                     await session.close()
                     if response.status == 422 and request_parameters.task != "unknown":
                         error.message += f". Make sure '{request_parameters.task}' task is supported by the model."
-                    if response.status == 503:
-                        # If Model is unavailable, either raise a TimeoutError...
-                        if timeout is not None and time.time() - t0 > timeout:
-                            raise InferenceTimeoutError(
-                                f"Model not loaded on the server: {request_parameters.url}. Please retry with a higher timeout"
-                                f" (current: {self.timeout}).",
-                                request=error.request,
-                                response=error.response,
-                            ) from error
-                        # ...or wait 1s and retry
-                        logger.info(f"Waiting for model to be loaded on the server: {error}")
-                        if "X-wait-for-model" not in request_parameters.headers and request_parameters.url.startswith(INFERENCE_ENDPOINT):
-                            request_parameters.headers["X-wait-for-model"] = "1"
-                        await asyncio.sleep(1)
-                        if timeout is not None:
-                            timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
-                        continue
                     raise error
                 except Exception:
                     await session.close()

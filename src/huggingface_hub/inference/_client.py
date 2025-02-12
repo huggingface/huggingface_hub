@@ -35,7 +35,6 @@
 import base64
 import logging
 import re
-import time
 import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Union, overload
 
@@ -301,8 +300,6 @@ class InferenceClient:
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        t0 = time.time()
-        timeout = self.timeout
         while True:
             with _open_as_binary(request_parameters.data) as data_as_binary:
                 try:
@@ -326,30 +323,9 @@ class InferenceClient:
             except HTTPError as error:
                 if error.response.status_code == 422 and request_parameters.task != "unknown":
                     msg = str(error.args[0])
-                    print(error.response.text)
                     if len(error.response.text) > 0:
                         msg += f"\n{error.response.text}\n"
-                    msg += f"\nMake sure '{request_parameters.task}' task is supported by the model."
                     error.args = (msg,) + error.args[1:]
-                if error.response.status_code == 503:
-                    # If Model is unavailable, either raise a TimeoutError...
-                    if timeout is not None and time.time() - t0 > timeout:
-                        raise InferenceTimeoutError(
-                            f"Model not loaded on the server: {request_parameters.url}. Please retry with a higher timeout (current:"
-                            f" {self.timeout}).",
-                            request=error.request,
-                            response=error.response,
-                        ) from error
-                    # ...or wait 1s and retry
-                    logger.info(f"Waiting for model to be loaded on the server: {error}")
-                    time.sleep(1)
-                    if "X-wait-for-model" not in request_parameters.headers and request_parameters.url.startswith(
-                        INFERENCE_ENDPOINT
-                    ):
-                        request_parameters.headers["X-wait-for-model"] = "1"
-                    if timeout is not None:
-                        timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
-                    continue
                 raise
 
     def audio_classification(
