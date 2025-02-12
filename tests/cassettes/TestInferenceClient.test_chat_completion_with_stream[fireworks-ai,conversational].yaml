@@ -1,0 +1,114 @@
+interactions:
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "accounts/fireworks/models/llama-v3p3-70b-instruct",
+      "max_tokens": 20, "stream": true}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '228'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 21ccba5a-699f-45b2-b704-16612adcc2c5
+    method: POST
+    uri: https://router.huggingface.co/fireworks-ai/v1/chat/completions
+  response:
+    body:
+      string: 'data: {"id":"5b09d00a-f63c-40fa-9ef5-7a5ec40210ef","object":"chat.completion.chunk","created":1739274537,"model":"accounts/fireworks/models/llama-v3p3-70b-instruct","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}],"usage":null}
+
+
+        data: {"id":"5b09d00a-f63c-40fa-9ef5-7a5ec40210ef","object":"chat.completion.chunk","created":1739274537,"model":"accounts/fireworks/models/llama-v3p3-70b-instruct","choices":[{"index":0,"delta":{"content":"**Deep"},"finish_reason":null}],"usage":null}
+
+
+        data: {"id":"5b09d00a-f63c-40fa-9ef5-7a5ec40210ef","object":"chat.completion.chunk","created":1739274537,"model":"accounts/fireworks/models/llama-v3p3-70b-instruct","choices":[{"index":0,"delta":{"content":"
+        Learning: An Introduction**\n=====================================\n\n"},"finish_reason":null}],"usage":null}
+
+
+        data: {"id":"5b09d00a-f63c-40fa-9ef5-7a5ec40210ef","object":"chat.completion.chunk","created":1739274537,"model":"accounts/fireworks/models/llama-v3p3-70b-instruct","choices":[{"index":0,"delta":{"content":"Deep
+        learning is a subset of machine learning that utilizes"},"finish_reason":null}],"usage":null}
+
+
+        data: {"id":"5b09d00a-f63c-40fa-9ef5-7a5ec40210ef","object":"chat.completion.chunk","created":1739274537,"model":"accounts/fireworks/models/llama-v3p3-70b-instruct","choices":[{"index":0,"delta":{},"finish_reason":"length"}],"usage":{"prompt_tokens":46,"total_tokens":66,"completion_tokens":20}}
+
+
+        data: [DONE]
+
+
+        '
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Type:
+      - text/event-stream; charset=utf-8
+      Date:
+      - Tue, 11 Feb 2025 11:48:56 GMT
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Transfer-Encoding:
+      - chunked
+      Via:
+      - 1.1 0d7deb275c6269c1898f9fac0cd690b6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - JrUS_DHqFBUtxzhOAFlX_9VvKlO8TUHOYXPvtMHA8kzGCZlP_p4hOA==
+      X-Amz-Cf-Pop:
+      - MRS52-P3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      access-control-allow-origin:
+      - '*'
+      cf-cache-status:
+      - DYNAMIC
+      cf-ray:
+      - 91041cdd3ca91fdd-IAD
+      cross-origin-opener-policy:
+      - same-origin
+      fireworks-middleware-version:
+      - v2
+      fireworks-prompt-tokens:
+      - '46'
+      fireworks-sampling-options:
+      - '{"max_tokens": 20, "temperature": 1.0, "top_k": 0, "top_p": 1.0, "min_p":
+        0.0, "typical_p": 1.0, "frequency_penalty": 0.0, "presence_penalty": 0.0,
+        "repetition_penalty": 1.0, "mirostat_target": null, "mirostat_lr": 0.1}'
+      fireworks-server-time-to-first-token:
+      - '0.141'
+      fireworks-speculation-generated-tokens:
+      - '0'
+      server:
+      - cloudflare
+      server-timing:
+      - total;dur=406.0;desc="Total Response Time"
+      vary:
+      - Accept-Encoding
+      x-envoy-upstream-service-time:
+      - '143'
+      x-ratelimit-limit-requests:
+      - '60'
+      x-ratelimit-limit-tokens-generated:
+      - '6000'
+      x-ratelimit-limit-tokens-prompt:
+      - '60000'
+      x-ratelimit-over-limit:
+      - 'no'
+      x-ratelimit-remaining-requests:
+      - '59'
+      x-ratelimit-remaining-tokens-generated:
+      - '5469'
+      x-ratelimit-remaining-tokens-prompt:
+      - '59954'
+      x-request-id:
+      - 5b09d00a-f63c-40fa-9ef5-7a5ec40210ef
+    status:
+      code: 200
+      message: OK
+version: 1
