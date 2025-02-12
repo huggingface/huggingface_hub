@@ -328,8 +328,6 @@ class AsyncInferenceClient:
                 except aiohttp.ClientResponseError as error:
                     error.response_error_payload = response_error_payload
                     await session.close()
-                    if response.status == 422 and request_parameters.task != "unknown":
-                        error.message += f". Make sure '{request_parameters.task}' task is supported by the model."
                     raise error
                 except Exception:
                     await session.close()
