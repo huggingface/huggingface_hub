@@ -101,6 +101,7 @@ from ._runtime import (
     is_tensorboard_available,
     is_tf_available,
     is_torch_available,
+    is_hf_xet_available,
 )
 from ._safetensors import SafetensorsFileMetadata, SafetensorsRepoMetadata, TensorInfo
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess

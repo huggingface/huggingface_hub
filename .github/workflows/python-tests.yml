@@ -33,6 +33,8 @@ jobs:
         include:
           - python-version: "3.13" # LFS not ran on 3.8
             test_name: "lfs"
+          - python-version: "3.11"
+            test_name: "xet"  # xet not supported on 3.8 -> test it on 3.11 
           - python-version: "3.8"
             test_name: "fastai"
           - python-version: "3.10" # fastai not supported on 3.12 and 3.11 -> test it on 3.10
@@ -74,6 +76,10 @@ jobs:
             lfs)
               git config --global user.email "ci@dummy.com"
               git config --global user.name "ci"
+              ;;
+
+            xet)
+              uv pip install "huggingface_hub[hf_xet] @ ."
               ;;
 
             fastai)
@@ -135,6 +141,9 @@ jobs:
               eval "RUN_GIT_LFS_TESTS=1 $PYTEST ../tests -k 'HfLargefilesTest'"
             ;;
 
+            xet)
+              eval "$PYTEST ../tests/test_xet*"
+              ;;
 
             fastai)
               eval "$PYTEST ../tests/test_fastai*"
