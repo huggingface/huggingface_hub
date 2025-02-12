@@ -89,35 +89,34 @@ Hugging Face Hub에는 20만 개가 넘는 모델이 있습니다! [`InferenceCl
 
 [`InferenceClient`]의 목표는 Hugging Face 모델에서 추론을 실행하기 위한 가장 쉬운 인터페이스를 제공하는 것입니다. 이는 가장 일반적인 작업들을 지원하는 간단한 API를 가지고 있습니다. 현재 지원되는 작업 목록은 다음과 같습니다:
 
-| 도메인 | 작업                           | 지원 여부    | 문서                             |
-|--------|--------------------------------|--------------|------------------------------------|
-| 오디오 | [오디오 분류](https://huggingface.co/tasks/audio-classification)           | ✅ | [`~InferenceClient.audio_classification`] |
-| 오디오 | [오디오 투 오디오](https://huggingface.co/tasks/audio-to-audio)           | ✅ | [`~InferenceClient.audio_to_audio`] |
-| | [자동 음성 인식](https://huggingface.co/tasks/automatic-speech-recognition)   | ✅ | [`~InferenceClient.automatic_speech_recognition`] |
-| | [텍스트 투 스피치](https://huggingface.co/tasks/text-to-speech)                 | ✅ | [`~InferenceClient.text_to_speech`] |
-| 컴퓨터 비전 | [이미지 분류](https://huggingface.co/tasks/image-classification)           | ✅ | [`~InferenceClient.image_classification`] |
-| | [이미지 분할](https://huggingface.co/tasks/image-segmentation)             | ✅ | [`~InferenceClient.image_segmentation`] |
-| | [이미지 투 이미지](https://huggingface.co/tasks/image-to-image)                 | ✅ | [`~InferenceClient.image_to_image`] |
-| | [이미지 투 텍스트](https://huggingface.co/tasks/image-to-text)                  | ✅ | [`~InferenceClient.image_to_text`] |
-| | [객체 탐지](https://huggingface.co/tasks/object-detection)            | ✅ | [`~InferenceClient.object_detection`] |
-| | [텍스트 투 이미지](https://huggingface.co/tasks/text-to-image)                  | ✅ | [`~InferenceClient.text_to_image`] |
-| | [제로샷 이미지 분류](https://huggingface.co/tasks/zero-shot-image-classification)                  | ✅ | [`~InferenceClient.zero_shot_image_classification`] |
-| 멀티모달 | [문서 질의 응답](https://huggingface.co/tasks/document-question-answering) | ✅ | [`~InferenceClient.document_question_answering`] |
-| | [시각적 질의 응답](https://huggingface.co/tasks/visual-question-answering)      | ✅ | [`~InferenceClient.visual_question_answering`] |
-| 자연어 처리 | [대화형](https://huggingface.co/tasks/conversational)                 | ✅ | [`~InferenceClient.conversational`] |
-| | [특성 추출](https://huggingface.co/tasks/feature-extraction)             | ✅ | [`~InferenceClient.feature_extraction`] |
-| | [마스크 채우기](https://huggingface.co/tasks/fill-mask)                      | ✅ | [`~InferenceClient.fill_mask`] |
-| | [질의 응답](https://huggingface.co/tasks/question-answering)             | ✅ | [`~InferenceClient.question_answering`] |
-| | [문장 유사도](https://huggingface.co/tasks/sentence-similarity)            | ✅ | [`~InferenceClient.sentence_similarity`] |
-| | [요약](https://huggingface.co/tasks/summarization)                  | ✅ | [`~InferenceClient.summarization`] |
-| | [테이블 질의 응답](https://huggingface.co/tasks/table-question-answering)       | ✅ | [`~InferenceClient.table_question_answering`] |
-| | [텍스트 분류](https://huggingface.co/tasks/text-classification)            | ✅ | [`~InferenceClient.text_classification`] |
-| | [텍스트 생성](https://huggingface.co/tasks/text-generation)   | ✅ | [`~InferenceClient.text_generation`] |
-| | [토큰 분류](https://huggingface.co/tasks/token-classification)           | ✅ | [`~InferenceClient.token_classification`] |
-| | [번역](https://huggingface.co/tasks/translation)       | ✅ | [`~InferenceClient.translation`] |
-| | [제로샷 분류](https://huggingface.co/tasks/zero-shot-classification)       | ✅ | [`~InferenceClient.zero_shot_classification`] |
-| 타블로 | [타블로 작업 분류](https://huggingface.co/tasks/tabular-classification)         | ✅ | [`~InferenceClient.tabular_classification`] |
-| | [타블로 회귀](https://huggingface.co/tasks/tabular-regression)             | ✅ | [`~InferenceClient.tabular_regression`] |
+| 도메인      | 작업                                                                              | 지원 여부 | 문서                                                |
+| ----------- | --------------------------------------------------------------------------------- | --------- | --------------------------------------------------- |
+| 오디오      | [오디오 분류](https://huggingface.co/tasks/audio-classification)                  | ✅         | [`~InferenceClient.audio_classification`]           |
+| 오디오      | [오디오 투 오디오](https://huggingface.co/tasks/audio-to-audio)                   | ✅         | [`~InferenceClient.audio_to_audio`]                 |
+|             | [자동 음성 인식](https://huggingface.co/tasks/automatic-speech-recognition)       | ✅         | [`~InferenceClient.automatic_speech_recognition`]   |
+|             | [텍스트 투 스피치](https://huggingface.co/tasks/text-to-speech)                   | ✅         | [`~InferenceClient.text_to_speech`]                 |
+| 컴퓨터 비전 | [이미지 분류](https://huggingface.co/tasks/image-classification)                  | ✅         | [`~InferenceClient.image_classification`]           |
+|             | [이미지 분할](https://huggingface.co/tasks/image-segmentation)                    | ✅         | [`~InferenceClient.image_segmentation`]             |
+|             | [이미지 투 이미지](https://huggingface.co/tasks/image-to-image)                   | ✅         | [`~InferenceClient.image_to_image`]                 |
+|             | [이미지 투 텍스트](https://huggingface.co/tasks/image-to-text)                    | ✅         | [`~InferenceClient.image_to_text`]                  |
+|             | [객체 탐지](https://huggingface.co/tasks/object-detection)                        | ✅         | [`~InferenceClient.object_detection`]               |
+|             | [텍스트 투 이미지](https://huggingface.co/tasks/text-to-image)                    | ✅         | [`~InferenceClient.text_to_image`]                  |
+|             | [제로샷 이미지 분류](https://huggingface.co/tasks/zero-shot-image-classification) | ✅         | [`~InferenceClient.zero_shot_image_classification`] |
+| 멀티모달    | [문서 질의 응답](https://huggingface.co/tasks/document-question-answering)        | ✅         | [`~InferenceClient.document_question_answering`]    |
+|             | [시각적 질의 응답](https://huggingface.co/tasks/visual-question-answering)        | ✅         | [`~InferenceClient.visual_question_answering`]      |
+| 자연어 처리 | [대화형](https://huggingface.co/tasks/conversational)                             | ✅         | [`~InferenceClient.conversational`]                 |
+|             | [특성 추출](https://huggingface.co/tasks/feature-extraction)                      | ✅         | [`~InferenceClient.feature_extraction`]             |
+|             | [마스크 채우기](https://huggingface.co/tasks/fill-mask)                           | ✅         | [`~InferenceClient.fill_mask`]                      |
+|             | [질의 응답](https://huggingface.co/tasks/question-answering)                      | ✅         | [`~InferenceClient.question_answering`]             |
+|             | [요약](https://huggingface.co/tasks/summarization)                                | ✅         | [`~InferenceClient.summarization`]                  |
+|             | [테이블 질의 응답](https://huggingface.co/tasks/table-question-answering)         | ✅         | [`~InferenceClient.table_question_answering`]       |
+|             | [텍스트 분류](https://huggingface.co/tasks/text-classification)                   | ✅         | [`~InferenceClient.text_classification`]            |
+|             | [텍스트 생성](https://huggingface.co/tasks/text-generation)                       | ✅         | [`~InferenceClient.text_generation`]                |
+|             | [토큰 분류](https://huggingface.co/tasks/token-classification)                    | ✅         | [`~InferenceClient.token_classification`]           |
+|             | [번역](https://huggingface.co/tasks/translation)                                  | ✅         | [`~InferenceClient.translation`]                    |
+|             | [제로샷 분류](https://huggingface.co/tasks/zero-shot-classification)              | ✅         | [`~InferenceClient.zero_shot_classification`]       |
+| 타블로      | [타블로 작업 분류](https://huggingface.co/tasks/tabular-classification)           | ✅         | [`~InferenceClient.tabular_classification`]         |
+|             | [타블로 회귀](https://huggingface.co/tasks/tabular-regression)                    | ✅         | [`~InferenceClient.tabular_regression`]             |
 
 <Tip>
 

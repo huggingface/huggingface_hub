@@ -1618,6 +1618,9 @@ class AsyncInferenceClient:
         output = QuestionAnsweringOutputElement.parse_obj(response)
         return output
 
+    @_deprecate_method(
+        version="0.33.0", message="Use `feature_extraction` instead and compute the sentence similarity locally."
+    )
     async def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
     ) -> List[float]:
@@ -3325,6 +3328,13 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
+    @_deprecate_method(
+        version="0.33.0",
+        message=(
+            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
+            " Use `HfApi.list_models(..., inference_provider='...')` to list warm models per provider."
+        ),
+    )
     async def list_deployed_models(
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
     ) -> Dict[str, List[str]]:
@@ -3554,6 +3564,13 @@ class AsyncInferenceClient:
             response = await client.get(url, proxy=self.proxies)
             return response.status == 200
 
+    @_deprecate_method(
+        version="0.33.0",
+        message=(
+            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
+            " Use `HfApi.model_info` to get the model status both with HF Inference API and external providers."
+        ),
+    )
     async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
         Get the status of a model hosted on the HF Inference API.
