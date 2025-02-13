@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, 
 
 from requests import HTTPError
 
-from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
+from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
@@ -3300,9 +3300,9 @@ class InferenceClient:
 
         # Resolve which frameworks to check
         if frameworks is None:
-            frameworks = MAIN_INFERENCE_API_FRAMEWORKS
+            frameworks = constants.MAIN_INFERENCE_API_FRAMEWORKS
         elif frameworks == "all":
-            frameworks = ALL_INFERENCE_API_FRAMEWORKS
+            frameworks = constants.ALL_INFERENCE_API_FRAMEWORKS
         elif isinstance(frameworks, str):
             frameworks = [frameworks]
         frameworks = list(set(frameworks))
@@ -3322,7 +3322,7 @@ class InferenceClient:
 
         for framework in frameworks:
             response = get_session().get(
-                f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
+                f"{constants.INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
             )
             hf_raise_for_status(response)
             _unpack_response(framework, response.json())
@@ -3384,7 +3384,7 @@ class InferenceClient:
         if model.startswith(("http://", "https://")):
             url = model.rstrip("/") + "/info"
         else:
-            url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
+            url = f"{constants.INFERENCE_ENDPOINT}/models/{model}/info"
 
         response = get_session().get(url, headers=build_hf_headers(token=self.token))
         hf_raise_for_status(response)
@@ -3472,7 +3472,7 @@ class InferenceClient:
             raise ValueError("Model id not provided.")
         if model.startswith("https://"):
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
-        url = f"{INFERENCE_ENDPOINT}/status/{model}"
+        url = f"{constants.INFERENCE_ENDPOINT}/status/{model}"
 
         response = get_session().get(url, headers=build_hf_headers(token=self.token))
         hf_raise_for_status(response)
