@@ -147,10 +147,10 @@ class TestHFInferenceProvider:
         with pytest.raises(ValueError, match="Unexpected binary input for task text-classification."):
             helper._prepare_payload(b"dummy binary data", {}, "username/repo_name")
 
-    def test_prepare_body_binary_input(self):
+    def test_prepare_payload_binary_input(self):
         helper = HFInferenceBinaryInputTask("image-classification")
         assert (
-            helper._prepare_body(
+            helper._prepare_payload(
                 b"dummy binary input",
                 parameters={},
                 mapped_model="username/repo_name",
@@ -160,7 +160,7 @@ class TestHFInferenceProvider:
         )
 
         assert (
-            helper._prepare_body(
+            helper._prepare_payload(
                 b"dummy binary input",
                 parameters={"a": 1, "b": None},
                 mapped_model="username/repo_name",
