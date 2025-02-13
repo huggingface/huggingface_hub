@@ -32,6 +32,7 @@ OBJ_WITH_CIRCULAR_REF["recursive"] = OBJ_WITH_CIRCULAR_REF
         [(1, 2.0, "string"), True],
         {},
         {"name": "Alice", "age": 30},
+        {0: "LABEL_0", 1.0: "LABEL_1"},
     ],
 )
 def test_is_jsonable_success(data):
