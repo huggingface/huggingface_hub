@@ -3,7 +3,7 @@ interactions:
     body: null
     headers: {}
     method: POST
-    uri: https://router.huggingface.co/hf-inference/pipeline/sentence-similarity/sentence-transformers/all-MiniLM-L6-v2
+    uri: https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2
   response:
     body:
       string: '[0.7785724997520447,0.4587624967098236,0.29062220454216003]'
