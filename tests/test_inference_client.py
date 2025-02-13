@@ -869,6 +869,7 @@ class TestHeadersAndCookies(TestBase):
 
 
 class TestModelStatus(TestBase):
+    @expect_deprecation("get_model_status")
     def test_too_big_model(self) -> None:
         client = InferenceClient(token=False)
         model_status = client.get_model_status("facebook/nllb-moe-54b")
@@ -877,6 +878,7 @@ class TestModelStatus(TestBase):
         assert model_status.compute_type == "cpu"
         assert model_status.framework == "transformers"
 
+    @expect_deprecation("get_model_status")
     def test_loaded_model(self) -> None:
         client = InferenceClient(token=False)
         model_status = client.get_model_status("bigscience/bloom")
@@ -885,11 +887,13 @@ class TestModelStatus(TestBase):
         assert isinstance(model_status.compute_type, dict)  # e.g. {'gpu': {'gpu': 'a100', 'count': 8}}
         assert model_status.framework == "text-generation-inference"
 
+    @expect_deprecation("get_model_status")
     def test_unknown_model(self) -> None:
         client = InferenceClient()
         with pytest.raises(HfHubHTTPError):
             client.get_model_status("unknown/model")
 
+    @expect_deprecation("get_model_status")
     def test_model_as_url(self) -> None:
         client = InferenceClient()
         with pytest.raises(NotImplementedError):
@@ -897,16 +901,19 @@ class TestModelStatus(TestBase):
 
 
 class TestListDeployedModels(TestBase):
+    @expect_deprecation("list_deployed_models")
     @patch("huggingface_hub.inference._client.get_session")
     def test_list_deployed_models_main_frameworks_mock(self, get_session_mock: MagicMock) -> None:
         InferenceClient().list_deployed_models()
         assert len(get_session_mock.return_value.get.call_args_list) == len(MAIN_INFERENCE_API_FRAMEWORKS)
 
+    @expect_deprecation("list_deployed_models")
     @patch("huggingface_hub.inference._client.get_session")
     def test_list_deployed_models_all_frameworks_mock(self, get_session_mock: MagicMock) -> None:
         InferenceClient().list_deployed_models("all")
         assert len(get_session_mock.return_value.get.call_args_list) == len(ALL_INFERENCE_API_FRAMEWORKS)
 
+    @expect_deprecation("list_deployed_models")
     def test_list_deployed_models_single_frameworks(self) -> None:
         models_by_task = InferenceClient().list_deployed_models("text-generation-inference")
         assert isinstance(models_by_task, dict)
