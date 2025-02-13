@@ -49,7 +49,7 @@ class HFInferenceTask(TaskProviderHelper):
 
     def _prepare_payload(
         self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict] = None
-    ) -> Optional[Dict]:
+    ) -> Optional[Union[bytes, Dict]]:
         if isinstance(inputs, bytes):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
         if isinstance(inputs, Path):

@@ -221,7 +221,7 @@ def client(request):
     if api_key:
         return InferenceClient(model=model, provider=provider, token=api_key)
     # If we are recording and the api key is not set, skip the test
-    if vcr_record_mode is not None and api_key is None:
+    if vcr_record_mode != "none" and api_key is None:
         pytest.skip(f"API KEY not set for provider {provider}, skipping test")
     # small hack to avoid getting an error when the api key is not set
     return InferenceClient(model=model, provider=provider, token="hf_dummy_token")
