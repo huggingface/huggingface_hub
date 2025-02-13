@@ -112,8 +112,15 @@ jobs:
               eval $PYTEST
             ;;
 
+            "Inference only")
+              # Run inference tests concurrently
+              PYTEST="$PYTEST ../tests -k 'test_inference' -n 4"
+              echo $PYTEST
+              eval $PYTEST
+            ;;
+
             "Everything else")
-              PYTEST="$PYTEST ../tests -k 'not TestRepository' -n 4"
+              PYTEST="$PYTEST ../tests -k 'not TestRepository and not test_inference' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
