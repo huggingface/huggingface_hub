@@ -64,8 +64,12 @@ _staging_mode = _is_true(os.environ.get("HUGGINGFACE_CO_STAGING"))
 _HF_DEFAULT_ENDPOINT = "https://huggingface.co"
 _HF_DEFAULT_STAGING_ENDPOINT = "https://hub-ci.huggingface.co"
 ENDPOINT = os.getenv("HF_ENDPOINT", _HF_DEFAULT_ENDPOINT).rstrip("/")
-
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
+
+if _staging_mode:
+    ENDPOINT = _HF_DEFAULT_STAGING_ENDPOINT
+    HUGGINGFACE_CO_URL_TEMPLATE = _HF_DEFAULT_STAGING_ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
+
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
 HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
 HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
@@ -145,8 +149,9 @@ HF_TOKEN_PATH = os.environ.get("HF_TOKEN_PATH", os.path.join(HF_HOME, "token"))
 HF_STORED_TOKENS_PATH = os.path.join(os.path.dirname(HF_TOKEN_PATH), "stored_tokens")
 
 if _staging_mode:
-    ENDPOINT = _HF_DEFAULT_STAGING_ENDPOINT
     # In staging mode, we use a different cache to ensure we don't mix up production and staging data or tokens
+    # In practice in `huggingface_hub` tests, we monkeypatch these values with temporary directories. The following
+    # lines are only used in third-party libraries tests (e.g. `transformers`, `diffusers`, etc.).
     _staging_home = os.path.join(os.path.expanduser("~"), ".cache", "huggingface_staging")
     HUGGINGFACE_HUB_CACHE = os.path.join(_staging_home, "hub")
     HF_TOKEN_PATH = os.path.join(_staging_home, "token")
