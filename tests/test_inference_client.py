@@ -43,9 +43,9 @@ from huggingface_hub import (
     TranslationOutput,
     VisualQuestionAnsweringOutputElement,
     ZeroShotClassificationOutputElement,
+    constants,
     hf_hub_download,
 )
-from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
 from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.inference._common import (
@@ -905,13 +905,13 @@ class TestListDeployedModels(TestBase):
     @patch("huggingface_hub.inference._client.get_session")
     def test_list_deployed_models_main_frameworks_mock(self, get_session_mock: MagicMock) -> None:
         InferenceClient().list_deployed_models()
-        assert len(get_session_mock.return_value.get.call_args_list) == len(MAIN_INFERENCE_API_FRAMEWORKS)
+        assert len(get_session_mock.return_value.get.call_args_list) == len(constants.MAIN_INFERENCE_API_FRAMEWORKS)
 
     @expect_deprecation("list_deployed_models")
     @patch("huggingface_hub.inference._client.get_session")
     def test_list_deployed_models_all_frameworks_mock(self, get_session_mock: MagicMock) -> None:
         InferenceClient().list_deployed_models("all")
-        assert len(get_session_mock.return_value.get.call_args_list) == len(ALL_INFERENCE_API_FRAMEWORKS)
+        assert len(get_session_mock.return_value.get.call_args_list) == len(constants.ALL_INFERENCE_API_FRAMEWORKS)
 
     @expect_deprecation("list_deployed_models")
     def test_list_deployed_models_single_frameworks(self) -> None:
