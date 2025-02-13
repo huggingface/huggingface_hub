@@ -22,8 +22,6 @@ from ._auth import get_token
 
 
 class HfFolder:
-    path_token = Path(constants.HF_TOKEN_PATH)
-
     # TODO: deprecate when adapted in transformers/datasets/gradio
     # @_deprecate_method(version="1.0", message="Use `huggingface_hub.login` instead.")
     @classmethod
@@ -38,8 +36,9 @@ class HfFolder:
             token (`str`):
                 The token to save to the [`HfFolder`]
         """
-        cls.path_token.parent.mkdir(parents=True, exist_ok=True)
-        cls.path_token.write_text(token)
+        path_token = Path(constants.HF_TOKEN_PATH)
+        path_token.parent.mkdir(parents=True, exist_ok=True)
+        path_token.write_text(token)
 
     # TODO: deprecate when adapted in transformers/datasets/gradio
     # @_deprecate_method(version="1.0", message="Use `huggingface_hub.get_token` instead.")
@@ -64,6 +63,6 @@ class HfFolder:
         Deletes the token from storage. Does not fail if token does not exist.
         """
         try:
-            cls.path_token.unlink()
+            Path(constants.HF_TOKEN_PATH).unlink()
         except FileNotFoundError:
             pass
