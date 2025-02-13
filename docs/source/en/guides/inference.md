@@ -268,6 +268,7 @@ You might wonder why using [`InferenceClient`] instead of OpenAI's client? There
 |                     | [`~InferenceClient.feature_extraction`]             | ✅            | ❌         | ❌      | ❌            | ❌         | ❌        |
 |                     | [`~InferenceClient.fill_mask`]                      | ✅            | ❌         | ❌      | ❌            | ❌         | ❌        |
 |                     | [`~InferenceClient.question_answering`]             | ✅            | ❌         | ❌      | ❌            | ❌         | ❌        |
+|                     | [`~InferenceClient.sentence_similarity`]            | ✅            | ❌         | ❌      | ❌            | ❌         | ❌        |
 |                     | [`~InferenceClient.summarization`]                  | ✅            | ❌         | ❌      | ❌            | ❌         | ❌        |
 |                     | [`~InferenceClient.table_question_answering`]       | ✅            | ❌         | ❌      | ❌            | ❌         | ❌        |
 |                     | [`~InferenceClient.text_classification`]            | ✅            | ❌         | ❌      | ❌            | ❌         | ❌        |

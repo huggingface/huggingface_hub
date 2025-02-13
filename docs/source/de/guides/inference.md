@@ -107,6 +107,7 @@ Das Ziel von [`InferenceClient`] ist es, die einfachste Schnittstelle zum Ausfü
 | | [Feature Extraction](https://huggingface.co/tasks/feature-extraction)             | ✅ | [`~InferenceClient.feature_extraction`] |
 | | [Fill Mask](https://huggingface.co/tasks/fill-mask)                      | ✅ | [`~InferenceClient.fill_mask`] |
 | | [Question Answering](https://huggingface.co/tasks/question-answering)             | ✅ | [`~InferenceClient.question_answering`] |
+| | [Sentence Similarity](https://huggingface.co/tasks/sentence-similarity) | ✅ | [`~InferenceClient.sentence_similarity`] |
 | | [Summarization](https://huggingface.co/tasks/summarization)                  | ✅ | [`~InferenceClient.summarization`] |
 | | [Table Question Answering](https://huggingface.co/tasks/table-question-answering)       | ✅ | [`~InferenceClient.table_question_answering`] |
 | | [Text Classification](https://huggingface.co/tasks/text-classification)            | ✅ | [`~InferenceClient.text_classification`] |

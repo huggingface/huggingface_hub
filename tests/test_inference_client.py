@@ -574,7 +574,6 @@ class TestInferenceClient(TestBase):
         output = client.question_answering(question="What is the meaning of life?", context="42")
         assert output == QuestionAnsweringOutputElement(answer="42", end=2, score=1.4291124728060822e-08, start=0)
 
-    @pytest.mark.skip("Deprecated (sentence_similarity)")
     @pytest.mark.parametrize("client", list_clients("sentence-similarity"))
     def test_sentence_similarity(self, client: InferenceClient):
         scores = client.sentence_similarity(

@@ -239,7 +239,6 @@ async def test_async_chat_completion_with_stream() -> None:
 @pytest.mark.vcr
 @pytest.mark.asyncio
 @with_production_testing
-@pytest.mark.skip("Deprecated (sentence_similarity)")
 async def test_async_sentence_similarity() -> None:
     async_client = AsyncInferenceClient(model="sentence-transformers/all-MiniLM-L6-v2")
     scores = await async_client.sentence_similarity(

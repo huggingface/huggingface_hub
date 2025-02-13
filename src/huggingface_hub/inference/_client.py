@@ -1545,9 +1545,6 @@ class InferenceClient:
         output = QuestionAnsweringOutputElement.parse_obj(response)
         return output
 
-    @_deprecate_method(
-        version="0.33.0", message="Use `feature_extraction` instead and compute the sentence similarity locally."
-    )
     def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
     ) -> List[float]:
