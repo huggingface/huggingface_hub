@@ -106,6 +106,7 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     },
 }
 
+CHAT_COMPLETION_MODEL = "HuggingFaceH4/zephyr-7b-beta"
 CHAT_COMPLETION_MESSAGES = [
     {"role": "system", "content": "You are a helpful assistant."},
     {"role": "user", "content": "What is deep learning?"},

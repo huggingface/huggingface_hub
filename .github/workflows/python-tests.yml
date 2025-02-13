@@ -26,6 +26,7 @@ jobs:
           [
             "Repository only",
             "Everything else",
+            "Inference only"
             
           ]
         include:
@@ -64,7 +65,7 @@ jobs:
 
           case "${{ matrix.test_name }}" in
 
-            "Repository only" | "Everything else")
+            "Repository only" | "Everything else" | "Inference only")
               sudo apt update
               sudo apt install -y libsndfile1-dev
               ;;
