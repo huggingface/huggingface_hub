@@ -106,9 +106,9 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     },
 }
 API_KEY_ENV_VARIABLES = {
-    "hf-inference": "HF_TOKEN",
+    "hf-inference": "HF_INFERENCE_TEST_TOKEN",
     "fal-ai": "FAL_AI_KEY",
-    "fireworks-ai": "HF_TOKEN",
+    "fireworks-ai": "HF_INFERENCE_TEST_TOKEN",
     "replicate": "REPLICATE_KEY",
     "sambanova": "SAMBANOVA_API_KEY",
     "together": "TOGETHER_API_KEY",

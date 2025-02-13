@@ -15,11 +15,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from huggingface_hub.utils import (
-    is_package_available,
-    logging,
-    reset_sessions,
-)
+from huggingface_hub.utils import is_package_available, logging, reset_sessions
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
 
 
