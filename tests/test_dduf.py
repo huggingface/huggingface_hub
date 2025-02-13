@@ -135,12 +135,12 @@ class TestExportFolder:
         args = mock.call_args_list[0].args
 
         assert args[0] == "dummy.dduf"
-        assert list(args[1]) == [
+        assert sorted(list(args[1])) == [
             # args[1] is a generator of tuples (path_in_archive, path_on_disk)
             ("config.json", dummy_folder / "config.json"),
-            ("model.safetensors", dummy_folder / "model.safetensors"),
             ("encoder/config.json", dummy_folder / "encoder/config.json"),
             ("encoder/model.safetensors", dummy_folder / "encoder/model.safetensors"),
+            ("model.safetensors", dummy_folder / "model.safetensors"),
         ]
 
 
