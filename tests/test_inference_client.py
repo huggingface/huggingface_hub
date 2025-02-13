@@ -219,9 +219,10 @@ def client(request):
     """
     provider, model, api_key = request.param
     vcr_record_mode = request.config.getoption("--vcr-record")
-
     # If we are recording and the api key is not set, skip the test
-    if vcr_record_mode != "none" and not api_key:
+    # replaying modes are "all", "new_episodes" and "once"
+    # non replaying modes are "none" and None
+    if vcr_record_mode not in ["none", None] and not api_key:
         pytest.skip(f"API KEY not set for provider {provider}, skipping test")
 
     # If api_key is provided, use it
