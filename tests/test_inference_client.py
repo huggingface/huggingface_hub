@@ -211,6 +211,7 @@ def list_clients(task: str) -> List[pytest.param]:
 
 
 @pytest.fixture
+@with_production_testing
 def client(request):
     """
     Fixture to create client with proper skip handling.
