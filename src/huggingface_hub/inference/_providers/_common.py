@@ -18,7 +18,12 @@ HARDCODED_MODEL_ID_MAPPING: Dict[str, Dict[str, str]] = {
     # Example:
     # "Qwen/Qwen2.5-Coder-32B-Instruct": "Qwen2.5-Coder-32B-Instruct",
     "fal-ai": {},
+    "fireworks-ai": {},
     "hf-inference": {},
+    "hyperbolic": {
+        "black-forest-labs/FLUX.1-dev": "FLUX.1-dev",
+        "meta-llama/Llama-3.2-3B-Instruct": "meta-llama/Llama-3.2-3B-Instruct",
+    },
     "replicate": {},
     "sambanova": {},
     "together": {},
@@ -52,6 +57,9 @@ class TaskProviderHelper:
 
         Each step (api_key, model, headers, url, payload) can be customized in subclasses.
         """
+        data = None
+        json = None
+
         # api_key from user, or local token, or raise error
         api_key = self._prepare_api_key(api_key)
 
@@ -66,18 +74,19 @@ class TaskProviderHelper:
 
         # prepare payload (to customize in subclasses)
         payload = self._prepare_payload(inputs, parameters, mapped_model=mapped_model)
-        if payload is not None:
-            payload = recursive_merge(payload, extra_payload or {})
-
-        # body data (to customize in subclasses)
-        data = self._prepare_body(inputs, parameters, mapped_model, extra_payload)
+        if isinstance(payload, bytes):
+            data = payload
+        else:
+            json = payload
+            if json is not None:
+                json = recursive_merge(json, extra_payload or {})
 
         # check if both payload and data are set and return
-        if payload is not None and data is not None:
+        if json is not None and data is not None:
             raise ValueError("Both payload and data cannot be set in the same request.")
-        if payload is None and data is None:
+        if json is None and data is None:
             raise ValueError("Either payload or data must be set in the request.")
-        return RequestParameters(url=url, task=self.task, model=mapped_model, json=payload, data=data, headers=headers)
+        return RequestParameters(url=url, task=self.task, model=mapped_model, json=json, data=data, headers=headers)
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         """
@@ -159,21 +168,12 @@ class TaskProviderHelper:
         """
         return ""
 
-    def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload(
+        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict] = None
+    ) -> Optional[Union[bytes, Dict]]:
         """Return the payload to use for the request, as a dict.
 
         Override this method in subclasses for customized payloads.
-        Only one of `_prepare_payload` and `_prepare_body` should return a value.
-        """
-        return None
-
-    def _prepare_body(
-        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
-    ) -> Optional[bytes]:
-        """Return the body to use for the request, as bytes.
-
-        Override this method in subclasses for customized body data.
-        Only one of `_prepare_payload` and `_prepare_body` should return a value.
         """
         return None
 

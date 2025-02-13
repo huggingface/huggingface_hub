@@ -1,0 +1,42 @@
+interactions:
+- request:
+    body: '{"prompt": "An astronaut riding a horse on the moon.", "model_name": "FLUX.1-dev"}'
+    headers:
+      Accept:
+      - image/png
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '82'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 50f9570b-0d6c-4442-a9f1-7e700529c851
+    method: POST
+    uri: https://api.hyperbolic.xyz/v1/images/generations
+  response:
+    body:
+      string: '{"detail":[{"type":"missing","loc":["body","height"],"msg":"Field required","input":{"prompt":"An
+        astronaut riding a horse on the moon.","model_name":"FLUX.1-dev"}},{"type":"missing","loc":["body","width"],"msg":"Field
+        required","input":{"prompt":"An astronaut riding a horse on the moon.","model_name":"FLUX.1-dev"}}]}'
+    headers:
+      CF-RAY:
+      - 91141181882d3ca1-CDG
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '319'
+      Content-Type:
+      - application/json
+      Date:
+      - Thu, 13 Feb 2025 10:17:24 GMT
+      Server:
+      - cloudflare
+      cf-cache-status:
+      - DYNAMIC
+    status:
+      code: 422
+      message: Unprocessable Entity
+version: 1
