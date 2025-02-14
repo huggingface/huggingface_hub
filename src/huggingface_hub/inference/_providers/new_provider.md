@@ -10,6 +10,8 @@ Implement the methods that require custom handling. Check out the base implement
 
 If the provider supports multiple tasks that require different implementations, create dedicated subclasses for each task, following the pattern shown in `fal_ai.py`.
 
+For `text-generation` and `conversational` tasks, one can just inherit from `BaseTextGenerationTask` (defined in `_common.py`) and override the methods if needed. Examples can be found in `hyperbolic.py` and `sambanova.py`.
+
 ```py
 from typing import Any, Dict, Optional, Union
 
