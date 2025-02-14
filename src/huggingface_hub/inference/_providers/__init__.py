@@ -13,6 +13,7 @@ from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
+from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
 
 
 PROVIDER_T = Literal[
@@ -23,6 +24,7 @@ PROVIDER_T = Literal[
     "replicate",
     "sambanova",
     "together",
+    "nebius",
 ]
 
 PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
@@ -80,6 +82,11 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-image": TogetherTextToImageTask(),
         "conversational": TogetherConversationalTask(),
         "text-generation": TogetherTextGenerationTask(),
+    },
+    "nebius": {
+        "text-to-image": NebiusTextToImageTask(),
+        "conversational": NebiusConversationalTask(),
+        "text-generation": NebiusTextGenerationTask(),
     },
 }
 

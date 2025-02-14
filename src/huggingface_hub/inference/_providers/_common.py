@@ -24,6 +24,7 @@ HARDCODED_MODEL_ID_MAPPING: Dict[str, Dict[str, str]] = {
     "replicate": {},
     "sambanova": {},
     "together": {},
+    "nebius": {},
 }
 
 
