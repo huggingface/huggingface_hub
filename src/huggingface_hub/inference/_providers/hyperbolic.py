@@ -30,6 +30,7 @@ class HyperbolicTextGenerationTask(BaseTextGenerationTask):
         super().__init__(provider="hyperbolic", base_url="https://api.hyperbolic.xyz", task=task)
 
     def _prepare_route(self, mapped_model: str) -> str:
+        # For Hyperbolic, the route is the same for text-generation and conversational tasks
         if self.task in ("text-generation", "conversational"):
             return "/v1/chat/completions"
         raise ValueError(f"Unsupported task '{self.task}' for Hyperbolic.")
