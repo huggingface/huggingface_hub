@@ -16,6 +16,11 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceConversational,
     HFInferenceTask,
 )
+from huggingface_hub.inference._providers.hyperbolic import (
+    HyperbolicTask,
+    HyperbolicTextGenerationTask,
+    HyperbolicTextToImageTask,
+)
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
 from huggingface_hub.inference._providers.together import TogetherTextGenerationTask, TogetherTextToImageTask
@@ -213,6 +218,65 @@ class TestHFInferenceProvider:
             "model": "username/repo_name",
             "messages": [{"role": "user", "content": "dummy text input"}],
         }
+
+
+class TestHyperbolicProvider:
+    def test_prepare_route(self):
+        """Test route preparation for different tasks."""
+        helper = HyperbolicTextToImageTask()
+        assert helper._prepare_route("username/repo_name") == "/v1/images/generations"
+
+        helper = HyperbolicTextGenerationTask("text-generation")
+        assert helper._prepare_route("username/repo_name") == "/v1/chat/completions"
+
+        helper = HyperbolicTextGenerationTask("conversational")
+        assert helper._prepare_route("username/repo_name") == "/v1/chat/completions"
+
+        with pytest.raises(ValueError, match="Unsupported task 'invalid-task' for Hyperbolic API."):
+            HyperbolicTask("invalid-task")._prepare_route("username/repo_name")
+
+    def test_prepare_payload_conversational(self):
+        """Test payload preparation for conversational task."""
+        helper = HyperbolicTextGenerationTask("conversational")
+        payload = helper._prepare_payload(
+            [{"role": "user", "content": "Hello!"}], {"temperature": 0.7}, "meta-llama/Llama-3.2-3B-Instruct"
+        )
+        assert payload == {
+            "messages": [{"role": "user", "content": "Hello!"}],
+            "temperature": 0.7,
+            "model": "meta-llama/Llama-3.2-3B-Instruct",
+        }
+
+    def test_prepare_payload_text_to_image(self):
+        """Test payload preparation for text-to-image task."""
+        helper = HyperbolicTextToImageTask()
+        payload = helper._prepare_payload(
+            "a beautiful cat",
+            {
+                "num_inference_steps": 30,
+                "guidance_scale": 7.5,
+                "width": 512,
+                "height": 512,
+                "seed": 42,
+            },
+            "stabilityai/sdxl",
+        )
+        assert payload == {
+            "prompt": "a beautiful cat",
+            "steps": 30,  # renamed from num_inference_steps
+            "cfg_scale": 7.5,  # renamed from guidance_scale
+            "width": 512,
+            "height": 512,
+            "seed": 42,
+            "model_name": "stabilityai/sdxl",
+        }
+
+    def test_text_to_image_get_response(self):
+        """Test response handling for text-to-image task."""
+        helper = HyperbolicTextToImageTask()
+        dummy_image = b"image_bytes"
+        response = helper.get_response({"images": [{"image": base64.b64encode(dummy_image).decode()}]})
+        assert response == dummy_image
 
 
 class TestReplicateProvider:

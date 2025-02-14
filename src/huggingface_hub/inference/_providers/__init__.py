@@ -9,6 +9,7 @@ from .fal_ai import (
 )
 from .fireworks_ai import FireworksAIConversationalTask
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
+from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask
 from .together import TogetherTextGenerationTask, TogetherTextToImageTask
@@ -18,6 +19,7 @@ PROVIDER_T = Literal[
     "fal-ai",
     "fireworks-ai",
     "hf-inference",
+    "hyperbolic",
     "replicate",
     "sambanova",
     "together",
@@ -60,6 +62,11 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "translation": HFInferenceTask("translation"),
         "summarization": HFInferenceTask("summarization"),
         "visual-question-answering": HFInferenceBinaryInputTask("visual-question-answering"),
+    },
+    "hyperbolic": {
+        "text-to-image": HyperbolicTextToImageTask(),
+        "conversational": HyperbolicTextGenerationTask("conversational"),
+        "text-generation": HyperbolicTextGenerationTask("text-generation"),
     },
     "replicate": {
         "text-to-image": ReplicateTask("text-to-image"),

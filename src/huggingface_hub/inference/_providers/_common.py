@@ -18,7 +18,12 @@ HARDCODED_MODEL_ID_MAPPING: Dict[str, Dict[str, str]] = {
     # Example:
     # "Qwen/Qwen2.5-Coder-32B-Instruct": "Qwen2.5-Coder-32B-Instruct",
     "fal-ai": {},
+    "fireworks-ai": {},
     "hf-inference": {},
+    "hyperbolic": {
+        "black-forest-labs/FLUX.1-dev": "FLUX.1-dev",
+        "meta-llama/Llama-3.2-3B-Instruct": "meta-llama/Llama-3.2-3B-Instruct",
+    },
     "replicate": {},
     "sambanova": {},
     "together": {},
