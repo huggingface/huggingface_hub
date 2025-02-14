@@ -1,7 +1,7 @@
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from huggingface_hub import constants
 from huggingface_hub.inference._common import _b64_encode, _open_as_binary
@@ -40,9 +40,7 @@ class HFInferenceTask(TaskProviderHelper):
             return mapped_model
         return f"{self.base_url}/models/{mapped_model}"
 
-    def _prepare_payload(
-        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict] = None
-    ) -> Optional[Union[bytes, Dict]]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         if isinstance(inputs, bytes):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
         if isinstance(inputs, Path):
@@ -51,9 +49,12 @@ class HFInferenceTask(TaskProviderHelper):
 
 
 class HFInferenceBinaryInputTask(HFInferenceTask):
-    def _prepare_payload(
-        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict] = None
-    ) -> Optional[Union[bytes, Dict]]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+        return None
+
+    def _prepare_payload_as_bytes(
+        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
+    ) -> Optional[bytes]:
         parameters = filter_none({k: v for k, v in parameters.items() if v is not None})
         extra_payload = extra_payload or {}
         has_parameters = len(parameters) > 0 or len(extra_payload) > 0
@@ -76,11 +77,9 @@ class HFInferenceConversational(HFInferenceTask):
     def __init__(self):
         super().__init__("text-generation")
 
-    def _prepare_payload(
-        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict] = None
-    ) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         payload_model = "tgi" if mapped_model.startswith(("http://", "https://")) else mapped_model
-        return {**filter_none(parameters), "model": payload_model, "messages": inputs, **(extra_payload or {})}
+        return {**filter_none(parameters), "model": payload_model, "messages": inputs}
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
         base_url = (

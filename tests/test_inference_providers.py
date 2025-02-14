@@ -38,10 +38,10 @@ class TestFalAIProvider:
 
     def test_automatic_speech_recognition_payload(self):
         helper = FalAIAutomaticSpeechRecognitionTask()
-        payload = helper._prepare_payload("https://example.com/audio.mp3", {}, "username/repo_name")
+        payload = helper._prepare_payload_as_dict("https://example.com/audio.mp3", {}, "username/repo_name")
         assert payload == {"audio_url": "https://example.com/audio.mp3"}
 
-        payload = helper._prepare_payload(b"dummy_audio_data", {}, "username/repo_name")
+        payload = helper._prepare_payload_as_dict(b"dummy_audio_data", {}, "username/repo_name")
         assert payload == {"audio_url": f"data:audio/mpeg;base64,{base64.b64encode(b'dummy_audio_data').decode()}"}
 
     def test_automatic_speech_recognition_response(self):
@@ -54,7 +54,9 @@ class TestFalAIProvider:
 
     def test_text_to_image_payload(self):
         helper = FalAITextToImageTask()
-        payload = helper._prepare_payload("a beautiful cat", {"width": 512, "height": 512}, "username/repo_name")
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful cat", {"width": 512, "height": 512}, "username/repo_name"
+        )
         assert payload == {
             "prompt": "a beautiful cat",
             "image_size": {"width": 512, "height": 512},
@@ -69,7 +71,7 @@ class TestFalAIProvider:
 
     def test_text_to_speech_payload(self):
         helper = FalAITextToSpeechTask()
-        payload = helper._prepare_payload("Hello world", {}, "username/repo_name")
+        payload = helper._prepare_payload_as_dict("Hello world", {}, "username/repo_name")
         assert payload == {"lyrics": "Hello world"}
 
     def test_text_to_speech_response(self, mocker):
@@ -81,7 +83,7 @@ class TestFalAIProvider:
 
     def test_text_to_video_payload(self):
         helper = FalAITextToVideoTask()
-        payload = helper._prepare_payload("a cat walking", {"num_frames": 16}, "username/repo_name")
+        payload = helper._prepare_payload_as_dict("a cat walking", {"num_frames": 16}, "username/repo_name")
         assert payload == {"prompt": "a cat walking", "num_frames": 16}
 
     def test_text_to_video_response(self, mocker):
@@ -98,9 +100,9 @@ class TestFireworksAIConversationalTask:
         url = helper._prepare_url("fireworks_token", "username/repo_name")
         assert url == "https://api.fireworks.ai/inference/v1/chat/completions"
 
-    def test_prepare_payload(self):
+    def test_prepare_payload_as_dict(self):
         helper = FireworksAIConversationalTask()
-        payload = helper._prepare_payload(
+        payload = helper._prepare_payload_as_dict(
             [{"role": "user", "content": "Hello!"}], {}, "meta-llama/Llama-3.1-8B-Instruct"
         )
         assert payload == {
@@ -133,9 +135,9 @@ class TestHFInferenceProvider:
 
         assert helper._prepare_url("hf_test_token", "https://any-url.com") == "https://any-url.com"
 
-    def test_prepare_payload(self):
+    def test_prepare_payload_as_dict(self):
         helper = HFInferenceTask("text-classification")
-        assert helper._prepare_payload(
+        assert helper._prepare_payload_as_dict(
             "dummy text input",
             parameters={"a": 1, "b": None},
             mapped_model="username/repo_name",
@@ -145,12 +147,12 @@ class TestHFInferenceProvider:
         }
 
         with pytest.raises(ValueError, match="Unexpected binary input for task text-classification."):
-            helper._prepare_payload(b"dummy binary data", {}, "username/repo_name")
+            helper._prepare_payload_as_dict(b"dummy binary data", {}, "username/repo_name")
 
-    def test_prepare_payload_binary_input(self):
+    def test_prepare_payload_as_bytes(self):
         helper = HFInferenceBinaryInputTask("image-classification")
         assert (
-            helper._prepare_payload(
+            helper._prepare_payload_as_bytes(
                 b"dummy binary input",
                 parameters={},
                 mapped_model="username/repo_name",
@@ -160,7 +162,7 @@ class TestHFInferenceProvider:
         )
 
         assert (
-            helper._prepare_payload(
+            helper._prepare_payload_as_bytes(
                 b"dummy binary input",
                 parameters={"a": 1, "b": None},
                 mapped_model="username/repo_name",
@@ -233,17 +235,17 @@ class TestReplicateProvider:
         url = helper._prepare_route("black-forest-labs/FLUX.1-schnell:1944af04d098ef")
         assert url == "/v1/predictions"
 
-    def test_prepare_payload(self):
+    def test_prepare_payload_as_dict(self):
         helper = ReplicateTask("text-to-image")
 
         # No model version
-        payload = helper._prepare_payload(
+        payload = helper._prepare_payload_as_dict(
             "a beautiful cat", {"num_inference_steps": 20}, "black-forest-labs/FLUX.1-schnell"
         )
         assert payload == {"input": {"prompt": "a beautiful cat", "num_inference_steps": 20}}
 
         # Model with specific version
-        payload = helper._prepare_payload(
+        payload = helper._prepare_payload_as_dict(
             "a beautiful cat", {"num_inference_steps": 20}, "black-forest-labs/FLUX.1-schnell:1944af04d098ef"
         )
         assert payload == {
@@ -253,7 +255,7 @@ class TestReplicateProvider:
 
     def test_text_to_speech_payload(self):
         helper = ReplicateTextToSpeechTask()
-        payload = helper._prepare_payload(
+        payload = helper._prepare_payload_as_dict(
             "Hello world", {}, "hexgrad/Kokoro-82M:f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13"
         )
         assert payload == {
@@ -279,9 +281,9 @@ class TestSambanovaProvider:
         helper = SambanovaConversationalTask()
         assert helper._prepare_route("meta-llama/Llama-3.1-8B-Instruct") == "/v1/chat/completions"
 
-    def test_prepare_payload(self):
+    def test_prepare_payload_as_dict(self):
         helper = SambanovaConversationalTask()
-        payload = helper._prepare_payload(
+        payload = helper._prepare_payload_as_dict(
             [{"role": "user", "content": "Hello!"}], {}, "meta-llama/Llama-3.1-8B-Instruct"
         )
         assert payload == {
@@ -301,9 +303,9 @@ class TestTogetherProvider:
         helper = TogetherTextToImageTask()
         assert helper._prepare_route("username/repo_name") == "/v1/images/generations"
 
-    def test_prepare_payload_conversational(self):
+    def test_prepare_payload_as_dict_conversational(self):
         helper = TogetherTextGenerationTask("conversational")
-        payload = helper._prepare_payload(
+        payload = helper._prepare_payload_as_dict(
             [{"role": "user", "content": "Hello!"}], {}, "meta-llama/Llama-3.1-8B-Instruct"
         )
         assert payload == {
@@ -311,9 +313,9 @@ class TestTogetherProvider:
             "model": "meta-llama/Llama-3.1-8B-Instruct",
         }
 
-    def test_prepare_payload_text_to_image(self):
+    def test_prepare_payload_as_dict_text_to_image(self):
         helper = TogetherTextToImageTask()
-        payload = helper._prepare_payload(
+        payload = helper._prepare_payload_as_dict(
             "a beautiful cat",
             {"num_inference_steps": 10, "guidance_scale": 1, "width": 512, "height": 512},
             "black-forest-labs/FLUX.1-schnell",

@@ -24,19 +24,15 @@ class TogetherTask(TaskProviderHelper, ABC):
 
 class TogetherTextGenerationTask(TogetherTask):
     # Handle both "text-generation" and "conversational"
-    def _prepare_payload(
-        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict] = None
-    ) -> Optional[Dict]:
-        return {"messages": inputs, **filter_none(parameters), "model": mapped_model, **(extra_payload or {})}
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+        return {"messages": inputs, **filter_none(parameters), "model": mapped_model}
 
 
 class TogetherTextToImageTask(TogetherTask):
     def __init__(self):
         super().__init__("text-to-image")
 
-    def _prepare_payload(
-        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict] = None
-    ) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         parameters = filter_none(parameters)
         if "num_inference_steps" in parameters:
             parameters["steps"] = parameters.pop("num_inference_steps")

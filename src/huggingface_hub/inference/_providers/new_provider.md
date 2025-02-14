@@ -6,7 +6,7 @@ Before adding a new provider to the `huggingface_hub` library, make sure it has 
 
 Create a new file under `src/huggingface_hub/inference/_providers/{provider_name}.py` and copy-paste the following snippet.
 
-Implement the methods that require custom handling. Check out the base implementation to check default behavior. If you don't need to override a method, just remove it. `_prepare_payload` must be overwritten.
+Implement the methods that require custom handling. Check out the base implementation to check default behavior. If you don't need to override a method, just remove it. At least one of `_prepare_payload_as_dict` or `_prepare_payload_as_bytes` must be overwritten.
 
 If the provider supports multiple tasks that require different implementations, create dedicated subclasses for each task, following the pattern shown in `fal_ai.py`.
 
@@ -42,13 +42,24 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
         """
         return super()._prepare_route(mapped_model)
 
-    def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         """Return the payload to use for the request, as a dict.
 
         Override this method in subclasses for customized payloads.
+        Only one of `_prepare_payload_as_dict` and `_prepare_payload_as_bytes` should return a value.
         """
-        return super()._prepare_payload(inputs, parameters, mapped_model)
+        return super()._prepare_payload_as_dict(inputs, parameters, mapped_model)
 
+    def _prepare_payload_as_bytes(
+        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
+    ) -> Optional[bytes]:
+        """Return the body to use for the request, as bytes.
+
+        Override this method in subclasses for customized body data.
+        Only one of `_prepare_payload_as_dict` and `_prepare_payload_as_bytes` should return a value.
+        """
+        return super()._prepare_payload_as_bytes(inputs, parameters, mapped_model, extra_payload)
+    
 ```
 
 ### 2. Register the provider helper in `__init__.py`

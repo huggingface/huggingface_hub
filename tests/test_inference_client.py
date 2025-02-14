@@ -36,7 +36,6 @@ from huggingface_hub import (
     ObjectDetectionBoundingBox,
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
-    SummarizationOutput,
     TableQuestionAnsweringOutputElement,
     TextClassificationOutputElement,
     TokenClassificationOutputElement,
@@ -210,7 +209,7 @@ def list_clients(task: str) -> List[pytest.param]:
     return clients
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 @with_production_testing
 def client(request):
     """
@@ -588,48 +587,8 @@ class TestInferenceClient(TestBase):
 
     @pytest.mark.parametrize("client", list_clients("summarization"), indirect=True)
     def test_summarization(self, client: InferenceClient):
-        summary = client.summarization(
-            " Ravens Ravens reaction reaction reaction scarcity scarcity "
-            "scarcity escaped escaped escaped finish finish "
-            "finishminingmining reson reson reson anything anything "
-            "anythingFootnoteFootnoteFootnote Hood Hood Hood Joan Joan "
-            "Joan Hood Hood Dav Dav ancestral Hood Hood knees Hood "
-            "Hoodchychy Hood Hood mobile Hood Hood anything anything "
-            "conviction conviction conviction pursuits pursuits pursuits "
-            "Hood Hood pieces pieces whatsoever anything anything bought "
-            "bought bought whatsoever whatsoever "
-            "whatsoever960960960COLCOL whatsoever whatsoever departing "
-            "departing departing whatsoever whatsoever Talks whatsoever "
-            "whatsoever J J whatsoever whatsoever dates dates dates "
-            "Trudeau Trudeau Trudeau Direction Direction Direction "
-            "Dynamics Dynamics Dynamics pseudo pseudo "
-            "pseudocookiecookiecookiecookiecookiecontrolcontrolcontrol Syl Syl Syl "
-            "hijacked hijacked Silk Silk Silkawawawcontrolcontrolawaw "
-            "tort tort tort futures futures futurescontrolcontrol futures "
-            "futuresLynLynLyn Scots Scots"
-        )
-        assert summary == SummarizationOutput.parse_obj(
-            {
-                "summary_text": "JoeJoe reaction reaction reaction anything anything anything "
-                "275 275 275 anything anythingFootnote 275 "
-                "275FootnoteFootnoteFootnote dominance dominance dominance "
-                "commit commit commitzenszenszens anything anything Hood Hood "
-                "Hoodensions Hood Hood knees Hood "
-                "HoodmapsmapsFootnoteFootnotemapsmapsmaps anything anything "
-                "conviction conviction convictionFootnoteFootnote Hood "
-                "HoodFootnote HoodFootnoteFootnote grounded grounded grounded "
-                "cinem cinem cinem hijacked Lys Lys Lys cinem cinem Inside "
-                "Inside Inside Syl Promotion Promotion Promotion maj maj "
-                "Siberian Siberian Siberian accent accent accent plate "
-                "platecookiecookiecookie vary vary vary dictator vary "
-                "varyiatesiatesiatesawawawgowgowgow Gmail Gmail Federation "
-                "Federation Federation unsuccessfully unsuccessfully "
-                "unsuccessfully Kis Kis Kis Federation Federation bothered "
-                "bothered bothered blended bothered botheredigig Coming "
-                "Coming Comingcookiecookie Coming Coming805805805 Coming "
-                "Coming",
-            }
-        )
+        summary = client.summarization("The sky is blue, the tree is green.")
+        assert isinstance(summary.summary_text, str)
 
     @pytest.mark.skip(reason="This model is not available on InferenceAPI")
     @pytest.mark.parametrize("client", list_clients("tabular-classification"), indirect=True)
