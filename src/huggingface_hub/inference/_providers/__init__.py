@@ -12,7 +12,7 @@ from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational,
 from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask
-from .together import TogetherTextGenerationTask, TogetherTextToImageTask
+from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
 
 
 PROVIDER_T = Literal[
@@ -78,8 +78,8 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     },
     "together": {
         "text-to-image": TogetherTextToImageTask(),
-        "conversational": TogetherTextGenerationTask("conversational"),
-        "text-generation": TogetherTextGenerationTask("text-generation"),
+        "conversational": TogetherConversationalTask(),
+        "text-generation": TogetherTextGenerationTask(),
     },
 }
 

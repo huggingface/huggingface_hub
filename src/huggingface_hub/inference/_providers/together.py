@@ -3,7 +3,12 @@ from abc import ABC
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub.inference._common import _as_dict
-from huggingface_hub.inference._providers._common import BaseTextGenerationTask, TaskProviderHelper, filter_none
+from huggingface_hub.inference._providers._common import (
+    BaseConversationalTask,
+    BaseTextGenerationTask,
+    TaskProviderHelper,
+    filter_none,
+)
 
 
 class TogetherTask(TaskProviderHelper, ABC):
@@ -23,8 +28,13 @@ class TogetherTask(TaskProviderHelper, ABC):
 
 
 class TogetherTextGenerationTask(BaseTextGenerationTask):
-    def __init__(self, task: str):
-        super().__init__(provider="together", base_url="https://api.together.xyz", task=task)
+    def __init__(self):
+        super().__init__(provider="together", base_url="https://api.together.xyz")
+
+
+class TogetherConversationalTask(BaseConversationalTask):
+    def __init__(self):
+        super().__init__(provider="together", base_url="https://api.together.xyz")
 
 
 class TogetherTextToImageTask(TogetherTask):

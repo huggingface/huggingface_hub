@@ -22,7 +22,11 @@ from huggingface_hub.inference._providers.hyperbolic import (
 )
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
-from huggingface_hub.inference._providers.together import TogetherTextGenerationTask, TogetherTextToImageTask
+from huggingface_hub.inference._providers.together import (
+    TogetherConversationalTask,
+    TogetherTextGenerationTask,
+    TogetherTextToImageTask,
+)
 
 
 class TestFalAIProvider:
@@ -233,9 +237,6 @@ class TestHyperbolicProvider:
         helper = HyperbolicTextGenerationTask("conversational")
         assert helper._prepare_route("username/repo_name") == "/v1/chat/completions"
 
-        with pytest.raises(ValueError, match="Unsupported task 'invalid-task' for Hyperbolic."):
-            HyperbolicTextGenerationTask("invalid-task")._prepare_route("username/repo_name")
-
     def test_prepare_payload_conversational(self):
         """Test payload preparation for conversational task."""
         helper = HyperbolicTextGenerationTask("conversational")
@@ -357,17 +358,17 @@ class TestSambanovaProvider:
 
 class TestTogetherProvider:
     def test_prepare_route(self):
-        helper = TogetherTextGenerationTask("text-generation")
+        helper = TogetherTextGenerationTask()
         assert helper._prepare_route("username/repo_name") == "/v1/completions"
 
-        helper = TogetherTextGenerationTask("conversational")
+        helper = TogetherConversationalTask()
         assert helper._prepare_route("username/repo_name") == "/v1/chat/completions"
 
         helper = TogetherTextToImageTask()
         assert helper._prepare_route("username/repo_name") == "/v1/images/generations"
 
     def test_prepare_payload_as_dict_conversational(self):
-        helper = TogetherTextGenerationTask("conversational")
+        helper = TogetherConversationalTask()
         payload = helper._prepare_payload_as_dict(
             [{"role": "user", "content": "Hello!"}], {}, "meta-llama/Llama-3.1-8B-Instruct"
         )

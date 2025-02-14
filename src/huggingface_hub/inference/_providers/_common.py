@@ -180,23 +180,36 @@ class TaskProviderHelper:
         return None
 
 
-class BaseTextGenerationTask(TaskProviderHelper):
-    def __init__(self, provider: str, base_url: str, task: str):
-        super().__init__(provider=provider, base_url=base_url, task=task)
+class BaseConversationalTask(TaskProviderHelper):
+    """
+    Base class for conversational (chat completion) tasks.
+    The schema follows the OpenAI API format defined here: https://platform.openai.com/docs/api-reference/chat
+    """
+
+    def __init__(self, provider: str, base_url: str):
+        super().__init__(provider=provider, base_url=base_url, task="conversational")
 
     def _prepare_route(self, mapped_model: str) -> str:
-        if self.task == "conversational":
-            return "/v1/chat/completions"
-        elif self.task == "text-generation":
-            return "/v1/completions"
-        raise ValueError(f"Unsupported task '{self.task}' for {self.provider}.")
+        return "/v1/chat/completions"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
-        if self.task == "conversational":
-            return {"messages": inputs, **filter_none(parameters), "model": mapped_model}
-        elif self.task == "text-generation":
-            return {"prompt": inputs, **filter_none(parameters), "model": mapped_model}
-        raise ValueError(f"Unsupported task '{self.task}' for {self.provider}.")
+        return {"messages": inputs, **filter_none(parameters), "model": mapped_model}
+
+
+class BaseTextGenerationTask(TaskProviderHelper):
+    """
+    Base class for text-generation (completion) tasks.
+    The schema follows the OpenAI API format defined here: https://platform.openai.com/docs/api-reference/completions
+    """
+
+    def __init__(self, provider: str, base_url: str):
+        super().__init__(provider=provider, base_url=base_url, task="text-generation")
+
+    def _prepare_route(self, mapped_model: str) -> str:
+        return "/v1/completions"
+
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+        return {"prompt": inputs, **filter_none(parameters), "model": mapped_model}
 
 
 @lru_cache(maxsize=None)

@@ -2,7 +2,7 @@ import base64
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub.inference._common import _as_dict
-from huggingface_hub.inference._providers._common import BaseTextGenerationTask, TaskProviderHelper, filter_none
+from huggingface_hub.inference._providers._common import BaseConversationalTask, TaskProviderHelper, filter_none
 
 
 class HyperbolicTextToImageTask(TaskProviderHelper):
@@ -30,12 +30,14 @@ class HyperbolicTextToImageTask(TaskProviderHelper):
         return base64.b64decode(response_dict["images"][0]["image"])
 
 
-class HyperbolicTextGenerationTask(BaseTextGenerationTask):
-    def __init__(self, task: str):
-        super().__init__(provider="hyperbolic", base_url="https://api.hyperbolic.xyz", task=task)
+class HyperbolicTextGenerationTask(BaseConversationalTask):
+    """
+    Special case for Hyperbolic, where text-generation task is handled as a conversational task.
+    """
 
-    def _prepare_route(self, mapped_model: str) -> str:
-        # For Hyperbolic, the route is the same for text-generation and conversational tasks
-        if self.task in ("text-generation", "conversational"):
-            return "/v1/chat/completions"
-        raise ValueError(f"Unsupported task '{self.task}' for Hyperbolic.")
+    def __init__(self, task: str):
+        super().__init__(
+            provider="hyperbolic",
+            base_url="https://api.hyperbolic.xyz",
+        )
+        self.task = task

@@ -1,6 +1,6 @@
-from ._common import BaseTextGenerationTask
+from ._common import BaseConversationalTask
 
 
-class FireworksAIConversationalTask(BaseTextGenerationTask):
+class FireworksAIConversationalTask(BaseConversationalTask):
     def __init__(self):
-        super().__init__(provider="fireworks-ai", base_url="https://api.fireworks.ai/inference", task="conversational")
+        super().__init__(provider="fireworks-ai", base_url="https://api.fireworks.ai/inference")
