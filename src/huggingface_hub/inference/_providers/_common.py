@@ -192,7 +192,11 @@ class BaseTextGenerationTask(TaskProviderHelper):
         raise ValueError(f"Unsupported task '{self.task}' for {self.provider}.")
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
-        return {"messages": inputs, **filter_none(parameters), "model": mapped_model}
+        if self.task == "conversational":
+            return {"messages": inputs, **filter_none(parameters), "model": mapped_model}
+        elif self.task == "text-generation":
+            return {"prompt": inputs, **filter_none(parameters), "model": mapped_model}
+        raise ValueError(f"Unsupported task '{self.task}' for {self.provider}.")
 
 
 @lru_cache(maxsize=None)
