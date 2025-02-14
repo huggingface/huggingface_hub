@@ -1,0 +1,148 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - dca1f78e-b2db-47ad-93d2-586efd5985e4
+    method: GET
+    uri: https://huggingface.co/api/models/meta-llama/Llama-3.1-8B-Instruct?expand=inferenceProviderMapping
+  response:
+    body:
+      string: '{"_id":"6698d8a0653e4babe21e1e7d","id":"meta-llama/Llama-3.1-8B-Instruct","inferenceProviderMapping":{"fireworks-ai":{"status":"live","providerId":"accounts/fireworks/models/llama-v3p1-8b-instruct","task":"conversational"},"sambanova":{"status":"live","providerId":"Meta-Llama-3.1-8B-Instruct","task":"conversational"},"hf-inference":{"status":"live","providerId":"meta-llama/Llama-3.1-8B-Instruct","task":"conversational"},"nebius":{"status":"staging","providerId":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","task":"conversational"},"novita":{"status":"staging","providerId":"meta-llama/llama-3.1-8b-instruct","task":"conversational"}}}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '639'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 14 Feb 2025 17:32:09 GMT
+      ETag:
+      - W/"27f-ztVRxc00m4D/CsGQLQvEbDbNQxE"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 7942de46d7f690659dee238fe5cd2d32.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - nxSROW5B07A6AoABNgfM0nQqyjP7WhU1f4khcUd2h9PIFRQJvcWK7Q==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-67af7e19-77602eda473a665f0bbea3ad;dca1f78e-b2db-47ad-93d2-586efd5985e4
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "meta-llama/llama-3.1-8b-instruct",
+      "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '194'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - e51b70cc-f264-4272-9dcf-6feadf43cc7d
+    method: POST
+    uri: https://router.huggingface.co/novita/chat/completions
+  response:
+    body:
+      string: '{"id":"chatcmpl-4cf867796b05459e90a98d19b8a96f05","object":"chat.completion","created":1739554330,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"message":{"role":"assistant","content":"Deep
+        learning is a subset of machine learning that involves the use of artificial
+        neural networks (ANNs) with multiple layers to analyze and interpret complex
+        data. These neural networks are modeled after the structure and function of
+        the human brain, with layers of interconnected nodes or \"neurons\" that process
+        and transmit information.\n\nDeep learning techniques are particularly well-suited
+        for dealing with high-dimensional data, such as images, videos, and speech.
+        They are able to automatically learn and improve their performance on a task
+        through the analysis of large datasets, without being explicitly programmed.\n\nSome
+        key characteristics of deep learning include:\n\n1. **Multi-layered architecture**:
+        Deep neural networks have multiple layers, each of which processes and refines
+        the input data.\n2. **Auto-encoding**: Deep learning algorithms can learn
+        to represent input data in a compressed or encoded form, which can be used
+        for tasks such as image compression or classification.\n3. **Unsupervised
+        learning**: Deep learning algorithms can learn to identify patterns and features
+        in data without explicit supervision or labeling.\n4. **Large datasets**:
+        Deep learning algorithms typically require large amounts of training data
+        to learn and improve their performance.\n5. **GPU acceleration**: Deep learning
+        algorithms can be accelerated using graphics processing units (GPUs), which
+        provide a significant increase in processing power and speed.\n\nSome common
+        applications of deep learning include:\n\n1. **Computer vision**: Deep learning
+        is used in image and video recognition, object detection, and image segmentation.\n2.
+        **Speech recognition**: Deep learning is used in speech recognition, natural
+        language processing, and voice assistants.\n3. **Natural language processing**:
+        Deep learning is used in text classification, sentiment analysis, and language
+        translation.\n4. **Robotics**: Deep learning is used in robotics for tasks
+        such as object recognition, grasping, and manipulation.\n\nSome popular deep
+        learning techniques include:\n\n1. **Convolutional neural networks (CNNs)**:
+        Used for image and video recognition.\n2. **Recurrent neural networks (RNNs)**:
+        Used for speech recognition and natural language processing.\n3. **Long short-term
+        memory (LSTM) networks**: Used for sequence prediction and time-series forecasting.\n4.
+        **Generative adversarial networks (GANs)**: Used for generative modeling and
+        data augmentation.\n\nOverall, deep learning has revolutionized the field
+        of artificial intelligence and has many exciting applications in areas such
+        as computer vision, speech recognition, and natural language processing."},"finish_reason":"stop","content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"usage":{"prompt_tokens":46,"completion_tokens":486,"total_tokens":532,"prompt_tokens_details":null,"completion_tokens_details":null},"system_fingerprint":""}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 14 Feb 2025 17:32:16 GMT
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      Via:
+      - 1.1 938fab6199e7c5664c3a5a9f4a18e3c6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - 6FNAT9F9znnjHKUodWcigO1umbwLp37v-IegW0vdWdcX-gCViho2EQ==
+      X-Amz-Cf-Pop:
+      - CDG55-P3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      cross-origin-opener-policy:
+      - same-origin
+      x-request-id:
+      - Root=1-67af7e19-4a834c437935ee590a3d476e;e51b70cc-f264-4272-9dcf-6feadf43cc7d
+      x-trace-id:
+      - d6f20b4ecdc0ef5e148dae5cf515802d
+    status:
+      code: 200
+      message: OK
+version: 1

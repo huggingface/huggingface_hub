@@ -20,6 +20,10 @@ from huggingface_hub.inference._providers.hyperbolic import (
     HyperbolicTextGenerationTask,
     HyperbolicTextToImageTask,
 )
+from huggingface_hub.inference._providers.novita import (
+    NovitaConversationalTask,
+    NovitaTextGenerationTask,
+)
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
 from huggingface_hub.inference._providers.together import (
@@ -279,6 +283,39 @@ class TestHyperbolicProvider:
         dummy_image = b"image_bytes"
         response = helper.get_response({"images": [{"image": base64.b64encode(dummy_image).decode()}]})
         assert response == dummy_image
+
+
+class TestNovitaProvider:
+    def test_prepare_url_text_generation(self):
+        helper = NovitaTextGenerationTask()
+        url = helper._prepare_url("novita_token", "username/repo_name")
+        assert url == "https://api.novita.ai/v3/openai/completions"
+
+    def test_prepare_url_conversational(self):
+        helper = NovitaConversationalTask()
+        url = helper._prepare_url("novita_token", "username/repo_name")
+        assert url == "https://api.novita.ai/v3/openai/chat/completions"
+
+    def test_prepare_payload_text_generation(self):
+        helper = NovitaTextGenerationTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello world!", {"temperature": 0.7}, "mistralai/Mistral-Nemo-Base-2407"
+        )
+        assert payload == {
+            "prompt": "Hello world!",
+            "temperature": 0.7,
+            "model": "mistralai/Mistral-Nemo-Base-2407",
+        }
+
+    def test_prepare_payload_conversational(self):
+        helper = NovitaConversationalTask()
+        payload = helper._prepare_payload_as_dict(
+            [{"role": "user", "content": "Hello!"}], {}, "meta-llama/Llama-3.1-8B-Instruct"
+        )
+        assert payload == {
+            "messages": [{"role": "user", "content": "Hello!"}],
+            "model": "meta-llama/Llama-3.1-8B-Instruct",
+        }
 
 
 class TestReplicateProvider:
