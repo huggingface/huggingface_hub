@@ -22,11 +22,10 @@ import asyncio
 import base64
 import logging
 import re
-import time
 import warnings
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Set, Union, overload
 
-from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
+from huggingface_hub import constants
 from huggingface_hub.errors import InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
@@ -299,8 +298,6 @@ class AsyncInferenceClient:
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        t0 = time.time()
-        timeout = self.timeout
         while True:
             with _open_as_binary(request_parameters.data) as data_as_binary:
                 # Do not use context manager as we don't want to close the connection immediately when returning
@@ -331,27 +328,6 @@ class AsyncInferenceClient:
                 except aiohttp.ClientResponseError as error:
                     error.response_error_payload = response_error_payload
                     await session.close()
-                    if response.status == 422 and request_parameters.task != "unknown":
-                        error.message += f". Make sure '{request_parameters.task}' task is supported by the model."
-                    if response.status == 503:
-                        # If Model is unavailable, either raise a TimeoutError...
-                        if timeout is not None and time.time() - t0 > timeout:
-                            raise InferenceTimeoutError(
-                                f"Model not loaded on the server: {request_parameters.url}. Please retry with a higher timeout"
-                                f" (current: {self.timeout}).",
-                                request=error.request,
-                                response=error.response,
-                            ) from error
-                        # ...or wait 1s and retry
-                        logger.info(f"Waiting for model to be loaded on the server: {error}")
-                        if "X-wait-for-model" not in request_parameters.headers and request_parameters.url.startswith(
-                            INFERENCE_ENDPOINT
-                        ):
-                            request_parameters.headers["X-wait-for-model"] = "1"
-                        await asyncio.sleep(1)
-                        if timeout is not None:
-                            timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
-                        continue
                     raise error
                 except Exception:
                     await session.close()
@@ -3325,6 +3301,13 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
+    @_deprecate_method(
+        version="0.33.0",
+        message=(
+            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
+            " Use `HfApi.list_models(..., inference_provider='...')` to list warm models per provider."
+        ),
+    )
     async def list_deployed_models(
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
     ) -> Dict[str, List[str]]:
@@ -3382,9 +3365,9 @@ class AsyncInferenceClient:
 
         # Resolve which frameworks to check
         if frameworks is None:
-            frameworks = MAIN_INFERENCE_API_FRAMEWORKS
+            frameworks = constants.MAIN_INFERENCE_API_FRAMEWORKS
         elif frameworks == "all":
-            frameworks = ALL_INFERENCE_API_FRAMEWORKS
+            frameworks = constants.ALL_INFERENCE_API_FRAMEWORKS
         elif isinstance(frameworks, str):
             frameworks = [frameworks]
         frameworks = list(set(frameworks))
@@ -3404,7 +3387,7 @@ class AsyncInferenceClient:
 
         for framework in frameworks:
             response = get_session().get(
-                f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
+                f"{constants.INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
             )
             hf_raise_for_status(response)
             _unpack_response(framework, response.json())
@@ -3508,7 +3491,7 @@ class AsyncInferenceClient:
         if model.startswith(("http://", "https://")):
             url = model.rstrip("/") + "/info"
         else:
-            url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
+            url = f"{constants.INFERENCE_ENDPOINT}/models/{model}/info"
 
         async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
             response = await client.get(url, proxy=self.proxies)
@@ -3554,6 +3537,13 @@ class AsyncInferenceClient:
             response = await client.get(url, proxy=self.proxies)
             return response.status == 200
 
+    @_deprecate_method(
+        version="0.33.0",
+        message=(
+            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
+            " Use `HfApi.model_info` to get the model status both with HF Inference API and external providers."
+        ),
+    )
     async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
         Get the status of a model hosted on the HF Inference API.
@@ -3593,7 +3583,7 @@ class AsyncInferenceClient:
             raise ValueError("Model id not provided.")
         if model.startswith("https://"):
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
-        url = f"{INFERENCE_ENDPOINT}/status/{model}"
+        url = f"{constants.INFERENCE_ENDPOINT}/status/{model}"
 
         async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
             response = await client.get(url, proxy=self.proxies)

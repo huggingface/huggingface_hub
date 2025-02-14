@@ -35,13 +35,12 @@
 import base64
 import logging
 import re
-import time
 import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Union, overload
 
 from requests import HTTPError
 
-from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
+from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
@@ -301,8 +300,6 @@ class InferenceClient:
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        t0 = time.time()
-        timeout = self.timeout
         while True:
             with _open_as_binary(request_parameters.data) as data_as_binary:
                 try:
@@ -326,30 +323,9 @@ class InferenceClient:
             except HTTPError as error:
                 if error.response.status_code == 422 and request_parameters.task != "unknown":
                     msg = str(error.args[0])
-                    print(error.response.text)
                     if len(error.response.text) > 0:
                         msg += f"\n{error.response.text}\n"
-                    msg += f"\nMake sure '{request_parameters.task}' task is supported by the model."
                     error.args = (msg,) + error.args[1:]
-                if error.response.status_code == 503:
-                    # If Model is unavailable, either raise a TimeoutError...
-                    if timeout is not None and time.time() - t0 > timeout:
-                        raise InferenceTimeoutError(
-                            f"Model not loaded on the server: {request_parameters.url}. Please retry with a higher timeout (current:"
-                            f" {self.timeout}).",
-                            request=error.request,
-                            response=error.response,
-                        ) from error
-                    # ...or wait 1s and retry
-                    logger.info(f"Waiting for model to be loaded on the server: {error}")
-                    time.sleep(1)
-                    if "X-wait-for-model" not in request_parameters.headers and request_parameters.url.startswith(
-                        INFERENCE_ENDPOINT
-                    ):
-                        request_parameters.headers["X-wait-for-model"] = "1"
-                    if timeout is not None:
-                        timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
-                    continue
                 raise
 
     def audio_classification(
@@ -3261,6 +3237,13 @@ class InferenceClient:
         response = self._inner_post(request_parameters)
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
+    @_deprecate_method(
+        version="0.33.0",
+        message=(
+            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
+            " Use `HfApi.list_models(..., inference_provider='...')` to list warm models per provider."
+        ),
+    )
     def list_deployed_models(
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
     ) -> Dict[str, List[str]]:
@@ -3317,9 +3300,9 @@ class InferenceClient:
 
         # Resolve which frameworks to check
         if frameworks is None:
-            frameworks = MAIN_INFERENCE_API_FRAMEWORKS
+            frameworks = constants.MAIN_INFERENCE_API_FRAMEWORKS
         elif frameworks == "all":
-            frameworks = ALL_INFERENCE_API_FRAMEWORKS
+            frameworks = constants.ALL_INFERENCE_API_FRAMEWORKS
         elif isinstance(frameworks, str):
             frameworks = [frameworks]
         frameworks = list(set(frameworks))
@@ -3339,7 +3322,7 @@ class InferenceClient:
 
         for framework in frameworks:
             response = get_session().get(
-                f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
+                f"{constants.INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
             )
             hf_raise_for_status(response)
             _unpack_response(framework, response.json())
@@ -3401,7 +3384,7 @@ class InferenceClient:
         if model.startswith(("http://", "https://")):
             url = model.rstrip("/") + "/info"
         else:
-            url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
+            url = f"{constants.INFERENCE_ENDPOINT}/models/{model}/info"
 
         response = get_session().get(url, headers=build_hf_headers(token=self.token))
         hf_raise_for_status(response)
@@ -3444,6 +3427,13 @@ class InferenceClient:
         response = get_session().get(url, headers=build_hf_headers(token=self.token))
         return response.status_code == 200
 
+    @_deprecate_method(
+        version="0.33.0",
+        message=(
+            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
+            " Use `HfApi.model_info` to get the model status both with HF Inference API and external providers."
+        ),
+    )
     def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
         Get the status of a model hosted on the HF Inference API.
@@ -3482,7 +3472,7 @@ class InferenceClient:
             raise ValueError("Model id not provided.")
         if model.startswith("https://"):
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
-        url = f"{INFERENCE_ENDPOINT}/status/{model}"
+        url = f"{constants.INFERENCE_ENDPOINT}/status/{model}"
 
         response = get_session().get(url, headers=build_hf_headers(token=self.token))
         hf_raise_for_status(response)

@@ -70,12 +70,12 @@ class TaskProviderHelper:
         url = self._prepare_url(api_key, mapped_model)
 
         # prepare payload (to customize in subclasses)
-        payload = self._prepare_payload(inputs, parameters, mapped_model=mapped_model)
+        payload = self._prepare_payload_as_dict(inputs, parameters, mapped_model=mapped_model)
         if payload is not None:
             payload = recursive_merge(payload, extra_payload or {})
 
         # body data (to customize in subclasses)
-        data = self._prepare_body(inputs, parameters, mapped_model, extra_payload)
+        data = self._prepare_payload_as_bytes(inputs, parameters, mapped_model, extra_payload)
 
         # check if both payload and data are set and return
         if payload is not None and data is not None:
@@ -164,21 +164,21 @@ class TaskProviderHelper:
         """
         return ""
 
-    def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         """Return the payload to use for the request, as a dict.
 
         Override this method in subclasses for customized payloads.
-        Only one of `_prepare_payload` and `_prepare_body` should return a value.
+        Only one of `_prepare_payload_as_dict` and `_prepare_payload_as_bytes` should return a value.
         """
         return None
 
-    def _prepare_body(
+    def _prepare_payload_as_bytes(
         self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
     ) -> Optional[bytes]:
         """Return the body to use for the request, as bytes.
 
         Override this method in subclasses for customized body data.
-        Only one of `_prepare_payload` and `_prepare_body` should return a value.
+        Only one of `_prepare_payload_as_dict` and `_prepare_payload_as_bytes` should return a value.
         """
         return None
 
@@ -188,9 +188,9 @@ def _fetch_inference_provider_mapping(model: str) -> Dict:
     """
     Fetch provider mappings for a model from the Hub.
     """
-    from huggingface_hub.hf_api import model_info
+    from huggingface_hub.hf_api import HfApi
 
-    info = model_info(model, expand=["inferenceProviderMapping"])
+    info = HfApi().model_info(model, expand=["inferenceProviderMapping"])
     provider_mapping = info.inference_provider_mapping
     if provider_mapping is None:
         raise ValueError(f"No provider mapping found for model {model}")

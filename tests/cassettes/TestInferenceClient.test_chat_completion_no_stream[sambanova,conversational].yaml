@@ -1,157 +1,5 @@
 interactions:
 - request:
-    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "What is deep learning?"}], "model": "Meta-Llama-3.1-8B-Instruct",
-      "stream": false}'
-    headers:
-      Accept:
-      - '*/*'
-      Accept-Encoding:
-      - gzip, deflate
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '188'
-      Content-Type:
-      - application/json
-      X-Amzn-Trace-Id:
-      - b6d9f92d-7fc4-40ef-bae8-1f70c1d796aa
-    method: POST
-    uri: https://api.sambanova.ai/v1/chat/completions
-  response:
-    body:
-      string: '{"choices":[{"finish_reason":"stop","index":0,"logprobs":null,"message":{"content":"Deep
-        learning is a subset of machine learning that involves the use of artificial
-        neural networks with multiple layers to analyze and interpret data. These
-        neural networks are inspired by the structure and function of the human brain,
-        with each layer processing the input data in a hierarchical manner.\n\nThe
-        key characteristics of deep learning are:\n\n1. **Multiple layers**: Deep
-        learning models consist of multiple layers of interconnected nodes or \"neurons,\"
-        which process the input data in a hierarchical manner.\n2. **Non-linear transformations**:
-        Each layer applies a non-linear transformation to the input data, allowing
-        the model to learn complex relationships between the input features.\n3. **Large
-        amounts of data**: Deep learning models require large amounts of data to train,
-        as they need to learn the patterns and relationships in the data.\n4. **Computational
-        power**: Deep learning models require significant computational power to train,
-        as they involve complex matrix operations and optimization algorithms.\n\nDeep
-        learning has been successful in a wide range of applications, including:\n\n1.
-        **Computer vision**: Image recognition, object detection, segmentation, and
-        generation.\n2. **Natural language processing**: Text classification, sentiment
-        analysis, language translation, and text generation.\n3. **Speech recognition**:
-        Speech-to-text systems and voice assistants.\n4. **Robotics**: Control and
-        navigation of robots.\n5. **Healthcare**: Disease diagnosis, patient outcome
-        prediction, and personalized medicine.\n\nSome of the popular deep learning
-        techniques include:\n\n1. **Convolutional Neural Networks (CNNs)**: Used for
-        image and video analysis.\n2. **Recurrent Neural Networks (RNNs)**: Used for
-        sequential data, such as speech and text.\n3. **Long Short-Term Memory (LSTM)
-        networks**: A type of RNN that can learn long-term dependencies.\n4. **Generative
-        Adversarial Networks (GANs)**: Used for generating new data samples that resemble
-        existing data.\n\nOverall, deep learning has revolutionized the field of machine
-        learning and has enabled the development of sophisticated AI systems that
-        can learn and adapt to complex data.","role":"assistant"}}],"created":1737554814,"id":"fb17dd1d-ef65-4937-b107-35d1ea2a567c","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion","system_fingerprint":"fastcoe","usage":{"completion_tokens":409,"completion_tokens_after_first_per_sec":1086.3478901207168,"completion_tokens_after_first_per_sec_first_ten":1137.1608285435418,"completion_tokens_per_sec":1022.3169517443753,"end_time":1737554814.4070306,"is_last_response":true,"prompt_tokens":46,"start_time":1737554814.006959,"time_to_first_token":0.024501323699951172,"total_latency":0.4000716209411621,"total_tokens":455,"total_tokens_per_sec":1137.2963644100018}}
-
-        '
-    headers:
-      Access-Control-Allow-Credentials:
-      - 'true'
-      Access-Control-Allow-Headers:
-      - DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization
-      Access-Control-Allow-Methods:
-      - GET, PUT, POST, DELETE, PATCH, OPTIONS
-      Access-Control-Allow-Origin:
-      - '*'
-      Access-Control-Max-Age:
-      - '1728000'
-      Connection:
-      - keep-alive
-      Content-Type:
-      - application/json; charset=utf-8
-      Date:
-      - Wed, 22 Jan 2025 14:06:54 GMT
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains
-      Transfer-Encoding:
-      - chunked
-    status:
-      code: 200
-      message: OK
-- request:
-    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "What is deep learning?"}], "model": "Meta-Llama-3.1-8B-Instruct",
-      "stream": false}'
-    headers:
-      Accept:
-      - '*/*'
-      Accept-Encoding:
-      - gzip, deflate
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '188'
-      Content-Type:
-      - application/json
-      X-Amzn-Trace-Id:
-      - c630a06c-0d79-47fc-b7b6-6bd3eb2a4cdb
-    method: POST
-    uri: https://api.sambanova.ai/v1/chat/completions
-  response:
-    body:
-      string: '{"choices":[{"finish_reason":"stop","index":0,"logprobs":null,"message":{"content":"Deep
-        learning is a subset of machine learning that involves the use of artificial
-        neural networks with multiple layers to analyze and interpret data. These
-        neural networks are inspired by the structure and function of the human brain,
-        with each layer processing the input data in a hierarchical manner.\n\nThe
-        key characteristics of deep learning are:\n\n1. **Multiple layers**: Deep
-        learning models consist of multiple layers of interconnected nodes or \"neurons,\"
-        which process the input data in a hierarchical manner.\n2. **Non-linear transformations**:
-        Each layer applies a non-linear transformation to the input data, allowing
-        the model to learn complex relationships between the input features.\n3. **Large
-        amounts of data**: Deep learning models require large amounts of data to train,
-        as they need to learn the patterns and relationships in the data.\n4. **Computational
-        power**: Deep learning models require significant computational power to train,
-        as they involve complex matrix operations and optimization algorithms.\n\nDeep
-        learning has been successful in a wide range of applications, including:\n\n1.
-        **Computer vision**: Image recognition, object detection, segmentation, and
-        generation.\n2. **Natural language processing**: Text classification, sentiment
-        analysis, language translation, and text generation.\n3. **Speech recognition**:
-        Speech-to-text systems and voice assistants.\n4. **Robotics**: Control and
-        navigation of robots.\n5. **Healthcare**: Disease diagnosis, patient outcome
-        prediction, and personalized medicine.\n\nSome of the popular deep learning
-        techniques include:\n\n1. **Convolutional Neural Networks (CNNs)**: Used for
-        image and video analysis.\n2. **Recurrent Neural Networks (RNNs)**: Used for
-        sequential data, such as speech and text.\n3. **Long Short-Term Memory (LSTM)
-        networks**: A type of RNN that can learn long-term dependencies.\n4. **Generative
-        Adversarial Networks (GANs)**: Used for generating new data samples that resemble
-        existing data.\n\nOverall, deep learning has revolutionized the field of machine
-        learning and has enabled the development of sophisticated AI systems that
-        can learn and adapt to complex data.","role":"assistant"}}],"created":1737555057,"id":"769ae38c-f60e-48a7-a7b2-d3638c5b1bb7","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion","system_fingerprint":"fastcoe","usage":{"completion_tokens":409,"completion_tokens_after_first_per_sec":1085.9218643114868,"completion_tokens_after_first_per_sec_first_ten":1136.1904890899486,"completion_tokens_per_sec":1022.892397372096,"end_time":1737555057.8555439,"is_last_response":true,"prompt_tokens":46,"start_time":1737555057.4556973,"time_to_first_token":0.02412891387939453,"total_latency":0.39984655380249023,"total_tokens":455,"total_tokens_per_sec":1137.936530083872}}
-
-        '
-    headers:
-      Access-Control-Allow-Credentials:
-      - 'true'
-      Access-Control-Allow-Headers:
-      - DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization
-      Access-Control-Allow-Methods:
-      - GET, PUT, POST, DELETE, PATCH, OPTIONS
-      Access-Control-Allow-Origin:
-      - '*'
-      Access-Control-Max-Age:
-      - '1728000'
-      Connection:
-      - keep-alive
-      Content-Type:
-      - application/json; charset=utf-8
-      Date:
-      - Wed, 22 Jan 2025 14:10:57 GMT
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains
-      Transfer-Encoding:
-      - chunked
-    status:
-      code: 200
-      message: OK
-- request:
     body: null
     headers:
       Accept:
@@ -161,12 +9,12 @@ interactions:
       Connection:
       - keep-alive
       X-Amzn-Trace-Id:
-      - 861fe0f5-4b40-432b-8845-ebad7187842f
+      - 530d50fd-78e2-4838-b410-b943340feb2c
     method: GET
     uri: https://huggingface.co/api/models/meta-llama/Llama-3.1-8B-Instruct?expand=inferenceProviderMapping
   response:
     body:
-      string: '{"_id":"6698d8a0653e4babe21e1e7d","id":"meta-llama/Llama-3.1-8B-Instruct","inferenceProviderMapping":{"sambanova":{"status":"live","providerId":"Meta-Llama-3.1-8B-Instruct","task":"conversational"}}}'
+      string: '{"_id":"6698d8a0653e4babe21e1e7d","id":"meta-llama/Llama-3.1-8B-Instruct","inferenceProviderMapping":{"fireworks-ai":{"status":"staging","providerId":"accounts/fireworks/models/llama-v3p1-8b-instruct","task":"conversational"},"sambanova":{"status":"live","providerId":"Meta-Llama-3.1-8B-Instruct","task":"conversational"},"hf-inference":{"status":"live","providerId":"meta-llama/Llama-3.1-8B-Instruct","task":"conversational"},"nebius":{"status":"staging","providerId":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","task":"conversational"},"novita":{"status":"staging","providerId":"meta-llama/llama-3.1-8b-instruct","task":"conversational"}}}'
     headers:
       Access-Control-Allow-Origin:
       - https://huggingface.co
@@ -175,21 +23,21 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '199'
+      - '642'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Tue, 11 Feb 2025 10:13:49 GMT
+      - Thu, 13 Feb 2025 15:25:01 GMT
       ETag:
-      - W/"c7-TZgW++vzRWhy4flOcxqeqWyrc+g"
+      - W/"282-bHCeEEtgbDj2D5VKpQLqA3PX/+s"
       Referrer-Policy:
       - strict-origin-when-cross-origin
       Vary:
       - Origin
       Via:
-      - 1.1 e47c282d2c53705a367f9e376a2eab28.cloudfront.net (CloudFront)
+      - 1.1 4756b7e0ebcafb62886b18ec3b8cea7c.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - KHBtO6BXmMOxnzrXJRREr_jCrEid_MRcRmy79pAMVD2J0XZkjaEWCQ==
+      - dkDQt4qp7dKGRe0mnFazTDJhE3g6bSN-QrwS2UykbJopPnBY9szWKA==
       X-Amz-Cf-Pop:
       - CDG52-P4
       X-Cache:
@@ -197,7 +45,7 @@ interactions:
       X-Powered-By:
       - huggingface-moon
       X-Request-Id:
-      - Root=1-67ab22dd-227de3605c0bed333116b5d0;861fe0f5-4b40-432b-8845-ebad7187842f
+      - Root=1-67ae0ecd-4a35de33397ed36d402228d3;530d50fd-78e2-4838-b410-b943340feb2c
       cross-origin-opener-policy:
       - same-origin
     status:
@@ -219,9 +67,9 @@ interactions:
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - 15a16020-b6c5-4530-b348-9c27dbcef3ce
+      - 1d1cbb7b-75db-4043-af64-8d8feb4d8acf
     method: POST
-    uri: https://api.sambanova.ai/v1/chat/completions
+    uri: https://router.huggingface.co/sambanova/v1/chat/completions
   response:
     body:
       string: '{"choices":[{"finish_reason":"stop","index":0,"logprobs":null,"message":{"content":"Deep
@@ -252,158 +100,50 @@ interactions:
         Adversarial Networks (GANs)**: Used for generating new data samples that resemble
         existing data.\n\nOverall, deep learning has revolutionized the field of machine
         learning and has enabled the development of sophisticated AI systems that
-        can learn and adapt to complex data.","role":"assistant"}}],"created":1739268830,"id":"d9de7139-0715-4275-8126-20aa43711c50","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion","system_fingerprint":"fastcoe","usage":{"completion_tokens":409,"completion_tokens_after_first_per_sec":968.7091369463583,"completion_tokens_after_first_per_sec_first_ten":1019.1976283624523,"completion_tokens_per_sec":909.4776237067355,"end_time":1739268830.1627614,"is_last_response":true,"prompt_tokens":46,"start_time":1739268829.7130527,"stop_reason":"stop","time_to_first_token":0.028529644012451172,"total_latency":0.4497087001800537,"total_tokens":455,"total_tokens_per_sec":1011.7660606028475}}
+        can learn and adapt to complex data.","role":"assistant"}}],"created":1739460301,"id":"5a34d2b2-71b7-4a46-a72e-d950d545eea9","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion","system_fingerprint":"fastcoe","usage":{"completion_tokens":409,"completion_tokens_after_first_per_sec":965.5112671828771,"completion_tokens_after_first_per_sec_first_ten":1015.8405386422534,"completion_tokens_per_sec":905.1849638025285,"end_time":1739460301.8567288,"is_last_response":true,"prompt_tokens":46,"start_time":1739460301.4048874,"stop_reason":"stop","time_to_first_token":0.029267311096191406,"total_latency":0.4518413543701172,"total_tokens":455,"total_tokens_per_sec":1006.9906076531797}}
 
         '
     headers:
-      Access-Control-Allow-Credentials:
-      - 'true'
-      Access-Control-Allow-Headers:
-      - DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization
-      Access-Control-Allow-Methods:
-      - GET, PUT, POST, DELETE, PATCH, OPTIONS
-      Access-Control-Allow-Origin:
-      - '*'
-      Access-Control-Max-Age:
-      - '1728000'
-      Connection:
-      - keep-alive
-      Content-Type:
-      - application/json; charset=utf-8
-      Date:
-      - Tue, 11 Feb 2025 10:13:50 GMT
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains
-      Transfer-Encoding:
-      - chunked
-    status:
-      code: 200
-      message: OK
-- request:
-    body: null
-    headers:
-      Accept:
-      - '*/*'
-      Accept-Encoding:
-      - gzip, deflate
-      Connection:
-      - keep-alive
-      X-Amzn-Trace-Id:
-      - 19fd9fcc-1495-4c0f-8c1b-b9142d3585ff
-    method: GET
-    uri: https://huggingface.co/api/models/meta-llama/Llama-3.1-8B-Instruct?expand=inferenceProviderMapping
-  response:
-    body:
-      string: '{"_id":"6698d8a0653e4babe21e1e7d","id":"meta-llama/Llama-3.1-8B-Instruct","inferenceProviderMapping":{"sambanova":{"status":"live","providerId":"Meta-Llama-3.1-8B-Instruct","task":"conversational"}}}'
-    headers:
-      Access-Control-Allow-Origin:
-      - https://huggingface.co
       Access-Control-Expose-Headers:
       - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
       Connection:
       - keep-alive
-      Content-Length:
-      - '199'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Tue, 11 Feb 2025 10:15:16 GMT
-      ETag:
-      - W/"c7-TZgW++vzRWhy4flOcxqeqWyrc+g"
+      - Thu, 13 Feb 2025 15:25:01 GMT
       Referrer-Policy:
       - strict-origin-when-cross-origin
+      Transfer-Encoding:
+      - chunked
       Vary:
       - Origin
       Via:
-      - 1.1 4587dd93b6f56d2b3f35f25ef2cabe70.cloudfront.net (CloudFront)
+      - 1.1 4d87a1e7909a1a7d7668982112e840ba.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - Zddt4GOQt5pfgHwZLBowNtSQh5QzuMmpDHanYG9QcKK7elNzrs2jgQ==
+      - bhePe9rHsvYgxS3RDjz_Fi-yoNjIHEirkoAaxxIcOKD-yH1Ww9ttaA==
       X-Amz-Cf-Pop:
-      - CDG52-P4
+      - CDG55-P3
       X-Cache:
       - Miss from cloudfront
       X-Powered-By:
       - huggingface-moon
       X-Request-Id:
-      - Root=1-67ab2334-2463bc050e153a831c340cdb;19fd9fcc-1495-4c0f-8c1b-b9142d3585ff
+      - Root=1-67ae0ecd-7909a30e16fcccd217eced03;1d1cbb7b-75db-4043-af64-8d8feb4d8acf
+      access-control-allow-credentials:
+      - 'true'
+      access-control-allow-headers:
+      - DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization
+      access-control-allow-methods:
+      - GET, PUT, POST, DELETE, PATCH, OPTIONS
+      access-control-allow-origin:
+      - '*'
+      access-control-max-age:
+      - '1728000'
       cross-origin-opener-policy:
       - same-origin
-    status:
-      code: 200
-      message: OK
-- request:
-    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "What is deep learning?"}], "model": "Meta-Llama-3.1-8B-Instruct",
-      "stream": false}'
-    headers:
-      Accept:
-      - '*/*'
-      Accept-Encoding:
-      - gzip, deflate
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '188'
-      Content-Type:
-      - application/json
-      X-Amzn-Trace-Id:
-      - 5b4ed482-50c7-4f8c-bd26-6142881c54dd
-    method: POST
-    uri: https://api.sambanova.ai/v1/chat/completions
-  response:
-    body:
-      string: '{"choices":[{"finish_reason":"stop","index":0,"logprobs":null,"message":{"content":"Deep
-        learning is a subset of machine learning that involves the use of artificial
-        neural networks with multiple layers to analyze and interpret data. These
-        neural networks are inspired by the structure and function of the human brain,
-        with each layer processing the input data in a hierarchical manner.\n\nThe
-        key characteristics of deep learning are:\n\n1. **Multiple layers**: Deep
-        learning models consist of multiple layers of interconnected nodes or \"neurons,\"
-        which process the input data in a hierarchical manner.\n2. **Non-linear transformations**:
-        Each layer applies a non-linear transformation to the input data, allowing
-        the model to learn complex relationships between the input features.\n3. **Large
-        amounts of data**: Deep learning models require large amounts of data to train,
-        as they need to learn the patterns and relationships in the data.\n4. **Computational
-        power**: Deep learning models require significant computational power to train,
-        as they involve complex matrix operations and optimization algorithms.\n\nDeep
-        learning has been successful in a wide range of applications, including:\n\n1.
-        **Computer vision**: Image recognition, object detection, segmentation, and
-        generation.\n2. **Natural language processing**: Text classification, sentiment
-        analysis, language translation, and text generation.\n3. **Speech recognition**:
-        Speech-to-text systems and voice assistants.\n4. **Robotics**: Control and
-        navigation of robots.\n5. **Healthcare**: Disease diagnosis, patient outcome
-        prediction, and personalized medicine.\n\nSome of the popular deep learning
-        techniques include:\n\n1. **Convolutional Neural Networks (CNNs)**: Used for
-        image and video analysis.\n2. **Recurrent Neural Networks (RNNs)**: Used for
-        sequential data, such as speech and text.\n3. **Long Short-Term Memory (LSTM)
-        networks**: A type of RNN that can learn long-term dependencies.\n4. **Generative
-        Adversarial Networks (GANs)**: Used for generating new data samples that resemble
-        existing data.\n\nOverall, deep learning has revolutionized the field of machine
-        learning and has enabled the development of sophisticated AI systems that
-        can learn and adapt to complex data.","role":"assistant"}}],"created":1739268917,"id":"108c6d9a-9a8a-47ae-89e5-ab8d2fdd1cfa","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion","system_fingerprint":"fastcoe","usage":{"completion_tokens":409,"completion_tokens_after_first_per_sec":1085.097647474337,"completion_tokens_after_first_per_sec_first_ten":1141.4159171621786,"completion_tokens_per_sec":1017.4866819929916,"end_time":1739268917.083342,"is_last_response":true,"prompt_tokens":46,"start_time":1739268916.6813712,"stop_reason":"stop","time_to_first_token":0.025967836380004883,"total_latency":0.40197086334228516,"total_tokens":455,"total_tokens_per_sec":1131.9228369359687}}
-
-        '
-    headers:
-      Access-Control-Allow-Credentials:
-      - 'true'
-      Access-Control-Allow-Headers:
-      - DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization
-      Access-Control-Allow-Methods:
-      - GET, PUT, POST, DELETE, PATCH, OPTIONS
-      Access-Control-Allow-Origin:
-      - '*'
-      Access-Control-Max-Age:
-      - '1728000'
-      Connection:
-      - keep-alive
-      Content-Type:
-      - application/json; charset=utf-8
-      Date:
-      - Tue, 11 Feb 2025 10:15:17 GMT
-      Strict-Transport-Security:
+      strict-transport-security:
       - max-age=31536000; includeSubDomains
-      Transfer-Encoding:
-      - chunked
     status:
       code: 200
       message: OK
