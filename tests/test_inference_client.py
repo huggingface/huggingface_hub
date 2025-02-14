@@ -97,6 +97,11 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "zero-shot-classification": "facebook/bart-large-mnli",
         "zero-shot-image-classification": "openai/clip-vit-base-patch32",
     },
+    "hyperbolic": {
+        "text-generation": "meta-llama/Llama-3.1-405B",
+        "conversational": "meta-llama/Llama-3.2-3B-Instruct",
+        "text-to-image": "stabilityai/stable-diffusion-2",
+    },
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",
     },

@@ -18,6 +18,11 @@ class HyperbolicTextToImageTask(TaskProviderHelper):
             parameters["steps"] = parameters.pop("num_inference_steps")
         if "guidance_scale" in parameters:
             parameters["cfg_scale"] = parameters.pop("guidance_scale")
+        # For Hyperbolic, the width and height are required parameters
+        if "width" not in parameters:
+            parameters["width"] = 512
+        if "height" not in parameters:
+            parameters["height"] = 512
         return {"prompt": inputs, "model_name": mapped_model, **parameters}
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
