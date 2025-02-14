@@ -17,7 +17,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 0434ff33-56fe-49db-9380-17b81e41f756
     method: POST
-    uri: https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2
+    uri: https://router.huggingface.co/hf-inference/pipeline/sentence-similarity/sentence-transformers/all-MiniLM-L6-v2
   response:
     body:
       string: '[0.7785724997520447,0.4587624967098236,0.29062220454216003]'
