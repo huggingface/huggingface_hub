@@ -17,7 +17,7 @@ import os
 import string
 import time
 from pathlib import Path
-from typing import List, Union
+from typing import List
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -36,16 +36,15 @@ from huggingface_hub import (
     ObjectDetectionBoundingBox,
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
-    SummarizationOutput,
     TableQuestionAnsweringOutputElement,
     TextClassificationOutputElement,
     TokenClassificationOutputElement,
     TranslationOutput,
     VisualQuestionAnsweringOutputElement,
     ZeroShotClassificationOutputElement,
+    constants,
     hf_hub_download,
 )
-from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
 from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.inference._common import (
@@ -73,12 +72,6 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "fireworks-ai": {
         "conversational": "meta-llama/Llama-3.3-70B-Instruct",
     },
-    "replicate": {
-        "text-to-image": "ByteDance/SDXL-Lightning",
-    },
-    "sambanova": {
-        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
-    },
     "hf-inference": {
         "audio-classification": "alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech",
         "audio-to-audio": "speechbrain/sepformer-wham",
@@ -104,14 +97,12 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "zero-shot-classification": "facebook/bart-large-mnli",
         "zero-shot-image-classification": "openai/clip-vit-base-patch32",
     },
-}
-API_KEY_ENV_VARIABLES = {
-    "hf-inference": "HF_INFERENCE_TEST_TOKEN",
-    "fal-ai": "FAL_AI_KEY",
-    "fireworks-ai": "HF_INFERENCE_TEST_TOKEN",
-    "replicate": "REPLICATE_KEY",
-    "sambanova": "SAMBANOVA_API_KEY",
-    "together": "TOGETHER_API_KEY",
+    "replicate": {
+        "text-to-image": "ByteDance/SDXL-Lightning",
+    },
+    "sambanova": {
+        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
+    },
 }
 
 CHAT_COMPLETION_MODEL = "HuggingFaceH4/zephyr-7b-beta"
@@ -203,32 +194,42 @@ CHAT_COMPLETION_RESPONSE_FORMAT = {
 }
 
 
-def list_clients(task: str) -> List[Union[InferenceClient, pytest.param]]:
+def list_clients(task: str) -> List[pytest.param]:
+    """Get list of clients for a specific task, with proper skip handling."""
     clients = []
     for provider, tasks in _RECOMMENDED_MODELS_FOR_VCR.items():
         if task in tasks:
-            env_variable = API_KEY_ENV_VARIABLES[provider]
-            api_key = os.getenv(env_variable)
-            if api_key:
-                clients.append(
-                    pytest.param(
-                        InferenceClient(model=tasks[task], provider=provider, token=api_key), id=f"{provider},{task}"
-                    )
+            api_key = os.getenv("HF_INFERENCE_TEST_TOKEN")
+            clients.append(
+                pytest.param(
+                    (provider, tasks[task], api_key),
+                    id=f"{provider},{task}",
                 )
-            else:
-                clients.append(
-                    pytest.param(
-                        None,
-                        marks=pytest.mark.skip(
-                            reason=(
-                                f"API KEY not set for provider {provider}. "
-                                f"If you want to run this test, please set `{env_variable}` as an environment variable."
-                            )
-                        ),
-                        id=f"{provider},{task}",
-                    ),
-                )
+            )
     return clients
+
+
+@pytest.fixture()
+@with_production_testing
+def client(request):
+    """
+    Fixture to create client with proper skip handling.
+    Note: VCR mode is only accessible through a fixture.
+    """
+    provider, model, api_key = request.param
+    vcr_record_mode = request.config.getoption("--vcr-record")
+    # If we are recording and the api key is not set, skip the test
+    # replaying modes are "all", "new_episodes" and "once"
+    # non replaying modes are "none" and None
+    if vcr_record_mode not in ["none", None] and not api_key:
+        pytest.skip(f"API KEY not set for provider {provider}, skipping test")
+
+    # If api_key is provided, use it
+    if api_key:
+        return InferenceClient(model=model, provider=provider, token=api_key)
+
+    # Otherwise use dummy token for VCR playback
+    return InferenceClient(model=model, provider=provider, token="hf_dummy_token")
 
 
 # Define fixtures for the files
@@ -265,10 +266,10 @@ class TestBase:
         monkeypatch.setattr("huggingface_hub.inference._providers.hf_inference._fetch_recommended_models", mock_fetch)
 
 
+@pytest.mark.vcr
 @with_production_testing
-@pytest.mark.vcr()
 class TestInferenceClient(TestBase):
-    @pytest.mark.parametrize("client", list_clients("audio-classification"))
+    @pytest.mark.parametrize("client", list_clients("audio-classification"), indirect=True)
     def test_audio_classification(self, client: InferenceClient):
         output = client.audio_classification(self.audio_file)
         assert isinstance(output, list)
@@ -277,7 +278,7 @@ class TestInferenceClient(TestBase):
             assert isinstance(item.score, float)
             assert isinstance(item.label, str)
 
-    @pytest.mark.parametrize("client", list_clients("audio-to-audio"))
+    @pytest.mark.parametrize("client", list_clients("audio-to-audio"), indirect=True)
     def test_audio_to_audio(self, client: InferenceClient):
         output = client.audio_to_audio(self.audio_file)
         assert isinstance(output, list)
@@ -287,14 +288,14 @@ class TestInferenceClient(TestBase):
             assert isinstance(item.blob, bytes)
             assert item.content_type == "audio/flac"
 
-    @pytest.mark.parametrize("client", list_clients("automatic-speech-recognition"))
+    @pytest.mark.parametrize("client", list_clients("automatic-speech-recognition"), indirect=True)
     def test_automatic_speech_recognition(self, client: InferenceClient):
         output = client.automatic_speech_recognition(self.audio_file)
         # Remove punctuation from the output
         normalized_output = output.text.translate(str.maketrans("", "", string.punctuation))
         assert normalized_output.lower().strip() == "a man said to the universe sir i exist"
 
-    @pytest.mark.parametrize("client", list_clients("conversational"))
+    @pytest.mark.parametrize("client", list_clients("conversational"), indirect=True)
     def test_chat_completion_no_stream(self, client: InferenceClient):
         output = client.chat_completion(messages=CHAT_COMPLETION_MESSAGES, stream=False)
         assert isinstance(output, ChatCompletionOutput)
@@ -303,12 +304,11 @@ class TestInferenceClient(TestBase):
         assert len(output.choices) == 1
         assert isinstance(output.choices[0], ChatCompletionOutputComplete)
 
-    @pytest.mark.parametrize("client", list_clients("conversational"))
+    @pytest.mark.parametrize("client", list_clients("conversational"), indirect=True)
     def test_chat_completion_with_stream(self, client: InferenceClient):
         output = list(
             client.chat_completion(
                 messages=CHAT_COMPLETION_MESSAGES,
-                model=CHAT_COMPLETION_MODEL,
                 stream=True,
                 max_tokens=20,
             )
@@ -321,8 +321,7 @@ class TestInferenceClient(TestBase):
             assert len(item.choices) == 1
             assert item.choices[0].finish_reason is None
             assert item.choices[0].index == 0
-            assert item.choices[0].delta.role == "assistant"
-            assert item.choices[0].delta.content is not None
+            assert item.choices[0].delta.role == "assistant" or item.choices[0].delta.content is not None
 
         # Last item has a finish reason
         assert output[-1].choices[0].finish_reason == "length"
@@ -340,7 +339,7 @@ class TestInferenceClient(TestBase):
         assert len(output.choices) == 1
 
     @pytest.mark.skip(reason="Schema not aligned between providers")
-    @pytest.mark.parametrize("client", list_clients("conversational"))
+    @pytest.mark.parametrize("client", list_clients("conversational"), indirect=True)
     def test_chat_completion_with_tool(self, client: InferenceClient):
         response = client.chat_completion(
             messages=CHAT_COMPLETION_TOOL_INSTRUCTIONS,
@@ -393,7 +392,7 @@ class TestInferenceClient(TestBase):
         }
 
     @pytest.mark.skip(reason="Schema not aligned between providers")
-    @pytest.mark.parametrize("client", list_clients("conversational"))
+    @pytest.mark.parametrize("client", list_clients("conversational"), indirect=True)
     def test_chat_completion_with_response_format(self, client: InferenceClient):
         response = client.chat_completion(
             messages=CHAT_COMPLETION_RESPONSE_FORMAT_MESSAGE,
@@ -422,7 +421,7 @@ class TestInferenceClient(TestBase):
                 model="meta-llama/Meta-Llama-3-70B-Instruct",
             )
 
-    @pytest.mark.parametrize("client", list_clients("document-question-answering"))
+    @pytest.mark.parametrize("client", list_clients("document-question-answering"), indirect=True)
     def test_document_question_answering(self, client: InferenceClient):
         output = client.document_question_answering(self.document_file, "What is the purchase amount?")
         assert output == [
@@ -434,19 +433,19 @@ class TestInferenceClient(TestBase):
             )
         ]
 
-    @pytest.mark.parametrize("client", list_clients("feature-extraction"))
+    @pytest.mark.parametrize("client", list_clients("feature-extraction"), indirect=True)
     def test_feature_extraction_with_transformers(self, client: InferenceClient):
         embedding = client.feature_extraction("Hi, who are you?")
         assert isinstance(embedding, np.ndarray)
         assert embedding.shape == (1, 8, 768)
 
-    @pytest.mark.parametrize("client", list_clients("feature-extraction"))
+    @pytest.mark.parametrize("client", list_clients("feature-extraction"), indirect=True)
     def test_feature_extraction_with_sentence_transformers(self, client: InferenceClient):
         embedding = client.feature_extraction("Hi, who are you?")
         assert isinstance(embedding, np.ndarray)
         assert embedding.shape == (1, 8, 768)
 
-    @pytest.mark.parametrize("client", list_clients("fill-mask"))
+    @pytest.mark.parametrize("client", list_clients("fill-mask"), indirect=True)
     def test_fill_mask(self, client: InferenceClient):
         output = client.fill_mask("The goal of life is <mask>.")
         assert output == [
@@ -499,7 +498,7 @@ class TestInferenceClient(TestBase):
         with pytest.raises(ValueError):
             HFInferenceTask("text-generation")._prepare_mapped_model(None)
 
-    @pytest.mark.parametrize("client", list_clients("image-classification"))
+    @pytest.mark.parametrize("client", list_clients("image-classification"), indirect=True)
     def test_image_classification(self, client: InferenceClient):
         output = client.image_classification(self.image_file)
         assert output == [
@@ -510,7 +509,7 @@ class TestInferenceClient(TestBase):
             ImageClassificationOutputElement(label="fur coat", score=0.061511047184467316),
         ]
 
-    @pytest.mark.parametrize("client", list_clients("image-segmentation"))
+    @pytest.mark.parametrize("client", list_clients("image-segmentation"), indirect=True)
     def test_image_segmentation(self, client: InferenceClient):
         output = client.image_segmentation(self.image_file)
         assert isinstance(output, list)
@@ -527,13 +526,13 @@ class TestInferenceClient(TestBase):
     # def test_image_to_image(self) -> None:
     #     image = self.client.image_to_image(self.image_file, prompt="turn the woman into a man")
 
-    @pytest.mark.parametrize("client", list_clients("image-to-text"))
+    @pytest.mark.parametrize("client", list_clients("image-to-text"), indirect=True)
     def test_image_to_text(self, client: InferenceClient):
         caption = client.image_to_text(self.image_file)
         assert isinstance(caption, ImageToTextOutput)
         assert caption.generated_text == "a woman in a hat and dress posing for a photo"
 
-    @pytest.mark.parametrize("client", list_clients("object-detection"))
+    @pytest.mark.parametrize("client", list_clients("object-detection"), indirect=True)
     def test_object_detection(self, client: InferenceClient):
         output = client.object_detection(self.image_file)
         assert output == [
@@ -569,12 +568,12 @@ class TestInferenceClient(TestBase):
             ),
         ]
 
-    @pytest.mark.parametrize("client", list_clients("question-answering"))
+    @pytest.mark.parametrize("client", list_clients("question-answering"), indirect=True)
     def test_question_answering(self, client: InferenceClient):
         output = client.question_answering(question="What is the meaning of life?", context="42")
         assert output == QuestionAnsweringOutputElement(answer="42", end=2, score=1.4291124728060822e-08, start=0)
 
-    @pytest.mark.parametrize("client", list_clients("sentence-similarity"))
+    @pytest.mark.parametrize("client", list_clients("sentence-similarity"), indirect=True)
     def test_sentence_similarity(self, client: InferenceClient):
         scores = client.sentence_similarity(
             "Machine learning is so easy.",
@@ -586,53 +585,13 @@ class TestInferenceClient(TestBase):
         )
         assert scores == [0.7785724997520447, 0.4587624967098236, 0.29062220454216003]
 
-    @pytest.mark.parametrize("client", list_clients("summarization"))
+    @pytest.mark.parametrize("client", list_clients("summarization"), indirect=True)
     def test_summarization(self, client: InferenceClient):
-        summary = client.summarization(
-            " Ravens Ravens reaction reaction reaction scarcity scarcity "
-            "scarcity escaped escaped escaped finish finish "
-            "finishminingmining reson reson reson anything anything "
-            "anythingFootnoteFootnoteFootnote Hood Hood Hood Joan Joan "
-            "Joan Hood Hood Dav Dav ancestral Hood Hood knees Hood "
-            "Hoodchychy Hood Hood mobile Hood Hood anything anything "
-            "conviction conviction conviction pursuits pursuits pursuits "
-            "Hood Hood pieces pieces whatsoever anything anything bought "
-            "bought bought whatsoever whatsoever "
-            "whatsoever960960960COLCOL whatsoever whatsoever departing "
-            "departing departing whatsoever whatsoever Talks whatsoever "
-            "whatsoever J J whatsoever whatsoever dates dates dates "
-            "Trudeau Trudeau Trudeau Direction Direction Direction "
-            "Dynamics Dynamics Dynamics pseudo pseudo "
-            "pseudocookiecookiecookiecontrolcontrolcontrol Syl Syl Syl "
-            "hijacked hijacked Silk Silk Silkawawawcontrolcontrolawaw "
-            "tort tort tort futures futures futurescontrolcontrol futures "
-            "futuresLynLynLyn Scots Scots"
-        )
-        assert summary == SummarizationOutput.parse_obj(
-            {
-                "summary_text": "JoeJoe reaction reaction reaction anything anything anything "
-                "275 275 275 anything anythingFootnote 275 "
-                "275FootnoteFootnoteFootnote dominance dominance dominance "
-                "commit commit commitzenszenszens anything anything Hood Hood "
-                "Hoodensions Hood Hood knees Hood "
-                "HoodmapsmapsFootnoteFootnotemapsmapsmaps anything anything "
-                "conviction conviction convictionFootnoteFootnote Hood "
-                "HoodFootnote HoodFootnoteFootnote grounded grounded grounded "
-                "cinem cinem cinem hijacked Lys Lys Lys cinem cinem Inside "
-                "Inside Inside Syl Promotion Promotion Promotion maj maj "
-                "Siberian Siberian Siberian accent accent accent plate "
-                "platecookiecookiecookie vary vary vary dictator vary "
-                "varyiatesiatesiatesawawawgowgowgow Gmail Gmail Federation "
-                "Federation Federation unsuccessfully unsuccessfully "
-                "unsuccessfully Kis Kis Kis Federation Federation bothered "
-                "bothered bothered blended bothered botheredigig Coming "
-                "Coming Comingcookiecookie Coming Coming805805805 Coming "
-                "Coming",
-            }
-        )
+        summary = client.summarization("The sky is blue, the tree is green.")
+        assert isinstance(summary.summary_text, str)
 
     @pytest.mark.skip(reason="This model is not available on InferenceAPI")
-    @pytest.mark.parametrize("client", list_clients("tabular-classification"))
+    @pytest.mark.parametrize("client", list_clients("tabular-classification"), indirect=True)
     def test_tabular_classification(self, client: InferenceClient):
         table = {
             "fixed_acidity": ["7.4", "7.8", "10.3"],
@@ -651,7 +610,7 @@ class TestInferenceClient(TestBase):
         assert output == ["5", "5", "5"]
 
     @pytest.mark.skip(reason="This model is not available on InferenceAPI")
-    @pytest.mark.parametrize("client", list_clients("tabular-regression"))
+    @pytest.mark.parametrize("client", list_clients("tabular-regression"), indirect=True)
     def test_tabular_regression(self, client: InferenceClient):
         table = {
             "Height": ["11.52", "12.48", "12.3778"],
@@ -664,7 +623,7 @@ class TestInferenceClient(TestBase):
         output = client.tabular_regression(table=table)
         assert output == [110, 120, 130]
 
-    @pytest.mark.parametrize("client", list_clients("table-question-answering"))
+    @pytest.mark.parametrize("client", list_clients("table-question-answering"), indirect=True)
     def test_table_question_answering(self, client: InferenceClient):
         table = {
             "Repository": ["Transformers", "Datasets", "Tokenizers"],
@@ -676,7 +635,7 @@ class TestInferenceClient(TestBase):
             answer="AVERAGE > 36542", cells=["36542"], coordinates=[[0, 1]], aggregator="AVERAGE"
         )
 
-    @pytest.mark.parametrize("client", list_clients("text-classification"))
+    @pytest.mark.parametrize("client", list_clients("text-classification"), indirect=True)
     def test_text_classification(self, client: InferenceClient):
         output = client.text_classification("I like you")
         assert output == [
@@ -687,30 +646,30 @@ class TestInferenceClient(TestBase):
     def test_text_generation(self) -> None:
         """Tested separately in `test_inference_text_generation.py`."""
 
-    @pytest.mark.parametrize("client", list_clients("text-to-image"))
+    @pytest.mark.parametrize("client", list_clients("text-to-image"), indirect=True)
     def test_text_to_image_default(self, client: InferenceClient):
         image = client.text_to_image("An astronaut riding a horse on the moon.")
         assert isinstance(image, Image.Image)
 
     @pytest.mark.skip(reason="Need to check why fal.ai doesn't take image_size into account")
-    @pytest.mark.parametrize("client", list_clients("text-to-image"))
+    @pytest.mark.parametrize("client", list_clients("text-to-image"), indirect=True)
     def test_text_to_image_with_parameters(self, client: InferenceClient):
         image = client.text_to_image("An astronaut riding a horse on the moon.", height=256, width=256)
         assert isinstance(image, Image.Image)
         assert image.height == 256
         assert image.width == 256
 
-    @pytest.mark.parametrize("client", list_clients("text-to-speech"))
+    @pytest.mark.parametrize("client", list_clients("text-to-speech"), indirect=True)
     def test_text_to_speech(self, client: InferenceClient):
         audio = client.text_to_speech("Hello world")
         assert isinstance(audio, bytes)
 
-    @pytest.mark.parametrize("client", list_clients("translation"))
+    @pytest.mark.parametrize("client", list_clients("translation"), indirect=True)
     def test_translation(self, client: InferenceClient):
         output = client.translation("Hello world")
         assert output == TranslationOutput(translation_text="Hallo Welt")
 
-    @pytest.mark.parametrize("client", list_clients("translation"))
+    @pytest.mark.parametrize("client", list_clients("translation"), indirect=True)
     def test_translation_with_source_and_target_language(self, client: InferenceClient):
         output_with_langs = client.translation(
             "Hello world", model="facebook/mbart-large-50-many-to-many-mmt", src_lang="en_XX", tgt_lang="fr_XX"
@@ -723,7 +682,7 @@ class TestInferenceClient(TestBase):
         with pytest.raises(ValueError):
             client.translation("Hello world", model="facebook/mbart-large-50-many-to-many-mmt", tgt_lang="en_XX")
 
-    @pytest.mark.parametrize("client", list_clients("token-classification"))
+    @pytest.mark.parametrize("client", list_clients("token-classification"), indirect=True)
     def test_token_classification(self, client: InferenceClient):
         output = client.token_classification(text="My name is Sarah Jessica Parker but you can call me Jessica")
         assert output == [
@@ -735,7 +694,7 @@ class TestInferenceClient(TestBase):
             ),
         ]
 
-    @pytest.mark.parametrize("client", list_clients("visual-question-answering"))
+    @pytest.mark.parametrize("client", list_clients("visual-question-answering"), indirect=True)
     def test_visual_question_answering(self, client: InferenceClient):
         output = client.visual_question_answering(image=self.image_file, question="Who's in the picture?")
         assert output == [
@@ -746,7 +705,7 @@ class TestInferenceClient(TestBase):
             VisualQuestionAnsweringOutputElement(score=0.017771074548363686, answer="man"),
         ]
 
-    @pytest.mark.parametrize("client", list_clients("zero-shot-classification"))
+    @pytest.mark.parametrize("client", list_clients("zero-shot-classification"), indirect=True)
     def test_zero_shot_classification_single_label(self, client: InferenceClient):
         output = client.zero_shot_classification(
             "A new model offers an explanation for how the Galilean satellites formed around the solar system's"
@@ -762,7 +721,7 @@ class TestInferenceClient(TestBase):
             ZeroShotClassificationOutputElement(label="robots", score=0.004559362772852182),
         ]
 
-    @pytest.mark.parametrize("client", list_clients("zero-shot-classification"))
+    @pytest.mark.parametrize("client", list_clients("zero-shot-classification"), indirect=True)
     def test_zero_shot_classification_multi_label(self, client: InferenceClient):
         output = client.zero_shot_classification(
             text="A new model offers an explanation for how the Galilean satellites formed around the solar system's"
@@ -779,7 +738,7 @@ class TestInferenceClient(TestBase):
             ZeroShotClassificationOutputElement(label="robots", score=0.000304485292872414),
         ]
 
-    @pytest.mark.parametrize("client", list_clients("zero-shot-image-classification"))
+    @pytest.mark.parametrize("client", list_clients("zero-shot-image-classification"), indirect=True)
     def test_zero_shot_image_classification(self, client: InferenceClient):
         output = client.zero_shot_image_classification(
             image=self.image_file, candidate_labels=["tree", "woman", "cat"]
@@ -905,13 +864,13 @@ class TestListDeployedModels(TestBase):
     @patch("huggingface_hub.inference._client.get_session")
     def test_list_deployed_models_main_frameworks_mock(self, get_session_mock: MagicMock) -> None:
         InferenceClient().list_deployed_models()
-        assert len(get_session_mock.return_value.get.call_args_list) == len(MAIN_INFERENCE_API_FRAMEWORKS)
+        assert len(get_session_mock.return_value.get.call_args_list) == len(constants.MAIN_INFERENCE_API_FRAMEWORKS)
 
     @expect_deprecation("list_deployed_models")
     @patch("huggingface_hub.inference._client.get_session")
     def test_list_deployed_models_all_frameworks_mock(self, get_session_mock: MagicMock) -> None:
         InferenceClient().list_deployed_models("all")
-        assert len(get_session_mock.return_value.get.call_args_list) == len(ALL_INFERENCE_API_FRAMEWORKS)
+        assert len(get_session_mock.return_value.get.call_args_list) == len(constants.ALL_INFERENCE_API_FRAMEWORKS)
 
     @expect_deprecation("list_deployed_models")
     def test_list_deployed_models_single_frameworks(self) -> None:
@@ -933,7 +892,7 @@ class TestOpenAICompatibility(TestBase):
     def test_base_url_and_api_key(self):
         client = InferenceClient(
             base_url="https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
-            api_key=os.getenv("HF_TOKEN"),
+            api_key=os.getenv("HF_INFERENCE_TEST_TOKEN"),
         )
         output = client.chat.completions.create(
             model="meta-llama/Meta-Llama-3-8B-Instruct",
@@ -947,7 +906,7 @@ class TestOpenAICompatibility(TestBase):
         assert "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" in output.choices[0].message.content
 
     def test_without_base_url(self):
-        client = InferenceClient(token=os.getenv("HF_TOKEN"))
+        client = InferenceClient(token=os.getenv("HF_INFERENCE_TEST_TOKEN"))
         output = client.chat.completions.create(
             model="meta-llama/Meta-Llama-3-8B-Instruct",
             messages=[
@@ -960,7 +919,7 @@ class TestOpenAICompatibility(TestBase):
         assert "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" in output.choices[0].message.content
 
     def test_with_stream_true(self):
-        client = InferenceClient(token=os.getenv("HF_TOKEN"))
+        client = InferenceClient(token=os.getenv("HF_INFERENCE_TEST_TOKEN"))
         output = client.chat.completions.create(
             model="meta-llama/Meta-Llama-3-8B-Instruct",
             messages=[

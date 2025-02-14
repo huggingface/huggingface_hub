@@ -10,5 +10,5 @@ class SambanovaConversationalTask(TaskProviderHelper):
     def _prepare_route(self, mapped_model: str) -> str:
         return "/v1/chat/completions"
 
-    def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         return {"messages": inputs, **filter_none(parameters), "model": mapped_model}

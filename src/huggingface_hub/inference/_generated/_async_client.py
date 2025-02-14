@@ -25,7 +25,7 @@ import re
 import warnings
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Set, Union, overload
 
-from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
+from huggingface_hub import constants
 from huggingface_hub.errors import InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
@@ -3365,9 +3365,9 @@ class AsyncInferenceClient:
 
         # Resolve which frameworks to check
         if frameworks is None:
-            frameworks = MAIN_INFERENCE_API_FRAMEWORKS
+            frameworks = constants.MAIN_INFERENCE_API_FRAMEWORKS
         elif frameworks == "all":
-            frameworks = ALL_INFERENCE_API_FRAMEWORKS
+            frameworks = constants.ALL_INFERENCE_API_FRAMEWORKS
         elif isinstance(frameworks, str):
             frameworks = [frameworks]
         frameworks = list(set(frameworks))
@@ -3387,7 +3387,7 @@ class AsyncInferenceClient:
 
         for framework in frameworks:
             response = get_session().get(
-                f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
+                f"{constants.INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
             )
             hf_raise_for_status(response)
             _unpack_response(framework, response.json())
@@ -3491,7 +3491,7 @@ class AsyncInferenceClient:
         if model.startswith(("http://", "https://")):
             url = model.rstrip("/") + "/info"
         else:
-            url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
+            url = f"{constants.INFERENCE_ENDPOINT}/models/{model}/info"
 
         async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
             response = await client.get(url, proxy=self.proxies)
@@ -3583,7 +3583,7 @@ class AsyncInferenceClient:
             raise ValueError("Model id not provided.")
         if model.startswith("https://"):
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
-        url = f"{INFERENCE_ENDPOINT}/status/{model}"
+        url = f"{constants.INFERENCE_ENDPOINT}/status/{model}"
 
         async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
             response = await client.get(url, proxy=self.proxies)

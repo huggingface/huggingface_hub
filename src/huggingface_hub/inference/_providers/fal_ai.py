@@ -25,7 +25,7 @@ class FalAIAutomaticSpeechRecognitionTask(FalAITask):
     def __init__(self):
         super().__init__("automatic-speech-recognition")
 
-    def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         if isinstance(inputs, str) and inputs.startswith(("http://", "https://")):
             # If input is a URL, pass it directly
             audio_url = inputs
@@ -52,7 +52,7 @@ class FalAITextToImageTask(FalAITask):
     def __init__(self):
         super().__init__("text-to-image")
 
-    def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         parameters = filter_none(parameters)
         if "width" in parameters and "height" in parameters:
             parameters["image_size"] = {
@@ -70,7 +70,7 @@ class FalAITextToSpeechTask(FalAITask):
     def __init__(self):
         super().__init__("text-to-speech")
 
-    def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         return {"lyrics": inputs, **filter_none(parameters)}
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
@@ -82,7 +82,7 @@ class FalAITextToVideoTask(FalAITask):
     def __init__(self):
         super().__init__("text-to-video")
 
-    def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         return {"prompt": inputs, **filter_none(parameters)}
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
