@@ -179,9 +179,9 @@ def _fetch_inference_provider_mapping(model: str) -> Dict:
     """
     Fetch provider mappings for a model from the Hub.
     """
-    from huggingface_hub.hf_api import model_info
+    from huggingface_hub.hf_api import HfApi
 
-    info = model_info(model, expand=["inferenceProviderMapping"])
+    info = HfApi().model_info(model, expand=["inferenceProviderMapping"])
     provider_mapping = info.inference_provider_mapping
     if provider_mapping is None:
         raise ValueError(f"No provider mapping found for model {model}")
