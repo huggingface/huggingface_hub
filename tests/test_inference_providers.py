@@ -17,7 +17,6 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceTask,
 )
 from huggingface_hub.inference._providers.hyperbolic import (
-    HyperbolicTask,
     HyperbolicTextGenerationTask,
     HyperbolicTextToImageTask,
 )
@@ -234,13 +233,13 @@ class TestHyperbolicProvider:
         helper = HyperbolicTextGenerationTask("conversational")
         assert helper._prepare_route("username/repo_name") == "/v1/chat/completions"
 
-        with pytest.raises(ValueError, match="Unsupported task 'invalid-task' for Hyperbolic API."):
-            HyperbolicTask("invalid-task")._prepare_route("username/repo_name")
+        with pytest.raises(ValueError, match="Unsupported task 'invalid-task' for Hyperbolic."):
+            HyperbolicTextGenerationTask("invalid-task")._prepare_route("username/repo_name")
 
     def test_prepare_payload_conversational(self):
         """Test payload preparation for conversational task."""
         helper = HyperbolicTextGenerationTask("conversational")
-        payload = helper._prepare_payload(
+        payload = helper._prepare_payload_as_dict(
             [{"role": "user", "content": "Hello!"}], {"temperature": 0.7}, "meta-llama/Llama-3.2-3B-Instruct"
         )
         assert payload == {
@@ -252,7 +251,7 @@ class TestHyperbolicProvider:
     def test_prepare_payload_text_to_image(self):
         """Test payload preparation for text-to-image task."""
         helper = HyperbolicTextToImageTask()
-        payload = helper._prepare_payload(
+        payload = helper._prepare_payload_as_dict(
             "a beautiful cat",
             {
                 "num_inference_steps": 30,

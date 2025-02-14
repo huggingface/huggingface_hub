@@ -183,6 +183,21 @@ class TaskProviderHelper:
         return None
 
 
+class BaseTextGenerationTask(TaskProviderHelper):
+    def __init__(self, provider: str, base_url: str, task: str):
+        super().__init__(provider=provider, base_url=base_url, task=task)
+
+    def _prepare_route(self, mapped_model: str) -> str:
+        if self.task == "conversational":
+            return "/v1/chat/completions"
+        elif self.task == "text-generation":
+            return "/v1/completions"
+        raise ValueError(f"Unsupported task '{self.task}' for {self.provider}.")
+
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+        return {"messages": inputs, **filter_none(parameters), "model": mapped_model}
+
+
 @lru_cache(maxsize=None)
 def _fetch_inference_provider_mapping(model: str) -> Dict:
     """
