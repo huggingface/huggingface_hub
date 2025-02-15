@@ -210,7 +210,10 @@ class InferenceEndpoint:
             if self.url is not None:
                 # Means the URL is provisioned => check if the endpoint is reachable
                 response = get_session().get(self.url, headers=self._api._build_hf_headers(token=self._token))
-                if response.status_code == 200:
+                if response.status_code == 200 and self.status not in [
+                    InferenceEndpointStatus.UPDATING,
+                    InferenceEndpointStatus.UPDATE_FAILED,
+                ]:
                     logger.info("Inference Endpoint is ready to be used.")
                     return self
             if self.status == InferenceEndpointStatus.FAILED:
