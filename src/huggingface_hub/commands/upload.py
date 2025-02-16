@@ -155,10 +155,10 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         repo_name: str = args.repo_id.split("/")[-1]  # e.g. "Wauplin/my-cool-model" => "my-cool-model"
         self.local_path: str
         self.path_in_repo: str
+
         if "*" in args.local_path:
             self.local_path = "."
             self.include = ["*.safetensors"]
-
         elif args.local_path is None and os.path.isfile(repo_name):
             # Implicit case 1: user provided only a repo_id which happen to be a local file as well => upload it with same name
             self.local_path = repo_name
