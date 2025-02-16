@@ -92,14 +92,11 @@ class TestUploadCommand(unittest.TestCase):
         self.assertEqual(cmd.quiet, False)
 
     def test_upload_with_wildcard(self) -> None:
-        """Test `huggingface-cli upload my-cool-model *.safetensors`."""
         with tmp_current_directory() as cache_dir:
-            # Create dummy .safetensors files
             (Path(cache_dir) / "model1.safetensors").touch()
             (Path(cache_dir) / "model2.safetensors").touch()
             cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "*.safetensors"]))
 
-            # Check if local_path is set to "." and include is set correctly
             self.assertEqual(cmd.local_path, ".")
             self.assertEqual(cmd.include, ["*.safetensors"])
             self.assertEqual(cmd.repo_id, DUMMY_MODEL_ID)
