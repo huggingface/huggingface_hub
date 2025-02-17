@@ -31,8 +31,6 @@ from huggingface_hub.inference._providers.novita import (
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
 from huggingface_hub.inference._providers.together import (
-    TogetherConversationalTask,
-    TogetherTextGenerationTask,
     TogetherTextToImageTask,
 )
 
