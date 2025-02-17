@@ -102,16 +102,14 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "conversational": "meta-llama/Llama-3.2-3B-Instruct",
         "text-to-image": "stabilityai/stable-diffusion-2",
     },
-<<<<<<< HEAD
     "nebius": {
         "conversational": "meta-llama/Llama-3.1-8B-Instruct",
         "text-generation": "Qwen/Qwen2.5-32B-Instruct",
         "text-to-image": "stabilityai/stable-diffusion-xl-base-1.0",
-=======
+    },
     "novita": {
         "text-generation": "NousResearch/Nous-Hermes-Llama2-13b",
         "conversational": "meta-llama/Llama-3.1-8B-Instruct",
->>>>>>> f14ad34181ce066f908ff6211ac06fcff27fabca
     },
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",

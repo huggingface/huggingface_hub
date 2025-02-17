@@ -24,17 +24,10 @@ from huggingface_hub.inference._providers.hyperbolic import (
     HyperbolicTextGenerationTask,
     HyperbolicTextToImageTask,
 )
-from huggingface_hub.inference._providers.nebius import (
-<<<<<<< HEAD
-    NebiusTextToImageTask,
-=======
-    NebiusConversationalTask,
-    NebiusTextGenerationTask,
-    NebiusTextToImageTask
+from huggingface_hub.inference._providers.nebius import NebiusTextToImageTask
 from huggingface_hub.inference._providers.novita import (
     NovitaConversationalTask,
     NovitaTextGenerationTask,
->>>>>>> f14ad34181ce066f908ff6211ac06fcff27fabca
 )
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
@@ -430,8 +423,6 @@ class TestTogetherProvider:
         assert response == b"image_bytes"
 
 
-<<<<<<< HEAD
-=======
 class TestBaseConversationalTask:
     def test_prepare_route(self):
         helper = BaseConversationalTask(provider="test-provider", base_url="https://api.test.com")
@@ -482,7 +473,6 @@ class TestBaseTextGenerationTask:
         }
 
 
->>>>>>> f14ad34181ce066f908ff6211ac06fcff27fabca
 @pytest.mark.parametrize(
     "dict1, dict2, expected",
     [
