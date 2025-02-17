@@ -97,7 +97,7 @@ class TestUploadCommand(unittest.TestCase):
             (Path(cache_dir) / "model2.safetensors").touch()
             cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "*.safetensors"]))
 
-            self.assertEqual(cmd.local_path, ".")
+            self.assertEqual(cmd.local_path, "*.safetensors")
             self.assertEqual(cmd.include, ["*.safetensors"])
             self.assertEqual(cmd.repo_id, DUMMY_MODEL_ID)
 
