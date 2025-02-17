@@ -10,10 +10,10 @@ from .fal_ai import (
 from .fireworks_ai import FireworksAIConversationalTask
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
 from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
+from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
-from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
 
 
 PROVIDER_T = Literal[
@@ -87,7 +87,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-image": TogetherTextToImageTask(),
         "conversational": TogetherConversationalTask(),
         "text-generation": TogetherTextGenerationTask(),
-    }
+    },
 }
 
 
