@@ -1,5 +1,4 @@
 import base64
-from abc import ABC
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub.inference._common import _as_dict
@@ -9,22 +8,6 @@ from huggingface_hub.inference._providers._common import (
     TaskProviderHelper,
     filter_none,
 )
-
-
-class NebiusTask(TaskProviderHelper, ABC):
-    """Base class for Nebius AI Studio API tasks."""
-
-    def __init__(self, task: str):
-        super().__init__(provider="nebius", base_url="https://api.studio.nebius.ai", task=task)
-
-    def _prepare_route(self, mapped_model: str) -> str:
-        if self.task == "text-generation":
-            return "/v1/completions"
-        elif self.task == "conversational":
-            return "/v1/chat/completions"
-        elif self.task == "text-to-image":
-            return "/v1/images/generations"
-        raise ValueError(f"Unsupported task '{self.task}' for Nebius API.")
 
 
 class NebiusTextGenerationTask(BaseTextGenerationTask):
@@ -37,16 +20,26 @@ class NebiusConversationalTask(BaseConversationalTask):
         super().__init__(provider="nebius", base_url="https://api.studio.nebius.ai")
 
 
-class NebiusTextToImageTask(NebiusTask):
+class NebiusTextToImageTask(TaskProviderHelper):
     def __init__(self):
-        super().__init__("text-to-image")
+        super().__init__(task="text-to-image", provider="nebius", base_url="https://api.studio.nebius.ai")
+
+    def _prepare_route(self, mapped_model: str) -> str:
+        return "/v1/images/generations"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         parameters = filter_none(parameters)
         if "guidance_scale" in parameters:
             parameters.pop("guidance_scale")
+        # Width and height are required parameters
+        if "width" not in parameters:
+            parameters["width"] = 512
+        if "height" not in parameters:
+            parameters["height"] = 512
+        if parameters.get("response_format") not in ("b64_json", "url"):
+            parameters["response_format"] = "b64_json"
 
-        return {"prompt": inputs, "response_format": "base64", **parameters, "model": mapped_model}
+        return {"prompt": inputs, **parameters, "model": mapped_model}
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         response_dict = _as_dict(response)

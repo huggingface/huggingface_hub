@@ -20,6 +20,11 @@ from huggingface_hub.inference._providers.hyperbolic import (
     HyperbolicTextGenerationTask,
     HyperbolicTextToImageTask,
 )
+from huggingface_hub.inference._providers.nebius import (
+    NebiusConversationalTask,
+    NebiusTextGenerationTask,
+    NebiusTextToImageTask
+)
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
 from huggingface_hub.inference._providers.together import (
@@ -280,6 +285,48 @@ class TestHyperbolicProvider:
         response = helper.get_response({"images": [{"image": base64.b64encode(dummy_image).decode()}]})
         assert response == dummy_image
 
+class TestNebiusProvider:
+    def test_prepare_route(self):
+        helper = NebiusTextGenerationTask()
+        assert helper._prepare_route("username/repo_name") == "/v1/completions"
+
+        helper = NebiusConversationalTask()
+        assert helper._prepare_route("username/repo_name") == "/v1/chat/completions"
+
+        helper = NebiusTextToImageTask()
+        assert helper._prepare_route("username/repo_name") == "/v1/images/generations"
+
+    def test_prepare_payload_as_dict_conversational(self):
+        helper = NebiusConversationalTask()
+        payload = helper._prepare_payload_as_dict(
+            [{"role": "user", "content": "Hello!"}], {}, "meta-llama/Llama-3.1-8B-Instruct"
+        )
+        assert payload == {
+            "messages": [{"role": "user", "content": "Hello!"}],
+            "model": "meta-llama/Llama-3.1-8B-Instruct",
+        }
+
+    def test_prepare_payload_as_dict_text_to_image(self):
+        helper = NebiusTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful cat",
+            {"num_inference_steps": 10, "width": 512, "height": 512},
+            "black-forest-labs/flux-schnell",
+        )
+        assert payload == {
+            "prompt": "a beautiful cat",
+            "response_format": "base64",
+            "width": 512,
+            "height": 512,
+            "steps": 10,
+            "model": "black-forest-labs/flux-schnell",
+        }
+
+    def test_text_to_image_get_response(self):
+        helper = NebiusTextToImageTask()
+        response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
+        assert response == b"image_bytes"
+
 
 class TestReplicateProvider:
     def test_prepare_headers(self):
@@ -398,7 +445,6 @@ class TestTogetherProvider:
         helper = TogetherTextToImageTask()
         response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
         assert response == b"image_bytes"
-
 
 @pytest.mark.parametrize(
     "dict1, dict2, expected",

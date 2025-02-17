@@ -108,6 +108,11 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "sambanova": {
         "conversational": "meta-llama/Llama-3.1-8B-Instruct",
     },
+    "nebius": {
+        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
+        "text-generation": "Qwen/Qwen2.5-32B-Instruct",
+        "text-to-image": "stabilityai/stable-diffusion-xl-base-1.0",
+    },
 }
 
 CHAT_COMPLETION_MODEL = "HuggingFaceH4/zephyr-7b-beta"
