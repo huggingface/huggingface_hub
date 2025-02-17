@@ -31,11 +31,6 @@ class NebiusTextToImageTask(TaskProviderHelper):
         parameters = filter_none(parameters)
         if "guidance_scale" in parameters:
             parameters.pop("guidance_scale")
-        # Width and height are required parameters
-        if "width" not in parameters:
-            parameters["width"] = 512
-        if "height" not in parameters:
-            parameters["height"] = 512
         if parameters.get("response_format") not in ("b64_json", "url"):
             parameters["response_format"] = "b64_json"
 
