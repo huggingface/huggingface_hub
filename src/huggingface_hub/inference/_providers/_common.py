@@ -21,6 +21,7 @@ HARDCODED_MODEL_ID_MAPPING: Dict[str, Dict[str, str]] = {
     "fireworks-ai": {},
     "hf-inference": {},
     "hyperbolic": {},
+    "nebius": {},
     "replicate": {},
     "sambanova": {},
     "together": {},

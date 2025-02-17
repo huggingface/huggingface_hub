@@ -24,6 +24,7 @@ from huggingface_hub.inference._providers.hyperbolic import (
     HyperbolicTextGenerationTask,
     HyperbolicTextToImageTask,
 )
+from huggingface_hub.inference._providers.nebius import NebiusTextToImageTask
 from huggingface_hub.inference._providers.novita import (
     NovitaConversationalTask,
     NovitaTextGenerationTask,
@@ -285,6 +286,33 @@ class TestHyperbolicProvider:
         dummy_image = b"image_bytes"
         response = helper.get_response({"images": [{"image": base64.b64encode(dummy_image).decode()}]})
         assert response == dummy_image
+
+
+class TestNebiusProvider:
+    def test_prepare_route_text_to_image(self):
+        helper = NebiusTextToImageTask()
+        assert helper._prepare_route("username/repo_name") == "/v1/images/generations"
+
+    def test_prepare_payload_as_dict_text_to_image(self):
+        helper = NebiusTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful cat",
+            {"num_inference_steps": 10, "width": 512, "height": 512, "guidance_scale": 7.5},
+            "black-forest-labs/flux-schnell",
+        )
+        assert payload == {
+            "prompt": "a beautiful cat",
+            "response_format": "b64_json",
+            "width": 512,
+            "height": 512,
+            "num_inference_steps": 10,
+            "model": "black-forest-labs/flux-schnell",
+        }
+
+    def test_text_to_image_get_response(self):
+        helper = NebiusTextToImageTask()
+        response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
+        assert response == b"image_bytes"
 
 
 class TestNovitaProvider:
