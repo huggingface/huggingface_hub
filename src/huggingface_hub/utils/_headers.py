@@ -125,6 +125,16 @@ def build_hf_headers(
     # Get auth token to send
     token_to_send = get_token_to_send(token)
 
+    # Retrieve user-agent origin headers from environment variable
+    origin = constants.HF_HUB_USER_AGENT_ORIGIN
+    if origin is not None:
+        if isinstance(user_agent, dict):
+            user_agent["origin"] = origin
+        elif isinstance(user_agent, str):
+            user_agent += "; " + "origin/" + origin
+        else:
+            user_agent = {"origin": origin}
+
     # Combine headers
     hf_headers = {
         "user-agent": _http_user_agent(
