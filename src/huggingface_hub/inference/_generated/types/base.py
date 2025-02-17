@@ -22,6 +22,22 @@ from typing import Any, Dict, List, Type, TypeVar, Union, get_args
 T = TypeVar("T", bound="BaseInferenceType")
 
 
+def _repr_with_extra(self):
+    fields = list(self.__dataclass_fields__.keys())
+    other_fields = list(k for k in self.__dict__ if k not in fields)
+    return f"{self.__class__.__name__}({', '.join(f'{k}={self.__dict__[k]!r}' for k in fields + other_fields)})"
+
+
+def dataclass_with_extra(cls: Type[T]) -> Type[T]:
+    """Decorator to add a custom __repr__ method to a dataclass, showing all fields, including extra ones.
+
+    This decorator only works with dataclasses that inherit from `BaseInferenceType`.
+    """
+    cls = dataclass(cls)
+    cls.__repr__ = _repr_with_extra  # type: ignore[method-assign]
+    return cls
+
+
 @dataclass
 class BaseInferenceType(dict):
     """Base class for all inference types.
@@ -115,6 +131,11 @@ class BaseInferenceType(dict):
 
         # Add remaining fields as dict attributes
         item.update(other_values)
+
+        # Add remaining fields as extra dataclass fields.
+        # They won't be part of the dataclass fields but will be accessible as attributes.
+        # Use @dataclass_with_extra to show them in __repr__.
+        item.__dict__.update(other_values)
         return item
 
     def __post_init__(self):

@@ -3,13 +3,12 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class ObjectDetectionParameters(BaseInferenceType):
     """Additional inference parameters for Object Detection"""
 
@@ -17,7 +16,7 @@ class ObjectDetectionParameters(BaseInferenceType):
     """The probability necessary to make a prediction."""
 
 
-@dataclass
+@dataclass_with_extra
 class ObjectDetectionInput(BaseInferenceType):
     """Inputs for Object Detection inference"""
 
@@ -29,7 +28,7 @@ class ObjectDetectionInput(BaseInferenceType):
     """Additional inference parameters for Object Detection"""
 
 
-@dataclass
+@dataclass_with_extra
 class ObjectDetectionBoundingBox(BaseInferenceType):
     """The predicted bounding box. Coordinates are relative to the top left corner of the input
     image.
@@ -45,7 +44,7 @@ class ObjectDetectionBoundingBox(BaseInferenceType):
     """The y-coordinate of the top-left corner of the bounding box."""
 
 
-@dataclass
+@dataclass_with_extra
 class ObjectDetectionOutputElement(BaseInferenceType):
     """Outputs of inference for the Object Detection task"""
 

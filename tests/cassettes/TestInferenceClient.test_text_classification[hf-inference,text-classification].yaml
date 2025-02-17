@@ -13,78 +13,49 @@ interactions:
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - 31b9171d-7054-49d0-b24c-9038ca30094e
-    method: POST
-    uri: https://router.huggingface.co/hf-inference/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english
-  response:
-    body:
-      string: '{"error":"Model distilbert/distilbert-base-uncased-finetuned-sst-2-english
-        is currently loading","estimated_time":20.0}'
-    headers:
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '119'
-      Content-Type:
-      - application/json
-      Date:
-      - Wed, 22 Jan 2025 14:12:36 GMT
-      access-control-allow-credentials:
-      - 'true'
-      vary:
-      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-      x-request-id:
-      - NBkRpeOxOFqqVgoQbQBkR
-    status:
-      code: 503
-      message: Service Unavailable
-- request:
-    body: '{"inputs": "I like you", "parameters": {}}'
-    headers:
-      Accept:
-      - '*/*'
-      Accept-Encoding:
-      - gzip, deflate
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '42'
-      Content-Type:
-      - application/json
-      X-Amzn-Trace-Id:
-      - b50dcc59-497a-4c68-98c2-99570aa03d0e
-      X-wait-for-model:
-      - '1'
+      - 89809c7c-fa69-4600-b32b-dbf6a84f19d2
     method: POST
     uri: https://router.huggingface.co/hf-inference/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english
   response:
     body:
       string: '[[{"label":"POSITIVE","score":0.9998695850372314},{"label":"NEGATIVE","score":0.00013043530634604394}]]'
     headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
       Connection:
       - keep-alive
+      Content-Length:
+      - '103'
       Content-Type:
       - application/json
       Date:
-      - Wed, 22 Jan 2025 14:12:46 GMT
-      Transfer-Encoding:
-      - chunked
+      - Thu, 13 Feb 2025 18:51:17 GMT
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Via:
+      - 1.1 10e1486bad24a11a3edd4fce423c3662.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - LIGzQVr8RIM0oAYAamVg6C2c0wOgJY6mtYCPOKhocStmxeoR6IOajg==
+      X-Amz-Cf-Pop:
+      - CDG55-P3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
       access-control-allow-credentials:
       - 'true'
-      access-control-expose-headers:
-      - x-compute-type, x-compute-time
-      server:
-      - uvicorn
+      cross-origin-opener-policy:
+      - same-origin
       vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-      x-compute-characters:
-      - '10'
       x-compute-time:
-      - '0.021'
+      - '0.024'
       x-compute-type:
-      - cpu
+      - cache
       x-request-id:
-      - EGClKTkUnxpsN3CQdnvKM
+      - Root=1-67ae3f25-66173bfc00b9f87e11864513;89809c7c-fa69-4600-b32b-dbf6a84f19d2
       x-sha:
       - 714eb0fa89d2f80546fda750413ed43d93601a13
     status:

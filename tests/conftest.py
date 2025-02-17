@@ -6,9 +6,22 @@ import pytest
 from _pytest.fixtures import SubRequest
 
 import huggingface_hub
+from huggingface_hub import constants
 from huggingface_hub.utils import SoftTemporaryDirectory, logging
 
 from .testing_utils import set_write_permission_and_retry
+
+
+@pytest.fixture(autouse=True, scope="function")
+def patch_constants(mocker):
+    with SoftTemporaryDirectory() as cache_dir:
+        mocker.patch.object(constants, "HF_HOME", cache_dir)
+        mocker.patch.object(constants, "HF_HUB_CACHE", os.path.join(cache_dir, "hub"))
+        mocker.patch.object(constants, "HUGGINGFACE_HUB_CACHE", os.path.join(cache_dir, "hub"))
+        mocker.patch.object(constants, "HF_ASSETS_CACHE", os.path.join(cache_dir, "assets"))
+        mocker.patch.object(constants, "HF_TOKEN_PATH", os.path.join(cache_dir, "token"))
+        mocker.patch.object(constants, "HF_STORED_TOKENS_PATH", os.path.join(cache_dir, "stored_tokens"))
+        yield
 
 
 logger = logging.get_logger(__name__)
