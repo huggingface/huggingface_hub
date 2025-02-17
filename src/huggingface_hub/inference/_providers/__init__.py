@@ -22,11 +22,11 @@ PROVIDER_T = Literal[
     "fireworks-ai",
     "hf-inference",
     "hyperbolic",
+    "nebius",
     "novita",
     "replicate",
     "sambanova",
     "together",
-    "nebius",
 ]
 
 PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
