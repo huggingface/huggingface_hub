@@ -70,6 +70,11 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "conversational": HyperbolicTextGenerationTask("conversational"),
         "text-generation": HyperbolicTextGenerationTask("text-generation"),
     },
+    "nebius": {
+        "text-to-image": NebiusTextToImageTask(),
+        "conversational": NebiusConversationalTask(),
+        "text-generation": NebiusTextGenerationTask(),
+    },
     "replicate": {
         "text-to-image": ReplicateTask("text-to-image"),
         "text-to-speech": ReplicateTextToSpeechTask(),
@@ -82,12 +87,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-image": TogetherTextToImageTask(),
         "conversational": TogetherConversationalTask(),
         "text-generation": TogetherTextGenerationTask(),
-    },
-    "nebius": {
-        "text-to-image": NebiusTextToImageTask(),
-        "conversational": NebiusConversationalTask(),
-        "text-generation": NebiusTextGenerationTask(),
-    },
+    }
 }
 
 
