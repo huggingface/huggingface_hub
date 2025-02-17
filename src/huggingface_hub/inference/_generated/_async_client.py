@@ -123,9 +123,8 @@ class AsyncInferenceClient:
             Name of the provider to use for inference. Can be "fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"replicate"`, "sambanova"` or `"together"`.
             defaults to hf-inference (Hugging Face Serverless Inference API).
             If model is a URL or `base_url` is passed, then `provider` is not used.
-        token (`str` or `bool`, *optional*):
+        token (`str`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
-            Pass `token=False` if you don't want to send your token to the server.
             Note: for better compatibility with OpenAI's client, `token` has been aliased as `api_key`. Those 2
             arguments are mutually exclusive and have the exact same behavior.
         timeout (`float`, `optional`):
