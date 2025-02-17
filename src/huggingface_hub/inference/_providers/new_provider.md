@@ -77,6 +77,31 @@ You only have to add a test for overwritten methods.
 
 ### 5. Add VCR tests in `tests/test_inference_client.py`
 
-- Add an entry in `_RECOMMENDED_MODELS_FOR_VCR` at the top of the test module. It contains a mapping task <> test model. Model id must be the HF model id.
-- Add an entry in `API_KEY_ENV_VARIABLES` to define which env variable should be used
-- Run tests locally with `pytest tests/test_inference_client.py -k <provider>` and commit the VCR cassettes.
+#### a. Add test model mapping
+Add an entry to `_RECOMMENDED_MODELS_FOR_VCR` at the top of the test module, It contains a mapping task <> test model. `model-id` must be the HF model id.
+```python
+_RECOMMENDED_MODELS_FOR_VCR = {
+    "your-provider": {
+        "task": "model-id",
+        ...
+    },
+    ...
+}
+```
+#### b. Set up authentication
+To record VCR cassettes, you'll need authentication:
+
+- If you are a member of the provider organization (e.g., Replicate organization: https://huggingface.co/replicate), you can set the `HF_INFERENCE_TEST_TOKEN` environment variable with your HF token:
+   ```bash
+   export HF_INFERENCE_TEST_TOKEN="your-hf-token"
+   ```
+
+- If you're not a member but the provider is officially released on the Hub, you can set the `HF_INFERENCE_TEST_TOKEN` environment variable as above. If you don't have enough inference credits, we can help you record the VCR cassettes.
+
+#### c. Record and commit tests
+
+1. Run the tests for your provider:
+   ```bash
+   pytest tests/test_inference_client.py -k <provider>
+   ```
+2. Commit the generated VCR cassettes with your PR
