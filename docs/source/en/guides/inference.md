@@ -248,7 +248,7 @@ You might wonder why using [`InferenceClient`] instead of OpenAI's client? There
 
 [`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models, on any provider. It has a simple API that supports the most common tasks. Here is a table showing which providers support which tasks:
 
-| Domain              | Task                                                | HF Inference | fal-ai | Fireworks | Hyperbolic | Nebius AI Studio | Novita | Replicate | Sambanova | Together AI |
+| Domain              | Task                                                | HF Inference | fal-ai | Fireworks AI | Hyperbolic | Nebius AI Studio | Novita AI | Replicate | Sambanova | Together |
 | ------------------- | --------------------------------------------------- | ------------ | ------ | --------- | ---------- | ---------------- | ------ | --------- | --------- | ----------- |
 | **Audio**           | [`~InferenceClient.audio_classification`]           | ✅            | ❌      | ❌         | ❌          | ❌                | ❌      | ❌         | ❌         | ❌           |
 |                     | [`~InferenceClient.audio_to_audio`]                 | ✅            | ❌      | ❌         | ❌          | ❌                | ❌      | ❌         | ❌         | ❌           |
