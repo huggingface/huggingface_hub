@@ -3426,7 +3426,7 @@ class HfApi:
             raise ValueError("Invalid repo type")
 
         json: Dict[str, Any] = {"name": name, "organization": organization}
-        if private is not None:
+        if private is not None and private is not False:
             json["private"] = private
         if repo_type is not None:
             json["type"] = repo_type
