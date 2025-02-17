@@ -11,11 +11,15 @@ from huggingface_hub.inference._providers._common import (
 )
 
 
+_PROVIDER = "together"
+_BASE_URL = "https://api.together.xyz"
+
+
 class TogetherTask(TaskProviderHelper, ABC):
     """Base class for Together API tasks."""
 
     def __init__(self, task: str):
-        super().__init__(provider="together", base_url="https://api.together.xyz", task=task)
+        super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task=task)
 
     def _prepare_route(self, mapped_model: str) -> str:
         if self.task == "text-to-image":
@@ -29,12 +33,12 @@ class TogetherTask(TaskProviderHelper, ABC):
 
 class TogetherTextGenerationTask(BaseTextGenerationTask):
     def __init__(self):
-        super().__init__(provider="together", base_url="https://api.together.xyz")
+        super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
 
 
 class TogetherConversationalTask(BaseConversationalTask):
     def __init__(self):
-        super().__init__(provider="together", base_url="https://api.together.xyz")
+        super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
 
 
 class TogetherTextToImageTask(TogetherTask):
