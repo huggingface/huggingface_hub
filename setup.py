@@ -54,7 +54,6 @@ extras["tensorflow-testing"] = [
     "tensorflow",
     "keras<3.0",
 ]
-# TODO: Uncomment once package is public
 extras["xet"] = ["hf_xet"]
 
 extras["testing"] = (
