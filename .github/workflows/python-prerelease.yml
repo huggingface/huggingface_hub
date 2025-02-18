@@ -68,15 +68,7 @@ jobs:
           fi
 
           # Any line with `uv pip install --prerelease=allow` in the `.github/` folder must be updated with `--prerelease=allow` flag
-          ls -R .github/workflows/
-          files=$(grep -rl "uv pip install --prerelease=allow" .github/workflows/ || true)
-          if [[ -n "$files" ]]; then
-            echo "Updating the following files:"
-            echo "$files"
-            echo "$files" | xargs sed -i -E "s/uv pip install/uv pip install --prerelease=allow/"
-          else
-            echo "No matching files found, skipping update."
-          fi
+          find .github/workflows/ -type f -name '*.yml' -o -name '*.yaml' | xargs sed -i -E 's|(uv pip install(?!.*--prerelease=allow))|\1 --prerelease=allow|g'
 
           # Commit and push changes
           git --no-pager diff --staged
