@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - "v*.rc*"
-    branches:
-      - v0.29-release
 
 jobs:
   trigger_rc_testing:
@@ -19,8 +17,7 @@ jobs:
     steps:
       - name: Extract version from tag
         id: get-version
-        run: echo "VERSION=0.29.0.rc6" >> $GITHUB_OUTPUT
-        # run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Checkout target repo
         uses: actions/checkout@v4
