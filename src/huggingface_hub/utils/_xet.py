@@ -98,7 +98,7 @@ def _fetch_xet_metadata_with_url(
             If the Hub API response is improperly formatted.
     """
     resp = get_session().get(headers=headers, url=url)
-    metadata = parse_xet_headers(resp.headers)
+    metadata = parse_xet_headers(resp.headers)  # type: ignore
     if metadata is None:
         raise ValueError("Xet headers have not been correctly set by the server.")
     return metadata
