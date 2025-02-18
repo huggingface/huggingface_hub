@@ -1,7 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Optional, Union
-
-from requests.structures import CaseInsensitiveDict
+from typing import Dict, Optional
 
 from .. import constants
 from . import get_session, validate_hf_hub_args
@@ -16,9 +14,7 @@ class XetMetadata:
     file_hash: Optional[str] = None
 
 
-def parse_xet_headers(
-    headers: Union[Dict[str, str], CaseInsensitiveDict[str]],
-) -> Optional[XetMetadata]:
+def parse_xet_headers(headers: Dict[str, str]) -> Optional[XetMetadata]:
     """
     Parse XET metadata from the HTTP headers or return None if not found.
 
