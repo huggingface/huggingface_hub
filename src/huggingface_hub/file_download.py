@@ -171,7 +171,7 @@ class HfFileMetadata:
     etag: Optional[str]
     location: str
     size: Optional[int]
-    xet_metadata: Optional[XetMetadata]
+    xet_metadata: Optional[XetMetadata] = None
 
 
 @validate_hf_hub_args
