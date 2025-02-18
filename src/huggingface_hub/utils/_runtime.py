@@ -367,7 +367,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["numpy"] = get_numpy_version()
     info["pydantic"] = get_pydantic_version()
     info["aiohttp"] = get_aiohttp_version()
-    info["xet"] = get_xet_version()
+    info["hf_xet"] = get_xet_version()
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT
     info["HF_HUB_CACHE"] = constants.HF_HUB_CACHE
