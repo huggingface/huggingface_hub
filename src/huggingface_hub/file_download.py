@@ -801,7 +801,6 @@ def hf_hub_download(
     resume_download: Optional[bool] = None,
     force_filename: Optional[str] = None,
     local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
-    tqdm_class: Optional[tqdm] = None,
 ) -> str:
     """Download a given file if it's not already present in the local cache.
 
