@@ -3,8 +3,11 @@ from typing import Any, Dict, Optional, Union
 
 from huggingface_hub.inference._common import _as_dict
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
+from huggingface_hub.utils import logging
 from huggingface_hub.utils._http import get_session
 
+
+logger = logging.get_logger(__name__)
 
 MAX_POLLING_ATTEMPTS = 6
 POLLING_INTERVAL = 1.0
@@ -44,11 +47,15 @@ class BlackForestLabsTextToImageTask(TaskProviderHelper):
 
             response = session.get(url, headers={"Content-Type": "application/json"})  # type: ignore
             response.raise_for_status()  # type: ignore
-
             response_json: Dict = response.json()  # type: ignore
+            status = response_json.get("status")
+            logger.info(
+                f"Polling generation result from {url}. Current status: {status}. "
+                f"Will retry after {POLLING_INTERVAL} seconds if not ready."
+            )
 
             if (
-                response_json.get("status") == "Ready"
+                status == "Ready"
                 and isinstance(response_json.get("result"), dict)
                 and (sample_url := response_json["result"].get("sample"))
             ):
