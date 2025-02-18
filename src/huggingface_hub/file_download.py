@@ -519,22 +519,31 @@ def xet_get(
             not set, the filename is guessed from the URL or the `Content-Disposition` header.
 
     **Technical details:**
-    - `hf_xet`'s `download_files` takes a list of `PyPointerFile` objects, a URL endpoint to the CAS server, authentication
-      info to authenticate with the CAS server, and progress callbacks. It downloads the file using the Xet storage service.
-    - A `PyPointerFile` object contains the path to the pointer file, the file content hash, and the size of the file.
-    - The authentication info is refreshed using the `refresh_xet_metadata` function. it requests xet metadata that
-      contains the access token to the CAS server and the expiration time of the token.
-    - The downloading steps are as follows:
-        1. Create cache directory at `~/.cache/huggingface/xet/chunk-cache` if not exists.
-        2. Download the files concurrently:
-            2.1. Open a buffer to write the file to the disk.
-            2.2. Gets reconstruction info from server using file hash, these info it contains a List of chunks ranges needed to
-            reconstruct the file and a mapping between the chunk range to where it is stored.
-            2.3. For each chunk:
-                - Check if the chunk is already in the cache.
-                - If not, download the chunk from S3.
-                - Update the cache with the new chunk.
-            2.4. Write the chunks to the buffer.
+        The file download system uses Xet storage, which is a content-addressable storage system that breaks files into chunks
+        for efficient storage and transfer.
+
+        `hf_xet.download_files` manages downloading files by:
+        - Taking a list of files to download (each with its unique content hash)
+        - Connecting to a storage server (CAS server) that knows how files are chunked
+        - Using authentication to ensure secure access
+        - Providing progress updates during download
+
+        Authentication works by regularly refreshing access tokens through `refresh_xet_metadata` to maintain a valid
+        connection to the storage server.
+
+        The download process works like this:
+        1. Creates a local cache folder at `~/.cache/huggingface/xet/chunk-cache` to store reusable file chunks
+        2. Downloads files in parallel:
+            2.1. Prepares to write the file to disk
+            2.2. Asks the server "how is this file split into chunks?" using the file's unique hash
+                The server responds with:
+                - Which chunks make up the complete file
+                - Where each chunk can be downloaded from
+            2.3. For each needed chunk:
+                - Checks if we already have it in our local cache
+                - If not, downloads it from cloud storage (S3)
+                - Saves it to cache for future use
+                - Assembles the chunks in order to recreate the original file
 
     """
     try:
