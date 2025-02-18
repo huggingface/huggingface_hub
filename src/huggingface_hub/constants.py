@@ -230,3 +230,15 @@ ALL_INFERENCE_API_FRAMEWORKS = MAIN_INFERENCE_API_FRAMEWORKS + [
     "stanza",
     "timm",
 ]
+
+# Xet constants
+
+# TODO: xetpoc - change this to the production endpoint
+_XET_CAS_DEFAULT_SANDBOX_ENDPOINT = "http://cas-server.us.dev.moon.huggingface.tech/"
+XET_ENDPOINT = os.getenv("HF_XET_CAS_ENDPOINT") or _XET_CAS_DEFAULT_SANDBOX_ENDPOINT
+
+HUGGINGFACE_HEADER_X_XET_ENDPOINT = "X-Xet-Cas-Url"
+HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN = "X-Xet-Access-Token"
+HUGGINGFACE_HEADER_X_XET_EXPIRATION = "X-Xet-Token-Expiration"
+HUGGINGFACE_HEADER_X_XET_HASH = "X-Xet-Hash"
+HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE = "X-Xet-Refresh-Route"
