@@ -48,13 +48,13 @@ jobs:
 
           # Only if the target repo is transformers
           if [ "${{ matrix.target-repo }}" = "transformers" ]; then
-            sed -i -E 's/"huggingface-hub>=0.*"/"huggingface-hub==${VERSION}"/' src/transformers/dependency_versions_table.py
+            sed -i -E "s/\"huggingface-hub>=0.*\"/\"huggingface-hub==${VERSION}\"/" src/transformers/dependency_versions_table.py
             git add src/transformers/dependency_versions_table.py
           fi
 
           # Only if the target repo is diffusers
           if [ "${{ matrix.target-repo }}" = "diffusers" ]; then
-            sed -i -E 's/"huggingface-hub":.*/"huggingface-hub": "huggingface-hub==${VERSION}",/' src/diffusers/dependency_versions_table.py
+            sed -i -E "s/\"huggingface-hub\":.*/\"huggingface-hub\": \"huggingface-hub==${VERSION}\",/" src/diffusers/dependency_versions_table.py
             git add src/diffusers/dependency_versions_table.py
           fi
 
