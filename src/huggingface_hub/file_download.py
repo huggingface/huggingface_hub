@@ -518,7 +518,7 @@ def xet_get(
             The filename of the file that is being downloaded. Value is used only to display a nice progress bar. If
             not set, the filename is guessed from the URL or the `Content-Disposition` header.
 
-    **Technical details:**
+    **How it works:**
         The file download system uses Xet storage, which is a content-addressable storage system that breaks files into chunks
         for efficient storage and transfer.
 
