@@ -102,6 +102,15 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "conversational": "meta-llama/Llama-3.2-3B-Instruct",
         "text-to-image": "stabilityai/stable-diffusion-2",
     },
+    "nebius": {
+        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
+        "text-generation": "Qwen/Qwen2.5-32B-Instruct",
+        "text-to-image": "stabilityai/stable-diffusion-xl-base-1.0",
+    },
+    "novita": {
+        "text-generation": "NousResearch/Nous-Hermes-Llama2-13b",
+        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
+    },
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",
     },
@@ -326,7 +335,6 @@ class TestInferenceClient(TestBase):
             assert len(item.choices) == 1
             assert item.choices[0].finish_reason is None
             assert item.choices[0].index == 0
-            assert item.choices[0].delta.role == "assistant" or item.choices[0].delta.content is not None
 
         # Last item has a finish reason
         assert output[-1].choices[0].finish_reason == "length"

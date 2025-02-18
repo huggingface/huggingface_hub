@@ -1,0 +1,140 @@
+interactions:
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "meta-llama/llama-3.1-8b-instruct",
+      "max_tokens": 20, "stream": true}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '211'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 4f86b753-c812-4334-a0ec-614e1100972a
+    method: POST
+    uri: https://router.huggingface.co/novita/chat/completions
+  response:
+    body:
+      string: 'data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"Deep
+        le"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"arn"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"ing
+        is a"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"
+        subset o"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"f
+        mac"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"hine
+        lear"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"ning"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"
+        tha"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"t
+        i"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"nvolves
+        the"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"
+        use of"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"
+        artifici"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"al"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"
+        ne"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"u"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"ral
+        networks (ANNs)"},"finish_reason":"length","content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
+
+
+        data: [DONE]
+
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Mon, 17 Feb 2025 15:45:34 GMT
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      Via:
+      - 1.1 b7c17dda962249acad4693c264f9df0e.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - xKADyToDuUeV5ZKpJip3lBCk9phsxCjhr4GSeAyifwx9Q9O4sLUxhQ==
+      X-Amz-Cf-Pop:
+      - CDG55-P3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      cache-control:
+      - no-cache
+      cross-origin-opener-policy:
+      - same-origin
+      x-request-id:
+      - Root=1-67b3599d-2bc8106f4b28ffe45c12bd8e;4f86b753-c812-4334-a0ec-614e1100972a
+      x-trace-id:
+      - 0b28e9eba9181da9ea0d4c4220dac6f4
+    status:
+      code: 200
+      message: OK
+version: 1
