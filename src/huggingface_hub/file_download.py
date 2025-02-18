@@ -1674,6 +1674,7 @@ def _download_to_tmp_and_move(
             _check_disk_space(expected_size, destination_path.parent)
 
         if xet_metadata is not None and xet_metadata.file_hash is not None:
+            logger.info("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
             xet_get(
                 incomplete_path,
                 xet_metadata=xet_metadata,
