@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*.rc*"
+    branches:
+      - v0.29-release
 
 jobs:
   trigger_rc_testing:
@@ -68,7 +70,7 @@ jobs:
           fi
 
           # Any line with `uv pip install --prerelease=allow` in the `.github/` folder must be updated with `--prerelease=allow` flag
-          find .github/workflows/ -type f -name '*.yml' -o -name '*.yaml' | xargs sed -i -E 's|(uv pip install(?!.*--prerelease=allow))|\1 --prerelease=allow|g'
+          find .github/workflows/ -type f -name '*.yml' -o -name '*.yaml' | xargs sed -i '' -E 's/(uv pip install)(?!.*--prerelease=allow)/\1 --prerelease=allow/g'
 
           # Commit and push changes
           git --no-pager diff --staged
