@@ -32,6 +32,15 @@ jobs:
           git config user.name "Hugging Face Bot (RC Testing)"
           git config user.email "bot@huggingface.co"
 
+      - name: Wait for prerelease to be out on PyPI
+        run: |
+          VERSION=${{ steps.get-version.outputs.VERSION }}
+          echo "Waiting for huggingface-hub==${VERSION} to be available on PyPI"
+          while ! pip install huggingface-hub==${VERSION}; do
+            echo "huggingface-hub==${VERSION} not available yet, retrying in 15s"
+            sleep 15
+          done
+
       - name: Create test branch and update dependencies
         id: create-pr
         run: |
