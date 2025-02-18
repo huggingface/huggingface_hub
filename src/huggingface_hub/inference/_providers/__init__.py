@@ -1,6 +1,7 @@
 from typing import Dict, Literal
 
 from ._common import TaskProviderHelper
+from .black_forest_labs import BlackForestLabsTextToImageTask
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAITextToImageTask,
@@ -10,6 +11,7 @@ from .fal_ai import (
 from .fireworks_ai import FireworksAIConversationalTask
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
 from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
+from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask
@@ -17,10 +19,12 @@ from .together import TogetherConversationalTask, TogetherTextGenerationTask, To
 
 
 PROVIDER_T = Literal[
+    "black-forest-labs",
     "fal-ai",
     "fireworks-ai",
     "hf-inference",
     "hyperbolic",
+    "nebius",
     "novita",
     "replicate",
     "sambanova",
@@ -28,6 +32,9 @@ PROVIDER_T = Literal[
 ]
 
 PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
+    "black-forest-labs": {
+        "text-to-image": BlackForestLabsTextToImageTask(),
+    },
     "fal-ai": {
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),
         "text-to-image": FalAITextToImageTask(),
@@ -69,6 +76,11 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-image": HyperbolicTextToImageTask(),
         "conversational": HyperbolicTextGenerationTask("conversational"),
         "text-generation": HyperbolicTextGenerationTask("text-generation"),
+    },
+    "nebius": {
+        "text-to-image": NebiusTextToImageTask(),
+        "conversational": NebiusConversationalTask(),
+        "text-generation": NebiusTextGenerationTask(),
     },
     "novita": {
         "text-generation": NovitaTextGenerationTask(),
