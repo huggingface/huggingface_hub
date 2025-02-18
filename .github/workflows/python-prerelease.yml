@@ -52,7 +52,7 @@ jobs:
           git checkout -b $BRANCH_NAME
 
           # Update dependencies using sed
-          sed -i -E 's/"huggingface-hub>=0.*"/"huggingface-hub==${VERSION}"/' setup.py
+          sed -i -E "s/\"huggingface-hub>=0.*\"/\"huggingface-hub==${VERSION}\"/" setup.py
           git add setup.py
 
           # Only if the target repo is transformers
