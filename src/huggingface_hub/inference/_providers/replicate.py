@@ -5,9 +5,13 @@ from huggingface_hub.inference._providers._common import TaskProviderHelper, fil
 from huggingface_hub.utils import get_session
 
 
+_PROVIDER = "replicate"
+_BASE_URL = "https://api.replicate.com"
+
+
 class ReplicateTask(TaskProviderHelper):
     def __init__(self, task: str):
-        super().__init__(provider="replicate", base_url="https://api.replicate.com", task=task)
+        super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task=task)
 
     def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
         headers = super()._prepare_headers(headers, api_key)

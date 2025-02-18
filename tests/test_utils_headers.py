@@ -141,3 +141,17 @@ class TestUserAgentHeadersUtil(unittest.TestCase):
             # 4. order is preserved
             "python/3.7; python/3.8; hf_hub/0.12; transformers/None; diffusers/0.12.1",
         )
+
+    @patch("huggingface_hub.utils._telemetry.constants.HF_HUB_USER_AGENT_ORIGIN", "custom-origin")
+    def test_user_agent_with_origin(self) -> None:
+        self.assertTrue(self._get_user_agent().endswith("origin/custom-origin"))
+
+    @patch("huggingface_hub.utils._telemetry.constants.HF_HUB_USER_AGENT_ORIGIN", "custom-origin")
+    def test_user_agent_with_origin_and_user_agent(self) -> None:
+        self.assertTrue(
+            self._get_user_agent(user_agent={"a": "b", "c": "d"}).endswith("a/b; c/d; origin/custom-origin")
+        )
+
+    @patch("huggingface_hub.utils._telemetry.constants.HF_HUB_USER_AGENT_ORIGIN", "custom-origin")
+    def test_user_agent_with_origin_and_user_agent_str(self) -> None:
+        self.assertTrue(self._get_user_agent(user_agent="a/b;c/d").endswith("a/b; c/d; origin/custom-origin"))
