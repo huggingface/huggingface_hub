@@ -6,7 +6,7 @@ on:
       - "v*.rc*"
 
 jobs:
-  test_on_transformers:
+  trigger_rc_testing:
     runs-on: ubuntu-latest
 
     strategy:
