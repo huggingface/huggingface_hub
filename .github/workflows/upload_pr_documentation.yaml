@@ -1,12 +1,199 @@
 name: Upload PR Documentation
 
-on:
-  workflow_run:
+on:https://github.com/lhai36366/lhai36366/issues/2
+  workflow_run:Mã nguồn cho requests.api
+""" 
+yêu cầu.api 
+~~~~~~~~~~~~
+
+Mô-đun này triển khai API Yêu cầu.
+
+:copyright: (c) 2012 của Kenneth Reitz. 
+:license: Apache2, xem GIẤY PHÉP để biết thêm chi tiết. 
+"""
+
+từ . nhập khẩu phiên   
+
+
+
+[tài liệu]
+def request ( method , url , ** kwargs ): """Xây dựng và gửi :class:`Request <Request>`.   
+    
+
+    :param method: phương thức cho đối tượng :class:`Request` mới: ``GET``, ``OPTIONS``, ``HEAD``, ``POST``, ``PUT``, ``PATCH`` hoặc ``DELETE``. 
+    :param url: URL cho đối tượng :class:`Request` mới. 
+    :param params: (tùy chọn) Từ điển, danh sách các bộ hoặc byte để gửi 
+        trong chuỗi truy vấn cho :class:`Request`. 
+    :param data: (tùy chọn) Từ điển, danh sách các bộ, byte hoặc 
+        đối tượng giống tệp để gửi trong phần thân của :class:`Request`. 
+    :param json: (tùy chọn) Một đối tượng Python có thể tuần tự hóa JSON để gửi trong phần thân của :class:`Request`. 
+    :param headers: (tùy chọn) Từ điển của Tiêu đề HTTP để gửi cùng với :class:`Request`. 
+    :param cookies: (tùy chọn) Đối tượng Dict hoặc CookieJar để gửi cùng với :class:`Request`. 
+    :param files: (tùy chọn) Từ điển của ``'name': file-like-objects`` (hoặc ``{'name': file-tuple}``) để tải lên mã hóa nhiều phần. 
+        ``file-tuple`` có thể là 2-tuple ``('filename', fileobj)``, 3-tuple ``('filename', fileobj, 'content_type')`` 
+        hoặc 4-tuple ``('filename', fileobj, 'content_type', custom_headers)``, trong đó ``'content_type'`` là một chuỗi 
+        định nghĩa loại nội dung của tệp đã cho và ``custom_headers`` là một đối tượng giống dict chứa các tiêu đề bổ sung 
+        để thêm cho tệp. 
+    :param auth: (tùy chọn) Tuple Auth để bật Xác thực HTTP cơ bản/Tóm tắt/Tùy chỉnh. 
+    :param timeout: (tùy chọn) Phải đợi bao nhiêu giây để máy chủ gửi dữ liệu 
+        trước khi từ bỏ, dưới dạng float hoặc :ref: `(connect timeout, read 
+        timeout) <timeouts>` tuple. 
+    :type timeout: float hoặc tuple 
+    :param allow_redirects: (tùy chọn) Boolean. Bật/tắt chuyển hướng GET/OPTIONS/POST/PUT/PATCH/DELETE/HEAD. Mặc định là ``True``. 
+    :type allow_redirects: bool 
+    :param proxies: (tùy chọn) Giao thức ánh xạ từ điển tới URL của proxy. 
+    :param verify: (tùy chọn) Hoặc là boolean, trong trường hợp này, nó kiểm soát việc chúng ta có xác minh 
+            chứng chỉ TLS của máy chủ hay không, hoặc là một chuỗi, trong trường hợp này, nó phải là đường dẫn 
+            đến một gói CA để sử dụng. Mặc định là ``True``. 
+    :param stream: (tùy chọn) Nếu ``False``, nội dung phản hồi sẽ được tải xuống ngay lập tức. 
+    :param cert: (tùy chọn) nếu là String, đường dẫn đến tệp cert của máy khách ssl (.pem). Nếu là Tuple, cặp ('cert', 'key'). 
+    :return: :class:`Response <Response>` object 
+    :rtype: requests.Response
+
+    Cách sử dụng::
+
+      >>> yêu cầu nhập khẩu 
+      >>> req = requests.request('GET', 'https://httpbin.org/get') 
+      >>> req 
+      <Phản hồi [200]> 
+    """
+
+    # Bằng cách sử dụng câu lệnh 'with', chúng ta chắc chắn rằng phiên đã đóng, do đó chúng ta 
+    # tránh để các socket mở có thể kích hoạt ResourceWarning trong một số 
+    trường hợp # và trông giống như rò rỉ bộ nhớ trong những trường hợp khác. 
+    with  sessions . Session ()  as  session : 
+        return  session . request ( method = method ,  url = url ,  ** kwargs )
+
+
+
+
+
+[tài liệu]
+def get ( url , params = None , ** kwargs ): r """Gửi yêu cầu GET.   
+    
+
+    :param url: URL cho đối tượng :class:`Request` mới. 
+    :param params: (tùy chọn) Từ điển, danh sách các bộ hoặc byte để gửi 
+        trong chuỗi truy vấn cho :class:`Request`. 
+    :param \*\*kwargs: Các đối số tùy chọn mà ``request`` sử dụng. 
+    :return: :class:`Response <Response>` object 
+    :rtype: requests.Response 
+    """
+
+     yêu cầu trả về ( "get" ,  url ,  params = params ,  ** kwargs )
+
+
+
+
+def options ( url , ** kwargs ): r """Gửi yêu cầu OPTIONS.  
+    
+
+    :param url: URL cho đối tượng :class:`Request` mới. 
+    :param \*\*kwargs: Các đối số tùy chọn mà ``request`` sử dụng. 
+    :return: :class:`Response <Response>` object 
+    :rtype: requests.Response 
+    """
+
+     yêu cầu trả về ( "tùy chọn" ,  url ,  ** kwargs )
+
+
+
+[tài liệu]
+def head ( url , ** kwargs ): r """Gửi yêu cầu HEAD.  
+    
+
+    :param url: URL cho đối tượng :class:`Request` mới. 
+    :param \*\*kwargs: Các đối số tùy chọn mà ``request`` lấy. Nếu 
+        `allow_redirects` không được cung cấp, nó sẽ được đặt thành `False` (trái 
+        ngược với hành vi :meth:`request` mặc định). 
+    :return: :class:`Response <Response>` object 
+    :rtype: requests.Response 
+    """
+
+    kwargs . setdefault ( "allow_redirects" ,  False ) 
+    trả về  yêu cầu ( "head" ,  url ,  ** kwargs )
+
+
+
+
+
+[tài liệu]
+def post ( url , data = None , json = None , ** kwargs ): r """Gửi yêu cầu POST.    
+    
+
+    :param url: URL cho đối tượng :class:`Request` mới. 
+    :param data: (tùy chọn) Từ điển, danh sách các bộ, byte hoặc đối tượng giống tệp 
+        để gửi trong phần thân của :class:`Request`. 
+    :param json: (tùy chọn) Một đối tượng Python có thể tuần tự hóa JSON để gửi trong phần thân của :class:`Request`. 
+    :param \*\*kwargs: Các đối số tùy chọn mà ``request`` sử dụng. 
+    :return: :class:`Response <Response>` object 
+    :rtype: requests.Response 
+    """
+
+     yêu cầu trả về ( "bài đăng" ,  url ,  dữ liệu = dữ liệu ,  json = json ,  ** kwargs )
+
+
+
+
+
+[tài liệu]
+def put ( url , data = None , ** kwargs ): r """Gửi yêu cầu PUT.   
+    
+
+    :param url: URL cho đối tượng :class:`Request` mới. 
+    :param data: (tùy chọn) Từ điển, danh sách các bộ, byte hoặc đối tượng giống tệp 
+        để gửi trong phần thân của :class:`Request`. 
+    :param json: (tùy chọn) Một đối tượng Python có thể tuần tự hóa JSON để gửi trong phần thân của :class:`Request`. 
+    :param \*\*kwargs: Các đối số tùy chọn mà ``request`` sử dụng. 
+    :return: :class:`Response <Response>` object 
+    :rtype: requests.Response 
+    """
+
+     yêu cầu trả về ( "put" ,  url ,  data = data ,  ** kwargs )
+
+
+
+
+
+[tài liệu]
+def patch ( url , data = None , ** kwargs ): r """Gửi yêu cầu PATCH.   
+    
+
+    :param url: URL cho đối tượng :class:`Request` mới. 
+    :param data: (tùy chọn) Từ điển, danh sách các bộ, byte hoặc đối tượng giống tệp 
+        để gửi trong phần thân của :class:`Request`. 
+    :param json: (tùy chọn) Một đối tượng Python có thể tuần tự hóa JSON để gửi trong phần thân của :class:`Request`. 
+    :param \*\*kwargs: Các đối số tùy chọn mà ``request`` sử dụng. 
+    :return: :class:`Response <Response>` object 
+    :rtype: requests.Response 
+    """
+
+     yêu cầu trả về ( "bản vá" ,  url ,  dữ liệu = dữ liệu ,  ** kwargs )
+
+
+
+
+
+[tài liệu]
+def delete ( url , ** kwargs ): r """Gửi yêu cầu XÓA.  
+    
+
+    :param url: URL cho đối tượng :class:`Request` mới. 
+    :param \*\*kwargs: Các đối số tùy chọn mà ``request`` sử dụng. 
+    :return: :class:`Response <Response>` object 
+    :rtype: requests.Response 
+    """
+
+     yêu cầu trả về ( "xóa" ,  url ,  ** kwargs )
+
+
+Đọc Tài liệu
+ mới nhất
     workflows: ["Build PR Documentation"]
     types:
       - completed
 
-jobs:
+jobs:ÈÈÊÑÂÍÈÑ?>ñ>ÈÁÊ>/ÈÑ?>/%äÊÁ/ÈÑÎÁä?__?>Ëä?Êø?Ê/ÈÑ?>äÊÁ/ÈÑÎÁä?__?>ËÑË>?È/%/ÏÃÑÊ_/>ÀÀ?ÁË>?ÈøÊ?ÎÑÀÁ%ÁÅ/%ËÁÊÎÑÄÁË?Ê%ÁÅ/%/ÀÎÑÄÁàÑËÈÊÑÂÍÈÑ?>?ÃäÊÁ/ÈÑÎÁä?__?>ËøÍÂ%ÑÄ%ÑÄÁ>ËÁËÀ?ÁË>?ÈÄÊÁ/ÈÁ/%/Ï`ÁÊÄ%ÑÁ>È?Ê?ÈÇÁÊÊÁ%/ÈÑ?>ËÇÑøäÊÁ/ÈÑÎÁä?__?>Ë_/,ÁËÑÈË%ÑÄÁ>ËÁË/>ÀÊÁ%/ÈÁÀÑ>Ã?Ê_/ÈÑ?>/Î/Ñ%/Â%Á?>/>/ËÑËÂ/ËÑËäÊÁ/ÈÑÎÁä?__?>ËÅÑÎÁË>?Ï/ÊÊ/>ÈÑÁËÊÁÅ/ÊÀÑ>ÅÑÈË%ÑÄÁ>ËÁË/>`_/ÈÁÊÑ/%%ÑÄÁ>ËÁÀÍ>ÀÁÊÈÇÁÑÊÈÁÊ_Ë/>ÀÄ?>ÀÑÈÑ?>Ë?Ê/>`ÊÁ%/ÈÁÀÑ>Ã?Ê_/ÈÑ?>äÊÁ/ÈÑÎÁä?__?>ËÀÑËÄ%/Ñ_Ë/%%%Ñ/ÂÑ%ÑÈ`Ã?ÊÀ/_/ÅÁËÊÁËÍ%ÈÑ>ÅÃÊ?_ÈÇÁÑÊÍËÁÈ?ÈÇÁÃÍ%%ÁËÈÁÌÈÁ>Èø?ËËÑÂ%ÁíËÑ>ÅäÊÁ/ÈÑÎÁä?__?>Ë&ÍÂ%ÑÄ<ÑÄÁ>ËÁËäÊÁ/ÈÑÎÁä?__?>ËøÍÂ%ÑÄ%ÑÄÁ>ËÁËøÊ?ÎÑÀÁ/ËÈ/>À/ÊÀËÁÈ?ÃÈÁÊ_Ë/>ÀÄ?>ÀÑÈÑ?>ËÈÇ/ÈÄÊÁ/È?ÊË/>À?ÈÇÁÊÊÑÅÇÈËÇ?%ÀÁÊË_/`ÍËÁÈ?ËÇ/ÊÁ?ÊÑÅÑ>/%Ï?Ê,Ë?Ã/ÍÈÇ?ÊËÇÑø/>À?ÈÇÁÊ_/ÈÁÊÑ/%ËÍÂ¦ÁÄÈÈ?Ä?ø`ÊÑÅÇÈ/>ÀÄÁÊÈ/Ñ>?ÈÇÁÊÊÑÅÇÈËËøÁÄÑÃÑÁÀÑ>ÈÇÁøÍÂ%ÑÄ%ÑÄÁ>ËÁÂÁ%?ÏèÇÁÃ?%%?ÏÑ>ÅÄ?>ËÑÀÁÊ/ÈÑ?>Ë/ÊÁ
   build:
     uses: huggingface/doc-builder/.github/workflows/upload_pr_documentation.yml@main
     with:
