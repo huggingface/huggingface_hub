@@ -87,7 +87,7 @@ from huggingface_hub.inference._generated.types import (
 )
 from huggingface_hub.inference._providers import PROVIDER_T, HFInferenceTask, get_provider_helper
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
-from huggingface_hub.utils._deprecation import _deprecate_arguments, _deprecate_method
+from huggingface_hub.utils._deprecation import _deprecate_method
 
 from .._common import _async_yield_from, _import_aiohttp
 
@@ -3094,22 +3094,14 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return VisualQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
-    @_deprecate_arguments(
-        version="0.30.0",
-        deprecated_args=["labels"],
-        custom_message="`labels`has been renamed to `candidate_labels` and will be removed in huggingface_hub>=0.30.0.",
-    )
     async def zero_shot_classification(
         self,
         text: str,
-        # temporarily keeping it optional for backward compatibility.
-        candidate_labels: List[str] = None,  # type: ignore
+        candidate_labels: List[str],
         *,
         multi_label: Optional[bool] = False,
         hypothesis_template: Optional[str] = None,
         model: Optional[str] = None,
-        # deprecated argument
-        labels: List[str] = None,  # type: ignore
     ) -> List[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
@@ -3190,16 +3182,6 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        # handle deprecation
-        if labels is not None:
-            if candidate_labels is not None:
-                raise ValueError(
-                    "Cannot specify both `labels` and `candidate_labels`. Use `candidate_labels` instead."
-                )
-            candidate_labels = labels
-        elif candidate_labels is None:
-            raise ValueError("Must specify `candidate_labels`")
-
         provider_helper = get_provider_helper(self.provider, task="zero-shot-classification")
         request_parameters = provider_helper.prepare_request(
             inputs=text,
@@ -3219,16 +3201,10 @@ class AsyncInferenceClient:
             for label, score in zip(output["labels"], output["scores"])
         ]
 
-    @_deprecate_arguments(
-        version="0.30.0",
-        deprecated_args=["labels"],
-        custom_message="`labels`has been renamed to `candidate_labels` and will be removed in huggingface_hub>=0.30.0.",
-    )
     async def zero_shot_image_classification(
         self,
         image: ContentT,
-        # temporarily keeping it optional for backward compatibility.
-        candidate_labels: List[str] = None,  # type: ignore
+        candidate_labels: List[str],
         *,
         model: Optional[str] = None,
         hypothesis_template: Optional[str] = None,
@@ -3274,15 +3250,6 @@ class AsyncInferenceClient:
         [ZeroShotImageClassificationOutputElement(label='dog', score=0.956),...]
         ```
         """
-        # handle deprecation
-        if labels is not None:
-            if candidate_labels is not None:
-                raise ValueError(
-                    "Cannot specify both `labels` and `candidate_labels`. Use `candidate_labels` instead."
-                )
-            candidate_labels = labels
-        elif candidate_labels is None:
-            raise ValueError("Must specify `candidate_labels`")
         # Raise ValueError if input is less than 2 labels
         if len(candidate_labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare.")
