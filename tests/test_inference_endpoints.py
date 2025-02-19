@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
-from unittest.mock import Mock, patch
+from itertools import chain, repeat
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -136,6 +137,7 @@ MOCK_UPDATE = {
         "updatedBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
         "private": None,
         "state": "updating",
+        "url": "https://vksrvs8pc1xnifhq.us-east-1.aws.endpoints.huggingface.cloud",
         "message": "Endpoint waiting for the update",
         "readyReplica": 0,
         "targetReplica": 1,
@@ -277,21 +279,24 @@ def test_wait_failed(mock_get: Mock):
 
 
 @patch("huggingface_hub.hf_api.HfApi.get_inference_endpoint")
-def test_wait_update(mock_get: Mock):
-    """Test Waits Until Timeout Error Is Raised"""
+@patch("huggingface_hub._inference_endpoints.get_session")
+def test_wait_update(mock_get_session, mock_get_inference_endpoint):
+    """Test that wait() returns when the endpoint transitions to running."""
     endpoint = InferenceEndpoint.from_raw(MOCK_INITIALIZING, namespace="foo")
+    # Create an iterator that yields three MOCK_UPDATE responses,and then infinitely yields MOCK_RUNNING responses.
+    responses = chain(
+        [InferenceEndpoint.from_raw(MOCK_UPDATE, namespace="foo")] * 3,
+        repeat(InferenceEndpoint.from_raw(MOCK_RUNNING, namespace="foo")),
+    )
+    mock_get_inference_endpoint.side_effect = lambda *args, **kwargs: next(responses)
 
-    mock_get.side_effect = [
-        InferenceEndpoint.from_raw(MOCK_UPDATE, namespace="foo"),
-        InferenceEndpoint.from_raw(MOCK_UPDATE, namespace="foo"),
-        InferenceEndpoint.from_raw(MOCK_UPDATE, namespace="foo"),
-        InferenceEndpoint.from_raw(MOCK_UPDATE, namespace="foo"),
-    ]
-    with pytest.raises(InferenceEndpointTimeoutError):
-        endpoint.wait(timeout=0.1, refresh_every=0.05)
+    # Patch the get_session().get() call to always return a fake response with status_code 200.
+    fake_response = MagicMock()
+    fake_response.status_code = 200
+    mock_get_session.return_value.get.return_value = fake_response
 
-    assert endpoint.status == "updating"
-    assert len(mock_get.call_args_list) >= 2
+    endpoint.wait(refresh_every=0.05)
+    assert endpoint.status == "running"
 
 
 @patch("huggingface_hub.hf_api.HfApi.pause_inference_endpoint")
