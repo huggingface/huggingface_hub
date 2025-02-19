@@ -221,16 +221,7 @@ class InferenceEndpoint:
                 if response.status_code == 200:
                     logger.info("Inference Endpoint is ready to be used.")
                     return self
-                if response.status_code == 200 and self.status not in [
-                    InferenceEndpointStatus.UPDATING,
-                    InferenceEndpointStatus.UPDATE_FAILED,
-                ]:
-                    logger.info("Inference Endpoint is ready to be used.")
-                    return self
-            if self.status == InferenceEndpointStatus.FAILED:
-                raise InferenceEndpointError(
-                    f"Inference Endpoint {self.name} failed to deploy. Please check the logs for more information."
-                )
+
             if timeout is not None:
                 if time.time() - start > timeout:
                     raise InferenceEndpointTimeoutError("Timeout while waiting for Inference Endpoint to be deployed.")
