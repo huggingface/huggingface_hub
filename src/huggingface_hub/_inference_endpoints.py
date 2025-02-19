@@ -207,9 +207,20 @@ class InferenceEndpoint:
 
         start = time.time()
         while True:
-            if self.url is not None:
-                # Means the URL is provisioned => check if the endpoint is reachable
+            if self.status == InferenceEndpointStatus.FAILED:
+                raise InferenceEndpointError(
+                    f"Inference Endpoint {self.name} failed to deploy. Please check the logs for more information."
+                )
+            if self.status == InferenceEndpointStatus.UPDATE_FAILED:
+                raise InferenceEndpointError(
+                    f"Inference Endpoint {self.name} failed to update. Please check the logs for more information."
+                )
+            if self.status == InferenceEndpointStatus.RUNNING and self.url is not None:
+                # Verify the endpoint is actually reachable
                 response = get_session().get(self.url, headers=self._api._build_hf_headers(token=self._token))
+                if response.status_code == 200:
+                    logger.info("Inference Endpoint is ready to be used.")
+                    return self
                 if response.status_code == 200 and self.status not in [
                     InferenceEndpointStatus.UPDATING,
                     InferenceEndpointStatus.UPDATE_FAILED,
