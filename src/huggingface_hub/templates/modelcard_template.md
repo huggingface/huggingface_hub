@@ -1,3 +1,4 @@
+![image](https://github.com/user-attachments/assets/12bf19e2-e0e6-4c18-84b3-648b323fa324)
 ---
 # For reference on model card metadata, see the spec: https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
 # Doc / guide: https://huggingface.co/docs/hub/model-cards
