@@ -36,6 +36,7 @@ _CANDIDATES = {
     "gradio": {"gradio"},
     "graphviz": {"graphviz"},
     "hf_transfer": {"hf_transfer"},
+    "hf_xet": {"hf_xet"},
     "jinja": {"Jinja2"},
     "keras": {"keras"},
     "numpy": {"numpy"},
