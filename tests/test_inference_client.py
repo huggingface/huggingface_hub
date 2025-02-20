@@ -60,6 +60,9 @@ from .testing_utils import expect_deprecation, with_production_testing
 
 # Avoid calling APIs in VCRed tests
 _RECOMMENDED_MODELS_FOR_VCR = {
+    "black-forest-labs": {
+        "text-to-image": "black-forest-labs/FLUX.1-dev",
+    },
     "together": {
         "conversational": "meta-llama/Meta-Llama-3-8B-Instruct",
         "text-generation": "meta-llama/Llama-2-70b-hf",
@@ -101,6 +104,11 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "text-generation": "meta-llama/Llama-3.1-405B",
         "conversational": "meta-llama/Llama-3.2-3B-Instruct",
         "text-to-image": "stabilityai/stable-diffusion-2",
+    },
+    "nebius": {
+        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
+        "text-generation": "Qwen/Qwen2.5-32B-Instruct",
+        "text-to-image": "stabilityai/stable-diffusion-xl-base-1.0",
     },
     "novita": {
         "text-generation": "NousResearch/Nous-Hermes-Llama2-13b",

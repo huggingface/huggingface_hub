@@ -8,6 +8,7 @@ from huggingface_hub.inference._providers._common import (
     BaseTextGenerationTask,
     recursive_merge,
 )
+from huggingface_hub.inference._providers.black_forest_labs import BlackForestLabsTextToImageTask
 from huggingface_hub.inference._providers.fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAITextToImageTask,
@@ -24,6 +25,7 @@ from huggingface_hub.inference._providers.hyperbolic import (
     HyperbolicTextGenerationTask,
     HyperbolicTextToImageTask,
 )
+from huggingface_hub.inference._providers.nebius import NebiusTextToImageTask
 from huggingface_hub.inference._providers.novita import (
     NovitaConversationalTask,
     NovitaTextGenerationTask,
@@ -33,6 +35,79 @@ from huggingface_hub.inference._providers.sambanova import SambanovaConversation
 from huggingface_hub.inference._providers.together import (
     TogetherTextToImageTask,
 )
+
+
+class TestBlackForestLabsProvider:
+    def test_prepare_headers_bfl_key(self):
+        helper = BlackForestLabsTextToImageTask()
+        headers = helper._prepare_headers({}, "bfl_key")
+        assert "authorization" not in headers
+        assert headers["X-Key"] == "bfl_key"
+
+    def test_prepare_headers_hf_key(self):
+        """When using HF token, must use Bearer authorization."""
+        helper = BlackForestLabsTextToImageTask()
+        headers = helper._prepare_headers({}, "hf_test_token")
+        assert headers["authorization"] == "Bearer hf_test_token"
+        assert "X-Key" not in headers
+
+    def test_prepare_route(self):
+        """Test route preparation."""
+        helper = BlackForestLabsTextToImageTask()
+        assert helper._prepare_route("username/repo_name") == "username/repo_name"
+
+    def test_prepare_url(self):
+        helper = BlackForestLabsTextToImageTask()
+        assert (
+            helper._prepare_url("hf_test_token", "username/repo_name")
+            == "https://router.huggingface.co/black-forest-labs/username/repo_name"
+        )
+
+    def test_prepare_payload_as_dict(self):
+        """Test payload preparation with parameter renaming."""
+        helper = BlackForestLabsTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful cat",
+            {
+                "num_inference_steps": 30,
+                "guidance_scale": 7.5,
+                "width": 512,
+                "height": 512,
+                "seed": 42,
+            },
+            "username/repo_name",
+        )
+        assert payload == {
+            "prompt": "a beautiful cat",
+            "steps": 30,  # renamed from num_inference_steps
+            "guidance": 7.5,  # renamed from guidance_scale
+            "width": 512,
+            "height": 512,
+            "seed": 42,
+        }
+
+    def test_get_response_success(self, mocker):
+        """Test successful response handling with polling."""
+        helper = BlackForestLabsTextToImageTask()
+        mock_session = mocker.patch("huggingface_hub.inference._providers.black_forest_labs.get_session")
+        mock_session.return_value.get.side_effect = [
+            mocker.Mock(
+                json=lambda: {"status": "Ready", "result": {"sample": "https://example.com/image.jpg"}},
+                raise_for_status=lambda: None,
+            ),
+            mocker.Mock(content=b"image_bytes", raise_for_status=lambda: None),
+        ]
+
+        response = helper.get_response({"polling_url": "https://example.com/poll"})
+
+        assert response == b"image_bytes"
+        assert mock_session.return_value.get.call_count == 2
+        mock_session.return_value.get.assert_has_calls(
+            [
+                mocker.call("https://example.com/poll", headers={"Content-Type": "application/json"}),
+                mocker.call("https://example.com/image.jpg"),
+            ]
+        )
 
 
 class TestFalAIProvider:
@@ -285,6 +360,33 @@ class TestHyperbolicProvider:
         dummy_image = b"image_bytes"
         response = helper.get_response({"images": [{"image": base64.b64encode(dummy_image).decode()}]})
         assert response == dummy_image
+
+
+class TestNebiusProvider:
+    def test_prepare_route_text_to_image(self):
+        helper = NebiusTextToImageTask()
+        assert helper._prepare_route("username/repo_name") == "/v1/images/generations"
+
+    def test_prepare_payload_as_dict_text_to_image(self):
+        helper = NebiusTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful cat",
+            {"num_inference_steps": 10, "width": 512, "height": 512, "guidance_scale": 7.5},
+            "black-forest-labs/flux-schnell",
+        )
+        assert payload == {
+            "prompt": "a beautiful cat",
+            "response_format": "b64_json",
+            "width": 512,
+            "height": 512,
+            "num_inference_steps": 10,
+            "model": "black-forest-labs/flux-schnell",
+        }
+
+    def test_text_to_image_get_response(self):
+        helper = NebiusTextToImageTask()
+        response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
+        assert response == b"image_bytes"
 
 
 class TestNovitaProvider:
