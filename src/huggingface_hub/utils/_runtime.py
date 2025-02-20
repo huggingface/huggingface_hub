@@ -151,6 +151,15 @@ def get_hf_transfer_version() -> str:
     return _get_version("hf_transfer")
 
 
+# xet
+def is_xet_available() -> bool:
+    return is_package_available("hf_xet")
+
+
+def get_xet_version() -> str:
+    return _get_version("hf_xet")
+
+
 # keras
 def is_keras_available() -> bool:
     return is_package_available("keras")
@@ -357,6 +366,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["numpy"] = get_numpy_version()
     info["pydantic"] = get_pydantic_version()
     info["aiohttp"] = get_aiohttp_version()
+    info["hf_xet"] = get_xet_version()
 
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT
