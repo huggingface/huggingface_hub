@@ -14,6 +14,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import importlib
 import inspect
 import json
 import re
@@ -58,6 +59,7 @@ from ._commit_api import (
     _fetch_upload_modes,
     _prepare_commit_payload,
     _upload_lfs_files,
+    _upload_xet_files,
     _warn_on_overwriting_operations,
 )
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
@@ -4240,20 +4242,25 @@ class HfApi:
                 f"Skipped upload for {len(new_lfs_additions) - len(new_lfs_additions_to_upload)} LFS file(s) "
                 "(ignored by gitignore file)."
             )
-
-        # Upload new LFS files
-        _upload_lfs_files(
-            additions=new_lfs_additions_to_upload,
-            repo_type=repo_type,
-            repo_id=repo_id,
-            headers=headers,
-            endpoint=self.endpoint,
-            num_threads=num_threads,
+        # Prepare upload parameters
+        upload_kwargs = {
+            "additions": new_lfs_additions_to_upload,
+            "repo_type": repo_type,
+            "repo_id": repo_id,
+            "headers": headers,
+            "endpoint": self.endpoint,
             # If `create_pr`, we don't want to check user permission on the revision as users with read permission
             # should still be able to create PRs even if they don't have write permission on the target branch of the
             # PR (i.e. `revision`).
-            revision=revision if not create_pr else None,
-        )
+            "revision": revision if not create_pr else None,
+        }
+        # Upload files using Xet protocol if the library is installed.
+        # Otherwise, default back to LFS.
+        if importlib.util.find_spec("hf_xet") is not None:
+            # only add create_pr arg for xet upload, lfs upload does not take this argument.
+            _upload_xet_files(**upload_kwargs, create_pr=create_pr)  # type: ignore [arg-type]
+        else:
+            _upload_lfs_files(**upload_kwargs, num_threads=num_threads)  # type: ignore [arg-type]
         for addition in new_lfs_additions_to_upload:
             addition._is_uploaded = True
             if free_memory:
