@@ -4,6 +4,7 @@ Type definitions and utilities for the `create_commit` API
 
 import base64
 import io
+import math
 import os
 import warnings
 from collections import defaultdict
@@ -21,7 +22,9 @@ from .file_download import hf_hub_url
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
     FORBIDDEN_FOLDERS,
+    XetTokenType,
     chunk_iterable,
+    fetch_xet_metadata_from_repo_info,
     get_session,
     hf_raise_for_status,
     logging,
@@ -46,6 +49,10 @@ UploadMode = Literal["lfs", "regular"]
 # HfHubHTTPError: 413 Client Error: Payload Too Large for url: https://huggingface.co/api/datasets/xxx (Request ID: xxx)\n\ntoo many parameters
 # See https://github.com/huggingface/huggingface_hub/issues/1503
 FETCH_LFS_BATCH_SIZE = 500
+
+# number of files to upload at a time via xet upload
+# original usage to batch lfs uploads
+UPLOAD_BATCH_MAX_NUM_FILES = 256
 
 
 @dataclass
@@ -391,7 +398,7 @@ def _upload_lfs_files(
     #         Upload instructions are retrieved by chunk of 256 files to avoid reaching
     #         the payload limit.
     batch_actions: List[Dict] = []
-    for chunk in chunk_iterable(additions, chunk_size=256):
+    for chunk in chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES):
         batch_actions_chunk, batch_errors_chunk = post_lfs_batch_info(
             upload_infos=[op.upload_info for op in chunk],
             repo_id=repo_id,
@@ -458,6 +465,117 @@ def _upload_lfs_files(
         )
 
 
+@validate_hf_hub_args
+def _upload_xet_files(
+    *,
+    additions: List[CommitOperationAdd],
+    repo_type: str,
+    repo_id: str,
+    headers: Dict[str, str],
+    endpoint: Optional[str] = None,
+    revision: Optional[str] = None,
+    create_pr: Optional[bool] = None,
+):
+    """
+    Uploads the content of `additions` to the Hub using the xet storage protocol.
+    This chunks the files and deduplicates the chunks before uploading them to xetcas storage.
+    Args:
+        additions (`List` of `CommitOperationAdd`):
+            The files to be uploaded
+        repo_type (`str`):
+            Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
+        repo_id (`str`):
+            A namespace (user or an organization) and a repo name separated
+            by a `/`.
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
+        endpoint: (`str`, *optional*):
+            The endpoint to use for the xetcas service. Defaults to `constants.ENDPOINT`.
+        revision (`str`, *optional*):
+            The git revision to upload to.
+    Raises:
+        [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+            If an upload failed for any reason
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the server returns malformed responses or if the user is unauthorized to upload to xet storage.
+        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+            If the LFS batch endpoint returned an HTTP error.
+    """
+    if len(additions) == 0:
+        return
+
+    # TODO: use HF_HUB_ENABLE_HF_XET env variable
+    try:
+        from hf_xet import upload_files
+    except ImportError:
+        raise ValueError(
+            "Optimized upload using hf_xet is enabled for this repo but the hf_xet "
+            "package is not available in your environment. Try pip install hf_xet."
+        )
+
+    xet_metadata = fetch_xet_metadata_from_repo_info(
+        token_type=XetTokenType.WRITE,
+        repo_id=repo_id,
+        repo_type=repo_type,
+        revision=revision,
+        headers=headers,
+        endpoint=endpoint,
+        params={"create_pr": "1"} if create_pr else None,
+    )
+    if xet_metadata is None:
+        raise ValueError(
+            f"You are unauthorized to upload to xet storage for {repo_type}/{repo_id}. "
+            f"Please check that you have configured your access token with write access to the repo."
+        )
+    xet_endpoint = xet_metadata.endpoint
+    access_token_info = (xet_metadata.access_token, xet_metadata.expiration_unix_epoch)
+
+    def token_refresher() -> Tuple[str, int]:
+        new_xet_metadata = fetch_xet_metadata_from_repo_info(
+            token_type=XetTokenType.WRITE,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            headers=headers,
+            endpoint=endpoint,
+            params={"create_pr": "1"} if create_pr else None,
+        )
+        if new_xet_metadata is None:
+            raise ValueError("Failed to refresh xet token")
+        return new_xet_metadata.access_token, new_xet_metadata.expiration_unix_epoch
+
+    num_chunks = math.ceil(len(additions) / UPLOAD_BATCH_MAX_NUM_FILES)
+    num_chunks_num_digits = int(math.log10(num_chunks)) + 1
+    for i, chunk in enumerate(chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES)):
+        _chunk = [op for op in chunk]
+        paths = [str(op.path_or_fileobj) for op in _chunk]
+        expected_size = sum([os.path.getsize(path) for path in paths])
+
+        if num_chunks > 1:
+            description = f"Uploading Batch [{str(i + 1).zfill(num_chunks_num_digits)}/{num_chunks}]..."
+        else:
+            description = "Uploading..."
+        progress_cm: hf_tqdm = hf_tqdm(
+            unit="B",
+            unit_scale=True,
+            total=expected_size,
+            initial=0,
+            desc=description,
+            disable=True if (logger.getEffectiveLevel() == logging.NOTSET) else None,
+            # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
+            # see https://github.com/huggingface/huggingface_hub/pull/2000
+            name="huggingface_hub.xet_put",
+        )
+
+        with progress_cm as progress:
+
+            def update_progress(increment: int):
+                progress.update(increment)
+
+            upload_files(paths, xet_endpoint, access_token_info, token_refresher, update_progress, repo_type)
+    return
+
+
 def _validate_preupload_info(preupload_info: dict):
     files = preupload_info.get("files")
     if not isinstance(files, list):
@@ -485,8 +603,8 @@ def _fetch_upload_modes(
     gitignore_content: Optional[str] = None,
 ) -> None:
     """
-    Requests the Hub "preupload" endpoint to determine whether each input file should be uploaded as a regular git blob
-    or as git LFS blob. Input `additions` are mutated in-place with the upload mode.
+    Requests the Hub "preupload" endpoint to determine whether each input file should be uploaded as a regular git blob,
+    as a git LFS blob, or as a XET file. Input `additions` are mutated in-place with the upload mode.
 
     Args:
         additions (`Iterable` of :class:`CommitOperationAdd`):
