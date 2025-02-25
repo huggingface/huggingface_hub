@@ -1,0 +1,98 @@
+interactions:
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "command-r7b-12-2024",
+      "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '181'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 5c5ef3ee-1da1-4f10-b7cb-46538b19a138
+    method: POST
+    uri: https://api.cohere.com/v2/chat
+  response:
+    body:
+      string: '{"id":"c2239023-11a1-442e-a696-013ad9880af7","message":{"role":"assistant","content":[{"type":"text","text":"Deep
+        learning is a subfield of machine learning and artificial intelligence that
+        focuses on training artificial neural networks to learn and make predictions
+        from data. It is inspired by the structure and function of the human brain,
+        particularly the interconnected network of neurons.\n\nIn deep learning, artificial
+        neural networks are composed of multiple layers of interconnected nodes, or
+        \"neurons,\" which process and transform input data. These networks are designed
+        to automatically learn and extract hierarchical representations of data by
+        adjusting the connections between neurons during the training process. The
+        \"deep\" in deep learning refers to the multiple layers of abstraction that
+        these networks can learn.\n\nHere are some key characteristics and concepts
+        in deep learning:\n\n1. Neural Networks: Deep learning models are primarily
+        based on artificial neural networks, which consist of input, hidden, and output
+        layers. The hidden layers are where the learning happens, as they can learn
+        complex patterns and representations from the data.\n\n2. Backpropagation:
+        This is a fundamental algorithm used in deep learning to update the network''s
+        weights and biases during training. It calculates the gradient of the error
+        function with respect to the network''s parameters, allowing for efficient
+        optimization and learning.\n\n3. Feature Learning: Deep learning models automatically
+        learn relevant features from raw data without the need for manual feature
+        engineering. This is achieved through the hierarchical representation learned
+        by the network''s layers.\n\n4. Deep Architectures: Various types of deep
+        neural networks have been developed, including Convolutional Neural Networks
+        (CNNs) for image-related tasks, Recurrent Neural Networks (RNNs) for sequential
+        data, and Generative Adversarial Networks (GANs) for generating new data.\n\n5.
+        Training Data: Deep learning models require large amounts of labeled training
+        data to learn effectively. The quality and quantity of data are crucial for
+        the success of these models.\n\n6. Applications: Deep learning has been applied
+        to various fields, including computer vision, natural language processing,
+        speech recognition, autonomous driving, and healthcare, achieving state-of-the-art
+        performance in many tasks.\n\nDeep learning has revolutionized many areas
+        of artificial intelligence by enabling machines to learn complex patterns
+        and make accurate predictions, often surpassing human-level performance in
+        specific tasks. It has driven significant advancements in areas like image
+        and speech recognition, language translation, and game playing."}]},"finish_reason":"COMPLETE","usage":{"billed_units":{"input_tokens":11,"output_tokens":461},"tokens":{"input_tokens":540,"output_tokens":463}}}'
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Transfer-Encoding:
+      - chunked
+      Via:
+      - 1.1 google
+      access-control-expose-headers:
+      - X-Debug-Trace-ID
+      cache-control:
+      - no-cache, no-store, no-transform, must-revalidate, private, max-age=0
+      content-type:
+      - application/json
+      date:
+      - Tue, 25 Feb 2025 09:52:18 GMT
+      expires:
+      - Thu, 01 Jan 1970 00:00:00 UTC
+      num_chars:
+      - '2831'
+      num_tokens:
+      - '472'
+      pragma:
+      - no-cache
+      server:
+      - envoy
+      vary:
+      - Origin
+      x-accel-expires:
+      - '0'
+      x-debug-trace-id:
+      - 36cf36ac15e967b4fa57f15a2633f605
+      x-envoy-upstream-service-time:
+      - '2697'
+      x-trial-endpoint-call-limit:
+      - '10'
+      x-trial-endpoint-call-remaining:
+      - '9'
+    status:
+      code: 200
+      message: OK
+version: 1
