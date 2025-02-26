@@ -25,6 +25,7 @@ from datetime import datetime
 from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from urllib.parse import quote
 
 from . import constants
 from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
@@ -497,7 +498,7 @@ def _get_upload_mode(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_t
         repo_type=repo_type,
         repo_id=repo_id,
         headers=api._build_hf_headers(),
-        revision=revision,
+        revision=quote(revision, safe=""),
     )
     for item, addition in zip(items, additions):
         paths, metadata = item

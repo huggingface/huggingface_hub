@@ -1,199 +1,5 @@
 interactions:
 - request:
-    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "What is deep learning?"}], "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-      "stream": false}'
-    headers:
-      Accept:
-      - '*/*'
-      Accept-Encoding:
-      - gzip, deflate
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '205'
-      Content-Type:
-      - application/json
-      X-Amzn-Trace-Id:
-      - 3b2cdd60-84e7-4835-8010-1391e64807ac
-    method: POST
-    uri: https://api.together.xyz/v1/chat/completions
-  response:
-    body:
-      string: !!binary |
-        H4sIAAAAAAAAA5RW224bRwx991cQekoMyfUlvr65aREESNzCdp/qIKBmqV02s5wNZ1ayEuTfC85o
-        dbEdFH2RjeWQPDw85Mz3PYARV6MrGF0enh0eTc8uL1x1fn5xcjoamy1M/yGXzO4aTAcutJ2nxEGK
-        2SlhIvM/Oj85Pz19c3F0nA1tqMibW0sJJ95ji798tH8/2L+Tk4OjycWvk/cSk/YuTe57nYYSstPQ
-        dpbx708lRRPYUbQPewAA3/MvwGjGwrH5rIQxiKWiEHOIbI2UYb05Ozm6PL08Ozk9uzg7Ob08PDxc
-        H/Gh7jRMLbT03q+/s1T0OLqCzcmWYsSaRlfr7AAjDd6+jDBGjgklrZMb6iCJJBP3G1EHnlCFpQaO
-        gBD7aaQEYQYtuoaFNvbUYAKWefBzipAagj6SnURNPGPH6EGo1/wnLYJ+ifDq+uYmvoYFpwba3ifu
-        PIHHJWmEFAAF/fIbAUoFLIm0U0pQYcIDuG8o0rOAqAQVRa6FKovQcssugyn96rVEm/XiTAyGz6xN
-        36LAVJFlXOAQuqZAgU6DoxhLkQQsXV9QAAsgNEyK6hp26KFFEdKDB3mQ+4bgCy3BNajoEinHxC5a
-        ymqHWVS6MoejA9jf/7hLw/7+Fez2IQs0ggti3cuteMJcmBW2XBAhl6gCCRVFCAoPI2MsSBw/jGDR
-        sGuG6v5HaceG8ybIxLMQKiRFibOgLRqlGfLvG/aw6zyTiUd+5mKd2k0/BvQ+LAbKc812KrMAZZgf
-        QcmXlA13EaaUFkSyFWlGaB2PBw9yYpg/oNYE2IZeUukDJvwpw0pfe1Zj9QWvDLnIBTN3SxAqmisY
-        DUWHKZFKzJLbBcvlRNbyg7wxdG9D2/Upn0EPXViQ/ic2U7oNF0rKrDzxX6MsCPottKtJXXPZYlJ+
-        hNCRFpjZ5cXas7p3YTVo/JNA7J2padb7oqAFVwSKUpdVYFpwJf4YWJzvK5Z6o/7CASnMOXIQq/99
-        izWBkgu1sHmOoex2qCiRK18i1S1JKX6ckdckq0rWijUxoAePUvcWczPXlueeHhM4b0txtsJocSWx
-        RS67KHIcb/yziP1WzmQhdhJn2d11RK7ZLsHyla+TFCbZLS5jorawPreLA9brOQ4KuQ3TYCvE3N8G
-        SRp8Pi845xqHfaZ2ynxOzedPpYpd4vlqioZquSWIpDaZs6DkMCaWepxRti1JRTpgKsV1W4HQ9oug
-        OMpauAstDZvUNl4i1wh/7SnaHWC7+8nGK52n7b6bHPuVdp9dE2/tmjDYf1m4WVDgrIpMFlcUtno5
-        tPuWXK9qrXsW7vZZuEhfe2s1+tX6ib1rbFZi6d3Q3fUmCVJDbIKmSSJtoaU26BJefbi7//h6nclS
-        XENadpmd25ub1SUZobNL0fUe1S9hQd5PYs/pZTBD99+thDUnwGpOGlF5p6x310/LGrQoNQgtyuKK
-        aAMfCxTMO6Rlj3lX0CNnGWzG/I85KXo/ftJAm3eloWX8zTZfQzBj8tWLrwMj0JxIcOpXpyuakw9d
-        Hq8wgxi6Jl+R9jCD6/frkchIHcpqs1oorLBLhnhYXxnw9jsmheA/O/Q+P8A+rQw/9obf8kbrd15H
-        qyfc5xS+kMT8CCsRR5vn45bxeLCmkNBvGc6P9yzJj38BAAD//wMAsSec0aUKAAA=
-    headers:
-      Access-Control-Allow-Origin:
-      - '*'
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-Ray:
-      - 90601b698cd77835-CDG
-      Connection:
-      - keep-alive
-      Content-Encoding:
-      - gzip
-      Content-Type:
-      - application/json; charset=utf-8
-      Date:
-      - Wed, 22 Jan 2025 14:06:53 GMT
-      ETag:
-      - W/"aa5-nYKDGsWLcuU9C6QjHkmApLWomm4"
-      Retry-After:
-      - '2'
-      Server:
-      - cloudflare
-      Strict-Transport-Security:
-      - max-age=15552000; includeSubDomains
-      Transfer-Encoding:
-      - chunked
-      Vary:
-      - Accept-Encoding
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-api-call-end:
-      - '2025-01-22T14:06:53.319Z'
-      x-api-call-start:
-      - '2025-01-22T14:06:52.578Z'
-      x-api-received:
-      - '2025-01-22T14:06:52.567Z'
-      x-inference-version:
-      - v2
-      x-ratelimit:
-      - 'false'
-      x-ratelimit-limit:
-      - '100'
-      x-ratelimit-limit-tokens:
-      - '1000'
-      x-ratelimit-remaining:
-      - '199'
-      x-ratelimit-remaining-tokens:
-      - '1000'
-      x-ratelimit-reset:
-      - '2'
-    status:
-      code: 200
-      message: OK
-- request:
-    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "What is deep learning?"}], "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-      "stream": false}'
-    headers:
-      Accept:
-      - '*/*'
-      Accept-Encoding:
-      - gzip, deflate
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '205'
-      Content-Type:
-      - application/json
-      X-Amzn-Trace-Id:
-      - 2ad92466-595e-4647-9e7f-2a5b3c6d86ad
-    method: POST
-    uri: https://api.together.xyz/v1/chat/completions
-  response:
-    body:
-      string: !!binary |
-        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
-    headers:
-      Access-Control-Allow-Origin:
-      - '*'
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-Ray:
-      - 90602157a9636f5e-CDG
-      Connection:
-      - keep-alive
-      Content-Encoding:
-      - gzip
-      Content-Type:
-      - application/json; charset=utf-8
-      Date:
-      - Wed, 22 Jan 2025 14:10:56 GMT
-      ETag:
-      - W/"d67-nw31QA+XqwscB6p5mudUhjQ3vxE"
-      Retry-After:
-      - '2'
-      Server:
-      - cloudflare
-      Strict-Transport-Security:
-      - max-age=15552000; includeSubDomains
-      Transfer-Encoding:
-      - chunked
-      Vary:
-      - Accept-Encoding
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-api-call-end:
-      - '2025-01-22T14:10:56.647Z'
-      x-api-call-start:
-      - '2025-01-22T14:10:55.503Z'
-      x-api-received:
-      - '2025-01-22T14:10:55.380Z'
-      x-inference-version:
-      - v2
-      x-ratelimit:
-      - 'false'
-      x-ratelimit-limit:
-      - '100'
-      x-ratelimit-limit-tokens:
-      - '1000'
-      x-ratelimit-remaining:
-      - '199'
-      x-ratelimit-remaining-tokens:
-      - '1000'
-      x-ratelimit-reset:
-      - '2'
-    status:
-      code: 200
-      message: OK
-- request:
     body: null
     headers:
       Accept:
@@ -203,116 +9,12 @@ interactions:
       Connection:
       - keep-alive
       X-Amzn-Trace-Id:
-      - 908a23ce-dac1-494d-8e14-a0fe2e5992bc
-    method: GET
-    uri: https://huggingface.co/api/models/meta-llama/Meta-Llama-3.1-8B-Instruct?expand=inferenceProviderMapping
-  response:
-    body:
-      string: Temporary Redirect. Redirecting to /api/models/meta-llama/Llama-3.1-8B-Instruct?expand=inferenceProviderMapping
-    headers:
-      Access-Control-Allow-Origin:
-      - https://huggingface.co
-      Access-Control-Expose-Headers:
-      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '111'
-      Content-Type:
-      - text/plain; charset=utf-8
-      Date:
-      - Tue, 11 Feb 2025 10:13:48 GMT
-      Location:
-      - /api/models/meta-llama/Llama-3.1-8B-Instruct?expand=inferenceProviderMapping
-      Referrer-Policy:
-      - strict-origin-when-cross-origin
-      Vary:
-      - Origin, Accept
-      Via:
-      - 1.1 c812f87630e842766e842cb048d8c94e.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - ydLLEoZmdolSHnfj9Tx-xrWJgI5hkO8UBxUvmhLlZORoDubrcjB_yA==
-      X-Amz-Cf-Pop:
-      - CDG52-P4
-      X-Cache:
-      - Miss from cloudfront
-      X-Powered-By:
-      - huggingface-moon
-      X-Request-Id:
-      - Root=1-67ab22dc-0d90f5f757d47f530b515be1;908a23ce-dac1-494d-8e14-a0fe2e5992bc
-      cross-origin-opener-policy:
-      - same-origin
-    status:
-      code: 307
-      message: Temporary Redirect
-- request:
-    body: null
-    headers:
-      Accept:
-      - '*/*'
-      Accept-Encoding:
-      - gzip, deflate
-      Connection:
-      - keep-alive
-      X-Amzn-Trace-Id:
-      - 908a23ce-dac1-494d-8e14-a0fe2e5992bc
-    method: GET
-    uri: https://huggingface.co/api/models/meta-llama/Llama-3.1-8B-Instruct?expand=inferenceProviderMapping
-  response:
-    body:
-      string: '{"_id":"6698d8a0653e4babe21e1e7d","id":"meta-llama/Llama-3.1-8B-Instruct","inferenceProviderMapping":{"sambanova":{"status":"live","providerId":"Meta-Llama-3.1-8B-Instruct","task":"conversational"}}}'
-    headers:
-      Access-Control-Allow-Origin:
-      - https://huggingface.co
-      Access-Control-Expose-Headers:
-      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '199'
-      Content-Type:
-      - application/json; charset=utf-8
-      Date:
-      - Tue, 11 Feb 2025 10:13:48 GMT
-      ETag:
-      - W/"c7-TZgW++vzRWhy4flOcxqeqWyrc+g"
-      Referrer-Policy:
-      - strict-origin-when-cross-origin
-      Vary:
-      - Origin
-      Via:
-      - 1.1 c812f87630e842766e842cb048d8c94e.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - zGtsJdqTl1lmx7dh1aNk-jIb3ZkP4PUtz8o50FKpJfgga4jCxXYhLA==
-      X-Amz-Cf-Pop:
-      - CDG52-P4
-      X-Cache:
-      - Miss from cloudfront
-      X-Powered-By:
-      - huggingface-moon
-      X-Request-Id:
-      - Root=1-67ab22dc-2491bf567e8f5c2878e8d8a7;908a23ce-dac1-494d-8e14-a0fe2e5992bc
-      cross-origin-opener-policy:
-      - same-origin
-    status:
-      code: 200
-      message: OK
-- request:
-    body: null
-    headers:
-      Accept:
-      - '*/*'
-      Accept-Encoding:
-      - gzip, deflate
-      Connection:
-      - keep-alive
-      X-Amzn-Trace-Id:
-      - a4c37ad7-2858-4226-812c-502d82d745b4
+      - f4ba700d-b9e4-48cc-add2-74c4a3b89c42
     method: GET
     uri: https://huggingface.co/api/models/meta-llama/Meta-Llama-3-8B-Instruct?expand=inferenceProviderMapping
   response:
     body:
-      string: '{"_id":"661f97d0b00f5f1f620c4f25","id":"meta-llama/Meta-Llama-3-8B-Instruct","inferenceProviderMapping":{"together":{"status":"live","providerId":"meta-llama/Meta-Llama-3-8B-Instruct-Turbo","task":"conversational"}}}'
+      string: '{"_id":"661f97d0b00f5f1f620c4f25","id":"meta-llama/Meta-Llama-3-8B-Instruct","inferenceProviderMapping":{"fireworks-ai":{"status":"staging","providerId":"accounts/fireworks/models/llama-v3-8b-instruct","task":"conversational"},"together":{"status":"live","providerId":"meta-llama/Meta-Llama-3-8B-Instruct-Turbo","task":"conversational"},"hf-inference":{"status":"live","providerId":"meta-llama/Meta-Llama-3-8B-Instruct","task":"conversational"}}}'
     headers:
       Access-Control-Allow-Origin:
       - https://huggingface.co
@@ -321,21 +23,21 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '216'
+      - '446'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Tue, 11 Feb 2025 10:15:10 GMT
+      - Thu, 13 Feb 2025 15:24:49 GMT
       ETag:
-      - W/"d8-5cqbef+J/PoG1edjSKCp8gCkl6I"
+      - W/"1be-G9umTsiQvemu63mL0krU4fjEkTQ"
       Referrer-Policy:
       - strict-origin-when-cross-origin
       Vary:
       - Origin
       Via:
-      - 1.1 a355d8f903a0cf5525893c863fcdf216.cloudfront.net (CloudFront)
+      - 1.1 4587dd93b6f56d2b3f35f25ef2cabe70.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - ska12Q57Sgvyrale-7wGZtPcVkQn_082MdwCgXlIQviG2JEa9jqsJQ==
+      - VtGJCKPTDiC_6yvMBQ5LuaCZuuTRK7vLpuTCPzdrhxXcD2wX2l4LWg==
       X-Amz-Cf-Pop:
       - CDG52-P4
       X-Cache:
@@ -343,7 +45,7 @@ interactions:
       X-Powered-By:
       - huggingface-moon
       X-Request-Id:
-      - Root=1-67ab232e-1d6f99d010e3ff49587d8e1b;a4c37ad7-2858-4226-812c-502d82d745b4
+      - Root=1-67ae0ec1-10ea1faf5f62390d02a91c42;f4ba700d-b9e4-48cc-add2-74c4a3b89c42
       cross-origin-opener-policy:
       - same-origin
     status:
@@ -365,87 +67,124 @@ interactions:
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - 14127d21-e3d7-48f9-ac8b-9313a7165cbd
+      - ad475e90-ab8c-4f22-984d-8eb3b7d2d423
     method: POST
-    uri: https://api.together.xyz/v1/chat/completions
+    uri: https://router.huggingface.co/together/v1/chat/completions
   response:
     body:
-      string: !!binary |
-        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
+      string: "{\n  \"id\": \"9115d3daeab10608\",\n  \"object\": \"chat.completion\",\n
+        \ \"created\": 1739460289,\n  \"model\": \"meta-llama/Meta-Llama-3-8B-Instruct-Turbo\",\n
+        \ \"prompt\": [],\n  \"choices\": [\n    {\n      \"finish_reason\": \"stop\",\n
+        \     \"seed\": 3629048360264764400,\n      \"logprobs\": null,\n      \"index\":
+        0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\":
+        \"Deep learning is a subfield of machine learning that involves the use of
+        artificial neural networks to model and analyze complex data. The term \\\"deep\\\"
+        refers to the number of layers in the neural network, which can range from
+        a few layers to hundreds or even thousands.\\n\\nIn traditional machine learning,
+        algorithms are designed to learn from data by identifying patterns and relationships
+        between features. However, these algorithms are limited in their ability to
+        learn complex patterns and relationships, especially when dealing with large
+        amounts of data.\\n\\nDeep learning algorithms, on the other hand, are designed
+        to learn from data by identifying hierarchical patterns and relationships.
+        This is achieved by using multiple layers of artificial neural networks, each
+        of which is designed to learn a specific aspect of the data.\\n\\nThe key
+        characteristics of deep learning are:\\n\\n1. Hierarchical representation:
+        Deep learning algorithms learn to represent data in a hierarchical manner,
+        with each layer building on the previous one to create a more abstract representation
+        of the data.\\n2. Multiple layers: Deep learning algorithms typically consist
+        of multiple layers, each of which is designed to learn a specific aspect of
+        the data.\\n3. Non-linear transformations: Deep learning algorithms use non-linear
+        transformations to learn complex patterns and relationships in the data.\\n4.
+        Large amounts of data: Deep learning algorithms require large amounts of data
+        to learn effectively.\\n\\nSome of the key applications of deep learning include:\\n\\n1.
+        Computer vision: Deep learning algorithms are used in computer vision to analyze
+        and understand visual data, such as images and videos.\\n2. Natural language
+        processing: Deep learning algorithms are used in natural language processing
+        to analyze and understand text data, such as speech and written language.\\n3.
+        Speech recognition: Deep learning algorithms are used in speech recognition
+        to analyze and understand spoken language.\\n4. Robotics: Deep learning algorithms
+        are used in robotics to enable robots to learn and adapt to new situations.\\n\\nSome
+        of the key benefits of deep learning include:\\n\\n1. Improved accuracy: Deep
+        learning algorithms can learn to recognize complex patterns and relationships
+        in data, leading to improved accuracy and performance.\\n2. Ability to learn
+        from large amounts of data: Deep learning algorithms can learn from large
+        amounts of data, making them particularly useful for applications where data
+        is abundant.\\n3. Ability to learn complex patterns: Deep learning algorithms
+        can learn complex patterns and relationships in data, making them particularly
+        useful for applications where data is complex and nuanced.\\n\\nHowever, deep
+        learning also has some limitations and challenges, including:\\n\\n1. Difficulty
+        in interpreting results: Deep learning algorithms can be difficult to interpret,
+        making it challenging to understand why they are making certain predictions
+        or decisions.\\n2. Need for large amounts of data: Deep learning algorithms
+        require large amounts of data to learn effectively, which can be a challenge
+        in certain applications.\\n3. Computational requirements: Deep learning algorithms
+        can be computationally intensive, requiring significant processing power and
+        memory.\\n\\nOverall, deep learning is a powerful tool for analyzing and understanding
+        complex data, and has many applications in fields such as computer vision,
+        natural language processing, and robotics.\",\n        \"tool_calls\": []\n
+        \     }\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 26,\n    \"completion_tokens\":
+        597,\n    \"total_tokens\": 623\n  }\n}"
     headers:
-      Access-Control-Allow-Origin:
-      - '*'
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-Ray:
-      - 91039384af5c2a55-CDG
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
       Connection:
       - keep-alive
-      Content-Encoding:
-      - gzip
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Tue, 11 Feb 2025 10:15:15 GMT
-      ETag:
-      - W/"10da-cmYXC1vN0j0+9Pay//l8albMmA8"
-      Retry-After:
-      - '2'
-      Server:
-      - cloudflare
-      Strict-Transport-Security:
-      - max-age=15552000; includeSubDomains
+      - Thu, 13 Feb 2025 15:24:53 GMT
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
       Transfer-Encoding:
       - chunked
-      Vary:
+      Via:
+      - 1.1 1fa1875b2f656fdf295eee39e2e48938.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - YxbbS5LtWHrCnvgpTBT_1dk1hbQjjmOVQUfeISwT1CjjN34eduf4zA==
+      X-Amz-Cf-Pop:
+      - CDG55-P3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-67ae0ec1-3e456bcb2db027b9065084b2;ad475e90-ab8c-4f22-984d-8eb3b7d2d423
+      access-control-allow-origin:
+      - '*'
+      cf-cache-status:
+      - DYNAMIC
+      cf-ray:
+      - 9115d3daeab10608-IAD
+      cross-origin-opener-policy:
+      - same-origin
+      etag:
+      - W/"f86-okbcEYnYM7e2+RwVVSMbasFIwQ0"
+      retry-after:
+      - '2'
+      server:
+      - cloudflare
+      strict-transport-security:
+      - max-age=15552000; includeSubDomains
+      vary:
       - Accept-Encoding
-      alt-svc:
-      - h3=":443"; ma=86400
       x-api-call-end:
-      - '2025-02-11T10:15:15.801Z'
+      - '2025-02-13T15:24:53.269Z'
       x-api-call-start:
-      - '2025-02-11T10:15:11.064Z'
+      - '2025-02-13T15:24:49.706Z'
       x-api-received:
-      - '2025-02-11T10:15:10.954Z'
+      - '2025-02-13T15:24:49.702Z'
       x-inference-version:
       - v2
       x-ratelimit:
       - 'false'
       x-ratelimit-limit:
-      - '75'
+      - '100'
       x-ratelimit-limit-tokens:
-      - '16666'
+      - '33333'
       x-ratelimit-remaining:
-      - '149'
+      - '199'
       x-ratelimit-remaining-tokens:
-      - '16269'
+      - '32051'
       x-ratelimit-reset:
       - '2'
     status:

@@ -35,13 +35,12 @@
 import base64
 import logging
 import re
-import time
 import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Union, overload
 
 from requests import HTTPError
 
-from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
+from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
@@ -103,7 +102,7 @@ from huggingface_hub.inference._generated.types import (
 )
 from huggingface_hub.inference._providers import PROVIDER_T, HFInferenceTask, get_provider_helper
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
-from huggingface_hub.utils._deprecation import _deprecate_arguments, _deprecate_method
+from huggingface_hub.utils._deprecation import _deprecate_method
 
 
 if TYPE_CHECKING:
@@ -133,7 +132,7 @@ class InferenceClient:
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be "fal-ai"`, `"fireworks-ai"`, `"replicate"`, "sambanova"`, `"together"`, or `"hf-inference"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"replicate"`, "sambanova"` or `"together"`.
             defaults to hf-inference (Hugging Face Serverless Inference API).
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
@@ -300,8 +299,6 @@ class InferenceClient:
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        t0 = time.time()
-        timeout = self.timeout
         while True:
             with _open_as_binary(request_parameters.data) as data_as_binary:
                 try:
@@ -325,30 +322,9 @@ class InferenceClient:
             except HTTPError as error:
                 if error.response.status_code == 422 and request_parameters.task != "unknown":
                     msg = str(error.args[0])
-                    print(error.response.text)
                     if len(error.response.text) > 0:
                         msg += f"\n{error.response.text}\n"
-                    msg += f"\nMake sure '{request_parameters.task}' task is supported by the model."
                     error.args = (msg,) + error.args[1:]
-                if error.response.status_code == 503:
-                    # If Model is unavailable, either raise a TimeoutError...
-                    if timeout is not None and time.time() - t0 > timeout:
-                        raise InferenceTimeoutError(
-                            f"Model not loaded on the server: {request_parameters.url}. Please retry with a higher timeout (current:"
-                            f" {self.timeout}).",
-                            request=error.request,
-                            response=error.response,
-                        ) from error
-                    # ...or wait 1s and retry
-                    logger.info(f"Waiting for model to be loaded on the server: {error}")
-                    time.sleep(1)
-                    if "X-wait-for-model" not in request_parameters.headers and request_parameters.url.startswith(
-                        INFERENCE_ENDPOINT
-                    ):
-                        request_parameters.headers["X-wait-for-model"] = "1"
-                    if timeout is not None:
-                        timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
-                    continue
                 raise
 
     def audio_classification(
@@ -3056,22 +3032,14 @@ class InferenceClient:
         response = self._inner_post(request_parameters)
         return VisualQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
-    @_deprecate_arguments(
-        version="0.30.0",
-        deprecated_args=["labels"],
-        custom_message="`labels`has been renamed to `candidate_labels` and will be removed in huggingface_hub>=0.30.0.",
-    )
     def zero_shot_classification(
         self,
         text: str,
-        # temporarily keeping it optional for backward compatibility.
-        candidate_labels: List[str] = None,  # type: ignore
+        candidate_labels: List[str],
         *,
         multi_label: Optional[bool] = False,
         hypothesis_template: Optional[str] = None,
         model: Optional[str] = None,
-        # deprecated argument
-        labels: List[str] = None,  # type: ignore
     ) -> List[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
@@ -3150,16 +3118,6 @@ class InferenceClient:
         ]
         ```
         """
-        # handle deprecation
-        if labels is not None:
-            if candidate_labels is not None:
-                raise ValueError(
-                    "Cannot specify both `labels` and `candidate_labels`. Use `candidate_labels` instead."
-                )
-            candidate_labels = labels
-        elif candidate_labels is None:
-            raise ValueError("Must specify `candidate_labels`")
-
         provider_helper = get_provider_helper(self.provider, task="zero-shot-classification")
         request_parameters = provider_helper.prepare_request(
             inputs=text,
@@ -3179,16 +3137,10 @@ class InferenceClient:
             for label, score in zip(output["labels"], output["scores"])
         ]
 
-    @_deprecate_arguments(
-        version="0.30.0",
-        deprecated_args=["labels"],
-        custom_message="`labels`has been renamed to `candidate_labels` and will be removed in huggingface_hub>=0.30.0.",
-    )
     def zero_shot_image_classification(
         self,
         image: ContentT,
-        # temporarily keeping it optional for backward compatibility.
-        candidate_labels: List[str] = None,  # type: ignore
+        candidate_labels: List[str],
         *,
         model: Optional[str] = None,
         hypothesis_template: Optional[str] = None,
@@ -3233,15 +3185,6 @@ class InferenceClient:
         [ZeroShotImageClassificationOutputElement(label='dog', score=0.956),...]
         ```
         """
-        # handle deprecation
-        if labels is not None:
-            if candidate_labels is not None:
-                raise ValueError(
-                    "Cannot specify both `labels` and `candidate_labels`. Use `candidate_labels` instead."
-                )
-            candidate_labels = labels
-        elif candidate_labels is None:
-            raise ValueError("Must specify `candidate_labels`")
         # Raise ValueError if input is less than 2 labels
         if len(candidate_labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare.")
@@ -3260,6 +3203,13 @@ class InferenceClient:
         response = self._inner_post(request_parameters)
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
+    @_deprecate_method(
+        version="0.33.0",
+        message=(
+            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
+            " Use `HfApi.list_models(..., inference_provider='...')` to list warm models per provider."
+        ),
+    )
     def list_deployed_models(
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
     ) -> Dict[str, List[str]]:
@@ -3316,9 +3266,9 @@ class InferenceClient:
 
         # Resolve which frameworks to check
         if frameworks is None:
-            frameworks = MAIN_INFERENCE_API_FRAMEWORKS
+            frameworks = constants.MAIN_INFERENCE_API_FRAMEWORKS
         elif frameworks == "all":
-            frameworks = ALL_INFERENCE_API_FRAMEWORKS
+            frameworks = constants.ALL_INFERENCE_API_FRAMEWORKS
         elif isinstance(frameworks, str):
             frameworks = [frameworks]
         frameworks = list(set(frameworks))
@@ -3338,7 +3288,7 @@ class InferenceClient:
 
         for framework in frameworks:
             response = get_session().get(
-                f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
+                f"{constants.INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
             )
             hf_raise_for_status(response)
             _unpack_response(framework, response.json())
@@ -3400,7 +3350,7 @@ class InferenceClient:
         if model.startswith(("http://", "https://")):
             url = model.rstrip("/") + "/info"
         else:
-            url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
+            url = f"{constants.INFERENCE_ENDPOINT}/models/{model}/info"
 
         response = get_session().get(url, headers=build_hf_headers(token=self.token))
         hf_raise_for_status(response)
@@ -3443,6 +3393,13 @@ class InferenceClient:
         response = get_session().get(url, headers=build_hf_headers(token=self.token))
         return response.status_code == 200
 
+    @_deprecate_method(
+        version="0.33.0",
+        message=(
+            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
+            " Use `HfApi.model_info` to get the model status both with HF Inference API and external providers."
+        ),
+    )
     def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
         Get the status of a model hosted on the HF Inference API.
@@ -3481,7 +3438,7 @@ class InferenceClient:
             raise ValueError("Model id not provided.")
         if model.startswith("https://"):
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
-        url = f"{INFERENCE_ENDPOINT}/status/{model}"
+        url = f"{constants.INFERENCE_ENDPOINT}/status/{model}"
 
         response = get_session().get(url, headers=build_hf_headers(token=self.token))
         hf_raise_for_status(response)

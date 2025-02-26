@@ -6,9 +6,11 @@ Before adding a new provider to the `huggingface_hub` library, make sure it has 
 
 Create a new file under `src/huggingface_hub/inference/_providers/{provider_name}.py` and copy-paste the following snippet.
 
-Implement the methods that require custom handling. Check out the base implementation to check default behavior. If you don't need to override a method, just remove it. At least one of `_prepare_payload` or `_prepare_body` must be overwritten.
+Implement the methods that require custom handling. Check out the base implementation to check default behavior. If you don't need to override a method, just remove it. At least one of `_prepare_payload_as_dict` or `_prepare_payload_as_bytes` must be overwritten.
 
 If the provider supports multiple tasks that require different implementations, create dedicated subclasses for each task, following the pattern shown in `fal_ai.py`.
+
+For `text-generation` and `conversational` tasks, one can just inherit from `BaseTextGenerationTask` and `BaseConversationalTask` respectively (defined in `_common.py`) and override the methods if needed. Examples can be found in `fireworks_ai.py` and `together.py`.
 
 ```py
 from typing import Any, Dict, Optional, Union
@@ -42,23 +44,24 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
         """
         return super()._prepare_route(mapped_model)
 
-    def _prepare_payload(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         """Return the payload to use for the request, as a dict.
 
         Override this method in subclasses for customized payloads.
-        Only one of `_prepare_payload` and `_prepare_body` should return a value.
+        Only one of `_prepare_payload_as_dict` and `_prepare_payload_as_bytes` should return a value.
         """
-        return super()._prepare_payload(inputs, parameters, mapped_model)
+        return super()._prepare_payload_as_dict(inputs, parameters, mapped_model)
 
-    def _prepare_body(
+    def _prepare_payload_as_bytes(
         self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
     ) -> Optional[bytes]:
         """Return the body to use for the request, as bytes.
 
         Override this method in subclasses for customized body data.
-        Only one of `_prepare_payload` and `_prepare_body` should return a value.
+        Only one of `_prepare_payload_as_dict` and `_prepare_payload_as_bytes` should return a value.
         """
-        return super()._prepare_body(inputs, parameters, mapped_model, extra_payload)
+        return super()._prepare_payload_as_bytes(inputs, parameters, mapped_model, extra_payload)
+    
 ```
 
 ### 2. Register the provider helper in `__init__.py`
@@ -74,6 +77,31 @@ You only have to add a test for overwritten methods.
 
 ### 5. Add VCR tests in `tests/test_inference_client.py`
 
-- Add an entry in `_RECOMMENDED_MODELS_FOR_VCR` at the top of the test module. It contains a mapping task <> test model. Model id must be the HF model id.
-- Add an entry in `API_KEY_ENV_VARIABLES` to define which env variable should be used
-- Run tests locally with `pytest tests/test_inference_client.py -k <provider>` and commit the VCR cassettes.
+#### a. Add test model mapping
+Add an entry to `_RECOMMENDED_MODELS_FOR_VCR` at the top of the test module, It contains a mapping task <> test model. `model-id` must be the HF model id.
+```python
+_RECOMMENDED_MODELS_FOR_VCR = {
+    "your-provider": {
+        "task": "model-id",
+        ...
+    },
+    ...
+}
+```
+#### b. Set up authentication
+To record VCR cassettes, you'll need authentication:
+
+- If you are a member of the provider organization (e.g., Replicate organization: https://huggingface.co/replicate), you can set the `HF_INFERENCE_TEST_TOKEN` environment variable with your HF token:
+   ```bash
+   export HF_INFERENCE_TEST_TOKEN="your-hf-token"
+   ```
+
+- If you're not a member but the provider is officially released on the Hub, you can set the `HF_INFERENCE_TEST_TOKEN` environment variable as above. If you don't have enough inference credits, we can help you record the VCR cassettes.
+
+#### c. Record and commit tests
+
+1. Run the tests for your provider:
+   ```bash
+   pytest tests/test_inference_client.py -k <provider>
+   ```
+2. Commit the generated VCR cassettes with your PR

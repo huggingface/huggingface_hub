@@ -14,7 +14,6 @@
 # limitations under the License.
 """Contain helper class to retrieve/store token from/to local cache."""
 
-import warnings
 from pathlib import Path
 from typing import Optional
 
@@ -23,10 +22,6 @@ from ._auth import get_token
 
 
 class HfFolder:
-    path_token = Path(constants.HF_TOKEN_PATH)
-    # Private attribute. Will be removed in v0.15
-    _old_path_token = Path(constants._OLD_HF_TOKEN_PATH)
-
     # TODO: deprecate when adapted in transformers/datasets/gradio
     # @_deprecate_method(version="1.0", message="Use `huggingface_hub.login` instead.")
     @classmethod
@@ -41,8 +36,9 @@ class HfFolder:
             token (`str`):
                 The token to save to the [`HfFolder`]
         """
-        cls.path_token.parent.mkdir(parents=True, exist_ok=True)
-        cls.path_token.write_text(token)
+        path_token = Path(constants.HF_TOKEN_PATH)
+        path_token.parent.mkdir(parents=True, exist_ok=True)
+        path_token.write_text(token)
 
     # TODO: deprecate when adapted in transformers/datasets/gradio
     # @_deprecate_method(version="1.0", message="Use `huggingface_hub.get_token` instead.")
@@ -57,12 +53,6 @@ class HfFolder:
         Returns:
             `str` or `None`: The token, `None` if it doesn't exist.
         """
-        # 0. Check if token exist in old path but not new location
-        try:
-            cls._copy_to_new_path_and_warn()
-        except Exception:  # if not possible (e.g. PermissionError), do not raise
-            pass
-
         return get_token()
 
     # TODO: deprecate when adapted in transformers/datasets/gradio
@@ -73,24 +63,6 @@ class HfFolder:
         Deletes the token from storage. Does not fail if token does not exist.
         """
         try:
-            cls.path_token.unlink()
+            Path(constants.HF_TOKEN_PATH).unlink()
         except FileNotFoundError:
             pass
-
-        try:
-            cls._old_path_token.unlink()
-        except FileNotFoundError:
-            pass
-
-    @classmethod
-    def _copy_to_new_path_and_warn(cls):
-        if cls._old_path_token.exists() and not cls.path_token.exists():
-            cls.save_token(cls._old_path_token.read_text())
-            warnings.warn(
-                f"A token has been found in `{cls._old_path_token}`. This is the old"
-                " path where tokens were stored. The new location is"
-                f" `{cls.path_token}` which is configurable using `HF_HOME` environment"
-                " variable. Your token has been copied to this new location. You can"
-                " now safely delete the old token file manually or use"
-                " `huggingface-cli logout`."
-            )

@@ -300,6 +300,7 @@ def test_sync_vs_async_signatures() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip("Deprecated (get_model_status)")
 async def test_get_status_too_big_model() -> None:
     model_status = await AsyncInferenceClient(token=False).get_model_status("facebook/nllb-moe-54b")
     assert model_status.loaded is False
@@ -309,6 +310,7 @@ async def test_get_status_too_big_model() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip("Deprecated (get_model_status)")
 async def test_get_status_loaded_model() -> None:
     model_status = await AsyncInferenceClient(token=False).get_model_status("bigscience/bloom")
     assert model_status.loaded is True
@@ -318,18 +320,21 @@ async def test_get_status_loaded_model() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip("Deprecated (get_model_status)")
 async def test_get_status_unknown_model() -> None:
     with pytest.raises(ClientResponseError):
         await AsyncInferenceClient(token=False).get_model_status("unknown/model")
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip("Deprecated (get_model_status)")
 async def test_get_status_model_as_url() -> None:
     with pytest.raises(NotImplementedError):
         await AsyncInferenceClient(token=False).get_model_status("https://unkown/model")
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip("Deprecated (list_deployed_models)")
 async def test_list_deployed_models_single_frameworks() -> None:
     models_by_task = await AsyncInferenceClient().list_deployed_models("text-generation-inference")
     assert isinstance(models_by_task, dict)
