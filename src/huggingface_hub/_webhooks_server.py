@@ -186,6 +186,8 @@ class WebhooksServer:
         # Print instructions and block main thread
         space_host = os.environ.get("SPACE_HOST")
         url = "https://" + space_host if space_host is not None else (ui.share_url or ui.local_url)
+        if url is None:
+            raise ValueError("Cannot find the URL of the app. Please provide a valid `ui` or update `gradio` version.")
         url = url.strip("/")
         message = "\nWebhooks are correctly setup and ready to use:"
         message += "\n" + "\n".join(f"  - POST {url}{webhook}" for webhook in self.registered_webhooks)
