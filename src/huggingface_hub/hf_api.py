@@ -16,9 +16,7 @@ from __future__ import annotations
 
 import inspect
 import json
-import random
 import re
-import string
 import struct
 import warnings
 from collections import defaultdict
@@ -7526,8 +7524,9 @@ class HfApi:
 
         </Tip>
         """
+        token = token or self.token or get_token()
         payload: Dict = {
-            "accessToken": token or self.token or get_token(),
+            "accessToken": token,
             "namespace": namespace or self._get_namespace(token=token),
             "repoId": repo_id,
         }
@@ -7540,7 +7539,8 @@ class HfApi:
             json=payload,
         )
         hf_raise_for_status(response)
-        return InferenceEndpoint.from_raw(response.json()["endpoint"], namespace=namespace, token=token)
+        data = response.json()["endpoint"]
+        return InferenceEndpoint.from_raw(data, namespace=data[name], token=token)
 
     @experimental
     @validate_hf_hub_args
