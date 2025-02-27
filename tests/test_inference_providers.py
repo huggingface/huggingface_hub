@@ -9,6 +9,7 @@ from huggingface_hub.inference._providers._common import (
     recursive_merge,
 )
 from huggingface_hub.inference._providers.black_forest_labs import BlackForestLabsTextToImageTask
+from huggingface_hub.inference._providers.cohere import CohereConversationalTask
 from huggingface_hub.inference._providers.fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAITextToImageTask,
@@ -108,6 +109,24 @@ class TestBlackForestLabsProvider:
                 mocker.call("https://example.com/image.jpg"),
             ]
         )
+
+
+class TestCohereConversationalTask:
+    def test_prepare_url(self):
+        helper = CohereConversationalTask()
+        assert helper.task == "conversational"
+        url = helper._prepare_url("cohere_token", "username/repo_name")
+        assert url == "https://api.cohere.com/compatibility/v1/chat/completions"
+
+    def test_prepare_payload_as_dict(self):
+        helper = CohereConversationalTask()
+        payload = helper._prepare_payload_as_dict(
+            [{"role": "user", "content": "Hello!"}], {}, "CohereForAI/command-r7b-12-2024"
+        )
+        assert payload == {
+            "messages": [{"role": "user", "content": "Hello!"}],
+            "model": "CohereForAI/command-r7b-12-2024",
+        }
 
 
 class TestFalAIProvider:
