@@ -12,6 +12,4 @@ class CohereConversationalTask(BaseConversationalTask):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
 
     def _prepare_route(self, mapped_model: str) -> str:
-        if self.task == "conversational":
             return "/compatibility/v1/chat/completions"
-        raise ValueError(f"Unsupported task '{self.task}' for Cohere API.")
