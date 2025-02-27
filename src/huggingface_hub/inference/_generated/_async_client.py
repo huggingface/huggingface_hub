@@ -87,6 +87,7 @@ from huggingface_hub.inference._generated.types import (
 )
 from huggingface_hub.inference._providers import PROVIDER_T, HFInferenceTask, get_provider_helper
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
+from huggingface_hub.utils._auth import get_token
 from huggingface_hub.utils._deprecation import _deprecate_method
 
 from .._common import _async_yield_from, _import_aiohttp
@@ -123,9 +124,8 @@ class AsyncInferenceClient:
             Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"replicate"`, "sambanova"` or `"together"`.
             defaults to hf-inference (Hugging Face Serverless Inference API).
             If model is a URL or `base_url` is passed, then `provider` is not used.
-        token (`str` or `bool`, *optional*):
+        token (`str`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
-            Pass `token=False` if you don't want to send your token to the server.
             Note: for better compatibility with OpenAI's client, `token` has been aliased as `api_key`. Those 2
             arguments are mutually exclusive and have the exact same behavior.
         timeout (`float`, `optional`):
@@ -176,9 +176,24 @@ class AsyncInferenceClient:
                 " `api_key` is an alias for `token` to make the API compatible with OpenAI's client."
                 " It has the exact same behavior as `token`."
             )
+        token if token is not None else api_key
+        if isinstance(token, bool):
+            # Legacy behavior: previously is was possible to pass `token=False` to disable authentication. This is not
+            # supported anymore as authentication is required. Better to explicitly raise here rather than risking
+            # sending the locally saved token without the user knowing about it.
+            if token is False:
+                raise ValueError(
+                    "Cannot use `token=False` to disable authentication as authentication is required to run Inference."
+                )
+            warnings.warn(
+                "Using `token=True` to automatically use the locally saved token is deprecated and will be removed in a future release. "
+                "Please use `token=None` instead (default).",
+                DeprecationWarning,
+            )
+            token = get_token()
 
         self.model: Optional[str] = base_url or model
-        self.token: Optional[str] = token if token is not None else api_key
+        self.token: Optional[str] = token
         self.headers = headers if headers is not None else {}
 
         # Configure provider

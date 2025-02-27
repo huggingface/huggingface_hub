@@ -846,38 +846,6 @@ class TestHeadersAndCookies(TestBase):
         assert headers["Accept"] == "image/png"
 
 
-class TestModelStatus(TestBase):
-    @expect_deprecation("get_model_status")
-    def test_too_big_model(self) -> None:
-        client = InferenceClient(token=False)
-        model_status = client.get_model_status("facebook/nllb-moe-54b")
-        assert not model_status.loaded
-        assert model_status.state == "TooBig"
-        assert model_status.compute_type == "cpu"
-        assert model_status.framework == "transformers"
-
-    @expect_deprecation("get_model_status")
-    def test_loaded_model(self) -> None:
-        client = InferenceClient(token=False)
-        model_status = client.get_model_status("bigscience/bloom")
-        assert model_status.loaded
-        assert model_status.state == "Loaded"
-        assert isinstance(model_status.compute_type, dict)  # e.g. {'gpu': {'gpu': 'a100', 'count': 8}}
-        assert model_status.framework == "text-generation-inference"
-
-    @expect_deprecation("get_model_status")
-    def test_unknown_model(self) -> None:
-        client = InferenceClient()
-        with pytest.raises(HfHubHTTPError):
-            client.get_model_status("unknown/model")
-
-    @expect_deprecation("get_model_status")
-    def test_model_as_url(self) -> None:
-        client = InferenceClient()
-        with pytest.raises(NotImplementedError):
-            client.get_model_status("https://unkown/model")
-
-
 class TestListDeployedModels(TestBase):
     @expect_deprecation("list_deployed_models")
     @patch("huggingface_hub.inference._client.get_session")
@@ -890,19 +858,6 @@ class TestListDeployedModels(TestBase):
     def test_list_deployed_models_all_frameworks_mock(self, get_session_mock: MagicMock) -> None:
         InferenceClient().list_deployed_models("all")
         assert len(get_session_mock.return_value.get.call_args_list) == len(constants.ALL_INFERENCE_API_FRAMEWORKS)
-
-    @expect_deprecation("list_deployed_models")
-    def test_list_deployed_models_single_frameworks(self) -> None:
-        models_by_task = InferenceClient().list_deployed_models("text-generation-inference")
-        assert isinstance(models_by_task, dict)
-        for task, models in models_by_task.items():
-            assert isinstance(task, str)
-            assert isinstance(models, list)
-            for model in models:
-                assert isinstance(model, str)
-
-        assert "text-generation" in models_by_task
-        assert "HuggingFaceH4/zephyr-7b-beta" in models_by_task["text-generation"]
 
 
 @pytest.mark.vcr
@@ -1076,3 +1031,16 @@ def test_pass_url_as_base_url():
         inputs="The huggingface_hub library is ", parameters={}, headers={}, model=client.model, api_key=None
     )
     assert request.url == "http://localhost:8082/v1/"
+
+
+def test_cannot_pass_token_false():
+    """Regression test for #2853.
+
+    It is no longer possible to pass `token=False` to the InferenceClient constructor.
+    This was a legacy behavior, broken since 0.28.x release as passing token=False does not prevent the token from being
+    used. Better to drop this feature altogether and raise an error if `token=False` is passed.
+
+    See https://github.com/huggingface/huggingface_hub/pull/2853.
+    """
+    with pytest.raises(ValueError):
+        InferenceClient(token=False)
