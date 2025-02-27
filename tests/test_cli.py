@@ -101,6 +101,7 @@ class TestUploadCommand(unittest.TestCase):
             self.assertEqual(cmd.include, ["*.safetensors"])
             self.assertEqual(cmd.repo_id, DUMMY_MODEL_ID)
 
+
     def test_upload_with_all_options(self) -> None:
         """Test `huggingface-cli upload my-file to dummy-repo with all options selected`."""
         cmd = UploadCommand(

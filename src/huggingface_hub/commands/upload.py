@@ -42,8 +42,6 @@ Usage:
     # Schedule commits every 30 minutes
     huggingface-cli upload Wauplin/my-cool-model --every=30
 """
-
-import glob
 import os
 import time
 import warnings
@@ -157,27 +155,14 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         self.local_path: str
         self.path_in_repo: str
 
-        if args.local_path is None:
-            if os.path.isfile(repo_name):
-                self.local_path = repo_name
-                self.path_in_repo = repo_name
-            elif os.path.isdir(repo_name):
-                self.local_path = repo_name
-                self.path_in_repo = "."
-            else:
-                raise ValueError(f"'{repo_name}' is not a local file or folder. Please set `local_path` explicitly.")
-        elif "*" in args.local_path or "?" in args.local_path:
-            if self.include is not None:
+        if args.local_path is not None and any(c in args.local_path for c in ["*", "?", "["]):
+            if args.include is not None:
                 raise ValueError("Cannot set `--include` when passing a `local_path` containing a wildcard.")
-            self.local_path = args.local_path
+            if args.path_in_repo is not None and args.path_in_repo != ".":
+                raise ValueError("Cannot set `path_in_repo` when passing a `local_path` containing a wildcard.")
+
+            self.local_path = "."
             self.include = [args.local_path]
-
-            if not glob.glob(args.local_path):
-                raise FileNotFoundError(f"No files found matching the pattern: {args.local_path}")
-        else:
-            self.local_path = args.local_path
-            self.path_in_repo = args.path_in_repo or os.path.basename(args.local_path)
-
         if args.local_path is None and os.path.isfile(repo_name):
             # Implicit case 1: user provided only a repo_id which happen to be a local file as well => upload it with same name
             self.local_path = repo_name
