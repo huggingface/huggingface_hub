@@ -15,46 +15,47 @@ interactions:
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - 5c5ef3ee-1da1-4f10-b7cb-46538b19a138
+      - 204391c6-92c8-4214-a394-04b025f3e86a
     method: POST
-    uri: https://api.cohere.com/v2/chat
+    uri: https://api.cohere.com/compatibility/v1/chat/completions
   response:
     body:
-      string: '{"id":"c2239023-11a1-442e-a696-013ad9880af7","message":{"role":"assistant","content":[{"type":"text","text":"Deep
+      string: '{"id":"3b5751bb-10a2-4fc8-95a0-d1e6cfa788b3","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"Deep
         learning is a subfield of machine learning and artificial intelligence that
         focuses on training artificial neural networks to learn and make predictions
         from data. It is inspired by the structure and function of the human brain,
         particularly the interconnected network of neurons.\n\nIn deep learning, artificial
         neural networks are composed of multiple layers of interconnected nodes, or
         \"neurons,\" which process and transform input data. These networks are designed
-        to automatically learn and extract hierarchical representations of data by
-        adjusting the connections between neurons during the training process. The
-        \"deep\" in deep learning refers to the multiple layers of abstraction that
-        these networks can learn.\n\nHere are some key characteristics and concepts
-        in deep learning:\n\n1. Neural Networks: Deep learning models are primarily
-        based on artificial neural networks, which consist of input, hidden, and output
-        layers. The hidden layers are where the learning happens, as they can learn
-        complex patterns and representations from the data.\n\n2. Backpropagation:
-        This is a fundamental algorithm used in deep learning to update the network''s
-        weights and biases during training. It calculates the gradient of the error
-        function with respect to the network''s parameters, allowing for efficient
-        optimization and learning.\n\n3. Feature Learning: Deep learning models automatically
-        learn relevant features from raw data without the need for manual feature
-        engineering. This is achieved through the hierarchical representation learned
-        by the network''s layers.\n\n4. Deep Architectures: Various types of deep
-        neural networks have been developed, including Convolutional Neural Networks
-        (CNNs) for image-related tasks, Recurrent Neural Networks (RNNs) for sequential
-        data, and Generative Adversarial Networks (GANs) for generating new data.\n\n5.
-        Training Data: Deep learning models require large amounts of labeled training
-        data to learn effectively. The quality and quantity of data are crucial for
-        the success of these models.\n\n6. Applications: Deep learning has been applied
-        to various fields, including computer vision, natural language processing,
-        speech recognition, autonomous driving, and healthcare, achieving state-of-the-art
-        performance in many tasks.\n\nDeep learning has revolutionized many areas
-        of artificial intelligence by enabling machines to learn complex patterns
-        and make accurate predictions, often surpassing human-level performance in
-        specific tasks. It has driven significant advancements in areas like image
-        and speech recognition, language translation, and game playing."}]},"finish_reason":"COMPLETE","usage":{"billed_units":{"input_tokens":11,"output_tokens":461},"tokens":{"input_tokens":540,"output_tokens":463}}}'
+        to automatically learn and extract hierarchical representations of data through
+        a process called \"training.\" The training process involves adjusting the
+        network''s internal parameters (weights and biases) to minimize the difference
+        between predicted and actual outputs.\n\nHere are some key characteristics
+        and concepts in deep learning:\n\n1. Neural Networks: Deep learning models
+        are primarily based on artificial neural networks, which are composed of layers
+        of nodes. These networks can have various architectures, such as convolutional
+        neural networks (CNNs) for image processing, recurrent neural networks (RNNs)
+        for sequential data, and transformer networks for natural language processing.\n\n2.
+        Deep Architecture: The term \"deep\" in deep learning refers to the depth
+        of the neural network, meaning it has multiple hidden layers between the input
+        and output layers. These hidden layers enable the network to learn complex
+        patterns and representations from the data.\n\n3. Learning and Training: Deep
+        learning models are trained using large amounts of labeled data and a process
+        called backpropagation. During training, the network adjusts its internal
+        parameters to minimize a loss function, which measures the difference between
+        predicted and actual outputs. This optimization process is typically done
+        using gradient descent or its variants.\n\n4. Feature Learning: One of the
+        key advantages of deep learning is its ability to automatically learn relevant
+        features from raw data. Unlike traditional machine learning, where feature
+        engineering is required, deep learning models can discover and extract features
+        at multiple levels of abstraction.\n\n5. Applications: Deep learning has been
+        applied to a wide range of tasks and domains, including image and speech recognition,
+        natural language processing, object detection, medical diagnosis, game playing
+        (e.g., AlphaGo), and autonomous driving.\n\nDeep learning has revolutionized
+        many areas of artificial intelligence due to its ability to handle complex
+        and large-scale data, learn hierarchical representations, and achieve state-of-the-art
+        performance in various tasks. It has driven significant advancements in areas
+        like computer vision, natural language understanding, and speech recognition."}}],"created":1740653732,"model":"command-r7b-12-2024","object":"chat.completion","usage":{"prompt_tokens":11,"completion_tokens":476,"total_tokens":487}}'
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
@@ -69,13 +70,13 @@ interactions:
       content-type:
       - application/json
       date:
-      - Tue, 25 Feb 2025 09:52:18 GMT
+      - Thu, 27 Feb 2025 10:55:32 GMT
       expires:
       - Thu, 01 Jan 1970 00:00:00 UTC
       num_chars:
       - '2831'
       num_tokens:
-      - '472'
+      - '487'
       pragma:
       - no-cache
       server:
@@ -84,14 +85,17 @@ interactions:
       - Origin
       x-accel-expires:
       - '0'
+      x-api-warning:
+      - Please set an API version, for more information please refer to https://docs.cohere.com/versioning-reference
+      - Version is deprecated, for more information please refer to https://docs.cohere.com/versioning-reference
       x-debug-trace-id:
-      - 36cf36ac15e967b4fa57f15a2633f605
+      - 430c1e5519b95b094771bcc36304445e
       x-envoy-upstream-service-time:
-      - '2697'
+      - '2740'
       x-trial-endpoint-call-limit:
-      - '10'
+      - '100'
       x-trial-endpoint-call-remaining:
-      - '9'
+      - '99'
     status:
       code: 200
       message: OK

@@ -115,8 +115,8 @@ class TestCohereConversationalTask:
     def test_prepare_url(self):
         helper = CohereConversationalTask()
         assert helper.task == "conversational"
-        url = helper._prepare_url("Cohere_token", "username/repo_name")
-        assert url == "https://api.cohere.com/v2/chat"
+        url = helper._prepare_url("cohere_token", "username/repo_name")
+        assert url == "https://api.cohere.com/compatibility/v1/chat/completions"
 
     def test_prepare_payload_as_dict(self):
         helper = CohereConversationalTask()

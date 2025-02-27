@@ -15,141 +15,89 @@ interactions:
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - 0f315dc4-2e82-4199-9b0b-78e4d8c74485
+      - 68c492d9-abbd-4d0a-8462-e598765021e4
     method: POST
-    uri: https://api.cohere.com/v2/chat
+    uri: https://api.cohere.com/compatibility/v1/chat/completions
   response:
     body:
-      string: 'event: message-start
+      string: 'data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"","role":"assistant"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        data: {"id":"4a2bc917-012e-4531-8ea5-541e9dd61917","type":"message-start","delta":{"message":{"role":"assistant","content":[],"tool_plan":"","tool_calls":[],"citations":[]}}}
 
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"Deep"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        event: content-start
 
-        data: {"type":"content-start","index":0,"delta":{"message":{"content":{"type":"text","text":""}}}}
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        learning"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
 
-        event: content-delta
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        is"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"Deep"}}}}
 
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        a"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        event: content-delta
 
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        learning"}}}}
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        sub"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
 
-        event: content-delta
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"field"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        is"}}}}
 
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        of"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        event: content-delta
 
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        a"}}}}
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        machine"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
 
-        event: content-delta
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        learning"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        sub"}}}}
 
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        and"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        event: content-delta
 
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"field"}}}}
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        artificial"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
 
-        event: content-delta
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        intelligence"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        of"}}}}
 
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        that"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        event: content-delta
 
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        machine"}}}}
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        focuses"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
 
-        event: content-delta
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        on"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        learning"}}}}
 
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        training"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        event: content-delta
 
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        and"}}}}
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        artificial"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
 
-        event: content-delta
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        neural"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        artificial"}}}}
 
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":null,"delta":{"content":"
+        networks"}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk"}
 
-        event: content-delta
 
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        intelligence"}}}}
-
-
-        event: content-delta
-
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        that"}}}}
-
-
-        event: content-delta
-
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        focuses"}}}}
-
-
-        event: content-delta
-
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        on"}}}}
-
-
-        event: content-delta
-
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        training"}}}}
-
-
-        event: content-delta
-
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        artificial"}}}}
-
-
-        event: content-delta
-
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        neural"}}}}
-
-
-        event: content-delta
-
-        data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"
-        networks"}}}}
-
-
-        event: content-end
-
-        data: {"type":"content-end","index":0}
-
-
-        event: message-end
-
-        data: {"type":"message-end","delta":{"finish_reason":"MAX_TOKENS","usage":{"billed_units":{"input_tokens":11,"output_tokens":19},"tokens":{"input_tokens":540,"output_tokens":20}}}}
+        data: {"id":"2bb1b33e-53d9-4fae-8958-2e54c1e60f09","choices":[{"index":0,"finish_reason":"length","delta":{}}],"created":1740653733,"model":"command-r7b-12-2024","object":"chat.completion.chunk","usage":{"prompt_tokens":11,"completion_tokens":19,"total_tokens":30}}
 
 
         data: [DONE]
@@ -170,7 +118,7 @@ interactions:
       content-type:
       - text/event-stream
       date:
-      - Tue, 25 Feb 2025 09:52:19 GMT
+      - Thu, 27 Feb 2025 10:55:33 GMT
       expires:
       - Thu, 01 Jan 1970 00:00:00 UTC
       pragma:
@@ -181,14 +129,17 @@ interactions:
       - Origin
       x-accel-expires:
       - '0'
+      x-api-warning:
+      - Please set an API version, for more information please refer to https://docs.cohere.com/versioning-reference
+      - Version is deprecated, for more information please refer to https://docs.cohere.com/versioning-reference
       x-debug-trace-id:
-      - 2788f675a79025f4d094cca28be57a93
+      - 4bc0ce4bda5305b5b60ef6268db5e3a7
       x-envoy-upstream-service-time:
-      - '97'
+      - '88'
       x-trial-endpoint-call-limit:
-      - '10'
+      - '100'
       x-trial-endpoint-call-remaining:
-      - '8'
+      - '98'
     status:
       code: 200
       message: OK
