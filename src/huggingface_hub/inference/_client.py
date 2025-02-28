@@ -102,7 +102,8 @@ from huggingface_hub.inference._generated.types import (
 )
 from huggingface_hub.inference._providers import PROVIDER_T, HFInferenceTask, get_provider_helper
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
-from huggingface_hub.utils._deprecation import _deprecate_arguments, _deprecate_method
+from huggingface_hub.utils._auth import get_token
+from huggingface_hub.utils._deprecation import _deprecate_method
 
 
 if TYPE_CHECKING:
@@ -135,9 +136,8 @@ class InferenceClient:
             Name of the provider to use for inference. Can be `"black-forest-labs"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"replicate"`, "sambanova"` or `"together"`.
             defaults to hf-inference (Hugging Face Serverless Inference API).
             If model is a URL or `base_url` is passed, then `provider` is not used.
-        token (`str` or `bool`, *optional*):
+        token (`str`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
-            Pass `token=False` if you don't want to send your token to the server.
             Note: for better compatibility with OpenAI's client, `token` has been aliased as `api_key`. Those 2
             arguments are mutually exclusive and have the exact same behavior.
         timeout (`float`, `optional`):
@@ -185,9 +185,24 @@ class InferenceClient:
                 " `api_key` is an alias for `token` to make the API compatible with OpenAI's client."
                 " It has the exact same behavior as `token`."
             )
+        token if token is not None else api_key
+        if isinstance(token, bool):
+            # Legacy behavior: previously is was possible to pass `token=False` to disable authentication. This is not
+            # supported anymore as authentication is required. Better to explicitly raise here rather than risking
+            # sending the locally saved token without the user knowing about it.
+            if token is False:
+                raise ValueError(
+                    "Cannot use `token=False` to disable authentication as authentication is required to run Inference."
+                )
+            warnings.warn(
+                "Using `token=True` to automatically use the locally saved token is deprecated and will be removed in a future release. "
+                "Please use `token=None` instead (default).",
+                DeprecationWarning,
+            )
+            token = get_token()
 
         self.model: Optional[str] = base_url or model
-        self.token: Optional[str] = token if token is not None else api_key
+        self.token: Optional[str] = token
         self.headers = headers if headers is not None else {}
 
         # Configure provider
@@ -3033,22 +3048,14 @@ class InferenceClient:
         response = self._inner_post(request_parameters)
         return VisualQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
-    @_deprecate_arguments(
-        version="0.30.0",
-        deprecated_args=["labels"],
-        custom_message="`labels`has been renamed to `candidate_labels` and will be removed in huggingface_hub>=0.30.0.",
-    )
     def zero_shot_classification(
         self,
         text: str,
-        # temporarily keeping it optional for backward compatibility.
-        candidate_labels: List[str] = None,  # type: ignore
+        candidate_labels: List[str],
         *,
         multi_label: Optional[bool] = False,
         hypothesis_template: Optional[str] = None,
         model: Optional[str] = None,
-        # deprecated argument
-        labels: List[str] = None,  # type: ignore
     ) -> List[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
@@ -3127,16 +3134,6 @@ class InferenceClient:
         ]
         ```
         """
-        # handle deprecation
-        if labels is not None:
-            if candidate_labels is not None:
-                raise ValueError(
-                    "Cannot specify both `labels` and `candidate_labels`. Use `candidate_labels` instead."
-                )
-            candidate_labels = labels
-        elif candidate_labels is None:
-            raise ValueError("Must specify `candidate_labels`")
-
         provider_helper = get_provider_helper(self.provider, task="zero-shot-classification")
         request_parameters = provider_helper.prepare_request(
             inputs=text,
@@ -3156,16 +3153,10 @@ class InferenceClient:
             for label, score in zip(output["labels"], output["scores"])
         ]
 
-    @_deprecate_arguments(
-        version="0.30.0",
-        deprecated_args=["labels"],
-        custom_message="`labels`has been renamed to `candidate_labels` and will be removed in huggingface_hub>=0.30.0.",
-    )
     def zero_shot_image_classification(
         self,
         image: ContentT,
-        # temporarily keeping it optional for backward compatibility.
-        candidate_labels: List[str] = None,  # type: ignore
+        candidate_labels: List[str],
         *,
         model: Optional[str] = None,
         hypothesis_template: Optional[str] = None,
@@ -3210,15 +3201,6 @@ class InferenceClient:
         [ZeroShotImageClassificationOutputElement(label='dog', score=0.956),...]
         ```
         """
-        # handle deprecation
-        if labels is not None:
-            if candidate_labels is not None:
-                raise ValueError(
-                    "Cannot specify both `labels` and `candidate_labels`. Use `candidate_labels` instead."
-                )
-            candidate_labels = labels
-        elif candidate_labels is None:
-            raise ValueError("Must specify `candidate_labels`")
         # Raise ValueError if input is less than 2 labels
         if len(candidate_labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare.")

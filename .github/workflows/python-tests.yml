@@ -26,7 +26,8 @@ jobs:
           [
             "Repository only",
             "Everything else",
-            "Inference only"
+            "Inference only",
+            "Xet only"
             
           ]
         include:
@@ -95,6 +96,10 @@ jobs:
               uv pip install "huggingface_hub[tensorflow-testing] @ ."
               ;;
 
+            "Xet only")
+              uv pip install "huggingface_hub[hf_xet] @ ."
+              ;;
+
           esac
 
       # Run tests
@@ -121,7 +126,7 @@ jobs:
             ;;
 
             "Everything else")
-              PYTEST="$PYTEST ../tests -k 'not TestRepository and not test_inference' -n 4"
+              PYTEST="$PYTEST ../tests -k 'not TestRepository and not test_inference and not test_xet' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
@@ -145,6 +150,12 @@ jobs:
             "Python 3.8, torch_1.11" | torch_latest)
             eval "$PYTEST ../tests/test_hub_mixin*"
             eval "$PYTEST ../tests/test_serialization.py"
+            ;;
+
+            "Xet only")
+              PYTEST="$PYTEST ../tests -k 'test_xet' -n 4"
+              echo $PYTEST
+              eval $PYTEST
             ;;
 
           esac
@@ -186,7 +197,7 @@ jobs:
 
       # Install dependencies
       - name: Install dependencies
-        run: uv pip install "huggingface_hub[testing] @ ."
+        run: uv pip install "huggingface_hub[testing, hf_xet] @ ."
 
       # Run tests
       - name: Run tests
