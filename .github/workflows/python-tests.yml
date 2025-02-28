@@ -197,7 +197,7 @@ jobs:
 
       # Install dependencies
       - name: Install dependencies
-        run: uv pip install "huggingface_hub[testing] @ ."
+        run: uv pip install "huggingface_hub[testing, hf_xet] @ ."
 
       # Run tests
       - name: Run tests
