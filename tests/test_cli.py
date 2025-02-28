@@ -103,7 +103,7 @@ class TestUploadCommand(unittest.TestCase):
             # Test basic wildcard pattern
             cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "*.safetensors"]))
             self.assertEqual(cmd.local_path, ".")
-            self.assertEqual(cmd.include, ["model1.safetensors", "model2.safetensors"])
+            self.assertEqual(cmd.include, "*.safetensors")
             self.assertEqual(cmd.path_in_repo, ".")
             self.assertEqual(cmd.repo_id, DUMMY_MODEL_ID)
 
@@ -113,14 +113,9 @@ class TestUploadCommand(unittest.TestCase):
             (subdir / "special.safetensors").touch()
 
             cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "subdir/*.safetensors"]))
-            self.assertEqual(cmd.local_path, "subdir")
-            self.assertEqual(cmd.include, ["special.safetensors"])
-            self.assertEqual(cmd.path_in_repo, ".")
-
-            # Test wildcard with multiple patterns
-            cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "*.json"]))
             self.assertEqual(cmd.local_path, ".")
-            self.assertEqual(cmd.include, ["config.json"])
+            self.assertEqual(cmd.include, "subdir/*.safetensors")
+            self.assertEqual(cmd.path_in_repo, ".")
 
             # Test error when using wildcard with --include
             with self.assertRaises(ValueError):

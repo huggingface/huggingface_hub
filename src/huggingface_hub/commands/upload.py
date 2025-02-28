@@ -46,7 +46,6 @@ Usage:
     huggingface-cli upload Wauplin/my-cool-model --every=30
 """
 
-import glob
 import os
 import time
 import warnings
@@ -167,9 +166,8 @@ class UploadCommand(BaseHuggingfaceCLICommand):
                 raise ValueError("Cannot set `--include` when passing a `local_path` containing a wildcard.")
             if args.path_in_repo is not None and args.path_in_repo != ".":
                 raise ValueError("Cannot set `path_in_repo` when passing a `local_path` containing a wildcard.")
-            matching_files = glob.glob(args.local_path)
-            self.local_path = os.path.dirname(args.local_path) or "."
-            self.include = [os.path.basename(file) for file in matching_files]
+            self.local_path = "."
+            self.include = args.local_path
             self.path_in_repo = "."
         elif args.local_path is None and os.path.isfile(repo_name):
             # Implicit case 1: user provided only a repo_id which happen to be a local file as well => upload it with same name
