@@ -3642,6 +3642,7 @@ class HfApi:
         private: Optional[bool] = None,
         token: Union[str, bool, None] = None,
         repo_type: Optional[str] = None,
+        xet_enabled: Optional[bool] = None,
     ) -> None:
         """
         Update the settings of a repository, including gated access and visibility.
@@ -3667,7 +3668,8 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repository to update settings from (`"model"`, `"dataset"` or `"space"`).
                 Defaults to `"model"`.
-
+            xet_enabled (`bool`, *optional*):
+                Whether the repository should be enabled for Xet Storage.
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If gated is not one of "auto", "manual", or False.
@@ -3685,9 +3687,9 @@ class HfApi:
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL  # default repo type
 
-        # Check if both gated and private are None
-        if gated is None and private is None:
-            raise ValueError("At least one of 'gated' or 'private' must be provided.")
+        # Check if gated, private, and xet_enabled are None
+        if gated is None and private is None and xet_enabled is None:
+            raise ValueError("At least one of 'gated', 'private' or 'xet_enabled' must be provided.")
 
         # Build headers
         headers = self._build_hf_headers(token=token)
@@ -3702,6 +3704,9 @@ class HfApi:
 
         if private is not None:
             payload["private"] = private
+
+        if xet_enabled is not None:
+            payload["xetEnabled"] = xet_enabled
 
         r = get_session().put(
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
