@@ -126,7 +126,7 @@ jobs:
             ;;
 
             "Everything else")
-              PYTEST="$PYTEST ../tests -k 'not TestRepository and not test_inference' -n 4"
+              PYTEST="$PYTEST ../tests -k 'not TestRepository and not test_inference and not test_xet' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
