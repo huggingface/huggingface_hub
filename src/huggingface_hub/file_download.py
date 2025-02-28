@@ -551,7 +551,7 @@ def xet_get(
     except ImportError:
         raise ValueError(
             "To use optimized download using Xet storage, you need to install the hf_xet package. "
-            "Try `pip install hf_xet`."
+            "Try `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`."
         )
 
     def token_refresher() -> Tuple[str, int]:
