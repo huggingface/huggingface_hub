@@ -14,8 +14,11 @@ def validated_field(validator: Union[List[Validator_T], Validator_T], **kwargs: 
     Create a dataclass field with a custom validator.
 
     Args:
-        validator: A function that takes a value and raises ValueError/TypeError if invalid
-        **kwargs: Additional arguments to pass to field()
+        validator (`Callable` or `List[Callable]`):
+            A method that takes a value as input and raises ValueError/TypeError if the value is invalid.
+            Can be a list of validators to apply multiple checks.
+        **kwargs:
+            Additional arguments to pass to `dataclasses.field()`.
 
     Returns:
         A field with the validator attached in metadata
@@ -42,12 +45,16 @@ def strict_dataclass(cls: Type[T]) -> Type[T]:
 
     Example:
     ```python
-    >>> from huggingface_hub import strict_dataclass
+    >>> from huggingface_hub.utils import strict_dataclass, validated_field
+
+    >>> def positive_int(value: int):
+    ...     if not value >= 0:
+    ...         raise ValueError(f"Value must be positive, got {value}")
 
     >>> @strict_dataclass
     ... class User:
     ...     name: str
-    ...     age: int
+    ...     age: int = validated_field(positive_int)
     >>> user = User(name="John", age=30)
 
     >>> User(name="John", age="30")  # Invalid type
