@@ -92,15 +92,45 @@ class TestUploadCommand(unittest.TestCase):
         self.assertEqual(cmd.quiet, False)
 
     def test_upload_with_wildcard(self) -> None:
+        """Test uploading files using wildcard patterns."""
         with tmp_current_directory() as cache_dir:
+            # Create test files
             (Path(cache_dir) / "model1.safetensors").touch()
             (Path(cache_dir) / "model2.safetensors").touch()
-            cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "*.safetensors"]))
+            (Path(cache_dir) / "model.bin").touch()
+            (Path(cache_dir) / "config.json").touch()
 
-            self.assertEqual(cmd.local_path, "*.safetensors")
-            self.assertEqual(cmd.include, ["*.safetensors"])
+            # Test basic wildcard pattern
+            cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "*.safetensors"]))
+            self.assertEqual(cmd.local_path, ".")
+            self.assertEqual(cmd.include, ["model1.safetensors", "model2.safetensors"])
+            self.assertEqual(cmd.path_in_repo, ".")
             self.assertEqual(cmd.repo_id, DUMMY_MODEL_ID)
 
+            # Test wildcard pattern with specific directory
+            subdir = Path(cache_dir) / "subdir"
+            subdir.mkdir()
+            (subdir / "special.safetensors").touch()
+
+            cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "subdir/*.safetensors"]))
+            self.assertEqual(cmd.local_path, "subdir")
+            self.assertEqual(cmd.include, ["special.safetensors"])
+            self.assertEqual(cmd.path_in_repo, ".")
+
+            # Test wildcard with multiple patterns
+            cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "*.json"]))
+            self.assertEqual(cmd.local_path, ".")
+            self.assertEqual(cmd.include, ["config.json"])
+
+            # Test error when using wildcard with --include
+            with self.assertRaises(ValueError):
+                UploadCommand(
+                    self.parser.parse_args(["upload", DUMMY_MODEL_ID, "*.safetensors", "--include", "*.json"])
+                )
+
+            # Test error when using wildcard with explicit path_in_repo
+            with self.assertRaises(ValueError):
+                UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "*.safetensors", "models/"]))
 
     def test_upload_with_all_options(self) -> None:
         """Test `huggingface-cli upload my-file to dummy-repo with all options selected`."""

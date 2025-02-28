@@ -30,6 +30,9 @@ Usage:
     # Upload filtered directory (example: tensorboard logs except for the last run)
     huggingface-cli upload my-cool-model ./model/training /logs --include "*.tfevents.*" --exclude "*20230905*"
 
+    # Upload with wildcard
+    huggingface-cli upload my-cool-model ./model/training/*.safetensors
+
     # Upload private dataset
     huggingface-cli upload Wauplin/my-cool-dataset ./data . --repo-type=dataset --private
 
@@ -42,6 +45,8 @@ Usage:
     # Schedule commits every 30 minutes
     huggingface-cli upload Wauplin/my-cool-model --every=30
 """
+
+import glob
 import os
 import time
 import warnings
@@ -68,7 +73,9 @@ class UploadCommand(BaseHuggingfaceCLICommand):
             "repo_id", type=str, help="The ID of the repo to upload to (e.g. `username/repo-name`)."
         )
         upload_parser.add_argument(
-            "local_path", nargs="?", help="Local path to the file or folder to upload. Defaults to current directory."
+            "local_path",
+            nargs="?",
+            help="Local path to the file or folder to upload. Wildcard patterns are supported, but not with `--include` or `path_in_repo`. Defaults to current directory.",
         )
         upload_parser.add_argument(
             "path_in_repo",
@@ -160,10 +167,11 @@ class UploadCommand(BaseHuggingfaceCLICommand):
                 raise ValueError("Cannot set `--include` when passing a `local_path` containing a wildcard.")
             if args.path_in_repo is not None and args.path_in_repo != ".":
                 raise ValueError("Cannot set `path_in_repo` when passing a `local_path` containing a wildcard.")
-
-            self.local_path = "."
-            self.include = [args.local_path]
-        if args.local_path is None and os.path.isfile(repo_name):
+            matching_files = glob.glob(args.local_path)
+            self.local_path = os.path.dirname(args.local_path) or "."
+            self.include = [os.path.basename(file) for file in matching_files]
+            self.path_in_repo = "."
+        elif args.local_path is None and os.path.isfile(repo_name):
             # Implicit case 1: user provided only a repo_id which happen to be a local file as well => upload it with same name
             self.local_path = repo_name
             self.path_in_repo = repo_name
