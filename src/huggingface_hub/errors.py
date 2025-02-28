@@ -345,5 +345,5 @@ class StrictDataclassFieldValidationError(StrictDataclassError):
 
     def __init__(self, field: str, cause: Exception):
         error_message = f"Validation error for field '{field}':"
-        error_message += f"\n  {cause.__class__.__name__}: {cause}"
+        error_message += f"\n    {cause.__class__.__name__}: {cause}"
         super().__init__(error_message)
