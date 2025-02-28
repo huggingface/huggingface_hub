@@ -22,11 +22,10 @@ import asyncio
 import base64
 import logging
 import re
-import time
 import warnings
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Set, Union, overload
 
-from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
+from huggingface_hub import constants
 from huggingface_hub.errors import InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
@@ -88,7 +87,8 @@ from huggingface_hub.inference._generated.types import (
 )
 from huggingface_hub.inference._providers import PROVIDER_T, HFInferenceTask, get_provider_helper
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
-from huggingface_hub.utils._deprecation import _deprecate_arguments, _deprecate_method
+from huggingface_hub.utils._auth import get_token
+from huggingface_hub.utils._deprecation import _deprecate_method
 
 from .._common import _async_yield_from, _import_aiohttp
 
@@ -121,12 +121,11 @@ class AsyncInferenceClient:
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, `"sambanova"` or `"hf-inference"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"replicate"`, "sambanova"` or `"together"`.
             defaults to hf-inference (Hugging Face Serverless Inference API).
             If model is a URL or `base_url` is passed, then `provider` is not used.
-        token (`str` or `bool`, *optional*):
+        token (`str`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
-            Pass `token=False` if you don't want to send your token to the server.
             Note: for better compatibility with OpenAI's client, `token` has been aliased as `api_key`. Those 2
             arguments are mutually exclusive and have the exact same behavior.
         timeout (`float`, `optional`):
@@ -177,9 +176,24 @@ class AsyncInferenceClient:
                 " `api_key` is an alias for `token` to make the API compatible with OpenAI's client."
                 " It has the exact same behavior as `token`."
             )
+        token if token is not None else api_key
+        if isinstance(token, bool):
+            # Legacy behavior: previously is was possible to pass `token=False` to disable authentication. This is not
+            # supported anymore as authentication is required. Better to explicitly raise here rather than risking
+            # sending the locally saved token without the user knowing about it.
+            if token is False:
+                raise ValueError(
+                    "Cannot use `token=False` to disable authentication as authentication is required to run Inference."
+                )
+            warnings.warn(
+                "Using `token=True` to automatically use the locally saved token is deprecated and will be removed in a future release. "
+                "Please use `token=None` instead (default).",
+                DeprecationWarning,
+            )
+            token = get_token()
 
         self.model: Optional[str] = base_url or model
-        self.token: Optional[str] = token if token is not None else api_key
+        self.token: Optional[str] = token
         self.headers = headers if headers is not None else {}
 
         # Configure provider
@@ -258,8 +272,9 @@ class AsyncInferenceClient:
                 "`InferenceClient.post` is deprecated and should not be used directly anymore."
             )
         provider_helper = HFInferenceTask(task or "unknown")
-        url = provider_helper.build_url(provider_helper.map_model(model))
-        headers = provider_helper.prepare_headers(headers=self.headers, api_key=self.token)
+        mapped_model = provider_helper._prepare_mapped_model(model or self.model)
+        url = provider_helper._prepare_url(self.token, mapped_model)  # type: ignore[arg-type]
+        headers = provider_helper._prepare_headers(self.headers, self.token)  # type: ignore[arg-type]
         return await self._inner_post(
             request_parameters=RequestParameters(
                 url=url,
@@ -298,8 +313,6 @@ class AsyncInferenceClient:
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        t0 = time.time()
-        timeout = self.timeout
         while True:
             with _open_as_binary(request_parameters.data) as data_as_binary:
                 # Do not use context manager as we don't want to close the connection immediately when returning
@@ -330,27 +343,6 @@ class AsyncInferenceClient:
                 except aiohttp.ClientResponseError as error:
                     error.response_error_payload = response_error_payload
                     await session.close()
-                    if response.status == 422 and request_parameters.task != "unknown":
-                        error.message += f". Make sure '{request_parameters.task}' task is supported by the model."
-                    if response.status == 503:
-                        # If Model is unavailable, either raise a TimeoutError...
-                        if timeout is not None and time.time() - t0 > timeout:
-                            raise InferenceTimeoutError(
-                                f"Model not loaded on the server: {request_parameters.url}. Please retry with a higher timeout"
-                                f" (current: {self.timeout}).",
-                                request=error.request,
-                                response=error.response,
-                            ) from error
-                        # ...or wait 1s and retry
-                        logger.info(f"Waiting for model to be loaded on the server: {error}")
-                        if "X-wait-for-model" not in request_parameters.headers and request_parameters.url.startswith(
-                            INFERENCE_ENDPOINT
-                        ):
-                            request_parameters.headers["X-wait-for-model"] = "1"
-                        await asyncio.sleep(1)
-                        if timeout is not None:
-                            timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
-                        continue
                     raise error
                 except Exception:
                     await session.close()
@@ -496,6 +488,7 @@ class AsyncInferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
+        extra_body: Optional[Dict] = None,
     ) -> AutomaticSpeechRecognitionOutput:
         """
         Perform automatic speech recognition (ASR or audio-to-text) on the given audio content.
@@ -506,6 +499,9 @@ class AsyncInferenceClient:
             model (`str`, *optional*):
                 The model to use for ASR. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for ASR will be used.
+            extra_body (`Dict`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
         Returns:
             [`AutomaticSpeechRecognitionOutput`]: An item containing the transcribed text and optionally the timestamp chunks.
 
@@ -527,7 +523,7 @@ class AsyncInferenceClient:
         provider_helper = get_provider_helper(self.provider, task="automatic-speech-recognition")
         request_parameters = provider_helper.prepare_request(
             inputs=audio,
-            parameters={},
+            parameters={**(extra_body or {})},
             headers=self.headers,
             model=model or self.model,
             api_key=self.token,
@@ -558,6 +554,7 @@ class AsyncInferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        extra_body: Optional[Dict] = None,
     ) -> ChatCompletionOutput: ...
 
     @overload
@@ -583,6 +580,7 @@ class AsyncInferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        extra_body: Optional[Dict] = None,
     ) -> AsyncIterable[ChatCompletionStreamOutput]: ...
 
     @overload
@@ -608,6 +606,7 @@ class AsyncInferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        extra_body: Optional[Dict] = None,
     ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]: ...
 
     async def chat_completion(
@@ -633,6 +632,7 @@ class AsyncInferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        extra_body: Optional[Dict] = None,
     ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]:
         """
         A method for completing conversations using a specified language model.
@@ -647,7 +647,7 @@ class AsyncInferenceClient:
         </Tip>
 
         <Tip>
-        Some parameters might not be supported by some providers.
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
         </Tip>
 
         Args:
@@ -702,7 +702,9 @@ class AsyncInferenceClient:
             tools (List of [`ChatCompletionInputTool`], *optional*):
                 A list of tools the model may call. Currently, only functions are supported as a tool. Use this to
                 provide a list of functions the model may generate JSON inputs for.
-
+            extra_body (`Dict`, *optional*):
+                Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
+                for supported parameters.
         Returns:
             [`ChatCompletionOutput`] or Iterable of [`ChatCompletionStreamOutput`]:
             Generated text returned from the server:
@@ -790,7 +792,7 @@ class AsyncInferenceClient:
             print(chunk.choices[0].delta.content)
         ```
 
-        Example using a third-party provider directly. Usage will be billed on your Together AI account.
+        Example using a third-party provider directly with extra (provider-specific) parameters. Usage will be billed on your Together AI account.
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient(
@@ -800,6 +802,7 @@ class AsyncInferenceClient:
         >>> client.chat_completion(
         ...     model="meta-llama/Meta-Llama-3-8B-Instruct",
         ...     messages=[{"role": "user", "content": "What is the capital of France?"}],
+        ...     extra_body={"safety_model": "Meta-Llama/Llama-Guard-7b"},
         ... )
         ```
 
@@ -996,6 +999,7 @@ class AsyncInferenceClient:
             "top_p": top_p,
             "stream": stream,
             "stream_options": stream_options,
+            **(extra_body or {}),
         }
         request_parameters = provider_helper.prepare_request(
             inputs=messages,
@@ -2439,14 +2443,14 @@ class AsyncInferenceClient:
         prompt: str,
         *,
         negative_prompt: Optional[str] = None,
-        height: Optional[float] = None,
-        width: Optional[float] = None,
+        height: Optional[int] = None,
+        width: Optional[int] = None,
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
         model: Optional[str] = None,
         scheduler: Optional[str] = None,
         seed: Optional[int] = None,
-        extra_parameters: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> "Image":
         """
         Generate an image based on a given text using a specified model.
@@ -2457,15 +2461,19 @@ class AsyncInferenceClient:
 
         </Tip>
 
+        <Tip>
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
+        </Tip>
+
         Args:
             prompt (`str`):
                 The prompt to generate an image from.
             negative_prompt (`str`, *optional*):
                 One prompt to guide what NOT to include in image generation.
-            height (`float`, *optional*):
-                The height in pixels of the image to generate.
-            width (`float`, *optional*):
-                The width in pixels of the image to generate.
+            height (`int`, *optional*):
+                The height in pixels of the output image
+            width (`int`, *optional*):
+                The width in pixels of the output image
             num_inference_steps (`int`, *optional*):
                 The number of denoising steps. More denoising steps usually lead to a higher quality image at the
                 expense of slower inference.
@@ -2480,7 +2488,7 @@ class AsyncInferenceClient:
                 Override the scheduler with a compatible one.
             seed (`int`, *optional*):
                 Seed for the random number generator.
-            extra_parameters (`Dict[str, Any]`, *optional*):
+            extra_body (`Dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
 
@@ -2547,7 +2555,7 @@ class AsyncInferenceClient:
         >>> image = client.text_to_image(
         ...     "An astronaut riding a horse on the moon.",
         ...     model="black-forest-labs/FLUX.1-schnell",
-        ...     extra_parameters={"output_quality": 100},
+        ...     extra_body={"output_quality": 100},
         ... )
         >>> image.save("astronaut.png")
         ```
@@ -2563,7 +2571,7 @@ class AsyncInferenceClient:
                 "guidance_scale": guidance_scale,
                 "scheduler": scheduler,
                 "seed": seed,
-                **(extra_parameters or {}),
+                **(extra_body or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -2583,10 +2591,14 @@ class AsyncInferenceClient:
         num_frames: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
         seed: Optional[int] = None,
-        extra_parameters: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> bytes:
         """
         Generate a video based on a given text.
+
+        <Tip>
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
+        </Tip>
 
         Args:
             prompt (`str`):
@@ -2607,7 +2619,7 @@ class AsyncInferenceClient:
                 expense of slower inference.
             seed (`int`, *optional*):
                 Seed for the random number generator.
-            extra_parameters (`Dict[str, Any]`, *optional*):
+            extra_body (`Dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
 
@@ -2655,7 +2667,7 @@ class AsyncInferenceClient:
                 "num_frames": num_frames,
                 "num_inference_steps": num_inference_steps,
                 "seed": seed,
-                **(extra_parameters or {}),
+                **(extra_body or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -2686,10 +2698,14 @@ class AsyncInferenceClient:
         top_p: Optional[float] = None,
         typical_p: Optional[float] = None,
         use_cache: Optional[bool] = None,
-        extra_parameters: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
+
+        <Tip>
+        You can pass provider-specific parameters to the model by using the `extra_body` argument.
+        </Tip>
 
         Args:
             text (`str`):
@@ -2744,7 +2760,7 @@ class AsyncInferenceClient:
                 paper](https://hf.co/papers/2202.00666) for more details.
             use_cache (`bool`, *optional*):
                 Whether the model should use the past last key/values attentions to speed up decoding
-            extra_parameters (`Dict[str, Any]`, *optional*):
+            extra_body (`Dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
         Returns:
@@ -2804,7 +2820,7 @@ class AsyncInferenceClient:
         >>> audio = client.text_to_speech(
         ...     "Hello, my name is Kororo, an awesome text-to-speech model.",
         ...     model="hexgrad/Kokoro-82M",
-        ...     extra_parameters={"voice": "af_nicole"},
+        ...     extra_body={"voice": "af_nicole"},
         ... )
         >>> Path("hello.flac").write_bytes(audio)
         ```
@@ -2835,7 +2851,7 @@ class AsyncInferenceClient:
         ...     model="m-a-p/YuE-s1-7B-anneal-en-cot",
         ...     api_key=...,
         ... )
-        >>> audio = client.text_to_speech(lyrics, extra_parameters={"genres": genres})
+        >>> audio = client.text_to_speech(lyrics, extra_body={"genres": genres})
         >>> with open("output.mp3", "wb") as f:
         ...     f.write(audio)
         ```
@@ -2860,7 +2876,7 @@ class AsyncInferenceClient:
                 "top_p": top_p,
                 "typical_p": typical_p,
                 "use_cache": use_cache,
-                **(extra_parameters or {}),
+                **(extra_body or {}),
             },
             headers=self.headers,
             model=model or self.model,
@@ -3093,22 +3109,14 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return VisualQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
-    @_deprecate_arguments(
-        version="0.30.0",
-        deprecated_args=["labels"],
-        custom_message="`labels`has been renamed to `candidate_labels` and will be removed in huggingface_hub>=0.30.0.",
-    )
     async def zero_shot_classification(
         self,
         text: str,
-        # temporarily keeping it optional for backward compatibility.
-        candidate_labels: List[str] = None,  # type: ignore
+        candidate_labels: List[str],
         *,
         multi_label: Optional[bool] = False,
         hypothesis_template: Optional[str] = None,
         model: Optional[str] = None,
-        # deprecated argument
-        labels: List[str] = None,  # type: ignore
     ) -> List[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
@@ -3189,16 +3197,6 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        # handle deprecation
-        if labels is not None:
-            if candidate_labels is not None:
-                raise ValueError(
-                    "Cannot specify both `labels` and `candidate_labels`. Use `candidate_labels` instead."
-                )
-            candidate_labels = labels
-        elif candidate_labels is None:
-            raise ValueError("Must specify `candidate_labels`")
-
         provider_helper = get_provider_helper(self.provider, task="zero-shot-classification")
         request_parameters = provider_helper.prepare_request(
             inputs=text,
@@ -3218,16 +3216,10 @@ class AsyncInferenceClient:
             for label, score in zip(output["labels"], output["scores"])
         ]
 
-    @_deprecate_arguments(
-        version="0.30.0",
-        deprecated_args=["labels"],
-        custom_message="`labels`has been renamed to `candidate_labels` and will be removed in huggingface_hub>=0.30.0.",
-    )
     async def zero_shot_image_classification(
         self,
         image: ContentT,
-        # temporarily keeping it optional for backward compatibility.
-        candidate_labels: List[str] = None,  # type: ignore
+        candidate_labels: List[str],
         *,
         model: Optional[str] = None,
         hypothesis_template: Optional[str] = None,
@@ -3273,15 +3265,6 @@ class AsyncInferenceClient:
         [ZeroShotImageClassificationOutputElement(label='dog', score=0.956),...]
         ```
         """
-        # handle deprecation
-        if labels is not None:
-            if candidate_labels is not None:
-                raise ValueError(
-                    "Cannot specify both `labels` and `candidate_labels`. Use `candidate_labels` instead."
-                )
-            candidate_labels = labels
-        elif candidate_labels is None:
-            raise ValueError("Must specify `candidate_labels`")
         # Raise ValueError if input is less than 2 labels
         if len(candidate_labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare.")
@@ -3300,6 +3283,13 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
+    @_deprecate_method(
+        version="0.33.0",
+        message=(
+            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
+            " Use `HfApi.list_models(..., inference_provider='...')` to list warm models per provider."
+        ),
+    )
     async def list_deployed_models(
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
     ) -> Dict[str, List[str]]:
@@ -3357,9 +3347,9 @@ class AsyncInferenceClient:
 
         # Resolve which frameworks to check
         if frameworks is None:
-            frameworks = MAIN_INFERENCE_API_FRAMEWORKS
+            frameworks = constants.MAIN_INFERENCE_API_FRAMEWORKS
         elif frameworks == "all":
-            frameworks = ALL_INFERENCE_API_FRAMEWORKS
+            frameworks = constants.ALL_INFERENCE_API_FRAMEWORKS
         elif isinstance(frameworks, str):
             frameworks = [frameworks]
         frameworks = list(set(frameworks))
@@ -3379,7 +3369,7 @@ class AsyncInferenceClient:
 
         for framework in frameworks:
             response = get_session().get(
-                f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
+                f"{constants.INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
             )
             hf_raise_for_status(response)
             _unpack_response(framework, response.json())
@@ -3483,7 +3473,7 @@ class AsyncInferenceClient:
         if model.startswith(("http://", "https://")):
             url = model.rstrip("/") + "/info"
         else:
-            url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
+            url = f"{constants.INFERENCE_ENDPOINT}/models/{model}/info"
 
         async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
             response = await client.get(url, proxy=self.proxies)
@@ -3529,6 +3519,13 @@ class AsyncInferenceClient:
             response = await client.get(url, proxy=self.proxies)
             return response.status == 200
 
+    @_deprecate_method(
+        version="0.33.0",
+        message=(
+            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
+            " Use `HfApi.model_info` to get the model status both with HF Inference API and external providers."
+        ),
+    )
     async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
         Get the status of a model hosted on the HF Inference API.
@@ -3568,7 +3565,7 @@ class AsyncInferenceClient:
             raise ValueError("Model id not provided.")
         if model.startswith("https://"):
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
-        url = f"{INFERENCE_ENDPOINT}/status/{model}"
+        url = f"{constants.INFERENCE_ENDPOINT}/status/{model}"
 
         async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
             response = await client.get(url, proxy=self.proxies)

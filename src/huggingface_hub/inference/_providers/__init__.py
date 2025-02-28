@@ -1,32 +1,48 @@
 from typing import Dict, Literal
 
-from .._common import TaskProviderHelper
+from ._common import TaskProviderHelper
+from .black_forest_labs import BlackForestLabsTextToImageTask
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAITextToImageTask,
     FalAITextToSpeechTask,
     FalAITextToVideoTask,
 )
+from .fireworks_ai import FireworksAIConversationalTask
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
+from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
+from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
+from .novita import NovitaConversationalTask, NovitaTextGenerationTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask
-from .together import TogetherTextGenerationTask, TogetherTextToImageTask
+from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
 
 
 PROVIDER_T = Literal[
+    "black-forest-labs",
     "fal-ai",
+    "fireworks-ai",
     "hf-inference",
+    "hyperbolic",
+    "nebius",
+    "novita",
     "replicate",
     "sambanova",
     "together",
 ]
 
 PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
+    "black-forest-labs": {
+        "text-to-image": BlackForestLabsTextToImageTask(),
+    },
     "fal-ai": {
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),
         "text-to-image": FalAITextToImageTask(),
         "text-to-speech": FalAITextToSpeechTask(),
         "text-to-video": FalAITextToVideoTask(),
+    },
+    "fireworks-ai": {
+        "conversational": FireworksAIConversationalTask(),
     },
     "hf-inference": {
         "text-to-image": HFInferenceTask("text-to-image"),
@@ -41,9 +57,9 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "image-classification": HFInferenceBinaryInputTask("image-classification"),
         "image-segmentation": HFInferenceBinaryInputTask("image-segmentation"),
         "document-question-answering": HFInferenceTask("document-question-answering"),
-        "image-to-text": HFInferenceTask("image-to-text"),
+        "image-to-text": HFInferenceBinaryInputTask("image-to-text"),
         "object-detection": HFInferenceBinaryInputTask("object-detection"),
-        "audio-to-audio": HFInferenceTask("audio-to-audio"),
+        "audio-to-audio": HFInferenceBinaryInputTask("audio-to-audio"),
         "zero-shot-image-classification": HFInferenceBinaryInputTask("zero-shot-image-classification"),
         "zero-shot-classification": HFInferenceTask("zero-shot-classification"),
         "image-to-image": HFInferenceBinaryInputTask("image-to-image"),
@@ -56,6 +72,20 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "summarization": HFInferenceTask("summarization"),
         "visual-question-answering": HFInferenceBinaryInputTask("visual-question-answering"),
     },
+    "hyperbolic": {
+        "text-to-image": HyperbolicTextToImageTask(),
+        "conversational": HyperbolicTextGenerationTask("conversational"),
+        "text-generation": HyperbolicTextGenerationTask("text-generation"),
+    },
+    "nebius": {
+        "text-to-image": NebiusTextToImageTask(),
+        "conversational": NebiusConversationalTask(),
+        "text-generation": NebiusTextGenerationTask(),
+    },
+    "novita": {
+        "text-generation": NovitaTextGenerationTask(),
+        "conversational": NovitaConversationalTask(),
+    },
     "replicate": {
         "text-to-image": ReplicateTask("text-to-image"),
         "text-to-speech": ReplicateTextToSpeechTask(),
@@ -66,8 +96,8 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     },
     "together": {
         "text-to-image": TogetherTextToImageTask(),
-        "conversational": TogetherTextGenerationTask("conversational"),
-        "text-generation": TogetherTextGenerationTask("text-generation"),
+        "conversational": TogetherConversationalTask(),
+        "text-generation": TogetherTextGenerationTask(),
     },
 }
 

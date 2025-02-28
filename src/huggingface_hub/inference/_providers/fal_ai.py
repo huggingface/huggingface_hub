@@ -1,111 +1,31 @@
 import base64
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any, Dict, Optional, Union
 
-from huggingface_hub import constants
-from huggingface_hub.inference._common import RequestParameters, TaskProviderHelper, _as_dict
-from huggingface_hub.utils import build_hf_headers, get_session, get_token, logging
-
-
-logger = logging.get_logger(__name__)
-
-
-BASE_URL = "https://fal.run"
-
-SUPPORTED_MODELS = {
-    "automatic-speech-recognition": {
-        "openai/whisper-large-v3": "fal-ai/whisper",
-    },
-    "text-to-image": {
-        "black-forest-labs/FLUX.1-dev": "fal-ai/flux/dev",
-        "black-forest-labs/FLUX.1-schnell": "fal-ai/flux/schnell",
-        "ByteDance/SDXL-Lightning": "fal-ai/lightning-models",
-        "fal/AuraFlow-v0.2": "fal-ai/aura-flow",
-        "Kwai-Kolors/Kolors": "fal-ai/kolors",
-        "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS": "fal-ai/pixart-sigma",
-        "playgroundai/playground-v2.5-1024px-aesthetic": "fal-ai/playground-v25",
-        "stabilityai/stable-diffusion-3-medium": "fal-ai/stable-diffusion-v3-medium",
-        "stabilityai/stable-diffusion-3.5-large": "fal-ai/stable-diffusion-v35-large",
-        "Warlord-K/Sana-1024": "fal-ai/sana",
-    },
-    "text-to-speech": {
-        "m-a-p/YuE-s1-7B-anneal-en-cot": "fal-ai/yue",
-    },
-    "text-to-video": {
-        "genmo/mochi-1-preview": "fal-ai/mochi-v1",
-        "tencent/HunyuanVideo": "fal-ai/hunyuan-video",
-    },
-}
+from huggingface_hub.inference._common import _as_dict
+from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
+from huggingface_hub.utils import get_session
 
 
 class FalAITask(TaskProviderHelper, ABC):
-    """Base class for FalAI API tasks."""
-
     def __init__(self, task: str):
-        self.task = task
+        super().__init__(provider="fal-ai", base_url="https://fal.run", task=task)
 
-    def prepare_request(
-        self,
-        *,
-        inputs: Any,
-        parameters: Dict[str, Any],
-        headers: Dict,
-        model: Optional[str],
-        api_key: Optional[str],
-        extra_payload: Optional[Dict[str, Any]] = None,
-    ) -> RequestParameters:
-        if api_key is None:
-            api_key = get_token()
-        if api_key is None:
-            raise ValueError(
-                "You must provide an api_key to work with fal.ai API or log in with `huggingface-cli login`."
-            )
-
-        mapped_model = self._map_model(model)
-        headers = {
-            **build_hf_headers(token=api_key),
-            **headers,
-        }
-
-        # Route to the proxy if the api_key is a HF TOKEN
-        if api_key.startswith("hf_"):
-            base_url = constants.INFERENCE_PROXY_TEMPLATE.format(provider="fal-ai")
-            logger.info("Calling fal.ai provider through Hugging Face proxy.")
-        else:
-            base_url = BASE_URL
+    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+        headers = super()._prepare_headers(headers, api_key)
+        if not api_key.startswith("hf_"):
             headers["authorization"] = f"Key {api_key}"
-            logger.info("Calling fal.ai provider directly.")
+        return headers
 
-        payload = self._prepare_payload(inputs, parameters=parameters)
-
-        return RequestParameters(
-            url=f"{base_url}/{mapped_model}",
-            task=self.task,
-            model=mapped_model,
-            json=payload,
-            data=None,
-            headers=headers,
-        )
-
-    def _map_model(self, model: Optional[str]) -> str:
-        if model is None:
-            raise ValueError("Please provide a model available on FalAI.")
-        if self.task not in SUPPORTED_MODELS:
-            raise ValueError(f"Task {self.task} not supported with FalAI.")
-        mapped_model = SUPPORTED_MODELS[self.task].get(model)
-        if mapped_model is None:
-            raise ValueError(f"Model {model} is not supported with FalAI for task {self.task}.")
-        return mapped_model
-
-    @abstractmethod
-    def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]: ...
+    def _prepare_route(self, mapped_model: str) -> str:
+        return f"/{mapped_model}"
 
 
 class FalAIAutomaticSpeechRecognitionTask(FalAITask):
     def __init__(self):
         super().__init__("automatic-speech-recognition")
 
-    def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         if isinstance(inputs, str) and inputs.startswith(("http://", "https://")):
             # If input is a URL, pass it directly
             audio_url = inputs
@@ -119,10 +39,7 @@ class FalAIAutomaticSpeechRecognitionTask(FalAITask):
             content_type = "audio/mpeg"
             audio_url = f"data:{content_type};base64,{audio_b64}"
 
-        return {
-            "audio_url": audio_url,
-            **{k: v for k, v in parameters.items() if v is not None},
-        }
+        return {"audio_url": audio_url, **filter_none(parameters)}
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         text = _as_dict(response)["text"]
@@ -135,8 +52,8 @@ class FalAITextToImageTask(FalAITask):
     def __init__(self):
         super().__init__("text-to-image")
 
-    def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
-        parameters = {k: v for k, v in parameters.items() if v is not None}
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+        parameters = filter_none(parameters)
         if "width" in parameters and "height" in parameters:
             parameters["image_size"] = {
                 "width": parameters.pop("width"),
@@ -153,11 +70,8 @@ class FalAITextToSpeechTask(FalAITask):
     def __init__(self):
         super().__init__("text-to-speech")
 
-    def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "lyrics": inputs,
-            **{k: v for k, v in parameters.items() if v is not None},
-        }
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+        return {"lyrics": inputs, **filter_none(parameters)}
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         url = _as_dict(response)["audio"]["url"]
@@ -168,9 +82,8 @@ class FalAITextToVideoTask(FalAITask):
     def __init__(self):
         super().__init__("text-to-video")
 
-    def _prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
-        parameters = {k: v for k, v in parameters.items() if v is not None}
-        return {"prompt": inputs, **parameters}
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+        return {"prompt": inputs, **filter_none(parameters)}
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
         url = _as_dict(response)["video"]["url"]

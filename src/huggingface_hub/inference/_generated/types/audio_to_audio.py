@@ -3,13 +3,12 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class AudioToAudioInput(BaseInferenceType):
     """Inputs for Audio to Audio inference"""
 
@@ -17,7 +16,7 @@ class AudioToAudioInput(BaseInferenceType):
     """The input audio data"""
 
 
-@dataclass
+@dataclass_with_extra
 class AudioToAudioOutputElement(BaseInferenceType):
     """Outputs of inference for the Audio To Audio task
     A generated audio file with its label.

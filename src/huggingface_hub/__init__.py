@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.29.0.dev0"
+__version__ = "0.30.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -392,7 +392,6 @@ _SUBMOD_ATTRS = {
         "TextToImageInput",
         "TextToImageOutput",
         "TextToImageParameters",
-        "TextToImageTargetSize",
         "TextToSpeechEarlyStoppingEnum",
         "TextToSpeechGenerationParameters",
         "TextToSpeechInput",
@@ -702,7 +701,6 @@ __all__ = [
     "TextToImageInput",
     "TextToImageOutput",
     "TextToImageParameters",
-    "TextToImageTargetSize",
     "TextToSpeechEarlyStoppingEnum",
     "TextToSpeechGenerationParameters",
     "TextToSpeechInput",
@@ -1334,7 +1332,6 @@ if TYPE_CHECKING:  # pragma: no cover
         TextToImageInput,  # noqa: F401
         TextToImageOutput,  # noqa: F401
         TextToImageParameters,  # noqa: F401
-        TextToImageTargetSize,  # noqa: F401
         TextToSpeechEarlyStoppingEnum,  # noqa: F401
         TextToSpeechGenerationParameters,  # noqa: F401
         TextToSpeechInput,  # noqa: F401

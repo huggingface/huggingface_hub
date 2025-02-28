@@ -74,7 +74,7 @@ TASKS_TO_SKIP = [
 
 PARAMETERS_DATACLASS_REGEX = re.compile(
     r"""
-    ^@dataclass
+    ^@dataclass_with_extra
     \nclass\s(\w+Parameters)\(BaseInferenceType\):
     """,
     re.VERBOSE | re.MULTILINE,
@@ -90,7 +90,7 @@ CORE_PARAMETERS = {
     "question",  # For QA tasks
     "context",  # For QA tasks
     "labels",  # For classification tasks
-    "extra_parameters",  # For extra parameters
+    "extra_body",  # For extra parameters
 }
 
 #### NODE VISITORS (READING THE CODE)

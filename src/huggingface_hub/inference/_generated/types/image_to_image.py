@@ -3,13 +3,12 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class ImageToImageTargetSize(BaseInferenceType):
     """The size in pixel of the output image."""
 
@@ -17,7 +16,7 @@ class ImageToImageTargetSize(BaseInferenceType):
     width: int
 
 
-@dataclass
+@dataclass_with_extra
 class ImageToImageParameters(BaseInferenceType):
     """Additional inference parameters for Image To Image"""
 
@@ -35,7 +34,7 @@ class ImageToImageParameters(BaseInferenceType):
     """The size in pixel of the output image."""
 
 
-@dataclass
+@dataclass_with_extra
 class ImageToImageInput(BaseInferenceType):
     """Inputs for Image To Image inference"""
 
@@ -47,7 +46,7 @@ class ImageToImageInput(BaseInferenceType):
     """Additional inference parameters for Image To Image"""
 
 
-@dataclass
+@dataclass_with_extra
 class ImageToImageOutput(BaseInferenceType):
     """Outputs of inference for the Image To Image task"""
 

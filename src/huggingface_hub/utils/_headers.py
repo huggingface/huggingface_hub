@@ -213,6 +213,11 @@ def _http_user_agent(
     elif isinstance(user_agent, str):
         ua += "; " + user_agent
 
+    # Retrieve user-agent origin headers from environment variable
+    origin = constants.HF_HUB_USER_AGENT_ORIGIN
+    if origin is not None:
+        ua += "; origin/" + origin
+
     return _deduplicate_user_agent(ua)
 
 

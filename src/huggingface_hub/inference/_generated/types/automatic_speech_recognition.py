@@ -3,16 +3,15 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import List, Literal, Optional, Union
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 AutomaticSpeechRecognitionEarlyStoppingEnum = Literal["never"]
 
 
-@dataclass
+@dataclass_with_extra
 class AutomaticSpeechRecognitionGenerationParameters(BaseInferenceType):
     """Parametrization of the text generation process"""
 
@@ -72,7 +71,7 @@ class AutomaticSpeechRecognitionGenerationParameters(BaseInferenceType):
     """Whether the model should use the past last key/values attentions to speed up decoding"""
 
 
-@dataclass
+@dataclass_with_extra
 class AutomaticSpeechRecognitionParameters(BaseInferenceType):
     """Additional inference parameters for Automatic Speech Recognition"""
 
@@ -83,7 +82,7 @@ class AutomaticSpeechRecognitionParameters(BaseInferenceType):
     """Parametrization of the text generation process"""
 
 
-@dataclass
+@dataclass_with_extra
 class AutomaticSpeechRecognitionInput(BaseInferenceType):
     """Inputs for Automatic Speech Recognition inference"""
 
@@ -95,15 +94,15 @@ class AutomaticSpeechRecognitionInput(BaseInferenceType):
     """Additional inference parameters for Automatic Speech Recognition"""
 
 
-@dataclass
+@dataclass_with_extra
 class AutomaticSpeechRecognitionOutputChunk(BaseInferenceType):
     text: str
     """A chunk of text identified by the model"""
-    timestamps: List[float]
+    timestamp: List[float]
     """The start and end timestamps corresponding with the text"""
 
 
-@dataclass
+@dataclass_with_extra
 class AutomaticSpeechRecognitionOutput(BaseInferenceType):
     """Outputs of inference for the Automatic Speech Recognition task"""
 

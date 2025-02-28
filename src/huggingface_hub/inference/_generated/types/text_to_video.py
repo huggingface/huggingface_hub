@@ -3,13 +3,12 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, List, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class TextToVideoParameters(BaseInferenceType):
     """Additional inference parameters for Text To Video"""
 
@@ -29,7 +28,7 @@ class TextToVideoParameters(BaseInferenceType):
     """Seed for the random number generator."""
 
 
-@dataclass
+@dataclass_with_extra
 class TextToVideoInput(BaseInferenceType):
     """Inputs for Text To Video inference"""
 
@@ -39,7 +38,7 @@ class TextToVideoInput(BaseInferenceType):
     """Additional inference parameters for Text To Video"""
 
 
-@dataclass
+@dataclass_with_extra
 class TextToVideoOutput(BaseInferenceType):
     """Outputs of inference for the Text To Video task"""
 

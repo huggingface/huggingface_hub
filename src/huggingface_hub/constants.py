@@ -63,11 +63,13 @@ _staging_mode = _is_true(os.environ.get("HUGGINGFACE_CO_STAGING"))
 
 _HF_DEFAULT_ENDPOINT = "https://huggingface.co"
 _HF_DEFAULT_STAGING_ENDPOINT = "https://hub-ci.huggingface.co"
-ENDPOINT = os.getenv("HF_ENDPOINT", "").rstrip("/") or (
-    _HF_DEFAULT_STAGING_ENDPOINT if _staging_mode else _HF_DEFAULT_ENDPOINT
-)
-
+ENDPOINT = os.getenv("HF_ENDPOINT", _HF_DEFAULT_ENDPOINT).rstrip("/")
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
+
+if _staging_mode:
+    ENDPOINT = _HF_DEFAULT_STAGING_ENDPOINT
+    HUGGINGFACE_CO_URL_TEMPLATE = _HF_DEFAULT_STAGING_ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
+
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
 HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
 HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
@@ -78,7 +80,7 @@ INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-infere
 INFERENCE_ENDPOINTS_ENDPOINT = "https://api.endpoints.huggingface.cloud/v2"
 
 # Proxy for third-party providers
-INFERENCE_PROXY_TEMPLATE = ENDPOINT + "/api/inference-proxy/{provider}"
+INFERENCE_PROXY_TEMPLATE = "https://router.huggingface.co/{provider}"
 
 REPO_ID_SEPARATOR = "--"
 # ^ this substring is not allowed in repo_ids on hf.co
@@ -132,6 +134,10 @@ HF_ASSETS_CACHE = os.getenv("HF_ASSETS_CACHE", HUGGINGFACE_ASSETS_CACHE)
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
 
+# If set, log level will be set to DEBUG and all requests made to the Hub will be logged
+# as curl commands for reproducibility.
+HF_DEBUG = _is_true(os.environ.get("HF_DEBUG"))
+
 # Opt-out from telemetry requests
 HF_HUB_DISABLE_TELEMETRY = (
     _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY"))  # HF-specific env variable
@@ -139,18 +145,15 @@ HF_HUB_DISABLE_TELEMETRY = (
     or _is_true(os.environ.get("DO_NOT_TRACK"))  # https://consoledonottrack.com/
 )
 
-# In the past, token was stored in a hardcoded location
-# `_OLD_HF_TOKEN_PATH` is deprecated and will be removed "at some point".
-# See https://github.com/huggingface/huggingface_hub/issues/1232
-_OLD_HF_TOKEN_PATH = os.path.expanduser("~/.huggingface/token")
 HF_TOKEN_PATH = os.environ.get("HF_TOKEN_PATH", os.path.join(HF_HOME, "token"))
 HF_STORED_TOKENS_PATH = os.path.join(os.path.dirname(HF_TOKEN_PATH), "stored_tokens")
 
 if _staging_mode:
     # In staging mode, we use a different cache to ensure we don't mix up production and staging data or tokens
+    # In practice in `huggingface_hub` tests, we monkeypatch these values with temporary directories. The following
+    # lines are only used in third-party libraries tests (e.g. `transformers`, `diffusers`, etc.).
     _staging_home = os.path.join(os.path.expanduser("~"), ".cache", "huggingface_staging")
     HUGGINGFACE_HUB_CACHE = os.path.join(_staging_home, "hub")
-    _OLD_HF_TOKEN_PATH = os.path.join(_staging_home, "_old_token")
     HF_TOKEN_PATH = os.path.join(_staging_home, "token")
 
 # Here, `True` will disable progress bars globally without possibility of enabling it
@@ -190,6 +193,9 @@ HF_HUB_ETAG_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_ETAG_TIMEOUT")) or DEF
 
 # Used to override the get request timeout on a system level
 HF_HUB_DOWNLOAD_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_DOWNLOAD_TIMEOUT")) or DEFAULT_DOWNLOAD_TIMEOUT
+
+# Allows to add information about the requester in the user-agent (eg. partner name)
+HF_HUB_USER_AGENT_ORIGIN: Optional[str] = os.environ.get("HF_HUB_USER_AGENT_ORIGIN")
 
 # List frameworks that are handled by the InferenceAPI service. Useful to scan endpoints and check which models are
 # deployed and running. Since 95% of the models are using the top 4 frameworks listed below, we scan only those by

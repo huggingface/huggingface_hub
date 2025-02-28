@@ -3,13 +3,12 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, List, Literal, Optional, Union
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionInputURL(BaseInferenceType):
     url: str
 
@@ -17,14 +16,14 @@ class ChatCompletionInputURL(BaseInferenceType):
 ChatCompletionInputMessageChunkType = Literal["text", "image_url"]
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionInputMessageChunk(BaseInferenceType):
     type: "ChatCompletionInputMessageChunkType"
     image_url: Optional[ChatCompletionInputURL] = None
     text: Optional[str] = None
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionInputMessage(BaseInferenceType):
     content: Union[List[ChatCompletionInputMessageChunk], str]
     role: str
@@ -34,7 +33,7 @@ class ChatCompletionInputMessage(BaseInferenceType):
 ChatCompletionInputGrammarTypeType = Literal["json", "regex"]
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionInputGrammarType(BaseInferenceType):
     type: "ChatCompletionInputGrammarTypeType"
     value: Any
@@ -44,7 +43,7 @@ class ChatCompletionInputGrammarType(BaseInferenceType):
     """
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionInputStreamOptions(BaseInferenceType):
     include_usage: bool
     """If set, an additional chunk will be streamed before the data: [DONE] message. The usage
@@ -54,12 +53,12 @@ class ChatCompletionInputStreamOptions(BaseInferenceType):
     """
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionInputFunctionName(BaseInferenceType):
     name: str
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionInputToolChoiceClass(BaseInferenceType):
     function: ChatCompletionInputFunctionName
 
@@ -67,20 +66,20 @@ class ChatCompletionInputToolChoiceClass(BaseInferenceType):
 ChatCompletionInputToolChoiceEnum = Literal["auto", "none", "required"]
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionInputFunctionDefinition(BaseInferenceType):
     arguments: Any
     name: str
     description: Optional[str] = None
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionInputTool(BaseInferenceType):
     function: ChatCompletionInputFunctionDefinition
     type: str
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionInput(BaseInferenceType):
     """Chat Completion Input.
     Auto-generated from TGI specs.
@@ -162,46 +161,46 @@ class ChatCompletionInput(BaseInferenceType):
     """
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionOutputTopLogprob(BaseInferenceType):
     logprob: float
     token: str
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionOutputLogprob(BaseInferenceType):
     logprob: float
     token: str
     top_logprobs: List[ChatCompletionOutputTopLogprob]
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionOutputLogprobs(BaseInferenceType):
     content: List[ChatCompletionOutputLogprob]
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionOutputFunctionDefinition(BaseInferenceType):
     arguments: Any
     name: str
     description: Optional[str] = None
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionOutputToolCall(BaseInferenceType):
     function: ChatCompletionOutputFunctionDefinition
     id: str
     type: str
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionOutputMessage(BaseInferenceType):
     role: str
     content: Optional[str] = None
     tool_calls: Optional[List[ChatCompletionOutputToolCall]] = None
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionOutputComplete(BaseInferenceType):
     finish_reason: str
     index: int
@@ -209,14 +208,14 @@ class ChatCompletionOutputComplete(BaseInferenceType):
     logprobs: Optional[ChatCompletionOutputLogprobs] = None
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionOutputUsage(BaseInferenceType):
     completion_tokens: int
     prompt_tokens: int
     total_tokens: int
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionOutput(BaseInferenceType):
     """Chat Completion Output.
     Auto-generated from TGI specs.
@@ -232,13 +231,13 @@ class ChatCompletionOutput(BaseInferenceType):
     usage: ChatCompletionOutputUsage
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionStreamOutputFunction(BaseInferenceType):
     arguments: str
     name: Optional[str] = None
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionStreamOutputDeltaToolCall(BaseInferenceType):
     function: ChatCompletionStreamOutputFunction
     id: str
@@ -246,32 +245,32 @@ class ChatCompletionStreamOutputDeltaToolCall(BaseInferenceType):
     type: str
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionStreamOutputDelta(BaseInferenceType):
     role: str
     content: Optional[str] = None
     tool_calls: Optional[ChatCompletionStreamOutputDeltaToolCall] = None
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionStreamOutputTopLogprob(BaseInferenceType):
     logprob: float
     token: str
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionStreamOutputLogprob(BaseInferenceType):
     logprob: float
     token: str
     top_logprobs: List[ChatCompletionStreamOutputTopLogprob]
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionStreamOutputLogprobs(BaseInferenceType):
     content: List[ChatCompletionStreamOutputLogprob]
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionStreamOutputChoice(BaseInferenceType):
     delta: ChatCompletionStreamOutputDelta
     index: int
@@ -279,14 +278,14 @@ class ChatCompletionStreamOutputChoice(BaseInferenceType):
     logprobs: Optional[ChatCompletionStreamOutputLogprobs] = None
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionStreamOutputUsage(BaseInferenceType):
     completion_tokens: int
     prompt_tokens: int
     total_tokens: int
 
 
-@dataclass
+@dataclass_with_extra
 class ChatCompletionStreamOutput(BaseInferenceType):
     """Chat Completion Stream Output.
     Auto-generated from TGI specs.

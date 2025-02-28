@@ -24,7 +24,7 @@ interactions:
       - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
         fastcore/1.5.23
     method: POST
-    uri: https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-orpo-141b-A35b-v0.1
+    uri: https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-orpo-141b-A35b-v0.1
   response:
     body:
       string: '[{"generated_text":"{\n\n    \"activity\" :  \"biking\",\n     \"animals\":

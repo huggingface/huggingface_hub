@@ -1,0 +1,154 @@
+interactions:
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-fast",
+      "max_tokens": 20, "stream": true}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '221'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 680921f0-d15a-4e88-bdc4-5bb2453024c4
+    method: POST
+    uri: https://router.huggingface.co/nebius/v1/chat/completions
+  response:
+    body:
+      string: 'data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"","role":"assistant"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"Deep"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        learning"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        is"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        a"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        subset"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        of"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        machine"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        learning"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        that"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        involves"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        the"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        use"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        of"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        artificial"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        neural"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        networks"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"
+        ("},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"ANN"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":"s"},"finish_reason":null,"index":0,"logprobs":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-c5307923a67746b2b642cd528fde10cd","choices":[{"delta":{"content":")"},"finish_reason":"length","index":0,"logprobs":null,"stop_reason":null}],"created":1739809055,"model":"meta-llama/Meta-Llama-3.1-8B-Instruct-fast","object":"chat.completion.chunk"}
+
+
+        data: [DONE]
+
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Type:
+      - text/event-stream; charset=utf-8
+      Date:
+      - Mon, 17 Feb 2025 16:17:35 GMT
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      Via:
+      - 1.1 c2c9a285d2a1960107e9c187a72a9112.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - CbZ6j8fztvNALOJj97n9YQUZrxq6R-QIFKbWvytiy_3oDXtRVmHmyA==
+      X-Amz-Cf-Pop:
+      - CDG55-P3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-67b3611f-54cf49f22c98a6532fe656c4;680921f0-d15a-4e88-bdc4-5bb2453024c4
+      cross-origin-opener-policy:
+      - same-origin
+      strict-transport-security:
+      - max-age=15724800; includeSubDomains
+      x-ratelimit-limit-requests:
+      - '600'
+      x-ratelimit-limit-tokens:
+      - '400000'
+      x-ratelimit-remaining-requests:
+      - '599'
+      x-ratelimit-remaining-tokens:
+      - '399973'
+      x-ratelimit-reset-requests:
+      - 1s
+      x-ratelimit-reset-tokens:
+      - 1s
+    status:
+      code: 200
+      message: OK
+version: 1

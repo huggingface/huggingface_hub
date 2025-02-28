@@ -54,21 +54,34 @@ class SpaceHardware(str, Enum):
     assert SpaceHardware.CPU_BASIC == "cpu-basic"
     ```
 
-    Taken from https://github.com/huggingface/moon-landing/blob/main/server/repo_types/SpaceInfo.ts#L73 (private url).
+    Taken from https://github.com/huggingface-internal/moon-landing/blob/main/server/repo_types/SpaceHardwareFlavor.ts (private url).
     """
 
+    # CPU
     CPU_BASIC = "cpu-basic"
     CPU_UPGRADE = "cpu-upgrade"
+    CPU_XL = "cpu-xl"
+
+    # ZeroGPU
+    ZERO_A10G = "zero-a10g"
+
+    # GPU
     T4_SMALL = "t4-small"
     T4_MEDIUM = "t4-medium"
     L4X1 = "l4x1"
     L4X4 = "l4x4"
-    ZERO_A10G = "zero-a10g"
+    L40SX1 = "l40sx1"
+    L40SX4 = "l40sx4"
+    L40SX8 = "l40sx8"
     A10G_SMALL = "a10g-small"
     A10G_LARGE = "a10g-large"
     A10G_LARGEX2 = "a10g-largex2"
     A10G_LARGEX4 = "a10g-largex4"
     A100_LARGE = "a100-large"
+    H100 = "h100"
+    H100X8 = "h100x8"
+
+    # TPU
     V5E_1X1 = "v5e-1x1"
     V5E_2X2 = "v5e-2x2"
     V5E_2X4 = "v5e-2x4"

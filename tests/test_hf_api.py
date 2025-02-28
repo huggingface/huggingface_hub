@@ -1917,10 +1917,12 @@ class HfApiPublicProductionTest(unittest.TestCase):
         for model in self._api.list_models(expand=["gated"], gated=False, limit=5):
             assert model.gated is False
 
+    @pytest.mark.skip("Inference parameter is being revamped")
     def test_list_models_inference_warm(self):
         for model in self._api.list_models(inference=["warm"], expand="inference", limit=5):
             assert model.inference == "warm"
 
+    @pytest.mark.skip("Inference parameter is being revamped")
     def test_list_models_inference_cold(self):
         for model in self._api.list_models(inference=["cold"], expand="inference", limit=5):
             assert model.inference == "cold"
@@ -2164,20 +2166,17 @@ class HfApiPublicProductionTest(unittest.TestCase):
         dataset = self._api.dataset_info(repo_id=DUMMY_DATASET_ID)
         assert isinstance(dataset.card_data, DatasetCardData) and len(dataset.card_data) > 0
         assert isinstance(dataset.siblings, list) and len(dataset.siblings) > 0
-        self.assertIsInstance(dataset, DatasetInfo)
-        self.assertNotEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
+        assert isinstance(dataset, DatasetInfo)
+        assert dataset.sha != DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT
         dataset = self._api.dataset_info(
             repo_id=DUMMY_DATASET_ID,
             revision=DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
         )
-        self.assertIsInstance(dataset, DatasetInfo)
-        self.assertEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
+        assert isinstance(dataset, DatasetInfo)
+        assert dataset.sha == DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT
 
     def test_dataset_info_with_file_metadata(self):
-        dataset = self._api.dataset_info(
-            repo_id=SAMPLE_DATASET_IDENTIFIER,
-            files_metadata=True,
-        )
+        dataset = self._api.dataset_info(repo_id=SAMPLE_DATASET_IDENTIFIER, files_metadata=True)
         files = dataset.siblings
         assert files is not None
         self._check_siblings_metadata(files)
