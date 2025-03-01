@@ -31,7 +31,7 @@ Usage:
     huggingface-cli upload my-cool-model ./model/training /logs --include "*.tfevents.*" --exclude "*20230905*"
 
     # Upload with wildcard
-    huggingface-cli upload my-cool-model ./model/training/*.safetensors
+    huggingface-cli upload my-cool-model "./model/training/*.safetensors"
 
     # Upload private dataset
     huggingface-cli upload Wauplin/my-cool-dataset ./data . --repo-type=dataset --private
