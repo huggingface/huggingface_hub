@@ -74,7 +74,7 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         upload_parser.add_argument(
             "local_path",
             nargs="?",
-            help="Local path to the file or folder to upload. Wildcard patterns are supported, but not with `--include` or `path_in_repo`. Defaults to current directory.",
+            help="Local path to the file or folder to upload. Wildcard patterns are supported. Defaults to current directory.",
         )
         upload_parser.add_argument(
             "path_in_repo",
