@@ -9,6 +9,7 @@ from huggingface_hub.file_download import (
     hf_hub_download,
     hf_hub_url,
     try_to_load_from_cache,
+    xet_get,
 )
 from huggingface_hub.utils import XetMetadata
 
@@ -94,14 +95,18 @@ class TestXetFileDownload:
         assert xet_metadata.refresh_route is not None
 
     def test_basic_download(self, tmp_path):
-        filepath = hf_hub_download(
-            DUMMY_XET_MODEL_ID,
-            filename=DUMMY_XET_FILE,
-            cache_dir=tmp_path,
-        )
+        # Make sure that xet_get is called
+        with patch("huggingface_hub.file_download.xet_get", wraps=xet_get) as _xet_get:
+            filepath = hf_hub_download(
+                DUMMY_XET_MODEL_ID,
+                filename=DUMMY_XET_FILE,
+                cache_dir=tmp_path,
+            )
 
-        assert os.path.exists(filepath)
-        assert os.path.getsize(filepath) > 0
+            assert os.path.exists(filepath)
+            assert os.path.getsize(filepath) > 0
+
+            _xet_get.assert_called_once()
 
     def test_try_to_load_from_cache(self, tmp_path):
         cached_path = try_to_load_from_cache(

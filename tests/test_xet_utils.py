@@ -13,9 +13,9 @@ from huggingface_hub.utils._xet import (
 
 def test_parse_valid_headers_minimal() -> None:
     headers = {
-        constants.HUGGINGFACE_HEADER_X_XET_ENDPOINT: "https://xet.example.com",
-        constants.HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN: "xet_token_abc",
-        constants.HUGGINGFACE_HEADER_X_XET_EXPIRATION: "1234567890",
+        "X-Xet-Cas-Url": "https://xet.example.com",
+        "X-Xet-Access-Token": "xet_token_abc",
+        "X-Xet-Token-Expiration": "1234567890",
     }
 
     metadata = parse_xet_headers(headers)
@@ -30,11 +30,11 @@ def test_parse_valid_headers_minimal() -> None:
 
 def test_parse_valid_headers_full() -> None:
     headers = {
-        constants.HUGGINGFACE_HEADER_X_XET_ENDPOINT: "https://xet.example.com",
-        constants.HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN: "xet_token_abc",
-        constants.HUGGINGFACE_HEADER_X_XET_EXPIRATION: "1234567890",
-        constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE: "/api/refresh",
-        constants.HUGGINGFACE_HEADER_X_XET_HASH: "sha256:abcdef",
+        "X-Xet-Cas-Url": "https://xet.example.com",
+        "X-Xet-Access-Token": "xet_token_abc",
+        "X-Xet-Token-Expiration": "1234567890",
+        "X-Xet-Refresh-Route": "/api/refresh",
+        "X-Xet-Hash": "sha256:abcdef",
     }
 
     metadata = parse_xet_headers(headers)
@@ -50,16 +50,16 @@ def test_parse_valid_headers_full() -> None:
 @pytest.mark.parametrize(
     "missing_key",
     [
-        constants.HUGGINGFACE_HEADER_X_XET_ENDPOINT,
-        constants.HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN,
-        constants.HUGGINGFACE_HEADER_X_XET_EXPIRATION,
+        "X-Xet-Cas-Url",
+        "X-Xet-Access-Token",
+        "X-Xet-Token-Expiration",
     ],
 )
 def test_parse_missing_required_header(missing_key: str) -> None:
     headers = {
-        constants.HUGGINGFACE_HEADER_X_XET_ENDPOINT: "https://xet.example.com",
-        constants.HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN: "xet_token_abc",
-        constants.HUGGINGFACE_HEADER_X_XET_EXPIRATION: "1234567890",
+        "X-Xet-Cas-Url": "https://xet.example.com",
+        "X-Xet-Access-Token": "xet_token_abc",
+        "X-Xet-Token-Expiration": "1234567890",
     }
 
     # Remove the key to test
@@ -72,9 +72,9 @@ def test_parse_missing_required_header(missing_key: str) -> None:
 def test_parse_invalid_expiration() -> None:
     """Test parsing headers with invalid expiration format returns None."""
     headers = {
-        constants.HUGGINGFACE_HEADER_X_XET_ENDPOINT: "https://xet.example.com",
-        constants.HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN: "xet_token_abc",
-        constants.HUGGINGFACE_HEADER_X_XET_EXPIRATION: "not-a-number",
+        "X-Xet-Cas-Url": "https://xet.example.com",
+        "X-Xet-Access-Token": "xet_token_abc",
+        "X-Xet-Token-Expiration": "not-a-number",
     }
 
     metadata = parse_xet_headers(headers)
@@ -92,10 +92,10 @@ def test_refresh_metadata_success(mocker) -> None:
     # Mock headers for the refreshed response
     mock_response = MagicMock()
     mock_response.headers = {
-        constants.HUGGINGFACE_HEADER_X_XET_ENDPOINT: "https://example.xethub.hf.co",
-        constants.HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN: "new_token",
-        constants.HUGGINGFACE_HEADER_X_XET_EXPIRATION: "1234599999",
-        constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE: "/api/models/username/repo_name/xet-read-token/token",
+        "X-Xet-Cas-Url": "https://example.xethub.hf.co",
+        "X-Xet-Access-Token": "new_token",
+        "X-Xet-Token-Expiration": "1234599999",
+        "X-Xet-Refresh-Route": "/api/models/username/repo_name/xet-read-token/token",
     }
 
     mock_session = MagicMock()
@@ -133,9 +133,9 @@ def test_refresh_metadata_custom_endpoint(mocker) -> None:
     # Mock headers for the refreshed response
     mock_response = MagicMock()
     mock_response.headers = {
-        constants.HUGGINGFACE_HEADER_X_XET_ENDPOINT: "https://custom.xethub.hf.co",
-        constants.HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN: "new_token",
-        constants.HUGGINGFACE_HEADER_X_XET_EXPIRATION: "1234599999",
+        "X-Xet-Cas-Url": "https://custom.xethub.hf.co",
+        "X-Xet-Access-Token": "new_token",
+        "X-Xet-Token-Expiration": "1234599999",
     }
 
     mock_session = MagicMock()
@@ -179,9 +179,9 @@ def test_refresh_metadata_missing_refresh_route() -> None:
 def test_fetch_xet_metadata_with_url(mocker) -> None:
     mock_response = MagicMock()
     mock_response.headers = {
-        constants.HUGGINGFACE_HEADER_X_XET_ENDPOINT: "https://example.xethub.hf.co",
-        constants.HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN: "xet_token123",
-        constants.HUGGINGFACE_HEADER_X_XET_EXPIRATION: "1234567890",
+        "X-Xet-Cas-Url": "https://example.xethub.hf.co",
+        "X-Xet-Access-Token": "xet_token123",
+        "X-Xet-Token-Expiration": "1234567890",
     }
 
     # Mock the session.get method
