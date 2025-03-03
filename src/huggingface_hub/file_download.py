@@ -1,4 +1,3 @@
-import contextlib
 import copy
 import errno
 import inspect
@@ -67,7 +66,7 @@ from .utils._http import _adjust_range_header
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
-from .utils.tqdm import is_tqdm_disabled
+from .utils.tqdm import _get_progress_bar_context
 
 
 logger = logging.get_logger(__name__)
@@ -402,23 +401,13 @@ def http_get(
         f" {{actual_size}} ({displayed_filename}).\nThis is usually due to network issues while downloading the file."
         " Please retry with `force_download=True`."
     )
-
-    # Stream file to buffer
-    progress_cm: tqdm = (
-        tqdm(  # type: ignore[assignment]
-            unit="B",
-            unit_scale=True,
-            total=total,
-            initial=resume_size,
-            desc=displayed_filename,
-            disable=is_tqdm_disabled(logger.getEffectiveLevel()),
-            name="huggingface_hub.http_get",
-        )
-        if _tqdm_bar is None
-        else contextlib.nullcontext(_tqdm_bar)
-        # ^ `contextlib.nullcontext` mimics a context manager that does nothing
-        #   Makes it easier to use the same code path for both cases but in the later
-        #   case, the progress bar is not closed when exiting the context manager.
+    progress_cm = _get_progress_bar_context(
+        desc=displayed_filename,
+        log_level=logger.getEffectiveLevel(),
+        total=total,
+        initial=resume_size,
+        name="huggingface_hub.http_get",
+        _tqdm_bar=_tqdm_bar,
     )
 
     with progress_cm as progress:
@@ -494,6 +483,7 @@ def http_get(
 
 
 def xet_get(
+    *,
     incomplete_path: Path,
     xet_metadata: XetMetadata,
     headers: Dict[str, str],
@@ -532,18 +522,18 @@ def xet_get(
         connection to the storage server.
 
         The download process works like this:
-        1. Creates a local cache folder at `~/.cache/huggingface/xet/chunk-cache` to store reusable file chunks
-        2. Downloads files in parallel:
-            2.1. Prepares to write the file to disk
-            2.2. Asks the server "how is this file split into chunks?" using the file's unique hash
+        1. Create a local cache folder at `~/.cache/huggingface/xet/chunk-cache` to store reusable file chunks
+        2. Download files in parallel:
+            2.1. Prepare to write the file to disk
+            2.2. Ask the server "how is this file split into chunks?" using the file's unique hash
                 The server responds with:
                 - Which chunks make up the complete file
                 - Where each chunk can be downloaded from
             2.3. For each needed chunk:
                 - Checks if we already have it in our local cache
-                - If not, downloads it from cloud storage (S3)
-                - Saves it to cache for future use
-                - Assembles the chunks in order to recreate the original file
+                - If not, download it from cloud storage (S3)
+                - Save it to cache for future use
+                - Assemble the chunks in order to recreate the original file
 
     """
     try:
@@ -571,24 +561,13 @@ def xet_get(
     if len(displayed_filename) > 40:
         displayed_filename = f"{displayed_filename[:40]}(…)"
 
-    # Stream file to buffer
-    progress_cm: tqdm = (
-        tqdm(  # type: ignore[assignment]
-            unit="B",
-            unit_scale=True,
-            total=expected_size,
-            initial=0,
-            desc=displayed_filename,
-            disable=True if (logger.getEffectiveLevel() == logging.NOTSET) else None,
-            # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
-            # see https://github.com/huggingface/huggingface_hub/pull/2000
-            name="huggingface_hub.xet_get",
-        )
-        if _tqdm_bar is None
-        else contextlib.nullcontext(_tqdm_bar)
-        # ^ `contextlib.nullcontext` mimics a context manager that does nothing
-        #   Makes it easier to use the same code path for both cases but in the later
-        #   case, the progress bar is not closed when exiting the context manager.
+    progress_cm = _get_progress_bar_context(
+        desc=displayed_filename,
+        log_level=logger.getEffectiveLevel(),
+        total=expected_size,
+        initial=0,
+        name="huggingface_hub.xet_get",
+        _tqdm_bar=_tqdm_bar,
     )
 
     with progress_cm as progress:
@@ -1676,7 +1655,7 @@ def _download_to_tmp_and_move(
         if xet_metadata is not None and xet_metadata.file_hash is not None:
             logger.info("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
             xet_get(
-                incomplete_path,
+                incomplete_path=incomplete_path,
                 xet_metadata=xet_metadata,
                 headers=headers,
                 expected_size=expected_size,

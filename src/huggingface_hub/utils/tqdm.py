@@ -84,9 +84,9 @@ import io
 import logging
 import os
 import warnings
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import Dict, Iterator, Optional, Union
+from typing import ContextManager, Dict, Iterator, Optional, Union
 
 from tqdm.auto import tqdm as old_tqdm
 
@@ -277,3 +277,28 @@ def tqdm_stream_file(path: Union[Path, str]) -> Iterator[io.BufferedReader]:
         yield f
 
         pbar.close()
+
+
+def _get_progress_bar_context(
+    *,
+    desc: str,
+    log_level: int,
+    total: Optional[int] = None,
+    initial: int = 0,
+    unit: str = "B",
+    unit_scale: bool = True,
+    name: Optional[str] = None,
+    _tqdm_bar: Optional[tqdm] = None,
+) -> ContextManager[tqdm]:
+    if _tqdm_bar is not None:
+        return nullcontext(_tqdm_bar)
+
+    return tqdm(
+        unit=unit,
+        unit_scale=unit_scale,
+        total=total,
+        initial=initial,
+        desc=desc,
+        disable=is_tqdm_disabled(log_level=log_level),
+        name=name,
+    )
