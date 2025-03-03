@@ -1,4 +1,5 @@
 import os
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import DEFAULT, Mock, patch
 
@@ -24,23 +25,35 @@ from .testing_utils import (
 @requires("hf_xet")
 @with_production_testing
 class TestXetFileDownload:
-    def test_xet_get_called_when_xet_metadata_present(self, tmp_path):
-        """Test that xet_get is called when xet metadata is present."""
-        with patch("huggingface_hub.file_download.get_hf_file_metadata") as mock_metadata:
-            xet_metadata = XetMetadata(
+    @contextmanager
+    def _patch_xet_file_metadata(self, with_xet_metadata=True):
+        xet_metadata = (
+            XetMetadata(
                 endpoint="mock_endpoint",
                 access_token="mock_token",
                 expiration_unix_epoch=9999999999,
                 file_hash="mock_hash",
             )
-            mock_metadata.return_value = HfFileMetadata(
-                commit_hash="mock_commit",
-                etag="mock_etag",
-                location="mock_location",
-                size=1024,
-                xet_metadata=xet_metadata,
-            )
+            if with_xet_metadata
+            else None
+        )
+        patcher = patch("huggingface_hub.file_download.get_hf_file_metadata")
+        mock_metadata = patcher.start()
+        mock_metadata.return_value = HfFileMetadata(
+            commit_hash="mock_commit",
+            etag="mock_etag",
+            location="mock_location",
+            size=1024,
+            xet_metadata=xet_metadata,
+        )
+        try:
+            yield mock_metadata
+        finally:
+            patcher.stop()
 
+    def test_xet_get_called_when_xet_metadata_present(self, tmp_path):
+        """Test that xet_get is called when xet metadata is present."""
+        with self._patch_xet_file_metadata(with_xet_metadata=True) as mock_metadata:
             with patch("huggingface_hub.file_download.xet_get") as mock_xet_get:
                 with patch("huggingface_hub.file_download._create_symlink"):
                     hf_hub_download(
@@ -54,19 +67,11 @@ class TestXetFileDownload:
                     mock_xet_get.assert_called_once()
                     _, kwargs = mock_xet_get.call_args
                     assert "xet_metadata" in kwargs
-                    assert kwargs["xet_metadata"] == xet_metadata
+                    assert kwargs["xet_metadata"] == mock_metadata.return_value.xet_metadata
 
     def test_backward_compatibility_no_xet_metadata(self, tmp_path):
         """Test backward compatibility when response has no xet metadata."""
-        with patch("huggingface_hub.file_download.get_hf_file_metadata") as mock_metadata:
-            mock_metadata.return_value = HfFileMetadata(
-                commit_hash="mock_commit",
-                etag="mock_etag",
-                location="mock_location",
-                size=1024,
-                xet_metadata=None,  # No xet_metadata
-            )
-
+        with self._patch_xet_file_metadata(with_xet_metadata=False):
             with patch("huggingface_hub.file_download.http_get") as mock_http_get:
                 with patch("huggingface_hub.file_download._create_symlink"):
                     hf_hub_download(
@@ -192,20 +197,7 @@ class TestXetFileDownload:
 
     def test_fallback_to_http_when_xet_not_available(self, tmp_path):
         """Test that http_get is used when hf_xet is not available."""
-        with patch("huggingface_hub.file_download.get_hf_file_metadata") as mock_metadata:
-            mock_metadata.return_value = HfFileMetadata(
-                commit_hash="mock_commit",
-                etag="mock_etag",
-                location="mock_location",
-                size=1024,
-                xet_metadata=XetMetadata(
-                    endpoint="mock_endpoint",
-                    access_token="mock_token",
-                    expiration_unix_epoch=9999999999,
-                    file_hash="mock_hash",
-                ),
-            )
-
+        with self._patch_xet_file_metadata(with_xet_metadata=True):
             # Mock is_xet_available to return False
             with patch.multiple(
                 "huggingface_hub.file_download",
@@ -227,20 +219,7 @@ class TestXetFileDownload:
 
     def test_use_xet_when_available(self, tmp_path):
         """Test that xet_get is used when hf_xet is available."""
-        with patch("huggingface_hub.file_download.get_hf_file_metadata") as mock_metadata:
-            mock_metadata.return_value = HfFileMetadata(
-                commit_hash="mock_commit",
-                etag="mock_etag",
-                location="mock_location",
-                size=1024,
-                xet_metadata=XetMetadata(
-                    endpoint="mock_endpoint",
-                    access_token="mock_token",
-                    expiration_unix_epoch=9999999999,
-                    file_hash="mock_hash",
-                ),
-            )
-
+        with self._patch_xet_file_metadata(with_xet_metadata=True):
             with patch.multiple(
                 "huggingface_hub.file_download",
                 is_xet_available=Mock(return_value=True),

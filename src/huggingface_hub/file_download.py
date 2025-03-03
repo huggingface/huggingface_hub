@@ -1652,31 +1652,23 @@ def _download_to_tmp_and_move(
             _check_disk_space(expected_size, incomplete_path.parent)
             _check_disk_space(expected_size, destination_path.parent)
 
-        if xet_metadata is not None and xet_metadata.file_hash is not None:
-            if is_xet_available():
-                logger.info("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
-                xet_get(
-                    incomplete_path=incomplete_path,
-                    xet_metadata=xet_metadata,
-                    headers=headers,
-                    expected_size=expected_size,
-                    displayed_filename=filename,
-                )
-            else:
+        is_xet_enabled = xet_metadata is not None and xet_metadata.file_hash is not None
+        if is_xet_enabled and is_xet_available():
+            logger.info("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
+            xet_get(
+                incomplete_path=incomplete_path,
+                xet_metadata=xet_metadata,  # type: ignore
+                headers=headers,
+                expected_size=expected_size,
+                displayed_filename=filename,
+            )
+        else:
+            if is_xet_enabled:
                 logger.warning(
                     "Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. "
                     "Falling back to regular HTTP download. "
                     "For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`"
                 )
-                http_get(
-                    url_to_download,
-                    f,
-                    proxies=proxies,
-                    resume_size=resume_size,
-                    headers=headers,
-                    expected_size=expected_size,
-                )
-        else:
             http_get(
                 url_to_download,
                 f,
