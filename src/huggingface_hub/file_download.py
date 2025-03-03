@@ -1662,11 +1662,6 @@ def _download_to_tmp_and_move(
                     expected_size=expected_size,
                     displayed_filename=filename,
                 )
-
-                # TODO: xetpoc - the http_get path is building this out, so we're replicating that logic here
-                parent_dir = destination_path.parent
-                if not parent_dir.exists():
-                    parent_dir.mkdir(parents=True, exist_ok=True)
             else:
                 logger.warning(
                     "Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. "
