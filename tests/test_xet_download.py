@@ -26,7 +26,7 @@ from .testing_utils import (
 @with_production_testing
 class TestXetFileDownload:
     @contextmanager
-    def _patch_xet_file_metadata(self, with_xet_metadata=True):
+    def _patch_xet_file_metadata(self, with_xet_metadata: bool):
         xet_metadata = (
             XetMetadata(
                 endpoint="mock_endpoint",
