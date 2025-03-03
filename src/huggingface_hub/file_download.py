@@ -63,7 +63,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils._http import _adjust_range_header
-from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
+from .utils._runtime import _PY_VERSION, is_xet_available  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
@@ -1653,19 +1653,34 @@ def _download_to_tmp_and_move(
             _check_disk_space(expected_size, destination_path.parent)
 
         if xet_metadata is not None and xet_metadata.file_hash is not None:
-            logger.info("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
-            xet_get(
-                incomplete_path=incomplete_path,
-                xet_metadata=xet_metadata,
-                headers=headers,
-                expected_size=expected_size,
-                displayed_filename=filename,
-            )
+            if is_xet_available():
+                logger.info("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
+                xet_get(
+                    incomplete_path=incomplete_path,
+                    xet_metadata=xet_metadata,
+                    headers=headers,
+                    expected_size=expected_size,
+                    displayed_filename=filename,
+                )
 
-            # TODO: xetpoc - the http_get path is building this out, so we're replicating that logic here
-            parent_dir = destination_path.parent
-            if not parent_dir.exists():
-                parent_dir.mkdir(parents=True, exist_ok=True)
+                # TODO: xetpoc - the http_get path is building this out, so we're replicating that logic here
+                parent_dir = destination_path.parent
+                if not parent_dir.exists():
+                    parent_dir.mkdir(parents=True, exist_ok=True)
+            else:
+                logger.warning(
+                    "Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. "
+                    "Falling back to regular HTTP download. "
+                    "For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`"
+                )
+                http_get(
+                    url_to_download,
+                    f,
+                    proxies=proxies,
+                    resume_size=resume_size,
+                    headers=headers,
+                    expected_size=expected_size,
+                )
         else:
             http_get(
                 url_to_download,

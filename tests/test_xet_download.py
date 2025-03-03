@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import DEFAULT, Mock, patch
 
 from huggingface_hub import snapshot_download
 from huggingface_hub.file_download import (
@@ -189,6 +189,75 @@ class TestXetFileDownload:
 
             assert path1 == path2
             mock_xet_get.assert_called_once()
+
+    def test_fallback_to_http_when_xet_not_available(self, tmp_path):
+        """Test that http_get is used when hf_xet is not available."""
+        with patch("huggingface_hub.file_download.get_hf_file_metadata") as mock_metadata:
+            mock_metadata.return_value = HfFileMetadata(
+                commit_hash="mock_commit",
+                etag="mock_etag",
+                location="mock_location",
+                size=1024,
+                xet_metadata=XetMetadata(
+                    endpoint="mock_endpoint",
+                    access_token="mock_token",
+                    expiration_unix_epoch=9999999999,
+                    file_hash="mock_hash",
+                ),
+            )
+
+            # Mock is_xet_available to return False
+            with patch.multiple(
+                "huggingface_hub.file_download",
+                is_xet_available=Mock(return_value=False),
+                http_get=DEFAULT,
+                xet_get=DEFAULT,
+                _create_symlink=DEFAULT,
+            ) as mocks:
+                hf_hub_download(
+                    DUMMY_XET_MODEL_ID,
+                    filename=DUMMY_XET_FILE,
+                    cache_dir=tmp_path,
+                    force_download=True,
+                )
+
+                # Verify http_get was called and xet_get was not
+                mocks["http_get"].assert_called_once()
+                mocks["xet_get"].assert_not_called()
+
+    def test_use_xet_when_available(self, tmp_path):
+        """Test that xet_get is used when hf_xet is available."""
+        with patch("huggingface_hub.file_download.get_hf_file_metadata") as mock_metadata:
+            mock_metadata.return_value = HfFileMetadata(
+                commit_hash="mock_commit",
+                etag="mock_etag",
+                location="mock_location",
+                size=1024,
+                xet_metadata=XetMetadata(
+                    endpoint="mock_endpoint",
+                    access_token="mock_token",
+                    expiration_unix_epoch=9999999999,
+                    file_hash="mock_hash",
+                ),
+            )
+
+            with patch.multiple(
+                "huggingface_hub.file_download",
+                is_xet_available=Mock(return_value=True),
+                http_get=DEFAULT,
+                xet_get=DEFAULT,
+                _create_symlink=DEFAULT,
+            ) as mocks:
+                hf_hub_download(
+                    DUMMY_XET_MODEL_ID,
+                    filename=DUMMY_XET_FILE,
+                    cache_dir=tmp_path,
+                    force_download=True,
+                )
+
+                # Verify xet_get was called and http_get was not
+                mocks["xet_get"].assert_called_once()
+                mocks["http_get"].assert_not_called()
 
 
 @requires("hf_xet")
