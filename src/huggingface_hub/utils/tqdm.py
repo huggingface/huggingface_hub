@@ -292,6 +292,9 @@ def _get_progress_bar_context(
 ) -> ContextManager[tqdm]:
     if _tqdm_bar is not None:
         return nullcontext(_tqdm_bar)
+        # ^ `contextlib.nullcontext` mimics a context manager that does nothing
+        #   Makes it easier to use the same code path for both cases but in the later
+        #   case, the progress bar is not closed when exiting the context manager.
 
     return tqdm(
         unit=unit,
