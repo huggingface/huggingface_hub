@@ -12,4 +12,4 @@ class CohereConversationalTask(BaseConversationalTask):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
 
     def _prepare_route(self, mapped_model: str) -> str:
-            return "/compatibility/v1/chat/completions"
+        return "/compatibility/v1/chat/completions"
