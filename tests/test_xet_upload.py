@@ -1,0 +1,211 @@
+# Copyright 2025 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from contextlib import contextmanager
+from io import BytesIO
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from huggingface_hub._commit_api import _upload_lfs_files, _upload_xet_files
+from huggingface_hub.file_download import get_hf_file_metadata, hf_hub_download, hf_hub_url
+from huggingface_hub.hf_api import HfApi
+
+from .testing_constants import ENDPOINT_PRODUCTION
+from .testing_utils import DUMMY_XET_MODEL_ID, requires, with_production_testing
+
+
+@contextmanager
+def assert_xet_upload_used(should_be_called: bool):
+    with patch("huggingface_hub.hf_api._upload_xet_files", wraps=_upload_xet_files) as mock_upload_xet_api:
+        yield
+        assert mock_upload_xet_api.called == should_be_called
+
+
+@contextmanager
+def assert_lfs_upload_used(should_be_called: bool):
+    with patch("huggingface_hub.hf_api._upload_lfs_files", wraps=_upload_lfs_files) as mock_upload_lfs_api:
+        yield
+        assert mock_upload_lfs_api.called == should_be_called
+
+
+@requires("hf_xet")
+@with_production_testing
+@pytest.mark.skip(reason="waiting for xet setup in staging")
+class TestXetUpload:
+    @pytest.fixture(autouse=True)
+    def setup(self, tmp_path):
+        self.api = HfApi(endpoint=ENDPOINT_PRODUCTION)
+        self.folder_path = tmp_path
+
+        # Create a regular text file
+        text_file = self.folder_path / "text_file.txt"
+        self.text_content = "This is a regular text file"
+        text_file.write_text(self.text_content)
+
+        # Create a binary file
+        self.bin_file = self.folder_path / "binary_file.bin"
+        self.bin_content = b"0" * (1 * 1024 * 1024)
+        self.bin_file.write_bytes(self.bin_content)
+
+        # Create nested directory structure
+        nested_dir = self.folder_path / "nested"
+        nested_dir.mkdir()
+
+        # Create a nested text file
+        nested_text_file = nested_dir / "nested_text.txt"
+        self.nested_text_content = "This is a nested text file"
+        nested_text_file.write_text(self.nested_text_content)
+
+        # Create a nested binary file
+        nested_bin_file = nested_dir / "nested_binary.safetensors"
+        self.nested_bin_content = b"1" * (1 * 1024 * 1024)
+        nested_bin_file.write_bytes(self.nested_bin_content)
+
+    def test_upload_file(self, tmp_path):
+        filename_in_repo = "binary_file.bin"
+        with assert_xet_upload_used(should_be_called=True):
+            return_val = self.api.upload_file(
+                path_or_fileobj=self.bin_file,
+                path_in_repo=filename_in_repo,
+                repo_id=DUMMY_XET_MODEL_ID,
+            )
+
+        assert return_val == f"{self.api.endpoint}/{DUMMY_XET_MODEL_ID}/blob/main/{filename_in_repo}"
+        # Download and verify content
+        downloaded_file = hf_hub_download(repo_id=DUMMY_XET_MODEL_ID, filename=filename_in_repo, cache_dir=tmp_path)
+        with open(downloaded_file, "rb") as f:
+            downloaded_content = f.read()
+            assert downloaded_content == self.bin_content
+
+        # Check xet metadata
+        url = hf_hub_url(
+            repo_id=DUMMY_XET_MODEL_ID,
+            filename=filename_in_repo,
+        )
+        metadata = get_hf_file_metadata(url)
+        xet_metadata = metadata.xet_metadata
+        assert xet_metadata is not None
+
+    def test_upload_file_with_bytesio(self, tmp_path):
+        content = BytesIO(self.bin_content)
+        with assert_lfs_upload_used(should_be_called=True):
+            self.api.upload_file(
+                path_or_fileobj=content,
+                path_in_repo="bytesio_file.bin",
+                repo_id=DUMMY_XET_MODEL_ID,
+            )
+        # Download and verify content
+        downloaded_file = hf_hub_download(repo_id=DUMMY_XET_MODEL_ID, filename="bytesio_file.bin", cache_dir=tmp_path)
+        with open(downloaded_file, "rb") as f:
+            downloaded_content = f.read()
+            assert downloaded_content == self.bin_content
+
+    def test_fallback_to_lfs_when_xet_not_available(self):
+        with patch("huggingface_hub.hf_api.is_xet_available", return_value=False):
+            with assert_lfs_upload_used(should_be_called=True):
+                with assert_xet_upload_used(should_be_called=False):
+                    self.api.upload_file(
+                        path_or_fileobj=self.bin_file,
+                        path_in_repo="fallback_file.bin",
+                        repo_id=DUMMY_XET_MODEL_ID,
+                    )
+
+    def test_upload_folder(self):
+        folder_in_repo = "temp"
+        with assert_xet_upload_used(should_be_called=True):
+            return_val = self.api.upload_folder(
+                folder_path=self.folder_path,
+                path_in_repo=folder_in_repo,
+                repo_id=DUMMY_XET_MODEL_ID,
+            )
+
+        assert return_val == f"{self.api.endpoint}/{DUMMY_XET_MODEL_ID}/tree/main/{folder_in_repo}"
+        files_in_repo = set(self.api.list_repo_files(repo_id=DUMMY_XET_MODEL_ID))
+        files = {
+            f"{folder_in_repo}/text_file.txt",
+            f"{folder_in_repo}/binary_file.bin",
+            f"{folder_in_repo}/nested/nested_text.txt",
+            f"{folder_in_repo}/nested/nested_binary.safetensors",
+        }
+        assert all(file in files_in_repo for file in files)
+
+        for rpath in files:
+            local_file = Path(rpath).relative_to(folder_in_repo)
+            local_path = self.folder_path / local_file
+            filepath = hf_hub_download(repo_id=DUMMY_XET_MODEL_ID, filename=rpath)
+            assert Path(local_path).read_bytes() == Path(filepath).read_bytes()
+
+    @pytest.mark.skip(reason="This test will fail until we use a tmp repo in")
+    def test_upload_folder_create_pr(self) -> None:
+        folder_in_repo = "temp_create_pr"
+        with assert_xet_upload_used(should_be_called=True):
+            return_val = self.api.upload_folder(
+                folder_path=self.folder_path,
+                path_in_repo=folder_in_repo,
+                repo_id=DUMMY_XET_MODEL_ID,
+                create_pr=True,
+            )
+
+        assert return_val == f"{self.api.endpoint}/{DUMMY_XET_MODEL_ID}/tree/refs%2Fpr%2F1/{folder_in_repo}"
+
+        for rpath in ["text_file.txt", "nested/nested_binary.safetensors"]:
+            local_path = self.folder_path / rpath
+            filepath = hf_hub_download(
+                repo_id=DUMMY_XET_MODEL_ID, filename=f"{folder_in_repo}/{rpath}", revision=return_val.pr_revision
+            )
+            assert Path(local_path).read_bytes() == Path(filepath).read_bytes()
+
+
+@requires("hf_xet")
+@with_production_testing
+@pytest.mark.skip(reason="waiting for xet setup in staging")
+class TestXetLargeUpload:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.api = HfApi(endpoint=ENDPOINT_PRODUCTION)
+
+    def test_upload_large_folder(self, tmp_path) -> None:
+        N_FILES_PER_FOLDER = 4
+
+        folder = Path(tmp_path) / "large_folder"
+        for i in range(N_FILES_PER_FOLDER):
+            subfolder = folder / f"subfolder_{i}"
+            subfolder.mkdir(parents=True, exist_ok=True)
+            for j in range(N_FILES_PER_FOLDER):
+                (subfolder / f"file_xet_{i}_{j}.bin").write_bytes(f"content_lfs_{i}_{j}".encode())
+                (subfolder / f"file_regular_{i}_{j}.txt").write_bytes(f"content_regular_{i}_{j}".encode())
+
+            with assert_xet_upload_used(should_be_called=True):
+                # Upload the folder
+                self.api.upload_large_folder(
+                    repo_id=DUMMY_XET_MODEL_ID, repo_type="model", folder_path=folder, num_workers=4
+                )
+
+        # Check all files have been uploaded
+        uploaded_files = self.api.list_repo_files(repo_id=DUMMY_XET_MODEL_ID)
+        for i in range(N_FILES_PER_FOLDER):
+            for j in range(N_FILES_PER_FOLDER):
+                assert f"subfolder_{i}/file_xet_{i}_{j}.bin" in uploaded_files
+                assert f"subfolder_{i}/file_regular_{i}_{j}.txt" in uploaded_files
+
+            # Check xet metadata
+            url = hf_hub_url(
+                repo_id=DUMMY_XET_MODEL_ID,
+                filename=f"subfolder_{i}/file_xet_{i}_{j}.bin",
+            )
+            metadata = get_hf_file_metadata(url)
+            xet_metadata = metadata.xet_metadata
+            assert xet_metadata is not None

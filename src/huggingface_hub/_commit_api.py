@@ -500,18 +500,33 @@ def _upload_xet_files(
             If the server returns malformed responses or if the user is unauthorized to upload to xet storage.
         [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
             If the LFS batch endpoint returned an HTTP error.
+    **How it works:**
+        The file download system uses Xet storage, which is a content-addressable storage system that breaks files into chunks
+            for efficient storage and transfer.
+
+        `hf_xet.upload_files` manages uploading files by:
+            - Taking a list of file paths to upload
+            - Breaking files into smaller chunks for efficient storage
+            - Avoiding duplicate storage by recognizing identical chunks across files
+            - Connecting to a storage server (CAS server) that manages these chunks
+
+        The upload process works like this:
+        1. Create a local folder at ~/.cache/huggingface/xet/chunk-cache to store file chunks for reuse.
+        2. Process files in parallel (up to 8 files at once):
+            2.1. Read the file content.
+            2.2. Split the file content into smaller chunks based on content patterns : Each chunk gets a unique ID based on what's in it.
+            2.3. For each chunk:
+                - Check if it already exists in storage.
+                - Skip uploading chunks that already exist.
+            2.4. Group chunks into larger blocks for efficient transfer.
+            2.5. Upload these blocks to the storage server.
+            2.6. Create and upload information about how the file is structured.
+        3. Return reference files that contain information about the uploaded files, which can be used later to download them.
     """
     if len(additions) == 0:
         return
-
-    # TODO: use HF_HUB_ENABLE_HF_XET env variable
-    try:
-        from hf_xet import upload_files
-    except ImportError:
-        raise ValueError(
-            "Optimized upload using hf_xet is enabled for this repo but the hf_xet "
-            "package is not available in your environment. Try pip install hf_xet."
-        )
+    # at this point, we know that hf_xet is installed
+    from hf_xet import upload_files
 
     xet_metadata = fetch_xet_metadata_from_repo_info(
         token_type=XetTokenType.WRITE,

@@ -14,8 +14,8 @@
 # limitations under the License.
 from __future__ import annotations
 
-import importlib
 import inspect
+import io
 import json
 import re
 import struct
@@ -127,6 +127,7 @@ from .utils import (
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_method
+from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
 
@@ -4254,12 +4255,23 @@ class HfApi:
             # PR (i.e. `revision`).
             "revision": revision if not create_pr else None,
         }
-        # Upload files using Xet protocol if the library is installed.
+        # Upload files using Xet protocol if the files are provided as str or paths objects and the library is installed.
         # Otherwise, default back to LFS.
-        if importlib.util.find_spec("hf_xet") is not None:
+        bytes_or_binary_io = any(
+            isinstance(addition.path_or_fileobj, (bytes, io.BufferedIOBase))
+            for addition in new_lfs_additions_to_upload
+        )
+        if not bytes_or_binary_io and is_xet_available():
             # only add create_pr arg for xet upload, lfs upload does not take this argument.
+            logger.info("Uploading files using Xet Storage..")
             _upload_xet_files(**upload_kwargs, create_pr=create_pr)  # type: ignore [arg-type]
+
         else:
+            if is_xet_available():
+                logger.warning(
+                    "Uploading files as bytes or binary IO objects is not supported by Xet Storage. "
+                    "Falling back to HTTP upload."
+                )
             _upload_lfs_files(**upload_kwargs, num_threads=num_threads)  # type: ignore [arg-type]
         for addition in new_lfs_additions_to_upload:
             addition._is_uploaded = True

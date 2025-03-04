@@ -49,6 +49,37 @@ def parse_xet_headers(headers: Dict[str, str]) -> Optional[XetMetadata]:
 
 
 @validate_hf_hub_args
+def refresh_xet_metadata(
+    *,
+    xet_metadata: XetMetadata,
+    headers: Dict[str, str],
+    endpoint: Optional[str] = None,
+) -> XetMetadata:
+    """
+    Utilizes the information in the parsed metadata to request the Hub xet access token.
+    Args:
+        xet_metadata: (`XetMetadata`):
+            The xet metadata provided by the Hub API.
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
+        endpoint (`str`, `optional`):
+            The endpoint to use for the request. Defaults to the Hub endpoint.
+    Returns:
+        `XetMetadata`: The metadata needed to make the request to the xet storage service.
+    Raises:
+        [`~utils.HfHubHTTPError`]
+            If the Hub API returned an error.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the Hub API response is improperly formatted.
+    """
+    if xet_metadata.refresh_route is None:
+        raise ValueError("The provided xet metadata does not contain a refresh endpoint.")
+    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
+    url = f"{endpoint}{xet_metadata.refresh_route}"
+    return _fetch_xet_metadata_with_url(url, headers)
+
+
+@validate_hf_hub_args
 def fetch_xet_metadata_from_repo_info(
     *,
     token_type: XetTokenType,
