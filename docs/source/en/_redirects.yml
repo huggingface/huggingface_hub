@@ -13,5 +13,8 @@ package_reference/login: package_reference/authentication
 # Alias for hf-transfer description
 hf_transfer: package_reference/environment_variables#hfhubenablehftransfer
 
+# Alias for auth
+authentication: quick-start#authentication
+
 # Rename webhooks_server to webhooks
 guides/webhooks_server: guides/webhooks

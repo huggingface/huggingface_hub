@@ -453,7 +453,8 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
                 + f"Repository Not Found for url: {response.url}."
                 + "\nPlease make sure you specified the correct `repo_id` and"
                 " `repo_type`.\nIf you are trying to access a private or gated repo,"
-                " make sure you are authenticated."
+                " make sure you are authenticated. For more details, see"
+                " https://huggingface.co/docs/huggingface_hub/authentication"
             )
             raise _format(RepositoryNotFoundError, message, response) from e
 
