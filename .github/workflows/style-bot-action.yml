@@ -17,7 +17,7 @@ on:
           type: string
           description: "Optional script to run before committing changes"
       secrets:
-        github_token:
+        bot_token:
           required: true
           description: "GitHub token with permissions to comment and push to PR"
   
@@ -79,7 +79,7 @@ jobs:
           ref: ${{ env.HEADREF }}
           # You may need fetch-depth: 0 for being able to push
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.bot_token }}
 
       - name: Debug
         env: 
@@ -114,7 +114,7 @@ jobs:
           HEADREPOFULLNAME: ${{ steps.pr_info.outputs.headRepoFullName }}
           HEADREF: ${{ steps.pr_info.outputs.headRef }}
           PRNUMBER: ${{ steps.pr_info.outputs.prNumber }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.bot_token }}
         run: |
           echo "HEADREPOFULLNAME: $HEADREPOFULLNAME, HEADREF: $HEADREF"
           # Configure git with the Actions bot user
