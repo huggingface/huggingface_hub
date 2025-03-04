@@ -24,10 +24,25 @@ class ChatCompletionInputMessageChunk(BaseInferenceType):
 
 
 @dataclass_with_extra
+class ChatCompletionInputFunctionDefinition(BaseInferenceType):
+    arguments: Any
+    name: str
+    description: Optional[str] = None
+
+
+@dataclass_with_extra
+class ChatCompletionInputToolCall(BaseInferenceType):
+    function: ChatCompletionInputFunctionDefinition
+    id: str
+    type: str
+
+
+@dataclass_with_extra
 class ChatCompletionInputMessage(BaseInferenceType):
-    content: Union[List[ChatCompletionInputMessageChunk], str]
     role: str
+    content: Optional[Union[List[ChatCompletionInputMessageChunk], str]] = None
     name: Optional[str] = None
+    tool_calls: Optional[List[ChatCompletionInputToolCall]] = None
 
 
 ChatCompletionInputGrammarTypeType = Literal["json", "regex"]
@@ -64,13 +79,6 @@ class ChatCompletionInputToolChoiceClass(BaseInferenceType):
 
 
 ChatCompletionInputToolChoiceEnum = Literal["auto", "none", "required"]
-
-
-@dataclass_with_extra
-class ChatCompletionInputFunctionDefinition(BaseInferenceType):
-    arguments: Any
-    name: str
-    description: Optional[str] = None
 
 
 @dataclass_with_extra
@@ -197,6 +205,7 @@ class ChatCompletionOutputToolCall(BaseInferenceType):
 class ChatCompletionOutputMessage(BaseInferenceType):
     role: str
     content: Optional[str] = None
+    tool_call_id: Optional[str] = None
     tool_calls: Optional[List[ChatCompletionOutputToolCall]] = None
 
 
@@ -249,6 +258,7 @@ class ChatCompletionStreamOutputDeltaToolCall(BaseInferenceType):
 class ChatCompletionStreamOutputDelta(BaseInferenceType):
     role: str
     content: Optional[str] = None
+    tool_call_id: Optional[str] = None
     tool_calls: Optional[ChatCompletionStreamOutputDeltaToolCall] = None
 
 
