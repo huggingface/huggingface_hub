@@ -102,11 +102,11 @@ jobs:
       - name: Custom pre-commit script
         if: inputs.pre_commit_script != ''
         run: |
-          ${inputs.pre_commit_script}
+          ${{ inputs.pre_commit_script }}
 
       - name: Run make style and make quality
         run: |
-          ${inputs.style_command}
+          ${{ inputs.style_command }}
 
       - name: Commit and push changes
         id: commit_and_push
