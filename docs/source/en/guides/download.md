@@ -166,6 +166,26 @@ For more details about the CLI download command, please refer to the [CLI guide]
 
 ## Faster downloads
 
+There are two options to speed up downloads. Both involve installing a Python package written in Rust.
+
+* `hf_xet` is newer and uses the Xet storage backend for upload/download. It is available in production, but is in the process of being rolled out to all users.
+* `hf_transfer` is a power-tool with some limitations, but is thoroughly tested and has been in production for a long time. 
+
+### hf_xet
+
+Take advantage of faster downloads through `hf_xet`, the Python binding to the [`xet-core`](https://github.com/huggingface/xet-core) library that enables 
+chunk-based deduplication for faster downloads and uploads. `hf_xet` integrates seamlessly with `huggingface_hub`, but uses the Rust `xet-core` library and Xet storage instead of LFS. 
+
+To enable it, specify the `hf_xet` package when installing `huggingface_hub`:
+
+```bash
+pip install huggingface_hub[hf_xet]
+```
+
+All other `huggingface_hub` APIs will continue to work without any modification. To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/repositories-storage).
+
+### hf_transfer
+
 If you are running on a machine with high bandwidth,
 you can increase your download speed with [`hf_transfer`](https://github.com/huggingface/hf_transfer),
 a Rust-based library developed to speed up file transfers with the Hub.

@@ -158,6 +158,14 @@ To use `hf_transfer`:
 
 Please note that using `hf_transfer` comes with certain limitations. Since it is not purely Python-based, debugging errors may be challenging. Additionally, `hf_transfer` lacks several user-friendly features such as resumable downloads and proxies. These omissions are intentional to maintain the simplicity and speed of the Rust logic. Consequently, `hf_transfer` is not enabled by default in `huggingface_hub`.
 
+<Tip>
+
+`hf_xet` is an alternative to `hf_transfer`. It provides efficient file transfers through a chunk-based deduplication strategy, custom Xet storage (replacing Git LFS), and a seamless integration with `huggingface_hub`. 
+
+[Read more about the package](https://huggingface.co/docs/hub/repositories-storage) and enable with `pip install huggingface_hub[hf_xet]`.
+
+</Tip>
+
 ## Deprecated environment variables
 
 In order to standardize all environment variables within the Hugging Face ecosystem, some variables have been marked as deprecated. Although they remain functional, they no longer take precedence over their replacements. The following table outlines the deprecated variables and their corresponding alternatives:
