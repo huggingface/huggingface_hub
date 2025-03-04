@@ -66,9 +66,6 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "cerebras": {
         "conversational": "meta-llama/Llama-3.1-8B",
     },
-    "cohere": {
-        "conversational": "CohereForAI/c4ai-command-r7b-12-2024",
-    },
     "together": {
         "conversational": "meta-llama/Meta-Llama-3-8B-Instruct",
         "text-generation": "meta-llama/Llama-2-70b-hf",
