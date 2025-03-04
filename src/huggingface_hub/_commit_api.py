@@ -33,6 +33,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
+from .utils.tqdm import _get_progress_bar_context
 
 
 if TYPE_CHECKING:
@@ -570,18 +571,15 @@ def _upload_xet_files(
             description = f"Uploading Batch [{str(i + 1).zfill(num_chunks_num_digits)}/{num_chunks}]..."
         else:
             description = "Uploading..."
-        progress_cm: hf_tqdm = hf_tqdm(
-            unit="B",
-            unit_scale=True,
+        progress_cm = _get_progress_bar_context(
+            desc=description,
             total=expected_size,
             initial=0,
-            desc=description,
-            disable=True if (logger.getEffectiveLevel() == logging.NOTSET) else None,
-            # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
-            # see https://github.com/huggingface/huggingface_hub/pull/2000
+            unit="B",
+            unit_scale=True,
             name="huggingface_hub.xet_put",
+            log_level=logger.getEffectiveLevel(),
         )
-
         with progress_cm as progress:
 
             def update_progress(increment: int):
