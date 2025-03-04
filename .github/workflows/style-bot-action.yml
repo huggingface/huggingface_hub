@@ -7,6 +7,11 @@ on:
           required: false
           type: string
           description: "Optional script to run before committing changes"
+        pre_commit_script_name:
+          required: false
+          type: string
+          description: "Custom name for the pre-commit script step"
+          default: "Custom pre-commit script"
         python_quality_dependencies:
           required: true
           type: string
@@ -108,7 +113,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install .$python_quality_dependencies
 
-      - name: Custom pre-commit script
+      - name: ${{ inputs.pre_commit_script_name }}
         env:
           pre_commit_script: ${{ inputs.pre_commit_script }}
         if: inputs.pre_commit_script != ''
