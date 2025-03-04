@@ -3,19 +3,24 @@ name: Style Bot Action
 on:
     workflow_call:
       inputs:
+        pre_commit_script:
+          required: false
+          type: string
+          description: "Optional script to run before committing changes"
         python_quality_dependencies:
           required: true
           type: string
           description: "Python package extras to install for quality checks (e.g. '[quality]')"
+        python_version:
+          required: false
+          type: string
+          description: "Python version to run code formatter"
+          default: "3.10"
         style_command:
           required: false
           type: string
           description: "Command to run for style checks or/and style fixes"
           default: "make style && make quality"
-        pre_commit_script:
-          required: false
-          type: string
-          description: "Optional script to run before committing changes"
       secrets:
         bot_token:
           required: true
@@ -93,6 +98,8 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python_version }}
 
       - name: Install dependencies
         run: |
