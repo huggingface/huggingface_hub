@@ -63,6 +63,9 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "black-forest-labs": {
         "text-to-image": "black-forest-labs/FLUX.1-dev",
     },
+    "cerebras": {
+        "conversational": "meta-llama/Llama-3.1-8B",
+    },
     "cohere": {
         "conversational": "CohereForAI/c4ai-command-r7b-12-2024",
     },
