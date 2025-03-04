@@ -102,18 +102,27 @@ jobs:
           python-version: ${{ inputs.python_version }}
 
       - name: Install dependencies
+        env:
+          python_quality_dependencies: ${{ inputs.python_quality_dependencies }}
         run: |
           python -m pip install --upgrade pip
-          pip install .${{ inputs.python_quality_dependencies }}
+          pip install .$python_quality_dependencies
 
       - name: Custom pre-commit script
+        env:
+          pre_commit_script: ${{ inputs.pre_commit_script }}
         if: inputs.pre_commit_script != ''
+        shell: bash
         run: |
-          ${{ inputs.pre_commit_script }}
+          echo "$pre_commit_script" > pre_commit_script.sh
+          chmod +x pre_commit_script.sh
+          ./pre_commit_script.sh
 
       - name: Run make style and make quality
+        env:
+          style_command: ${{ inputs.style_command }}
         run: |
-          ${{ inputs.style_command }}
+          $style_command
 
       - name: Commit and push changes
         id: commit_and_push
