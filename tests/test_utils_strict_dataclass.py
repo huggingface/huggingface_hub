@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import pytest
 
@@ -107,6 +107,9 @@ def test_custom_validator_must_be_callable():
         (5, Optional[int]),
         (None, Optional[int]),
         (DummyClass(), Optional[DummyClass]),
+        # Literal
+        ("John", Literal["John", "Doe"]),
+        (5, Literal[4, 5, 6]),
         # List
         ([1, 2, 3], List[int]),
         ([1, 2, "3"], List[Union[int, str]]),
@@ -165,6 +168,9 @@ def test_type_validator_valid(value, type_annotation):
         # Optional
         ("John", Optional[int]),
         (DummyClass(), Optional[int]),
+        # Literal
+        ("Ada", Literal["John", "Doe"]),
+        (3, Literal[4, 5, 6]),
         # List
         (5, List[int]),
         ([1, 2, "3"], List[int]),

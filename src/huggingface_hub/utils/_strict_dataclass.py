@@ -1,6 +1,6 @@
 import inspect
 from dataclasses import Field, dataclass, field, fields
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union, get_args, get_origin
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, TypeVar, Union, get_args, get_origin
 
 from ..errors import StrictDataclassDefinitionError, StrictDataclassFieldValidationError
 
@@ -98,6 +98,8 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
         _validate_union(name, value, args)
     elif origin is Optional:
         _validate_optional(name, value, args)
+    elif origin is Literal:
+        _validate_literal(name, value, args)
     elif origin is list:
         _validate_list(name, value, args)
     elif origin is dict:
@@ -131,6 +133,12 @@ def _validate_optional(name: str, value: Any, args: Tuple[Any, ...]) -> None:
     """Validate Optional[T] type."""
     if value is not None:
         type_validator(name, value, args[0])
+
+
+def _validate_literal(name: str, value: Any, args: Tuple[Any, ...]) -> None:
+    """Validate Literal type."""
+    if value not in args:
+        raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
 
 
 def _validate_list(name: str, value: Any, args: Tuple[Any, ...]) -> None:
