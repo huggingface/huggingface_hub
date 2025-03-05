@@ -819,6 +819,7 @@ class ModelInfo:
     spaces: Optional[List[str]]
     safetensors: Optional[SafeTensorsInfo]
     security_repo_status: Optional[Dict]
+    xet_enabled: Optional[bool]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -893,6 +894,7 @@ class ModelInfo:
             else None
         )
         self.security_repo_status = kwargs.pop("securityRepoStatus", None)
+        self.xet_enabled = kwargs.pop("xetEnabled", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -966,6 +968,7 @@ class DatasetInfo:
     trending_score: Optional[int]
     card_data: Optional[DatasetCardData]
     siblings: Optional[List[RepoSibling]]
+    xet_enabled: Optional[bool]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1011,7 +1014,7 @@ class DatasetInfo:
             if siblings is not None
             else None
         )
-
+        self.xet_enabled = kwargs.pop("xetEnabled", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -1093,6 +1096,7 @@ class SpaceInfo:
     runtime: Optional[SpaceRuntime]
     models: Optional[List[str]]
     datasets: Optional[List[str]]
+    xet_enabled: Optional[bool]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1141,7 +1145,7 @@ class SpaceInfo:
         self.runtime = SpaceRuntime(runtime) if runtime else None
         self.models = kwargs.pop("models", None)
         self.datasets = kwargs.pop("datasets", None)
-
+        self.xet_enabled = kwargs.pop("xetEnabled", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
