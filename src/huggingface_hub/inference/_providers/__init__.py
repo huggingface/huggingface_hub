@@ -2,6 +2,7 @@ from typing import Dict, Literal
 
 from ._common import TaskProviderHelper
 from .black_forest_labs import BlackForestLabsTextToImageTask
+from .cohere import CohereConversationalTask
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAITextToImageTask,
@@ -20,6 +21,7 @@ from .together import TogetherConversationalTask, TogetherTextGenerationTask, To
 
 PROVIDER_T = Literal[
     "black-forest-labs",
+    "cohere",
     "fal-ai",
     "fireworks-ai",
     "hf-inference",
@@ -34,6 +36,9 @@ PROVIDER_T = Literal[
 PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     "black-forest-labs": {
         "text-to-image": BlackForestLabsTextToImageTask(),
+    },
+    "cohere": {
+        "conversational": CohereConversationalTask(),
     },
     "fal-ai": {
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),

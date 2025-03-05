@@ -9,6 +9,7 @@ from huggingface_hub.inference._providers._common import (
     recursive_merge,
 )
 from huggingface_hub.inference._providers.black_forest_labs import BlackForestLabsTextToImageTask
+from huggingface_hub.inference._providers.cohere import CohereConversationalTask
 from huggingface_hub.inference._providers.fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAITextToImageTask,
@@ -108,6 +109,24 @@ class TestBlackForestLabsProvider:
                 mocker.call("https://example.com/image.jpg"),
             ]
         )
+
+
+class TestCohereConversationalTask:
+    def test_prepare_url(self):
+        helper = CohereConversationalTask()
+        assert helper.task == "conversational"
+        url = helper._prepare_url("cohere_token", "username/repo_name")
+        assert url == "https://api.cohere.com/compatibility/v1/chat/completions"
+
+    def test_prepare_payload_as_dict(self):
+        helper = CohereConversationalTask()
+        payload = helper._prepare_payload_as_dict(
+            [{"role": "user", "content": "Hello!"}], {}, "CohereForAI/command-r7b-12-2024"
+        )
+        assert payload == {
+            "messages": [{"role": "user", "content": "Hello!"}],
+            "model": "CohereForAI/command-r7b-12-2024",
+        }
 
 
 class TestFalAIProvider:
@@ -304,6 +323,53 @@ class TestHFInferenceProvider:
             "model": "username/repo_name",
             "messages": [{"role": "user", "content": "dummy text input"}],
         }
+
+    @pytest.mark.parametrize(
+        "mapped_model,parameters,expected_model",
+        [
+            (
+                "username/repo_name",
+                {},
+                "username/repo_name",
+            ),
+            # URL endpoint with model in parameters - use model from parameters
+            (
+                "http://localhost:8000/v1/chat/completions",
+                {"model": "username/repo_name"},
+                "username/repo_name",
+            ),
+            # URL endpoint without model - fallback to dummy
+            (
+                "http://localhost:8000/v1/chat/completions",
+                {},
+                "dummy",
+            ),
+            # HTTPS endpoint with model in parameters
+            (
+                "https://api.example.com/v1/chat/completions",
+                {"model": "username/repo_name"},
+                "username/repo_name",
+            ),
+            # URL endpoint with other parameters - should still use dummy
+            (
+                "http://localhost:8000/v1/chat/completions",
+                {"temperature": 0.7, "max_tokens": 100},
+                "dummy",
+            ),
+        ],
+    )
+    def test_prepare_payload_as_dict_conversational(self, mapped_model, parameters, expected_model):
+        helper = HFInferenceConversational()
+        messages = [{"role": "user", "content": "Hello!"}]
+
+        payload = helper._prepare_payload_as_dict(
+            inputs=messages,
+            parameters=parameters,
+            mapped_model=mapped_model,
+        )
+
+        assert payload["model"] == expected_model
+        assert payload["messages"] == messages
 
 
 class TestHyperbolicProvider:
