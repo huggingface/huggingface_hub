@@ -122,6 +122,7 @@ jobs:
           echo "$pre_commit_script" > pre_commit_script.sh
           chmod +x pre_commit_script.sh
           ./pre_commit_script.sh
+          rm pre_commit_script.sh
 
       - name: Run style command
         env:
