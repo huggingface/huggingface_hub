@@ -758,8 +758,9 @@ class CommitApiTest(HfApiCommonTest):
             f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/preupload/main.\nPlease"
             " make sure you specified the correct `repo_id` and"
             " `repo_type`.\nIf you are trying to access a private or gated"
-            " repo, make sure you are authenticated.\nNote: Creating a commit"
-            " assumes that the repo already exists on the Huggingface Hub."
+            " repo, make sure you are authenticated."
+            " For more details, see https://huggingface.co/docs/huggingface_hub/authentication"
+            "\nNote: Creating a commit assumes that the repo already exists on the Huggingface Hub."
             " Please use `create_repo` if it's not the case."
         )
 
