@@ -51,9 +51,7 @@ UploadMode = Literal["lfs", "regular"]
 # See https://github.com/huggingface/huggingface_hub/issues/1503
 FETCH_LFS_BATCH_SIZE = 500
 
-# number of files to upload at a time via xet upload
-# original usage to batch lfs uploads
-UPLOAD_BATCH_MAX_NUM_FILES = 256
+XET_UPLOAD_BATCH_MAX_NUM_FILES = 256
 
 
 @dataclass
@@ -399,7 +397,7 @@ def _upload_lfs_files(
     #         Upload instructions are retrieved by chunk of 256 files to avoid reaching
     #         the payload limit.
     batch_actions: List[Dict] = []
-    for chunk in chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES):
+    for chunk in chunk_iterable(additions, chunk_size=XET_UPLOAD_BATCH_MAX_NUM_FILES):
         batch_actions_chunk, batch_errors_chunk = post_lfs_batch_info(
             upload_infos=[op.upload_info for op in chunk],
             repo_id=repo_id,
@@ -494,6 +492,8 @@ def _upload_xet_files(
             The endpoint to use for the xetcas service. Defaults to `constants.ENDPOINT`.
         revision (`str`, *optional*):
             The git revision to upload to.
+        create_pr (`bool`, *optional*):
+            Whether or not to create a Pull Request with that commit.
     Raises:
         [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
             If an upload failed for any reason
@@ -560,9 +560,9 @@ def _upload_xet_files(
             raise ValueError("Failed to refresh xet token")
         return new_xet_metadata.access_token, new_xet_metadata.expiration_unix_epoch
 
-    num_chunks = math.ceil(len(additions) / UPLOAD_BATCH_MAX_NUM_FILES)
+    num_chunks = math.ceil(len(additions) / XET_UPLOAD_BATCH_MAX_NUM_FILES)
     num_chunks_num_digits = int(math.log10(num_chunks)) + 1
-    for i, chunk in enumerate(chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES)):
+    for i, chunk in enumerate(chunk_iterable(additions, chunk_size=XET_UPLOAD_BATCH_MAX_NUM_FILES)):
         _chunk = [op for op in chunk]
         paths = [str(op.path_or_fileobj) for op in _chunk]
         expected_size = sum([os.path.getsize(path) for path in paths])

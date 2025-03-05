@@ -133,6 +133,8 @@ def _fetch_xet_metadata_with_url(
             The access token endpoint URL.
         headers (`Dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
+        params (`Dict[str, str]`, `optional`):
+            Additional parameters to pass with the request.
     Returns:
         `XetMetadata`:
             The metadata needed to make the request to the xet storage service.
