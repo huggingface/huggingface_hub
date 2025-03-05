@@ -334,7 +334,7 @@ class TestHFInferenceProvider:
             ),
             # URL endpoint with model in parameters - use model from parameters
             (
-                "https://localhost:8000/v1/chat/completions",
+                "http://localhost:8000/v1/chat/completions",
                 {"model": "username/repo_name"},
                 "username/repo_name",
             ),
