@@ -117,12 +117,8 @@ jobs:
         env:
           pre_commit_script: ${{ inputs.pre_commit_script }}
         if: inputs.pre_commit_script != ''
-        shell: bash
         run: |
-          echo "$pre_commit_script" > pre_commit_script.sh
-          chmod +x pre_commit_script.sh
-          ./pre_commit_script.sh
-          rm pre_commit_script.sh
+          bash -c "${pre_commit_script}"
 
       - name: Run style command
         env:
