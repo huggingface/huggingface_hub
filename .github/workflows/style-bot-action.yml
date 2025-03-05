@@ -123,11 +123,11 @@ jobs:
           chmod +x pre_commit_script.sh
           ./pre_commit_script.sh
 
-      - name: Run make style and make quality
+      - name: Run style command
         env:
           style_command: ${{ inputs.style_command }}
         run: |
-          $style_command
+          bash -c "$style_command"
 
       - name: Commit and push changes
         id: commit_and_push
