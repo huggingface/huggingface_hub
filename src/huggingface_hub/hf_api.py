@@ -3694,13 +3694,6 @@ class HfApi:
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL  # default repo type
 
-        # Check if gated, private, and xet_enabled are None
-        if gated is None and private is None and xet_enabled is None:
-            raise ValueError("At least one of 'gated', 'private' or 'xet_enabled' must be provided.")
-
-        # Build headers
-        headers = self._build_hf_headers(token=token)
-
         # Prepare the JSON payload for the PUT request
         payload: Dict = {}
 
@@ -3714,6 +3707,12 @@ class HfApi:
 
         if xet_enabled is not None:
             payload["xetEnabled"] = xet_enabled
+
+        if len(payload) == 0:
+            raise ValueError("At least one setting must be updated.")
+
+        # Build headers
+        headers = self._build_hf_headers(token=token)
 
         r = get_session().put(
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
