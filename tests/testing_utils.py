@@ -50,6 +50,12 @@ YES = ("y", "yes", "t", "true", "on", "1")
 NO = ("n", "no", "f", "false", "off", "0")
 
 
+# Xet testing
+DUMMY_XET_MODEL_ID = "celinah/dummy-xet-testing"
+DUMMY_XET_FILE = "dummy.safetensors"
+DUMMY_XET_REGULAR_FILE = "dummy.txt"
+
+
 def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
     """
     Return a readable pseudo-unique repository name for tests.
