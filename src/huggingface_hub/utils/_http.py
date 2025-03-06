@@ -578,6 +578,8 @@ def _curlify(request: requests.PreparedRequest) -> str:
         body = request.body
         if isinstance(body, bytes):
             body = body.decode("utf-8", errors="ignore")
+        elif hasattr(body, "read"):
+            body = "<file-like object>"  # Don't try to read it to avoid consuming the stream
         if len(body) > 1000:
             body = body[:1000] + " ... [truncated]"
         parts += [("-d", body.replace("\n", ""))]
