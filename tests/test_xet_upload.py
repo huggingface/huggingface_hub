@@ -185,7 +185,7 @@ class TestXetUpload:
 
 
 @requires("hf_xet")
-@pytest.skip("Skipping large upload to debug")
+@pytest.mark.skip("Skipping large upload to debug")
 class TestXetLargeUpload:
     def test_upload_large_folder(self, api, tmp_path, repo_url: RepoUrl) -> None:
         N_FILES_PER_FOLDER = 4
