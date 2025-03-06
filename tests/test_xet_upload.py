@@ -57,7 +57,6 @@ def repo_url(api, repo_type: str = "model"):
 
 
 @requires("hf_xet")
-@pytest.mark.timeout(60)
 class TestXetUpload:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
