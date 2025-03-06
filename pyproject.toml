@@ -14,7 +14,6 @@ env = [
     "HF_TOKEN=",
     "HUGGINGFACE_CO_STAGING=1",
     "HUGGING_FACE_HUB_TOKEN=",
-    "HF_DEBUG=1",
 ]
 
 [tool.ruff]
