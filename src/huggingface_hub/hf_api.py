@@ -4266,7 +4266,10 @@ class HfApi:
             # PR (i.e. `revision`).
             "revision": revision if not create_pr else None,
         }
-        # Upload files using Xet protocol if: xet is enabled for the repo, the files are provided as str or paths objects and the library is installed.
+        # Upload files using Xet protocol if all of the following are true:
+        # - xet is enabled for the repo,
+        # - the files are provided as str or paths objects,
+        # - the library is installed.
         # Otherwise, default back to LFS.
         xet_enabled = self.repo_info(
             repo_id=repo_id, repo_type=repo_type, revision=revision, expand="xetEnabled"
