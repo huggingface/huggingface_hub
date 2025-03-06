@@ -57,6 +57,7 @@ def repo_url(api, repo_type: str = "model"):
 
 
 @requires("hf_xet")
+@pytest.mark.timeout(60)
 class TestXetUpload:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
@@ -162,6 +163,7 @@ class TestXetUpload:
                         repo_id=repo_id,
                     )
 
+    @pytest.mark.timeout(6)
     def test_upload_folder(self, api, repo_url):
         repo_id = repo_url.repo_id
         folder_in_repo = "temp"
@@ -188,6 +190,7 @@ class TestXetUpload:
             filepath = hf_hub_download(repo_id=repo_id, filename=rpath)
             assert Path(local_path).read_bytes() == Path(filepath).read_bytes()
 
+    @pytest.mark.timeout(6)
     def test_upload_folder_create_pr(self, api, repo_url) -> None:
         repo_id = repo_url.repo_id
         folder_in_repo = "temp_create_pr"
