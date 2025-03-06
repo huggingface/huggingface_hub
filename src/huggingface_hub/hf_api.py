@@ -4266,23 +4266,31 @@ class HfApi:
             # PR (i.e. `revision`).
             "revision": revision if not create_pr else None,
         }
-        # Upload files using Xet protocol if the files are provided as str or paths objects and the library is installed.
+        # Upload files using Xet protocol if: xet is enabled for the repo, the files are provided as str or paths objects and the library is installed.
         # Otherwise, default back to LFS.
-        bytes_or_binary_io = any(
+        xet_enabled = self.repo_info(
+            repo_id=repo_id, repo_type=repo_type, revision=revision, expand="xetEnabled"
+        ).xet_enabled
+        has_binary_data = any(
             isinstance(addition.path_or_fileobj, (bytes, io.BufferedIOBase))
             for addition in new_lfs_additions_to_upload
         )
-        if not bytes_or_binary_io and is_xet_available():
-            # only add create_pr arg for xet upload, lfs upload does not take this argument.
+        if xet_enabled and not has_binary_data and is_xet_available():
             logger.info("Uploading files using Xet Storage..")
             _upload_xet_files(**upload_kwargs, create_pr=create_pr)  # type: ignore [arg-type]
-
         else:
-            if is_xet_available():
-                logger.warning(
-                    "Uploading files as bytes or binary IO objects is not supported by Xet Storage. "
-                    "Falling back to HTTP upload."
-                )
+            if xet_enabled:
+                if not is_xet_available():
+                    logger.warning(
+                        "Repository is configured for Xet Storage but `hf_xet` package is not installed. "
+                        "Falling back to HTTP upload. Run `pip install hf_xet` or `pip install huggingface-hub[hf_xet]` "
+                        "to enable Xet Storage."
+                    )
+                elif has_binary_data:
+                    logger.warning(
+                        "Uploading files as bytes or binary IO objects is not supported by Xet Storage. "
+                        "Falling back to HTTP upload."
+                    )
             _upload_lfs_files(**upload_kwargs, num_threads=num_threads)  # type: ignore [arg-type]
         for addition in new_lfs_additions_to_upload:
             addition._is_uploaded = True

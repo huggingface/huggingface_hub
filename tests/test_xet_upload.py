@@ -137,6 +137,31 @@ class TestXetUpload:
                         repo_id=repo_id,
                     )
 
+    def test_upload_based_on_xet_enabled_setting(self, api, repo_url):
+        repo_id = repo_url.repo_id
+
+        # Test when xet is enabled -> use Xet upload
+        with patch("huggingface_hub.hf_api.HfApi.repo_info") as mock_repo_info:
+            mock_repo_info.return_value.xet_enabled = True
+            with assert_xet_upload_used(should_be_called=True):
+                with assert_lfs_upload_used(should_be_called=False):
+                    api.upload_file(
+                        path_or_fileobj=self.bin_file,
+                        path_in_repo="xet_enabled.bin",
+                        repo_id=repo_id,
+                    )
+
+        # Test when xet is disabled -> use LFS upload
+        with patch("huggingface_hub.hf_api.HfApi.repo_info") as mock_repo_info:
+            mock_repo_info.return_value.xet_enabled = False
+            with assert_xet_upload_used(should_be_called=False):
+                with assert_lfs_upload_used(should_be_called=True):
+                    api.upload_file(
+                        path_or_fileobj=self.bin_file,
+                        path_in_repo="xet_disabled.bin",
+                        repo_id=repo_id,
+                    )
+
     def test_upload_folder(self, api, repo_url):
         repo_id = repo_url.repo_id
         folder_in_repo = "temp"
