@@ -205,14 +205,24 @@ jobs:
         working-directory: ./src # For code coverage to work
         run: |
           ..\.venv\Scripts\activate
-          $PYTEST = "python -m pytest -n 4 --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 8 --reruns-delay 2 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)'"
+          $PYTEST_ARGS = @(
+            "-m", "pytest",
+            "-n", "4",
+            "--cov=./huggingface_hub",
+            "--cov-report=xml:../coverage.xml",
+            "--vcr-record=none",
+            "--reruns", "8",
+            "--reruns-delay", "2",
+            "--only-rerun", "(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)",
+            "../tests"
+          )
 
           switch ("${{ matrix.test_name }}") {
             "Xet only" {
-              & $PYTEST "../tests -k 'test_xet'"
+              python $PYTEST_ARGS -k "test_xet"
             }
             "Everything else" {
-              & $PYTEST "../tests -k 'not test_xet'"
+              python $PYTEST_ARGS -k "not test_xet"
             }
           }
 
