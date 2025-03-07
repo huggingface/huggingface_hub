@@ -3138,7 +3138,7 @@ iface.launch()
         self.api = HfApi(token="hf_fake_token", endpoint=ENDPOINT_PRODUCTION)
 
         # Create a Space
-        self.api.create_repo(repo_id=self.repo_id, repo_type="space", space_sdk="gradio", private=True)
+        self.api.create_repo(repo_id=self.repo_id, repo_type="space", space_sdk="gradio", private=True, exist_ok=True)
         self.api.upload_file(
             path_or_fileobj=self._BASIC_APP_PY_TEMPLATE,
             repo_id=self.repo_id,

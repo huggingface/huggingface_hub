@@ -17,6 +17,7 @@ def patch_constants(mocker):
     with SoftTemporaryDirectory() as cache_dir:
         mocker.patch.object(constants, "HF_HOME", cache_dir)
         mocker.patch.object(constants, "HF_HUB_CACHE", os.path.join(cache_dir, "hub"))
+        mocker.patch.object(constants, "HF_XET_CACHE", os.path.join(cache_dir, "xet"))
         mocker.patch.object(constants, "HUGGINGFACE_HUB_CACHE", os.path.join(cache_dir, "hub"))
         mocker.patch.object(constants, "HF_ASSETS_CACHE", os.path.join(cache_dir, "assets"))
         mocker.patch.object(constants, "HF_TOKEN_PATH", os.path.join(cache_dir, "token"))

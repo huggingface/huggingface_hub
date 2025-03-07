@@ -36,6 +36,12 @@ spaces).
 
 Defaults to `"$HF_HOME/hub"` (e.g. `"~/.cache/huggingface/hub"` by default).
 
+### HF_XET_CACHE
+
+To configure where Xet Storage chunks will be cached locally.
+
+Defaults to `"$HF_HOME/xet"` (e.g. `"~/.cache/huggingface/xet"` by default).
+
 ### HF_ASSETS_CACHE
 
 To configure where [assets](../guides/manage-cache#caching-assets) created by downstream libraries

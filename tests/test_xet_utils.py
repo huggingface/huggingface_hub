@@ -113,6 +113,7 @@ def test_refresh_metadata_success(mocker) -> None:
     mock_session.get.assert_called_once_with(
         headers=headers,
         url=expected_url,
+        params=None,
     )
 
     assert refreshed_metadata.endpoint == "https://example.xethub.hf.co"
@@ -154,6 +155,7 @@ def test_refresh_metadata_custom_endpoint(mocker) -> None:
     mock_session.get.assert_called_once_with(
         headers=headers,
         url=expected_url,
+        params=None,
     )
 
 
@@ -198,6 +200,7 @@ def test_fetch_xet_metadata_with_url(mocker) -> None:
     mock_session.get.assert_called_once_with(
         headers=headers,
         url=url,
+        params=None,
     )
 
     # Verify returned metadata
