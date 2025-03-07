@@ -32,13 +32,15 @@ def assert_upload_mode(mode: str):
     if mode not in ("xet", "lfs"):
         raise ValueError("Mode must be either 'xet' or 'lfs'")
 
-    with (
-        patch("huggingface_hub.hf_api._upload_xet_files", wraps=_upload_xet_files) as mock_xet,
-        patch("huggingface_hub.hf_api._upload_lfs_files", wraps=_upload_lfs_files) as mock_lfs,
-    ):
-        yield
-        assert mock_xet.called == (mode == "xet"), f"Expected {'XET' if mode == 'xet' else 'LFS'} upload to be used"
-        assert mock_lfs.called == (mode == "lfs"), f"Expected {'LFS' if mode == 'lfs' else 'XET'} upload to be used"
+    with patch("huggingface_hub.hf_api._upload_xet_files", wraps=_upload_xet_files) as mock_xet:
+        with patch("huggingface_hub.hf_api._upload_lfs_files", wraps=_upload_lfs_files) as mock_lfs:
+            yield
+            assert mock_xet.called == (mode == "xet"), (
+                f"Expected {'XET' if mode == 'xet' else 'LFS'} upload to be used"
+            )
+            assert mock_lfs.called == (mode == "lfs"), (
+                f"Expected {'LFS' if mode == 'lfs' else 'XET'} upload to be used"
+            )
 
 
 @pytest.fixture(scope="module")
