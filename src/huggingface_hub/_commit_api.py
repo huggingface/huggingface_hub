@@ -550,6 +550,8 @@ def _upload_xet_files(
             ) from e
         else:
             raise e
+    except Exception as e:
+        raise e
 
     xet_endpoint = xet_metadata.endpoint
     access_token_info = (xet_metadata.access_token, xet_metadata.expiration_unix_epoch)
