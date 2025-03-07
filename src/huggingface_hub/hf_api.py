@@ -4282,14 +4282,8 @@ class HfApi:
             logger.info("Uploading files using Xet Storage..")
             _upload_xet_files(**upload_kwargs, create_pr=create_pr)  # type: ignore [arg-type]
         else:
-            if xet_enabled:
-                if not is_xet_available():
-                    logger.warning(
-                        "Repository is configured for Xet Storage but `hf_xet` package is not installed. "
-                        "Falling back to HTTP upload. Run `pip install hf_xet` or `pip install huggingface-hub[hf_xet]` "
-                        "to enable Xet Storage."
-                    )
-                elif has_binary_data:
+            if xet_enabled and is_xet_available():
+                if has_binary_data:
                     logger.warning(
                         "Uploading files as bytes or binary IO objects is not supported by Xet Storage. "
                         "Falling back to HTTP upload."
