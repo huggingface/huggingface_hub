@@ -548,10 +548,7 @@ def _upload_xet_files(
                 f"You are unauthorized to upload to xet storage for {repo_type}/{repo_id}. "
                 f"Please check that you have configured your access token with write access to the repo."
             ) from e
-        else:
-            raise e
-    except Exception as e:
-        raise e
+        raise
 
     xet_endpoint = xet_metadata.endpoint
     access_token_info = (xet_metadata.access_token, xet_metadata.expiration_unix_epoch)
