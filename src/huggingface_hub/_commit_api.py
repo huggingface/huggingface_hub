@@ -480,7 +480,7 @@ def _upload_xet_files(
     This chunks the files and deduplicates the chunks before uploading them to xetcas storage.
     Args:
         additions (`List` of `CommitOperationAdd`):
-            The files to be uploaded
+            The files to be uploaded.
         repo_type (`str`):
             Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
         repo_id (`str`):
@@ -494,9 +494,10 @@ def _upload_xet_files(
             The git revision to upload to.
         create_pr (`bool`, *optional*):
             Whether or not to create a Pull Request with that commit.
+
     Raises:
         [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-            If an upload failed for any reason
+            If an upload failed for any reason.
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the server returns malformed responses or if the user is unauthorized to upload to xet storage.
         [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
@@ -515,7 +516,7 @@ def _upload_xet_files(
         1. Create a local folder at ~/.cache/huggingface/xet/chunk-cache to store file chunks for reuse.
         2. Process files in parallel (up to 8 files at once):
             2.1. Read the file content.
-            2.2. Split the file content into smaller chunks based on content patterns : Each chunk gets a unique ID based on what's in it.
+            2.2. Split the file content into smaller chunks based on content patterns: each chunk gets a unique ID based on what's in it.
             2.3. For each chunk:
                 - Check if it already exists in storage.
                 - Skip uploading chunks that already exist.
