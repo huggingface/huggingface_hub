@@ -445,6 +445,9 @@ def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
             repo_url = self._api.create_repo(
                 repo_id=repo_name(prefix=repo_type), repo_type=repo_type, **create_repo_kwargs
             )
+            # We need to disable Xet Storage to avoid issues with the parsing of the warning logs in some tests
+            # TODO: remove this when Xet Storage is enabled by default for all users
+            self._api.update_repo_settings(repo_id=repo_url.repo_id, xet_enabled=False)
             try:
                 return test_fn(*args, **kwargs, repo_url=repo_url)
             finally:
