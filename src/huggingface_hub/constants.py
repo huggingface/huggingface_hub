@@ -78,6 +78,7 @@ INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-infere
 
 # See https://huggingface.co/docs/inference-endpoints/index
 INFERENCE_ENDPOINTS_ENDPOINT = "https://api.endpoints.huggingface.cloud/v2"
+INFERENCE_CATALOG_ENDPOINT = "https://endpoints.huggingface.co/api/catalog"
 
 # Proxy for third-party providers
 INFERENCE_PROXY_TEMPLATE = "https://router.huggingface.co/{provider}"

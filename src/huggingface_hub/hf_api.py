@@ -112,6 +112,7 @@ from .utils import (
     SafetensorsRepoMetadata,
     TensorInfo,
     build_hf_headers,
+    experimental,
     filter_repo_objects,
     fix_hf_endpoint_in_url,
     get_session,
@@ -7492,6 +7493,94 @@ class HfApi:
 
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 
+    @experimental
+    @validate_hf_hub_args
+    def create_inference_endpoint_from_catalog(
+        self,
+        repo_id: str,
+        *,
+        name: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+        namespace: Optional[str] = None,
+    ) -> InferenceEndpoint:
+        """Create a new Inference Endpoint from a model in the Hugging Face Inference Catalog.
+
+        The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
+        and for which default configurations have been tested. See https://endpoints.huggingface.co/catalog for a list
+        of available models in the catalog.
+
+        Args:
+            repo_id (`str`):
+                The ID of the model in the catalog to deploy as an Inference Endpoint.
+            name (`str`, *optional*):
+                The unique name for the new Inference Endpoint. If not provided, a random name will be generated.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+            namespace (`str`, *optional*):
+                The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.
+
+        Returns:
+            [`InferenceEndpoint`]: information about the new Inference Endpoint.
+
+        <Tip warning={true}>
+
+        `create_inference_endpoint_from_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
+        if you have any suggestions or requests.
+
+        </Tip>
+        """
+        token = token or self.token or get_token()
+        payload: Dict = {
+            "namespace": namespace or self._get_namespace(token=token),
+            "repoId": repo_id,
+        }
+        if name is not None:
+            payload["endpointName"] = name
+
+        response = get_session().post(
+            f"{constants.INFERENCE_CATALOG_ENDPOINT}/deploy",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(response)
+        data = response.json()["endpoint"]
+        return InferenceEndpoint.from_raw(data, namespace=data["name"], token=token)
+
+    @experimental
+    @validate_hf_hub_args
+    def list_inference_catalog(self, *, token: Union[bool, str, None] = None) -> List[str]:
+        """List models available in the Hugging Face Inference Catalog.
+
+        The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
+        and for which default configurations have been tested. See https://endpoints.huggingface.co/catalog for a list
+        of available models in the catalog.
+
+        Use [`create_inference_endpoint_from_catalog`] to deploy a model from the catalog.
+
+        Args:
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+
+        Returns:
+            List[`str`]: A list of model IDs available in the catalog.
+        <Tip warning={true}>
+
+        `list_inference_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
+        if you have any suggestions or requests.
+
+        </Tip>
+        """
+        response = get_session().get(
+            f"{constants.INFERENCE_CATALOG_ENDPOINT}/repo-list",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return response.json()["models"]
+
     def get_inference_endpoint(
         self, name: str, *, namespace: Optional[str] = None, token: Union[bool, str, None] = None
     ) -> InferenceEndpoint:
@@ -9614,6 +9703,8 @@ delete_inference_endpoint = api.delete_inference_endpoint
 pause_inference_endpoint = api.pause_inference_endpoint
 resume_inference_endpoint = api.resume_inference_endpoint
 scale_to_zero_inference_endpoint = api.scale_to_zero_inference_endpoint
+create_inference_endpoint_from_catalog = api.create_inference_endpoint_from_catalog
+list_inference_catalog = api.list_inference_catalog
 
 # Collections API
 get_collection = api.get_collection
