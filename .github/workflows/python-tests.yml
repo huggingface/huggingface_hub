@@ -198,7 +198,11 @@ jobs:
 
       # Install dependencies
       - name: Install dependencies
-        run: uv pip install "huggingface_hub[testing] @ ."
+        run: |
+          uv pip install "huggingface_hub[testing] @ ."
+          if ("${{ matrix.test_name }}" -eq "Xet only") {
+            uv pip install "huggingface_hub[hf_xet] @ ."
+          }
 
       # Run tests
       - name: Run tests
