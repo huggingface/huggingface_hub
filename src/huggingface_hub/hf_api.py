@@ -4276,6 +4276,7 @@ class HfApi:
             repo_type=repo_type,
             revision=unquote(revision) if revision is not None else revision,
             expand="xetEnabled",
+            token=token,
         ).xet_enabled
         has_binary_data = any(
             isinstance(addition.path_or_fileobj, (bytes, io.BufferedIOBase))

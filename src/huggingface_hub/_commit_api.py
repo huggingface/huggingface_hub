@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List,
 from tqdm.contrib.concurrent import thread_map
 
 from . import constants
-from .errors import EntryNotFoundError
+from .errors import EntryNotFoundError, XetAuthorizationError, XetRefreshTokenError
 from .file_download import hf_hub_url
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
@@ -478,9 +478,10 @@ def _upload_xet_files(
     """
     Uploads the content of `additions` to the Hub using the xet storage protocol.
     This chunks the files and deduplicates the chunks before uploading them to xetcas storage.
+
     Args:
         additions (`List` of `CommitOperationAdd`):
-            The files to be uploaded
+            The files to be uploaded.
         repo_type (`str`):
             Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
         repo_id (`str`):
@@ -494,13 +495,15 @@ def _upload_xet_files(
             The git revision to upload to.
         create_pr (`bool`, *optional*):
             Whether or not to create a Pull Request with that commit.
+
     Raises:
         [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-            If an upload failed for any reason
+            If an upload failed for any reason.
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the server returns malformed responses or if the user is unauthorized to upload to xet storage.
         [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
             If the LFS batch endpoint returned an HTTP error.
+
     **How it works:**
         The file download system uses Xet storage, which is a content-addressable storage system that breaks files into chunks
             for efficient storage and transfer.
@@ -515,7 +518,7 @@ def _upload_xet_files(
         1. Create a local folder at ~/.cache/huggingface/xet/chunk-cache to store file chunks for reuse.
         2. Process files in parallel (up to 8 files at once):
             2.1. Read the file content.
-            2.2. Split the file content into smaller chunks based on content patterns : Each chunk gets a unique ID based on what's in it.
+            2.2. Split the file content into smaller chunks based on content patterns: each chunk gets a unique ID based on what's in it.
             2.3. For each chunk:
                 - Check if it already exists in storage.
                 - Skip uploading chunks that already exist.
@@ -539,7 +542,7 @@ def _upload_xet_files(
         params={"create_pr": "1"} if create_pr else None,
     )
     if xet_metadata is None:
-        raise ValueError(
+        raise XetAuthorizationError(
             f"You are unauthorized to upload to xet storage for {repo_type}/{repo_id}. "
             f"Please check that you have configured your access token with write access to the repo."
         )
@@ -557,7 +560,7 @@ def _upload_xet_files(
             params={"create_pr": "1"} if create_pr else None,
         )
         if new_xet_metadata is None:
-            raise ValueError("Failed to refresh xet token")
+            raise XetRefreshTokenError("Failed to refresh xet token")
         return new_xet_metadata.access_token, new_xet_metadata.expiration_unix_epoch
 
     num_chunks = math.ceil(len(additions) / UPLOAD_BATCH_MAX_NUM_FILES)

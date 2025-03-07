@@ -28,17 +28,17 @@ from .testing_utils import repo_name, requires
 
 
 @contextmanager
-def assert_xet_upload_used(should_be_called: bool):
-    with patch("huggingface_hub.hf_api._upload_xet_files", wraps=_upload_xet_files) as mock_upload_xet_api:
-        yield
-        assert mock_upload_xet_api.called == should_be_called
+def assert_upload_mode(mode: str):
+    if mode not in ("xet", "lfs"):
+        raise ValueError("Mode must be either 'xet' or 'lfs'")
 
-
-@contextmanager
-def assert_lfs_upload_used(should_be_called: bool):
-    with patch("huggingface_hub.hf_api._upload_lfs_files", wraps=_upload_lfs_files) as mock_upload_lfs_api:
+    with (
+        patch("huggingface_hub.hf_api._upload_xet_files", wraps=_upload_xet_files) as mock_xet,
+        patch("huggingface_hub.hf_api._upload_lfs_files", wraps=_upload_lfs_files) as mock_lfs,
+    ):
         yield
-        assert mock_upload_lfs_api.called == should_be_called
+        assert mock_xet.called == (mode == "xet"), f"Expected {'XET' if mode == 'xet' else 'LFS'} upload to be used"
+        assert mock_lfs.called == (mode == "lfs"), f"Expected {'LFS' if mode == 'lfs' else 'XET'} upload to be used"
 
 
 @pytest.fixture(scope="module")
@@ -88,7 +88,7 @@ class TestXetUpload:
     def test_upload_file(self, api, tmp_path, repo_url):
         filename_in_repo = "binary_file.bin"
         repo_id = repo_url.repo_id
-        with assert_xet_upload_used(should_be_called=True):
+        with assert_upload_mode("xet"):
             return_val = api.upload_file(
                 path_or_fileobj=self.bin_file,
                 path_in_repo=filename_in_repo,
@@ -114,7 +114,7 @@ class TestXetUpload:
     def test_upload_file_with_bytesio(self, api, tmp_path, repo_url):
         repo_id = repo_url.repo_id
         content = BytesIO(self.bin_content)
-        with assert_lfs_upload_used(should_be_called=True):
+        with assert_upload_mode("lfs"):
             api.upload_file(
                 path_or_fileobj=content,
                 path_in_repo="bytesio_file.bin",
@@ -129,13 +129,12 @@ class TestXetUpload:
     def test_fallback_to_lfs_when_xet_not_available(self, api, repo_url):
         repo_id = repo_url.repo_id
         with patch("huggingface_hub.hf_api.is_xet_available", return_value=False):
-            with assert_lfs_upload_used(should_be_called=True):
-                with assert_xet_upload_used(should_be_called=False):
-                    api.upload_file(
-                        path_or_fileobj=self.bin_file,
-                        path_in_repo="fallback_file.bin",
-                        repo_id=repo_id,
-                    )
+            with assert_upload_mode("lfs"):
+                api.upload_file(
+                    path_or_fileobj=self.bin_file,
+                    path_in_repo="fallback_file.bin",
+                    repo_id=repo_id,
+                )
 
     def test_upload_based_on_xet_enabled_setting(self, api, repo_url):
         repo_id = repo_url.repo_id
@@ -143,29 +142,27 @@ class TestXetUpload:
         # Test when xet is enabled -> use Xet upload
         with patch("huggingface_hub.hf_api.HfApi.repo_info") as mock_repo_info:
             mock_repo_info.return_value.xet_enabled = True
-            with assert_xet_upload_used(should_be_called=True):
-                with assert_lfs_upload_used(should_be_called=False):
-                    api.upload_file(
-                        path_or_fileobj=self.bin_file,
-                        path_in_repo="xet_enabled.bin",
-                        repo_id=repo_id,
-                    )
+            with assert_upload_mode("xet"):
+                api.upload_file(
+                    path_or_fileobj=self.bin_file,
+                    path_in_repo="xet_enabled.bin",
+                    repo_id=repo_id,
+                )
 
         # Test when xet is disabled -> use LFS upload
         with patch("huggingface_hub.hf_api.HfApi.repo_info") as mock_repo_info:
             mock_repo_info.return_value.xet_enabled = False
-            with assert_xet_upload_used(should_be_called=False):
-                with assert_lfs_upload_used(should_be_called=True):
-                    api.upload_file(
-                        path_or_fileobj=self.bin_file,
-                        path_in_repo="xet_disabled.bin",
-                        repo_id=repo_id,
-                    )
+            with assert_upload_mode("lfs"):
+                api.upload_file(
+                    path_or_fileobj=self.bin_file,
+                    path_in_repo="xet_disabled.bin",
+                    repo_id=repo_id,
+                )
 
     def test_upload_folder(self, api, repo_url):
         repo_id = repo_url.repo_id
         folder_in_repo = "temp"
-        with assert_xet_upload_used(should_be_called=True):
+        with assert_upload_mode("xet"):
             return_val = api.upload_folder(
                 folder_path=self.folder_path,
                 path_in_repo=folder_in_repo,
@@ -191,7 +188,7 @@ class TestXetUpload:
     def test_upload_folder_create_pr(self, api, repo_url) -> None:
         repo_id = repo_url.repo_id
         folder_in_repo = "temp_create_pr"
-        with assert_xet_upload_used(should_be_called=True):
+        with assert_upload_mode("xet"):
             return_val = api.upload_folder(
                 folder_path=self.folder_path,
                 path_in_repo=folder_in_repo,
@@ -223,8 +220,8 @@ class TestXetLargeUpload:
                 (subfolder / f"file_xet_{i}_{j}.bin").write_bytes(f"content_lfs_{i}_{j}".encode())
                 (subfolder / f"file_regular_{i}_{j}.txt").write_bytes(f"content_regular_{i}_{j}".encode())
 
-            with assert_xet_upload_used(should_be_called=True):
-                api.upload_large_folder(repo_id=repo_id, repo_type="model", folder_path=folder, num_workers=4)
+        with assert_upload_mode("xet"):
+            api.upload_large_folder(repo_id=repo_id, repo_type="model", folder_path=folder, num_workers=4)
 
         # Check all files have been uploaded
         uploaded_files = api.list_repo_files(repo_id=repo_id)
