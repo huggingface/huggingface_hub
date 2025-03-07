@@ -9,7 +9,6 @@ on:
         description: 'Pull Request number to run style checks on'
         required: false
         type: number
-        default: 0
 
 permissions:
   contents: write
@@ -21,6 +20,6 @@ jobs:
     with:
       python_quality_dependencies: "[quality]"
       style_command_type: "style_only"
-      pr_number: ${{ fromJSON(inputs.pr_number) }}
+      pr_number: ${{ fromJSON(inputs.pr_number || '0') }}
     secrets:
       bot_token: ${{ secrets.GITHUB_TOKEN }}
