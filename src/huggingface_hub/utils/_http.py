@@ -453,7 +453,8 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
                 + f"Repository Not Found for url: {response.url}."
                 + "\nPlease make sure you specified the correct `repo_id` and"
                 " `repo_type`.\nIf you are trying to access a private or gated repo,"
-                " make sure you are authenticated."
+                " make sure you are authenticated. For more details, see"
+                " https://huggingface.co/docs/huggingface_hub/authentication"
             )
             raise _format(RepositoryNotFoundError, message, response) from e
 
@@ -577,6 +578,8 @@ def _curlify(request: requests.PreparedRequest) -> str:
         body = request.body
         if isinstance(body, bytes):
             body = body.decode("utf-8", errors="ignore")
+        elif hasattr(body, "read"):
+            body = "<file-like object>"  # Don't try to read it to avoid consuming the stream
         if len(body) > 1000:
             body = body[:1000] + " ... [truncated]"
         parts += [("-d", body.replace("\n", ""))]
