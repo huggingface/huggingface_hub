@@ -42,7 +42,7 @@ from typing import (
     Union,
     overload,
 )
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 import requests
 from requests.exceptions import HTTPError
@@ -4272,7 +4272,10 @@ class HfApi:
         # - the library is installed.
         # Otherwise, default back to LFS.
         xet_enabled = self.repo_info(
-            repo_id=repo_id, repo_type=repo_type, revision=revision, expand="xetEnabled"
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=unquote(revision) if revision is not None else revision,
+            expand="xetEnabled",
         ).xet_enabled
         has_binary_data = any(
             isinstance(addition.path_or_fileobj, (bytes, io.BufferedIOBase))

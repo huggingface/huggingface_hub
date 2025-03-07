@@ -191,7 +191,7 @@ class CachedDownloadTests(unittest.TestCase):
                 )
 
     def test_private_repo_and_file_cached_locally(self):
-        api = HfApi(endpoint=ENDPOINT_STAGING)
+        api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
         repo_id = api.create_repo(repo_id=repo_name(), private=True, token=TOKEN).repo_id
         api.upload_file(path_or_fileobj=b"content", path_in_repo="config.json", repo_id=repo_id, token=TOKEN)
 
