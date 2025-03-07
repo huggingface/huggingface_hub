@@ -9,6 +9,7 @@ on:
         description: 'Pull Request number to run style checks on'
         required: false
         type: number
+        default: 0
 
 permissions:
   contents: write
