@@ -7526,7 +7526,6 @@ class HfApi:
         """
         token = token or self.token or get_token()
         payload: Dict = {
-            "accessToken": token,
             "namespace": namespace or self._get_namespace(token=token),
             "repoId": repo_id,
         }
@@ -7535,12 +7534,12 @@ class HfApi:
 
         response = get_session().post(
             f"{constants.INFERENCE_CATALOG_ENDPOINT}/deploy",
-            headers=self._build_hf_headers(token=False),
+            headers=self._build_hf_headers(token=token),
             json=payload,
         )
         hf_raise_for_status(response)
         data = response.json()["endpoint"]
-        return InferenceEndpoint.from_raw(data, namespace=data[name], token=token)
+        return InferenceEndpoint.from_raw(data, namespace=data["name"], token=token)
 
     @experimental
     @validate_hf_hub_args
