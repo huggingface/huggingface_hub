@@ -3,15 +3,11 @@ name: Style Bot Action
 on:
     workflow_call:
       inputs:
-        pre_commit_script:
+        style_command_type:
           required: false
           type: string
-          description: "Optional script to run before committing changes"
-        pre_commit_script_name:
-          required: false
-          type: string
-          description: "Custom name for the pre-commit script step"
-          default: "Custom pre-commit script"
+          description: "Which style command to run (options: 'default' (make style && make quality), 'quality_only', 'style_only')"
+          default: "default"
         python_quality_dependencies:
           required: true
           type: string
@@ -21,11 +17,6 @@ on:
           type: string
           description: "Python version to run code formatter"
           default: "3.10"
-        style_command:
-          required: false
-          type: string
-          description: "Command to run for style checks or/and style fixes"
-          default: "make style && make quality"
       secrets:
         bot_token:
           required: true
@@ -101,6 +92,31 @@ jobs:
           echo "Head Ref: $HEADREF"
           echo "Head Repo Full Name: $HEADREPOFULLNAME"
 
+      - name: Verify critical files haven't been modified
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const prNumber = context.payload.issue.number;
+            const { data: pr } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            
+            const modifiedFiles = pr.map(file => file.filename);
+            console.log("Modified files:", modifiedFiles);
+            
+            const protectedFiles = ["setup.py", "Makefile"];
+            console.log("Protected files:", protectedFiles);
+            
+            for (const file of protectedFiles) {
+              if (modifiedFiles.includes(file)) {
+                core.setFailed(`❌ Error: Protected file '${file}' has been modified in this PR. This is not allowed for security reasons.`);
+                return;
+              }
+            }
+            
+            console.log("✅ All protected files check passed!");
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -113,18 +129,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install .$python_quality_dependencies
 
-      - name: ${{ inputs.pre_commit_script_name }}
-        env:
-          pre_commit_script: ${{ inputs.pre_commit_script }}
-        if: inputs.pre_commit_script != ''
-        run: |
-          bash -c "${pre_commit_script}"
-
       - name: Run style command
-        env:
-          style_command: ${{ inputs.style_command }}
+        id: run_style
         run: |
-          bash -c "$style_command"
+          case "${{ inputs.style_command_type }}" in
+            "default")
+              echo "Running default style and quality checks"
+              make style && make quality
+              ;;
+            "quality_only")
+              echo "Running quality checks only"
+              make quality
+              ;;
+            "style_only")
+              echo "Running style checks only"
+              make style
+              ;;
+            *)
+              echo "Invalid style_command_type: ${{ inputs.style_command_type }}"
+              echo "Valid options are: 'default', 'quality_only', 'style_only'"
+              exit 1
+              ;;
+          esac
 
       - name: Commit and push changes
         id: commit_and_push
