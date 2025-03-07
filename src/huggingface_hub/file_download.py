@@ -1392,6 +1392,8 @@ def get_hf_file_metadata(
         headers=headers,
     )
     hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
+    # indicate that we can accept file information for xet download
+    hf_headers["Accept"] = constants.HUGGINGFACE_HEADER_ACCEPT_XET_FILE_INFO
 
     # Retrieve metadata
     r = _request_wrapper(
