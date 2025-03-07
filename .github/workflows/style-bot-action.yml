@@ -8,6 +8,10 @@ on:
           type: string
           description: "Which style command to run (options: 'default' (make style && make quality), 'quality_only', 'style_only')"
           default: "default"
+        pr_number:
+          required: false
+          type: number
+          description: "Pull Request number to process (only used when running manually)"
         python_quality_dependencies:
           required: true
           type: string
@@ -25,8 +29,10 @@ on:
 jobs:
   check-permissions:
     if: >
-      contains(github.event.comment.body, '@bot /style') &&
-      github.event.issue.pull_request != null
+      (github.event_name == 'issue_comment' && 
+       contains(github.event.comment.body, '@bot /style') &&
+       github.event.issue.pull_request != null) ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     outputs:
       is_authorized: ${{ steps.check_user_permission.outputs.has_permission }}
@@ -36,7 +42,14 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const comment_user = context.payload.comment.user.login;
+            let comment_user;
+            if (context.eventName === 'workflow_dispatch') {
+              comment_user = context.actor;
+              console.log('Workflow triggered manually by:', comment_user);
+            } else {
+              comment_user = context.payload.comment.user.login;
+              console.log('Workflow triggered by comment from:', comment_user);
+            }
             const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -56,18 +69,29 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const prNumber = context.payload.issue.number;
+            const prNumber = context.eventName === 'workflow_dispatch' 
+              ? context.payload.inputs.pr_number 
+              : context.payload.issue.number;
+            
+            // Get PR details
             const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: prNumber
             });
             
-            // We capture both the branch ref and the "full_name" of the head repo
-            // so that we can check out the correct repository & branch (including forks).
-            core.setOutput("prNumber", prNumber);
-            core.setOutput("headRef", pr.head.ref);
-            core.setOutput("headRepoFullName", pr.head.repo.full_name);
+            // Set outputs for use in subsequent steps
+            core.setOutput('headRepoFullName', pr.head.repo.full_name);
+            core.setOutput('headRef', pr.head.ref);
+            core.setOutput('baseRef', pr.base.ref);
+            core.setOutput('prNumber', prNumber);
+            
+            console.log('PR Details:', {
+              number: prNumber,
+              headRepo: pr.head.repo.full_name,
+              headRef: pr.head.ref,
+              baseRef: pr.base.ref
+            });
 
       - name: Check out PR branch
         uses: actions/checkout@v3
@@ -96,7 +120,9 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const prNumber = context.payload.issue.number;
+            const prNumber = context.eventName === 'workflow_dispatch' 
+              ? context.payload.inputs.pr_number 
+              : context.payload.issue.number;
             const { data: pr } = await github.rest.pulls.listFiles({
               owner: context.repo.owner,
               repo: context.repo.repo,
