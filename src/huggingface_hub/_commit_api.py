@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List,
 from tqdm.contrib.concurrent import thread_map
 
 from . import constants
-from .errors import EntryNotFoundError, XetAuthorizationError, XetRefreshTokenError
+from .errors import EntryNotFoundError, HfHubHTTPError, XetAuthorizationError, XetRefreshTokenError
 from .file_download import hf_hub_url
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
@@ -532,20 +532,25 @@ def _upload_xet_files(
     # at this point, we know that hf_xet is installed
     from hf_xet import upload_files
 
-    xet_metadata = fetch_xet_metadata_from_repo_info(
-        token_type=XetTokenType.WRITE,
-        repo_id=repo_id,
-        repo_type=repo_type,
-        revision=revision,
-        headers=headers,
-        endpoint=endpoint,
-        params={"create_pr": "1"} if create_pr else None,
-    )
-    if xet_metadata is None:
-        raise XetAuthorizationError(
-            f"You are unauthorized to upload to xet storage for {repo_type}/{repo_id}. "
-            f"Please check that you have configured your access token with write access to the repo."
+    try:
+        xet_metadata = fetch_xet_metadata_from_repo_info(
+            token_type=XetTokenType.WRITE,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            headers=headers,
+            endpoint=endpoint,
+            params={"create_pr": "1"} if create_pr else None,
         )
+    except HfHubHTTPError as e:
+        if e.response.status_code == 401:
+            raise XetAuthorizationError(
+                f"You are unauthorized to upload to xet storage for {repo_type}/{repo_id}. "
+                f"Please check that you have configured your access token with write access to the repo."
+            ) from e
+        else:
+            raise e
+
     xet_endpoint = xet_metadata.endpoint
     access_token_info = (xet_metadata.access_token, xet_metadata.expiration_unix_epoch)
 
