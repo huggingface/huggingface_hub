@@ -497,6 +497,24 @@ class CachedDownloadTests(unittest.TestCase):
             url.replace(DUMMY_RENAMED_OLD_MODEL_ID, DUMMY_RENAMED_NEW_MODEL_ID),
         )
 
+    def test_get_hf_file_metadata_passes_accepts_xet_file_info(self) -> None:
+        """Tests that we set the correct Accept header to retrieve xet file info when fetching metadata."""
+        url = hf_hub_url(
+            DUMMY_MODEL_ID,
+            filename=constants.CONFIG_NAME,
+            subfolder="",  # Subfolder should be processed as `None`
+        )
+
+        with patch("huggingface_hub.file_download._request_wrapper", wraps=_request_wrapper) as mock_request:
+            get_hf_file_metadata(url)
+            calls = mock_request.call_args_list
+            assert len(calls) == 2  # since it's following redirects, we expect 2 HEAD calls
+            for call in calls:
+                assert "HEAD" == call.kwargs["method"]
+                assert url == call.kwargs["url"]
+                assert "Accept" in calls[0].kwargs["headers"]
+                assert "application/vnd.xet-fileinfo+json" in calls[0].kwargs["headers"]["Accept"]
+
     def test_get_hf_file_metadata_from_a_lfs_file(self) -> None:
         """Test getting metadata from an LFS file.
 
