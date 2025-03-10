@@ -67,7 +67,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 7207663f-4802-47e8-8ab5-32c30b0fb783
     method: POST
-    uri: https://router.huggingface.co/black-forest-labs/flux-dev
+    uri: https://router.huggingface.co/v1/black-forest-labs/flux-dev
   response:
     body:
       string: '{"id":"d11b93f5-4d13-42bb-b26b-95fead3634ac","polling_url":"https://api.us1.bfl.ai/v1/get_result?id=d11b93f5-4d13-42bb-b26b-95fead3634ac"}'
