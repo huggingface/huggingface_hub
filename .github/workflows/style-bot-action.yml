@@ -1,3 +1,10 @@
+# This workflow was originally implemented by the diffusers team and ported into huggingface_hub
+# as a reusable workflow. Related PRs:
+# - https://github.com/huggingface/diffusers/pull/10274
+# - https://github.com/huggingface/diffusers/pull/10931
+# - https://github.com/huggingface/diffusers/pull/10908
+
+
 name: Style Bot Action
 
 on:
