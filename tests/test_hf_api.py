@@ -59,6 +59,7 @@ from huggingface_hub.hf_api import (
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
+    InferenceEndpoint,
     ModelInfo,
     RepoSibling,
     RepoUrl,
@@ -758,8 +759,9 @@ class CommitApiTest(HfApiCommonTest):
             f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/preupload/main.\nPlease"
             " make sure you specified the correct `repo_id` and"
             " `repo_type`.\nIf you are trying to access a private or gated"
-            " repo, make sure you are authenticated.\nNote: Creating a commit"
-            " assumes that the repo already exists on the Huggingface Hub."
+            " repo, make sure you are authenticated."
+            " For more details, see https://huggingface.co/docs/huggingface_hub/authentication"
+            "\nNote: Creating a commit assumes that the repo already exists on the Huggingface Hub."
             " Please use `create_repo` if it's not the case."
         )
 
@@ -4363,3 +4365,69 @@ class TestHfApiAuthCheck(HfApiCommonTest):
 
         with self.assertRaises(GatedRepoError):
             self._api.auth_check(repo_id=repo_id, token=OTHER_TOKEN)
+
+
+class HfApiInferenceCatalogTest(HfApiCommonTest):
+    def test_list_inference_catalog(self) -> None:
+        models = self._api.list_inference_catalog()  # note: @experimental api
+        # Check that server returns a list[str] => at least if it changes in the future, we'll notice
+        assert isinstance(models, List)
+        assert len(models) > 0
+        assert all(isinstance(model, str) for model in models)
+
+    @patch("huggingface_hub.hf_api.get_session")
+    def test_create_inference_endpoint_from_catalog(self, mock_get_session: Mock) -> None:
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "endpoint": {
+                "compute": {
+                    "accelerator": "gpu",
+                    "id": "aws-us-east-1-nvidia-l4-x1",
+                    "instanceSize": "x1",
+                    "instanceType": "nvidia-l4",
+                    "scaling": {
+                        "maxReplica": 1,
+                        "measure": {"hardwareUsage": None},
+                        "metric": "hardwareUsage",
+                        "minReplica": 0,
+                        "scaleToZeroTimeout": 15,
+                    },
+                },
+                "model": {
+                    "env": {},
+                    "framework": "pytorch",
+                    "image": {
+                        "tgi": {
+                            "disableCustomKernels": False,
+                            "healthRoute": "/health",
+                            "port": 80,
+                            "url": "ghcr.io/huggingface/text-generation-inference:3.1.1",
+                        }
+                    },
+                    "repository": "meta-llama/Llama-3.2-3B-Instruct",
+                    "revision": "0cb88a4f764b7a12671c53f0838cd831a0843b95",
+                    "secrets": {},
+                    "task": "text-generation",
+                },
+                "name": "llama-3-2-3b-instruct-eey",
+                "provider": {"region": "us-east-1", "vendor": "aws"},
+                "status": {
+                    "createdAt": "2025-03-07T15:30:13.949Z",
+                    "createdBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
+                    "message": "Endpoint waiting to be scheduled",
+                    "readyReplica": 0,
+                    "state": "pending",
+                    "targetReplica": 1,
+                    "updatedAt": "2025-03-07T15:30:13.949Z",
+                    "updatedBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
+                },
+                "type": "protected",
+            }
+        }
+        mock_get_session.return_value.post.return_value = mock_response
+
+        endpoint = self._api.create_inference_endpoint_from_catalog(
+            repo_id="meta-llama/Llama-3.2-3B-Instruct", namespace="Wauplin"
+        )
+        assert isinstance(endpoint, InferenceEndpoint)
+        assert endpoint.name == "llama-3-2-3b-instruct-eey"

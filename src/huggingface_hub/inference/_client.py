@@ -925,7 +925,7 @@ class InferenceClient:
         ...     messages=messages,
         ...     response_format=response_format,
         ...     max_tokens=500,
-        )
+        ... )
         >>> response.choices[0].message.content
         '{\n\n"activity": "bike ride",\n"animals": ["puppy", "cat", "raccoon"],\n"animals_seen": 3,\n"location": "park"}'
         ```
