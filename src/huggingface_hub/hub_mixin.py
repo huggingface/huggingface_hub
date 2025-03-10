@@ -68,9 +68,10 @@ This model has been pushed to the Hub using the [PytorchModelHubMixin](https://h
 class MixinInfo:
     model_card_template: str
     model_card_data: ModelCardData
-    repo_url: Optional[str] = None
-    paper_url: Optional[str] = None
     docs_url: Optional[str] = None
+    paper_url: Optional[str] = None
+    repo_url: Optional[str] = None
+    
 
 
 class ModelHubMixin:

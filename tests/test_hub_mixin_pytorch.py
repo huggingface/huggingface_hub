@@ -36,9 +36,12 @@ DUMMY_MODEL_CARD_TEMPLATE_WITH_CUSTOM_KWARGS = """
 ---
 
 This is a dummy model card with kwargs.
-Arxiv ID: 1234.56789
 
 {{ custom_data }}
+
+- Code: {{ repo_url }}
+- Paper: {{ paper_url }}
+- Docs: {{ docs_url }}
 """
 
 if is_torch_available():
@@ -65,8 +68,6 @@ if is_torch_available():
         license="apache-2.0",
         tags=["tag1", "tag2"],
         pipeline_tag="text-classification",
-        repo_url="https://hf.co/my-repo",
-        paper_url="https://arxiv.org/abs/2304.12244",
     ):
         def __init__(self, linear_layer: int = 4):
             super().__init__()
@@ -95,6 +96,9 @@ if is_torch_available():
         nn.Module,
         PyTorchModelHubMixin,
         model_card_template=DUMMY_MODEL_CARD_TEMPLATE_WITH_CUSTOM_KWARGS,
+        docs_url="https://hf.co/docs/my-repo",
+        paper_url="https://arxiv.org/abs/2304.12244",
+        repo_url="https://hf.co/my-repo",
     ):
         def __init__(self, linear_layer: int = 4):
             super().__init__()
@@ -333,9 +337,6 @@ class PytorchHubMixinTest(unittest.TestCase):
         assert card.data.license == "apache-2.0"
         assert card.data.pipeline_tag == "text-classification"
         assert card.data.tags == ["model_hub_mixin", "pytorch_model_hub_mixin", "tag1", "tag2"]
-        assert card.data.repo_url == "https://hf.co/my-repo"
-        assert card.data.paper_url == "https://arxiv.org/abs/2304.12244"
-
         # Model card template has been used
         assert "This is a dummy model card" in str(card)
 
@@ -442,12 +443,14 @@ class PytorchHubMixinTest(unittest.TestCase):
         model = DummyModelWithModelCardAndCustomKwargs()
         card = model.generate_model_card(**model_card_kwargs)
         assert model_card_kwargs["custom_data"] in str(card)
-
+        assert "Code: https://hf.co/my-repo" in str(card)
+        assert "Paper: https://arxiv.org/abs/2304.12244" in str(card)
+        assert "Docs: https://hf.co/docs/my-repo" in str(card)
         # Test saving card => model card is saved and restored with custom data
         model.save_pretrained(self.cache_dir, model_card_kwargs=model_card_kwargs)
         card_reloaded = ModelCard.load(self.cache_dir / "README.md")
         assert str(card) == str(card_reloaded)
-
+        
     def test_config_with_custom_coders(self):
         """
         Regression test for #2334. When `config` is encoded with custom coders, it should be decoded correctly.
