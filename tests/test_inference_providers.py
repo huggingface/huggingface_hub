@@ -55,13 +55,13 @@ class TestBlackForestLabsProvider:
     def test_prepare_route(self):
         """Test route preparation."""
         helper = BlackForestLabsTextToImageTask()
-        assert helper._prepare_route("username/repo_name") == "username/repo_name"
+        assert helper._prepare_route("username/repo_name") == "/v1/username/repo_name"
 
     def test_prepare_url(self):
         helper = BlackForestLabsTextToImageTask()
         assert (
             helper._prepare_url("hf_test_token", "username/repo_name")
-            == "https://router.huggingface.co/black-forest-labs/username/repo_name"
+            == "https://router.huggingface.co/black-forest-labs/v1/username/repo_name"
         )
 
     def test_prepare_payload_as_dict(self):
