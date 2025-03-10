@@ -69,7 +69,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 29362983-2d2d-495a-9af1-4008d59e4f2c
     method: POST
-    uri: https://router.huggingface.co/fireworks-ai/v1/chat/completions
+    uri: https://router.huggingface.co/fireworks-ai/inference/v1/chat/completions
   response:
     body:
       string: '{"id":"2fd15a30-af2d-4296-89ec-a89b08a65b47","object":"chat.completion","created":1739460295,"model":"accounts/fireworks/models/llama-v3p3-70b-instruct","choices":[{"index":0,"message":{"role":"assistant","content":"**Deep

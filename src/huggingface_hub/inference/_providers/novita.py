@@ -5,7 +5,7 @@ from huggingface_hub.inference._providers._common import (
 
 
 _PROVIDER = "novita"
-_BASE_URL = "https://api.novita.ai/v3/openai"
+_BASE_URL = "https://api.novita.ai"
 
 
 class NovitaTextGenerationTask(BaseTextGenerationTask):
@@ -14,7 +14,7 @@ class NovitaTextGenerationTask(BaseTextGenerationTask):
 
     def _prepare_route(self, mapped_model: str) -> str:
         # there is no v1/ route for novita
-        return "/completions"
+        return "/v3/openai/completions"
 
 
 class NovitaConversationalTask(BaseConversationalTask):
@@ -23,4 +23,4 @@ class NovitaConversationalTask(BaseConversationalTask):
 
     def _prepare_route(self, mapped_model: str) -> str:
         # there is no v1/ route for novita
-        return "/chat/completions"
+        return "/v3/openai/chat/completions"

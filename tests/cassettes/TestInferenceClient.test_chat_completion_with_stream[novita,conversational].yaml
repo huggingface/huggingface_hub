@@ -17,7 +17,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 4f86b753-c812-4334-a0ec-614e1100972a
     method: POST
-    uri: https://router.huggingface.co/novita/chat/completions
+    uri: https://router.huggingface.co/novita/v3/openai/chat/completions
   response:
     body:
       string: 'data: {"id":"chatcmpl-1c5665bfedca4fa1993cfeecd007dcd8","object":"chat.completion.chunk","created":1739807134,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null,"content_filter_results":{"hate":{"filtered":false},"self_harm":{"filtered":false},"sexual":{"filtered":false},"violence":{"filtered":false},"jailbreak":{"filtered":false,"detected":false},"profanity":{"filtered":false,"detected":false}}}],"system_fingerprint":""}
