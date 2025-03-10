@@ -71,7 +71,6 @@ class MixinInfo:
     docs_url: Optional[str] = None
     paper_url: Optional[str] = None
     repo_url: Optional[str] = None
-    
 
 
 class ModelHubMixin:

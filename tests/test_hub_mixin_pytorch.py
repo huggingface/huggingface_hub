@@ -450,7 +450,7 @@ class PytorchHubMixinTest(unittest.TestCase):
         model.save_pretrained(self.cache_dir, model_card_kwargs=model_card_kwargs)
         card_reloaded = ModelCard.load(self.cache_dir / "README.md")
         assert str(card) == str(card_reloaded)
-        
+
     def test_config_with_custom_coders(self):
         """
         Regression test for #2334. When `config` is encoded with custom coders, it should be decoded correctly.
