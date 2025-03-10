@@ -91,7 +91,12 @@ class DummyModelFromPretrainedExpectsConfig(ModelHubMixin):
         return cls(**kwargs)
 
 
-class BaseModelForInheritance(ModelHubMixin, repo_url="https://hf.co/my-repo", paper_url="https://arxiv.org/abs/2304.12244", library_name="my-cool-library"):
+class BaseModelForInheritance(
+    ModelHubMixin,
+    repo_url="https://hf.co/my-repo",
+    paper_url="https://arxiv.org/abs/2304.12244",
+    library_name="my-cool-library",
+):
     pass
 
 
