@@ -9,7 +9,7 @@ interactions:
       Connection:
       - keep-alive
       X-Amzn-Trace-Id:
-      - f3906380-a71c-4c5c-b4aa-8402a5002943
+      - b575973c-6ae8-4bb8-a0eb-5271474af638
     method: GET
     uri: https://huggingface.co/api/models/meta-llama/Llama-3.3-70B-Instruct?expand=inferenceProviderMapping
   response:
@@ -27,7 +27,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Mon, 10 Mar 2025 17:26:07 GMT
+      - Mon, 10 Mar 2025 17:28:50 GMT
       ETag:
       - W/"3a0-pTpGiEPtnOCnGv7CMdM+ILBj9Zg"
       Referrer-Policy:
@@ -35,9 +35,9 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 02ee9ebd8a83522edf11335f04975776.cloudfront.net (CloudFront)
+      - 1.1 a462d9473c62e045cd7ca3144781eb10.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - 4uNDk8CsXhiTXwKlvxnGUkh25wtSJZULb5ZNZCPC32PLRlb2495HXg==
+      - Kazv7qUyDEkhlL6xy2ktWDuC38NCV1swSx2Hhc4StAOfxAAVG5bEFQ==
       X-Amz-Cf-Pop:
       - CDG52-P4
       X-Cache:
@@ -45,7 +45,7 @@ interactions:
       X-Powered-By:
       - huggingface-moon
       X-Request-Id:
-      - Root=1-67cf20af-6313704d11e550b70796aeca;f3906380-a71c-4c5c-b4aa-8402a5002943
+      - Root=1-67cf2152-59357293520f047c7cf179c0;b575973c-6ae8-4bb8-a0eb-5271474af638
       cross-origin-opener-policy:
       - same-origin
     status:
@@ -67,39 +67,12 @@ interactions:
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - 4a15c314-d4b7-41d4-be30-76643bae6a34
+      - fc4502a6-fe0f-45d0-b7ae-27638a6283ac
     method: POST
     uri: https://router.huggingface.co/cerebras/v1/chat/completions
   response:
     body:
-      string: !!binary |
-        QQw7ACBrqdbrS8wrK4yM0hJd9bbia82HgB5RNi8jUjekHHvLvvulJ+v3Tk7apOkQoD1a/4AcAEkg
-        lBN+wjIJhSarWe/8JUYhMkxSzbJn9SlwG5qQTuipH3KdpnNcbO7a+radLurlKq3ru2la1d1qNZtP
-        592mu5uFGO7CPoeF5p9PoZ6Zcr/tqOcITTDXIcSwYP2U0ExjuNlEu9B8CgXk/iNNqKrnRAO8JyzC
-        cmxgK/DDmcqZ6bGq9vLNe+Re9tIL6bwnsAGCjQcjB+3gNh28jbTJrND0m3ZMuQXtAItzx4kxA4tT
-        znwkSQQ32zdPoG6wMNNcwMquAJEoA9dRXGHbUNu36LjYxNQeHwgK85ViFQMtAMb6JiD9+HLWfCZb
-        cqRwh/05hcaCGeBGGpwLC0GvLWVqAcXSkhfHOxRkibDfABIxXz+SNHSv8SlDIYdCcE4XQYl97sE9
-        Hski2ECUTmUCTk0Xn+xlL1X1jq7w7IQFk1Nhc04G2ulA/huVqtpL/WWFvexlNoGq2ilpveukqhrw
-        abdGIzNFpqRibL5OzHilIhhoSzcK2p1aEG3J4EZoLCrmUeG+8/HjqxQU67T0wDKMbpO9zCdQVXfN
-        4fi+ewPSgRNqGVCqsDMEXPqjolS+EbbudgKWI/iJerDEnJhKMYMOCTPc878zvjp2OIqc7GVhqFSV
-        +j1vqazLrxJja+MkKzoagajU+ag6XIUlZjoPWn8BcAUdfRjdIpDgIYtMyCEWDQEWMS2WV/cey5Hg
-        OToaucHoJkiBBrmxdRsErnMK3EHsyxRhAOzi1+tAkPOED8qaijyOt+WeqZw1j84qHzL6TgI3z3Y7
-        e1JVDfxm1EKnZWagdP24JQXKzRTh2W5nc5Fu27Z2C65AFy+YHLgVKaGYDeiMGWwGCPP9mSp1GpBF
-        989UMZP3w2cuzlgXeG4yws+CIeYk56U69wR1O9kjYK34dnQlSdpinhtDuHFaLszsVwhP4DmhFKXz
-        +Q2YVsXuGOo9XZHkUiZfnUKFLDQAJ+VVn5Nv2zMVw8JGsvXV1rAYHV5td0YTjfqjkgkywhpJ+4Gc
-        wLUzH4IaL9HmnKyegv2QCZXZtsOQOU0nc3Oh+FioH0anAr+HhcSqauAN7sRFm3pzN9AOEfTwHyWH
-        lpzSX2OMjj1paKMvfFSAFrhD505KEnzhRxBPuaoa+JUuPlpRI3HuSTyExBpbDKTAJGoelhII7nxi
-        Ladf0FnsZ0p6FHb98D+la9fa6eJQD+YkFuGsnAjQjM1R3GLQYDi2rNYgnET+rAeNRNuhtPBMxYvm
-        qmrgfwqUPgGdnFID7Jbir2tdjYZcOsfbM4rjkQIb/7h+r/l4gm1KY8F0jRgdEgrsIYZ3BHN0qrWr
-        /UQ1Foe8rAOoQBYNIA5FewhRN+BlpgsfOLMP2OBAsOoTJKldzlhYR4NWe2QJgqxrTgMtEO2VwCgm
-        pDuUHGMSAulG8JnEZyvvpaqenTBnkiPN/vbvuedwVzPPUwl5QmV5jo7wc6xpaU8SiYTNegbPp5z4
-        eKpPMTFGUubT1BkDB6+KVOmL4Vm008BJC23qqFQh07Ekehzw4jJkrKBkkkvP2XLXcRqzw8J2KbeL
-        RWlhK6SprA+w1cXfCNjY91iuEVqQQKY8o4M+UunGnDJjytTuhAYneyL5I7U5J0+hi23fTOCNGyih
-        LyOWk86gE1qaEUotnObSIKc6ccIB1Gh5Do4gZMY5R4rGLBIqhW9wwjsXnqg9gWrhegxxKZhNYVAj
-        gwRSG1k4tQ46sFwGMFZPBN+yPCmI/co4WnLtepMQQ9FMoQlslyN8+fJvDBWetqU2NLPNcraeb1br
-        TQyIOkloQs7YY72YLOrN9BBiIM5l7juWI5Wh8EmpHbvhftUdNrO7bkbLEEPIYKfqnCaylXBWCTGM
-        J8TeYyjaD37v+kBioVmuY2jM/9VvPV3EsLs1hD8feXn3JQbnnu5ZOg3Np/D/SCPdH9YNzd1kMZtT
-        PV3FYeB/lzGdTKfzzXK22cxHYy1Kz9fr+eJ2NZ+NSf986s10sZov1ovV7Xo5X90azePLFwMD
+      string: '{"id":"chatcmpl-dd4a6858-2b21-4c71-bf21-39380aacc820","choices":[{"finish_reason":"stop","index":0,"message":{"content":"**Deep Learning: An Overview**\\n================================\\n\\nDeep learning is a subset of machine learning that involves the use of artificial neural networks to analyze and interpret data.","role":"assistant"}}],"created":1741627730,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion","usage":{"prompt_tokens":46,"completion_tokens":637,"total_tokens":683},"time_info":{"queue_time":9.163e-05,"prompt_time":0.002692986,"completion_time":0.302867283,"total_time":0.30690574645996094,"created":1741627730}}'
     headers:
       Access-Control-Allow-Origin:
       - '*'
@@ -110,15 +83,15 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Mon, 10 Mar 2025 17:26:08 GMT
+      - Mon, 10 Mar 2025 17:28:51 GMT
       Transfer-Encoding:
       - chunked
       Vary:
       - Origin
       Via:
-      - 1.1 6beaa79c12bdbcf78ace6dc81300f576.cloudfront.net (CloudFront)
+      - 1.1 4de8cc07f214b77e50bb78828ddb1362.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - g07rOfGQbssvnwEExyP31FtdJERgSy_wu60_0KCazcy47pQpPN1pWA==
+      - L04j1Fze8sxg0XZni-BqnC9Hhn26aGFTJU8Uh6FYesKJ93fI-d1hQw==
       X-Amz-Cf-Pop:
       - CDG55-P3
       X-Cache:
@@ -130,9 +103,9 @@ interactions:
       cf-cache-status:
       - DYNAMIC
       cf-ray:
-      - 91e483eb3c9b57be-IAD
+      - 91e487e45df9c979-IAD
       content-encoding:
-      - br
+      - chunked
       cross-origin-opener-policy:
       - same-origin
       referrer-policy:
@@ -140,8 +113,8 @@ interactions:
       server:
       - cloudflare
       set-cookie:
-      - __cf_bm=V8BeBZ2VwaxrNo5EchhfUxRNx780JKKYIIsW_HFfkGM-1741627568-1.0.1.1-Rctzyu6ncTqFf6BL1PtBd4PyqsIUKUx.xB3FWsr1_8ELxnJhrfdEVH1SxrKJ1PLXSuj8CP.YKwjVZw.yKtzjnLS59EJz_OZqCgIq0a8bDFg;
-        path=/; expires=Mon, 10-Mar-25 17:56:08 GMT; domain=.api.cerebras.ai; HttpOnly;
+      - __cf_bm=Ex.P6kz3ZWxSm3_7XXpS_MfBLqtWCdLbVvZJFXuEKqc-1741627731-1.0.1.1-AXhI9crMi6CwtvwvyzS0x6gyV5A47ajIdoGLTg6_8KaDYFUhpH4t_0emcb6SQEVXbDjj26xmN82_Od5RBdP8XAoQqzpPq.QnmJxGhBQjxus;
+        path=/; expires=Mon, 10-Mar-25 17:58:51 GMT; domain=.api.cerebras.ai; HttpOnly;
         Secure; SameSite=None
       strict-transport-security:
       - max-age=3600; includeSubDomains
@@ -152,15 +125,15 @@ interactions:
       x-ratelimit-limit-tokens-minute:
       - '160000'
       x-ratelimit-remaining-requests-day:
-      - '215966'
+      - '215964'
       x-ratelimit-remaining-tokens-minute:
-      - '160000'
+      - '159468'
       x-ratelimit-reset-requests-day:
-      - '23631.767713546753'
+      - '23468.998601913452'
       x-ratelimit-reset-tokens-minute:
-      - '51.76771354675293'
+      - '8.998601913452148'
       x-request-id:
-      - 91e483eb3c9b57be-SJC
+      - 91e487e45df9c979-IAD
     status:
       code: 200
       message: OK
