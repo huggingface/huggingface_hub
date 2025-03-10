@@ -65,6 +65,8 @@ if is_torch_available():
         license="apache-2.0",
         tags=["tag1", "tag2"],
         pipeline_tag="text-classification",
+        repo_url="https://hf.co/my-repo",
+        paper_url="https://arxiv.org/abs/2304.12244",
     ):
         def __init__(self, linear_layer: int = 4):
             super().__init__()
@@ -331,6 +333,8 @@ class PytorchHubMixinTest(unittest.TestCase):
         assert card.data.license == "apache-2.0"
         assert card.data.pipeline_tag == "text-classification"
         assert card.data.tags == ["model_hub_mixin", "pytorch_model_hub_mixin", "tag1", "tag2"]
+        assert card.data.repo_url == "https://hf.co/my-repo"
+        assert card.data.paper_url == "https://arxiv.org/abs/2304.12244"
 
         # Model card template has been used
         assert "This is a dummy model card" in str(card)

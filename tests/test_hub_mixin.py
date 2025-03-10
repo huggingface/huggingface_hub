@@ -91,7 +91,7 @@ class DummyModelFromPretrainedExpectsConfig(ModelHubMixin):
         return cls(**kwargs)
 
 
-class BaseModelForInheritance(ModelHubMixin, repo_url="https://hf.co/my-repo", library_name="my-cool-library"):
+class BaseModelForInheritance(ModelHubMixin, repo_url="https://hf.co/my-repo", paper_url="https://arxiv.org/abs/2304.12244", library_name="my-cool-library"):
     pass
 
 
@@ -452,6 +452,7 @@ class HubMixinTest(unittest.TestCase):
         """Test MixinInfo attributes are inherited from the parent class."""
         model = DummyModelInherited()
         assert model._hub_mixin_info.repo_url == "https://hf.co/my-repo"
+        assert model._hub_mixin_info.paper_url == "https://arxiv.org/abs/2304.12244"
         assert model._hub_mixin_info.model_card_data.library_name == "my-cool-library"
 
     def test_autocomplete_works_as_expected(self):
