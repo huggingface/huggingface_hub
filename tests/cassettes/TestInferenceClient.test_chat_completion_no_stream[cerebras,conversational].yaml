@@ -9,7 +9,7 @@ interactions:
       Connection:
       - keep-alive
       X-Amzn-Trace-Id:
-      - 5fd4a62f-e2ab-4a1f-a293-99fc2b17fac4
+      - f3906380-a71c-4c5c-b4aa-8402a5002943
     method: GET
     uri: https://huggingface.co/api/models/meta-llama/Llama-3.3-70B-Instruct?expand=inferenceProviderMapping
   response:
@@ -27,7 +27,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Mon, 10 Mar 2025 17:10:11 GMT
+      - Mon, 10 Mar 2025 17:26:07 GMT
       ETag:
       - W/"3a0-pTpGiEPtnOCnGv7CMdM+ILBj9Zg"
       Referrer-Policy:
@@ -35,9 +35,9 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 8cea2743cbaa04c70ebc2ec4f5892fa6.cloudfront.net (CloudFront)
+      - 1.1 02ee9ebd8a83522edf11335f04975776.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - XI4eImo1OJVM2xYGdgEr2FmNW2pyn5a4pNWkvkbaoKX45NxV8QVIcw==
+      - 4uNDk8CsXhiTXwKlvxnGUkh25wtSJZULb5ZNZCPC32PLRlb2495HXg==
       X-Amz-Cf-Pop:
       - CDG52-P4
       X-Cache:
@@ -45,7 +45,7 @@ interactions:
       X-Powered-By:
       - huggingface-moon
       X-Request-Id:
-      - Root=1-67cf1cf3-655e1b39502abca2414d98d7;5fd4a62f-e2ab-4a1f-a293-99fc2b17fac4
+      - Root=1-67cf20af-6313704d11e550b70796aeca;f3906380-a71c-4c5c-b4aa-8402a5002943
       cross-origin-opener-policy:
       - same-origin
     status:
@@ -67,36 +67,39 @@ interactions:
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - 1d0869ab-42d0-4435-9c6b-e954230f7d1c
+      - 4a15c314-d4b7-41d4-be30-76643bae6a34
     method: POST
     uri: https://router.huggingface.co/cerebras/v1/chat/completions
   response:
     body:
       string: !!binary |
-        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
+        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
     headers:
       Access-Control-Allow-Origin:
       - '*'
@@ -107,15 +110,15 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Mon, 10 Mar 2025 17:10:12 GMT
+      - Mon, 10 Mar 2025 17:26:08 GMT
       Transfer-Encoding:
       - chunked
       Vary:
       - Origin
       Via:
-      - 1.1 4d87a1e7909a1a7d7668982112e840ba.cloudfront.net (CloudFront)
+      - 1.1 6beaa79c12bdbcf78ace6dc81300f576.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - OqGSJWrxEROxp0TGasmIgawzayrDIalLaKFmW2x-8tAtTPTh7KRntA==
+      - g07rOfGQbssvnwEExyP31FtdJERgSy_wu60_0KCazcy47pQpPN1pWA==
       X-Amz-Cf-Pop:
       - CDG55-P3
       X-Cache:
@@ -127,7 +130,7 @@ interactions:
       cf-cache-status:
       - DYNAMIC
       cf-ray:
-      - 91e46c92bfee52d6-IAD
+      - 91e483eb3c9b57be-IAD
       content-encoding:
       - br
       cross-origin-opener-policy:
@@ -137,8 +140,8 @@ interactions:
       server:
       - cloudflare
       set-cookie:
-      - __cf_bm=tFj_VNYbrliU5JQ2IiJaoh7apdhOpS3Ulv9eJcLDmV0-1741626612-1.0.1.1-lzAuORD57_K6_Kj1iiterU0a6O31ZPsvuhdb8PEFDYdcewX7dchsO6eP3dzz35Vp.9o20Uxf9497eQDD7kBOPJoHxpGodzuUBUzPeTYR9p4;
-        path=/; expires=Mon, 10-Mar-25 17:40:12 GMT; domain=.api.cerebras.ai; HttpOnly;
+      - __cf_bm=V8BeBZ2VwaxrNo5EchhfUxRNx780JKKYIIsW_HFfkGM-1741627568-1.0.1.1-Rctzyu6ncTqFf6BL1PtBd4PyqsIUKUx.xB3FWsr1_8ELxnJhrfdEVH1SxrKJ1PLXSuj8CP.YKwjVZw.yKtzjnLS59EJz_OZqCgIq0a8bDFg;
+        path=/; expires=Mon, 10-Mar-25 17:56:08 GMT; domain=.api.cerebras.ai; HttpOnly;
         Secure; SameSite=None
       strict-transport-security:
       - max-age=3600; includeSubDomains
@@ -149,15 +152,15 @@ interactions:
       x-ratelimit-limit-tokens-minute:
       - '160000'
       x-ratelimit-remaining-requests-day:
-      - '215977'
+      - '215966'
       x-ratelimit-remaining-tokens-minute:
       - '160000'
       x-ratelimit-reset-requests-day:
-      - '24588.037240743637'
+      - '23631.767713546753'
       x-ratelimit-reset-tokens-minute:
-      - '48.037240743637085'
+      - '51.76771354675293'
       x-request-id:
-      - 91e46c92bfee52d6-SJC
+      - 91e483eb3c9b57be-SJC
     status:
       code: 200
       message: OK
