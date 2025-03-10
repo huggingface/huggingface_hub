@@ -1,0 +1,18 @@
+name: Style Bot
+
+on:
+  issue_comment:
+    types: [created]
+    
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  style:
+    uses: ./.github/workflows/style-bot-action.yml
+    with:
+      python_quality_dependencies: "[quality]"
+      style_command: "make style"
+    secrets:
+      bot_token: ${{ secrets.GITHUB_TOKEN }}
