@@ -94,20 +94,9 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
 
     if expected_type is Any:
         return
-    VALIDATORS = {
-        Union: _validate_union,
-        Optional: _validate_optional,
-        Literal: _validate_literal,
-        list: _validate_list,
-        dict: _validate_dict,
-        tuple: _validate_tuple,
-        set: _validate_set,
-    }
-
-    validator = VALIDATORS.get(origin)
-    if validator:
+    elif validator := _BASIC_TYPE_VALIDATORS.get(origin):
         validator(name, value, args)
-    elif isinstance(expected_type, type): # simple types
+    elif isinstance(expected_type, type):  # simple types
         _validate_simple_type(name, value, expected_type)
     else:
         raise TypeError(f"Unsupported type for field '{name}': {expected_type}")
@@ -265,3 +254,14 @@ def _is_validator(validator: Any) -> bool:
         if parameter.default == inspect.Parameter.empty:
             return False
     return True
+
+
+_BASIC_TYPE_VALIDATORS = {
+    Union: _validate_union,
+    Optional: _validate_optional,
+    Literal: _validate_literal,
+    list: _validate_list,
+    dict: _validate_dict,
+    tuple: _validate_tuple,
+    set: _validate_set,
+}
