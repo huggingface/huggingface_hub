@@ -1,0 +1,171 @@
+interactions:
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "llama-3.3-70b",
+      "max_tokens": 20, "stream": true}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '192'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 830505d8-8a75-42b7-b2ed-b0f5104bfd37
+    method: POST
+    uri: https://router.huggingface.co/cerebras/v1/chat/completions
+  response:
+    body:
+      string: 'data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"role":"assistant"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"Deep"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        learning"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        is"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        a"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        subset"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        of"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        machine"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        learning"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        that"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        involves"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        the"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        use"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        of"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        artificial"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        neural"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        networks"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        to"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        analyze"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        and"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{"content":"
+        interpret"},"index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk"}
+
+
+        data: {"id":"chatcmpl-fe75ce5c-e25a-43a1-b6e7-1dc7d5c953fe","choices":[{"delta":{},"finish_reason":"length","index":0}],"created":1741626612,"model":"llama-3.3-70b","system_fingerprint":"fp_5fb719f1e4","object":"chat.completion.chunk","usage":{"prompt_tokens":46,"completion_tokens":20,"total_tokens":66},"time_info":{"queue_time":0.00008835,"prompt_time":0.00262252,"completion_time":0.031422209,"total_time":0.03632783889770508,"created":1741626612}}
+
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Type:
+      - text/event-stream; charset=utf-8
+      Date:
+      - Mon, 10 Mar 2025 17:10:12 GMT
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      Via:
+      - 1.1 6beaa79c12bdbcf78ace6dc81300f576.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - DtTHZ4QsWv8R5CI21sVemyfzj_gf5MKTY9us_kA9hlMb-E2H_8Z4Bg==
+      X-Amz-Cf-Pop:
+      - CDG55-P3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Robots-Tag:
+      - none
+      cf-cache-status:
+      - DYNAMIC
+      cf-ray:
+      - 91e46c9a2a13208d-IAD
+      cross-origin-opener-policy:
+      - same-origin
+      referrer-policy:
+      - strict-origin-when-cross-origin
+      server:
+      - cloudflare
+      set-cookie:
+      - __cf_bm=DzmyHmA74btTPXrC0HyJ_XnfoIPCpg2T6fOnpYpbUS8-1741626612-1.0.1.1-KDiDteFOTuEeZS2BO4vPu2kpkvoIIHREF5cKyxNQUU5aFePRORVntjVITKP06syur6wi5K64C_r6gEoYOqvNSujzHQGdBOnN1BPe4ZyG0hE;
+        path=/; expires=Mon, 10-Mar-25 17:40:12 GMT; domain=.api.cerebras.ai; HttpOnly;
+        Secure; SameSite=None
+      strict-transport-security:
+      - max-age=3600; includeSubDomains
+      x-content-type-options:
+      - nosniff
+      x-ratelimit-limit-requests-day:
+      - '216000'
+      x-ratelimit-limit-tokens-minute:
+      - '160000'
+      x-ratelimit-remaining-requests-day:
+      - '215976'
+      x-ratelimit-remaining-tokens-minute:
+      - '160000'
+      x-ratelimit-reset-requests-day:
+      - '24587.05500149727'
+      x-ratelimit-reset-tokens-minute:
+      - '47.05500149726868'
+      x-request-id:
+      - 91e46c9a2a13208d-SJC
+    status:
+      code: 200
+      message: OK
+version: 1

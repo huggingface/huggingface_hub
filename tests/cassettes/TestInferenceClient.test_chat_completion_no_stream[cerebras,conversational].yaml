@@ -1,0 +1,164 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - 5fd4a62f-e2ab-4a1f-a293-99fc2b17fac4
+    method: GET
+    uri: https://huggingface.co/api/models/meta-llama/Llama-3.3-70B-Instruct?expand=inferenceProviderMapping
+  response:
+    body:
+      string: '{"_id":"6745f28f9333dfcc06268b1e","id":"meta-llama/Llama-3.3-70B-Instruct","inferenceProviderMapping":{"fireworks-ai":{"status":"live","providerId":"accounts/fireworks/models/llama-v3p3-70b-instruct","task":"conversational"},"sambanova":{"status":"live","providerId":"Meta-Llama-3.3-70B-Instruct","task":"conversational"},"together":{"status":"live","providerId":"meta-llama/Llama-3.3-70B-Instruct-Turbo","task":"conversational"},"hf-inference":{"status":"live","providerId":"meta-llama/Llama-3.3-70B-Instruct","task":"conversational"},"nebius":{"status":"live","providerId":"meta-llama/Llama-3.3-70B-Instruct-fast","task":"conversational"},"novita":{"status":"live","providerId":"meta-llama/llama-3.3-70b-instruct","task":"conversational"},"hyperbolic":{"status":"live","providerId":"meta-llama/Llama-3.3-70B-Instruct","task":"conversational"},"cerebras":{"status":"live","providerId":"llama-3.3-70b","task":"conversational"}}}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '928'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Mon, 10 Mar 2025 17:10:11 GMT
+      ETag:
+      - W/"3a0-pTpGiEPtnOCnGv7CMdM+ILBj9Zg"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 8cea2743cbaa04c70ebc2ec4f5892fa6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - XI4eImo1OJVM2xYGdgEr2FmNW2pyn5a4pNWkvkbaoKX45NxV8QVIcw==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-67cf1cf3-655e1b39502abca2414d98d7;5fd4a62f-e2ab-4a1f-a293-99fc2b17fac4
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "llama-3.3-70b",
+      "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '175'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 1d0869ab-42d0-4435-9c6b-e954230f7d1c
+    method: POST
+    uri: https://router.huggingface.co/cerebras/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        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
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 10 Mar 2025 17:10:12 GMT
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      Via:
+      - 1.1 4d87a1e7909a1a7d7668982112e840ba.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - OqGSJWrxEROxp0TGasmIgawzayrDIalLaKFmW2x-8tAtTPTh7KRntA==
+      X-Amz-Cf-Pop:
+      - CDG55-P3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Robots-Tag:
+      - none
+      cf-cache-status:
+      - DYNAMIC
+      cf-ray:
+      - 91e46c92bfee52d6-IAD
+      content-encoding:
+      - br
+      cross-origin-opener-policy:
+      - same-origin
+      referrer-policy:
+      - strict-origin-when-cross-origin
+      server:
+      - cloudflare
+      set-cookie:
+      - __cf_bm=tFj_VNYbrliU5JQ2IiJaoh7apdhOpS3Ulv9eJcLDmV0-1741626612-1.0.1.1-lzAuORD57_K6_Kj1iiterU0a6O31ZPsvuhdb8PEFDYdcewX7dchsO6eP3dzz35Vp.9o20Uxf9497eQDD7kBOPJoHxpGodzuUBUzPeTYR9p4;
+        path=/; expires=Mon, 10-Mar-25 17:40:12 GMT; domain=.api.cerebras.ai; HttpOnly;
+        Secure; SameSite=None
+      strict-transport-security:
+      - max-age=3600; includeSubDomains
+      x-content-type-options:
+      - nosniff
+      x-ratelimit-limit-requests-day:
+      - '216000'
+      x-ratelimit-limit-tokens-minute:
+      - '160000'
+      x-ratelimit-remaining-requests-day:
+      - '215977'
+      x-ratelimit-remaining-tokens-minute:
+      - '160000'
+      x-ratelimit-reset-requests-day:
+      - '24588.037240743637'
+      x-ratelimit-reset-tokens-minute:
+      - '48.037240743637085'
+      x-request-id:
+      - 91e46c92bfee52d6-SJC
+    status:
+      code: 200
+      message: OK
+version: 1

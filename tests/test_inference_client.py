@@ -64,7 +64,7 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "text-to-image": "black-forest-labs/FLUX.1-dev",
     },
     "cerebras": {
-        "conversational": "meta-llama/Llama-3.1-8B",
+        "conversational": "meta-llama/Llama-3.3-70B-Instruct",
     },
     "together": {
         "conversational": "meta-llama/Meta-Llama-3-8B-Instruct",
