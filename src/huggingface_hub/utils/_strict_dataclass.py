@@ -94,21 +94,20 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
 
     if expected_type is Any:
         return
-    elif origin is Union:
-        _validate_union(name, value, args)
-    elif origin is Optional:
-        _validate_optional(name, value, args)
-    elif origin is Literal:
-        _validate_literal(name, value, args)
-    elif origin is list:
-        _validate_list(name, value, args)
-    elif origin is dict:
-        _validate_dict(name, value, args)
-    elif origin is tuple:
-        _validate_tuple(name, value, args)
-    elif origin is set:
-        _validate_set(name, value, args)
-    elif isinstance(expected_type, type):
+    VALIDATORS = {
+        Union: _validate_union,
+        Optional: _validate_optional,
+        Literal: _validate_literal,
+        list: _validate_list,
+        dict: _validate_dict,
+        tuple: _validate_tuple,
+        set: _validate_set,
+    }
+
+    validator = VALIDATORS.get(origin)
+    if validator:
+        validator(name, value, args)
+    elif isinstance(expected_type, type): # simple types
         _validate_simple_type(name, value, expected_type)
     else:
         raise TypeError(f"Unsupported type for field '{name}': {expected_type}")
