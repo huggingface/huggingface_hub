@@ -909,13 +909,35 @@ class TestOpenAICompatibility(TestBase):
         output_text = "".join(chunked_text)
         assert "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" in output_text
 
-    def test_token_and_api_key_mutually_exclusive(self):
-        with pytest.raises(ValueError):
-            InferenceClient(token="my-token", api_key="my-api-key")
-
     def test_model_and_base_url_mutually_exclusive(self):
         with pytest.raises(ValueError):
             InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", base_url="http://127.0.0.1:8000")
+
+    def test_token_initialization(self, mocker):
+        # Test with explicit token
+        client = InferenceClient(token="my-token")
+        assert client.token == "my-token"
+
+        # Test with api_key
+        client = InferenceClient(api_key="my-api-key")
+        assert client.token == "my-api-key"
+
+        # Test with both token and api_key raises error
+        with pytest.raises(ValueError, match="Received both `token` and `api_key` arguments"):
+            InferenceClient(token="my-token", api_key="my-api-key")
+
+        # Test with token=None (default behavior)
+        client = InferenceClient()
+        assert client.token is None
+
+        # Test with token=True is deprecated but still works
+        mocker.patch("huggingface_hub.inference._client.get_token", return_value="my-token")
+        client = InferenceClient(token=True)
+        assert client.token == "my-token"
+
+        # Test with token=False raises error
+        with pytest.raises(ValueError, match="Cannot use `token=False` to disable authentication"):
+            InferenceClient(token=False)
 
 
 @pytest.mark.parametrize(
