@@ -116,7 +116,6 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "novita": {
         "text-generation": "NousResearch/Nous-Hermes-Llama2-13b",
         "conversational": "meta-llama/Llama-3.1-8B-Instruct",
-        # "text-to-video": "Wan-AI/Wan2.1-T2V-14B",
     },
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",
