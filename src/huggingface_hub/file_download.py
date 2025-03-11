@@ -170,7 +170,7 @@ class HfFileMetadata:
     etag: Optional[str]
     location: str
     size: Optional[int]
-    xet_metadata: Optional[XetMetadata] = None
+    xet_enabled: bool
 
 
 @validate_hf_hub_args
@@ -1019,7 +1019,7 @@ def _hf_hub_download_to_cache_dir(
 
     # Try to get metadata (etag, commit_hash, url, size) from the server.
     # If we can't, a HEAD request error is returned.
-    (url_to_download, etag, commit_hash, expected_size, xet_metadata, head_call_error) = _get_metadata_or_catch_error(
+    (url_to_download, etag, commit_hash, expected_size, xet_enabled, head_call_error) = _get_metadata_or_catch_error(
         repo_id=repo_id,
         filename=filename,
         repo_type=repo_type,
@@ -1103,6 +1103,14 @@ def _hf_hub_download_to_cache_dir(
     if os.name == "nt" and len(os.path.abspath(blob_path)) > 255:
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
+    # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
+
+    xet_metadata = None
+    if xet_enabled:
+        xet_metadata = get_xet_file_metadata(url=hf_hub_url(
+            repo_id=repo_id, filename=filename, revision=revision, endpoint=endpoint
+        ), proxies=proxies, headers=headers, token=token)
+
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
     with WeakFileLock(lock_path):
         _download_to_tmp_and_move(
@@ -1166,7 +1174,7 @@ def _hf_hub_download_to_local_dir(
         return str(paths.file_path)
 
     # Local file doesn't exist or commit_hash doesn't match => we need the etag
-    (url_to_download, etag, commit_hash, expected_size, xet_metadata, head_call_error) = _get_metadata_or_catch_error(
+    (url_to_download, etag, commit_hash, expected_size, xet_enabled, head_call_error) = _get_metadata_or_catch_error(
         repo_id=repo_id,
         filename=filename,
         repo_type=repo_type,
@@ -1230,6 +1238,12 @@ def _hf_hub_download_to_local_dir(
                 shutil.copyfile(cached_path, paths.file_path)
             write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
             return str(paths.file_path)
+
+    xet_metadata = None
+    if xet_enabled:
+        xet_metadata = get_xet_file_metadata(url=hf_hub_url(
+            repo_id=repo_id, filename=filename, revision=revision, endpoint=endpoint
+        ), proxies=proxies, headers=headers, token=token)
 
     # Otherwise, let's download the file!
     with WeakFileLock(paths.lock_path):
@@ -1345,6 +1359,70 @@ def try_to_load_from_cache(
 
 
 @validate_hf_hub_args
+def get_xet_file_metadata(
+    url: str,
+    token: Union[bool, str, None] = None,
+    proxies: Optional[Dict] = None,
+    timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    user_agent: Union[Dict, str, None] = None,
+    headers: Optional[Dict[str, str]] = None,
+) -> XetMetadata:
+    """Fetch the xet metadata of a file versioned on the Hub for a given url.
+
+    Args:
+        url (`str`):
+            File url, for example returned by [`hf_hub_url`].
+        token (`str` or `bool`, *optional*):
+            A token to be used for the download.
+                - If `True`, the token is read from the HuggingFace config
+                  folder.
+                - If `False` or `None`, no token is provided.
+                - If a string, it's used as the authentication token.
+        proxies (`dict`, *optional*):
+            Dictionary mapping protocol to the URL of the proxy passed to
+            `requests.request`.
+        timeout (`float`, *optional*, defaults to 10):
+            How many seconds to wait for the server to send metadata before giving up.
+        library_name (`str`, *optional*):
+            The name of the library to which the object corresponds.
+        library_version (`str`, *optional*):
+            The version of the library.
+        user_agent (`dict`, `str`, *optional*):
+            The user-agent info in the form of a dictionary or a string.
+        headers (`dict`, *optional*):
+            Additional headers to be sent with the request.
+    Returns:
+        A [`XetFileMetadata`] object containing metadata needed to download the file with hf_xet. 
+    """
+    hf_headers = build_hf_headers(
+        token=token,
+        library_name=library_name,
+        library_version=library_version,
+        user_agent=user_agent,
+        headers=headers,
+    )
+    hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
+    # indicate that we can accept file information for xet download
+    hf_headers["Accept"] = constants.HUGGINGFACE_HEADER_ACCEPT_XET_FILE_INFO
+
+    # Retrieve metadata
+    r = _request_wrapper(
+        method="GET",
+        url=url,
+        headers=hf_headers,
+        allow_redirects=False,
+        follow_relative_redirects=False,
+        proxies=proxies,
+        timeout=timeout,
+    )
+    hf_raise_for_status(r)
+
+    # Return
+    return parse_xet_headers(r.headers)
+
+@validate_hf_hub_args
 def get_hf_file_metadata(
     url: str,
     token: Union[bool, str, None] = None,
@@ -1420,7 +1498,7 @@ def get_hf_file_metadata(
         size=_int_or_none(
             r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
         ),
-        xet_metadata=parse_xet_headers(r.headers),  # type: ignore
+        xet_enabled = constants.HUGGINGFACE_HEADER_ACCEPT_XET_FILE_INFO in r.headers.get("Content-Type"),
     )
 
 
@@ -1443,7 +1521,7 @@ def _get_metadata_or_catch_error(
     Tuple[None, None, None, None, None, Exception],
     # Or the metadata is returned as
     # `(url_to_download, etag, commit_hash, expected_size, None)`
-    Tuple[str, str, str, int, Optional[XetMetadata], None],
+    Tuple[str, str, str, int, bool, None],
 ]:
     """Get metadata for a file on the Hub, safely handling network issues.
 
@@ -1472,7 +1550,6 @@ def _get_metadata_or_catch_error(
     commit_hash: Optional[str] = None
     expected_size: Optional[int] = None
     head_error_call: Optional[Exception] = None
-    xet_metadata: Optional[XetMetadata] = None
 
     # Try to get metadata from the server.
     # Do not raise yet if the file is not found or not accessible.
@@ -1520,15 +1597,13 @@ def _get_metadata_or_catch_error(
             if expected_size is None:
                 raise FileMetadataError("Distant resource does not have a Content-Length.")
 
-            xet_metadata = metadata.xet_metadata
-
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
             #
             # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
             # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
-            if xet_metadata is not None and url != metadata.location:
+            if not metadata.xet_enabled and url != metadata.location:
                 url_to_download = metadata.location
                 if urlparse(url).netloc != urlparse(metadata.location).netloc:
                     # Remove authorization header when downloading a LFS blob
@@ -1566,7 +1641,7 @@ def _get_metadata_or_catch_error(
     if not (local_files_only or etag is not None or head_error_call is not None):
         raise RuntimeError("etag is empty due to uncovered problems")
 
-    return (url_to_download, etag, commit_hash, expected_size, xet_metadata, head_error_call)  # type: ignore [return-value]
+    return (url_to_download, etag, commit_hash, expected_size, metadata.xet_enabled, head_error_call)  # type: ignore [return-value]
 
 
 def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, local_files_only: bool) -> NoReturn:
