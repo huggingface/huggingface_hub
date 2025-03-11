@@ -930,7 +930,7 @@ class TestOpenAICompatibility(TestBase):
         client = InferenceClient()
         assert client.token is None
 
-        # Test with token=True is deprecated but still works
+        # Test with token=True and token is set with get_token()
         mocker.patch("huggingface_hub.inference._client.get_token", return_value="my-token")
         client = InferenceClient(token=True)
         assert client.token == "my-token"
