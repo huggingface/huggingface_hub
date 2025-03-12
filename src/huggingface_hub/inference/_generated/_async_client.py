@@ -24,6 +24,7 @@ import logging
 import re
 import warnings
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Set, Union, overload
+from urllib.parse import urlparse
 
 from huggingface_hub import constants
 from huggingface_hub.errors import HfHubHTTPError, InferenceTimeoutError
@@ -2676,7 +2677,10 @@ class AsyncInferenceClient:
         try:
             response = await self._inner_post(request_parameters)
         except HfHubHTTPError as e:
-            if request_parameters.url.startswith("https://router.huggingface.co"):
+            # Temporary timeout errors handling for routed requests.
+            # There is no way to check if it's a routed request though the token here,
+            # so we check the URL instead.
+            if urlparse(request_parameters.url).netloc == "router.huggingface.co":
                 raise InferenceTimeoutError(
                     "Request timed out after 120 seconds. This is currently expected for text-to-video generation through"
                     " Hugging Face routing. You can decrease `num_inference_steps` to 20 or less to make the generation under 120 seconds."
