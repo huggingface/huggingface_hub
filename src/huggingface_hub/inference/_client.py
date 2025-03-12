@@ -2623,7 +2623,7 @@ class InferenceClient:
                 raise InferenceTimeoutError(
                     "Request timed out after 120 seconds. This is currently expected for text-to-video generation through"
                     " Hugging Face routing. You can decrease `num_inference_steps` to 20 or less to make the generation under 120 seconds."
-                ) from e
+                ) from e  # type: ignore
             raise e
         response = provider_helper.get_response(response)
         return response
