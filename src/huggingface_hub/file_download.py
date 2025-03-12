@@ -1526,7 +1526,7 @@ def _get_metadata_or_catch_error(
             #
             # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
             # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
-            if xet_metadata is not None and url != metadata.location:
+            if xet_metadata is None and url != metadata.location:
                 url_to_download = metadata.location
                 if urlparse(url).netloc != urlparse(metadata.location).netloc:
                     # Remove authorization header when downloading a LFS blob
