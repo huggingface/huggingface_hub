@@ -1257,7 +1257,7 @@ def get_hf_file_metadata(
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
-    If a ReadTimeout happens while connecting to the server, it is most likely a
+    If ConnectionError (SSLError) or ReadTimeout happens while connecting to the server, it is most likely a
     transient error (network outage?). We log a warning message and try to a few times before
     giving up. The method gives up after 5 attempts.
 
