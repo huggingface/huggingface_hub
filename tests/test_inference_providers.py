@@ -1,11 +1,15 @@
 import base64
+import logging
 from typing import Dict
+from unittest.mock import patch
 
 import pytest
+from pytest import LogCaptureFixture
 
 from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
     BaseTextGenerationTask,
+    TaskProviderHelper,
     recursive_merge,
 )
 from huggingface_hub.inference._providers.black_forest_labs import BlackForestLabsTextToImageTask
@@ -37,6 +41,92 @@ from huggingface_hub.inference._providers.together import (
     TogetherTextToImageTask,
 )
 
+from .testing_utils import assert_in_logs
+
+
+class TestBasicTaskProviderHelper:
+    def test_api_key_from_provider(self):
+        helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
+        assert helper._prepare_api_key("sk_provider_key") == "sk_provider_key"
+
+    def test_api_key_routed(self, mocker):
+        mocker.patch("huggingface_hub.inference._providers._common.get_token", return_value="hf_test_token")
+        helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
+        assert helper._prepare_api_key(None) == "hf_test_token"
+
+    def test_api_key_missing(self):
+        with patch("huggingface_hub.inference._providers._common.get_token", return_value=None):
+            helper = TaskProviderHelper(
+                provider="provider-name", base_url="https://api.provider.com", task="task-name"
+            )
+            with pytest.raises(ValueError, match="You must provide an api_key.*"):
+                helper._prepare_api_key(None)
+
+    def test_prepare_mapped_model(self, mocker, caplog: LogCaptureFixture):
+        helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
+        caplog.set_level(logging.INFO)
+
+        # Test missing model
+        with pytest.raises(ValueError, match="Please provide an HF model ID.*"):
+            helper._prepare_mapped_model(None)
+
+        # Test unsupported model
+        mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+            return_value={"other-provider": "mapping"},
+        )
+        with pytest.raises(ValueError, match="Model test-model is not supported.*"):
+            helper._prepare_mapped_model("test-model")
+
+        # Test task mismatch
+        mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+            return_value={"provider-name": mocker.Mock(task="other-task", provider_id="mapped-id", status="active")},
+        )
+        with pytest.raises(ValueError, match="Model test-model is not supported for task.*"):
+            helper._prepare_mapped_model("test-model")
+
+        # Test staging model
+        mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+            return_value={"provider-name": mocker.Mock(task="task-name", provider_id="mapped-id", status="staging")},
+        )
+        assert helper._prepare_mapped_model("test-model") == "mapped-id"
+        assert_in_logs(
+            caplog, "Model test-model is in staging mode for provider provider-name. Meant for test purposes only."
+        )
+
+        # Test successful mapping
+        caplog.clear()
+        mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+            return_value={"provider-name": mocker.Mock(task="task-name", provider_id="mapped-id", status="active")},
+        )
+        assert helper._prepare_mapped_model("test-model") == "mapped-id"
+        assert len(caplog.records) == 0
+
+    def test_prepare_headers(self):
+        helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
+        headers = helper._prepare_headers({"custom": "header"}, "api_key")
+        assert "user-agent" in headers  # From build_hf_headers
+        assert headers["custom"] == "header"
+        assert headers["authorization"] == "Bearer api_key"
+
+    def test_prepare_url(self, mocker):
+        helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
+        mocker.patch.object(helper, "_prepare_route", return_value="/v1/test-route")
+
+        # Test HF token routing
+        url = helper._prepare_url("hf_test_token", "test-model")
+        assert url == "https://router.huggingface.co/provider-name/v1/test-route"
+        helper._prepare_route.assert_called_once_with("test-model")
+
+        # Test direct API call
+        helper._prepare_route.reset_mock()
+        url = helper._prepare_url("sk_test_token", "test-model")
+        assert url == "https://api.provider.com/v1/test-route"
+        helper._prepare_route.assert_called_once_with("test-model")
+
 
 class TestBlackForestLabsProvider:
     def test_prepare_headers_bfl_key(self):
@@ -55,13 +145,13 @@ class TestBlackForestLabsProvider:
     def test_prepare_route(self):
         """Test route preparation."""
         helper = BlackForestLabsTextToImageTask()
-        assert helper._prepare_route("username/repo_name") == "username/repo_name"
+        assert helper._prepare_route("username/repo_name") == "/v1/username/repo_name"
 
     def test_prepare_url(self):
         helper = BlackForestLabsTextToImageTask()
         assert (
             helper._prepare_url("hf_test_token", "username/repo_name")
-            == "https://router.huggingface.co/black-forest-labs/username/repo_name"
+            == "https://router.huggingface.co/black-forest-labs/v1/username/repo_name"
         )
 
     def test_prepare_payload_as_dict(self):
