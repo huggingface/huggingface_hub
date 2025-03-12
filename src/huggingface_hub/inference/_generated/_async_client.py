@@ -176,7 +176,7 @@ class AsyncInferenceClient:
                 " `api_key` is an alias for `token` to make the API compatible with OpenAI's client."
                 " It has the exact same behavior as `token`."
             )
-        token if token is not None else api_key
+        token = token if token is not None else api_key
         if isinstance(token, bool):
             # Legacy behavior: previously is was possible to pass `token=False` to disable authentication. This is not
             # supported anymore as authentication is required. Better to explicitly raise here rather than risking
