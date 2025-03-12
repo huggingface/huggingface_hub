@@ -107,5 +107,5 @@ from ._subprocess import capture_output, run_interactive_subprocess, run_subproc
 from ._telemetry import send_telemetry
 from ._typing import is_jsonable, is_simple_optional_type, unwrap_simple_optional_type
 from ._validators import smoothly_deprecate_use_auth_token, validate_hf_hub_args, validate_repo_id
-from ._xet import XetMetadata, parse_xet_headers, refresh_xet_metadata
+from ._xet import XetMetadata, XetTokenType, fetch_xet_metadata_from_repo_info, parse_xet_headers, refresh_xet_metadata
 from .tqdm import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars, tqdm, tqdm_stream_file

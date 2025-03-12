@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import inspect
+import io
 import json
 import re
 import struct
@@ -41,7 +42,7 @@ from typing import (
     Union,
     overload,
 )
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 import requests
 from requests.exceptions import HTTPError
@@ -58,6 +59,7 @@ from ._commit_api import (
     _fetch_upload_modes,
     _prepare_commit_payload,
     _upload_lfs_files,
+    _upload_xet_files,
     _warn_on_overwriting_operations,
 )
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
@@ -125,6 +127,7 @@ from .utils import (
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_method
+from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
 
@@ -4251,20 +4254,45 @@ class HfApi:
                 f"Skipped upload for {len(new_lfs_additions) - len(new_lfs_additions_to_upload)} LFS file(s) "
                 "(ignored by gitignore file)."
             )
-
-        # Upload new LFS files
-        _upload_lfs_files(
-            additions=new_lfs_additions_to_upload,
-            repo_type=repo_type,
-            repo_id=repo_id,
-            headers=headers,
-            endpoint=self.endpoint,
-            num_threads=num_threads,
+        # Prepare upload parameters
+        upload_kwargs = {
+            "additions": new_lfs_additions_to_upload,
+            "repo_type": repo_type,
+            "repo_id": repo_id,
+            "headers": headers,
+            "endpoint": self.endpoint,
             # If `create_pr`, we don't want to check user permission on the revision as users with read permission
             # should still be able to create PRs even if they don't have write permission on the target branch of the
             # PR (i.e. `revision`).
-            revision=revision if not create_pr else None,
+            "revision": revision if not create_pr else None,
+        }
+        # Upload files using Xet protocol if all of the following are true:
+        # - xet is enabled for the repo,
+        # - the files are provided as str or paths objects,
+        # - the library is installed.
+        # Otherwise, default back to LFS.
+        xet_enabled = self.repo_info(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=unquote(revision) if revision is not None else revision,
+            expand="xetEnabled",
+            token=token,
+        ).xet_enabled
+        has_binary_data = any(
+            isinstance(addition.path_or_fileobj, (bytes, io.BufferedIOBase))
+            for addition in new_lfs_additions_to_upload
         )
+        if xet_enabled and not has_binary_data and is_xet_available():
+            logger.info("Uploading files using Xet Storage..")
+            _upload_xet_files(**upload_kwargs, create_pr=create_pr)  # type: ignore [arg-type]
+        else:
+            if xet_enabled and is_xet_available():
+                if has_binary_data:
+                    logger.warning(
+                        "Uploading files as bytes or binary IO objects is not supported by Xet Storage. "
+                        "Falling back to HTTP upload."
+                    )
+            _upload_lfs_files(**upload_kwargs, num_threads=num_threads)  # type: ignore [arg-type]
         for addition in new_lfs_additions_to_upload:
             addition._is_uploaded = True
             if free_memory:
