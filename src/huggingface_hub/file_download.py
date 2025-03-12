@@ -1253,8 +1253,13 @@ def get_hf_file_metadata(
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
     headers: Optional[Dict[str, str]] = None,
+    _nb_retries: int = 5,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
+
+    If a ReadTimeout happens while connecting to the server, it is most likely a
+    transient error (network outage?). We log a warning message and try to a few times before
+    giving up. The method gives up after 5 attempts.
 
     Args:
         url (`str`):
@@ -1292,17 +1297,31 @@ def get_hf_file_metadata(
     )
     hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
-    # Retrieve metadata
-    r = _request_wrapper(
-        method="HEAD",
-        url=url,
-        headers=hf_headers,
-        allow_redirects=False,
-        follow_relative_redirects=True,
-        proxies=proxies,
-        timeout=timeout,
-    )
-    hf_raise_for_status(r)
+    # Retrieve metadata with retries
+    for attempt in range(_nb_retries + 1):
+        try:
+            r = _request_wrapper(
+                method="HEAD",
+                url=url,
+                headers=hf_headers,
+                allow_redirects=False,
+                follow_relative_redirects=True,
+                proxies=proxies,
+                timeout=timeout,
+            )
+            hf_raise_for_status(r)
+            break
+
+        except (requests.Timeout, requests.ConnectionError) as e:
+            # If ConnectionError (SSLError) or ReadTimeout happen while connecting to the server, it is most likely
+            # a transient error (network outage?). We log a warning message and try to a few times before giving up.
+            # The retry mechanism is basic but should be enough in most cases.
+            if attempt == _nb_retries:
+                logger.warning("Error while getting metadata from %s: %s\nMax retries exceeded.", url, str(e))
+                raise
+            logger.warning("Error while getting metadata from %s: %s\nWill retry...", url, str(e))
+            time.sleep(1)
+            reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
 
     # Return
     return HfFileMetadata(
