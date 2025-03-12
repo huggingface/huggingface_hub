@@ -26,7 +26,7 @@ import warnings
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Set, Union, overload
 
 from huggingface_hub import constants
-from huggingface_hub.errors import InferenceTimeoutError
+from huggingface_hub.errors import HfHubHTTPError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
@@ -2673,7 +2673,15 @@ class AsyncInferenceClient:
             model=model or self.model,
             api_key=self.token,
         )
-        response = await self._inner_post(request_parameters)
+        try:
+            response = await self._inner_post(request_parameters)
+        except HfHubHTTPError as e:
+            if request_parameters.url.startswith("https://router.huggingface.co"):
+                raise InferenceTimeoutError(
+                    "Request timed out after 120 seconds. This is currently expected for text-to-video generation through"
+                    " Hugging Face routing. You can decrease `num_inference_steps` to 20 or less to make the generation under 120 seconds."
+                ) from e
+            raise e
         response = provider_helper.get_response(response)
         return response
 
