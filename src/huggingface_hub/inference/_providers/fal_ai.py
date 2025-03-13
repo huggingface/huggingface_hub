@@ -111,9 +111,11 @@ class FalAITextToVideoTask(FalAITask):
         if not request_id:
             raise ValueError("No request ID found in the response")
         if request_params is None:
-            raise ValueError("Request parameters should be provided to get text-to-video responses with Fal AI.")
-        # extract the base url and query params
+            raise ValueError(
+                "A `RequestParameters` object should be provided to get text-to-video responses with Fal AI."
+            )
 
+        # extract the base url and query params
         parsed = urlparse(request_params.url)
         base_url = request_params.url.split("?")[0]  # or parsed.scheme + "://" + parsed.netloc + parsed.path ?
         query = "?" + parsed.query if parsed.query else ""
