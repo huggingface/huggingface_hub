@@ -273,6 +273,13 @@ class HfApiEndpointsTest(HfApiCommonTest):
                 assert info.gated == gated_value
                 assert info.private == private_value
 
+    @use_tmp_repo(repo_type="model")
+    def test_update_repo_settings_xet_enabled(self, repo_url: RepoUrl):
+        repo_id = repo_url.repo_id
+        self._api.update_repo_settings(repo_id=repo_id, xet_enabled=True)
+        info = self._api.model_info(repo_id, expand="xetEnabled")
+        assert info.xet_enabled
+
     @expect_deprecation("get_token_permission")
     def test_get_token_permission_on_oauth_token(self):
         whoami = {
@@ -758,8 +765,9 @@ class CommitApiTest(HfApiCommonTest):
             f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/preupload/main.\nPlease"
             " make sure you specified the correct `repo_id` and"
             " `repo_type`.\nIf you are trying to access a private or gated"
-            " repo, make sure you are authenticated.\nNote: Creating a commit"
-            " assumes that the repo already exists on the Huggingface Hub."
+            " repo, make sure you are authenticated."
+            " For more details, see https://huggingface.co/docs/huggingface_hub/authentication"
+            "\nNote: Creating a commit assumes that the repo already exists on the Huggingface Hub."
             " Please use `create_repo` if it's not the case."
         )
 
@@ -3130,7 +3138,7 @@ iface.launch()
         self.api = HfApi(token="hf_fake_token", endpoint=ENDPOINT_PRODUCTION)
 
         # Create a Space
-        self.api.create_repo(repo_id=self.repo_id, repo_type="space", space_sdk="gradio", private=True)
+        self.api.create_repo(repo_id=self.repo_id, repo_type="space", space_sdk="gradio", private=True, exist_ok=True)
         self.api.upload_file(
             path_or_fileobj=self._BASIC_APP_PY_TEMPLATE,
             repo_id=self.repo_id,

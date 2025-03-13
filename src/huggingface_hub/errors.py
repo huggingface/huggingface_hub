@@ -327,3 +327,22 @@ class DDUFExportError(DDUFError):
 
 class DDUFInvalidEntryNameError(DDUFExportError):
     """Exception thrown when the entry name is invalid."""
+
+
+# XET ERRORS
+
+
+class XetError(Exception):
+    """Base exception for errors related to Xet Storage."""
+
+
+class XetAuthorizationError(XetError):
+    """Exception thrown when the user does not have the right authorization to use Xet Storage."""
+
+
+class XetRefreshTokenError(XetError):
+    """Exception thrown when the refresh token is invalid."""
+
+
+class XetDownloadError(Exception):
+    """Exception thrown when the download from Xet Storage fails."""

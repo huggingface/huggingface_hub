@@ -84,7 +84,11 @@ class HFInferenceConversational(HFInferenceTask):
         super().__init__("text-generation")
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
-        payload_model = "tgi" if mapped_model.startswith(("http://", "https://")) else mapped_model
+        payload_model = parameters.get("model") or mapped_model
+
+        if payload_model is None or payload_model.startswith(("http://", "https://")):
+            payload_model = "dummy"
+
         return {**filter_none(parameters), "model": payload_model, "messages": inputs}
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
