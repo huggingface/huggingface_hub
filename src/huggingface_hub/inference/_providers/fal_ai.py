@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
-from huggingface_hub.utils import get_session
+from huggingface_hub.utils import get_session, hf_raise_for_status
 from huggingface_hub.utils.logging import get_logger
 
 
@@ -106,7 +106,6 @@ class FalAITextToVideoTask(FalAITask):
         request_params: Optional[RequestParameters] = None,
     ) -> Any:
         response_dict = _as_dict(response)
-        session = get_session()
 
         request_id = response_dict.get("request_id")
         if not request_id:
@@ -126,12 +125,11 @@ class FalAITextToVideoTask(FalAITask):
         logger.info("Generating the video.. this can take several minutes.")
         while status != "COMPLETED":
             time.sleep(_POLLING_INTERVAL)
-            try:
-                response_dict = _as_dict(session.get(status_url, headers=request_params.headers).json())
-                status = response_dict.get("status")
-            except Exception as e:
-                raise RuntimeError(f"Failed to poll status: {str(e)}")
+            response = get_session().get(status_url, headers=request_params.headers)
+            hf_raise_for_status(response)
+            response_dict = _as_dict(response.json())
+            status = response_dict.get("status")
 
-        response = session.get(result_url, headers=request_params.headers).json()
+        response = get_session().get(result_url, headers=request_params.headers).json()
         url = _as_dict(response)["video"]["url"]
-        return session.get(url).content
+        return get_session().get(url).content
