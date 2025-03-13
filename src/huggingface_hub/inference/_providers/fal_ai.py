@@ -27,9 +27,6 @@ class FalAITask(TaskProviderHelper, ABC):
         return headers
 
     def _prepare_route(self, mapped_model: str) -> str:
-        if self.api_key.startswith("hf_"):
-            # Use the queue subdomain for HF routing
-            return f"/{mapped_model}?_subdomain=queue"
         return f"/{mapped_model}"
 
 
@@ -93,6 +90,12 @@ class FalAITextToSpeechTask(FalAITask):
 class FalAITextToVideoTask(FalAITask):
     def __init__(self):
         super().__init__("text-to-video")
+
+    def _prepare_route(self, mapped_model: str) -> str:
+        if self.api_key.startswith("hf_"):
+            # Use the queue subdomain for HF routing
+            return f"/{mapped_model}?_subdomain=queue"
+        return f"/{mapped_model}"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         return {"prompt": inputs, **filter_none(parameters)}
