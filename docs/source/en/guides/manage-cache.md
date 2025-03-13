@@ -554,7 +554,7 @@ The `xet` directory, located at `~/.cache/huggingface/xet` by default, contains 
 ├─ shard_cache
 ```
 
-The `xet` cache, like the rest of `hf_xet` is fully integrated with the `huggingface_hub`.  If you use the existing APIs for interacting with cached assets, there is no need to update your workflow. The `xet` cache is built as an optimization layer on top of the existing `hf_xet` chunk-based deduplication and `huggingface_hub` cache system. 
+The `xet` cache, like the rest of `hf_xet` is fully integrated with `huggingface_hub`.  If you use the existing APIs for interacting with cached assets, there is no need to update your workflow. The `xet` cache is built as an optimization layer on top of the existing `hf_xet` chunk-based deduplication and `huggingface_hub` cache system. 
 
 The `chunk-cache` directory contains cached data chunks that are used to speed up downloads while the `shard-cache` directory contains cached shards that are utilized on the upload path. 
 
