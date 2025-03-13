@@ -233,9 +233,8 @@ class TestFalAIProvider:
 
     def test_prepare_url(self):
         helper = FalAITextToImageTask()
-        api_key = helper._prepare_api_key("hf_token")
-        url = helper._prepare_url(api_key, "username/repo_name")
-        assert url == "https://router.huggingface.co/fal-ai/username/repo_name?_subdomain=queue"
+        url = helper._prepare_url("hf_token", "username/repo_name")
+        assert url == "https://router.huggingface.co/fal-ai/username/repo_name"
 
     def test_automatic_speech_recognition_payload(self):
         helper = FalAIAutomaticSpeechRecognitionTask()
