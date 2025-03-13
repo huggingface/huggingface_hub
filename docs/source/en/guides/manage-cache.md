@@ -618,7 +618,7 @@ Example full `xet`cache directory tree:
 <CACHE_DIR>
 ├─ xet
 │  ├─ chunk_cache
-│  │  ├─ LN
+│  │  ├─ L1
 │  │  │  ├─ L1GerURLUcISVivdseeoY1PnYifYkOaCCJ7V5Q9fjgxkZWZhdWx0
 │  │  │  │  ├─ AAAAAAEAAAA5DQAAAAAAAIhRLjDI3SS5jYs4ysNKZiJy9XFI8CN7Ww0UyEA9KPD9
 │  │  │  │  ├─ AQAAAAIAAABzngAAAAAAAPNqPjd5Zby5aBvabF7Z1itCx0ryMwoCnuQcDwq79jlB
