@@ -182,7 +182,7 @@ Check out our [Repository limitations and recommendations](https://huggingface.c
 In most cases, you won't need more than [`upload_file`] and [`upload_folder`] to upload your files to the Hub.
 However, `huggingface_hub` has more advanced features to make things easier. Let's have a look at them!
 
-### Faster uploads with hf_xet
+### Faster uploads with `hf_xet`
 
 Take advantage of faster uploads through `hf_xet`, the Python binding to the [`xet-core`](https://github.com/huggingface/xet-core) library that enables chunk-based deduplication for faster uploads and downloads. `hf_xet` integrates seamlessly with `huggingface_hub`, but uses the Rust `xet-core` library and Xet storage instead of LFS. 
 
