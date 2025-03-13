@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 from pytest import LogCaptureFixture
 
+from huggingface_hub.inference._common import RequestParameters
 from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
     BaseTextGenerationTask,
@@ -120,13 +121,13 @@ class TestBasicTaskProviderHelper:
         # Test HF token routing
         url = helper._prepare_url("hf_test_token", "test-model")
         assert url == "https://router.huggingface.co/provider-name/v1/test-route"
-        helper._prepare_route.assert_called_once_with("test-model")
+        helper._prepare_route.assert_called_once_with("test-model", "hf_test_token")
 
         # Test direct API call
         helper._prepare_route.reset_mock()
         url = helper._prepare_url("sk_test_token", "test-model")
         assert url == "https://api.provider.com/v1/test-route"
-        helper._prepare_route.assert_called_once_with("test-model")
+        helper._prepare_route.assert_called_once_with("test-model", "sk_test_token")
 
 
 class TestBlackForestLabsProvider:
@@ -298,10 +299,18 @@ class TestFalAIProvider:
             mocker.Mock(content=b"video_content"),
         ]
         api_key = helper._prepare_api_key("hf_token")
-        _ = helper._prepare_headers({}, api_key)
-        _ = helper._prepare_url(api_key, "username/repo_name")
+        headers = helper._prepare_headers({}, api_key)
+        url = helper._prepare_url(api_key, "username/repo_name")
 
-        response = helper.get_response(b'{"request_id": "test_request_id", "status": "PROCESSING"}')
+        request_params = RequestParameters(
+            url=url,
+            headers=headers,
+            task="text-to-video",
+            model="username/repo_name",
+            data=None,
+            json=None,
+        )
+        response = helper.get_response(b'{"request_id": "test_request_id", "status": "PROCESSING"}', request_params)
 
         # Verify the correct URLs were called
         assert mock_session.return_value.get.call_count == 3
@@ -309,11 +318,11 @@ class TestFalAIProvider:
             [
                 mocker.call(
                     "https://router.huggingface.co/fal-ai/username/repo_name/requests/test_request_id/status?_subdomain=queue",
-                    headers=helper.headers,
+                    headers=request_params.headers,
                 ),
                 mocker.call(
                     "https://router.huggingface.co/fal-ai/username/repo_name/requests/test_request_id?_subdomain=queue",
-                    headers=helper.headers,
+                    headers=request_params.headers,
                 ),
                 mocker.call("video_url"),
             ]

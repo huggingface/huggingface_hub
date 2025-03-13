@@ -1,7 +1,7 @@
 import time
 from typing import Any, Dict, Optional, Union
 
-from huggingface_hub.inference._common import _as_dict
+from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._http import get_session
@@ -24,7 +24,7 @@ class BlackForestLabsTextToImageTask(TaskProviderHelper):
             headers["X-Key"] = api_key
         return headers
 
-    def _prepare_route(self, mapped_model: str) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
         return f"/v1/{mapped_model}"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
@@ -36,7 +36,7 @@ class BlackForestLabsTextToImageTask(TaskProviderHelper):
 
         return {"prompt": inputs, **parameters}
 
-    def get_response(self, response: Union[bytes, Dict]) -> Any:
+    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
         """
         Polling mechanism for Black Forest Labs since the API is asynchronous.
         """

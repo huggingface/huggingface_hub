@@ -1,7 +1,7 @@
 import base64
 from typing import Any, Dict, Optional, Union
 
-from huggingface_hub.inference._common import _as_dict
+from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
     BaseTextGenerationTask,
@@ -24,7 +24,7 @@ class NebiusTextToImageTask(TaskProviderHelper):
     def __init__(self):
         super().__init__(task="text-to-image", provider="nebius", base_url="https://api.studio.nebius.ai")
 
-    def _prepare_route(self, mapped_model: str) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
         return "/v1/images/generations"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
@@ -36,6 +36,6 @@ class NebiusTextToImageTask(TaskProviderHelper):
 
         return {"prompt": inputs, **parameters, "model": mapped_model}
 
-    def get_response(self, response: Union[bytes, Dict]) -> Any:
+    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
         response_dict = _as_dict(response)
         return base64.b64decode(response_dict["data"][0]["b64_json"])

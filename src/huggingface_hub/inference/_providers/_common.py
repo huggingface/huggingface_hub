@@ -84,7 +84,11 @@ class TaskProviderHelper:
             raise ValueError("Either payload or data must be set in the request.")
         return RequestParameters(url=url, task=self.task, model=mapped_model, json=payload, data=data, headers=headers)
 
-    def get_response(self, response: Union[bytes, Dict]) -> Any:
+    def get_response(
+        self,
+        response: Union[bytes, Dict],
+        request_params: Optional[RequestParameters] = None,
+    ) -> Any:
         """
         Return the response in the expected format.
 
@@ -101,8 +105,7 @@ class TaskProviderHelper:
             raise ValueError(
                 f"You must provide an api_key to work with {self.provider} API or log in with `huggingface-cli login`."
             )
-        self.api_key = api_key
-        return self.api_key
+        return api_key
 
     def _prepare_mapped_model(self, model: Optional[str]) -> str:
         """Return the mapped model ID to use for the request.
@@ -136,17 +139,15 @@ class TaskProviderHelper:
 
         Override this method in subclasses for customized headers.
         """
-        self.headers = {**build_hf_headers(token=api_key), **headers}
-        return self.headers
+        return {**build_hf_headers(token=api_key), **headers}
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
         """Return the URL to use for the request.
 
         Usually not overwritten in subclasses."""
         base_url = self._prepare_base_url(api_key)
-        route = self._prepare_route(mapped_model)
-        self.url = f"{base_url.rstrip('/')}/{route.lstrip('/')}"
-        return self.url
+        route = self._prepare_route(mapped_model, api_key)
+        return f"{base_url.rstrip('/')}/{route.lstrip('/')}"
 
     def _prepare_base_url(self, api_key: str) -> str:
         """Return the base URL to use for the request.
@@ -160,7 +161,7 @@ class TaskProviderHelper:
             logger.info(f"Calling '{self.provider}' provider directly.")
             return self.base_url
 
-    def _prepare_route(self, mapped_model: str) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
         """Return the route to use for the request.
 
         Override this method in subclasses for customized routes.
@@ -195,7 +196,7 @@ class BaseConversationalTask(TaskProviderHelper):
     def __init__(self, provider: str, base_url: str):
         super().__init__(provider=provider, base_url=base_url, task="conversational")
 
-    def _prepare_route(self, mapped_model: str) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
         return "/v1/chat/completions"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
@@ -211,7 +212,7 @@ class BaseTextGenerationTask(TaskProviderHelper):
     def __init__(self, provider: str, base_url: str):
         super().__init__(provider=provider, base_url=base_url, task="text-generation")
 
-    def _prepare_route(self, mapped_model: str) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
         return "/v1/completions"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:

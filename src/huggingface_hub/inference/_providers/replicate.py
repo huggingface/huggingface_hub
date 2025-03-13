@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional, Union
 
-from huggingface_hub.inference._common import _as_dict
+from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
 from huggingface_hub.utils import get_session
 
@@ -18,7 +18,7 @@ class ReplicateTask(TaskProviderHelper):
         headers["Prefer"] = "wait"
         return headers
 
-    def _prepare_route(self, mapped_model: str) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
         if ":" in mapped_model:
             return "/v1/predictions"
         return f"/v1/models/{mapped_model}/predictions"
@@ -30,7 +30,7 @@ class ReplicateTask(TaskProviderHelper):
             payload["version"] = version
         return payload
 
-    def get_response(self, response: Union[bytes, Dict]) -> Any:
+    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
         response_dict = _as_dict(response)
         if response_dict.get("output") is None:
             raise TimeoutError(
