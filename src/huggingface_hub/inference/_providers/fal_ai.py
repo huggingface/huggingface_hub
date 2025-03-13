@@ -1,10 +1,19 @@
 import base64
+import time
 from abc import ABC
 from typing import Any, Dict, Optional, Union
+from urllib.parse import urlparse
 
 from huggingface_hub.inference._common import _as_dict
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
 from huggingface_hub.utils import get_session
+from huggingface_hub.utils.logging import get_logger
+
+
+logger = get_logger(__name__)
+
+# Arbitrary polling interval
+_POLLING_INTERVAL = 2.0
 
 
 class FalAITask(TaskProviderHelper, ABC):
@@ -18,6 +27,9 @@ class FalAITask(TaskProviderHelper, ABC):
         return headers
 
     def _prepare_route(self, mapped_model: str) -> str:
+        if self.api_key.startswith("hf_"):
+            # Use the queue subdomain for HF routing
+            return f"/{mapped_model}?_subdomain=queue"
         return f"/{mapped_model}"
 
 
@@ -86,5 +98,31 @@ class FalAITextToVideoTask(FalAITask):
         return {"prompt": inputs, **filter_none(parameters)}
 
     def get_response(self, response: Union[bytes, Dict]) -> Any:
+        response_dict = _as_dict(response)
+        session = get_session()
+
+        request_id = response_dict.get("request_id")
+        if not request_id:
+            raise ValueError("No request ID found in the response")
+
+        # extract the base url and query params
+        parsed = urlparse(self.url)
+        base_url = self.url.split("?")[0]  # or parsed.scheme + "://" + parsed.netloc + parsed.path ?
+        query = "?" + parsed.query if parsed.query else ""
+
+        status_url = f"{base_url}/requests/{request_id}/status{query}"
+        result_url = f"{base_url}/requests/{request_id}{query}"
+
+        status = response_dict.get("status")
+        logger.info("Generating the video.. this can take several minutes.")
+        while status != "COMPLETED":
+            time.sleep(_POLLING_INTERVAL)
+            try:
+                response_dict = _as_dict(session.get(status_url, headers=self.headers).json())
+                status = response_dict.get("status")
+            except Exception as e:
+                raise RuntimeError(f"Failed to poll status: {str(e)}")
+
+        response = session.get(result_url, headers=self.headers).json()
         url = _as_dict(response)["video"]["url"]
-        return get_session().get(url).content
+        return session.get(url).content

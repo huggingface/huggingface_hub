@@ -101,7 +101,8 @@ class TaskProviderHelper:
             raise ValueError(
                 f"You must provide an api_key to work with {self.provider} API or log in with `huggingface-cli login`."
             )
-        return api_key
+        self.api_key = api_key
+        return self.api_key
 
     def _prepare_mapped_model(self, model: Optional[str]) -> str:
         """Return the mapped model ID to use for the request.
@@ -135,7 +136,8 @@ class TaskProviderHelper:
 
         Override this method in subclasses for customized headers.
         """
-        return {**build_hf_headers(token=api_key), **headers}
+        self.headers = {**build_hf_headers(token=api_key), **headers}
+        return self.headers
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
         """Return the URL to use for the request.
@@ -143,7 +145,8 @@ class TaskProviderHelper:
         Usually not overwritten in subclasses."""
         base_url = self._prepare_base_url(api_key)
         route = self._prepare_route(mapped_model)
-        return f"{base_url.rstrip('/')}/{route.lstrip('/')}"
+        self.url = f"{base_url.rstrip('/')}/{route.lstrip('/')}"
+        return self.url
 
     def _prepare_base_url(self, api_key: str) -> str:
         """Return the base URL to use for the request.

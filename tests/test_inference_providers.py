@@ -15,6 +15,7 @@ from huggingface_hub.inference._providers._common import (
 from huggingface_hub.inference._providers.black_forest_labs import BlackForestLabsTextToImageTask
 from huggingface_hub.inference._providers.cohere import CohereConversationalTask
 from huggingface_hub.inference._providers.fal_ai import (
+    _POLLING_INTERVAL,
     FalAIAutomaticSpeechRecognitionTask,
     FalAITextToImageTask,
     FalAITextToSpeechTask,
@@ -230,9 +231,11 @@ class TestFalAIProvider:
         headers = FalAITextToImageTask()._prepare_headers({}, "hf_token")
         assert headers["authorization"] == "Bearer hf_token"
 
-    def test_prepare_route(self):
-        url = FalAITextToImageTask()._prepare_url("hf_token", "username/repo_name")
-        assert url == "https://router.huggingface.co/fal-ai/username/repo_name"
+    def test_prepare_url(self):
+        helper = FalAITextToImageTask()
+        api_key = helper._prepare_api_key("hf_token")
+        url = helper._prepare_url(api_key, "username/repo_name")
+        assert url == "https://router.huggingface.co/fal-ai/username/repo_name?_subdomain=queue"
 
     def test_automatic_speech_recognition_payload(self):
         helper = FalAIAutomaticSpeechRecognitionTask()
@@ -286,10 +289,39 @@ class TestFalAIProvider:
 
     def test_text_to_video_response(self, mocker):
         helper = FalAITextToVideoTask()
-        mock = mocker.patch("huggingface_hub.inference._providers.fal_ai.get_session")
-        response = helper.get_response({"video": {"url": "video_url"}})
-        mock.return_value.get.assert_called_once_with("video_url")
-        assert response == mock.return_value.get.return_value.content
+        mock_session = mocker.patch("huggingface_hub.inference._providers.fal_ai.get_session")
+        mock_sleep = mocker.patch("huggingface_hub.inference._providers.fal_ai.time.sleep")
+        mock_session.return_value.get.side_effect = [
+            # First call: status
+            mocker.Mock(json=lambda: {"status": "COMPLETED"}, headers={"Content-Type": "application/json"}),
+            # Second call: get result
+            mocker.Mock(json=lambda: {"video": {"url": "video_url"}}, headers={"Content-Type": "application/json"}),
+            # Third call: get video content
+            mocker.Mock(content=b"video_content"),
+        ]
+        api_key = helper._prepare_api_key("hf_token")
+        _ = helper._prepare_headers({}, api_key)
+        _ = helper._prepare_url(api_key, "username/repo_name")
+
+        response = helper.get_response(b'{"request_id": "test_request_id", "status": "PROCESSING"}')
+
+        # Verify the correct URLs were called
+        assert mock_session.return_value.get.call_count == 3
+        mock_session.return_value.get.assert_has_calls(
+            [
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username/repo_name/requests/test_request_id/status?_subdomain=queue",
+                    headers=helper.headers,
+                ),
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username/repo_name/requests/test_request_id?_subdomain=queue",
+                    headers=helper.headers,
+                ),
+                mocker.call("video_url"),
+            ]
+        )
+        mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
+        assert response == b"video_content"
 
 
 class TestFireworksAIConversationalTask:
