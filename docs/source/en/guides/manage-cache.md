@@ -544,7 +544,7 @@ Cache deletion done. Saved 8.6G.
 
 ## Xet Cache
 
-To provide more efficient file transfers, `hf_xet` adds a `xet` directory to the existing `huggingaface_hub` cache, creating additional caching layer to enable chunk-based deduplication. 
+To provide more efficient file transfers, `hf_xet` adds a `xet` directory to the existing `huggingface_hub` cache, creating additional caching layer to enable chunk-based deduplication. 
 
 The `xet` directory, located at `~/.cache/huggingface/xet` by default, contains two caches, utilized for uploads and downloads with the following structure
 
