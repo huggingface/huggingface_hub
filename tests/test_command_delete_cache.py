@@ -66,17 +66,17 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         self.assertIsInstance(choices[3], Separator)
         self.assertEqual(choices[3]._line, "\nModel dummy_model (1.4K, used 2 years ago)")
 
-        # Oldest revision of `dummy_model`
+        # Recent revision of `dummy_model` (appears first due to sorting by last_modified)
         self.assertIsInstance(choices[4], Choice)
-        self.assertEqual(choices[4].value, "older_hash_id")
-        self.assertEqual(choices[4].name, "older_ha: (detached) # modified 3 years ago")
-        self.assertTrue(choices[4].enabled)  # preselected
+        self.assertEqual(choices[4].value, "recent_hash_id")
+        self.assertEqual(choices[4].name, "recent_h: main # modified 2 years ago")
+        self.assertFalse(choices[4].enabled)
 
-        # Newest revision of `dummy_model`
+        # Oldest revision of `dummy_model`
         self.assertIsInstance(choices[5], Choice)
-        self.assertEqual(choices[5].value, "recent_hash_id")
-        self.assertEqual(choices[5].name, "recent_h: main # modified 2 years ago")
-        self.assertFalse(choices[5].enabled)
+        self.assertEqual(choices[5].value, "older_hash_id")
+        self.assertEqual(choices[5].name, "older_ha: (detached) # modified 3 years ago")
+        self.assertTrue(choices[5].enabled)  # preselected
 
         # Model `gpt2` separator
         self.assertIsInstance(choices[6], Separator)
