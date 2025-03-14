@@ -75,8 +75,6 @@ class ImageToTextGenerationParameters(BaseInferenceType):
 class ImageToTextParameters(BaseInferenceType):
     """Additional inference parameters for Image To Text"""
 
-    generation_parameters: Optional[ImageToTextGenerationParameters] = None
-    """Parametrization of the text generation process"""
     max_new_tokens: Optional[int] = None
     """The amount of maximum tokens to generate."""
     # Will be deprecated in the future when the renaming to `generation_parameters` is implemented in transformers

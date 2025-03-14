@@ -77,8 +77,6 @@ class TextToSpeechParameters(BaseInferenceType):
 
     # Will be deprecated in the future when the renaming to `generation_parameters` is implemented in transformers
     generate_kwargs: Optional[TextToSpeechGenerationParameters] = None
-    generation_parameters: Optional[TextToSpeechGenerationParameters] = None
-    """Parametrization of the text generation process"""
 
 
 @dataclass_with_extra
