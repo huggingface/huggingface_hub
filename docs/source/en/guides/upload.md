@@ -176,6 +176,8 @@ Check out our [Repository limitations and recommendations](https://huggingface.c
 
 `hf_transfer` is a power user tool for uploading LFS files! It is tested and production-ready, but it is less future-proof and lacks user-friendly features like advanced error handling or proxies. For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
 
+Note that `hf_xet` and `hf_transfer` tools are mutually exclusive. The former is used to upload files to Xet-enabled repos while the later uploads LFS files to regular repos.
+
 </Tip>
 
 ## Advanced features
