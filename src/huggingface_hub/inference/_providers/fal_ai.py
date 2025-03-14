@@ -98,7 +98,7 @@ class FalAITextToVideoTask(FalAITask):
             return "https://queue.fal.run"
 
     def _prepare_route(self, mapped_model: str, api_key: str) -> str:
-        if api_key and api_key.startswith("hf_"):
+        if api_key.startswith("hf_"):
             # Use the queue subdomain for HF routing
             return f"/{mapped_model}?_subdomain=queue"
         return f"/{mapped_model}"
