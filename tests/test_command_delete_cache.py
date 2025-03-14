@@ -436,14 +436,12 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         mock_scan_cache_dir = Mock()
         mock_scan_cache_dir.return_value = _get_cache_mock()
 
-        with (
-            patch("huggingface_hub.commands.delete_cache.scan_cache_dir", mock_scan_cache_dir),
-            patch("huggingface_hub.commands.delete_cache._manual_review_tui") as mock_review,
-        ):
-            self.command.disable_tui = False
-            self.command.run()
+        with patch("huggingface_hub.commands.delete_cache.scan_cache_dir", mock_scan_cache_dir):
+            with patch("huggingface_hub.commands.delete_cache._manual_review_tui") as mock_review:
+                self.command.disable_tui = False
+                self.command.run()
 
-            mock_review.assert_called_once_with(mock_scan_cache_dir.return_value, preselected=[], sort_by="size")
+                mock_review.assert_called_once_with(mock_scan_cache_dir.return_value, preselected=[], sort_by="size")
 
 
 def _get_cache_mock() -> Mock:
