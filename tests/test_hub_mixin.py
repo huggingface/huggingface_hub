@@ -177,6 +177,26 @@ class DummyModelWithCustomTypes(
         return
 
 
+@dataclass
+class DummyDataclass:
+    foo: int
+    bar: str
+
+
+class DummyWithDataclassInputs(ModelHubMixin):
+    def __init__(self, arg1: DummyDataclass, arg2: DummyDataclass):
+        self.arg1 = arg1
+        self.arg2 = arg2
+
+    @classmethod
+    def _from_pretrained(cls, **kwargs):
+        return cls(arg1=kwargs["arg1"], arg2=kwargs["arg2"])
+
+    @classmethod
+    def _save_pretrained(cls, save_directory: Path):
+        return
+
+
 @pytest.mark.usefixtures("fx_cache_dir")
 class HubMixinTest(unittest.TestCase):
     cache_dir: Path
@@ -501,3 +521,22 @@ a.dum""".strip()
         # Test method type hints on instance
         model = ModelWithHints()
         assert get_type_hints(model.method_with_hints) == {"x": int, "return": str}
+
+    def test_with_dataclass_inputs(self):
+        model = DummyWithDataclassInputs(
+            arg1=DummyDataclass(foo=1, bar="1"),
+            arg2=DummyDataclass(foo=2, bar="2"),
+        )
+        model.save_pretrained(self.cache_dir)
+
+        config = json.loads((self.cache_dir / "config.json").read_text())
+        assert config == {
+            "arg1": {"foo": 1, "bar": "1"},
+            "arg2": {"foo": 2, "bar": "2"},
+        }
+
+        model_reloaded = DummyWithDataclassInputs.from_pretrained(self.cache_dir)
+        assert model_reloaded.arg1.foo == 1
+        assert model_reloaded.arg1.bar == "1"
+        assert model_reloaded.arg2.foo == 2
+        assert model_reloaded.arg2.bar == "2"
