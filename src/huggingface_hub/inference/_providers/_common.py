@@ -17,6 +17,8 @@ HARDCODED_MODEL_ID_MAPPING: Dict[str, Dict[str, str]] = {
     #
     # Example:
     # "Qwen/Qwen2.5-Coder-32B-Instruct": "Qwen2.5-Coder-32B-Instruct",
+    "cerebras": {},
+    "cohere": {},
     "fal-ai": {},
     "fireworks-ai": {},
     "hf-inference": {},

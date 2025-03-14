@@ -2,6 +2,8 @@ from typing import Dict, Literal
 
 from ._common import TaskProviderHelper
 from .black_forest_labs import BlackForestLabsTextToImageTask
+from .cerebras import CerebrasConversationalTask
+from .cohere import CohereConversationalTask
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAITextToImageTask,
@@ -12,7 +14,7 @@ from .fireworks_ai import FireworksAIConversationalTask
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
 from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
 from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
-from .novita import NovitaConversationalTask, NovitaTextGenerationTask
+from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
@@ -20,6 +22,8 @@ from .together import TogetherConversationalTask, TogetherTextGenerationTask, To
 
 PROVIDER_T = Literal[
     "black-forest-labs",
+    "cerebras",
+    "cohere",
     "fal-ai",
     "fireworks-ai",
     "hf-inference",
@@ -34,6 +38,12 @@ PROVIDER_T = Literal[
 PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     "black-forest-labs": {
         "text-to-image": BlackForestLabsTextToImageTask(),
+    },
+    "cerebras": {
+        "conversational": CerebrasConversationalTask(),
+    },
+    "cohere": {
+        "conversational": CohereConversationalTask(),
     },
     "fal-ai": {
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),
@@ -85,6 +95,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     "novita": {
         "text-generation": NovitaTextGenerationTask(),
         "conversational": NovitaConversationalTask(),
+        "text-to-video": NovitaTextToVideoTask(),
     },
     "replicate": {
         "text-to-image": ReplicateTask("text-to-image"),

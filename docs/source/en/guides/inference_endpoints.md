@@ -6,6 +6,15 @@ In this guide, we will learn how to programmatically manage Inference Endpoints 
 This guide assumes `huggingface_hub` is correctly installed and that your machine is logged in. Check out the [Quick Start guide](https://huggingface.co/docs/huggingface_hub/quick-start#quickstart) if that's not the case yet. The minimal version supporting Inference Endpoints API is `v0.19.0`.
 
 
+<Tip>
+
+**New:** it is now possible to deploy an Inference Endpoint from the [HF model catalog](https://endpoints.huggingface.co/catalog) with a simple API call. The catalog is a carefully curated list of models that can be deployed with optimized settings. You don't need to configure anything, we take all the heavy stuff on us! All models and settings are guaranteed to have been tested to provide best cost/performance balance.  [`create_inference_endpoint_from_catalog`] works the same as [`create_inference_endpoint`], with much less parameters to pass. You can use [`list_inference_catalog`] to programmatically retrieve the catalog.
+
+Note that this is still an experimental feature. Let us know what you think if you use it!
+
+</Tip>
+
+
 ## Create an Inference Endpoint
 
 The first step is to create an Inference Endpoint using [`create_inference_endpoint`]:
