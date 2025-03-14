@@ -2,7 +2,7 @@ import base64
 from abc import ABC
 from typing import Any, Dict, Optional, Union
 
-from huggingface_hub.inference._common import _as_dict
+from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
     BaseTextGenerationTask,
@@ -21,7 +21,7 @@ class TogetherTask(TaskProviderHelper, ABC):
     def __init__(self, task: str):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task=task)
 
-    def _prepare_route(self, mapped_model: str) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         if self.task == "text-to-image":
             return "/v1/images/generations"
         elif self.task == "conversational":
@@ -54,6 +54,6 @@ class TogetherTextToImageTask(TogetherTask):
 
         return {"prompt": inputs, "response_format": "base64", **parameters, "model": mapped_model}
 
-    def get_response(self, response: Union[bytes, Dict]) -> Any:
+    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
         response_dict = _as_dict(response)
         return base64.b64decode(response_dict["data"][0]["b64_json"])

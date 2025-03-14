@@ -1,10 +1,18 @@
 import base64
+import time
 from abc import ABC
 from typing import Any, Dict, Optional, Union
 
-from huggingface_hub.inference._common import _as_dict
+from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
-from huggingface_hub.utils import get_session
+from huggingface_hub.utils import get_session, hf_raise_for_status
+from huggingface_hub.utils.logging import get_logger
+
+
+logger = get_logger(__name__)
+
+# Arbitrary polling interval
+_POLLING_INTERVAL = 2.0
 
 
 class FalAITask(TaskProviderHelper, ABC):
@@ -17,7 +25,7 @@ class FalAITask(TaskProviderHelper, ABC):
             headers["authorization"] = f"Key {api_key}"
         return headers
 
-    def _prepare_route(self, mapped_model: str) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return f"/{mapped_model}"
 
 
@@ -41,7 +49,7 @@ class FalAIAutomaticSpeechRecognitionTask(FalAITask):
 
         return {"audio_url": audio_url, **filter_none(parameters)}
 
-    def get_response(self, response: Union[bytes, Dict]) -> Any:
+    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
         text = _as_dict(response)["text"]
         if not isinstance(text, str):
             raise ValueError(f"Unexpected output format from FalAI API. Expected string, got {type(text)}.")
@@ -61,7 +69,7 @@ class FalAITextToImageTask(FalAITask):
             }
         return {"prompt": inputs, **parameters}
 
-    def get_response(self, response: Union[bytes, Dict]) -> Any:
+    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
         url = _as_dict(response)["images"][0]["url"]
         return get_session().get(url).content
 
@@ -73,7 +81,7 @@ class FalAITextToSpeechTask(FalAITask):
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         return {"lyrics": inputs, **filter_none(parameters)}
 
-    def get_response(self, response: Union[bytes, Dict]) -> Any:
+    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
         url = _as_dict(response)["audio"]["url"]
         return get_session().get(url).content
 
@@ -82,9 +90,52 @@ class FalAITextToVideoTask(FalAITask):
     def __init__(self):
         super().__init__("text-to-video")
 
+    def _prepare_base_url(self, api_key: str) -> str:
+        if api_key.startswith("hf_"):
+            return super()._prepare_base_url(api_key)
+        else:
+            logger.info(f"Calling '{self.provider}' provider directly.")
+            return "https://queue.fal.run"
+
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
+        if api_key.startswith("hf_"):
+            # Use the queue subdomain for HF routing
+            return f"/{mapped_model}?_subdomain=queue"
+        return f"/{mapped_model}"
+
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         return {"prompt": inputs, **filter_none(parameters)}
 
-    def get_response(self, response: Union[bytes, Dict]) -> Any:
+    def get_response(
+        self,
+        response: Union[bytes, Dict],
+        request_params: Optional[RequestParameters] = None,
+    ) -> Any:
+        response_dict = _as_dict(response)
+
+        request_id = response_dict.get("request_id")
+        if not request_id:
+            raise ValueError("No request ID found in the response")
+        if request_params is None:
+            raise ValueError(
+                "A `RequestParameters` object should be provided to get text-to-video responses with Fal AI."
+            )
+
+        # extract the base url and query params
+        base_url = request_params.url.split("?")[0]  # or parsed.scheme + "://" + parsed.netloc + parsed.path ?
+        query = "?_subdomain=queue" if request_params.url.endswith("_subdomain=queue") else ""
+
+        status_url = f"{base_url}/requests/{request_id}/status{query}"
+        result_url = f"{base_url}/requests/{request_id}{query}"
+
+        status = response_dict.get("status")
+        logger.info("Generating the video.. this can take several minutes.")
+        while status != "COMPLETED":
+            time.sleep(_POLLING_INTERVAL)
+            status_response = get_session().get(status_url, headers=request_params.headers)
+            hf_raise_for_status(status_response)
+            status = status_response.json().get("status")
+
+        response = get_session().get(result_url, headers=request_params.headers).json()
         url = _as_dict(response)["video"]["url"]
         return get_session().get(url).content

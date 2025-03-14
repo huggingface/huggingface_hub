@@ -86,7 +86,7 @@ jobs:
             make style
             ```
 
-            This PR was automatically created by the [Update Inference Types workflow](https://github.com/huggingface/huggingface_hub/blob/main/.github/update-inference-types.yml).
+            This PR was automatically created by the [Update Inference Types workflow](https://github.com/huggingface/huggingface_hub/blob/main/.github/workflows/update-inference-types.yaml).
             
             Make sure the changes are correct before merging.
           labels: |

@@ -1,16 +1,22 @@
 import base64
+import logging
 from typing import Dict
+from unittest.mock import patch
 
 import pytest
+from pytest import LogCaptureFixture
 
+from huggingface_hub.inference._common import RequestParameters
 from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
     BaseTextGenerationTask,
+    TaskProviderHelper,
     recursive_merge,
 )
 from huggingface_hub.inference._providers.black_forest_labs import BlackForestLabsTextToImageTask
 from huggingface_hub.inference._providers.cohere import CohereConversationalTask
 from huggingface_hub.inference._providers.fal_ai import (
+    _POLLING_INTERVAL,
     FalAIAutomaticSpeechRecognitionTask,
     FalAITextToImageTask,
     FalAITextToSpeechTask,
@@ -37,6 +43,92 @@ from huggingface_hub.inference._providers.together import (
     TogetherTextToImageTask,
 )
 
+from .testing_utils import assert_in_logs
+
+
+class TestBasicTaskProviderHelper:
+    def test_api_key_from_provider(self):
+        helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
+        assert helper._prepare_api_key("sk_provider_key") == "sk_provider_key"
+
+    def test_api_key_routed(self, mocker):
+        mocker.patch("huggingface_hub.inference._providers._common.get_token", return_value="hf_test_token")
+        helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
+        assert helper._prepare_api_key(None) == "hf_test_token"
+
+    def test_api_key_missing(self):
+        with patch("huggingface_hub.inference._providers._common.get_token", return_value=None):
+            helper = TaskProviderHelper(
+                provider="provider-name", base_url="https://api.provider.com", task="task-name"
+            )
+            with pytest.raises(ValueError, match="You must provide an api_key.*"):
+                helper._prepare_api_key(None)
+
+    def test_prepare_mapped_model(self, mocker, caplog: LogCaptureFixture):
+        helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
+        caplog.set_level(logging.INFO)
+
+        # Test missing model
+        with pytest.raises(ValueError, match="Please provide an HF model ID.*"):
+            helper._prepare_mapped_model(None)
+
+        # Test unsupported model
+        mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+            return_value={"other-provider": "mapping"},
+        )
+        with pytest.raises(ValueError, match="Model test-model is not supported.*"):
+            helper._prepare_mapped_model("test-model")
+
+        # Test task mismatch
+        mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+            return_value={"provider-name": mocker.Mock(task="other-task", provider_id="mapped-id", status="active")},
+        )
+        with pytest.raises(ValueError, match="Model test-model is not supported for task.*"):
+            helper._prepare_mapped_model("test-model")
+
+        # Test staging model
+        mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+            return_value={"provider-name": mocker.Mock(task="task-name", provider_id="mapped-id", status="staging")},
+        )
+        assert helper._prepare_mapped_model("test-model") == "mapped-id"
+        assert_in_logs(
+            caplog, "Model test-model is in staging mode for provider provider-name. Meant for test purposes only."
+        )
+
+        # Test successful mapping
+        caplog.clear()
+        mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+            return_value={"provider-name": mocker.Mock(task="task-name", provider_id="mapped-id", status="active")},
+        )
+        assert helper._prepare_mapped_model("test-model") == "mapped-id"
+        assert len(caplog.records) == 0
+
+    def test_prepare_headers(self):
+        helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
+        headers = helper._prepare_headers({"custom": "header"}, "api_key")
+        assert "user-agent" in headers  # From build_hf_headers
+        assert headers["custom"] == "header"
+        assert headers["authorization"] == "Bearer api_key"
+
+    def test_prepare_url(self, mocker):
+        helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
+        mocker.patch.object(helper, "_prepare_route", return_value="/v1/test-route")
+
+        # Test HF token routing
+        url = helper._prepare_url("hf_test_token", "test-model")
+        assert url == "https://router.huggingface.co/provider-name/v1/test-route"
+        helper._prepare_route.assert_called_once_with("test-model", "hf_test_token")
+
+        # Test direct API call
+        helper._prepare_route.reset_mock()
+        url = helper._prepare_url("sk_test_token", "test-model")
+        assert url == "https://api.provider.com/v1/test-route"
+        helper._prepare_route.assert_called_once_with("test-model", "sk_test_token")
+
 
 class TestBlackForestLabsProvider:
     def test_prepare_headers_bfl_key(self):
@@ -55,13 +147,13 @@ class TestBlackForestLabsProvider:
     def test_prepare_route(self):
         """Test route preparation."""
         helper = BlackForestLabsTextToImageTask()
-        assert helper._prepare_route("username/repo_name") == "username/repo_name"
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/username/repo_name"
 
     def test_prepare_url(self):
         helper = BlackForestLabsTextToImageTask()
         assert (
             helper._prepare_url("hf_test_token", "username/repo_name")
-            == "https://router.huggingface.co/black-forest-labs/username/repo_name"
+            == "https://router.huggingface.co/black-forest-labs/v1/username/repo_name"
         )
 
     def test_prepare_payload_as_dict(self):
@@ -140,7 +232,7 @@ class TestFalAIProvider:
         headers = FalAITextToImageTask()._prepare_headers({}, "hf_token")
         assert headers["authorization"] == "Bearer hf_token"
 
-    def test_prepare_route(self):
+    def test_prepare_url(self):
         url = FalAITextToImageTask()._prepare_url("hf_token", "username/repo_name")
         assert url == "https://router.huggingface.co/fal-ai/username/repo_name"
 
@@ -196,10 +288,47 @@ class TestFalAIProvider:
 
     def test_text_to_video_response(self, mocker):
         helper = FalAITextToVideoTask()
-        mock = mocker.patch("huggingface_hub.inference._providers.fal_ai.get_session")
-        response = helper.get_response({"video": {"url": "video_url"}})
-        mock.return_value.get.assert_called_once_with("video_url")
-        assert response == mock.return_value.get.return_value.content
+        mock_session = mocker.patch("huggingface_hub.inference._providers.fal_ai.get_session")
+        mock_sleep = mocker.patch("huggingface_hub.inference._providers.fal_ai.time.sleep")
+        mock_session.return_value.get.side_effect = [
+            # First call: status
+            mocker.Mock(json=lambda: {"status": "COMPLETED"}, headers={"Content-Type": "application/json"}),
+            # Second call: get result
+            mocker.Mock(json=lambda: {"video": {"url": "video_url"}}, headers={"Content-Type": "application/json"}),
+            # Third call: get video content
+            mocker.Mock(content=b"video_content"),
+        ]
+        api_key = helper._prepare_api_key("hf_token")
+        headers = helper._prepare_headers({}, api_key)
+        url = helper._prepare_url(api_key, "username/repo_name")
+
+        request_params = RequestParameters(
+            url=url,
+            headers=headers,
+            task="text-to-video",
+            model="username/repo_name",
+            data=None,
+            json=None,
+        )
+        response = helper.get_response(b'{"request_id": "test_request_id", "status": "PROCESSING"}', request_params)
+
+        # Verify the correct URLs were called
+        assert mock_session.return_value.get.call_count == 3
+        mock_session.return_value.get.assert_has_calls(
+            [
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username/repo_name/requests/test_request_id/status?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username/repo_name/requests/test_request_id?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+                mocker.call("video_url"),
+            ]
+        )
+        mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
+        assert response == b"video_content"
 
 
 class TestFireworksAIConversationalTask:
@@ -376,13 +505,13 @@ class TestHyperbolicProvider:
     def test_prepare_route(self):
         """Test route preparation for different tasks."""
         helper = HyperbolicTextToImageTask()
-        assert helper._prepare_route("username/repo_name") == "/v1/images/generations"
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/images/generations"
 
         helper = HyperbolicTextGenerationTask("text-generation")
-        assert helper._prepare_route("username/repo_name") == "/v1/chat/completions"
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/chat/completions"
 
         helper = HyperbolicTextGenerationTask("conversational")
-        assert helper._prepare_route("username/repo_name") == "/v1/chat/completions"
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/chat/completions"
 
     def test_prepare_payload_conversational(self):
         """Test payload preparation for conversational task."""
@@ -431,7 +560,7 @@ class TestHyperbolicProvider:
 class TestNebiusProvider:
     def test_prepare_route_text_to_image(self):
         helper = NebiusTextToImageTask()
-        assert helper._prepare_route("username/repo_name") == "/v1/images/generations"
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/images/generations"
 
     def test_prepare_payload_as_dict_text_to_image(self):
         helper = NebiusTextToImageTask()
@@ -478,11 +607,11 @@ class TestReplicateProvider:
         helper = ReplicateTask("text-to-image")
 
         # No model version
-        url = helper._prepare_route("black-forest-labs/FLUX.1-schnell")
+        url = helper._prepare_route("black-forest-labs/FLUX.1-schnell", "hf_token")
         assert url == "/v1/models/black-forest-labs/FLUX.1-schnell/predictions"
 
         # Model with specific version
-        url = helper._prepare_route("black-forest-labs/FLUX.1-schnell:1944af04d098ef")
+        url = helper._prepare_route("black-forest-labs/FLUX.1-schnell:1944af04d098ef", "hf_token")
         assert url == "/v1/predictions"
 
     def test_prepare_payload_as_dict(self):
@@ -538,7 +667,7 @@ class TestSambanovaProvider:
 class TestTogetherProvider:
     def test_prepare_route_text_to_image(self):
         helper = TogetherTextToImageTask()
-        assert helper._prepare_route("username/repo_name") == "/v1/images/generations"
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/images/generations"
 
     def test_prepare_payload_as_dict_text_to_image(self):
         helper = TogetherTextToImageTask()
@@ -566,7 +695,7 @@ class TestTogetherProvider:
 class TestBaseConversationalTask:
     def test_prepare_route(self):
         helper = BaseConversationalTask(provider="test-provider", base_url="https://api.test.com")
-        assert helper._prepare_route("dummy-model") == "/v1/chat/completions"
+        assert helper._prepare_route("dummy-model", "hf_token") == "/v1/chat/completions"
         assert helper.task == "conversational"
 
     def test_prepare_payload(self):
@@ -591,7 +720,7 @@ class TestBaseConversationalTask:
 class TestBaseTextGenerationTask:
     def test_prepare_route(self):
         helper = BaseTextGenerationTask(provider="test-provider", base_url="https://api.test.com")
-        assert helper._prepare_route("dummy-model") == "/v1/completions"
+        assert helper._prepare_route("dummy-model", "hf_token") == "/v1/completions"
         assert helper.task == "text-generation"
 
     def test_prepare_payload(self):

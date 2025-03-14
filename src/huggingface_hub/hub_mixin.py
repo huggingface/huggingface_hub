@@ -58,7 +58,8 @@ DEFAULT_MODEL_CARD = """
 ---
 
 This model has been pushed to the Hub using the [PytorchModelHubMixin](https://huggingface.co/docs/huggingface_hub/package_reference/mixins#huggingface_hub.PyTorchModelHubMixin) integration:
-- Library: {{ repo_url | default("[More Information Needed]", true) }}
+- Code: {{ repo_url | default("[More Information Needed]", true) }}
+- Paper: {{ paper_url | default("[More Information Needed]", true) }}
 - Docs: {{ docs_url | default("[More Information Needed]", true) }}
 """
 
@@ -67,8 +68,9 @@ This model has been pushed to the Hub using the [PytorchModelHubMixin](https://h
 class MixinInfo:
     model_card_template: str
     model_card_data: ModelCardData
-    repo_url: Optional[str] = None
     docs_url: Optional[str] = None
+    paper_url: Optional[str] = None
+    repo_url: Optional[str] = None
 
 
 class ModelHubMixin:
@@ -88,6 +90,8 @@ class ModelHubMixin:
     Args:
         repo_url (`str`, *optional*):
             URL of the library repository. Used to generate model card.
+        paper_url (`str`, *optional*):
+            URL of the library paper. Used to generate model card.
         docs_url (`str`, *optional*):
             URL of the library documentation. Used to generate model card.
         model_card_template (`str`, *optional*):
@@ -110,7 +114,7 @@ class ModelHubMixin:
         pipeline_tag (`str`, *optional*):
             Tag of the pipeline. Used to generate model card. E.g. "text-classification".
         tags (`List[str]`, *optional*):
-            Tags to be added to the model card. Used to generate model card. E.g. ["x-custom-tag", "arxiv:2304.12244"]
+            Tags to be added to the model card. Used to generate model card. E.g. ["computer-vision"]
         coders (`Dict[Type, Tuple[Callable, Callable]]`, *optional*):
             Dictionary of custom types and their encoders/decoders. Used to encode/decode arguments that are not
             jsonable by default. E.g dataclasses, argparse.Namespace, OmegaConf, etc.
@@ -124,8 +128,9 @@ class ModelHubMixin:
     >>> class MyCustomModel(
     ...         ModelHubMixin,
     ...         library_name="my-library",
-    ...         tags=["x-custom-tag", "arxiv:2304.12244"],
+    ...         tags=["computer-vision"],
     ...         repo_url="https://github.com/huggingface/my-cool-library",
+    ...         paper_url="https://arxiv.org/abs/2304.12244",
     ...         docs_url="https://huggingface.co/docs/my-cool-library",
     ...         # ^ optional metadata to generate model card
     ...     ):
@@ -194,6 +199,7 @@ class ModelHubMixin:
         *,
         # Generic info for model card
         repo_url: Optional[str] = None,
+        paper_url: Optional[str] = None,
         docs_url: Optional[str] = None,
         # Model card template
         model_card_template: str = DEFAULT_MODEL_CARD,
@@ -234,6 +240,7 @@ class ModelHubMixin:
 
             # Inherit other info
             info.docs_url = cls._hub_mixin_info.docs_url
+            info.paper_url = cls._hub_mixin_info.paper_url
             info.repo_url = cls._hub_mixin_info.repo_url
         cls._hub_mixin_info = info
 
@@ -242,6 +249,8 @@ class ModelHubMixin:
             info.model_card_template = model_card_template
         if repo_url is not None:
             info.repo_url = repo_url
+        if paper_url is not None:
+            info.paper_url = paper_url
         if docs_url is not None:
             info.docs_url = docs_url
         if language is not None:
@@ -334,6 +343,8 @@ class ModelHubMixin:
     @classmethod
     def _is_jsonable(cls, value: Any) -> bool:
         """Check if a value is JSON serializable."""
+        if is_dataclass(value):
+            return True
         if isinstance(value, cls._hub_mixin_jsonable_custom_types):
             return True
         return is_jsonable(value)
@@ -341,6 +352,8 @@ class ModelHubMixin:
     @classmethod
     def _encode_arg(cls, arg: Any) -> Any:
         """Encode an argument into a JSON serializable format."""
+        if is_dataclass(arg):
+            return asdict(arg)
         for type_, (encoder, _) in cls._hub_mixin_coders.items():
             if isinstance(arg, type_):
                 if arg is None:
@@ -692,6 +705,7 @@ class ModelHubMixin:
             card_data=self._hub_mixin_info.model_card_data,
             template_str=self._hub_mixin_info.model_card_template,
             repo_url=self._hub_mixin_info.repo_url,
+            paper_url=self._hub_mixin_info.paper_url,
             docs_url=self._hub_mixin_info.docs_url,
             **kwargs,
         )
@@ -718,6 +732,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
     ...         PyTorchModelHubMixin,
     ...         library_name="keras-nlp",
     ...         repo_url="https://github.com/keras-team/keras-nlp",
+    ...         paper_url="https://arxiv.org/abs/2304.12244",
     ...         docs_url="https://keras.io/keras_nlp/",
     ...         # ^ optional metadata to generate model card
     ...     ):

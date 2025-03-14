@@ -10,6 +10,7 @@ from huggingface_hub import constants
 from huggingface_hub.commands.user import AuthListCommand, AuthSwitchCommand, LoginCommand, LogoutCommand
 
 from .testing_constants import ENDPOINT_STAGING
+from .testing_utils import assert_in_logs
 
 
 # fixtures & constants
@@ -60,12 +61,6 @@ def mock_stored_tokens():
     with patch("huggingface_hub._login.get_stored_tokens", return_value=stored_tokens):
         with patch("huggingface_hub.utils._auth.get_stored_tokens", return_value=stored_tokens):
             yield stored_tokens
-
-
-def assert_in_logs(caplog: LogCaptureFixture, expected_output):
-    """Helper to check if a message appears in logs."""
-    log_text = "\n".join(record.message for record in caplog.records)
-    assert expected_output in log_text, f"Expected '{expected_output}' not found in logs"
 
 
 def test_login_command_basic(mock_whoami_api_call, caplog: LogCaptureFixture):
