@@ -121,7 +121,7 @@ class AsyncInferenceClient:
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"replicate"`, "sambanova"` or `"together"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"replicate"`, "sambanova"` or `"together"`.
             defaults to hf-inference (Hugging Face Serverless Inference API).
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
@@ -176,7 +176,7 @@ class AsyncInferenceClient:
                 " `api_key` is an alias for `token` to make the API compatible with OpenAI's client."
                 " It has the exact same behavior as `token`."
             )
-        token if token is not None else api_key
+        token = token if token is not None else api_key
         if isinstance(token, bool):
             # Legacy behavior: previously is was possible to pass `token=False` to disable authentication. This is not
             # supported anymore as authentication is required. Better to explicitly raise here rather than risking
@@ -2674,7 +2674,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        response = provider_helper.get_response(response)
+        response = provider_helper.get_response(response, request_parameters)
         return response
 
     async def text_to_speech(

@@ -23,7 +23,7 @@ from .testing_utils import handle_injection
 
 class TestDeleteCacheHelpers(unittest.TestCase):
     def test_get_tui_choices_from_scan_empty(self) -> None:
-        choices = _get_tui_choices_from_scan(repos={}, preselected=[])
+        choices = _get_tui_choices_from_scan(repos={}, preselected=[], sort_by=None)
         self.assertEqual(len(choices), 1)
         self.assertIsInstance(choices[0], Choice)
         self.assertEqual(choices[0].value, _CANCEL_DELETION_STR)
@@ -38,6 +38,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
                 "a_revision_id_that_does_not_exist",  # unknown but will not complain
                 "older_hash_id",  # only the oldest revision from model_2
             ],
+            sort_by=None,  # Don't sort to maintain original order
         )
         self.assertEqual(len(choices), 8)
 
@@ -65,17 +66,17 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         self.assertIsInstance(choices[3], Separator)
         self.assertEqual(choices[3]._line, "\nModel dummy_model (1.4K, used 2 years ago)")
 
-        # Oldest revision of `dummy_model`
+        # Recent revision of `dummy_model` (appears first due to sorting by last_modified)
         self.assertIsInstance(choices[4], Choice)
-        self.assertEqual(choices[4].value, "older_hash_id")
-        self.assertEqual(choices[4].name, "older_ha: (detached) # modified 3 years ago")
-        self.assertTrue(choices[4].enabled)  # preselected
+        self.assertEqual(choices[4].value, "recent_hash_id")
+        self.assertEqual(choices[4].name, "recent_h: main # modified 2 years ago")
+        self.assertFalse(choices[4].enabled)
 
-        # Newest revision of `dummy_model`
+        # Oldest revision of `dummy_model`
         self.assertIsInstance(choices[5], Choice)
-        self.assertEqual(choices[5].value, "recent_hash_id")
-        self.assertEqual(choices[5].name, "recent_h: main # modified 2 years ago")
-        self.assertFalse(choices[5].enabled)
+        self.assertEqual(choices[5].value, "older_hash_id")
+        self.assertEqual(choices[5].name, "older_ha: (detached) # modified 3 years ago")
+        self.assertTrue(choices[5].enabled)  # preselected
 
         # Model `gpt2` separator
         self.assertIsInstance(choices[6], Separator)
@@ -86,6 +87,20 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         self.assertEqual(choices[7].value, "abcdef123456789")
         self.assertEqual(choices[7].name, "abcdef12: main, refs/pr/1 # modified 2 years ago")
         self.assertFalse(choices[7].enabled)
+
+    def test_get_tui_choices_from_scan_with_sort_size(self) -> None:
+        """Test sorting by size."""
+        choices = _get_tui_choices_from_scan(repos=_get_cache_mock().repos, preselected=[], sort_by="size")
+
+        # Verify repo order: gpt2 (3.6G) -> dummy_dataset (8M) -> dummy_model (1.4K)
+        self.assertIsInstance(choices[1], Separator)
+        self.assertIn("gpt2", choices[1]._line)
+
+        self.assertIsInstance(choices[3], Separator)
+        self.assertIn("dummy_dataset", choices[3]._line)
+
+        self.assertIsInstance(choices[5], Separator)
+        self.assertIn("dummy_model", choices[5]._line)
 
     def test_get_expectations_str_on_no_deletion_item(self) -> None:
         """Test `_get_instructions` when `_CANCEL_DELETION_STR` is passed."""
@@ -191,8 +206,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         # Run manual review
         with capture_output() as output:
             selected_hashes = _manual_review_no_tui(
-                hf_cache_info=cache_mock,
-                preselected=["abcdef123456789", "older_hash_id"],
+                hf_cache_info=cache_mock, preselected=["abcdef123456789", "older_hash_id"], sort_by=None
             )
 
         # Tmp file has been created but is now deleted
@@ -236,6 +250,50 @@ class TestDeleteCacheHelpers(unittest.TestCase):
             "Invalid input. Must be one of ('y', 'yes', '1', 'n', 'no', '0', '')\n",
         )
 
+    def test_get_tui_choices_from_scan_with_different_sorts(self) -> None:
+        """Test different sorting modes."""
+        cache_mock = _get_cache_mock()
+
+        # Test size sorting (largest first) - order: gpt2 (3.6G) -> dummy_dataset (8M) -> dummy_model (1.4K)
+        size_choices = _get_tui_choices_from_scan(cache_mock.repos, [], sort_by="size")
+        # Separators at positions 1, 3, 5
+        self.assertIsInstance(size_choices[1], Separator)
+        self.assertIn("gpt2", size_choices[1]._line)
+        self.assertIsInstance(size_choices[3], Separator)
+        self.assertIn("dummy_dataset", size_choices[3]._line)
+        self.assertIsInstance(size_choices[5], Separator)
+        self.assertIn("dummy_model", size_choices[5]._line)
+
+        # Test alphabetical sorting - order: dummy_dataset -> dummy_model -> gpt2
+        alpha_choices = _get_tui_choices_from_scan(cache_mock.repos, [], sort_by="alphabetical")
+        # Separators at positions 1, 3, 6 (dummy_model has 2 revisions)
+        self.assertIsInstance(alpha_choices[1], Separator)
+        self.assertIn("dummy_dataset", alpha_choices[1]._line)
+        self.assertIsInstance(alpha_choices[3], Separator)
+        self.assertIn("dummy_model", alpha_choices[3]._line)
+        self.assertIsInstance(alpha_choices[6], Separator)
+        self.assertIn("gpt2", alpha_choices[6]._line)
+
+        # Test lastUpdated sorting - order: dummy_dataset (1 day) -> gpt2 (2 years) -> dummy_model (3 years)
+        updated_choices = _get_tui_choices_from_scan(cache_mock.repos, [], sort_by="lastUpdated")
+        # Separators at positions 1, 3, 5
+        self.assertIsInstance(updated_choices[1], Separator)
+        self.assertIn("dummy_dataset", updated_choices[1]._line)
+        self.assertIsInstance(updated_choices[3], Separator)
+        self.assertIn("gpt2", updated_choices[3]._line)
+        self.assertIsInstance(updated_choices[5], Separator)
+        self.assertIn("dummy_model", updated_choices[5]._line)
+
+        # Test lastUsed sorting - order: gpt2 (2h) -> dummy_dataset (2w) -> dummy_model (2y)
+        used_choices = _get_tui_choices_from_scan(cache_mock.repos, [], sort_by="lastUsed")
+        # Separators at positions 1, 3, 5
+        self.assertIsInstance(used_choices[1], Separator)
+        self.assertIn("gpt2", used_choices[1]._line)
+        self.assertIsInstance(used_choices[3], Separator)
+        self.assertIn("dummy_dataset", used_choices[3]._line)
+        self.assertIsInstance(used_choices[5], Separator)
+        self.assertIn("dummy_model", used_choices[5]._line)
+
 
 @patch("huggingface_hub.commands.delete_cache._ask_for_confirmation_no_tui")
 @patch("huggingface_hub.commands.delete_cache._get_expectations_str")
@@ -254,6 +312,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
 
     def setUp(self) -> None:
         self.args = Mock()
+        self.args.sort = None
         self.command = DeleteCacheCommand(self.args)
 
     def test_run_and_delete_with_tui(
@@ -280,7 +339,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         cache_mock = mock_scan_cache_dir.return_value
 
         # Step 2: manual review
-        mock__manual_review_tui.assert_called_once_with(cache_mock, preselected=[])
+        mock__manual_review_tui.assert_called_once_with(cache_mock, preselected=[], sort_by=None)
 
         # Step 3: ask confirmation
         mock__get_expectations_str.assert_called_once_with(cache_mock, ["hash_1", "hash_2"])
@@ -352,7 +411,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         cache_mock = mock_scan_cache_dir.return_value
 
         # Step 2: manual review
-        mock__manual_review_no_tui.assert_called_once_with(cache_mock, preselected=[])
+        mock__manual_review_no_tui.assert_called_once_with(cache_mock, preselected=[], sort_by=None)
 
         # Step 3: ask confirmation
         mock__get_expectations_str.assert_called_once_with(cache_mock, ["hash_1", "hash_2"])
@@ -369,6 +428,21 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
             "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n",
         )
 
+    def test_run_with_sorting(self):
+        """Test command run with sorting enabled."""
+        self.args.sort = "size"
+        self.command = DeleteCacheCommand(self.args)
+
+        mock_scan_cache_dir = Mock()
+        mock_scan_cache_dir.return_value = _get_cache_mock()
+
+        with patch("huggingface_hub.commands.delete_cache.scan_cache_dir", mock_scan_cache_dir):
+            with patch("huggingface_hub.commands.delete_cache._manual_review_tui") as mock_review:
+                self.command.disable_tui = False
+                self.command.run()
+
+                mock_review.assert_called_once_with(mock_scan_cache_dir.return_value, preselected=[], sort_by="size")
+
 
 def _get_cache_mock() -> Mock:
     # First model with 1 revision
@@ -378,11 +452,12 @@ def _get_cache_mock() -> Mock:
     model_1.size_on_disk_str = "3.6G"
     model_1.last_accessed = 1660000000
     model_1.last_accessed_str = "2 hours ago"
+    model_1.size_on_disk = 3.6 * 1024**3  # 3.6 GiB
 
     model_1_revision_1 = Mock()
     model_1_revision_1.commit_hash = "abcdef123456789"
     model_1_revision_1.refs = {"main", "refs/pr/1"}
-    # model_1_revision_1.last_modified = 123456789  # timestamp
+    model_1_revision_1.last_modified = 123456789000  # 2 years ago
     model_1_revision_1.last_modified_str = "2 years ago"
 
     model_1.revisions = {model_1_revision_1}
@@ -394,17 +469,18 @@ def _get_cache_mock() -> Mock:
     model_2.size_on_disk_str = "1.4K"
     model_2.last_accessed = 1550000000
     model_2.last_accessed_str = "2 years ago"
+    model_2.size_on_disk = 1.4 * 1024  # 1.4K
 
     model_2_revision_1 = Mock()
     model_2_revision_1.commit_hash = "recent_hash_id"
     model_2_revision_1.refs = {"main"}
-    model_2_revision_1.last_modified = 123456789  # newer timestamp
+    model_2_revision_1.last_modified = 123456789  # 2 years ago
     model_2_revision_1.last_modified_str = "2 years ago"
 
     model_2_revision_2 = Mock()
     model_2_revision_2.commit_hash = "older_hash_id"
     model_2_revision_2.refs = {}
-    model_2_revision_2.last_modified = 12345678  # older timestamp
+    model_2_revision_2.last_modified = 12345678000  # 3 years ago
     model_2_revision_2.last_modified_str = "3 years ago"
 
     model_2.revisions = {model_2_revision_1, model_2_revision_2}
@@ -414,12 +490,14 @@ def _get_cache_mock() -> Mock:
     dataset_1.repo_type = "dataset"
     dataset_1.repo_id = "dummy_dataset"
     dataset_1.size_on_disk_str = "8M"
-    dataset_1.last_accessed = 1660000000
+    dataset_1.last_accessed = 1659000000
     dataset_1.last_accessed_str = "2 weeks ago"
+    dataset_1.size_on_disk = 8 * 1024**2  # 8 MiB
 
     dataset_1_revision_1 = Mock()
     dataset_1_revision_1.commit_hash = "dataset_revision_hash_id"
     dataset_1_revision_1.refs = {}
+    dataset_1_revision_1.last_modified = 1234567890000  # 1 day ago (newest)
     dataset_1_revision_1.last_modified_str = "1 day ago"
 
     dataset_1.revisions = {dataset_1_revision_1}
