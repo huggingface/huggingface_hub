@@ -132,9 +132,9 @@ class FalAITextToVideoTask(FalAITask):
         logger.info("Generating the video.. this can take several minutes.")
         while status != "COMPLETED":
             time.sleep(_POLLING_INTERVAL)
-            response = get_session().get(status_url, headers=request_params.headers)  # type: ignore
-            hf_raise_for_status(response)  # type: ignore
-            response_dict = _as_dict(response.json())  # type: ignore
+            status_response = get_session().get(status_url, headers=request_params.headers)
+            hf_raise_for_status(status_response)
+            status = status_response.json().get("status")
             status = response_dict.get("status")
 
         response = get_session().get(result_url, headers=request_params.headers).json()
