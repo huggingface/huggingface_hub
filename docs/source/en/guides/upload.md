@@ -191,7 +191,7 @@ Take advantage of faster uploads through `hf_xet`, the Python binding to the [`x
 
 <Tip warning={true}>
 
-Xet storage is being rolled out to Hugging Face Hub users at this time, so xet uploads may need to be enabled for your repo for `hf_xet` to actually upload to the Xet backend. Join the [waitlist](https://huggingface.co/join/xet) to get onboarded soon!
+Xet storage is being rolled out to Hugging Face Hub users at this time, so xet uploads may need to be enabled for your repo for `hf_xet` to actually upload to the Xet backend. Join the [waitlist](https://huggingface.co/join/xet) to get onboarded soon! Also, `hf_xet` today only works with files on the file system, so cannot be used with file-like objects (byte-arrays, buffers).
 
 </Tip>
 
