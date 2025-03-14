@@ -539,6 +539,7 @@ __all__ = [
     "ChatCompletionInputMessageChunkType",
     "ChatCompletionInputStreamOptions",
     "ChatCompletionInputTool",
+    "ChatCompletionInputToolCall",
     "ChatCompletionInputToolChoiceClass",
     "ChatCompletionInputToolChoiceEnum",
     "ChatCompletionInputURL",
@@ -1243,6 +1244,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionInputMessageChunkType,  # noqa: F401
         ChatCompletionInputStreamOptions,  # noqa: F401
         ChatCompletionInputTool,  # noqa: F401
+        ChatCompletionInputToolCall,  # noqa: F401
         ChatCompletionInputToolChoiceClass,  # noqa: F401
         ChatCompletionInputToolChoiceEnum,  # noqa: F401
         ChatCompletionInputURL,  # noqa: F401
