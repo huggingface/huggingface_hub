@@ -186,7 +186,7 @@ pip install -U huggingface_hub[hf_xet]
 
 Note: `hf_xet` will only be utilized when the files being downloaded are being stored with Xet Storage.
 
-All other `huggingface_hub` APIs will continue to work without any modification. To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/repositories-storage).
+All other `huggingface_hub` APIs will continue to work without any modification. To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/storage-backends).
 
 ### hf_transfer
 

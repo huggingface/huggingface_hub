@@ -203,7 +203,7 @@ To enable it, specify the `hf_xet` extra when installing `huggingface_hub`:
 pip install -U huggingface_hub[hf_xet]
 ```
 
-All other `huggingface_hub` APIs will continue to work without any modification. To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/repositories-storage).
+All other `huggingface_hub` APIs will continue to work without any modification. To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/storage-backends).
 
 ### Non-blocking uploads
 
