@@ -79,6 +79,9 @@ class AutomaticSpeechRecognitionParameters(BaseInferenceType):
     """Parametrization of the text generation process"""
     return_timestamps: Optional[bool] = None
     """Whether to output corresponding timestamps with the generated text"""
+    # Will be deprecated in the future when the renaming to `generation_parameters` is implemented in transformers
+    generate_kwargs: Optional[AutomaticSpeechRecognitionGenerationParameters] = None
+    """Parametrization of the text generation process"""
 
 
 @dataclass_with_extra
