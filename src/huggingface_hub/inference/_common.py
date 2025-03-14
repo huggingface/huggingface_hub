@@ -18,7 +18,6 @@ import base64
 import io
 import json
 import logging
-from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,12 +49,7 @@ from huggingface_hub.errors import (
     ValidationError,
 )
 
-from ..utils import (
-    get_session,
-    is_aiohttp_available,
-    is_numpy_available,
-    is_pillow_available,
-)
+from ..utils import get_session, is_aiohttp_available, is_numpy_available, is_pillow_available
 from ._generated.types import ChatCompletionStreamOutput, TextGenerationStreamOutput
 
 
@@ -85,33 +79,15 @@ class RequestParameters:
     headers: Dict[str, Any]
 
 
-class TaskProviderHelper(ABC):
-    """Protocol defining the interface for task-specific provider helpers."""
-
-    @abstractmethod
-    def prepare_request(
-        self,
-        *,
-        inputs: Any,
-        parameters: Dict[str, Any],
-        headers: Dict,
-        model: Optional[str],
-        api_key: Optional[str],
-        extra_payload: Optional[Dict[str, Any]] = None,
-    ) -> RequestParameters: ...
-    @abstractmethod
-    def get_response(self, response: Union[bytes, Dict]) -> Any: ...
-
-
 # Add dataclass for ModelStatus. We use this dataclass in get_model_status function.
 @dataclass
 class ModelStatus:
     """
-    This Dataclass represents the model status in the Hugging Face Inference API.
+    This Dataclass represents the model status in the HF Inference API.
 
     Args:
         loaded (`bool`):
-            If the model is currently loaded into Hugging Face's InferenceAPI. Models
+            If the model is currently loaded into HF's Inference API. Models
             are loaded on-demand, leading to the user's first request taking longer.
             If a model is loaded, you can be assured that it is in a healthy state.
         state (`str`):
@@ -258,45 +234,11 @@ def _bytes_to_image(content: bytes) -> "Image":
     return Image.open(io.BytesIO(content))
 
 
+def _as_dict(response: Union[bytes, Dict]) -> Dict:
+    return json.loads(response) if isinstance(response, bytes) else response
+
+
 ## PAYLOAD UTILS
-
-
-def _prepare_payload(
-    inputs: Union[str, Dict[str, Any], ContentT],
-    parameters: Optional[Dict[str, Any]],
-    expect_binary: bool = False,
-) -> Dict[str, Any]:
-    """
-    Used in `InferenceClient` and `AsyncInferenceClient` to prepare the payload for an API request, handling various input types and parameters.
-    `expect_binary` is set to `True` when the inputs are a binary object or a local path or URL. This is the case for image and audio inputs.
-    """
-    if parameters is None:
-        parameters = {}
-    parameters = {k: v for k, v in parameters.items() if v is not None}
-    has_parameters = len(parameters) > 0
-
-    is_binary = isinstance(inputs, (bytes, Path))
-    # If expect_binary is True, inputs must be a binary object or a local path or a URL.
-    if expect_binary and not is_binary and not isinstance(inputs, str):
-        raise ValueError(f"Expected binary inputs or a local path or a URL. Got {inputs}")  # type: ignore
-    # Send inputs as raw content when no parameters are provided
-    if expect_binary and not has_parameters:
-        return {"data": inputs}
-    # If expect_binary is False, inputs must not be a binary object.
-    if not expect_binary and is_binary:
-        raise ValueError(f"Unexpected binary inputs. Got {inputs}")  # type: ignore
-
-    json: Dict[str, Any] = {}
-    # If inputs is a bytes-like object, encode it to base64
-    if expect_binary:
-        json["inputs"] = _b64_encode(inputs)  # type: ignore
-    # Otherwise (string, dict, list) send it as is
-    else:
-        json["inputs"] = inputs
-    # Add parameters to the json payload if any
-    if has_parameters:
-        json["parameters"] = parameters
-    return {"json": json}
 
 
 ## STREAMING UTILS

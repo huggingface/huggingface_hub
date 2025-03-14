@@ -59,6 +59,7 @@ from huggingface_hub.hf_api import (
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
+    InferenceEndpoint,
     ModelInfo,
     RepoSibling,
     RepoUrl,
@@ -206,49 +207,16 @@ class HfApiEndpointsTest(HfApiCommonTest):
     def test_delete_repo_missing_ok(self) -> None:
         self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
-    @expect_deprecation("update_repo_visibility")
-    def test_create_update_and_delete_repo(self):
+    def test_update_repo_visibility(self):
         repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=True)
-        assert res["private"]
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=False)
-        assert not res["private"]
+
+        self._api.update_repo_settings(repo_id=repo_id, private=True)
+        assert self._api.model_info(repo_id).private
+
+        self._api.update_repo_settings(repo_id=repo_id, private=False)
+        assert not self._api.model_info(repo_id).private
+
         self._api.delete_repo(repo_id=repo_id)
-
-    @expect_deprecation("update_repo_visibility")
-    def test_create_update_and_delete_model_repo(self):
-        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_MODEL).repo_id
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_MODEL)
-        assert res["private"]
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_MODEL)
-        assert not res["private"]
-        self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_MODEL)
-
-    @expect_deprecation("update_repo_visibility")
-    def test_create_update_and_delete_dataset_repo(self):
-        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_DATASET).repo_id
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_DATASET)
-        assert res["private"]
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_DATASET)
-        assert not res["private"]
-        self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_DATASET)
-
-    @expect_deprecation("update_repo_visibility")
-    def test_create_update_and_delete_space_repo(self):
-        with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
-            self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=None)
-        with pytest.raises(ValueError, match=r"Invalid space_sdk.*"):
-            self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk="something")
-
-        for sdk in constants.SPACES_SDK_TYPES:
-            repo_id = self._api.create_repo(
-                repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=sdk
-            ).repo_id
-            res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_SPACE)
-            assert res["private"]
-            res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_SPACE)
-            assert not res["private"]
-            self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_SPACE)
 
     def test_move_repo_normal_usage(self):
         repo_id = f"{USER}/{repo_name()}"
@@ -791,8 +759,9 @@ class CommitApiTest(HfApiCommonTest):
             f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/preupload/main.\nPlease"
             " make sure you specified the correct `repo_id` and"
             " `repo_type`.\nIf you are trying to access a private or gated"
-            " repo, make sure you are authenticated.\nNote: Creating a commit"
-            " assumes that the repo already exists on the Huggingface Hub."
+            " repo, make sure you are authenticated."
+            " For more details, see https://huggingface.co/docs/huggingface_hub/authentication"
+            "\nNote: Creating a commit assumes that the repo already exists on the Huggingface Hub."
             " Please use `create_repo` if it's not the case."
         )
 
@@ -1950,10 +1919,12 @@ class HfApiPublicProductionTest(unittest.TestCase):
         for model in self._api.list_models(expand=["gated"], gated=False, limit=5):
             assert model.gated is False
 
+    @pytest.mark.skip("Inference parameter is being revamped")
     def test_list_models_inference_warm(self):
         for model in self._api.list_models(inference=["warm"], expand="inference", limit=5):
             assert model.inference == "warm"
 
+    @pytest.mark.skip("Inference parameter is being revamped")
     def test_list_models_inference_cold(self):
         for model in self._api.list_models(inference=["cold"], expand="inference", limit=5):
             assert model.inference == "cold"
@@ -2197,20 +2168,17 @@ class HfApiPublicProductionTest(unittest.TestCase):
         dataset = self._api.dataset_info(repo_id=DUMMY_DATASET_ID)
         assert isinstance(dataset.card_data, DatasetCardData) and len(dataset.card_data) > 0
         assert isinstance(dataset.siblings, list) and len(dataset.siblings) > 0
-        self.assertIsInstance(dataset, DatasetInfo)
-        self.assertNotEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
+        assert isinstance(dataset, DatasetInfo)
+        assert dataset.sha != DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT
         dataset = self._api.dataset_info(
             repo_id=DUMMY_DATASET_ID,
             revision=DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
         )
-        self.assertIsInstance(dataset, DatasetInfo)
-        self.assertEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
+        assert isinstance(dataset, DatasetInfo)
+        assert dataset.sha == DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT
 
     def test_dataset_info_with_file_metadata(self):
-        dataset = self._api.dataset_info(
-            repo_id=SAMPLE_DATASET_IDENTIFIER,
-            files_metadata=True,
-        )
+        dataset = self._api.dataset_info(repo_id=SAMPLE_DATASET_IDENTIFIER, files_metadata=True)
         files = dataset.siblings
         assert files is not None
         self._check_siblings_metadata(files)
@@ -3077,7 +3045,7 @@ class ActivityApiTest(unittest.TestCase):
 
 class TestSquashHistory(HfApiCommonTest):
     @use_tmp_repo()
-    def test_super_squash_history(self, repo_url: RepoUrl) -> None:
+    def test_super_squash_history_on_branch(self, repo_url: RepoUrl) -> None:
         # Upload + update file on main
         repo_id = repo_url.repo_id
         self._api.upload_file(repo_id=repo_id, path_in_repo="file.txt", path_or_fileobj=b"content")
@@ -3096,16 +3064,43 @@ class TestSquashHistory(HfApiCommonTest):
         branch_commits = self._api.list_repo_commits(repo_id=repo_id, revision="v0.1")
 
         # Main branch has been squashed but initial commits still exists on other branch
-        self.assertEqual(len(squashed_main_commits), 1)
-        self.assertEqual(squashed_main_commits[0].title, "Super-squash branch 'main' using huggingface_hub")
-        self.assertEqual(len(branch_commits), 5)
-        self.assertEqual(branch_commits[-1].title, "initial commit")
+        assert len(squashed_main_commits) == 1
+        assert squashed_main_commits[0].title == "Super-squash branch 'main' using huggingface_hub"
+        assert len(branch_commits) == 5
+        assert branch_commits[-1].title == "initial commit"
 
         # Squash history on branch
         self._api.super_squash_history(repo_id=repo_id, branch="v0.1")
         squashed_branch_commits = self._api.list_repo_commits(repo_id=repo_id, revision="v0.1")
-        self.assertEqual(len(squashed_branch_commits), 1)
-        self.assertEqual(squashed_branch_commits[0].title, "Super-squash branch 'v0.1' using huggingface_hub")
+        assert len(squashed_branch_commits) == 1
+        assert squashed_branch_commits[0].title == "Super-squash branch 'v0.1' using huggingface_hub"
+
+    @use_tmp_repo()
+    def test_super_squash_history_on_special_ref(self, repo_url: RepoUrl) -> None:
+        """Regression test for https://github.com/huggingface/dataset-viewer/pull/3131.
+
+        In practice, it doesn't make any sense to super squash a PR as it will not be mergeable anymore.
+        The only case where it's useful is for the dataset-viewer on refs/convert/parquet.
+        """
+        repo_id = repo_url.repo_id
+        pr = self._api.create_pull_request(repo_id=repo_id, title="Test super squash on PR")
+
+        # Upload + update file on PR
+        self._api.upload_file(
+            repo_id=repo_id, path_in_repo="file.txt", path_or_fileobj=b"content", revision=pr.git_reference
+        )
+        self._api.upload_file(
+            repo_id=repo_id, path_in_repo="lfs.bin", path_or_fileobj=b"content", revision=pr.git_reference
+        )
+        self._api.upload_file(
+            repo_id=repo_id, path_in_repo="file.txt", path_or_fileobj=b"another_content", revision=pr.git_reference
+        )
+
+        # Squash history PR
+        self._api.super_squash_history(repo_id=repo_id, branch=pr.git_reference)
+
+        squashed_branch_commits = self._api.list_repo_commits(repo_id=repo_id, revision=pr.git_reference)
+        assert len(squashed_branch_commits) == 1
 
 
 @pytest.mark.vcr
@@ -4370,3 +4365,69 @@ class TestHfApiAuthCheck(HfApiCommonTest):
 
         with self.assertRaises(GatedRepoError):
             self._api.auth_check(repo_id=repo_id, token=OTHER_TOKEN)
+
+
+class HfApiInferenceCatalogTest(HfApiCommonTest):
+    def test_list_inference_catalog(self) -> None:
+        models = self._api.list_inference_catalog()  # note: @experimental api
+        # Check that server returns a list[str] => at least if it changes in the future, we'll notice
+        assert isinstance(models, List)
+        assert len(models) > 0
+        assert all(isinstance(model, str) for model in models)
+
+    @patch("huggingface_hub.hf_api.get_session")
+    def test_create_inference_endpoint_from_catalog(self, mock_get_session: Mock) -> None:
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "endpoint": {
+                "compute": {
+                    "accelerator": "gpu",
+                    "id": "aws-us-east-1-nvidia-l4-x1",
+                    "instanceSize": "x1",
+                    "instanceType": "nvidia-l4",
+                    "scaling": {
+                        "maxReplica": 1,
+                        "measure": {"hardwareUsage": None},
+                        "metric": "hardwareUsage",
+                        "minReplica": 0,
+                        "scaleToZeroTimeout": 15,
+                    },
+                },
+                "model": {
+                    "env": {},
+                    "framework": "pytorch",
+                    "image": {
+                        "tgi": {
+                            "disableCustomKernels": False,
+                            "healthRoute": "/health",
+                            "port": 80,
+                            "url": "ghcr.io/huggingface/text-generation-inference:3.1.1",
+                        }
+                    },
+                    "repository": "meta-llama/Llama-3.2-3B-Instruct",
+                    "revision": "0cb88a4f764b7a12671c53f0838cd831a0843b95",
+                    "secrets": {},
+                    "task": "text-generation",
+                },
+                "name": "llama-3-2-3b-instruct-eey",
+                "provider": {"region": "us-east-1", "vendor": "aws"},
+                "status": {
+                    "createdAt": "2025-03-07T15:30:13.949Z",
+                    "createdBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
+                    "message": "Endpoint waiting to be scheduled",
+                    "readyReplica": 0,
+                    "state": "pending",
+                    "targetReplica": 1,
+                    "updatedAt": "2025-03-07T15:30:13.949Z",
+                    "updatedBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
+                },
+                "type": "protected",
+            }
+        }
+        mock_get_session.return_value.post.return_value = mock_response
+
+        endpoint = self._api.create_inference_endpoint_from_catalog(
+            repo_id="meta-llama/Llama-3.2-3B-Instruct", namespace="Wauplin"
+        )
+        assert isinstance(endpoint, InferenceEndpoint)
+        assert endpoint.name == "llama-3-2-3b-instruct-eey"

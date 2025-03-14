@@ -3489,7 +3489,7 @@ interactions:
       X-Amzn-Trace-Id:
       - 9c911dc3-a1c1-4a89-8596-3c4a5ea6782c
     method: POST
-    uri: https://api-inference.huggingface.co/models/facebook/detr-resnet-50
+    uri: https://router.huggingface.co/hf-inference/models/facebook/detr-resnet-50
   response:
     body:
       string: '[{"score":0.9486680030822754,"label":"person","box":{"xmin":59,"ymin":39,"xmax":420,"ymax":510}},{"score":0.5733323693275452,"label":"umbrella","box":{"xmin":143,"ymin":4,"xmax":510,"ymax":387}},{"score":0.5082724094390869,"label":"person","box":{"xmin":60,"ymin":162,"xmax":413,"ymax":510}}]'

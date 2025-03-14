@@ -30,6 +30,7 @@ from .chat_completion import (
     ChatCompletionInputMessageChunkType,
     ChatCompletionInputStreamOptions,
     ChatCompletionInputTool,
+    ChatCompletionInputToolCall,
     ChatCompletionInputToolChoiceClass,
     ChatCompletionInputToolChoiceEnum,
     ChatCompletionInputURL,
@@ -141,7 +142,7 @@ from .text_to_audio import (
     TextToAudioOutput,
     TextToAudioParameters,
 )
-from .text_to_image import TextToImageInput, TextToImageOutput, TextToImageParameters, TextToImageTargetSize
+from .text_to_image import TextToImageInput, TextToImageOutput, TextToImageParameters
 from .text_to_speech import (
     TextToSpeechEarlyStoppingEnum,
     TextToSpeechGenerationParameters,

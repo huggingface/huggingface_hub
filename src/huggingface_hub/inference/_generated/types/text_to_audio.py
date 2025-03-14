@@ -3,16 +3,15 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, Literal, Optional, Union
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 TextToAudioEarlyStoppingEnum = Literal["never"]
 
 
-@dataclass
+@dataclass_with_extra
 class TextToAudioGenerationParameters(BaseInferenceType):
     """Parametrization of the text generation process"""
 
@@ -72,16 +71,15 @@ class TextToAudioGenerationParameters(BaseInferenceType):
     """Whether the model should use the past last key/values attentions to speed up decoding"""
 
 
-@dataclass
+@dataclass_with_extra
 class TextToAudioParameters(BaseInferenceType):
     """Additional inference parameters for Text To Audio"""
 
-    # Will be deprecated in the future when the renaming to `generation_parameters` is implemented in transformers
-    generate_kwargs: Optional[TextToAudioGenerationParameters] = None
+    generation_parameters: Optional[TextToAudioGenerationParameters] = None
     """Parametrization of the text generation process"""
 
 
-@dataclass
+@dataclass_with_extra
 class TextToAudioInput(BaseInferenceType):
     """Inputs for Text To Audio inference"""
 
@@ -91,7 +89,7 @@ class TextToAudioInput(BaseInferenceType):
     """Additional inference parameters for Text To Audio"""
 
 
-@dataclass
+@dataclass_with_extra
 class TextToAudioOutput(BaseInferenceType):
     """Outputs of inference for the Text To Audio task"""
 

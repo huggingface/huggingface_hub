@@ -5,7 +5,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Connection:
       - keep-alive
       Content-Length:
@@ -13,37 +13,54 @@ interactions:
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - 26a010bf-ef83-4693-a340-191632c57637
+      - 57e6a3f3-2aa9-4bca-abc7-85efec20bfaa
     method: POST
-    uri: https://api-inference.huggingface.co/models/t5-small
+    uri: https://router.huggingface.co/hf-inference/models/t5-small
   response:
     body:
       string: '[{"translation_text":"Hallo Welt"}]'
     headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
       Connection:
       - keep-alive
+      Content-Length:
+      - '35'
       Content-Type:
       - application/json
       Date:
-      - Wed, 22 Jan 2025 14:13:34 GMT
-      Transfer-Encoding:
-      - chunked
+      - Wed, 29 Jan 2025 11:27:55 GMT
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Via:
+      - 1.1 8ddb34cf6930071cc06ac942a8998048.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - rmNY264s43VrLokZVu6EHod-y7JKldFBU74H4_QbdwoxdOHJjiZvKA==
+      X-Amz-Cf-Pop:
+      - MRS52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
       access-control-allow-credentials:
       - 'true'
-      access-control-expose-headers:
-      - x-compute-type, x-compute-time
-      server:
-      - uvicorn
+      cross-origin-opener-policy:
+      - same-origin
       vary:
-      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-      x-compute-characters:
-      - '11'
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers, origin,
+        access-control-request-method, access-control-request-headers
       x-compute-time:
-      - '0.080'
+      - '0.072'
       x-compute-type:
-      - cpu
+      - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /
       x-request-id:
-      - kLgqzz6DHuGB58ygyFTrM
+      - MuvPju
       x-sha:
       - df1b051c49625cf57a3d0d8d3863ed4d13564fe4
     status:

@@ -29,6 +29,7 @@ from .errors import (
     EntryNotFoundError,
     FileMetadataError,
     GatedRepoError,
+    HfHubHTTPError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -59,6 +60,7 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
+from .utils._http import _adjust_range_header
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
@@ -308,8 +310,8 @@ def http_get(
     temp_file: BinaryIO,
     *,
     proxies: Optional[Dict] = None,
-    resume_size: float = 0,
-    headers: Optional[Dict[str, str]] = None,
+    resume_size: int = 0,
+    headers: Optional[Dict[str, Any]] = None,
     expected_size: Optional[int] = None,
     displayed_filename: Optional[str] = None,
     _nb_retries: int = 5,
@@ -329,7 +331,7 @@ def http_get(
             The file-like object where to save the file.
         proxies (`dict`, *optional*):
             Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
-        resume_size (`float`, *optional*):
+        resume_size (`int`, *optional*):
             The number of bytes already downloaded. If set to 0 (default), the whole file is download. If set to a
             positive number, the download will resume at the given position.
         headers (`dict`, *optional*):
@@ -364,7 +366,7 @@ def http_get(
     initial_headers = headers
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
-        headers["Range"] = "bytes=%d-" % (resume_size,)
+        headers["Range"] = _adjust_range_header(headers.get("Range"), resume_size)
 
     r = _request_wrapper(
         method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT
@@ -1461,7 +1463,6 @@ def _get_metadata_or_catch_error(
 
 def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, local_files_only: bool) -> NoReturn:
     """Raise an appropriate error when the HEAD call failed and we cannot locate a local file."""
-
     # No head call => we cannot force download.
     if force_download:
         if local_files_only:
@@ -1477,8 +1478,11 @@ def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, 
             "Cannot find the requested files in the disk cache and outgoing traffic has been disabled. To enable"
             " hf.co look-ups and downloads online, set 'local_files_only' to False."
         )
-    elif isinstance(head_call_error, RepositoryNotFoundError) or isinstance(head_call_error, GatedRepoError):
+    elif isinstance(head_call_error, (RepositoryNotFoundError, GatedRepoError)) or (
+        isinstance(head_call_error, HfHubHTTPError) and head_call_error.response.status_code == 401
+    ):
         # Repo not found or gated => let's raise the actual error
+        # Unauthorized => likely a token issue => let's raise the actual error
         raise head_call_error
     else:
         # Otherwise: most likely a connection issue or Hub downtime => let's warn the user

@@ -1,17 +1,58 @@
-from typing import Dict
+from typing import Dict, Literal
 
-from .._common import TaskProviderHelper
-from .fal_ai import FalAIAutomaticSpeechRecognitionTask, FalAITextToImageTask
+from ._common import TaskProviderHelper
+from .black_forest_labs import BlackForestLabsTextToImageTask
+from .cerebras import CerebrasConversationalTask
+from .cohere import CohereConversationalTask
+from .fal_ai import (
+    FalAIAutomaticSpeechRecognitionTask,
+    FalAITextToImageTask,
+    FalAITextToSpeechTask,
+    FalAITextToVideoTask,
+)
+from .fireworks_ai import FireworksAIConversationalTask
 from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
-from .replicate import ReplicateTextToImageTask
+from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
+from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
+from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
+from .replicate import ReplicateTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask
-from .together import TogetherTextGenerationTask, TogetherTextToImageTask
+from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
 
 
-PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
+PROVIDER_T = Literal[
+    "black-forest-labs",
+    "cerebras",
+    "cohere",
+    "fal-ai",
+    "fireworks-ai",
+    "hf-inference",
+    "hyperbolic",
+    "nebius",
+    "novita",
+    "replicate",
+    "sambanova",
+    "together",
+]
+
+PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
+    "black-forest-labs": {
+        "text-to-image": BlackForestLabsTextToImageTask(),
+    },
+    "cerebras": {
+        "conversational": CerebrasConversationalTask(),
+    },
+    "cohere": {
+        "conversational": CohereConversationalTask(),
+    },
     "fal-ai": {
-        "text-to-image": FalAITextToImageTask(),
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),
+        "text-to-image": FalAITextToImageTask(),
+        "text-to-speech": FalAITextToSpeechTask(),
+        "text-to-video": FalAITextToVideoTask(),
+    },
+    "fireworks-ai": {
+        "conversational": FireworksAIConversationalTask(),
     },
     "hf-inference": {
         "text-to-image": HFInferenceTask("text-to-image"),
@@ -26,9 +67,9 @@ PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
         "image-classification": HFInferenceBinaryInputTask("image-classification"),
         "image-segmentation": HFInferenceBinaryInputTask("image-segmentation"),
         "document-question-answering": HFInferenceTask("document-question-answering"),
-        "image-to-text": HFInferenceTask("image-to-text"),
+        "image-to-text": HFInferenceBinaryInputTask("image-to-text"),
         "object-detection": HFInferenceBinaryInputTask("object-detection"),
-        "audio-to-audio": HFInferenceTask("audio-to-audio"),
+        "audio-to-audio": HFInferenceBinaryInputTask("audio-to-audio"),
         "zero-shot-image-classification": HFInferenceBinaryInputTask("zero-shot-image-classification"),
         "zero-shot-classification": HFInferenceTask("zero-shot-classification"),
         "image-to-image": HFInferenceBinaryInputTask("image-to-image"),
@@ -41,21 +82,38 @@ PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
         "summarization": HFInferenceTask("summarization"),
         "visual-question-answering": HFInferenceBinaryInputTask("visual-question-answering"),
     },
+    "hyperbolic": {
+        "text-to-image": HyperbolicTextToImageTask(),
+        "conversational": HyperbolicTextGenerationTask("conversational"),
+        "text-generation": HyperbolicTextGenerationTask("text-generation"),
+    },
+    "nebius": {
+        "text-to-image": NebiusTextToImageTask(),
+        "conversational": NebiusConversationalTask(),
+        "text-generation": NebiusTextGenerationTask(),
+    },
+    "novita": {
+        "text-generation": NovitaTextGenerationTask(),
+        "conversational": NovitaConversationalTask(),
+        "text-to-video": NovitaTextToVideoTask(),
+    },
     "replicate": {
-        "text-to-image": ReplicateTextToImageTask(),
+        "text-to-image": ReplicateTask("text-to-image"),
+        "text-to-speech": ReplicateTextToSpeechTask(),
+        "text-to-video": ReplicateTask("text-to-video"),
     },
     "sambanova": {
         "conversational": SambanovaConversationalTask(),
     },
     "together": {
         "text-to-image": TogetherTextToImageTask(),
-        "conversational": TogetherTextGenerationTask("conversational"),
-        "text-generation": TogetherTextGenerationTask("text-generation"),
+        "conversational": TogetherConversationalTask(),
+        "text-generation": TogetherTextGenerationTask(),
     },
 }
 
 
-def get_provider_helper(provider: str, task: str) -> TaskProviderHelper:
+def get_provider_helper(provider: PROVIDER_T, task: str) -> TaskProviderHelper:
     """Get provider helper instance by name and task.
 
     Args:

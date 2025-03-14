@@ -1,0 +1,83 @@
+name: Python prerelease
+
+on:
+  push:
+    tags:
+      - "v*.rc*"
+
+jobs:
+  trigger_rc_testing:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target-repo: ["transformers", "datasets", "diffusers"]
+
+    steps:
+      - name: Extract version from tag
+        id: get-version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          repository: huggingface/${{ matrix.target-repo }}
+          path: ${{ matrix.target-repo }}
+          token: ${{ secrets.HUGGINGFACE_HUB_AUTOMATIC_RC_TESTING }}
+
+      - name: Configure Git
+        run: |
+          cd ${{ matrix.target-repo }}
+          git config user.name "Hugging Face Bot (RC Testing)"
+          git config user.email "bot@huggingface.co"
+
+      - name: Wait for prerelease to be out on PyPI
+        run: |
+          VERSION=${{ steps.get-version.outputs.VERSION }}
+          echo "Waiting for huggingface-hub==${VERSION} to be available on PyPI"
+          while ! pip install huggingface-hub==${VERSION}; do
+            echo "huggingface-hub==${VERSION} not available yet, retrying in 15s"
+            sleep 15
+          done
+
+      - name: Create test branch and update dependencies
+        id: create-pr
+        run: |
+          cd ${{ matrix.target-repo }}
+          VERSION=${{ steps.get-version.outputs.VERSION }}
+          BRANCH_NAME="ci-test-huggingface-hub-${VERSION}"
+
+          # Create and checkout new branch
+          git checkout -b $BRANCH_NAME
+
+          # Update dependencies using sed
+          sed -i -E "s/\"huggingface-hub>=0.*\"/\"huggingface-hub==${VERSION}\"/" setup.py
+          git add setup.py
+
+          # Only if the target repo is transformers
+          if [ "${{ matrix.target-repo }}" = "transformers" ]; then
+            sed -i -E "s/\"huggingface-hub>=0.*\"/\"huggingface-hub==${VERSION}\"/" src/transformers/dependency_versions_table.py
+            git add src/transformers/dependency_versions_table.py
+          fi
+
+          # Only if the target repo is diffusers
+          if [ "${{ matrix.target-repo }}" = "diffusers" ]; then
+            sed -i -E "s/\"huggingface-hub\":.*/\"huggingface-hub\": \"huggingface-hub==${VERSION}\",/" src/diffusers/dependency_versions_table.py
+            git add src/diffusers/dependency_versions_table.py
+          fi
+
+          # Any line with `uv pip install --prerelease=allow` in the `.github/` folder must be updated with `--prerelease=allow` flag
+          find .github/workflows/ -type f -exec sed -i 's/uv pip install /uv pip install --prerelease=allow /g' {} +
+          git add .github/workflows/
+
+          # Commit and push changes
+          git --no-pager diff --staged
+          git commit -m "Test hfh ${VERSION}"
+          git push --set-upstream origin $BRANCH_NAME
+
+      - name: Print URLs for manual check
+        run: |
+          VERSION=${{ steps.get-version.outputs.VERSION }}
+          echo "https://github.com/huggingface/${{ matrix.target-repo }}/actions"
+          echo "https://github.com/huggingface/${{ matrix.target-repo }}/compare/main...ci-test-huggingface-hub-${VERSION}"

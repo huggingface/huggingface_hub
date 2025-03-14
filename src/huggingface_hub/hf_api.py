@@ -112,9 +112,11 @@ from .utils import (
     SafetensorsRepoMetadata,
     TensorInfo,
     build_hf_headers,
+    experimental,
     filter_repo_objects,
     fix_hf_endpoint_in_url,
     get_session,
+    get_token,
     hf_raise_for_status,
     logging,
     paginate,
@@ -122,6 +124,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
+from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_method
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -143,6 +146,7 @@ ExpandModelProperty_T = Literal[
     "gated",
     "gguf",
     "inference",
+    "inferenceProviderMapping",
     "lastModified",
     "library_name",
     "likes",
@@ -150,6 +154,7 @@ ExpandModelProperty_T = Literal[
     "model-index",
     "pipeline_tag",
     "private",
+    "resourceGroup",
     "safetensors",
     "sha",
     "siblings",
@@ -157,9 +162,9 @@ ExpandModelProperty_T = Literal[
     "tags",
     "transformersInfo",
     "trendingScore",
-    "widgetData",
     "usedStorage",
-    "resourceGroup",
+    "widgetData",
+    "xetEnabled",
 ]
 
 ExpandDatasetProperty_T = Literal[
@@ -167,8 +172,8 @@ ExpandDatasetProperty_T = Literal[
     "cardData",
     "citation",
     "createdAt",
-    "disabled",
     "description",
+    "disabled",
     "downloads",
     "downloadsAllTime",
     "gated",
@@ -176,12 +181,13 @@ ExpandDatasetProperty_T = Literal[
     "likes",
     "paperswithcode_id",
     "private",
-    "siblings",
-    "sha",
-    "trendingScore",
-    "tags",
-    "usedStorage",
     "resourceGroup",
+    "sha",
+    "siblings",
+    "tags",
+    "trendingScore",
+    "usedStorage",
+    "xetEnabled",
 ]
 
 ExpandSpaceProperty_T = Literal[
@@ -194,15 +200,16 @@ ExpandSpaceProperty_T = Literal[
     "likes",
     "models",
     "private",
+    "resourceGroup",
     "runtime",
     "sdk",
-    "siblings",
     "sha",
+    "siblings",
     "subdomain",
     "tags",
     "trendingScore",
     "usedStorage",
-    "resourceGroup",
+    "xetEnabled",
 ]
 
 USERNAME_PLACEHOLDER = "hf_user"
@@ -696,6 +703,19 @@ class RepoFolder:
 
 
 @dataclass
+class InferenceProviderMapping:
+    status: Literal["live", "staging"]
+    provider_id: str
+    task: str
+
+    def __init__(self, **kwargs):
+        self.status = kwargs.pop("status")
+        self.provider_id = kwargs.pop("providerId")
+        self.task = kwargs.pop("task")
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
 class ModelInfo:
     """
     Contains information about a model on the Hub.
@@ -737,6 +757,8 @@ class ModelInfo:
             Status of the model on the inference API.
             Warm models are available for immediate use. Cold models will be loaded on first inference call.
             Frozen models are not available in Inference API.
+        inference_provider_mapping (`Dict`, *optional*):
+            Model's inference provider mapping.
         likes (`int`):
             Number of likes of the model.
         library_name (`str`, *optional*):
@@ -782,6 +804,7 @@ class ModelInfo:
     gated: Optional[Literal["auto", "manual", False]]
     gguf: Optional[Dict]
     inference: Optional[Literal["warm", "cold", "frozen"]]
+    inference_provider_mapping: Optional[Dict[str, InferenceProviderMapping]]
     likes: Optional[int]
     library_name: Optional[str]
     tags: Optional[List[str]]
@@ -797,6 +820,7 @@ class ModelInfo:
     spaces: Optional[List[str]]
     safetensors: Optional[SafeTensorsInfo]
     security_repo_status: Optional[Dict]
+    xet_enabled: Optional[bool]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -814,7 +838,15 @@ class ModelInfo:
         self.likes = kwargs.pop("likes", None)
         self.library_name = kwargs.pop("library_name", None)
         self.gguf = kwargs.pop("gguf", None)
+
         self.inference = kwargs.pop("inference", None)
+        self.inference_provider_mapping = kwargs.pop("inferenceProviderMapping", None)
+        if self.inference_provider_mapping:
+            self.inference_provider_mapping = {
+                provider: InferenceProviderMapping(**value)
+                for provider, value in self.inference_provider_mapping.items()
+            }
+
         self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
         self.mask_token = kwargs.pop("mask_token", None)
@@ -863,6 +895,7 @@ class ModelInfo:
             else None
         )
         self.security_repo_status = kwargs.pop("securityRepoStatus", None)
+        self.xet_enabled = kwargs.pop("xetEnabled", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -936,6 +969,7 @@ class DatasetInfo:
     trending_score: Optional[int]
     card_data: Optional[DatasetCardData]
     siblings: Optional[List[RepoSibling]]
+    xet_enabled: Optional[bool]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -981,7 +1015,7 @@ class DatasetInfo:
             if siblings is not None
             else None
         )
-
+        self.xet_enabled = kwargs.pop("xetEnabled", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -1063,6 +1097,7 @@ class SpaceInfo:
     runtime: Optional[SpaceRuntime]
     models: Optional[List[str]]
     datasets: Optional[List[str]]
+    xet_enabled: Optional[bool]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1111,7 +1146,7 @@ class SpaceInfo:
         self.runtime = SpaceRuntime(runtime) if runtime else None
         self.models = kwargs.pop("models", None)
         self.datasets = kwargs.pop("datasets", None)
-
+        self.xet_enabled = kwargs.pop("xetEnabled", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -1627,24 +1662,27 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
         """
+        # Get the effective token using the helper function get_token
+        effective_token = token or self.token or get_token() or True
         r = get_session().get(
             f"{self.endpoint}/api/whoami-v2",
-            headers=self._build_hf_headers(
-                # If `token` is provided and not `None`, it will be used by default.
-                # Otherwise, the token must be retrieved from cache or env variable.
-                token=(token or self.token or True),
-            ),
+            headers=self._build_hf_headers(token=effective_token),
         )
         try:
             hf_raise_for_status(r)
         except HTTPError as e:
-            raise HTTPError(
-                "Invalid user token. If you didn't pass a user token, make sure you "
-                "are properly logged in by executing `huggingface-cli login`, and "
-                "if you did pass a user token, double-check it's correct.",
-                request=e.request,
-                response=e.response,
-            ) from e
+            error_message = "Invalid user token."
+            # Check which token is the effective one and generate the error message accordingly
+            if effective_token == _get_token_from_google_colab():
+                error_message += " The token from Google Colab vault is invalid. Please update it from the UI."
+            elif effective_token == _get_token_from_environment():
+                error_message += (
+                    " The token from HF_TOKEN environment variable is invalid. "
+                    "Note that HF_TOKEN takes precedence over `huggingface-cli login`."
+                )
+            elif effective_token == _get_token_from_file():
+                error_message += " The token stored is invalid. Please run `huggingface-cli login` to update it."
+            raise HTTPError(error_message, request=e.request, response=e.response) from e
         return r.json()
 
     @_deprecate_method(
@@ -1788,7 +1826,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"` and `"resourceGroup"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -2008,7 +2046,7 @@ class HfApi:
             expand (`List[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`, `"usedStorage"` and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `last_modified`,
                 the `card_data` and  the files. Can contain useful information such as the
@@ -2186,7 +2224,7 @@ class HfApi:
             expand (`List[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"` and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
             full (`bool`, *optional*):
                 Whether to fetch all Spaces data, including the `last_modified`, `siblings`
                 and `card_data` fields.
@@ -2447,7 +2485,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"` and `"resourceGroup"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2521,7 +2559,7 @@ class HfApi:
             expand (`List[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `files_metadata` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`,`"usedStorage"` and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`,`"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2594,7 +2632,7 @@ class HfApi:
             expand (`List[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"` and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -3341,7 +3379,7 @@ class HfApi:
             branch = constants.DEFAULT_REVISION
 
         # Prepare request
-        url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/super-squash/{branch}"
+        url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/super-squash/{quote(branch, safe='')}"
         headers = self._build_hf_headers(token=token)
         commit_message = commit_message or f"Super-squash branch '{branch}' using huggingface_hub"
 
@@ -3548,7 +3586,7 @@ class HfApi:
             if not missing_ok:
                 raise
 
-    @_deprecate_method(version="0.29", message="Please use `update_repo_settings` instead.")
+    @_deprecate_method(version="0.32", message="Please use `update_repo_settings` instead.")
     @validate_hf_hub_args
     def update_repo_visibility(
         self,
@@ -7455,6 +7493,94 @@ class HfApi:
 
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 
+    @experimental
+    @validate_hf_hub_args
+    def create_inference_endpoint_from_catalog(
+        self,
+        repo_id: str,
+        *,
+        name: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+        namespace: Optional[str] = None,
+    ) -> InferenceEndpoint:
+        """Create a new Inference Endpoint from a model in the Hugging Face Inference Catalog.
+
+        The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
+        and for which default configurations have been tested. See https://endpoints.huggingface.co/catalog for a list
+        of available models in the catalog.
+
+        Args:
+            repo_id (`str`):
+                The ID of the model in the catalog to deploy as an Inference Endpoint.
+            name (`str`, *optional*):
+                The unique name for the new Inference Endpoint. If not provided, a random name will be generated.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+            namespace (`str`, *optional*):
+                The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.
+
+        Returns:
+            [`InferenceEndpoint`]: information about the new Inference Endpoint.
+
+        <Tip warning={true}>
+
+        `create_inference_endpoint_from_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
+        if you have any suggestions or requests.
+
+        </Tip>
+        """
+        token = token or self.token or get_token()
+        payload: Dict = {
+            "namespace": namespace or self._get_namespace(token=token),
+            "repoId": repo_id,
+        }
+        if name is not None:
+            payload["endpointName"] = name
+
+        response = get_session().post(
+            f"{constants.INFERENCE_CATALOG_ENDPOINT}/deploy",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(response)
+        data = response.json()["endpoint"]
+        return InferenceEndpoint.from_raw(data, namespace=data["name"], token=token)
+
+    @experimental
+    @validate_hf_hub_args
+    def list_inference_catalog(self, *, token: Union[bool, str, None] = None) -> List[str]:
+        """List models available in the Hugging Face Inference Catalog.
+
+        The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
+        and for which default configurations have been tested. See https://endpoints.huggingface.co/catalog for a list
+        of available models in the catalog.
+
+        Use [`create_inference_endpoint_from_catalog`] to deploy a model from the catalog.
+
+        Args:
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+
+        Returns:
+            List[`str`]: A list of model IDs available in the catalog.
+        <Tip warning={true}>
+
+        `list_inference_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
+        if you have any suggestions or requests.
+
+        </Tip>
+        """
+        response = get_session().get(
+            f"{constants.INFERENCE_CATALOG_ENDPOINT}/repo-list",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return response.json()["models"]
+
     def get_inference_endpoint(
         self, name: str, *, namespace: Optional[str] = None, token: Union[bool, str, None] = None
     ) -> InferenceEndpoint:
@@ -9577,6 +9703,8 @@ delete_inference_endpoint = api.delete_inference_endpoint
 pause_inference_endpoint = api.pause_inference_endpoint
 resume_inference_endpoint = api.resume_inference_endpoint
 scale_to_zero_inference_endpoint = api.scale_to_zero_inference_endpoint
+create_inference_endpoint_from_catalog = api.create_inference_endpoint_from_catalog
+list_inference_catalog = api.list_inference_catalog
 
 # Collections API
 get_collection = api.get_collection

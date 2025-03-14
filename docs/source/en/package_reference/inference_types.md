@@ -67,6 +67,8 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ChatCompletionInputTool
 
+[[autodoc]] huggingface_hub.ChatCompletionInputToolCall
+
 [[autodoc]] huggingface_hub.ChatCompletionInputToolChoiceClass
 
 [[autodoc]] huggingface_hub.ChatCompletionInputURL
@@ -308,8 +310,6 @@ This part of the lib is still under development and will be improved in future r
 [[autodoc]] huggingface_hub.TextToImageOutput
 
 [[autodoc]] huggingface_hub.TextToImageParameters
-
-[[autodoc]] huggingface_hub.TextToImageTargetSize
 
 
 

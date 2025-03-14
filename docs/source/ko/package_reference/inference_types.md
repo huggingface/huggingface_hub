@@ -66,6 +66,8 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.ChatCompletionInputTool
 
+[[autodoc]] huggingface_hub.ChatCompletionInputToolCall
+
 [[autodoc]] huggingface_hub.ChatCompletionInputToolChoiceClass
 
 [[autodoc]] huggingface_hub.ChatCompletionInputURL
@@ -307,8 +309,6 @@ rendered properly in your Markdown viewer.
 [[autodoc]] huggingface_hub.TextToImageOutput
 
 [[autodoc]] huggingface_hub.TextToImageParameters
-
-[[autodoc]] huggingface_hub.TextToImageTargetSize
 
 
 

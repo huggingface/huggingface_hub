@@ -3,16 +3,15 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Literal, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 TextClassificationOutputTransform = Literal["sigmoid", "softmax", "none"]
 
 
-@dataclass
+@dataclass_with_extra
 class TextClassificationParameters(BaseInferenceType):
     """Additional inference parameters for Text Classification"""
 
@@ -22,7 +21,7 @@ class TextClassificationParameters(BaseInferenceType):
     """When specified, limits the output to the top K most probable classes."""
 
 
-@dataclass
+@dataclass_with_extra
 class TextClassificationInput(BaseInferenceType):
     """Inputs for Text Classification inference"""
 
@@ -32,7 +31,7 @@ class TextClassificationInput(BaseInferenceType):
     """Additional inference parameters for Text Classification"""
 
 
-@dataclass
+@dataclass_with_extra
 class TextClassificationOutputElement(BaseInferenceType):
     """Outputs of inference for the Text Classification task"""
 

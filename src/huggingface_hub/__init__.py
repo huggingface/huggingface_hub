@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.27.0.dev0"
+__version__ = "0.30.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -165,6 +165,7 @@ _SUBMOD_ATTRS = {
         "create_commit",
         "create_discussion",
         "create_inference_endpoint",
+        "create_inference_endpoint_from_catalog",
         "create_pull_request",
         "create_repo",
         "create_tag",
@@ -205,6 +206,7 @@ _SUBMOD_ATTRS = {
         "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
+        "list_inference_catalog",
         "list_inference_endpoints",
         "list_liked_repos",
         "list_models",
@@ -392,7 +394,6 @@ _SUBMOD_ATTRS = {
         "TextToImageInput",
         "TextToImageOutput",
         "TextToImageParameters",
-        "TextToImageTargetSize",
         "TextToSpeechEarlyStoppingEnum",
         "TextToSpeechGenerationParameters",
         "TextToSpeechInput",
@@ -702,7 +703,6 @@ __all__ = [
     "TextToImageInput",
     "TextToImageOutput",
     "TextToImageParameters",
-    "TextToImageTargetSize",
     "TextToSpeechEarlyStoppingEnum",
     "TextToSpeechGenerationParameters",
     "TextToSpeechInput",
@@ -771,6 +771,7 @@ __all__ = [
     "create_commit",
     "create_discussion",
     "create_inference_endpoint",
+    "create_inference_endpoint_from_catalog",
     "create_pull_request",
     "create_repo",
     "create_tag",
@@ -825,6 +826,7 @@ __all__ = [
     "list_accepted_access_requests",
     "list_collections",
     "list_datasets",
+    "list_inference_catalog",
     "list_inference_endpoints",
     "list_liked_repos",
     "list_models",
@@ -1109,6 +1111,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_commit,  # noqa: F401
         create_discussion,  # noqa: F401
         create_inference_endpoint,  # noqa: F401
+        create_inference_endpoint_from_catalog,  # noqa: F401
         create_pull_request,  # noqa: F401
         create_repo,  # noqa: F401
         create_tag,  # noqa: F401
@@ -1149,6 +1152,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
+        list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_models,  # noqa: F401
@@ -1334,7 +1338,6 @@ if TYPE_CHECKING:  # pragma: no cover
         TextToImageInput,  # noqa: F401
         TextToImageOutput,  # noqa: F401
         TextToImageParameters,  # noqa: F401
-        TextToImageTargetSize,  # noqa: F401
         TextToSpeechEarlyStoppingEnum,  # noqa: F401
         TextToSpeechGenerationParameters,  # noqa: F401
         TextToSpeechInput,  # noqa: F401

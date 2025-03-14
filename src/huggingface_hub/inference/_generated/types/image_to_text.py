@@ -3,16 +3,15 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, Literal, Optional, Union
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 ImageToTextEarlyStoppingEnum = Literal["never"]
 
 
-@dataclass
+@dataclass_with_extra
 class ImageToTextGenerationParameters(BaseInferenceType):
     """Parametrization of the text generation process"""
 
@@ -72,18 +71,17 @@ class ImageToTextGenerationParameters(BaseInferenceType):
     """Whether the model should use the past last key/values attentions to speed up decoding"""
 
 
-@dataclass
+@dataclass_with_extra
 class ImageToTextParameters(BaseInferenceType):
     """Additional inference parameters for Image To Text"""
 
+    generation_parameters: Optional[ImageToTextGenerationParameters] = None
+    """Parametrization of the text generation process"""
     max_new_tokens: Optional[int] = None
     """The amount of maximum tokens to generate."""
-    # Will be deprecated in the future when the renaming to `generation_parameters` is implemented in transformers
-    generate_kwargs: Optional[ImageToTextGenerationParameters] = None
-    """Parametrization of the text generation process"""
 
 
-@dataclass
+@dataclass_with_extra
 class ImageToTextInput(BaseInferenceType):
     """Inputs for Image To Text inference"""
 
@@ -93,7 +91,7 @@ class ImageToTextInput(BaseInferenceType):
     """Additional inference parameters for Image To Text"""
 
 
-@dataclass
+@dataclass_with_extra
 class ImageToTextOutput(BaseInferenceType):
     """Outputs of inference for the Image To Text task"""
 
