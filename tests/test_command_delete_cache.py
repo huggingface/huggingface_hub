@@ -457,7 +457,7 @@ def _get_cache_mock() -> Mock:
     model_1_revision_1 = Mock()
     model_1_revision_1.commit_hash = "abcdef123456789"
     model_1_revision_1.refs = {"main", "refs/pr/1"}
-    model_1_revision_1.last_modified = 123456789  # 2 years ago
+    model_1_revision_1.last_modified = 123456789000  # 2 years ago
     model_1_revision_1.last_modified_str = "2 years ago"
 
     model_1.revisions = {model_1_revision_1}
@@ -480,7 +480,7 @@ def _get_cache_mock() -> Mock:
     model_2_revision_2 = Mock()
     model_2_revision_2.commit_hash = "older_hash_id"
     model_2_revision_2.refs = {}
-    model_2_revision_2.last_modified = 12345678  # 3 years ago
+    model_2_revision_2.last_modified = 12345678000  # 3 years ago
     model_2_revision_2.last_modified_str = "3 years ago"
 
     model_2.revisions = {model_2_revision_1, model_2_revision_2}
@@ -490,14 +490,14 @@ def _get_cache_mock() -> Mock:
     dataset_1.repo_type = "dataset"
     dataset_1.repo_id = "dummy_dataset"
     dataset_1.size_on_disk_str = "8M"
-    dataset_1.last_accessed = 1660000000
+    dataset_1.last_accessed = 1659000000
     dataset_1.last_accessed_str = "2 weeks ago"
     dataset_1.size_on_disk = 8 * 1024**2  # 8 MiB
 
     dataset_1_revision_1 = Mock()
     dataset_1_revision_1.commit_hash = "dataset_revision_hash_id"
     dataset_1_revision_1.refs = {}
-    dataset_1_revision_1.last_modified = 1234567890  # 1 day ago (newest)
+    dataset_1_revision_1.last_modified = 1234567890000  # 1 day ago (newest)
     dataset_1_revision_1.last_modified_str = "1 day ago"
 
     dataset_1.revisions = {dataset_1_revision_1}
