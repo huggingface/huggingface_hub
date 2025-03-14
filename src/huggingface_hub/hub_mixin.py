@@ -343,6 +343,8 @@ class ModelHubMixin:
     @classmethod
     def _is_jsonable(cls, value: Any) -> bool:
         """Check if a value is JSON serializable."""
+        if is_dataclass(value):
+            return True
         if isinstance(value, cls._hub_mixin_jsonable_custom_types):
             return True
         return is_jsonable(value)
@@ -350,6 +352,8 @@ class ModelHubMixin:
     @classmethod
     def _encode_arg(cls, arg: Any) -> Any:
         """Encode an argument into a JSON serializable format."""
+        if is_dataclass(arg):
+            return asdict(arg)
         for type_, (encoder, _) in cls._hub_mixin_coders.items():
             if isinstance(arg, type_):
                 if arg is None:
