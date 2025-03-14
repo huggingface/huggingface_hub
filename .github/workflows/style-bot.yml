@@ -7,7 +7,7 @@ on:
     inputs:
       pr_number:
         description: 'Pull Request number to run style checks on'
-        required: false
+        required: true
         type: number
 
 permissions:
