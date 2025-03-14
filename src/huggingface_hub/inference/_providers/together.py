@@ -21,7 +21,7 @@ class TogetherTask(TaskProviderHelper, ABC):
     def __init__(self, task: str):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task=task)
 
-    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         if self.task == "text-to-image":
             return "/v1/images/generations"
         elif self.task == "conversational":

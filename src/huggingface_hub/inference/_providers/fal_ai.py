@@ -2,7 +2,6 @@ import base64
 import time
 from abc import ABC
 from typing import Any, Dict, Optional, Union
-from urllib.parse import urlparse
 
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
@@ -26,7 +25,7 @@ class FalAITask(TaskProviderHelper, ABC):
             headers["authorization"] = f"Key {api_key}"
         return headers
 
-    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return f"/{mapped_model}"
 
 
@@ -91,7 +90,14 @@ class FalAITextToVideoTask(FalAITask):
     def __init__(self):
         super().__init__("text-to-video")
 
-    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
+    def _prepare_base_url(self, api_key: str) -> str:
+        if api_key.startswith("hf_"):
+            return super()._prepare_base_url(api_key)
+        else:
+            logger.info(f"Calling '{self.provider}' provider directly.")
+            return "https://queue.fal.run"
+
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         if api_key and api_key.startswith("hf_"):
             # Use the queue subdomain for HF routing
             return f"/{mapped_model}?_subdomain=queue"
@@ -116,9 +122,8 @@ class FalAITextToVideoTask(FalAITask):
             )
 
         # extract the base url and query params
-        parsed = urlparse(request_params.url)
         base_url = request_params.url.split("?")[0]  # or parsed.scheme + "://" + parsed.netloc + parsed.path ?
-        query = "?" + parsed.query if parsed.query else ""
+        query = "?_subdomain=queue" if request_params.url.endswith("_subdomain=queue") else ""
 
         status_url = f"{base_url}/requests/{request_id}/status{query}"
         result_url = f"{base_url}/requests/{request_id}{query}"

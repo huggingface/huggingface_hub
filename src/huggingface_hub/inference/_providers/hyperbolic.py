@@ -9,7 +9,7 @@ class HyperbolicTextToImageTask(TaskProviderHelper):
     def __init__(self):
         super().__init__(provider="hyperbolic", base_url="https://api.hyperbolic.xyz", task="text-to-image")
 
-    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return "/v1/images/generations"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:

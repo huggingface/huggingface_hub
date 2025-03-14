@@ -24,7 +24,7 @@ class NebiusTextToImageTask(TaskProviderHelper):
     def __init__(self):
         super().__init__(task="text-to-image", provider="nebius", base_url="https://api.studio.nebius.ai")
 
-    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return "/v1/images/generations"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:

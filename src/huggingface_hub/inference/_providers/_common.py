@@ -161,7 +161,7 @@ class TaskProviderHelper:
             logger.info(f"Calling '{self.provider}' provider directly.")
             return self.base_url
 
-    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         """Return the route to use for the request.
 
         Override this method in subclasses for customized routes.
@@ -196,7 +196,7 @@ class BaseConversationalTask(TaskProviderHelper):
     def __init__(self, provider: str, base_url: str):
         super().__init__(provider=provider, base_url=base_url, task="conversational")
 
-    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return "/v1/chat/completions"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
@@ -212,7 +212,7 @@ class BaseTextGenerationTask(TaskProviderHelper):
     def __init__(self, provider: str, base_url: str):
         super().__init__(provider=provider, base_url=base_url, task="text-generation")
 
-    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return "/v1/completions"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:

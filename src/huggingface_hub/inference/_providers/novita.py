@@ -18,7 +18,7 @@ class NovitaTextGenerationTask(BaseTextGenerationTask):
     def __init__(self):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
 
-    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         # there is no v1/ route for novita
         return "/v3/openai/completions"
 
@@ -27,7 +27,7 @@ class NovitaConversationalTask(BaseConversationalTask):
     def __init__(self):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
 
-    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         # there is no v1/ route for novita
         return "/v3/openai/chat/completions"
 
@@ -36,7 +36,7 @@ class NovitaTextToVideoTask(TaskProviderHelper):
     def __init__(self):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task="text-to-video")
 
-    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return f"/v3/hf/{mapped_model}"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:

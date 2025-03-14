@@ -18,7 +18,7 @@ class ReplicateTask(TaskProviderHelper):
         headers["Prefer"] = "wait"
         return headers
 
-    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         if ":" in mapped_model:
             return "/v1/predictions"
         return f"/v1/models/{mapped_model}/predictions"

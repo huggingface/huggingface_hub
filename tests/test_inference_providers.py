@@ -147,7 +147,7 @@ class TestBlackForestLabsProvider:
     def test_prepare_route(self):
         """Test route preparation."""
         helper = BlackForestLabsTextToImageTask()
-        assert helper._prepare_route("username/repo_name") == "/v1/username/repo_name"
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/username/repo_name"
 
     def test_prepare_url(self):
         helper = BlackForestLabsTextToImageTask()
@@ -505,13 +505,13 @@ class TestHyperbolicProvider:
     def test_prepare_route(self):
         """Test route preparation for different tasks."""
         helper = HyperbolicTextToImageTask()
-        assert helper._prepare_route("username/repo_name") == "/v1/images/generations"
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/images/generations"
 
         helper = HyperbolicTextGenerationTask("text-generation")
-        assert helper._prepare_route("username/repo_name") == "/v1/chat/completions"
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/chat/completions"
 
         helper = HyperbolicTextGenerationTask("conversational")
-        assert helper._prepare_route("username/repo_name") == "/v1/chat/completions"
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/chat/completions"
 
     def test_prepare_payload_conversational(self):
         """Test payload preparation for conversational task."""
@@ -560,7 +560,7 @@ class TestHyperbolicProvider:
 class TestNebiusProvider:
     def test_prepare_route_text_to_image(self):
         helper = NebiusTextToImageTask()
-        assert helper._prepare_route("username/repo_name") == "/v1/images/generations"
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/images/generations"
 
     def test_prepare_payload_as_dict_text_to_image(self):
         helper = NebiusTextToImageTask()
@@ -607,11 +607,11 @@ class TestReplicateProvider:
         helper = ReplicateTask("text-to-image")
 
         # No model version
-        url = helper._prepare_route("black-forest-labs/FLUX.1-schnell")
+        url = helper._prepare_route("black-forest-labs/FLUX.1-schnell", "hf_token")
         assert url == "/v1/models/black-forest-labs/FLUX.1-schnell/predictions"
 
         # Model with specific version
-        url = helper._prepare_route("black-forest-labs/FLUX.1-schnell:1944af04d098ef")
+        url = helper._prepare_route("black-forest-labs/FLUX.1-schnell:1944af04d098ef", "hf_token")
         assert url == "/v1/predictions"
 
     def test_prepare_payload_as_dict(self):
@@ -667,7 +667,7 @@ class TestSambanovaProvider:
 class TestTogetherProvider:
     def test_prepare_route_text_to_image(self):
         helper = TogetherTextToImageTask()
-        assert helper._prepare_route("username/repo_name") == "/v1/images/generations"
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/images/generations"
 
     def test_prepare_payload_as_dict_text_to_image(self):
         helper = TogetherTextToImageTask()
@@ -695,7 +695,7 @@ class TestTogetherProvider:
 class TestBaseConversationalTask:
     def test_prepare_route(self):
         helper = BaseConversationalTask(provider="test-provider", base_url="https://api.test.com")
-        assert helper._prepare_route("dummy-model") == "/v1/chat/completions"
+        assert helper._prepare_route("dummy-model", "hf_token") == "/v1/chat/completions"
         assert helper.task == "conversational"
 
     def test_prepare_payload(self):
@@ -720,7 +720,7 @@ class TestBaseConversationalTask:
 class TestBaseTextGenerationTask:
     def test_prepare_route(self):
         helper = BaseTextGenerationTask(provider="test-provider", base_url="https://api.test.com")
-        assert helper._prepare_route("dummy-model") == "/v1/completions"
+        assert helper._prepare_route("dummy-model", "hf_token") == "/v1/completions"
         assert helper.task == "text-generation"
 
     def test_prepare_payload(self):

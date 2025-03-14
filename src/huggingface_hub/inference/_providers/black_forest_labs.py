@@ -24,7 +24,7 @@ class BlackForestLabsTextToImageTask(TaskProviderHelper):
             headers["X-Key"] = api_key
         return headers
 
-    def _prepare_route(self, mapped_model: str, api_key: Optional[str] = None) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return f"/v1/{mapped_model}"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
