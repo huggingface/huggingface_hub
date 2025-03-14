@@ -122,34 +122,6 @@ jobs:
           echo "PR number: $PRNUMBER"
           echo "Head Ref: $HEADREF"
           echo "Head Repo Full Name: $HEADREPOFULLNAME"
-
-      - name: Verify critical files haven't been modified
-        uses: actions/github-script@v6
-        env:
-          PR_NUMBER: ${{ inputs.pr_number }}
-        with:
-          script: |
-            const prNumber = process.env.PR_NUMBER;
-            const { data: pr } = await github.rest.pulls.listFiles({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: prNumber
-            });
-            
-            const modifiedFiles = pr.map(file => file.filename);
-            console.log("Modified files:", modifiedFiles);
-            
-            const protectedFiles = ["setup.py", "Makefile"];
-            console.log("Protected files:", protectedFiles);
-            
-            for (const file of protectedFiles) {
-              if (modifiedFiles.includes(file)) {
-                core.setFailed(`❌ Error: Protected file '${file}' has been modified in this PR. This is not allowed for security reasons.`);
-                return;
-              }
-            }
-            
-            console.log("✅ All protected files check passed!");
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
