@@ -20,6 +20,6 @@ jobs:
     with:
       python_quality_dependencies: "[quality]"
       style_command_type: "style_only"
-      pr_number: ${{ fromJSON(inputs.pr_number || '0') }}
+      pr_number: ${{ fromJSON(github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number || github.event.issue.number) }}
     secrets:
       bot_token: ${{ secrets.GITHUB_TOKEN }}

@@ -16,9 +16,9 @@ on:
           description: "Which style command to run (options: 'default' (make style && make quality), 'quality_only', 'style_only')"
           default: "default"
         pr_number:
-          required: false
+          required: true
           type: number
-          description: "Pull Request number to process (only used when running manually)"
+          description: "Pull Request number to process"
         python_quality_dependencies:
           required: true
           type: string
@@ -74,13 +74,13 @@ jobs:
       - name: Extract PR details
         id: pr_info
         uses: actions/github-script@v6
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
         with:
           script: |
-            const prNumber = context.eventName === 'workflow_dispatch' 
-              ? context.payload.inputs.pr_number 
-              : context.payload.issue.number;
+            const prNumber = process.env.PR_NUMBER;
+            console.log(`PR number from env: "${prNumber}"`);
             
-            // Get PR details
             const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -125,11 +125,11 @@ jobs:
 
       - name: Verify critical files haven't been modified
         uses: actions/github-script@v6
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
         with:
           script: |
-            const prNumber = context.eventName === 'workflow_dispatch' 
-              ? context.payload.inputs.pr_number 
-              : context.payload.issue.number;
+            const prNumber = process.env.PR_NUMBER;
             const { data: pr } = await github.rest.pulls.listFiles({
               owner: context.repo.owner,
               repo: context.repo.repo,
