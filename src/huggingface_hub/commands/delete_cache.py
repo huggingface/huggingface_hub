@@ -76,7 +76,7 @@ try:
 except ImportError:
     _inquirer_py_available = False
 
-SortingOption_T = Literal["size", "alphabetical", "lastUpdated", "lastUsed"]
+SortingOption_T = Literal["alphabetical", "lastUpdated", "lastUsed", "size"]
 
 
 def require_inquirer_py(fn: Callable) -> Callable:
@@ -125,13 +125,13 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         delete_cache_parser.add_argument(
             "--sort",
             nargs="?",
-            choices=["size", "alphabetical", "lastUpdated", "lastUsed"],
+            choices=["alphabetical", "lastUpdated", "lastUsed", "size"],
             help=(
                 "Sort repositories by the specified criteria. Options: "
-                "'size' (largest first), "
                 "'alphabetical' (A-Z), "
                 "'lastUpdated' (newest first), "
-                "'lastUsed' (most recent first)"
+                "'lastUsed' (most recent first), "
+                "'size' (largest first)."
             ),
         )
 
@@ -180,14 +180,14 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
 
 
 def _get_repo_sorting_key(repo: CachedRepoInfo, sort_by: Optional[SortingOption_T] = None):
-    if sort_by == "size":
-        return -repo.size_on_disk  # largest first
-    elif sort_by == "alphabetical":
+    if sort_by == "alphabetical":
         return (repo.repo_type, repo.repo_id.lower())  # by type then name
     elif sort_by == "lastUpdated":
         return -max(rev.last_modified for rev in repo.revisions)  # newest first
     elif sort_by == "lastUsed":
         return -repo.last_accessed  # most recently used first
+    elif sort_by == "size":
+        return -repo.size_on_disk  # largest first
     else:
         return (repo.repo_type, repo.repo_id)  # default stable order
 
@@ -263,7 +263,7 @@ def _get_tui_choices_from_scan(
         preselected (*List[`str`]*):
             List of revision hashes that will be preselected.
         sort_by (*Optional[SortingOption_T]*):
-            Sorting direction. Choices: "size", "alphabetical", "lastUpdated", "lastUsed".
+            Sorting direction. Choices: "alphabetical", "lastUpdated", "lastUsed", "size".
 
     Return:
         The list of choices to pass to `inquirer.checkbox`.
