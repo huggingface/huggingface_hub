@@ -298,6 +298,7 @@ _SUBMOD_ATTRS = {
         "ChatCompletionInputMessageChunkType",
         "ChatCompletionInputStreamOptions",
         "ChatCompletionInputTool",
+        "ChatCompletionInputToolCall",
         "ChatCompletionInputToolChoiceClass",
         "ChatCompletionInputToolChoiceEnum",
         "ChatCompletionInputURL",
