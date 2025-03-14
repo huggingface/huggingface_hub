@@ -135,7 +135,6 @@ class FalAITextToVideoTask(FalAITask):
             status_response = get_session().get(status_url, headers=request_params.headers)
             hf_raise_for_status(status_response)
             status = status_response.json().get("status")
-            status = response_dict.get("status")
 
         response = get_session().get(result_url, headers=request_params.headers).json()
         url = _as_dict(response)["video"]["url"]
