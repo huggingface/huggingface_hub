@@ -18,7 +18,7 @@ Usage:
     huggingface-cli delete-cache
     huggingface-cli delete-cache --disable-tui
     huggingface-cli delete-cache --dir ~/.cache/huggingface/hub
-    huggingface-cli delete-cache --sort
+    huggingface-cli delete-cache --sort=size
 
 NOTE:
     This command is based on `InquirerPy` to build the multiselect menu in the terminal.
@@ -60,7 +60,7 @@ import os
 from argparse import Namespace, _SubParsersAction
 from functools import wraps
 from tempfile import mkstemp
-from typing import Any, Callable, Iterable, List, Optional, Union
+from typing import Any, Callable, Iterable, List, Literal, Optional, Union
 
 from ..utils import CachedRepoInfo, CachedRevisionInfo, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
@@ -75,6 +75,8 @@ try:
     _inquirer_py_available = True
 except ImportError:
     _inquirer_py_available = False
+
+SortingOption_T = Literal["size", "alphabetical", "lastUpdated", "lastUsed"]
 
 
 def require_inquirer_py(fn: Callable) -> Callable:
@@ -124,7 +126,6 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
             "--sort",
             nargs="?",
             choices=["size", "alphabetical", "lastUpdated", "lastUsed"],
-            const="size",
             help=(
                 "Sort repositories by the specified criteria. Options: "
                 "'size' (largest first), "
@@ -139,7 +140,7 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
     def __init__(self, args: Namespace) -> None:
         self.cache_dir: Optional[str] = args.dir
         self.disable_tui: bool = args.disable_tui
-        self.sort_by: Optional[str] = args.sort
+        self.sort_by: Optional[SortingOption_T] = args.sort
 
     def run(self):
         """Run `delete-cache` command with or without TUI."""
@@ -178,11 +179,24 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         print("Deletion is cancelled. Do nothing.")
 
 
+def _get_repo_sorting_key(repo: CachedRepoInfo, sort_by: Optional[SortingOption_T] = None):
+    if sort_by == "size":
+        return -repo.size_on_disk  # largest first
+    elif sort_by == "alphabetical":
+        return (repo.repo_type, repo.repo_id.lower())  # by type then name
+    elif sort_by == "lastUpdated":
+        return -max(rev.last_modified for rev in repo.revisions)  # newest first
+    elif sort_by == "lastUsed":
+        return -repo.last_accessed  # most recently used first
+    else:
+        return (repo.repo_type, repo.repo_id)  # default stable order
+
+
 @require_inquirer_py
 def _manual_review_tui(
     hf_cache_info: HFCacheInfo,
     preselected: List[str],
-    sort_by: Optional[str] = None,
+    sort_by: Optional[SortingOption_T] = None,
 ) -> List[str]:
     """Ask the user for a manual review of the revisions to delete.
 
@@ -239,7 +253,7 @@ def _ask_for_confirmation_tui(message: str, default: bool = True) -> bool:
 def _get_tui_choices_from_scan(
     repos: Iterable[CachedRepoInfo],
     preselected: List[str],
-    sort_by: Optional[str] = None,
+    sort_by: Optional[SortingOption_T] = None,
 ) -> List:
     """Build a list of choices from the scanned repos.
 
@@ -248,7 +262,7 @@ def _get_tui_choices_from_scan(
             List of scanned repos on which we want to delete revisions.
         preselected (*List[`str`]*):
             List of revision hashes that will be preselected.
-        sort_by (*Optional[str]*):
+        sort_by (*Optional[SortingOption_T]*):
             Sorting direction. Choices: "size", "alphabetical", "lastUpdated", "lastUsed".
 
     Return:
@@ -266,16 +280,7 @@ def _get_tui_choices_from_scan(
     )
 
     # Sort repos based on specified criteria
-    sorted_repos = sorted(
-        repos,
-        key=lambda repo: {
-            "size": lambda r: -r.size_on_disk,  # largest first
-            "alphabetical": lambda r: (r.repo_type, r.repo_id.lower()),  # by type then name
-            "lastUpdated": lambda r: -max(rev.last_modified for rev in r.revisions),  # newest first
-            "lastUsed": lambda r: -r.last_accessed,  # most recently used first
-            None: lambda r: (r.repo_type, r.repo_id),  # default stable order
-        }[sort_by](repo),
-    )
+    sorted_repos = sorted(repos, key=lambda repo: _get_repo_sorting_key(repo, sort_by))
 
     for repo in sorted_repos:
         # Repo as separator
@@ -306,7 +311,7 @@ def _get_tui_choices_from_scan(
 def _manual_review_no_tui(
     hf_cache_info: HFCacheInfo,
     preselected: List[str],
-    sort_by: Optional[str] = None,
+    sort_by: Optional[SortingOption_T] = None,
 ) -> List[str]:
     """Ask the user for a manual review of the revisions to delete.
 
@@ -318,10 +323,9 @@ def _manual_review_no_tui(
     os.close(fd)
 
     lines = []
-    sorted_repos = sorted(
-        hf_cache_info.repos,
-        key=lambda repo: -repo.size_on_disk if sort_by == "size" else 1,
-    )
+
+    sorted_repos = sorted(hf_cache_info.repos, key=lambda repo: _get_repo_sorting_key(repo, sort_by))
+
     for repo in sorted_repos:
         lines.append(
             f"\n# {repo.repo_type.capitalize()} {repo.repo_id} ({repo.size_on_disk_str},"
