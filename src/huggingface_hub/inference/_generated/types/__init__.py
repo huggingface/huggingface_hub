@@ -30,6 +30,7 @@ from .chat_completion import (
     ChatCompletionInputMessageChunkType,
     ChatCompletionInputStreamOptions,
     ChatCompletionInputTool,
+    ChatCompletionInputToolCall,
     ChatCompletionInputToolChoiceClass,
     ChatCompletionInputToolChoiceEnum,
     ChatCompletionInputURL,
