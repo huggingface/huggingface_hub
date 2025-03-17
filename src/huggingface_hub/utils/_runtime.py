@@ -58,7 +58,6 @@ _CANDIDATES = {
         "tensorflow-macos",
     ),
     "torch": {"torch"},
-    "hf_xet": {"hf_xet"},
 }
 
 # Check once at runtime

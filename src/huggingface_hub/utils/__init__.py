@@ -90,6 +90,7 @@ from ._runtime import (
     is_gradio_available,
     is_graphviz_available,
     is_hf_transfer_available,
+    is_hf_xet_available,
     is_jinja_available,
     is_notebook,
     is_numpy_available,
@@ -101,7 +102,6 @@ from ._runtime import (
     is_tensorboard_available,
     is_tf_available,
     is_torch_available,
-    is_hf_xet_available,
 )
 from ._safetensors import SafetensorsFileMetadata, SafetensorsRepoMetadata, TensorInfo
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess
