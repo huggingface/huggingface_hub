@@ -21,6 +21,12 @@ WORKING_REPO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), WORK
 
 
 def is_hf_xet_available():
+    """
+    Checks if the `hf_xet` module is available and can be imported. Used to skip tests that require `hf_xet` when it is
+    not available.
+    Returns:
+        bool: True if the `hf_xet` module is available and can be imported, False otherwise.
+    """
     try:
         from hf_xet import PyPointerFile
 
@@ -44,6 +50,14 @@ def require_hf_xet(test_case):
 @require_hf_xet
 class TestHfXet(TestCase):
     def setUp(self) -> None:
+        """
+        Set up the test environment.
+        This method initializes the following attributes:
+        - `self.content`: A byte string containing random content for testing.
+        - `self._token`: The authentication token for accessing the Hugging Face API.
+        - `self._api`: An instance of `HfApi` initialized with the endpoint and token.
+        - `self._repo_id`: The repository ID created by the Hugging Face API.
+        """
         self.content = b"RandOm Xet ConTEnT" * 1024
         self._token = TOKEN
         self._api = HfApi(endpoint=ENDPOINT, token=self._token)
@@ -51,13 +65,27 @@ class TestHfXet(TestCase):
         self._repo_id = self._api.create_repo(repo_name()).repo_id
 
     def tearDown(self) -> None:
+        """
+        Tear down the test environment.
+        This method deletes the repository created for testing.
+        """
         self._api.delete_repo(repo_id=self._repo_id)
 
     def test__xet_available(self):
-        # renaming to this runs first
+        """
+        Test to check if the Hugging Face Xet integration is available.
+        """
         self.assertTrue(is_hf_xet_available())
 
     def test_upload_and_download_with_hf_xet(self):
+        """
+        Test the upload and download functionality with Hugging Face's Xet integration.
+
+        * Uses upload_file to upload a file to the repository.
+        * Uses hf_hub_download to download the file from the repository.
+
+        The test ensures that the upload and download processes work correctly and that the file integrity is maintained.
+        """
         # create a temporary file
         with SoftTemporaryDirectory() as tmpdir:
             cache_dir = os.path.join(tmpdir, "download")
@@ -79,6 +107,14 @@ class TestHfXet(TestCase):
             self.assertEqual(downloaded_content, self.content)
 
     def test_upload_folder_download_snapshot_with_hf_xet(self):
+        """
+        Test the upload and download functionality of a folder using the Hugging Face API.
+
+        * Uses upload_folder to upload a folder to the repository.
+        * Uses snapshot_download to download the folder from the repository.
+
+        The test ensures that the content of the files remains consistent during the upload and download process.
+        """
         # create a temporary directory
         with SoftTemporaryDirectory() as tmpdir:
             cache_dir = os.path.join(tmpdir, "download")
@@ -109,6 +145,14 @@ class TestHfXet(TestCase):
                 self.assertEqual(downloaded_content, self.content)
 
     def test_upload_large_folder_download_snapshot_with_hf_xet(self):
+        """
+        Test the upload and download of a large folder using the Hugging Face API.
+
+        * Uses upload_large_folder to upload a large folder to the repository.
+        * Uses snapshot_download to download the large folder from the repository.
+
+        The test ensures that the upload and download processes handle large folders correctly and that the integrity of the files is maintained.
+        """
         # create a temporary directory
         with SoftTemporaryDirectory() as tmpdir:
             cache_dir = os.path.join(tmpdir, "download")
@@ -138,7 +182,13 @@ class TestHfXet(TestCase):
 
     def test_force_refresh_token(self):
         """
-        Test that the token refresher is called when the expiration time is set to now.
+        Test the token refresh process when the expiration time is set to now.
+
+        * Patches the `xet_get` function to simulate an expired token by setting the expiration time to the current time.
+        * Downloads the file from the repository, triggering the token refresh process.
+        * Asserts that the `xet_get` function was called once.
+
+        This test ensures that the downloaded file is the same as the uploaded file.
         """
         # create a temporary file
         with SoftTemporaryDirectory() as tmpdir:
@@ -195,9 +245,20 @@ class TestHfXet(TestCase):
 
     def test_hfxet_direct_download_files_token_refresher(self):
         """
-        Manually call hf_xet.download_files with a token refresher function to verify that
-        the token refresh works as expected. This is test to identify regressions in the
-        hf_xet.download_files function.
+        Test the hf_xet.download_files function with a token refresher.
+
+        This test manually calls the hf_xet.download_files function with a token refresher
+        function to verify that the token refresh mechanism works as expected. It aims to
+        identify regressions in the hf_xet.download_files function.
+
+        * Define a token refresher function that issues a token refresh by returning a new
+           access token and expiration time.
+        * Mock the token refresher function.
+        * Construct the necessary headers and metadata for the file to be downloaded.
+        * Call the download_files function with the token refresher, forcing a token refresh.
+        * Assert that the token refresher function was called as expected.
+
+        This test ensures that the downloaded file is the same as the uploaded file.
         """
         from hf_xet import PyPointerFile, download_files
 
