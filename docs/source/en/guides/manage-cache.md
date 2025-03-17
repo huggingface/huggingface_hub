@@ -333,7 +333,7 @@ Therefore it can be useful to scan your cache directory in order to know which r
 and revisions are taking the most disk space. `huggingface_hub` provides an helper to
 do so that can be used via `huggingface-cli` or in a python script.
 
-#### Scan cache from the terminal
+**Scan cache from the terminal**
 
 The easiest way to scan your HF cache-system is to use the `scan-cache` command from
 `huggingface-cli` tool. This command scans the cache and prints a report with information
@@ -384,7 +384,7 @@ Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
 Got 1 warning(s) while scanning. Use -vvv to print details.
 ```
 
-#### Grep example
+**Grep example**
 
 Since the output is in tabular format, you can combine it with any `grep`-like tools to
 filter the entries. Here is an example to filter only revisions from the "t5-small"
@@ -397,7 +397,7 @@ t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617  
 t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
 ```
 
-#### Scan cache from Python
+**Scan cache from Python**
 
 For a more advanced usage, use [`scan_cache_dir`] which is the python utility called by
 the CLI tool.
@@ -469,7 +469,7 @@ delete some portions to free up some space on your drive. This is possible using
 [`~HFCacheInfo.delete_revisions`] helper from [`HFCacheInfo`] object returned when
 scanning the cache.
 
-#### Delete strategy
+**Delete strategy**
 
 To delete some cache, you need to pass a list of revisions to delete. The tool will
 define a strategy to free up the space based on this list. It returns a
@@ -501,7 +501,7 @@ error is thrown. The deletion continues for other paths contained in the
 
 </Tip>
 
-#### Clean cache from the terminal
+**Clean cache from the terminal**
 
 The easiest way to delete some revisions from your HF cache-system is to use the
 `delete-cache` command from `huggingface-cli` tool. The command has two modes. By
@@ -510,7 +510,7 @@ revisions to delete. This TUI is currently in beta as it has not been tested on 
 platforms. If the TUI doesn't work on your machine, you can disable it using the
 `--disable-tui` flag.
 
-#### Using the TUI
+**Using the TUI**
 
 This is the default mode. To use it, you first need to install extra dependencies by
 running the following command:
@@ -554,7 +554,7 @@ Start deletion.
 Done. Deleted 1 repo(s) and 0 revision(s) for a total of 3.1G.
 ```
 
-#### Without TUI
+**Without TUI**
 
 As mentioned above, the TUI mode is currently in beta and is optional. It may be the
 case that it doesn't work on your machine or that you don't find it convenient.
@@ -615,7 +615,7 @@ Example of command file:
 #    9cfa5647b32c0a30d0adfca06bf198d82192a0d1 # Refs: main # modified 5 days ago
 ```
 
-#### Clean cache from Python
+**Clean cache from Python**
 
 For more flexibility, you can also use the [`~HFCacheInfo.delete_revisions`] method
 programmatically. Here is a simple example. See reference for details.
