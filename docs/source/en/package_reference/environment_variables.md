@@ -38,7 +38,7 @@ Defaults to `"$HF_HOME/hub"` (e.g. `"~/.cache/huggingface/hub"` by default).
 
 ### HF_XET_CACHE
 
-To configure where Xet Storage chunks will be cached locally.
+To configure where Xet chunks (byte ranges from files managed by Xet backend) are cached locally.
 
 Defaults to `"$HF_HOME/xet"` (e.g. `"~/.cache/huggingface/xet"` by default).
 
@@ -163,6 +163,14 @@ To use `hf_transfer`:
 2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
 Please note that using `hf_transfer` comes with certain limitations. Since it is not purely Python-based, debugging errors may be challenging. Additionally, `hf_transfer` lacks several user-friendly features such as resumable downloads and proxies. These omissions are intentional to maintain the simplicity and speed of the Rust logic. Consequently, `hf_transfer` is not enabled by default in `huggingface_hub`.
+
+<Tip>
+
+`hf_xet` is an alternative to `hf_transfer`. It provides efficient file transfers through a chunk-based deduplication strategy, custom Xet storage (replacing Git LFS), and a seamless integration with `huggingface_hub`. 
+
+[Read more about the package](https://huggingface.co/docs/hub/storage-backends) and enable with `pip install huggingface_hub[hf_xet]`.
+
+</Tip>
 
 ## Deprecated environment variables
 
