@@ -12,7 +12,7 @@ from huggingface_hub.utils.logging import get_logger
 logger = get_logger(__name__)
 
 # Arbitrary polling interval
-_POLLING_INTERVAL = 2.0
+_POLLING_INTERVAL = 0.5
 
 
 class FalAITask(TaskProviderHelper, ABC):
