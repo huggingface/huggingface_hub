@@ -135,9 +135,8 @@ class AsyncInferenceClient:
             Additional headers to send to the server. By default only the authorization and user-agent headers are sent.
             Values in this dictionary will override the default values.
         bill_to (`str`, `optional`):
-            The billing account to use for the request. By default the request will be billed to the user's account.
-            Request can be billed to any organization the user is a member of (e.g. `bill_to="huggingface"`) as long as
-            billing is enabled for that organization.
+            The billing account to use for the requests. By default the requests are billed on the user's account.
+            Requests can be billed to any organization the user is a member of as long as billing is enabled for that organization.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
         trust_env ('bool', 'optional'):
