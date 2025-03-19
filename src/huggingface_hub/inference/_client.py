@@ -148,7 +148,7 @@ class InferenceClient:
             Values in this dictionary will override the default values.
         bill_to (`str`, `optional`):
             The billing account to use for the requests. By default the requests are billed on the user's account.
-            Requests can be billed to any organization the user is a member of as long as billing is enabled for that organization.
+            Requests can only be billed to an organization the user is a member of, and the billing should be enabled for that organization.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
         proxies (`Any`, `optional`):
