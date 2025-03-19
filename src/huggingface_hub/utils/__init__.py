@@ -90,7 +90,6 @@ from ._runtime import (
     is_gradio_available,
     is_graphviz_available,
     is_hf_transfer_available,
-    is_hf_xet_available,
     is_jinja_available,
     is_notebook,
     is_numpy_available,

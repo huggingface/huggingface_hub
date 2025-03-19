@@ -116,15 +116,6 @@ def get_fastapi_version() -> str:
     return _get_version("fastapi")
 
 
-# HF Xet
-def is_hf_xet_available() -> bool:
-    return is_package_available("hf_xet")
-
-
-def get_hf_xet_version() -> str:
-    return _get_version("hf_xet")
-
-
 # Fastcore
 def is_fastcore_available() -> bool:
     return is_package_available("fastcore")
