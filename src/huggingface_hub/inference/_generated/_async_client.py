@@ -134,6 +134,10 @@ class AsyncInferenceClient:
         headers (`Dict[str, str]`, `optional`):
             Additional headers to send to the server. By default only the authorization and user-agent headers are sent.
             Values in this dictionary will override the default values.
+        bill_to (`str`, `optional`):
+            The billing account to use for the request. By default the request will be billed to the user's account.
+            Request can be billed to any organization the user is a member of (e.g. `bill_to="huggingface"`) as long as
+            billing is enabled for that organization.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
         trust_env ('bool', 'optional'):
@@ -159,6 +163,7 @@ class AsyncInferenceClient:
         cookies: Optional[Dict[str, str]] = None,
         trust_env: bool = False,
         proxies: Optional[Any] = None,
+        bill_to: Optional[str] = None,
         # OpenAI compatibility
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
@@ -194,7 +199,18 @@ class AsyncInferenceClient:
 
         self.model: Optional[str] = base_url or model
         self.token: Optional[str] = token
-        self.headers = headers if headers is not None else {}
+
+        self.headers = {**headers} if headers is not None else {}
+        if bill_to is not None:
+            if (
+                constants.HUGGINGFACE_HEADER_X_BILL_TO in self.headers
+                and self.headers[constants.HUGGINGFACE_HEADER_X_BILL_TO] != bill_to
+            ):
+                warnings.warn(
+                    f"Overriding existing '{self.headers[constants.HUGGINGFACE_HEADER_X_BILL_TO]}' value in headers with '{bill_to}'.",
+                    UserWarning,
+                )
+            self.headers[constants.HUGGINGFACE_HEADER_X_BILL_TO] = bill_to
 
         # Configure provider
         self.provider = provider if provider is not None else "hf-inference"
