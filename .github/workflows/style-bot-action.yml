@@ -51,8 +51,8 @@ jobs:
               repo: context.repo.repo,
               username: comment_user
             });
-            const authorized = permission.permission === 'admin';
-            console.log(`User ${comment_user} has permission level: ${permission.permission}, authorized: ${authorized} (only admins allowed)`);
+            const authorized = ['admin', 'maintain', 'push'].includes(permission.permission);
+            console.log(`User ${comment_user} has permission level: ${permission.permission}, authorized: ${authorized} (only admins and write permissions allowed)`);
             core.setOutput('has_permission', authorized);
 
   run-style-bot:
