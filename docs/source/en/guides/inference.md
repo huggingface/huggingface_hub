@@ -349,7 +349,7 @@ As an HF user, you get monthly credits to run the HF Inference API. The amount o
 >>> image.save("lion.png")
 ```
 
-Note that it is NOT possible to charge another user or an organization you are not part of. If you want to grant someone else some credits, you must create a joined organization with them.
+Note that it is NOT possible to charge another user or an organization you are not part of. If you want to grant someone else some credits, you must create a joint organization with them.
 
 
 ### Timeout
