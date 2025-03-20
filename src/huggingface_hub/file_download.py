@@ -1520,7 +1520,7 @@ def _get_metadata_or_catch_error(
     # Either an exception is caught and returned
     Tuple[None, None, None, None, None, Exception],
     # Or the metadata is returned as
-    # `(url_to_download, etag, commit_hash, expected_size, None)`
+    # `(url_to_download, etag, commit_hash, expected_size, xet_enabled, None)`
     Tuple[str, str, str, int, bool, None],
 ]:
     """Get metadata for a file on the Hub, safely handling network issues.
@@ -1603,7 +1603,7 @@ def _get_metadata_or_catch_error(
             #
             # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
             # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
-            if not metadata.xet_enabled and url != metadata.location:
+            if metadata.xet_enabled and url != metadata.location:
                 url_to_download = metadata.location
                 if urlparse(url).netloc != urlparse(metadata.location).netloc:
                     # Remove authorization header when downloading a LFS blob
