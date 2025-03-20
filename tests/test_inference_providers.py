@@ -310,18 +310,21 @@ class TestFalAIProvider:
             data=None,
             json=None,
         )
-        response = helper.get_response(b'{"request_id": "test_request_id", "status": "PROCESSING"}', request_params)
+        response = helper.get_response(
+            b'{"request_id": "test_request_id", "status": "PROCESSING", "response_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id", "status_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id/status"}',
+            request_params,
+        )
 
         # Verify the correct URLs were called
         assert mock_session.return_value.get.call_count == 3
         mock_session.return_value.get.assert_has_calls(
             [
                 mocker.call(
-                    "https://router.huggingface.co/fal-ai/username/repo_name/requests/test_request_id/status?_subdomain=queue",
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id/status?_subdomain=queue",
                     headers=request_params.headers,
                 ),
                 mocker.call(
-                    "https://router.huggingface.co/fal-ai/username/repo_name/requests/test_request_id?_subdomain=queue",
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id?_subdomain=queue",
                     headers=request_params.headers,
                 ),
                 mocker.call("video_url"),
