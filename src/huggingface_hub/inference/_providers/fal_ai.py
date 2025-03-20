@@ -129,10 +129,10 @@ class FalAITextToVideoTask(FalAITask):
         query_param = f"?{parsed_url.query}" if parsed_url.query else ""
 
         # extracting the provider model id for status and result urls
-        # from the response as it might be different from the mapped model
+        # from the response as it might be different from the mapped model in `request_params.url`
         model_id = urlparse(response_dict.get("response_url")).path
-        status_url = f"{base_url}{model_id}/status{query_param}"  # type: ignore
-        result_url = f"{base_url}{model_id}{query_param}"  # type: ignore
+        status_url = f"{base_url}{str(model_id)}/status{query_param}"
+        result_url = f"{base_url}{str(model_id)}{query_param}"
 
         status = response_dict.get("status")
         logger.info("Generating the video.. this can take several minutes.")
