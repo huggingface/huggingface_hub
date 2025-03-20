@@ -170,7 +170,7 @@ class HfFileMetadata:
     etag: Optional[str]
     location: str
     size: Optional[int]
-    xet_enabled: bool
+    xet_backed: bool
 
 
 @validate_hf_hub_args
@@ -1019,7 +1019,7 @@ def _hf_hub_download_to_cache_dir(
 
     # Try to get metadata (etag, commit_hash, url, size) from the server.
     # If we can't, a HEAD request error is returned.
-    (url_to_download, etag, commit_hash, expected_size, xet_enabled, head_call_error) = _get_metadata_or_catch_error(
+    (url_to_download, etag, commit_hash, expected_size, xet_backed, head_call_error) = _get_metadata_or_catch_error(
         repo_id=repo_id,
         filename=filename,
         repo_type=repo_type,
@@ -1106,7 +1106,7 @@ def _hf_hub_download_to_cache_dir(
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
     xet_metadata = None
-    if xet_enabled:
+    if xet_backed and is_xet_available(): 
         xet_metadata = get_xet_file_metadata(url=hf_hub_url(
             repo_id=repo_id, filename=filename, revision=revision, endpoint=endpoint
         ), proxies=proxies, headers=headers, token=token)
@@ -1174,7 +1174,7 @@ def _hf_hub_download_to_local_dir(
         return str(paths.file_path)
 
     # Local file doesn't exist or commit_hash doesn't match => we need the etag
-    (url_to_download, etag, commit_hash, expected_size, xet_enabled, head_call_error) = _get_metadata_or_catch_error(
+    (url_to_download, etag, commit_hash, expected_size, xet_backed, head_call_error) = _get_metadata_or_catch_error(
         repo_id=repo_id,
         filename=filename,
         repo_type=repo_type,
@@ -1240,7 +1240,7 @@ def _hf_hub_download_to_local_dir(
             return str(paths.file_path)
 
     xet_metadata = None
-    if xet_enabled:
+    if xet_backed and is_xet_available():
         xet_metadata = get_xet_file_metadata(url=hf_hub_url(
             repo_id=repo_id, filename=filename, revision=revision, endpoint=endpoint
         ), proxies=proxies, headers=headers, token=token)
@@ -1470,8 +1470,6 @@ def get_hf_file_metadata(
         headers=headers,
     )
     hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
-    # indicate that we can accept file information for xet download
-    hf_headers["Accept"] = constants.HUGGINGFACE_HEADER_ACCEPT_XET_FILE_INFO
 
     # Retrieve metadata
     r = _request_wrapper(
@@ -1498,7 +1496,7 @@ def get_hf_file_metadata(
         size=_int_or_none(
             r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
         ),
-        xet_enabled = constants.HUGGINGFACE_HEADER_ACCEPT_XET_FILE_INFO in r.headers.get("Content-Type"),
+        xet_backed = r.headers.get(constants.HUGGINGFACE_HEADER_X_XET_HASH) is not None,
     )
 
 
@@ -1520,7 +1518,7 @@ def _get_metadata_or_catch_error(
     # Either an exception is caught and returned
     Tuple[None, None, None, None, None, Exception],
     # Or the metadata is returned as
-    # `(url_to_download, etag, commit_hash, expected_size, xet_enabled, None)`
+    # `(url_to_download, etag, commit_hash, expected_size, xet_backed, None)`
     Tuple[str, str, str, int, bool, None],
 ]:
     """Get metadata for a file on the Hub, safely handling network issues.
@@ -1603,7 +1601,7 @@ def _get_metadata_or_catch_error(
             #
             # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
             # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
-            if metadata.xet_enabled and url != metadata.location:
+            if metadata.xet_backed and url != metadata.location:
                 url_to_download = metadata.location
                 if urlparse(url).netloc != urlparse(metadata.location).netloc:
                     # Remove authorization header when downloading a LFS blob
@@ -1641,7 +1639,7 @@ def _get_metadata_or_catch_error(
     if not (local_files_only or etag is not None or head_error_call is not None):
         raise RuntimeError("etag is empty due to uncovered problems")
 
-    return (url_to_download, etag, commit_hash, expected_size, metadata.xet_enabled, head_error_call)  # type: ignore [return-value]
+    return (url_to_download, etag, commit_hash, expected_size, metadata.xet_backed, head_error_call)  # type: ignore [return-value]
 
 
 def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, local_files_only: bool) -> NoReturn:
