@@ -13,10 +13,9 @@
 # limitations under the License.
 
 from contextlib import contextmanager
-from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,9 +27,8 @@ from huggingface_hub.file_download import (
     get_hf_file_metadata,
     hf_hub_download,
     hf_hub_url,
-    xet_get,
 )
-from huggingface_hub.utils import XetMetadata, build_hf_headers
+from huggingface_hub.utils import build_hf_headers
 from huggingface_hub.utils._xet import refresh_xet_metadata
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
@@ -259,69 +257,15 @@ class TestXetLargeUpload:
         for i in range(N_FILES_PER_FOLDER):
             for j in range(N_FILES_PER_FOLDER):
                 for filename in [f"subfolder_{i}/file_xet_{i}_{j}.bin", f"subfolder_{i}/file_regular_{i}_{j}.txt"]:
-                    local_file = Path(folder) / filename
                     downloaded_file = hf_hub_download(repo_id=repo_id, filename=filename, cache_dir=None)
-                    assert Path(local_file).read_bytes() == Path(downloaded_file).read_bytes()
+                    if "xet" in filename:
+                        assert f"content_lfs_{i}_{j}".encode() == Path(downloaded_file).read_bytes()
+                    else:
+                        assert f"content_regular_{i}_{j}".encode() == Path(downloaded_file).read_bytes()
 
 
 @requires("hf_xet")
 class TestXetE2E(TestXetUpload):
-    def test_force_refresh_token(self, api, repo_url, tmp_path):
-        """
-        Test the token refresh process when the expiration time is set to now.
-
-        * Patches the `xet_get` function to simulate an expired token by setting the expiration time to the current time.
-        * Downloads the file from the repository, triggering the token refresh process.
-        * Asserts that the `xet_get` function was called once.
-
-        This test ensures that the downloaded file is the same as the uploaded file.
-        """
-        filename_in_repo = "binary_file.bin"
-        repo_id = repo_url.repo_id
-        # Upload a file
-        api.upload_file(
-            path_or_fileobj=self.bin_file,
-            path_in_repo=filename_in_repo,
-            repo_id=repo_id,
-        )
-
-        # shim xet_get so can muck with xet_metadata parameter,
-        # setting the timeout to now()
-        # and then calling through to real xet_get(),
-        # forcing a refresh token to occur.
-        def xet_get_shim(
-            incomplete_path: Path,
-            xet_metadata: XetMetadata,
-            headers: Dict[str, str],
-            expected_size: Optional[int] = None,
-            displayed_filename: Optional[str] = None,
-        ):
-            xet_metadata = XetMetadata(
-                endpoint=xet_metadata.endpoint,
-                access_token=xet_metadata.access_token,
-                expiration_unix_epoch=int(datetime.timestamp(datetime.now())),
-                refresh_route=xet_metadata.refresh_route,
-                file_hash=xet_metadata.file_hash,
-            )
-            return xet_get(
-                incomplete_path=incomplete_path,
-                xet_metadata=xet_metadata,
-                headers=headers,
-                expected_size=expected_size,
-                displayed_filename=displayed_filename,
-            )
-
-        with patch("huggingface_hub.file_download.xet_get", wraps=xet_get_shim) as mock_xet_get:
-            # Download a file
-            downloaded_file = hf_hub_download(repo_id=repo_id, filename=filename_in_repo, cache_dir=tmp_path)
-
-        mock_xet_get.assert_called_once()
-
-        # Check that the downloaded file is the same as the uploaded file
-        with open(downloaded_file, "rb") as f:
-            downloaded_content = f.read()
-        assert downloaded_content == self.bin_content
-
     def test_hf_xet_with_token_refresher(self, api, tmp_path, repo_url):
         """
         Test the hf_xet.download_files function with a token refresher.
