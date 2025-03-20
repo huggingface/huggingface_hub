@@ -211,6 +211,13 @@ class AsyncInferenceClient:
                 )
             self.headers[constants.HUGGINGFACE_HEADER_X_BILL_TO] = bill_to
 
+            if token is not None and not token.startswith("hf_"):
+                warnings.warn(
+                    "You've provided an external provider's API key, so requests will be billed directly by the provider. "
+                    "The `bill_to` parameter is only applicable for Hugging Face billing and will be ignored.",
+                    UserWarning,
+                )
+
         # Configure provider
         self.provider = provider if provider is not None else "hf-inference"
 
