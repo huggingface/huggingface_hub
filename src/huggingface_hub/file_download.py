@@ -56,7 +56,7 @@ from .utils import (
     is_tf_available,  # noqa: F401 # for backward compatibility
     is_torch_available,  # noqa: F401 # for backward compatibility
     logging,
-    parse_xet_headers,
+    parse_xet_json,
     refresh_xet_metadata,
     reset_sessions,
     tqdm,
@@ -1420,7 +1420,7 @@ def get_xet_file_metadata(
     hf_raise_for_status(r)
 
     # Return
-    return parse_xet_headers(r.headers)
+    return parse_xet_json(r.json())
 
 @validate_hf_hub_args
 def get_hf_file_metadata(

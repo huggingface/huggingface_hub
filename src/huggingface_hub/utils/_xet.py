@@ -14,6 +14,34 @@ class XetMetadata:
     file_hash: Optional[str] = None
 
 
+def parse_xet_json(json: Dict[str, str]) -> Optional[XetMetadata]:
+    """
+    Parse XET metadata from a JSON object or return None if not found.
+
+    Args:
+        json (`Dict`):
+            JSON object to extract the XET metadata from.
+    Returns:
+        `XetMetadata` or `None`:
+            The metadata needed to make the request to the xet storage service.
+            Returns `None` if the JSON object does not contain the XET metadata.
+    """
+    # endpoint, access_token and expiration are required
+    try:
+        endpoint = json[constants.HUGGINGFACE_HEADER_X_XET_ENDPOINT]
+        access_token = json[constants.HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN]
+        expiration_unix_epoch = int(json[constants.HUGGINGFACE_HEADER_X_XET_EXPIRATION])
+    except (KeyError, ValueError, TypeError):
+        return None
+
+    return XetMetadata(
+        endpoint=endpoint,
+        access_token=access_token,
+        expiration_unix_epoch=expiration_unix_epoch,
+        refresh_route=json.get(constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE),
+        file_hash=json.get(constants.HUGGINGFACE_HEADER_X_XET_HASH),
+    )
+
 def parse_xet_headers(headers: Dict[str, str]) -> Optional[XetMetadata]:
     """
     Parse XET metadata from the HTTP headers or return None if not found.
