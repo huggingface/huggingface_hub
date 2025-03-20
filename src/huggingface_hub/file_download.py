@@ -1548,6 +1548,7 @@ def _get_metadata_or_catch_error(
     commit_hash: Optional[str] = None
     expected_size: Optional[int] = None
     head_error_call: Optional[Exception] = None
+    xet_backed: bool = False
 
     # Try to get metadata from the server.
     # Do not raise yet if the file is not found or not accessible.
@@ -1595,13 +1596,15 @@ def _get_metadata_or_catch_error(
             if expected_size is None:
                 raise FileMetadataError("Distant resource does not have a Content-Length.")
 
+            xet_backed = metadata.xet_backed
+
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
             #
             # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
             # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
-            if metadata.xet_backed and url != metadata.location:
+            if xet_backed and url != metadata.location:
                 url_to_download = metadata.location
                 if urlparse(url).netloc != urlparse(metadata.location).netloc:
                     # Remove authorization header when downloading a LFS blob
@@ -1639,7 +1642,7 @@ def _get_metadata_or_catch_error(
     if not (local_files_only or etag is not None or head_error_call is not None):
         raise RuntimeError("etag is empty due to uncovered problems")
 
-    return (url_to_download, etag, commit_hash, expected_size, metadata.xet_backed, head_error_call)  # type: ignore [return-value]
+    return (url_to_download, etag, commit_hash, expected_size, xet_backed, head_error_call)  # type: ignore [return-value]
 
 
 def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, local_files_only: bool) -> NoReturn:
