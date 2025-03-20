@@ -1091,3 +1091,10 @@ class TestBillToOrganization:
             client = InferenceClient(bill_to="openai", headers=headers)
         assert client.headers["X-HF-Bill-To"] == "openai"
         assert headers == {"X-HF-Bill-To": "huggingface"}  # do not mutate the original headers
+
+    def test_warning_if_bill_to_with_direct_calls(self):
+        with pytest.warns(
+            UserWarning,
+            match="You've provided an external provider's API key, so requests will be billed directly by the provider.",
+        ):
+            InferenceClient(bill_to="openai", token="replicate_key", provider="replicate")
