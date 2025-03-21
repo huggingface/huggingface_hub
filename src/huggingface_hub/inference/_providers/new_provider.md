@@ -23,7 +23,11 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
         """Define high-level parameters."""
         super().__init__(provider=..., base_url=..., task=...)
 
-    def get_response(self, response: Union[bytes, Dict]) -> Any:
+    def get_response(
+        self,
+        response: Union[bytes, Dict],
+        request_params: Optional[RequestParameters] = None,
+    ) -> Any:
         """
         Return the response in the expected format.
 
@@ -37,7 +41,7 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
         """
         return super()._prepare_headers(headers, api_key)
 
-    def _prepare_route(self, mapped_model: str) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         """Return the route to use for the request.
 
         Override this method in subclasses for customized routes.
