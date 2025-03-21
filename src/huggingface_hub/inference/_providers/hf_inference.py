@@ -27,14 +27,12 @@ class HFInferenceTask(TaskProviderHelper):
         if model is not None and model.startswith(("http://", "https://")):
             return model
         if model is None:
-            model_id = _fetch_recommended_models().get(self.task)
-            if model_id is None:
-                raise ValueError(
-                    f"Task {self.task} has no recommended model for HF Inference. Please specify a model"
-                    " explicitly. Visit https://huggingface.co/tasks for more info."
-                )
-        else:
-            model_id = model
+        model_id = model if model is not None else _fetch_recommended_models().get(self.task)
+        if model_id is None:
+            raise ValueError(
+                f"Task {self.task} has no recommended model for HF Inference. Please specify a model"
+                " explicitly. Visit https://huggingface.co/tasks for more info."
+            )
         _check_supported_task(model_id, self.task)
         return model_id
 
