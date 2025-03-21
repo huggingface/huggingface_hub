@@ -144,6 +144,11 @@ def _check_supported_task(model: str, task: str) -> None:
                 return
             raise ValueError(f"Model '{model}' doesn't support task '{task}'.")
 
+    if pipeline_tag == "text2text-generation":
+        if task == "text-generation":
+            return
+        raise ValueError(f"Model '{model}' doesn't support task '{task}'.")
+
     if pipeline_tag == "image-text-to-text":
         if is_conversational and task == "conversational":
             return  # Only conversational allowed if tagged as conversational

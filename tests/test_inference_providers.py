@@ -568,6 +568,19 @@ class TestHFInferenceProvider:
                 "conversational",
                 True,
             ),
+            # text2text-generation only allowed for text-generation task
+            (
+                "text2text-generation",
+                [],
+                "text-generation",
+                False,
+            ),
+            (
+                "text2text-generation",
+                [],
+                "conversational",
+                True,
+            ),
             # Other tasks
             (
                 "audio-classification",
@@ -589,7 +602,6 @@ class TestHFInferenceProvider:
         mock_model_info = mocker.Mock(pipeline_tag=pipeline_tag, tags=tags)
         mocker.patch("huggingface_hub.hf_api.HfApi.model_info", return_value=mock_model_info)
 
-        _check_supported_task.cache_clear()
         if should_raise:
             with pytest.raises(ValueError):
                 _check_supported_task("test-model", task)

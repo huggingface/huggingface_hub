@@ -837,7 +837,13 @@ class TestHeadersAndCookies(TestBase):
 
     @patch("huggingface_hub.inference._client._bytes_to_image")
     @patch("huggingface_hub.inference._client.get_session")
-    def test_accept_header_image(self, get_session_mock: MagicMock, bytes_to_image_mock: MagicMock) -> None:
+    @patch("huggingface_hub.inference._providers.hf_inference._check_supported_task")
+    def test_accept_header_image(
+        self,
+        check_supported_task_mock: MagicMock,
+        get_session_mock: MagicMock,
+        bytes_to_image_mock: MagicMock,
+    ) -> None:
         """Test that Accept: image/png header is set for image tasks."""
         client = InferenceClient()
 
