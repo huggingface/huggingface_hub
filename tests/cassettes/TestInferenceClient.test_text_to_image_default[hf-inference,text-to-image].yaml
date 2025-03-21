@@ -1,5 +1,81 @@
 interactions:
 - request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - d23f6b08-70b0-46e2-85ee-0e6ba39e87cc
+    method: GET
+    uri: https://huggingface.co/api/models/CompVis/stable-diffusion-v1-4
+  response:
+    body:
+      string: '{"_id":"6300e0f58a4db6e9052953a8","id":"CompVis/stable-diffusion-v1-4","private":false,"pipeline_tag":"text-to-image","library_name":"diffusers","tags":["diffusers","safetensors","stable-diffusion","stable-diffusion-diffusers","text-to-image","arxiv:2207.12598","arxiv:2112.10752","arxiv:2103.00020","arxiv:2205.11487","arxiv:1910.09700","license:creativeml-openrail-m","autotrain_compatible","endpoints_compatible","diffusers:StableDiffusionPipeline","region:us"],"downloads":1155072,"likes":6729,"modelId":"CompVis/stable-diffusion-v1-4","author":"CompVis","sha":"133a221b8aa7292a167afc5127cb63fb5005638b","lastModified":"2023-08-23T21:15:42.000Z","gated":false,"disabled":false,"widgetData":[{"text":"A
+        high tech solarpunk utopia in the Amazon rainforest","example_title":"Amazon
+        rainforest"},{"text":"A pikachu fine dining with a view to the Eiffel Tower","example_title":"Pikachu
+        in Paris"},{"text":"A mecha robot in a favela in expressionist style","example_title":"Expressionist
+        robot"},{"text":"an insect robot preparing a delicious meal","example_title":"Insect
+        robot"},{"text":"A small cabin on top of a snowy mountain in the style of
+        Disney, artstation","example_title":"Snowy disney cabin"}],"model-index":null,"config":{"diffusers":{"_class_name":"StableDiffusionPipeline"}},"cardData":{"license":"creativeml-openrail-m","tags":["stable-diffusion","stable-diffusion-diffusers","text-to-image"],"widget":[{"text":"A
+        high tech solarpunk utopia in the Amazon rainforest","example_title":"Amazon
+        rainforest"},{"text":"A pikachu fine dining with a view to the Eiffel Tower","example_title":"Pikachu
+        in Paris"},{"text":"A mecha robot in a favela in expressionist style","example_title":"Expressionist
+        robot"},{"text":"an insect robot preparing a delicious meal","example_title":"Insect
+        robot"},{"text":"A small cabin on top of a snowy mountain in the style of
+        Disney, artstation","example_title":"Snowy disney cabin"}],"extra_gated_prompt":"This
+        model is open access and available to all, with a CreativeML OpenRAIL-M license
+        further specifying rights and usage.\nThe CreativeML OpenRAIL License specifies:
+        \n\n1. You can''t use the model to deliberately produce nor share illegal
+        or harmful outputs or content \n2. The authors claim no rights on the outputs
+        you generate, you are free to use them and are accountable for their use which
+        must not go against the provisions set in the license\n3. You may re-distribute
+        the weights and use the model commercially and/or as a service. If you do,
+        please be aware you have to include the same use restrictions as the ones
+        in the license and share a copy of the CreativeML OpenRAIL-M to all your users
+        (please read the license entirely and carefully)\nPlease read the full license
+        carefully here: https://huggingface.co/spaces/CompVis/stable-diffusion-license\n    ","extra_gated_heading":"Please
+        read the LICENSE to access this model"},"siblings":[{"rfilename":".gitattributes"},{"rfilename":"README.md"},{"rfilename":"feature_extractor/preprocessor_config.json"},{"rfilename":"model_index.json"},{"rfilename":"safety_checker/config.json"},{"rfilename":"safety_checker/model.fp16.safetensors"},{"rfilename":"safety_checker/model.safetensors"},{"rfilename":"safety_checker/pytorch_model.bin"},{"rfilename":"safety_checker/pytorch_model.fp16.bin"},{"rfilename":"scheduler/.ipynb_checkpoints/scheduler_config-checkpoint.json"},{"rfilename":"scheduler/scheduler_config.json"},{"rfilename":"text_encoder/config.json"},{"rfilename":"text_encoder/model.fp16.safetensors"},{"rfilename":"text_encoder/model.safetensors"},{"rfilename":"text_encoder/pytorch_model.bin"},{"rfilename":"text_encoder/pytorch_model.fp16.bin"},{"rfilename":"tokenizer/merges.txt"},{"rfilename":"tokenizer/special_tokens_map.json"},{"rfilename":"tokenizer/tokenizer_config.json"},{"rfilename":"tokenizer/vocab.json"},{"rfilename":"unet/config.json"},{"rfilename":"unet/diffusion_pytorch_model.bin"},{"rfilename":"unet/diffusion_pytorch_model.fp16.bin"},{"rfilename":"unet/diffusion_pytorch_model.fp16.safetensors"},{"rfilename":"unet/diffusion_pytorch_model.non_ema.bin"},{"rfilename":"unet/diffusion_pytorch_model.non_ema.safetensors"},{"rfilename":"unet/diffusion_pytorch_model.safetensors"},{"rfilename":"v1-variants-scores.jpg"},{"rfilename":"vae/config.json"},{"rfilename":"vae/diffusion_pytorch_model.bin"},{"rfilename":"vae/diffusion_pytorch_model.fp16.bin"},{"rfilename":"vae/diffusion_pytorch_model.fp16.safetensors"},{"rfilename":"vae/diffusion_pytorch_model.safetensors"}],"spaces":["stabilityai/stable-diffusion","microsoft/HuggingGPT","huggingface-projects/diffuse-the-rest","lnyan/stablediffusion-infinity","sd-concepts-library/stable-diffusion-conceptualizer","jiawei011/dreamgaussian","guoyww/AnimateDiff","flamehaze1115/Wonder3D-demo","editing-images/ledits","editing-images/leditsplusplus","fffiloni/LatentSync","microsoft/Promptist","Yntec/ToyWorld","multimodalart/stable-diffusion-inpainting","kadirnar/Video-Diffusion-WebUI","latentexplorers/latentnavigation-flux","fffiloni/stable-diffusion-img2img","aliabid94/AutoGPT","hakurei/waifu-diffusion-demo","fantaxy/Sound-AI-SFX","VAST-AI/CharacterGen","maxin-cn/Cinemo","wangfuyun/AnimateLCM","Vchitect/LaVie","huggingface-projects/stable-diffusion-latent-upscaler","declare-lab/mustango","Shuang59/Composable-Diffusion","ginipick/time-machine","turboedit/turbo_edit","albarji/mixture-of-diffusers","garibida/ReNoise-Inversion","xichenhku/MimicBrush","fffiloni/whisper-to-stable-diffusion","linoyts/edit_friendly_ddpm_inversion","Leoxing/PIA","Yntec/PrintingPress","ymzhang319/FoleyCrafter","nupurkmr9/custom-diffusion","XCLiu/InstaFlow","BestWishYsh/MagicTime","Tune-A-Video-library/Tune-A-Video-Training-UI","haodongli/Lotus_Normal","AttendAndExcite/Attend-and-Excite","TencentARC/ColorFlow","sled-umich/InfEdit","TianxingWu/FreeInit","declare-lab/tango2","baulab/ConceptSliders","Collov-Labs/d-edit","aiqtech/cinevid","haodongli/Lotus_Depth","jeasinema/UltraEdit-SD3","YueMafighting/FollowYourPose","LuChengTHU/dpmsolver_sdm","ID-Animator/ID-Animator","multimodalart/civitai-to-hf","kadirnar/Tune-A-Video","tight-inversion/tight-inversion","ginipick/Time-Stream","jiawei011/dreamgaussian4d","ELITE-library/ELITE","juancopi81/multilingual-stable-diffusion","Salesforce/EDICT","naver-ai/VisualStylePrompting","openskyml/dreamdrop-stable-diffusion","Nymbo/image_gen_supaqueue","baulab/SliderSpace","ennov8ion/3dart-Models","baulab/Erasing-Concepts-In-Diffusion","RamAnanth1/photoguard","fffiloni/imagic-stable-diffusion","longlian/llm-grounded-diffusion","kxic/EscherNet","phenixrhyder/NSFW-ToyWorld","rizavelioglu/tryoffdiff","TencentARC/MasaCtrl","fffiloni/speech-to-image","sanaweb/text-to-image","Yntec/blitz_diffusion","prs-eth/rollingdepth","rizavelioglu/vae-comparison","adaface-neurips/adaface-animate","DamarJati/Remove-watermark","ChenWu98/Stable-CycleDiffusion","weifeng-chen/Control-A-Video","TIGER-Lab/ConsistI2V","Huage001/LinFusion-SD-v1.5","Yiyuan/InteractiveVideo","chenyangqi/FateZero","fffiloni/AnimateDiff-Image-Init","naver-ai/VisualStylePrompting_Controlnet","GuyYariv/AudioToken","pix2pix-zero-library/pix2pix-zero-demo","Vedits/6x_Image_diffusion","ahmadbasyouni10/InspiraLens","ysharma/pix2pix-zero-01","TencentARC/ImageConductor","video-p2p-library/Video-P2P-Demo","nightfury/StableDiffusion-Img2Img","afmck/stable-diffusion-inpainting-segmentation"],"createdAt":"2022-08-20T13:26:13.000Z","inference":"warm","usedStorage":59631537390}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '7445'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 21 Mar 2025 12:14:06 GMT
+      ETag:
+      - W/"1d15-r7PCBmUJ9jp31RqAXVh6fIaaB9Y"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 4587dd93b6f56d2b3f35f25ef2cabe70.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - AbTT20UoJlRGs8X8E7Sz6t5V4Ec0zEKw5lM7XaFaoZFAhvJJ73Dv6g==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-67dd580e-1e13f4365ec5bd0935a6a31c;d23f6b08-70b0-46e2-85ee-0e6ba39e87cc
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+- request:
     body: '{"inputs": "An astronaut riding a horse on the moon.", "parameters": {}}'
     headers:
       Accept:
@@ -13,7 +89,7 @@ interactions:
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - 2ae8c157-0480-401a-bb20-d1c6c98a1a49
+      - 111de4cd-2fd0-4dad-9196-6b1f94fd3802
     method: POST
     uri: https://router.huggingface.co/hf-inference/models/CompVis/stable-diffusion-v1-4
   response:

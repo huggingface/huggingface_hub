@@ -1,5 +1,75 @@
 interactions:
 - request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - bb0168cc-7f1c-4d14-b411-41f64f5cc7b1
+    method: GET
+    uri: https://huggingface.co/api/models/jonatasgrosman/wav2vec2-large-xlsr-53-english
+  response:
+    body:
+      string: '{"_id":"621ffdc136468d709f17cdb3","id":"jonatasgrosman/wav2vec2-large-xlsr-53-english","private":false,"pipeline_tag":"automatic-speech-recognition","library_name":"transformers","tags":["transformers","pytorch","jax","safetensors","wav2vec2","automatic-speech-recognition","audio","en","hf-asr-leaderboard","mozilla-foundation/common_voice_6_0","robust-speech-event","speech","xlsr-fine-tuning-week","dataset:common_voice","dataset:mozilla-foundation/common_voice_6_0","doi:10.57967/hf/3569","license:apache-2.0","model-index","endpoints_compatible","region:us"],"downloads":18234759,"likes":466,"modelId":"jonatasgrosman/wav2vec2-large-xlsr-53-english","author":"jonatasgrosman","sha":"569a6236e92bd5f7652a0420bfe9bb94c5664080","lastModified":"2023-03-25T10:56:55.000Z","gated":false,"disabled":false,"model-index":[{"name":"XLSR
+        Wav2Vec2 English by Jonatas Grosman","results":[{"task":{"name":"Automatic
+        Speech Recognition","type":"automatic-speech-recognition"},"dataset":{"name":"Common
+        Voice en","type":"common_voice","args":"en"},"metrics":[{"name":"Test WER","type":"wer","value":19.06,"verified":false},{"name":"Test
+        CER","type":"cer","value":7.69,"verified":false},{"name":"Test WER (+LM)","type":"wer","value":14.81,"verified":false},{"name":"Test
+        CER (+LM)","type":"cer","value":6.84,"verified":false}]},{"task":{"name":"Automatic
+        Speech Recognition","type":"automatic-speech-recognition"},"dataset":{"name":"Robust
+        Speech Event - Dev Data","type":"speech-recognition-community-v2/dev_data","args":"en"},"metrics":[{"name":"Dev
+        WER","type":"wer","value":27.72,"verified":false},{"name":"Dev CER","type":"cer","value":11.65,"verified":false},{"name":"Dev
+        WER (+LM)","type":"wer","value":20.85,"verified":false},{"name":"Dev CER (+LM)","type":"cer","value":11.01,"verified":false}]}]}],"config":{"architectures":["Wav2Vec2ForCTC"],"model_type":"wav2vec2"},"cardData":{"language":"en","datasets":["common_voice","mozilla-foundation/common_voice_6_0"],"metrics":["wer","cer"],"tags":["audio","automatic-speech-recognition","en","hf-asr-leaderboard","mozilla-foundation/common_voice_6_0","robust-speech-event","speech","xlsr-fine-tuning-week"],"license":"apache-2.0","model-index":[{"name":"XLSR
+        Wav2Vec2 English by Jonatas Grosman","results":[{"task":{"name":"Automatic
+        Speech Recognition","type":"automatic-speech-recognition"},"dataset":{"name":"Common
+        Voice en","type":"common_voice","args":"en"},"metrics":[{"name":"Test WER","type":"wer","value":19.06,"verified":false},{"name":"Test
+        CER","type":"cer","value":7.69,"verified":false},{"name":"Test WER (+LM)","type":"wer","value":14.81,"verified":false},{"name":"Test
+        CER (+LM)","type":"cer","value":6.84,"verified":false}]},{"task":{"name":"Automatic
+        Speech Recognition","type":"automatic-speech-recognition"},"dataset":{"name":"Robust
+        Speech Event - Dev Data","type":"speech-recognition-community-v2/dev_data","args":"en"},"metrics":[{"name":"Dev
+        WER","type":"wer","value":27.72,"verified":false},{"name":"Dev CER","type":"cer","value":11.65,"verified":false},{"name":"Dev
+        WER (+LM)","type":"wer","value":20.85,"verified":false},{"name":"Dev CER (+LM)","type":"cer","value":11.01,"verified":false}]}]}]},"transformersInfo":{"auto_model":"AutoModelForCTC","pipeline_tag":"automatic-speech-recognition","processor":"AutoProcessor"},"siblings":[{"rfilename":".gitattributes"},{"rfilename":"README.md"},{"rfilename":"alphabet.json"},{"rfilename":"config.json"},{"rfilename":"eval.py"},{"rfilename":"flax_model.msgpack"},{"rfilename":"full_eval.sh"},{"rfilename":"language_model/attrs.json"},{"rfilename":"language_model/lm.binary"},{"rfilename":"language_model/unigrams.txt"},{"rfilename":"log_mozilla-foundation_common_voice_6_0_en_test_predictions.txt"},{"rfilename":"log_mozilla-foundation_common_voice_6_0_en_test_predictions_greedy.txt"},{"rfilename":"log_mozilla-foundation_common_voice_6_0_en_test_targets.txt"},{"rfilename":"log_speech-recognition-community-v2_dev_data_en_validation_predictions.txt"},{"rfilename":"log_speech-recognition-community-v2_dev_data_en_validation_predictions_greedy.txt"},{"rfilename":"log_speech-recognition-community-v2_dev_data_en_validation_targets.txt"},{"rfilename":"model.safetensors"},{"rfilename":"mozilla-foundation_common_voice_6_0_en_test_eval_results.txt"},{"rfilename":"mozilla-foundation_common_voice_6_0_en_test_eval_results_greedy.txt"},{"rfilename":"preprocessor_config.json"},{"rfilename":"pytorch_model.bin"},{"rfilename":"special_tokens_map.json"},{"rfilename":"speech-recognition-community-v2_dev_data_en_validation_eval_results.txt"},{"rfilename":"speech-recognition-community-v2_dev_data_en_validation_eval_results_greedy.txt"},{"rfilename":"vocab.json"}],"spaces":["bertin-project/bertin-gpt-j-6B","Gradio-Blocks/Alexa-NLU-Clone","qanastek/Alexa-NLU-Clone","Gradio-Blocks/poor-mans-duplex","awacke1/ASR-High-Accuracy-Test","trysem/Spleeter_and_ASR","Detomo/audio-stream-translate","yashsrivastava/speech-to-text-yash","RealTimeLiveAIForHealth/ASR-High-Accuracy-Test","manmeetkaurbaxi/YouTube-Video-Summarizer","baaastien/Spleeter_and_ASR","GeekedReals/jonatasgrosman-wav2vec2-large-xlsr-53-english","Charles95/gradio-tasks","Gna1L/jonatasgrosman-wav2vec2-large-xlsr-53-english","Mintiny/Customer_Review_Audio_Analysis","awacke1/STT-TTS-ASR-AI-NLP-Pipeline","Detomo/audio-translate","Amrrs/yt-video-summarizer","JPLTedCas/TedCasSpeechRecognition","stanciu/jonatasgrosman-wav2vec2-large-xlsr-53-english","raunak627887/jonatasgrosman-wav2vec2-large-xlsr-53-english","Hrsh-Venket/Corrected-Speech-to-Text","Rhyolite/jonatasgrosman-wav2vec2-large-xlsr-53-english","Grepper/jonatasgrosman-wav2vec2-large-xlsr-53-english","Yarumo/jonatasgrosman-wav2vec2-large-xlsr-53-english","jbraun19/ASR-High-Accuracy-Test","sankalphimself/pitchpal","Rajab123/jonatasgrosman-wav2vec2-large-xlsr-53-english","SteeleN1/jonatasgrosman-wav2vec2-large-xlsr-53-english","melazab1/jonatasgrosman-wav2vec2-large-xlsr-53-english","amaamas/jonatasgrosman-wav2vec2-large-xlsr-53-english","Gearijigu/jonatasgrosman-wav2vec2-large-xlsr-53-english","sebasjm/jonatasgrosman-wav2vec2-large-xlsr-53-english","codetopolymath/jonatasgrosman-wav2vec2-large-xlsr-53-english","lingdai/jonatasgrosman-wav2vec2-large-xlsr-53-english","nabdtran/jonatasgrosman-wav2vec2-large-xlsr-53-english","NourAlmolhem/jonatasgrosman-wav2vec2-large-xlsr-53-english","leetik/jonatasgrosman-wav2vec2-large-xlsr-53-english","mastere00/jonatasgrosman-wav2vec2-large-xlsr-53-english","pragyachik/jonatasgrosman-wav2vec2-large-xlsr-53-english","shubhsnow/jonatasgrosman-wav2vec2-large-xlsr-53-english","kushiel/jonatasgrosman-wav2vec2-large-xlsr-53-english","adarsh8986/jonatasgrosman-wav2vec2-large-xlsr-53-english","Baghdad99/eng-to-hau","Akkaris/jonatasgrosman-wav2vec2-large-xlsr-53-english","Baghdad99/english-to-hausa","anonymous4me/jonatasgrosman-wav2vec2-large-xlsr-53-english","LEWOPO/Voice_to_Text","Nikhil0987/speechrecho","neridonk/jonatasgrosman-wav2vec2-large-xlsr-53-english","ganeshkamath89/gradio-huggingface-pipeline-tasks-demo-all","quangnhan145/jonatasgrosman-wav2vec2-large-xlsr-53-english-demo-app","niveone/jonatasgrosman-wav2vec2-large-xlsr-53-english","dincali/jonatasgrosman-wav2vec2-large-xlsr-53-english","oryxsoftware/speech-to-text","Shashwat2528/Avishkaarak-ekta-new-audio","AVISHKAARAM/avishkarak-ekta-audio","IES-Rafael-Alberti/AudioToText","Mahmoud2020220/jonatasgrosman-wav2vec2-large-xlsr-53-english","saronium/jonatasgrosman-wav2vec2-large-xlsr-53-english","trizzzy/jonatasgrosman-wav2vec2-large-xlsr-53-english","guna-entrans/jonatasgrosman-wav2vec2-large-xlsr-53-english","pmiguelpds/jonatasgrosman-wav2vec2-large-xlsr-53-english","LordCoffee/transcript","manohar025/video-summarizer","maan2605/Youtube_Video_Summarizer_using_ASR","ABIDFAYAZ/meeting-transcription","derrideanlils/jonatasgrosman-wav2vec2-large-xlsr-53-english","saud-altuwaijri/demo4","Durganihantri/AI-Child-Behavior-Assessment","65rted6tfdjhgfjyrf/Gibberish-transcribr","aicodingfun/Alexa-NLU-Clone"],"createdAt":"2022-03-02T23:29:05.000Z","safetensors":{"parameters":{"F32":315472545},"total":315472545},"inference":"warm","usedStorage":7177619310}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '8113'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 21 Mar 2025 11:29:30 GMT
+      ETag:
+      - W/"1fb1-kJSNr/PIoqRzIeGGFb80dxk+xKs"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 02ee9ebd8a83522edf11335f04975776.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - lUVe7zu2SXod2amCAy6NI4WliBYareXEaVPdf4NCasTTA5C5P_dj-Q==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-67dd4d9a-2b095a0137b6d23f0720dd7b;bb0168cc-7f1c-4d14-b411-41f64f5cc7b1
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+- request:
     body: !!binary |
       ZkxhQwAAACIQABAAAAGOABkSA+gA8AABIqDeyGtH35+dVPygWCFAFS5GAwAAEgAAAAAAAAAAAAAA
       AAAAAAAQAAQAACggAAAAcmVmZXJlbmNlIGxpYkZMQUMgMS4yLjEgMjAwNzA5MTcAAAAAgQAgAAAA
@@ -1666,7 +1736,7 @@ interactions:
       Content-Length:
       - '94321'
       X-Amzn-Trace-Id:
-      - 3d462b35-26a7-4c68-959b-f6a7d0301caf
+      - d3d22a44-b253-43a2-8f4f-6a20b5aee642
     method: POST
     uri: https://router.huggingface.co/hf-inference/models/jonatasgrosman/wav2vec2-large-xlsr-53-english
   response:
@@ -1675,40 +1745,48 @@ interactions:
     headers:
       Access-Control-Allow-Origin:
       - '*'
-      Access-Control-Expose-Headers:
-      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
       Connection:
       - keep-alive
-      Content-Length:
-      - '49'
       Content-Type:
       - application/json
       Date:
-      - Thu, 13 Feb 2025 15:49:08 GMT
+      - Fri, 21 Mar 2025 11:29:31 GMT
       Referrer-Policy:
       - strict-origin-when-cross-origin
+      Transfer-Encoding:
+      - chunked
       Via:
-      - 1.1 fba88aca5f6c32c13257a59071f94248.cloudfront.net (CloudFront)
+      - 1.1 6676a739f016238678e391e91007cc98.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - Ae6o7enRbofgvT3JVME57ywv8zStyC4fsspyhh_4QrpEvLi6ZYwLWA==
+      - hu8tduAfzg-IW6ZBolY67qPKbBnahkp3CYwuCBoJkR3u3Wn2BHygvQ==
       X-Amz-Cf-Pop:
       - CDG55-P3
       X-Cache:
       - Miss from cloudfront
       X-Powered-By:
       - huggingface-moon
+      X-Robots-Tag:
+      - none
       access-control-allow-credentials:
       - 'true'
+      access-control-expose-headers:
+      - x-compute-type, x-compute-time
       cross-origin-opener-policy:
       - same-origin
+      server:
+      - uvicorn
       vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-audio-length:
+      - '4.65'
       x-compute-time:
-      - '0.638'
+      - '0.712'
       x-compute-type:
-      - cache
+      - cpu
+      x-inference-id:
+      - EUm9ZEn7NXWqjizXKR6bM
       x-request-id:
-      - Root=1-67ae1474-43a45db64b62db6251089c0d;3d462b35-26a7-4c68-959b-f6a7d0301caf
+      - Root=1-67dd4d9a-28cb8d3e43da94102f4cd965;d3d22a44-b253-43a2-8f4f-6a20b5aee642
       x-sha:
       - 569a6236e92bd5f7652a0420bfe9bb94c5664080
     status:

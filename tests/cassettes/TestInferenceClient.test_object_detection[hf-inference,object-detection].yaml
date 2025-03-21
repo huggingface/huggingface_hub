@@ -1,5 +1,59 @@
 interactions:
 - request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - facab8f4-1868-4f3b-be95-8b944c223f68
+    method: GET
+    uri: https://huggingface.co/api/models/facebook/detr-resnet-50
+  response:
+    body:
+      string: '{"_id":"621ffdc136468d709f17ade3","id":"facebook/detr-resnet-50","private":false,"pipeline_tag":"object-detection","library_name":"transformers","tags":["transformers","pytorch","safetensors","detr","object-detection","vision","dataset:coco","arxiv:2005.12872","license:apache-2.0","endpoints_compatible","region:us"],"downloads":1089904,"likes":837,"modelId":"facebook/detr-resnet-50","author":"facebook","sha":"1d5f47bd3bdd2c4bbfa585418ffe6da5028b4c0b","lastModified":"2024-04-10T13:56:31.000Z","gated":false,"disabled":false,"widgetData":[{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg","example_title":"Savanna"},{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg","example_title":"Football
+        Match"},{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/airport.jpg","example_title":"Airport"}],"model-index":null,"config":{"architectures":["DetrForObjectDetection"],"model_type":"detr"},"cardData":{"license":"apache-2.0","tags":["object-detection","vision"],"datasets":["coco"],"widget":[{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg","example_title":"Savanna"},{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg","example_title":"Football
+        Match"},{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/airport.jpg","example_title":"Airport"}]},"transformersInfo":{"auto_model":"AutoModelForObjectDetection","pipeline_tag":"object-detection","processor":"AutoImageProcessor"},"siblings":[{"rfilename":".gitattributes"},{"rfilename":"README.md"},{"rfilename":"config.json"},{"rfilename":"model.safetensors"},{"rfilename":"preprocessor_config.json"},{"rfilename":"pytorch_model.bin"}],"spaces":["Gradio-Blocks/Object-Detection-With-DETR-and-YOLOS","ClassCat/DETR-Object-Detection","achterbrain/Intel-Generative-Image-Dashboard","kartik91/Image-To-Story","nateraw/detr-object-detection","CVPR/Object-Detection-With-DETR-and-YOLOS","LuckRafly/Chat-with-an-Image-GeminiAI","XAI/PEEB","Vishaltiwari2019/Object-Detection-with-NLP","Jangai/Describer","Taizun/Object-detection","UmairSyed/ObjectDetection","khizon/ActiveTransportDetection","dschandra/OutFits_On_Me","Tanapol/object_detection","Soumen/transform_image","radames/hello-huggingface.js","eddie5389/Object-Detection-With-DETR-and-YOLOS","beingcognitive/segmentation_w_object_detection","moyanxinxu/video-object-detect-detr-bytetrack","madhawavish/facebook-detr-resnet-50","ThisHumanA/Art-of-Visual-Storytelling","ayush200399391001/Video_Manipulation_detection","BarBar288/Chatbot","danielHora/Object_Detection_for_Self-Checkout_Stores","ayaanzaveri/detr","Epitech/Object-Detection","autumn8/selectModel","KaygNas/cut-it","chethu/Image_Whisper","Charles95/gradio-tasks","captain-awesome/Image_object_detection","orYx-models/object-detection-facebook-ResNets","Frantz103/CaptionQuest","spritlesoftware/Image-Object-Detection","dioarafl/objectDetection","GenAILearniverse/object-detector","grostaco/IRRA","Mahaveer3435/facebook-detr-resnet-50","apratim24/Object_Detector","eldavid/quantificar","ZahraAlebouye/HaveFunWithGenAI","Msaqibsharif/InteriorRedesign","fofo5019/Recette","BenK0y/RADARPICKv3","123LETSPLAY/iforgot","arssite/Object_Detector_with_Audio","Shamhoon2002/objectdetection","Audecity-sid/SnapAsk","ANASAKHTAR/Object_Detection","ANASAKHTAR/Object_detection_from_Video","ANASAKHTAR/Object_Detector_with_Audio","xrwang8/facebook-detr-resnet-50333","Wei-Meng/ObjectDetectionApp","BarBar288/AI_Tools","Arun2064/ObjectDetector","iamkb/zsod","nicolaleo/repo","EVad/DETR_object_detection_simple_tuto","Stuti/detect-for-drone","supermy/Object-Detection","mr2742/facebook","Nilantha/OD-AugLy","torehan/facebook-detr-resnet-50","RayanRen/Object_detection_202","mahev/facebook-detr-resnet-50","Erion23/ObjectDetectionEx1","erhansholla/Exercise1","mr2742/fb_test","mr2742/facebook-detr-resnet-50","calvin225800/facebook-detr-resnet-50","ismot/8testiaa5","aaravlovescodes/facebook-detr-resnet-50","djenandji/facebook-detr-resnet-50","charly32177/hustvl-yolos-tiny-by","niksen4499/object_detection","awacke1/Image-Classifier-facebook-detr-resnet-50","risekid/imageProcess","jagriti/object_detection","SivaResearch/OpenSourceObjectDetectionModelComparision","eagle-eye/facebook-detr-resnet-50","dperales/Object-Detection-With-DETR-and-YOLOS","Riley-x/facebook-detr-resnet-50","taroii/taroii-notfinetuned-detr-50","kellyxiaowei/Octopus_chat_anything_Public","freddyaboulton/facebook-detr-resnet-50","taroii/taroii-finetuned-detr-50","taroii/Guy2-AirportSec-100epoch","Guy2/Guy2-AirportSec-100epoch","Guy2/Guy2-AirportSec-150epoch","GoliPass/ImageObjectDetectionV01","fdsgr/facebook-detr-resnet-50","amelieav/test-space","Venadoingenieria/IA1","Venadoingenieria/IAD1","7jimmy/ask_to_Image","Tas667/facebook-detr-resnet-50","DexterSptizu/ObjectDetection","mskrishna/facebook-detr-resnet-50","Palakshi/object_detection"],"createdAt":"2022-03-02T23:29:05.000Z","safetensors":{"parameters":{"F32":41631008},"total":41631008},"inference":"warm","usedStorage":835779962}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '5117'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 21 Mar 2025 11:19:46 GMT
+      ETag:
+      - W/"13fd-NAmIHzfV3GVHbKMwnzcCwAd7+nw"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 aad5d23429e63574c684a22d6a0313f0.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - TnlYCLZ95_SlUeE-QAjuz_GApG_5EAivrayUeokkddOP5StFqA6TUg==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-67dd4b52-17b8241613d9b7db6d8eb5f2;facab8f4-1868-4f3b-be95-8b944c223f68
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+- request:
     body: !!binary |
       iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAQAAABecRxxAAEAAElEQVR4nOz9WbMleZbdh/18PsO9
       N6bMGhoNohsCQQqkaTLTg76uPoheKSMpyUwUSSMaAMHu6qrKIYY7nMFnPay13KM+AzrKOjszIu45
@@ -3487,31 +3541,57 @@ interactions:
       Content-Length:
       - '198109'
       X-Amzn-Trace-Id:
-      - 9c911dc3-a1c1-4a89-8596-3c4a5ea6782c
+      - 29469529-2810-431e-83db-425fbabeaf4c
     method: POST
     uri: https://router.huggingface.co/hf-inference/models/facebook/detr-resnet-50
   response:
     body:
       string: '[{"score":0.9486680030822754,"label":"person","box":{"xmin":59,"ymin":39,"xmax":420,"ymax":510}},{"score":0.5733323693275452,"label":"umbrella","box":{"xmin":143,"ymin":4,"xmax":510,"ymax":387}},{"score":0.5082724094390869,"label":"person","box":{"xmin":60,"ymin":162,"xmax":413,"ymax":510}}]'
     headers:
+      Access-Control-Allow-Origin:
+      - '*'
       Connection:
       - keep-alive
-      Content-Length:
-      - '292'
       Content-Type:
       - application/json
       Date:
-      - Wed, 22 Jan 2025 14:26:14 GMT
+      - Fri, 21 Mar 2025 11:19:49 GMT
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Transfer-Encoding:
+      - chunked
+      Via:
+      - 1.1 65030762b8d1af27ce4daec708a0d3d6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - pPSyWa0ZO__jTXoweF2J_0T12XfTKVfA3qu2jwXugcQ69mm9APpFlA==
+      X-Amz-Cf-Pop:
+      - CDG55-P3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Robots-Tag:
+      - none
       access-control-allow-credentials:
       - 'true'
+      access-control-expose-headers:
+      - x-compute-type, x-compute-time
+      cross-origin-opener-policy:
+      - same-origin
+      server:
+      - uvicorn
       vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-characters:
+      - '-1'
       x-compute-time:
-      - '0.766'
+      - '1.255'
       x-compute-type:
-      - cache
+      - cpu
+      x-inference-id:
+      - ZebzT_qOF5BNUv3SBHJGW
       x-request-id:
-      - QkTx71HeO9_PhbZH0O_x_
+      - Root=1-67dd4b52-203d9c7f02767a1c61f93d5a;29469529-2810-431e-83db-425fbabeaf4c
       x-sha:
       - 1d5f47bd3bdd2c4bbfa585418ffe6da5028b4c0b
     status:
