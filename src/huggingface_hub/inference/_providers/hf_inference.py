@@ -24,15 +24,14 @@ class HFInferenceTask(TaskProviderHelper):
         return api_key or get_token()  # type: ignore[return-value]
 
     def _prepare_mapped_model(self, model: Optional[str]) -> str:
-        if model is not None:
-            return model
-        model = _fetch_recommended_models().get(self.task)
-        if model is None:
+        model_id = model or _fetch_recommended_models().get(self.task)
+        mapped_model = super()._prepare_mapped_model(model_id)
+        if mapped_model is None:
             raise ValueError(
                 f"Task {self.task} has no recommended model for HF Inference. Please specify a model"
                 " explicitly. Visit https://huggingface.co/tasks for more info."
             )
-        return model
+        return mapped_model
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
         # hf-inference provider can handle URLs (e.g. Inference Endpoints or TGI deployment)
