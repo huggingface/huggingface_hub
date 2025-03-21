@@ -523,20 +523,20 @@ class TestHFInferenceProvider:
     @pytest.mark.parametrize(
         "pipeline_tag,tags,task,should_raise",
         [
-            # text-generation + no conversational tag
+            # text-generation + no conversational tag -> only text-generation allowed
             (
                 "text-generation",
                 [],
                 "text-generation",
                 False,
-            ),  # text-generation allowed
+            ),
             (
                 "text-generation",
                 [],
                 "conversational",
                 True,
             ),
-            # text-generation + conversational tag
+            # text-generation + conversational tag -> both tasks allowed
             (
                 "text-generation",
                 ["conversational"],
