@@ -114,7 +114,6 @@ from ._xet import (
     fetch_xet_metadata_from_repo_info,
     get_xet_metadata_from_hash,
     parse_xet_headers,
-    parse_xet_json,
     refresh_xet_metadata,
 )
 from .tqdm import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars, tqdm, tqdm_stream_file

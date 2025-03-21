@@ -7,45 +7,8 @@ from huggingface_hub.utils._xet import (
     XetMetadata,
     _fetch_xet_metadata_with_url,
     parse_xet_headers,
-    parse_xet_json,
     refresh_xet_metadata,
 )
-
-
-def test_parse_valid_json_minimal() -> None:
-    json = {
-        "X-Xet-Cas-Url": "https://xet.example.com",
-        "X-Xet-Access-Token": "xet_token_abc",
-        "X-Xet-Token-Expiration": "1234567890",
-    }
-
-    metadata = parse_xet_json(json)
-
-    assert metadata is not None
-    assert metadata.endpoint == "https://xet.example.com"
-    assert metadata.access_token == "xet_token_abc"
-    assert metadata.expiration_unix_epoch == 1234567890
-    assert metadata.refresh_route is None
-    assert metadata.file_hash is None
-
-
-def test_parse_valid_json_full() -> None:
-    json = {
-        "X-Xet-Cas-Url": "https://xet.example.com",
-        "X-Xet-Access-Token": "xet_token_abc",
-        "X-Xet-Token-Expiration": "1234567890",
-        "X-Xet-Refresh-Route": "/api/refresh",
-        "X-Xet-Hash": "sha256:abcdef",
-    }
-
-    metadata = parse_xet_json(json)
-
-    assert metadata is not None
-    assert metadata.endpoint == "https://xet.example.com"
-    assert metadata.access_token == "xet_token_abc"
-    assert metadata.expiration_unix_epoch == 1234567890
-    assert metadata.refresh_route == "/api/refresh"
-    assert metadata.file_hash == "sha256:abcdef"
 
 
 def test_parse_valid_headers_minimal() -> None:

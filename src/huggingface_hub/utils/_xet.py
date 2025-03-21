@@ -20,35 +20,6 @@ class XetMetadata:
     file_hash: Optional[str] = None
 
 
-def parse_xet_json(json: Dict[str, str]) -> Optional[XetMetadata]:
-    """
-    Parse XET metadata from a JSON object or return None if not found.
-
-    Args:
-        json (`Dict`):
-            JSON object to extract the XET metadata from.
-    Returns:
-        `XetMetadata` or `None`:
-            The metadata needed to make the request to the xet storage service.
-            Returns `None` if the JSON object does not contain the XET metadata.
-    """
-    # endpoint, access_token and expiration are required
-    try:
-        endpoint = json[constants.HUGGINGFACE_HEADER_X_XET_ENDPOINT]
-        access_token = json[constants.HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN]
-        expiration_unix_epoch = int(json[constants.HUGGINGFACE_HEADER_X_XET_EXPIRATION])
-    except (KeyError, ValueError, TypeError):
-        return None
-
-    return XetMetadata(
-        endpoint=endpoint,
-        access_token=access_token,
-        expiration_unix_epoch=expiration_unix_epoch,
-        refresh_route=json.get(constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE),
-        file_hash=json.get(constants.HUGGINGFACE_HEADER_X_XET_HASH),
-    )
-
-
 def parse_xet_headers(headers: Dict[str, str]) -> Optional[XetMetadata]:
     """
     Parse XET metadata from the HTTP headers or return None if not found.
@@ -84,6 +55,19 @@ def build_xet_refresh_route(
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
 ) -> str:
+    """
+    Builds the xet refresh route for the given repo info.
+
+    Args:
+        repo_id (`str`):
+            A namespace (user or an organization) name and a repo name separated
+            by a `/`.
+        repo_type (`str`, `optional`):
+            Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
+        revision (`str`, `optional`):
+            The resolved revision of the repo to get the token for. This either needs
+            to be a commit hash or a branch name.
+    """
     if repo_type not in constants.REPO_TYPES:
         raise ValueError("Invalid repo type")
 
@@ -104,6 +88,21 @@ def get_xet_metadata_from_hash(
     headers: Dict[str, str],
     endpoint: Optional[str] = None,
 ) -> XetMetadata:
+    """
+    Gets the rest of the xet metadata from the hash using the supplied
+    refresh route.
+
+    Args:
+        xet_hash (`str`):
+            The hash of the file to get the xet metadata for.
+        refresh_route (`str`):
+            The endpoint to use to refresh the xet metadata.
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
+        endpoint (`str`, `optional`):
+            The endpoint to use for the request. Defaults to the Hub endpoint.
+    """
+
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
     url = f"{endpoint}{refresh_route}"
     metadata = _fetch_xet_metadata_with_url(url, headers)
