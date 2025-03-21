@@ -711,10 +711,7 @@ class TestNovitaProvider:
 class TestOpenAIProvider:
     def test_prepare_url(self):
         helper = OpenAIConversationalTask()
-        assert (
-            helper._prepare_url("sambanova_token", "username/repo_name")
-            == "https://api.sambanova.ai/v1/chat/completions"
-        )
+        assert helper._prepare_url("sk-XXXXXX", "gpt-4o-mini") == "https://api.openai.com/v1/chat/completions"
 
 
 class TestReplicateProvider:

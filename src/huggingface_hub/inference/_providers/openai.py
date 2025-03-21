@@ -18,5 +18,5 @@ class OpenAIConversationalTask(BaseConversationalTask):
 
     def _prepare_mapped_model(self, model: Optional[str]) -> str:
         if model is None:
-            raise ValueError("Please provide an OpenAI model ID.")
+            raise ValueError("Please provide an OpenAI model ID, e.g. `gpt-4o` or `o1`.")
         return model
