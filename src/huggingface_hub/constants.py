@@ -114,10 +114,12 @@ WEBHOOK_DOMAIN_T = Literal["repo", "discussions"]
 
 # default cache
 default_home = os.path.join(os.path.expanduser("~"), ".cache")
-HF_HOME = os.path.expanduser(
-    os.getenv(
-        "HF_HOME",
-        os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "huggingface"),
+HF_HOME = os.path.expandvars(
+    os.path.expanduser(
+        os.getenv(
+            "HF_HOME",
+            os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "huggingface"),
+        )
     )
 )
 hf_cache_home = HF_HOME  # for backward compatibility. TODO: remove this in 1.0.0
@@ -130,8 +132,22 @@ HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
 HUGGINGFACE_ASSETS_CACHE = os.getenv("HUGGINGFACE_ASSETS_CACHE", default_assets_cache_path)
 
 # New env variables
-HF_HUB_CACHE = os.getenv("HF_HUB_CACHE", HUGGINGFACE_HUB_CACHE)
-HF_ASSETS_CACHE = os.getenv("HF_ASSETS_CACHE", HUGGINGFACE_ASSETS_CACHE)
+HF_HUB_CACHE = os.path.expandvars(
+    os.path.expanduser(
+        os.getenv(
+            "HF_HUB_CACHE",
+            HUGGINGFACE_HUB_CACHE,
+        )
+    )
+)
+HF_ASSETS_CACHE = os.path.expandvars(
+    os.path.expanduser(
+        os.getenv(
+            "HF_ASSETS_CACHE",
+            HUGGINGFACE_ASSETS_CACHE,
+        )
+    )
+)
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
 
@@ -146,7 +162,14 @@ HF_HUB_DISABLE_TELEMETRY = (
     or _is_true(os.environ.get("DO_NOT_TRACK"))  # https://consoledonottrack.com/
 )
 
-HF_TOKEN_PATH = os.environ.get("HF_TOKEN_PATH", os.path.join(HF_HOME, "token"))
+HF_TOKEN_PATH = os.path.expandvars(
+    os.path.expanduser(
+        os.getenv(
+            "HF_TOKEN_PATH",
+            os.path.join(HF_HOME, "token"),
+        )
+    )
+)
 HF_STORED_TOKENS_PATH = os.path.join(os.path.dirname(HF_TOKEN_PATH), "stored_tokens")
 
 if _staging_mode:

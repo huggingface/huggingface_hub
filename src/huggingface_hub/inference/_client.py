@@ -315,33 +315,32 @@ class InferenceClient:
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        while True:
-            with _open_as_binary(request_parameters.data) as data_as_binary:
-                try:
-                    response = get_session().post(
-                        request_parameters.url,
-                        json=request_parameters.json,
-                        data=data_as_binary,
-                        headers=request_parameters.headers,
-                        cookies=self.cookies,
-                        timeout=self.timeout,
-                        stream=stream,
-                        proxies=self.proxies,
-                    )
-                except TimeoutError as error:
-                    # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                    raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
-
+        with _open_as_binary(request_parameters.data) as data_as_binary:
             try:
-                hf_raise_for_status(response)
-                return response.iter_lines() if stream else response.content
-            except HTTPError as error:
-                if error.response.status_code == 422 and request_parameters.task != "unknown":
-                    msg = str(error.args[0])
-                    if len(error.response.text) > 0:
-                        msg += f"\n{error.response.text}\n"
-                    error.args = (msg,) + error.args[1:]
-                raise
+                response = get_session().post(
+                    request_parameters.url,
+                    json=request_parameters.json,
+                    data=data_as_binary,
+                    headers=request_parameters.headers,
+                    cookies=self.cookies,
+                    timeout=self.timeout,
+                    stream=stream,
+                    proxies=self.proxies,
+                )
+            except TimeoutError as error:
+                # Convert any `TimeoutError` to a `InferenceTimeoutError`
+                raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
+
+        try:
+            hf_raise_for_status(response)
+            return response.iter_lines() if stream else response.content
+        except HTTPError as error:
+            if error.response.status_code == 422 and request_parameters.task != "unknown":
+                msg = str(error.args[0])
+                if len(error.response.text) > 0:
+                    msg += f"\n{error.response.text}\n"
+                error.args = (msg,) + error.args[1:]
+            raise
 
     def audio_classification(
         self,
