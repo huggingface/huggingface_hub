@@ -1444,8 +1444,8 @@ def _get_metadata_or_catch_error(
     # Either an exception is caught and returned
     Tuple[None, None, None, None, None, Exception],
     # Or the metadata is returned as
-    # `(url_to_download, etag, commit_hash, expected_size, xet_hash, None)`
-    Tuple[str, str, str, int, str, None],
+    # `(url_to_download, etag, commit_hash, expected_size, xet_file_data, None)`
+    Tuple[str, str, str, int, Optional[XetFileData], None],
 ]:
     """Get metadata for a file on the Hub, safely handling network issues.
 
