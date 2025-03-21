@@ -37,6 +37,7 @@ from .utils import (
     OfflineModeIsEnabled,
     SoftTemporaryDirectory,
     WeakFileLock,
+    XetFileData,
     build_hf_headers,
     get_fastai_version,  # noqa: F401 # for backward compatibility
     get_fastcore_version,  # noqa: F401 # for backward compatibility
@@ -46,7 +47,6 @@ from .utils import (
     get_session,
     get_tf_version,  # noqa: F401 # for backward compatibility
     get_torch_version,  # noqa: F401 # for backward compatibility
-    get_xet_metadata_from_file_data,
     hf_raise_for_status,
     is_fastai_available,  # noqa: F401 # for backward compatibility
     is_fastcore_available,  # noqa: F401 # for backward compatibility
@@ -60,7 +60,6 @@ from .utils import (
     refresh_xet_connection_info,
     reset_sessions,
     tqdm,
-    XetFileData,
     validate_hf_hub_args,
 )
 from .utils._http import _adjust_range_header
@@ -545,16 +544,16 @@ def xet_get(
             "Try `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`."
         )
 
-    xet_metadata = get_xet_metadata_from_file_data(xet_file_data=xet_file_data, headers=headers)
+    connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
 
     def token_refresher() -> Tuple[str, int]:
-        new_xet_metadata = refresh_xet_connection_info(refresh_route=xet_metadata.file_data.refresh_route, headers=headers)
-        if new_xet_metadata is None:
+        connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
+        if connection_info is None:
             raise ValueError("Failed to refresh token using xet metadata.")
-        return new_xet_metadata.connection_info.access_token, new_xet_metadata.connection_info.expiration_unix_epoch
+        return connection_info.access_token, connection_info.expiration_unix_epoch
 
     pointer_files = [
-        PyPointerFile(path=str(incomplete_path.absolute()), hash=xet_metadata.file_data.file_hash, filesize=expected_size)
+        PyPointerFile(path=str(incomplete_path.absolute()), hash=xet_file_data.file_hash, filesize=expected_size)
     ]
 
     if not displayed_filename:
@@ -580,8 +579,8 @@ def xet_get(
 
         download_files(
             pointer_files,
-            endpoint=xet_metadata.connection_info.endpoint,
-            token_info=(xet_metadata.connection_info.access_token, xet_metadata.connection_info.expiration_unix_epoch),
+            endpoint=connection_info.endpoint,
+            token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
             token_refresher=token_refresher,
             progress_updater=[progress_updater],
         )
@@ -1523,7 +1522,7 @@ def _get_metadata_or_catch_error(
             if expected_size is None:
                 raise FileMetadataError("Distant resource does not have a Content-Length.")
 
-            xet_file_data= metadata.xet_file_data
+            xet_file_data = metadata.xet_file_data
 
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed

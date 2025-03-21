@@ -5,25 +5,24 @@ from typing import Dict, Optional
 from .. import constants
 from . import get_session, hf_raise_for_status, validate_hf_hub_args
 
+
 class XetTokenType(str, Enum):
     READ = "read"
     WRITE = "write"
 
+
 @dataclass(frozen=True)
 class XetFileData:
     file_hash: str
-    refresh_route: str 
+    refresh_route: str
+
 
 @dataclass(frozen=True)
 class XetConnectionInfo:
     access_token: str
     expiration_unix_epoch: int
-    endpoint: str 
+    endpoint: str
 
-@dataclass(frozen=True)
-class XetMetadata:
-    file_data: XetFileData
-    connection_info: XetConnectionInfo
 
 def parse_xet_file_data_from_headers(headers: Dict[str, str]) -> Optional[XetFileData]:
     """
@@ -33,7 +32,7 @@ def parse_xet_file_data_from_headers(headers: Dict[str, str]) -> Optional[XetFil
            HTTP headers to extract the XET metadata from.
     Returns:
         `XetFileData` or `None`:
-            The metadata needed for a file download. 
+            The metadata needed for a file download.
             Returns `None` if the headers do not contain the xet file metadata.
     """
     try:
@@ -47,6 +46,7 @@ def parse_xet_file_data_from_headers(headers: Dict[str, str]) -> Optional[XetFil
         refresh_route=refresh_route,
     )
 
+
 def parse_xet_connection_info_from_headers(headers: Dict[str, str]) -> Optional[XetConnectionInfo]:
     """
     Parse XET connection info from the HTTP headers or return None if not found.
@@ -55,7 +55,7 @@ def parse_xet_connection_info_from_headers(headers: Dict[str, str]) -> Optional[
            HTTP headers to extract the XET metadata from.
     Returns:
         `XetConnectionInfo` or `None`:
-            The information needed to connect to the XET storage service. 
+            The information needed to connect to the XET storage service.
             Returns `None` if the headers do not contain the XET connection info.
     """
     try:
@@ -73,69 +73,40 @@ def parse_xet_connection_info_from_headers(headers: Dict[str, str]) -> Optional[
 
 
 @validate_hf_hub_args
-def get_xet_metadata_from_file_data(
-    *,
-    xet_file_data: XetFileData,
-    headers: Dict[str, str],
-    endpoint: Optional[str] = None,
-) -> XetMetadata:
-    """
-    Gets the rest of the xet metadata from the hash using the supplied
-    refresh route.
-
-    Args:
-        xet_file_data (`XetFileData`):
-            The xet file info to get the xet metadata for.
-        refresh_route (`str`):
-            The endpoint to use to refresh the xet metadata.
-        headers (`Dict[str, str]`):
-            Headers to use for the request, including authorization headers and user agent.
-        endpoint (`str`, `optional`):
-            The endpoint to use for the request. Defaults to the Hub endpoint.
-    """
-
-    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-    url = f"{endpoint}{xet_file_data.refresh_route}"
-    connection_info = _fetch_xet_connection_info_with_url(url, headers)
-    return XetMetadata(
-        connection_info=connection_info,
-        file_data=xet_file_data,
-    )
-
-
-@validate_hf_hub_args
 def refresh_xet_connection_info(
     *,
-    refresh_route: str,
+    file_data: XetFileData,
     headers: Dict[str, str],
     endpoint: Optional[str] = None,
-) -> XetMetadata:
+) -> XetConnectionInfo:
     """
-    Utilizes the information in the parsed metadata to request the Hub xet access token.
+    Utilizes the information in the parsed metadata to request the Hub xet connection information.
+    This includes the access token, expiration, and XET service URL.
     Args:
-        refresh_route: (`str`):
-            The endpoint to use to
+        file_data: (`XetFileData`):
+            The file data needed to refresh the xet connection information.
         headers (`Dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
         endpoint (`str`, `optional`):
             The endpoint to use for the request. Defaults to the Hub endpoint.
     Returns:
-        `XetMetadata`: The metadata needed to make the request to the xet storage service.
+        `XetConnectionInfo`:
+            The connection information needed to make the request to the xet storage service.
     Raises:
         [`~utils.HfHubHTTPError`]
             If the Hub API returned an error.
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the Hub API response is improperly formatted.
     """
-    if refresh_route is None:
+    if file_data.refresh_route is None:
         raise ValueError("The provided xet metadata does not contain a refresh endpoint.")
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-    url = f"{endpoint}{refresh_route}"
+    url = f"{endpoint}{file_data.refresh_route}"
     return _fetch_xet_connection_info_with_url(url, headers)
 
 
 @validate_hf_hub_args
-def fetch_xet_metadata_from_repo_info(
+def fetch_xet_connection_info_from_repo_info(
     *,
     token_type: XetTokenType,
     repo_id: str,
@@ -144,7 +115,7 @@ def fetch_xet_metadata_from_repo_info(
     headers: Dict[str, str],
     endpoint: Optional[str] = None,
     params: Optional[Dict[str, str]] = None,
-) -> XetMetadata:
+) -> XetConnectionInfo:
     """
     Uses the repo info to request a xet access token from Hub.
     Args:
@@ -163,7 +134,8 @@ def fetch_xet_metadata_from_repo_info(
         params (`Dict[str, str]`, `optional`):
             Additional parameters to pass with the request.
     Returns:
-        `XetMetadata`: The metadata needed to make the request to the xet storage service.
+        `XetConnectionInfo`:
+            The connection information needed to make the request to the xet storage service.
     Raises:
         [`~utils.HfHubHTTPError`]
             If the Hub API returned an error.
@@ -182,7 +154,7 @@ def _fetch_xet_connection_info_with_url(
     params: Optional[Dict[str, str]] = None,
 ) -> XetConnectionInfo:
     """
-    Requests the xet connection info from the supplied URL. This includes the 
+    Requests the xet connection info from the supplied URL. This includes the
     access token, expiration time, and endpoint to use for the xet storage service.
     Args:
         url: (`str`):
@@ -193,7 +165,7 @@ def _fetch_xet_connection_info_with_url(
             Additional parameters to pass with the request.
     Returns:
         `XetConnectionInfo`:
-            The metadata needed to make the request to the xet storage service.
+            The connection information needed to make the request to the xet storage service.
     Raises:
         [`~utils.HfHubHTTPError`]
             If the Hub API returned an error.

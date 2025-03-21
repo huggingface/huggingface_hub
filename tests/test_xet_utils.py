@@ -4,10 +4,10 @@ import pytest
 
 from huggingface_hub import constants
 from huggingface_hub.utils._xet import (
-    XetConnectionInfo,
+    XetFileData,
     _fetch_xet_connection_info_with_url,
-    parse_xet_file_data_from_headers,
     parse_xet_connection_info_from_headers,
+    parse_xet_file_data_from_headers,
     refresh_xet_connection_info,
 )
 
@@ -23,6 +23,7 @@ def test_parse_valid_headers_file_info() -> None:
     assert file_data is not None
     assert file_data.refresh_route == "/api/refresh"
     assert file_data.file_hash == "sha256:abcdef"
+
 
 def test_parse_valid_headers_connection_info() -> None:
     headers = {
@@ -51,11 +52,10 @@ def test_parse_valid_headers_full() -> None:
     file_metadata = parse_xet_file_data_from_headers(headers)
     connection_info = parse_xet_connection_info_from_headers(headers)
 
-
     assert file_metadata is not None
     assert file_metadata.refresh_route == "/api/refresh"
     assert file_metadata.file_hash == "sha256:abcdef"
-    
+
     assert connection_info is not None
     assert connection_info.endpoint == "https://xet.example.com"
     assert connection_info.access_token == "xet_token_abc"
@@ -112,7 +112,10 @@ def test_refresh_metadata_success(mocker) -> None:
 
     headers = {"user-agent": "user-agent-example"}
     refreshed_connection = refresh_xet_connection_info(
-        refresh_route="/api/models/username/repo_name/xet-read-token/token",
+        file_data=XetFileData(
+            refresh_route="/api/models/username/repo_name/xet-read-token/token",
+            file_hash="sha256:abcdef",
+        ),
         headers=headers,
     )
 
@@ -146,7 +149,10 @@ def test_refresh_metadata_custom_endpoint(mocker) -> None:
 
     headers = {"user-agent": "user-agent-example"}
     refresh_xet_connection_info(
-        refresh_route="/api/models/username/repo_name/xet-read-token/token",
+        file_data=XetFileData(
+            refresh_route="/api/models/username/repo_name/xet-read-token/token",
+            file_hash="sha256:abcdef",
+        ),
         headers=headers,
         endpoint=custom_endpoint,
     )
@@ -162,18 +168,15 @@ def test_refresh_metadata_custom_endpoint(mocker) -> None:
 
 def test_refresh_metadata_missing_refresh_route() -> None:
     # Create metadata without refresh_route
-    connection_info=XetConnectionInfo(
-        endpoint="https://example.xethub.hf.co",
-        access_token="token123",
-        expiration_unix_epoch=1234567890,
-    )
-
     headers = {"user-agent": "user-agent-example"}
 
     # Verify it raises ValueError
     with pytest.raises(ValueError, match="The provided xet metadata does not contain a refresh endpoint."):
         refresh_xet_connection_info(
-            refresh_route=None, 
+            file_data=XetFileData(
+                refresh_route=None,
+                file_hash="sha256:abcdef",
+            ),
             headers=headers,
         )
 

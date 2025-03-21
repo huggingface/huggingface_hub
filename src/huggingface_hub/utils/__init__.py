@@ -108,12 +108,10 @@ from ._telemetry import send_telemetry
 from ._typing import is_jsonable, is_simple_optional_type, unwrap_simple_optional_type
 from ._validators import smoothly_deprecate_use_auth_token, validate_hf_hub_args, validate_repo_id
 from ._xet import (
-    XetMetadata,
-    XetFileData,
     XetConnectionInfo,
+    XetFileData,
     XetTokenType,
-    fetch_xet_metadata_from_repo_info,
-    get_xet_metadata_from_file_data,
+    fetch_xet_connection_info_from_repo_info,
     parse_xet_file_data_from_headers,
     refresh_xet_connection_info,
 )

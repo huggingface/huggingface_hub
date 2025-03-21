@@ -13,10 +13,9 @@ from huggingface_hub.file_download import (
     xet_get,
 )
 from huggingface_hub.utils import (
-    XetMetadata,
-    XetFileData,
     XetConnectionInfo,
-    get_xet_metadata_from_file_data,
+    XetFileData,
+    refresh_xet_connection_info,
 )
 
 from .testing_utils import (
@@ -47,30 +46,27 @@ class TestXetFileDownload:
             patcher.stop()
 
     @contextmanager
-    def _patch_get_xet_metadata(self):
-        patcher = patch("huggingface_hub.utils.get_xet_metadata_from_file_data")
-        xet_metadata = XetMetadata(
-            connection_info=XetConnectionInfo(
+    def _patch_get_refresh_xet_connection_info(self):
+        patcher = patch("huggingface_hub.utils.refresh_xet_connection_info")
+        connection_info = (
+            XetConnectionInfo(
                 endpoint="mock_endpoint",
                 access_token="mock_token",
                 expiration_unix_epoch=9999999999,
             ),
-            file_data = XetFileData(
-                file_hash="mock_hash",
-                refresh_route="mock/route"
-            )
         )
-        mock_xet_metadata = patcher.start()
-        mock_xet_metadata.return_value = xet_metadata
+
+        mock_xet_connection = patcher.start()
+        mock_xet_connection.return_value = connection_info
         try:
-            yield mock_xet_metadata
+            yield mock_xet_connection
         finally:
             patcher.stop()
 
     def test_xet_get_called_when_xet_metadata_present(self, tmp_path):
         """Test that xet_get is called when xet metadata is present."""
         with self._patch_xet_file_metadata(with_xet_data=True) as mock_file_metadata:
-            with self._patch_get_xet_metadata():
+            with self._patch_get_refresh_xet_connection_info():
                 with patch("huggingface_hub.file_download.xet_get") as mock_xet_get:
                     with patch("huggingface_hub.file_download._create_symlink"):
                         hf_hub_download(
@@ -111,13 +107,11 @@ class TestXetFileDownload:
         assert metadata.xet_file_data is not None
         assert metadata.xet_file_data.file_hash is not None
 
-        xet_metadata = get_xet_metadata_from_file_data(xet_file_data=metadata.xet_file_data, headers={})
-        assert xet_metadata is not None
-        assert xet_metadata.connection_info.endpoint is not None
-        assert xet_metadata.connection_info.access_token is not None
-        assert isinstance(xet_metadata.connection_info.expiration_unix_epoch, int)
-        assert xet_metadata.file_data.file_hash is not None
-        assert xet_metadata.file_data.refresh_route is not None 
+        connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers={})
+        assert connection_info is not None
+        assert connection_info.endpoint is not None
+        assert connection_info.access_token is not None
+        assert isinstance(connection_info.expiration_unix_epoch, int)
 
     def test_basic_download(self, tmp_path):
         # Make sure that xet_get is called
@@ -218,7 +212,7 @@ class TestXetFileDownload:
     def test_fallback_to_http_when_xet_not_available(self, tmp_path):
         """Test that http_get is used when hf_xet is not available."""
         with self._patch_xet_file_metadata(with_xet_data=True):
-            with self._patch_get_xet_metadata():
+            with self._patch_get_refresh_xet_connection_info():
                 # Mock is_xet_available to return False
                 with patch.multiple(
                     "huggingface_hub.file_download",
@@ -241,7 +235,7 @@ class TestXetFileDownload:
     def test_use_xet_when_available(self, tmp_path):
         """Test that xet_get is used when hf_xet is available."""
         with self._patch_xet_file_metadata(with_xet_data=True):
-            with self._patch_get_xet_metadata():
+            with self._patch_get_refresh_xet_connection_info():
                 with patch.multiple(
                     "huggingface_hub.file_download",
                     is_xet_available=Mock(return_value=True),

@@ -22,7 +22,7 @@ import pytest
 from huggingface_hub import HfApi, RepoUrl
 from huggingface_hub._commit_api import _upload_lfs_files, _upload_xet_files
 from huggingface_hub.file_download import get_hf_file_metadata, hf_hub_download, hf_hub_url
-from huggingface_hub.utils import get_xet_metadata_from_file_data 
+from huggingface_hub.utils import refresh_xet_connection_info
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import repo_name, requires
@@ -112,8 +112,8 @@ class TestXetUpload:
         )
         metadata = get_hf_file_metadata(url)
         assert metadata.xet_file_data is not None
-        xet_metadata = get_xet_metadata_from_file_data(xet_file_data=metadata.xet_file_data, headers={})
-        assert xet_metadata is not None
+        xet_connection = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers={})
+        assert xet_connection is not None
 
     def test_upload_file_with_bytesio(self, api, tmp_path, repo_url):
         repo_id = repo_url.repo_id
@@ -241,7 +241,5 @@ class TestXetLargeUpload:
             )
             file_metadata = get_hf_file_metadata(url)
             assert file_metadata.xet_file_data is not None
-            xet_metadata = get_xet_metadata_from_file_data(
-                xet_file_data=file_metadata.xet_file_data, headers={}
-            )
-            assert xet_metadata is not None
+            connection_info = refresh_xet_connection_info(file_data=file_metadata.xet_file_data, headers={})
+            assert connection_info is not None
