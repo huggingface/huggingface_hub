@@ -37,7 +37,6 @@ from .utils import (
     OfflineModeIsEnabled,
     SoftTemporaryDirectory,
     WeakFileLock,
-    XetMetadata,
     build_hf_headers,
     build_xet_refresh_route,
     get_fastai_version,  # noqa: F401 # for backward compatibility
@@ -58,7 +57,6 @@ from .utils import (
     is_tf_available,  # noqa: F401 # for backward compatibility
     is_torch_available,  # noqa: F401 # for backward compatibility
     logging,
-    parse_xet_json,
     refresh_xet_metadata,
     reset_sessions,
     tqdm,
@@ -1351,71 +1349,6 @@ def try_to_load_from_cache(
     # Check if file exists in cache
     cached_file = os.path.join(snapshots_dir, revision, filename)
     return cached_file if os.path.isfile(cached_file) else None
-
-
-@validate_hf_hub_args
-def get_xet_file_metadata(
-    url: str,
-    token: Union[bool, str, None] = None,
-    proxies: Optional[Dict] = None,
-    timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Union[Dict, str, None] = None,
-    headers: Optional[Dict[str, str]] = None,
-) -> XetMetadata:
-    """Fetch the xet metadata of a file versioned on the Hub for a given url.
-
-    Args:
-        url (`str`):
-            File url, for example returned by [`hf_hub_url`].
-        token (`str` or `bool`, *optional*):
-            A token to be used for the download.
-                - If `True`, the token is read from the HuggingFace config
-                  folder.
-                - If `False` or `None`, no token is provided.
-                - If a string, it's used as the authentication token.
-        proxies (`dict`, *optional*):
-            Dictionary mapping protocol to the URL of the proxy passed to
-            `requests.request`.
-        timeout (`float`, *optional*, defaults to 10):
-            How many seconds to wait for the server to send metadata before giving up.
-        library_name (`str`, *optional*):
-            The name of the library to which the object corresponds.
-        library_version (`str`, *optional*):
-            The version of the library.
-        user_agent (`dict`, `str`, *optional*):
-            The user-agent info in the form of a dictionary or a string.
-        headers (`dict`, *optional*):
-            Additional headers to be sent with the request.
-    Returns:
-        A [`XetFileMetadata`] object containing metadata needed to download the file with hf_xet.
-    """
-    hf_headers = build_hf_headers(
-        token=token,
-        library_name=library_name,
-        library_version=library_version,
-        user_agent=user_agent,
-        headers=headers,
-    )
-    hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
-    # indicate that we can accept file information for xet download
-    hf_headers["Accept"] = constants.HUGGINGFACE_HEADER_ACCEPT_XET_FILE_INFO
-
-    # Retrieve metadata
-    r = _request_wrapper(
-        method="GET",
-        url=url,
-        headers=hf_headers,
-        allow_redirects=False,
-        follow_relative_redirects=False,
-        proxies=proxies,
-        timeout=timeout,
-    )
-    hf_raise_for_status(r)
-
-    # Return
-    return parse_xet_json(r.json())
 
 
 @validate_hf_hub_args

@@ -87,15 +87,13 @@ def build_xet_refresh_route(
     if repo_type not in constants.REPO_TYPES:
         raise ValueError("Invalid repo type")
 
-    if repo_type is None:
-        repo_type = constants.REPO_TYPE_MODEL
-
-    if repo_type in constants.REPO_TYPES_MAPPING:
-        repo_type = constants.REPO_TYPES_API_PREFIXES
+    repo_type_prefix = "models"
+    if repo_type in constants.REPO_TYPES_API_PREFIXES:
+        repo_type_prefix = constants.REPO_TYPES_API_PREFIXES[repo_type]
 
     if revision is None:
         revision = constants.DEFAULT_REVISION
-    return f"/api/{repo_type}s/{repo_id}/xet-read-token/{revision}"
+    return f"/api/{repo_type_prefix}/{repo_id}/xet-read-token/{revision}"
 
 
 @validate_hf_hub_args
