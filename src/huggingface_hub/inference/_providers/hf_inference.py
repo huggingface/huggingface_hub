@@ -26,7 +26,6 @@ class HFInferenceTask(TaskProviderHelper):
     def _prepare_mapped_model(self, model: Optional[str]) -> str:
         if model is not None and model.startswith(("http://", "https://")):
             return model
-        if model is None:
         model_id = model if model is not None else _fetch_recommended_models().get(self.task)
         if model_id is None:
             raise ValueError(
