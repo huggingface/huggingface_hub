@@ -44,17 +44,15 @@ class TestXetFileDownload:
             yield mock_metadata
         finally:
             patcher.stop()
-    
+
     @contextmanager
-    def _patch_get_xet_metadata(self): 
+    def _patch_get_xet_metadata(self):
         patcher = patch("huggingface_hub.utils.get_xet_metadata_from_hash")
-        xet_metadata = (
-            XetMetadata(
-                endpoint="mock_endpoint",
-                access_token="mock_token",
-                expiration_unix_epoch=9999999999,
-                file_hash="mock_hash",
-            )
+        xet_metadata = XetMetadata(
+            endpoint="mock_endpoint",
+            access_token="mock_token",
+            expiration_unix_epoch=9999999999,
+            file_hash="mock_hash",
         )
         mock_xet_metadata = patcher.start()
         mock_xet_metadata.return_value = xet_metadata
@@ -62,7 +60,6 @@ class TestXetFileDownload:
             yield mock_xet_metadata
         finally:
             patcher.stop()
-
 
     def test_xet_get_called_when_xet_metadata_present(self, tmp_path):
         """Test that xet_get is called when xet metadata is present."""
@@ -105,7 +102,7 @@ class TestXetFileDownload:
             filename=DUMMY_XET_FILE,
         )
         metadata = get_hf_file_metadata(url)
-        assert(metadata.xet_hash)
+        assert metadata.xet_hash
         refresh_url = build_xet_refresh_route(repo_id=DUMMY_XET_MODEL_ID)
         xet_metadata = get_xet_metadata_from_hash(xet_hash=metadata.xet_hash, refresh_route=refresh_url, headers={})
         assert xet_metadata is not None
@@ -113,7 +110,7 @@ class TestXetFileDownload:
         assert xet_metadata.access_token is not None
         assert isinstance(xet_metadata.expiration_unix_epoch, int)
         assert xet_metadata.file_hash is not None
-        assert xet_metadata.refresh_route == refresh_url 
+        assert xet_metadata.refresh_route == refresh_url
 
     def test_basic_download(self, tmp_path):
         # Make sure that xet_get is called

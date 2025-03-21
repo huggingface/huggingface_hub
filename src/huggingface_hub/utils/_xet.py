@@ -48,6 +48,7 @@ def parse_xet_json(json: Dict[str, str]) -> Optional[XetMetadata]:
         file_hash=json.get(constants.HUGGINGFACE_HEADER_X_XET_HASH),
     )
 
+
 def parse_xet_headers(headers: Dict[str, str]) -> Optional[XetMetadata]:
     """
     Parse XET metadata from the HTTP headers or return None if not found.
@@ -75,6 +76,7 @@ def parse_xet_headers(headers: Dict[str, str]) -> Optional[XetMetadata]:
         file_hash=headers.get(constants.HUGGINGFACE_HEADER_X_XET_HASH),
     )
 
+
 @validate_hf_hub_args
 def build_xet_refresh_route(
     *,
@@ -94,6 +96,7 @@ def build_xet_refresh_route(
     if revision is None:
         revision = constants.DEFAULT_REVISION
     return f"/api/{repo_type}s/{repo_id}/xet-read-token/{revision}"
+
 
 @validate_hf_hub_args
 def get_xet_metadata_from_hash(
@@ -126,7 +129,7 @@ def refresh_xet_metadata(
     Utilizes the information in the parsed metadata to request the Hub xet access token.
     Args:
         refresh_route: (`str`):
-            The endpoint to use to 
+            The endpoint to use to
         headers (`Dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
         endpoint (`str`, `optional`):

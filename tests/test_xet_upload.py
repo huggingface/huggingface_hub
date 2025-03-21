@@ -113,11 +113,7 @@ class TestXetUpload:
         metadata = get_hf_file_metadata(url)
         assert metadata.xet_hash is not None
         token_url = build_xet_refresh_route(repo_id=repo_id)
-        xet_metadata = get_xet_metadata_from_hash(
-            xet_hash=metadata.xet_hash,
-            refresh_route=token_url,
-            headers={}
-        ) 
+        xet_metadata = get_xet_metadata_from_hash(xet_hash=metadata.xet_hash, refresh_route=token_url, headers={})
         assert xet_metadata is not None
 
     def test_upload_file_with_bytesio(self, api, tmp_path, repo_url):
@@ -248,8 +244,6 @@ class TestXetLargeUpload:
             assert file_metadata.xet_hash is not None
             token_url = build_xet_refresh_route(repo_id=repo_id)
             xet_metadata = get_xet_metadata_from_hash(
-                xet_hash=file_metadata.xet_hash,
-                refresh_route=token_url,
-                headers={}
+                xet_hash=file_metadata.xet_hash, refresh_route=token_url, headers={}
             )
             assert xet_metadata is not None

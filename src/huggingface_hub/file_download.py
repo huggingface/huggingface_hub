@@ -172,7 +172,7 @@ class HfFileMetadata:
     etag: Optional[str]
     location: str
     size: Optional[int]
-    xet_hash: Optional[str] 
+    xet_hash: Optional[str]
 
 
 @validate_hf_hub_args
@@ -1389,7 +1389,7 @@ def get_xet_file_metadata(
         headers (`dict`, *optional*):
             Additional headers to be sent with the request.
     Returns:
-        A [`XetFileMetadata`] object containing metadata needed to download the file with hf_xet. 
+        A [`XetFileMetadata`] object containing metadata needed to download the file with hf_xet.
     """
     hf_headers = build_hf_headers(
         token=token,
@@ -1416,6 +1416,7 @@ def get_xet_file_metadata(
 
     # Return
     return parse_xet_json(r.json())
+
 
 @validate_hf_hub_args
 def get_hf_file_metadata(
@@ -1491,7 +1492,7 @@ def get_hf_file_metadata(
         size=_int_or_none(
             r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
         ),
-        xet_hash = r.headers.get(constants.HUGGINGFACE_HEADER_X_XET_HASH), 
+        xet_hash=r.headers.get(constants.HUGGINGFACE_HEADER_X_XET_HASH),
     )
 
 
@@ -1543,7 +1544,7 @@ def _get_metadata_or_catch_error(
     commit_hash: Optional[str] = None
     expected_size: Optional[int] = None
     head_error_call: Optional[Exception] = None
-    xet_hash: Optional[str] = None 
+    xet_hash: Optional[str] = None
 
     # Try to get metadata from the server.
     # Do not raise yet if the file is not found or not accessible.
@@ -1731,7 +1732,7 @@ def _download_to_tmp_and_move(
             logger.info("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
             xet_get(
                 incomplete_path=incomplete_path,
-                xet_hash=xet_hash, 
+                xet_hash=xet_hash,
                 xet_refresh_route=xet_refresh_route,
                 headers=headers,
                 expected_size=expected_size,

@@ -11,6 +11,7 @@ from huggingface_hub.utils._xet import (
     refresh_xet_metadata,
 )
 
+
 def test_parse_valid_json_minimal() -> None:
     json = {
         "X-Xet-Cas-Url": "https://xet.example.com",
