@@ -2,6 +2,7 @@ import base64
 import time
 from abc import ABC
 from typing import Any, Dict, Optional, Union
+from urllib.parse import urlparse
 
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
@@ -122,11 +123,16 @@ class FalAITextToVideoTask(FalAITask):
             )
 
         # extract the base url and query params
-        base_url = request_params.url.split("?")[0]  # or parsed.scheme + "://" + parsed.netloc + parsed.path ?
-        query = "?_subdomain=queue" if request_params.url.endswith("_subdomain=queue") else ""
+        parsed_url = urlparse(request_params.url)
+        # a bit hacky way to concatenate the provider name without parsing `parsed_url.path`
+        base_url = f"{parsed_url.scheme}://{parsed_url.netloc}{'/fal-ai' if parsed_url.netloc == 'router.huggingface.co' else ''}"
+        query_param = f"?{parsed_url.query}" if parsed_url.query else ""
 
-        status_url = f"{base_url}/requests/{request_id}/status{query}"
-        result_url = f"{base_url}/requests/{request_id}{query}"
+        # extracting the provider model id for status and result urls
+        # from the response as it might be different from the mapped model in `request_params.url`
+        model_id = urlparse(response_dict.get("response_url")).path
+        status_url = f"{base_url}{str(model_id)}/status{query_param}"
+        result_url = f"{base_url}{str(model_id)}{query_param}"
 
         status = response_dict.get("status")
         logger.info("Generating the video.. this can take several minutes.")

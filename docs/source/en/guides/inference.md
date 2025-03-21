@@ -180,6 +180,47 @@ using our provider keys, and the usage will be billed directly to your Hugging F
 )
 ```
 
+## Supported providers and tasks
+
+[`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models, on any provider. It has a simple API that supports the most common tasks. Here is a table showing which providers support which tasks:
+
+| Task                                                | Black Forest Labs | Cerebras | Cohere | fal-ai | Fireworks AI | HF Inference | Hyperbolic | Nebius AI Studio | Novita AI | Replicate | Sambanova | Together |
+| --------------------------------------------------- | ----------------- | -------- | ------ | ------ | ------------ | ------------ | ---------- | ---------------- | --------- | --------- | --------- | -------- |
+| [`~InferenceClient.audio_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.audio_to_audio`]                 | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.automatic_speech_recognition`]   | ❌                 | ❌        | ❌      | ✅      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.chat_completion`]                | ❌                 | ✅        | ✅      | ❌      | ✅            | ✅            | ✅          | ✅                | ✅         | ❌         | ✅         | ✅        |
+| [`~InferenceClient.document_question_answering`]    | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.feature_extraction`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.fill_mask`]                      | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.image_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.image_segmentation`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.image_to_image`]                 | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.image_to_text`]                  | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.object_detection`]               | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.question_answering`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.sentence_similarity`]            | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.summarization`]                  | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.table_question_answering`]       | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.text_classification`]            | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.text_generation`]                | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ✅          | ✅                | ✅         | ❌         | ❌         | ✅        |
+| [`~InferenceClient.text_to_image`]                  | ✅                 | ❌        | ❌      | ✅      | ❌            | ✅            | ✅          | ✅                | ❌         | ✅         | ❌         | ✅        |
+| [`~InferenceClient.text_to_speech`]                 | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ✅         | ❌         | ❌        |
+| [`~InferenceClient.text_to_video`]                  | ❌                 | ❌        | ❌      | ✅      | ❌            | ❌            | ❌          | ❌                | ❌         | ✅         | ❌         | ❌        |
+| [`~InferenceClient.tabular_classification`]         | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.tabular_regression`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.token_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.translation`]                    | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.visual_question_answering`]      | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.zero_shot_image_classification`] | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.zero_shot_classification`]       | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+
+<Tip>
+
+Check out the [Tasks](https://huggingface.co/tasks) page to learn more about each task.
+
+</Tip>
+
 ## OpenAI compatibility
 
 The `chat_completion` task follows [OpenAI's Python client](https://github.com/openai/openai-python) syntax. What does it mean for you? It means that if you are used to play with `OpenAI`'s APIs you will be able to switch to `huggingface_hub.InferenceClient` to work with open-source models by updating just 2 line of code!
@@ -244,62 +285,6 @@ You might wonder why using [`InferenceClient`] instead of OpenAI's client? There
 
 </Tip>
 
-## Supported providers and tasks
-
-[`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models, on any provider. It has a simple API that supports the most common tasks. Here is a table showing which providers support which tasks:
-
-| Domain              | Task                                                | Black Forest Labs | Cerebras | Cohere | fal-ai | Fireworks AI | HF Inference | Hyperbolic | Nebius AI Studio | Novita AI | Replicate | Sambanova | Together |
-| ------------------- | --------------------------------------------------- | ----------------- | -------- | ------ | ------ | ------------ | ------------ | ---------- | ---------------- | --------- | --------- | --------- | -------- |
-| **Audio**           | [`~InferenceClient.audio_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.audio_to_audio`]                 | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.automatic_speech_recognition`]   | ❌                 | ❌        | ❌      | ✅      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.text_to_speech`]                 | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ✅         | ❌         | ❌        |
-| **Computer Vision** | [`~InferenceClient.image_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.image_segmentation`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.image_to_image`]                 | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.image_to_text`]                  | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.object_detection`]               | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.text_to_image`]                  | ✅                 | ❌        | ❌      | ✅      | ❌            | ✅            | ✅          | ✅                | ❌         | ✅         | ❌         | ✅        |
-|                     | [`~InferenceClient.text_to_video`]                  | ❌                 | ❌        | ❌      | ✅      | ❌            | ❌            | ❌          | ❌                | ❌         | ✅         | ❌         | ❌        |
-|                     | [`~InferenceClient.zero_shot_image_classification`] | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| **Multimodal**      | [`~InferenceClient.document_question_answering`]    | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.visual_question_answering`]      | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| **NLP**             | [`~InferenceClient.chat_completion`]                | ❌                 | ✅        | ✅      | ❌      | ✅            | ✅            | ✅          | ✅                | ✅         | ❌         | ✅         | ✅        |
-|                     | [`~InferenceClient.feature_extraction`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.fill_mask`]                      | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.question_answering`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.sentence_similarity`]            | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.summarization`]                  | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.table_question_answering`]       | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.text_classification`]            | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.text_generation`]                | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ✅          | ✅                | ✅         | ❌         | ❌         | ✅        |
-|                     | [`~InferenceClient.token_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.translation`]                    | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.zero_shot_classification`]       | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| **Tabular**         | [`~InferenceClient.tabular_classification`]         | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-|                     | [`~InferenceClient.tabular_regression`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-
-<Tip>
-
-Check out the [Tasks](https://huggingface.co/tasks) page to learn more about each task.
-
-</Tip>
-
-## Custom requests
-
-However, it is not always possible to cover all use cases. For custom requests, the [`InferenceClient.post`] method
-gives you the flexibility to send any request to the Inference API. For example, you can specify how to parse the inputs
-and outputs. In the example below, the generated image is returned as raw bytes instead of parsing it as a `PIL Image`.
-This can be helpful if you don't have `Pillow` installed in your setup and just care about the binary content of the
-image. [`InferenceClient.post`] is also useful to handle tasks that are not yet officially supported.
-
-```python
->>> from huggingface_hub import InferenceClient
->>> client = InferenceClient()
->>> response = client.post(json={"inputs": "An astronaut riding a horse on the moon."}, model="stabilityai/stable-diffusion-2-1")
->>> response.content # raw bytes
-b'...'
-```
 
 ## Async client
 
@@ -337,14 +322,7 @@ In the above section, we saw the main aspects of [`InferenceClient`]. Let's dive
 
 ### Timeout
 
-When doing inference, there are two main causes for a timeout:
-- The inference process takes a long time to complete.
-- The model is not available, for example when Inference API is loading it for the first time.
-
-[`InferenceClient`] has a global `timeout` parameter to handle those two aspects. By default, it is set to `None`,
-meaning that the client will wait indefinitely for the inference to complete. If you want more control in your workflow,
-you can set it to a specific value in seconds. If the timeout delay expires, an [`InferenceTimeoutError`] is raised.
-You can catch it and handle it in your code:
+Inference calls can take a significant amount of time. By default, [`InferenceClient`] will wait "indefinitely" until the inference complete. If you want more control in your workflow, you can set the `timeout` parameter to a specific value in seconds. If the timeout delay expires, an [`InferenceTimeoutError`] is raised, which you can catch in your code:
 
 ```python
 >>> from huggingface_hub import InferenceClient, InferenceTimeoutError
@@ -370,98 +348,4 @@ sending it to the Inference API.
 >>> client = InferenceClient()
 >>> client.image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
 [{'score': 0.9779096841812134, 'label': 'Blenheim spaniel'}, ...]
-```
-
-## Legacy InferenceAPI client
-
-[`InferenceClient`] acts as a replacement for the legacy [`InferenceApi`] client. It adds specific support for tasks and
-handles inference on both [Inference API](https://huggingface.co/docs/api-inference/index) and [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index).
-
-Here is a short guide to help you migrate from [`InferenceApi`] to [`InferenceClient`].
-
-### Initialization
-
-Change from
-
-```python
->>> from huggingface_hub import InferenceApi
->>> inference = InferenceApi(repo_id="bert-base-uncased", token=API_TOKEN)
-```
-
-to
-
-```python
->>> from huggingface_hub import InferenceClient
->>> inference = InferenceClient(model="bert-base-uncased", token=API_TOKEN)
-```
-
-### Run on a specific task
-
-Change from
-
-```python
->>> from huggingface_hub import InferenceApi
->>> inference = InferenceApi(repo_id="paraphrase-xlm-r-multilingual-v1", task="feature-extraction")
->>> inference(...)
-```
-
-to
-
-```python
->>> from huggingface_hub import InferenceClient
->>> inference = InferenceClient()
->>> inference.feature_extraction(..., model="paraphrase-xlm-r-multilingual-v1")
-```
-
-<Tip>
-
-This is the recommended way to adapt your code to [`InferenceClient`]. It lets you benefit from the task-specific
-methods like `feature_extraction`.
-
-</Tip>
-
-### Run custom request
-
-Change from
-
-```python
->>> from huggingface_hub import InferenceApi
->>> inference = InferenceApi(repo_id="bert-base-uncased")
->>> inference(inputs="The goal of life is [MASK].")
-[{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
-```
-
-to
-
-```python
->>> from huggingface_hub import InferenceClient
->>> client = InferenceClient()
->>> response = client.post(json={"inputs": "The goal of life is [MASK]."}, model="bert-base-uncased")
->>> response.json()
-[{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
-```
-
-### Run with parameters
-
-Change from
-
-```python
->>> from huggingface_hub import InferenceApi
->>> inference = InferenceApi(repo_id="typeform/distilbert-base-uncased-mnli")
->>> inputs = "Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"
->>> params = {"candidate_labels":["refund", "legal", "faq"]}
->>> inference(inputs, params)
-{'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
-```
-
-to
-
-```python
->>> from huggingface_hub import InferenceClient
->>> client = InferenceClient()
->>> inputs = "Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"
->>> params = {"candidate_labels":["refund", "legal", "faq"]}
->>> response = client.post(json={"inputs": inputs, "parameters": params}, model="typeform/distilbert-base-uncased-mnli")
->>> response.json()
-{'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
 ```
