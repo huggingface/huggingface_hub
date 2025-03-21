@@ -1,5 +1,57 @@
 interactions:
 - request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - 5b64454a-12c5-4626-b1e7-7c29e94958a6
+    method: GET
+    uri: https://huggingface.co/api/models/facebook/bart-base
+  response:
+    body:
+      string: '{"_id":"621ffdc136468d709f17adb5","id":"facebook/bart-base","private":false,"pipeline_tag":"feature-extraction","library_name":"transformers","tags":["transformers","pytorch","tf","jax","safetensors","bart","feature-extraction","en","arxiv:1910.13461","license:apache-2.0","endpoints_compatible","region:us"],"downloads":2924294,"likes":178,"modelId":"facebook/bart-base","author":"facebook","sha":"aadd2ab0ae0c8268c7c9693540e9904811f36177","lastModified":"2022-11-16T23:23:10.000Z","gated":false,"disabled":false,"mask_token":"<mask>","model-index":null,"config":{"architectures":["BartModel"],"model_type":"bart"},"cardData":{"license":"apache-2.0","language":"en"},"transformersInfo":{"auto_model":"AutoModel","pipeline_tag":"feature-extraction","processor":"AutoTokenizer"},"siblings":[{"rfilename":".gitattributes"},{"rfilename":"README.md"},{"rfilename":"config.json"},{"rfilename":"flax_model.msgpack"},{"rfilename":"merges.txt"},{"rfilename":"model.safetensors"},{"rfilename":"pytorch_model.bin"},{"rfilename":"tf_model.h5"},{"rfilename":"tokenizer.json"},{"rfilename":"vocab.json"}],"spaces":["gunship999/SexyImages","Yntec/ToyWorld","hilamanor/audioEditing","Audio-AGI/AudioSep","jadechoghari/OpenMusic","declare-lab/mustango","seungheondoh/LP-Music-Caps-demo","multimodalart/mariogpt","llamameta/flux-pro-uncensored","Nymbo/Compare-6","Yntec/PrintingPress","Uthar/SexyReality","llamameta/fluxproV2","Yntec/ToyWorldXL","Nick088/Audio-SR","phenixrhyder/NSFW-ToyWorld","Yntec/blitz_diffusion","amphion/PicoAudio","nvidia/audio-flamingo-2","fffiloni/vta-ldm","AIGC-Audio/AudioLCM","John6666/Diffusion80XX4sg","John6666/PrintingPress4","llamameta/fast-sd3.5-large","AIGC-Audio/Make_An_Audio","enclap-team/enclap","Yntec/Image-Models-Test-April-2024","DemiPoto/TestDifs","Abinivesh/Multi-models-prompt-to-image-generation","flosstradamus/FluxMusicGUI","Qilex/EnglishToMiddleEnglish","Yntec/Image-Models-Test-2024","Yntec/Image-Models-Test","John6666/hfd_test_nostopbutton","yergyerg/ImgGenClone","Suniilkumaar/AudioSep","fffiloni/audioldm-text-to-audio-generation-copy","Yntec/Image-Models-Test-May-2024","Nymbo/Diffusion80XX4sg","Yntec/Image-Models-Test-September-2024","DemiPoto/testSortModels","dmolino/MedCoDi-M","AIGC-Audio/Make_An_Audio_inpaint","Chakshu123/image-colorization-with-hint","badayvedat/AudioSep","Yntec/MiniToyWorld","deeplearning/audioldm-text-to-audio-generation","Chakshu123/sketch-colorization-with-hint","John6666/ToyWorld4","John6666/Diffusion80XX4g","SAITAN666/StableDiffusion35Large-Image-Models-Test-November-2024","kaleidoskop-hug/PrintingPress","Yntec/Image-Models-Test-December-2024","martynka/TasiaExperiment","ksvmuralidhar/news_summarizer_ner","John6666/Diffusion80XX4","K00B404/HuggingfaceDiffusion_custom","John6666/blitz_diffusion4","John6666/blitz_diffusion_builtin","NativeAngels/HuggingfaceDiffusion","K00B404/SimpleBrothel","ofig/live-lm-critic","eubinecto/idiomify","HighCWu/anime-colorization-with-hint","kony1337/audioldm-text-to-audio-generation","Blane187/multi-diffusion","lv-vl/Audio-SR2","George870/AUDIOEDITIOM","Uthar/LewdExperiments","Uthar/BodyPaint","Uthar/HighFashion","Yntec/open-craiyon","MrVicente/RA-BART","flynster/FeinbergQuizNotes","dawood/audioldm-text-to-audio-generation","Lajonbot/Chatbot-Share","hakunamatata1997/audioEditing","szili2011/audioEditingunlimitedinput","jbilcke-hf/music-caption-server-1","NaimaAqeel/Chatbot","dwawdwdd/Audio-SR","LuizMercedes/audioEditing","Dragunflie-420/OpenMusic","Nymbo/Audio-SR","NativeAngels/Compare-6","Uthar/Harvester","Yntec/Image-Models-Test-January-2025","Yeeezus/SexyImages","nvidia/audio-flamingo-2-1.5B","John6666/MiniToyWorld","eliolio/yelp-reviews","AIFILMS/audioldm-text-to-audio-generation","awacke1/HEDIS.Dash.Component.Top.Clinical.Terminology.Vocabulary","AIGC-Audio/Make_An_Audio_img","TechAudio/audiosr","parson/audioEditing","s3nh/Chatbot-Share","ksvmuralidhar/text_rewriter","ZeroTwo3/AudioSep","cysjunkatschool/testspace"],"createdAt":"2022-03-02T23:29:05.000Z","safetensors":{"parameters":{"F32":139420416},"total":139420416},"inference":"warm","usedStorage":3904712462}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '4101'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 21 Mar 2025 11:35:08 GMT
+      ETag:
+      - W/"1005-IozoIZCKlzGVNjv1hmaZZODXSWA"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 56455cfd91a1942216b3c22ed923150c.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - K-zgCTqc3tg5PFuPJ67NrIK2WvIkPWpjtlVFB198jva7AZWbe9oIog==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-67dd4ee9-1ced0dce11bf5f8d76132a4d;5b64454a-12c5-4626-b1e7-7c29e94958a6
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+- request:
     body: '{"inputs": "Hi, who are you?", "parameters": {}}'
     headers:
       Accept:
@@ -13,7 +65,7 @@ interactions:
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - 71f60be9-1248-4daf-90ca-c34ec4ea9b0c
+      - afdb7922-1f75-40db-8230-fce532bc143d
     method: POST
     uri: https://router.huggingface.co/hf-inference/pipeline/feature-extraction/facebook/bart-base
   response:
@@ -31,19 +83,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 14 Feb 2025 10:15:51 GMT
+      - Fri, 21 Mar 2025 11:35:08 GMT
       Referrer-Policy:
       - strict-origin-when-cross-origin
       Via:
-      - 1.1 9a45d51617e0384dbdf52a8db118d3be.cloudfront.net (CloudFront)
+      - 1.1 36884ea7b1f8387f9a1f4e34ad294d20.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - 8jAphptwvVX82fJGc8l9Eezx1isBGPAhBtDdUxcASOmjBOJvurR4Zg==
+      - LAaTEYcyqwtkPWHcdEIpDWaIWVPTlQAWYeUSbanHtZimZUwxAcbSjw==
       X-Amz-Cf-Pop:
       - CDG55-P3
       X-Cache:
       - Miss from cloudfront
       X-Powered-By:
       - huggingface-moon
+      X-Robots-Tag:
+      - none
       access-control-allow-credentials:
       - 'true'
       cross-origin-opener-policy:
@@ -51,11 +105,13 @@ interactions:
       vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
       x-compute-time:
-      - '0.041'
+      - '0.042'
       x-compute-type:
       - cache
+      x-inference-id:
+      - Vi-IBPLGpPi44AmJcgPLg
       x-request-id:
-      - Root=1-67af17d7-39af1fbb115d460853f31b5e;71f60be9-1248-4daf-90ca-c34ec4ea9b0c
+      - Root=1-67dd4eec-07e37dfb1b8f0c5561175b24;afdb7922-1f75-40db-8230-fce532bc143d
       x-sha:
       - aadd2ab0ae0c8268c7c9693540e9904811f36177
     status:

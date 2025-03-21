@@ -18,7 +18,7 @@ interactions:
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - b4e995d9-35bd-4436-bb37-db5d4b32dc22
+      - 872491b4-251b-4c28-a111-1448482b76ba
     method: POST
     uri: https://router.huggingface.co/hf-inference/models/facebook/bart-large-mnli
   response:
@@ -29,18 +29,36 @@ interactions:
         when he went for a run up a hill in Nice, France.","labels":["scientific discovery","space
         & cosmos","microbiology","archeology","robots"],"scores":[0.9829296469688416,0.7551906108856201,0.0005462627159431577,0.0004713202069979161,0.000304485292872414]}'
     headers:
+      Access-Control-Allow-Origin:
+      - '*'
       Connection:
       - keep-alive
       Content-Type:
       - application/json
       Date:
-      - Wed, 22 Jan 2025 14:13:49 GMT
+      - Fri, 21 Mar 2025 11:20:05 GMT
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
       Transfer-Encoding:
       - chunked
+      Via:
+      - 1.1 ab6ec3bb809b5202a1adff9495ec59ca.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - 3o0w9Y43yiDpeTeNN1vtWyMlECq_Ddb1BSy-Q8Ch6tMLtlijxh_UYA==
+      X-Amz-Cf-Pop:
+      - CDG55-P3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Robots-Tag:
+      - none
       access-control-allow-credentials:
       - 'true'
       access-control-expose-headers:
       - x-compute-type, x-compute-time
+      cross-origin-opener-policy:
+      - same-origin
       server:
       - uvicorn
       vary:
@@ -48,11 +66,13 @@ interactions:
       x-compute-characters:
       - '256'
       x-compute-time:
-      - '0.745'
+      - '0.991'
       x-compute-type:
       - cpu
+      x-inference-id:
+      - MS1sW2HLni48DyeCWwdBs
       x-request-id:
-      - wN0UqO66S7CVvST4dTWbw
+      - Root=1-67dd4b64-77012adf644684f517cf12dc;872491b4-251b-4c28-a111-1448482b76ba
       x-sha:
       - d7645e127eaf1aefc7862fd59a17a5aa8558b8ce
     status:

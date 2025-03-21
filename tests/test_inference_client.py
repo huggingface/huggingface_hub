@@ -813,8 +813,10 @@ class TestHeadersAndCookies(TestBase):
     @expect_deprecation("post")
     @with_production_testing
     @patch("huggingface_hub.inference._client.get_session")
-    def test_mocked_post(self, get_session_mock: MagicMock) -> None:
+    @patch("huggingface_hub.inference._providers.hf_inference._check_supported_task")
+    def test_mocked_post(self, check_supported_task_mock: MagicMock, get_session_mock: MagicMock) -> None:
         """Test that headers and cookies are correctly passed to the request."""
+
         client = InferenceClient(
             headers={"X-My-Header": "foo"}, cookies={"my-cookie": "bar"}, proxies="custom proxies"
         )
