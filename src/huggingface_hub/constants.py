@@ -128,22 +128,8 @@ default_cache_path = os.path.join(HF_HOME, "hub")
 default_assets_cache_path = os.path.join(HF_HOME, "assets")
 
 # Legacy env variables
-HUGGINGFACE_HUB_CACHE = os.path.expandvars(
-    os.path.expanduser(
-        os.getenv(
-            "HUGGINGFACE_HUB_CACHE",
-            default_cache_path,
-        )
-    )
-)
-HUGGINGFACE_ASSETS_CACHE = os.path.expandvars(
-    os.path.expanduser(
-        os.getenv(
-            "HUGGINGFACE_ASSETS_CACHE",
-            default_assets_cache_path,
-        )
-    )
-)
+HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
+HUGGINGFACE_ASSETS_CACHE = os.getenv("HUGGINGFACE_ASSETS_CACHE", default_assets_cache_path)
 
 # New env variables
 HF_HUB_CACHE = os.path.expandvars(
