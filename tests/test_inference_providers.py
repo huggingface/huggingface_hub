@@ -355,17 +355,21 @@ class TestFireworksAIConversationalTask:
 class TestHFInferenceProvider:
     def test_prepare_mapped_model(self, mocker):
         helper = HFInferenceTask("text-classification")
-        assert helper._prepare_mapped_model("username/repo_name") == "username/repo_name"
-        assert helper._prepare_mapped_model("https://any-url.com") == "https://any-url.com"
-
+        mocker.patch(
+            "huggingface_hub.inference._providers.hf_inference._check_supported_task",
+            return_value=None,
+        )
         mocker.patch(
             "huggingface_hub.inference._providers.hf_inference._fetch_recommended_models",
             return_value={"text-classification": "username/repo_name"},
         )
+        assert helper._prepare_mapped_model("username/repo_name") == "username/repo_name"
         assert helper._prepare_mapped_model(None) == "username/repo_name"
+        assert helper._prepare_mapped_model("https://any-url.com") == "https://any-url.com"
 
-        with pytest.raises(ValueError, match="Task unknown-task has no recommended model"):
-            assert HFInferenceTask("unknown-task")._prepare_mapped_model(None)
+    def test_prepare_mapped_model_unknown_task(self):
+        with pytest.raises(ValueError, match="Task unknown-task has no recommended model for HF Inference."):
+            HFInferenceTask("unknown-task")._prepare_mapped_model(None)
 
     def test_prepare_url(self):
         helper = HFInferenceTask("text-classification")
@@ -421,7 +425,15 @@ class TestHFInferenceProvider:
         helper._prepare_url("hf_test_token", "https://any-url.com") == "https://any-url.com/v1/chat/completions"
         helper._prepare_url("hf_test_token", "https://any-url.com/v1") == "https://any-url.com/v1/chat/completions"
 
-    def test_prepare_request(self):
+    def test_prepare_request(self, mocker):
+        mocker.patch(
+            "huggingface_hub.inference._providers.hf_inference._check_supported_task",
+            return_value=None,
+        )
+        mocker.patch(
+            "huggingface_hub.inference._providers.hf_inference._fetch_recommended_models",
+            return_value={"text-classification": "username/repo_name"},
+        )
         helper = HFInferenceTask("text-classification")
         request = helper.prepare_request(
             inputs="this is a dummy input",
@@ -437,7 +449,15 @@ class TestHFInferenceProvider:
         assert request.headers["authorization"] == "Bearer hf_test_token"
         assert request.json == {"inputs": "this is a dummy input", "parameters": {}}
 
-    def test_prepare_request_conversational(self):
+    def test_prepare_request_conversational(self, mocker):
+        mocker.patch(
+            "huggingface_hub.inference._providers.hf_inference._check_supported_task",
+            return_value=None,
+        )
+        mocker.patch(
+            "huggingface_hub.inference._providers.hf_inference._fetch_recommended_models",
+            return_value={"text-classification": "username/repo_name"},
+        )
         helper = HFInferenceConversational()
         request = helper.prepare_request(
             inputs=[{"role": "user", "content": "dummy text input"}],
@@ -503,6 +523,94 @@ class TestHFInferenceProvider:
 
         assert payload["model"] == expected_model
         assert payload["messages"] == messages
+
+    @pytest.mark.parametrize(
+        "pipeline_tag,tags,task,should_raise",
+        [
+            # text-generation + no conversational tag -> only text-generation allowed
+            (
+                "text-generation",
+                [],
+                "text-generation",
+                False,
+            ),
+            (
+                "text-generation",
+                [],
+                "conversational",
+                True,
+            ),
+            # text-generation + conversational tag -> both tasks allowed
+            (
+                "text-generation",
+                ["conversational"],
+                "text-generation",
+                False,
+            ),
+            (
+                "text-generation",
+                ["conversational"],
+                "conversational",
+                False,
+            ),
+            # image-text-to-text + conversational tag -> only conversational allowed
+            (
+                "image-text-to-text",
+                ["conversational"],
+                "conversational",
+                False,
+            ),
+            (
+                "image-text-to-text",
+                ["conversational"],
+                "image-text-to-text",
+                True,
+            ),
+            (
+                "image-text-to-text",
+                [],
+                "conversational",
+                True,
+            ),
+            # text2text-generation only allowed for text-generation task
+            (
+                "text2text-generation",
+                [],
+                "text-generation",
+                False,
+            ),
+            (
+                "text2text-generation",
+                [],
+                "conversational",
+                True,
+            ),
+            # Other tasks
+            (
+                "audio-classification",
+                [],
+                "audio-classification",
+                False,
+            ),
+            (
+                "audio-classification",
+                [],
+                "text-classification",
+                True,
+            ),
+        ],
+    )
+    def test_check_supported_task_scenarios(self, mocker, pipeline_tag, tags, task, should_raise):
+        from huggingface_hub.inference._providers.hf_inference import _check_supported_task
+
+        mock_model_info = mocker.Mock(pipeline_tag=pipeline_tag, tags=tags)
+        mocker.patch("huggingface_hub.hf_api.HfApi.model_info", return_value=mock_model_info)
+
+        if should_raise:
+            with pytest.raises(ValueError):
+                _check_supported_task("test-model", task)
+        else:
+            _check_supported_task("test-model", task)
 
 
 class TestHyperbolicProvider:
