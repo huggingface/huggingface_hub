@@ -135,7 +135,6 @@ def _check_supported_task(model: str, task: str) -> None:
     tags = model_info.tags or []
     is_conversational = "conversational" in tags
     if task in ("text-generation", "conversational"):
-        # Text generation models
         if pipeline_tag == "text-generation":
             # text-generation + conversational tag -> both tasks allowed
             if is_conversational:
