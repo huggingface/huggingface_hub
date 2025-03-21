@@ -5,33 +5,59 @@ from typing import Dict, Optional
 from .. import constants
 from . import get_session, hf_raise_for_status, validate_hf_hub_args
 
-
 class XetTokenType(str, Enum):
     READ = "read"
     WRITE = "write"
 
+@dataclass(frozen=True)
+class XetFileData:
+    file_hash: str
+    refresh_route: str 
+
+@dataclass(frozen=True)
+class XetConnectionInfo:
+    access_token: str
+    expiration_unix_epoch: int
+    endpoint: str 
 
 @dataclass(frozen=True)
 class XetMetadata:
-    endpoint: str
-    access_token: str
-    expiration_unix_epoch: int
-    refresh_route: Optional[str] = None
-    file_hash: Optional[str] = None
+    file_data: XetFileData
+    connection_info: XetConnectionInfo
 
-
-def parse_xet_headers(headers: Dict[str, str]) -> Optional[XetMetadata]:
+def parse_xet_file_data_from_headers(headers: Dict[str, str]) -> Optional[XetFileData]:
     """
-    Parse XET metadata from the HTTP headers or return None if not found.
+    Parse XET file info from the HTTP headers or return None if not found.
     Args:
         headers (`Dict`):
            HTTP headers to extract the XET metadata from.
     Returns:
-        `XetMetadata` or `None`:
-            The metadata needed to make the request to the xet storage service.
-            Returns `None` if the headers do not contain the XET metadata.
+        `XetFileData` or `None`:
+            The metadata needed for a file download. 
+            Returns `None` if the headers do not contain the xet file metadata.
     """
-    # endpoint, access_token and expiration are required
+    try:
+        file_hash = headers[constants.HUGGINGFACE_HEADER_X_XET_HASH]
+        refresh_route = headers[constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE]
+    except KeyError:
+        return None
+
+    return XetFileData(
+        file_hash=file_hash,
+        refresh_route=refresh_route,
+    )
+
+def parse_xet_connection_info_from_headers(headers: Dict[str, str]) -> Optional[XetConnectionInfo]:
+    """
+    Parse XET connection info from the HTTP headers or return None if not found.
+    Args:
+        headers (`Dict`):
+           HTTP headers to extract the XET metadata from.
+    Returns:
+        `XetConnectionInfo` or `None`:
+            The information needed to connect to the XET storage service. 
+            Returns `None` if the headers do not contain the XET connection info.
+    """
     try:
         endpoint = headers[constants.HUGGINGFACE_HEADER_X_XET_ENDPOINT]
         access_token = headers[constants.HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN]
@@ -39,52 +65,17 @@ def parse_xet_headers(headers: Dict[str, str]) -> Optional[XetMetadata]:
     except (KeyError, ValueError, TypeError):
         return None
 
-    return XetMetadata(
+    return XetConnectionInfo(
         endpoint=endpoint,
         access_token=access_token,
         expiration_unix_epoch=expiration_unix_epoch,
-        refresh_route=headers.get(constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE),
-        file_hash=headers.get(constants.HUGGINGFACE_HEADER_X_XET_HASH),
     )
 
 
 @validate_hf_hub_args
-def build_xet_refresh_route(
+def get_xet_metadata_from_file_data(
     *,
-    repo_id: str,
-    repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
-) -> str:
-    """
-    Builds the xet refresh route for the given repo info.
-
-    Args:
-        repo_id (`str`):
-            A namespace (user or an organization) name and a repo name separated
-            by a `/`.
-        repo_type (`str`, `optional`):
-            Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
-        revision (`str`, `optional`):
-            The resolved revision of the repo to get the token for. This either needs
-            to be a commit hash or a branch name.
-    """
-    if repo_type not in constants.REPO_TYPES:
-        raise ValueError("Invalid repo type")
-
-    repo_type_prefix = "models"
-    if repo_type in constants.REPO_TYPES_API_PREFIXES:
-        repo_type_prefix = constants.REPO_TYPES_API_PREFIXES[repo_type]
-
-    if revision is None:
-        revision = constants.DEFAULT_REVISION
-    return f"/api/{repo_type_prefix}/{repo_id}/xet-read-token/{revision}"
-
-
-@validate_hf_hub_args
-def get_xet_metadata_from_hash(
-    *,
-    xet_hash: str,
-    refresh_route: str,
+    xet_file_data: XetFileData,
     headers: Dict[str, str],
     endpoint: Optional[str] = None,
 ) -> XetMetadata:
@@ -93,8 +84,8 @@ def get_xet_metadata_from_hash(
     refresh route.
 
     Args:
-        xet_hash (`str`):
-            The hash of the file to get the xet metadata for.
+        xet_file_data (`XetFileData`):
+            The xet file info to get the xet metadata for.
         refresh_route (`str`):
             The endpoint to use to refresh the xet metadata.
         headers (`Dict[str, str]`):
@@ -104,21 +95,18 @@ def get_xet_metadata_from_hash(
     """
 
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-    url = f"{endpoint}{refresh_route}"
-    metadata = _fetch_xet_metadata_with_url(url, headers)
+    url = f"{endpoint}{xet_file_data.refresh_route}"
+    connection_info = _fetch_xet_connection_info_with_url(url, headers)
     return XetMetadata(
-        endpoint=metadata.endpoint,
-        access_token=metadata.access_token,
-        expiration_unix_epoch=metadata.expiration_unix_epoch,
-        refresh_route=refresh_route,
-        file_hash=xet_hash,
+        connection_info=connection_info,
+        file_data=xet_file_data,
     )
 
 
 @validate_hf_hub_args
-def refresh_xet_metadata(
+def refresh_xet_connection_info(
     *,
-    xet_metadata: XetMetadata,
+    refresh_route: str,
     headers: Dict[str, str],
     endpoint: Optional[str] = None,
 ) -> XetMetadata:
@@ -139,11 +127,11 @@ def refresh_xet_metadata(
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the Hub API response is improperly formatted.
     """
-    if xet_metadata.refresh_route is None:
+    if refresh_route is None:
         raise ValueError("The provided xet metadata does not contain a refresh endpoint.")
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-    url = f"{endpoint}{xet_metadata.refresh_route}"
-    return _fetch_xet_metadata_with_url(url, headers)
+    url = f"{endpoint}{refresh_route}"
+    return _fetch_xet_connection_info_with_url(url, headers)
 
 
 @validate_hf_hub_args
@@ -184,17 +172,18 @@ def fetch_xet_metadata_from_repo_info(
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
     url = f"{endpoint}/api/{repo_type}s/{repo_id}/xet-{token_type.value}-token/{revision}"
-    return _fetch_xet_metadata_with_url(url, headers, params)
+    return _fetch_xet_connection_info_with_url(url, headers, params)
 
 
 @validate_hf_hub_args
-def _fetch_xet_metadata_with_url(
+def _fetch_xet_connection_info_with_url(
     url: str,
     headers: Dict[str, str],
     params: Optional[Dict[str, str]] = None,
-) -> XetMetadata:
+) -> XetConnectionInfo:
     """
-    Requests the xet access token from the supplied URL.
+    Requests the xet connection info from the supplied URL. This includes the 
+    access token, expiration time, and endpoint to use for the xet storage service.
     Args:
         url: (`str`):
             The access token endpoint URL.
@@ -203,7 +192,7 @@ def _fetch_xet_metadata_with_url(
         params (`Dict[str, str]`, `optional`):
             Additional parameters to pass with the request.
     Returns:
-        `XetMetadata`:
+        `XetConnectionInfo`:
             The metadata needed to make the request to the xet storage service.
     Raises:
         [`~utils.HfHubHTTPError`]
@@ -214,7 +203,7 @@ def _fetch_xet_metadata_with_url(
     resp = get_session().get(headers=headers, url=url, params=params)
     hf_raise_for_status(resp)
 
-    metadata = parse_xet_headers(resp.headers)  # type: ignore
+    metadata = parse_xet_connection_info_from_headers(resp.headers)  # type: ignore
     if metadata is None:
         raise ValueError("Xet headers have not been correctly set by the server.")
     return metadata

@@ -109,11 +109,12 @@ from ._typing import is_jsonable, is_simple_optional_type, unwrap_simple_optiona
 from ._validators import smoothly_deprecate_use_auth_token, validate_hf_hub_args, validate_repo_id
 from ._xet import (
     XetMetadata,
+    XetFileData,
+    XetConnectionInfo,
     XetTokenType,
-    build_xet_refresh_route,
     fetch_xet_metadata_from_repo_info,
-    get_xet_metadata_from_hash,
-    parse_xet_headers,
-    refresh_xet_metadata,
+    get_xet_metadata_from_file_data,
+    parse_xet_file_data_from_headers,
+    refresh_xet_connection_info,
 )
 from .tqdm import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars, tqdm, tqdm_stream_file
