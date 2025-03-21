@@ -75,6 +75,45 @@ def parse_xet_headers(headers: Dict[str, str]) -> Optional[XetMetadata]:
         file_hash=headers.get(constants.HUGGINGFACE_HEADER_X_XET_HASH),
     )
 
+@validate_hf_hub_args
+def build_xet_refresh_route(
+    *,
+    repo_id: str,
+    repo_type: Optional[str] = None,
+    revision: Optional[str] = None,
+) -> str:
+    if repo_type not in constants.REPO_TYPES:
+        raise ValueError("Invalid repo type")
+
+    if repo_type is None:
+        repo_type = constants.REPO_TYPE_MODEL
+
+    if repo_type in constants.REPO_TYPES_MAPPING:
+        repo_type = constants.REPO_TYPES_API_PREFIXES
+
+    if revision is None:
+        revision = constants.DEFAULT_REVISION
+    return f"/api/{repo_type}s/{repo_id}/xet-read-token/{revision}"
+
+@validate_hf_hub_args
+def get_xet_metadata_from_hash(
+    *,
+    xet_hash: str,
+    refresh_route: str,
+    headers: Dict[str, str],
+    endpoint: Optional[str] = None,
+) -> XetMetadata:
+    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
+    url = f"{endpoint}{refresh_route}"
+    metadata = _fetch_xet_metadata_with_url(url, headers)
+    return XetMetadata(
+        endpoint=metadata.endpoint,
+        access_token=metadata.access_token,
+        expiration_unix_epoch=metadata.expiration_unix_epoch,
+        refresh_route=refresh_route,
+        file_hash=xet_hash,
+    )
+
 
 @validate_hf_hub_args
 def refresh_xet_metadata(
@@ -86,8 +125,8 @@ def refresh_xet_metadata(
     """
     Utilizes the information in the parsed metadata to request the Hub xet access token.
     Args:
-        xet_metadata: (`XetMetadata`):
-            The xet metadata provided by the Hub API.
+        refresh_route: (`str`):
+            The endpoint to use to 
         headers (`Dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
         endpoint (`str`, `optional`):

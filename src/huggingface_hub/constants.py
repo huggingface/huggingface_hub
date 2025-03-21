@@ -102,6 +102,7 @@ REPO_TYPES_MAPPING = {
     "spaces": REPO_TYPE_SPACE,
     "models": REPO_TYPE_MODEL,
 }
+REPO_TYPES_API_PREFIXES = {v:k for k,v in REPO_TYPES_MAPPING.items()} 
 
 DiscussionTypeFilter = Literal["all", "discussion", "pull_request"]
 DISCUSSION_TYPES: Tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionTypeFilter)
