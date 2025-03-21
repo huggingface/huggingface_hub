@@ -37,6 +37,7 @@ from huggingface_hub.inference._providers.novita import (
     NovitaConversationalTask,
     NovitaTextGenerationTask,
 )
+from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
 from huggingface_hub.inference._providers.together import (
@@ -597,6 +598,15 @@ class TestNovitaProvider:
         helper = NovitaConversationalTask()
         url = helper._prepare_url("novita_token", "username/repo_name")
         assert url == "https://api.novita.ai/v3/openai/chat/completions"
+
+
+class TestOpenAIProvider:
+    def test_prepare_url(self):
+        helper = OpenAIConversationalTask()
+        assert (
+            helper._prepare_url("sambanova_token", "username/repo_name")
+            == "https://api.sambanova.ai/v1/chat/completions"
+        )
 
 
 class TestReplicateProvider:
