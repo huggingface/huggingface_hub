@@ -21,7 +21,7 @@ import pytest
 
 from huggingface_hub import HfApi, RepoUrl
 from huggingface_hub._commit_api import _upload_lfs_files, _upload_xet_files
-from huggingface_hub.file_download import get_hf_file_metadata, hf_hub_download, hf_hub_url
+from huggingface_hub.file_download import get_hf_file_metadata, get_xet_file_metadata, hf_hub_download, hf_hub_url
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import repo_name, requires
@@ -110,7 +110,8 @@ class TestXetUpload:
             filename=filename_in_repo,
         )
         metadata = get_hf_file_metadata(url)
-        xet_metadata = metadata.xet_metadata
+        assert(metadata.xet_backed)
+        xet_metadata = get_xet_file_metadata(url) 
         assert xet_metadata is not None
 
     def test_upload_file_with_bytesio(self, api, tmp_path, repo_url):
@@ -237,6 +238,7 @@ class TestXetLargeUpload:
                 repo_id=repo_id,
                 filename=f"subfolder_{i}/file_xet_{i}_{j}.bin",
             )
-            metadata = get_hf_file_metadata(url)
-            xet_metadata = metadata.xet_metadata
+            file_metadata = get_hf_file_metadata(url)
+            assert(file_metadata.xet_backed)
+            xet_metadata = get_xet_file_metadata(url)
             assert xet_metadata is not None
