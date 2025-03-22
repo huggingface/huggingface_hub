@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional
+from requests.structures import CaseInsensitiveDict
 
 from .. import constants
 from . import get_session, hf_raise_for_status, validate_hf_hub_args
@@ -24,7 +25,7 @@ class XetConnectionInfo:
     endpoint: str
 
 
-def parse_xet_file_data_from_headers(headers: Dict[str, str]) -> Optional[XetFileData]:
+def parse_xet_file_data_from_headers(headers: CaseInsensitiveDict[str]) -> Optional[XetFileData]:
     """
     Parse XET file info from the HTTP headers or return None if not found.
     Args:
@@ -47,7 +48,7 @@ def parse_xet_file_data_from_headers(headers: Dict[str, str]) -> Optional[XetFil
     )
 
 
-def parse_xet_connection_info_from_headers(headers: Dict[str, str]) -> Optional[XetConnectionInfo]:
+def parse_xet_connection_info_from_headers(headers: CaseInsensitiveDict[str]) -> Optional[XetConnectionInfo]:
     """
     Parse XET connection info from the HTTP headers or return None if not found.
     Args:

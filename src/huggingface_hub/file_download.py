@@ -1656,8 +1656,7 @@ def _download_to_tmp_and_move(
             _check_disk_space(expected_size, incomplete_path.parent)
             _check_disk_space(expected_size, destination_path.parent)
 
-        is_xet_enabled = xet_file_data is not None
-        if is_xet_enabled and is_xet_available():
+        if xet_file_data is not None and is_xet_available():
             logger.info("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
             xet_get(
                 incomplete_path=incomplete_path,
@@ -1667,7 +1666,7 @@ def _download_to_tmp_and_move(
                 displayed_filename=filename,
             )
         else:
-            if is_xet_enabled:
+            if xet_file_data is not None:
                 logger.warning(
                     "Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. "
                     "Falling back to regular HTTP download. "
