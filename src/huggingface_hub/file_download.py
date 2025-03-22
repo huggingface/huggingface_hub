@@ -1422,7 +1422,7 @@ def get_hf_file_metadata(
         size=_int_or_none(
             r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
         ),
-        xet_file_data=parse_xet_file_data_from_headers(r.headers), # type: ignore
+        xet_file_data=parse_xet_file_data_from_headers(r.headers),  # type: ignore
     )
 
 
