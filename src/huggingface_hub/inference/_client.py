@@ -146,6 +146,9 @@ class InferenceClient:
         headers (`Dict[str, str]`, `optional`):
             Additional headers to send to the server. By default only the authorization and user-agent headers are sent.
             Values in this dictionary will override the default values.
+        bill_to (`str`, `optional`):
+            The billing account to use for the requests. By default the requests are billed on the user's account.
+            Requests can only be billed to an organization the user is a member of, and which has subscribed to Enterprise Hub.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
         proxies (`Any`, `optional`):
@@ -168,6 +171,7 @@ class InferenceClient:
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
         proxies: Optional[Any] = None,
+        bill_to: Optional[str] = None,
         # OpenAI compatibility
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
@@ -203,7 +207,25 @@ class InferenceClient:
 
         self.model: Optional[str] = base_url or model
         self.token: Optional[str] = token
-        self.headers = headers if headers is not None else {}
+
+        self.headers = {**headers} if headers is not None else {}
+        if bill_to is not None:
+            if (
+                constants.HUGGINGFACE_HEADER_X_BILL_TO in self.headers
+                and self.headers[constants.HUGGINGFACE_HEADER_X_BILL_TO] != bill_to
+            ):
+                warnings.warn(
+                    f"Overriding existing '{self.headers[constants.HUGGINGFACE_HEADER_X_BILL_TO]}' value in headers with '{bill_to}'.",
+                    UserWarning,
+                )
+            self.headers[constants.HUGGINGFACE_HEADER_X_BILL_TO] = bill_to
+
+            if token is not None and not token.startswith("hf_"):
+                warnings.warn(
+                    "You've provided an external provider's API key, so requests will be billed directly by the provider. "
+                    "The `bill_to` parameter is only applicable for Hugging Face billing and will be ignored.",
+                    UserWarning,
+                )
 
         # Configure provider
         self.provider = provider if provider is not None else "hf-inference"
