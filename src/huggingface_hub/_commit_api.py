@@ -24,7 +24,7 @@ from .utils import (
     FORBIDDEN_FOLDERS,
     XetTokenType,
     chunk_iterable,
-    fetch_xet_metadata_from_repo_info,
+    fetch_xet_connection_info_from_repo_info,
     get_session,
     hf_raise_for_status,
     logging,
@@ -533,7 +533,7 @@ def _upload_xet_files(
     from hf_xet import upload_files
 
     try:
-        xet_metadata = fetch_xet_metadata_from_repo_info(
+        xet_connection_info = fetch_xet_connection_info_from_repo_info(
             token_type=XetTokenType.WRITE,
             repo_id=repo_id,
             repo_type=repo_type,
@@ -550,11 +550,11 @@ def _upload_xet_files(
             ) from e
         raise
 
-    xet_endpoint = xet_metadata.endpoint
-    access_token_info = (xet_metadata.access_token, xet_metadata.expiration_unix_epoch)
+    xet_endpoint = xet_connection_info.endpoint
+    access_token_info = (xet_connection_info.access_token, xet_connection_info.expiration_unix_epoch)
 
     def token_refresher() -> Tuple[str, int]:
-        new_xet_metadata = fetch_xet_metadata_from_repo_info(
+        new_xet_connection = fetch_xet_connection_info_from_repo_info(
             token_type=XetTokenType.WRITE,
             repo_id=repo_id,
             repo_type=repo_type,
@@ -563,9 +563,9 @@ def _upload_xet_files(
             endpoint=endpoint,
             params={"create_pr": "1"} if create_pr else None,
         )
-        if new_xet_metadata is None:
+        if new_xet_connection is None:
             raise XetRefreshTokenError("Failed to refresh xet token")
-        return new_xet_metadata.access_token, new_xet_metadata.expiration_unix_epoch
+        return new_xet_connection.access_token, new_xet_connection.expiration_unix_epoch
 
     num_chunks = math.ceil(len(additions) / UPLOAD_BATCH_MAX_NUM_FILES)
     num_chunks_num_digits = int(math.log10(num_chunks)) + 1

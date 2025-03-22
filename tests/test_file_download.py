@@ -523,6 +523,7 @@ class CachedDownloadTests(unittest.TestCase):
                     etag=metadata.etag,
                     location=metadata.location,
                     size=450,  # will expect 450 bytes but will download 496 bytes
+                    xet_file_data=None,
                 )
 
             with patch("huggingface_hub.file_download.get_hf_file_metadata", _mocked_hf_file_metadata):
@@ -544,6 +545,7 @@ class CachedDownloadTests(unittest.TestCase):
                     etag=metadata.etag,
                     location=metadata.location,
                     size=65000,  # will expect 65000 bytes but will download 65074 bytes
+                    xet_file_data=None,
                 )
 
             with patch("huggingface_hub.file_download.get_hf_file_metadata", _mocked_hf_file_metadata):
