@@ -101,7 +101,14 @@ def refresh_xet_connection_info(
     if file_data.refresh_route is None:
         raise ValueError("The provided xet metadata does not contain a refresh endpoint.")
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-    url = f"{endpoint}{file_data.refresh_route}"
+
+    # TODO: An upcoming version of hub will prepend the endpoint to the refresh route in 
+    # the headers. Once that's deployed we can call fetch on the refresh route directly.
+    if file_data.refresh_route.startswith("/"):
+        url = f"{endpoint}{file_data.refresh_route}"
+    else:
+        url = f"{file_data.refresh_route}"
+
     return _fetch_xet_connection_info_with_url(url, headers)
 
 
