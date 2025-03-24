@@ -28,7 +28,6 @@ jobs:
             "Everything else",
             "Inference only",
             "Xet only"
-            
           ]
         include:
           - python-version: "3.13" # LFS not ran on 3.8
@@ -134,7 +133,6 @@ jobs:
             lfs)
               eval "RUN_GIT_LFS_TESTS=1 $PYTEST ../tests -k 'HfLargefilesTest'"
             ;;
-
 
             fastai)
               eval "$PYTEST ../tests/test_fastai*"

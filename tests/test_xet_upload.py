@@ -15,13 +15,21 @@
 from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
-from unittest.mock import patch
+from typing import Tuple
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from huggingface_hub import HfApi, RepoUrl
 from huggingface_hub._commit_api import _upload_lfs_files, _upload_xet_files
-from huggingface_hub.file_download import get_hf_file_metadata, hf_hub_download, hf_hub_url
+from huggingface_hub.file_download import (
+    _get_metadata_or_catch_error,
+    get_hf_file_metadata,
+    hf_hub_download,
+    hf_hub_url,
+)
+from huggingface_hub.utils import build_hf_headers
+from huggingface_hub.utils._xet import refresh_xet_metadata
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import repo_name, requires
@@ -227,6 +235,12 @@ class TestXetLargeUpload:
 
         # Check all files have been uploaded
         uploaded_files = api.list_repo_files(repo_id=repo_id)
+
+        # Download and verify content
+        local_dir = Path(tmp_path) / "snapshot"
+        local_dir.mkdir()
+        api.snapshot_download(repo_id=repo_id, local_dir=local_dir, cache_dir=None)
+
         for i in range(N_FILES_PER_FOLDER):
             for j in range(N_FILES_PER_FOLDER):
                 assert f"subfolder_{i}/file_xet_{i}_{j}.bin" in uploaded_files
@@ -240,3 +254,93 @@ class TestXetLargeUpload:
             metadata = get_hf_file_metadata(url)
             xet_metadata = metadata.xet_metadata
             assert xet_metadata is not None
+
+            # Verify xet files
+            xet_file = local_dir / f"subfolder_{i}/file_xet_{i}_{j}.bin"
+            assert xet_file.read_bytes() == f"content_lfs_{i}_{j}".encode()
+
+            # Verify regular files
+            regular_file = local_dir / f"subfolder_{i}/file_regular_{i}_{j}.txt"
+            assert regular_file.read_bytes() == f"content_regular_{i}_{j}".encode()
+
+
+@requires("hf_xet")
+class TestXetE2E(TestXetUpload):
+    def test_hf_xet_with_token_refresher(self, api, tmp_path, repo_url):
+        """
+        Test the hf_xet.download_files function with a token refresher.
+
+        This test manually calls the hf_xet.download_files function with a token refresher
+        function to verify that the token refresh mechanism works as expected. It aims to
+        identify regressions in the hf_xet.download_files function.
+
+        * Define a token refresher function that issues a token refresh by returning a new
+           access token and expiration time.
+        * Mock the token refresher function.
+        * Construct the necessary headers and metadata for the file to be downloaded.
+        * Call the download_files function with the token refresher, forcing a token refresh.
+        * Assert that the token refresher function was called as expected.
+
+        This test ensures that the downloaded file is the same as the uploaded file.
+        """
+        from hf_xet import PyPointerFile, download_files
+
+        filename_in_repo = "binary_file.bin"
+        repo_id = repo_url.repo_id
+
+        # Upload a file
+        api.upload_file(
+            path_or_fileobj=self.bin_file,
+            path_in_repo=filename_in_repo,
+            repo_id=repo_id,
+        )
+
+        # manually construct parameters to hf_xet.download_files and use a locally defined token_refresher function
+        # to verify that token refresh works as expected.
+        def token_refresher() -> Tuple[str, int]:
+            # Issue a token refresh by returning a new access token and expiration time
+            new_xet_metadata = refresh_xet_metadata(xet_metadata=xet_metadata, headers=headers)
+            return new_xet_metadata.access_token, new_xet_metadata.expiration_unix_epoch
+
+        mock_token_refresher = MagicMock(side_effect=token_refresher)
+
+        # headers
+        headers = build_hf_headers(token=TOKEN)
+
+        # metadata for url
+        (url_to_download, etag, commit_hash, expected_size, xet_metadata, head_call_error) = (
+            _get_metadata_or_catch_error(
+                repo_id=repo_id,
+                filename=filename_in_repo,
+                revision="main",
+                repo_type="model",
+                headers=headers,
+                endpoint=api.endpoint,
+                token=TOKEN,
+                proxies=None,
+                etag_timeout=None,
+                local_files_only=False,
+            )
+        )
+
+        incomplete_path = Path(tmp_path) / "file.bin.incomplete"
+        py_file = [
+            PyPointerFile(path=str(incomplete_path.absolute()), hash=xet_metadata.file_hash, filesize=expected_size)
+        ]
+
+        # Call the download_files function with the token refresher, set expiration to 0 forcing a refresh
+        download_files(
+            py_file,
+            endpoint=xet_metadata.endpoint,
+            token_info=(xet_metadata.access_token, 0),
+            token_refresher=mock_token_refresher,
+            progress_updater=None,
+        )
+
+        # assert that our local token_refresher function was called by hfxet as expected.
+        mock_token_refresher.assert_called_once()
+
+        # Check that the downloaded file is the same as the uploaded file
+        with open(incomplete_path, "rb") as f:
+            downloaded_content = f.read()
+        assert downloaded_content == self.bin_content
