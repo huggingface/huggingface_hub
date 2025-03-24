@@ -29,7 +29,6 @@ from huggingface_hub.file_download import (
     hf_hub_url,
 )
 from huggingface_hub.utils import build_hf_headers, refresh_xet_connection_info
-from huggingface_hub.utils._xet import refresh_xet_metadata
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import repo_name, requires
@@ -254,8 +253,8 @@ class TestXetLargeUpload:
             )
 
             metadata = get_hf_file_metadata(url)
-            xet_metadata = metadata.xet_metadata
-            assert xet_metadata is not None
+            xet_filedata = metadata.xet_file_data
+            assert xet_filedata is not None
 
             # Verify xet files
             xet_file = local_dir / f"subfolder_{i}/file_xet_{i}_{j}.bin"
@@ -297,20 +296,11 @@ class TestXetE2E(TestXetUpload):
             repo_id=repo_id,
         )
 
-        # manually construct parameters to hf_xet.download_files and use a locally defined token_refresher function
-        # to verify that token refresh works as expected.
-        def token_refresher() -> Tuple[str, int]:
-            # Issue a token refresh by returning a new access token and expiration time
-            new_xet_metadata = refresh_xet_metadata(xet_metadata=xet_metadata, headers=headers)
-            return new_xet_metadata.access_token, new_xet_metadata.expiration_unix_epoch
-
-        mock_token_refresher = MagicMock(side_effect=token_refresher)
-
         # headers
         headers = build_hf_headers(token=TOKEN)
 
         # metadata for url
-        (url_to_download, etag, commit_hash, expected_size, xet_metadata, head_call_error) = (
+        (url_to_download, etag, commit_hash, expected_size, xet_filedata, head_call_error) = (
             _get_metadata_or_catch_error(
                 repo_id=repo_id,
                 filename=filename_in_repo,
@@ -325,16 +315,27 @@ class TestXetE2E(TestXetUpload):
             )
         )
 
+        xet_connection_info = refresh_xet_connection_info(file_data=xet_filedata, headers=headers)
+
+        # manually construct parameters to hf_xet.download_files and use a locally defined token_refresher function
+        # to verify that token refresh works as expected.
+        def token_refresher() -> Tuple[str, int]:
+            # Issue a token refresh by returning a new access token and expiration time
+            new_connection = refresh_xet_connection_info(file_data=xet_filedata, headers=headers)
+            return new_connection.access_token, new_connection.expiration_unix_epoch
+
+        mock_token_refresher = MagicMock(side_effect=token_refresher)
+
         incomplete_path = Path(tmp_path) / "file.bin.incomplete"
         py_file = [
-            PyPointerFile(path=str(incomplete_path.absolute()), hash=xet_metadata.file_hash, filesize=expected_size)
+            PyPointerFile(path=str(incomplete_path.absolute()), hash=xet_filedata.file_hash, filesize=expected_size)
         ]
 
         # Call the download_files function with the token refresher, set expiration to 0 forcing a refresh
         download_files(
             py_file,
-            endpoint=xet_metadata.endpoint,
-            token_info=(xet_metadata.access_token, 0),
+            endpoint=xet_connection_info.endpoint,
+            token_info=(xet_connection_info.access_token, 0),
             token_refresher=mock_token_refresher,
             progress_updater=None,
         )
