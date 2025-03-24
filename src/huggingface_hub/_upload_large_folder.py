@@ -59,6 +59,7 @@ def upload_large_folder_internal(
     num_workers: Optional[int] = None,
     print_report: bool = True,
     print_report_every: int = 60,
+    recurse_symlinks: bool = False,  # P69ba
 ):
     """Upload a large folder to the Hub in the most resilient way possible.
 
@@ -96,7 +97,7 @@ def upload_large_folder_internal(
 
     # 3. List files to upload
     filtered_paths_list = filter_repo_objects(
-        (path.relative_to(folder_path).as_posix() for path in folder_path.glob("**/*") if path.is_file()),
+        (path.relative_to(folder_path).as_posix() for path in folder_path.glob("**/*", follow_symlinks=recurse_symlinks) if path.is_file()),  # P55ad
         allow_patterns=allow_patterns,
         ignore_patterns=ignore_patterns,
     )
