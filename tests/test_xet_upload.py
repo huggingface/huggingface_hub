@@ -235,6 +235,12 @@ class TestXetLargeUpload:
 
         # Check all files have been uploaded
         uploaded_files = api.list_repo_files(repo_id=repo_id)
+
+        # Download and verify content
+        local_dir = Path(tmp_path) / "snapshot"
+        local_dir.mkdir()
+        api.snapshot_download(repo_id=repo_id, local_dir=local_dir, cache_dir=None)
+
         for i in range(N_FILES_PER_FOLDER):
             for j in range(N_FILES_PER_FOLDER):
                 assert f"subfolder_{i}/file_xet_{i}_{j}.bin" in uploaded_files
@@ -249,19 +255,13 @@ class TestXetLargeUpload:
             xet_metadata = metadata.xet_metadata
             assert xet_metadata is not None
 
-        # Download and verify content
-        local_dir = Path(tmp_path) / "snapshot"
-        local_dir.mkdir()
-        api.snapshot_download(repo_id=repo_id, local_dir=local_dir, cache_dir=None)
+            # Verify xet files
+            xet_file = local_dir / f"subfolder_{i}/file_xet_{i}_{j}.bin"
+            assert xet_file.read_bytes() == f"content_lfs_{i}_{j}".encode()
 
-        for i in range(N_FILES_PER_FOLDER):
-            for j in range(N_FILES_PER_FOLDER):
-                for filename in [f"subfolder_{i}/file_xet_{i}_{j}.bin", f"subfolder_{i}/file_regular_{i}_{j}.txt"]:
-                    downloaded_file = hf_hub_download(repo_id=repo_id, filename=filename, cache_dir=None)
-                    if "xet" in filename:
-                        assert f"content_lfs_{i}_{j}".encode() == Path(downloaded_file).read_bytes()
-                    else:
-                        assert f"content_regular_{i}_{j}".encode() == Path(downloaded_file).read_bytes()
+            # Verify regular files
+            regular_file = local_dir / f"subfolder_{i}/file_regular_{i}_{j}.txt"
+            assert regular_file.read_bytes() == f"content_regular_{i}_{j}".encode()
 
 
 @requires("hf_xet")
