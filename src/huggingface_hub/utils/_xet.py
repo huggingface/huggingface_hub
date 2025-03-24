@@ -104,10 +104,9 @@ def refresh_xet_connection_info(
 
     # TODO: An upcoming version of hub will prepend the endpoint to the refresh route in
     # the headers. Once that's deployed we can call fetch on the refresh route directly.
-    if file_data.refresh_route.startswith("/"):
-        url = f"{endpoint}{file_data.refresh_route}"
-    else:
-        url = f"{file_data.refresh_route}"
+    url = file_data.refresh_route
+    if url.startswith("/"):
+        url = f"{endpoint}{url}"
 
     return _fetch_xet_connection_info_with_url(url, headers)
 
