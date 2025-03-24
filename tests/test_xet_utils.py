@@ -25,6 +25,10 @@ def test_parse_valid_headers_file_info() -> None:
     assert file_data.file_hash == "sha256:abcdef"
 
 
+def test_parse_invalid_headers_file_info() -> None:
+    assert parse_xet_file_data_from_headers({"X-foo": "bar"}) is None
+
+
 def test_parse_valid_headers_connection_info() -> None:
     headers = {
         "X-Xet-Cas-Url": "https://xet.example.com",
