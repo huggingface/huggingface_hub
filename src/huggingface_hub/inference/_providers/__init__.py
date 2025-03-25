@@ -15,6 +15,7 @@ from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational,
 from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
 from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
+from .openai import OpenAIConversationalTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
@@ -30,6 +31,7 @@ PROVIDER_T = Literal[
     "hyperbolic",
     "nebius",
     "novita",
+    "openai",
     "replicate",
     "sambanova",
     "together",
@@ -96,6 +98,9 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-generation": NovitaTextGenerationTask(),
         "conversational": NovitaConversationalTask(),
         "text-to-video": NovitaTextToVideoTask(),
+    },
+    "openai": {
+        "conversational": OpenAIConversationalTask(),
     },
     "replicate": {
         "text-to-image": ReplicateTask("text-to-image"),

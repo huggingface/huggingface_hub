@@ -133,7 +133,7 @@ class InferenceClient:
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"replicate"`, "sambanova"` or `"together"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"openai"`, `"replicate"`, "sambanova"` or `"together"`.
             defaults to hf-inference (Hugging Face Serverless Inference API).
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
@@ -1286,7 +1286,7 @@ class InferenceClient:
         [ImageSegmentationOutputElement(score=0.989008, label='LABEL_184', mask=<PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>), ...]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="audio-classification")
+        provider_helper = get_provider_helper(self.provider, task="image-segmentation")
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={

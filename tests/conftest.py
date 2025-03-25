@@ -78,3 +78,12 @@ def vcr_config():
         "ignore_localhost": True,
         "path_transformer": lambda path: path + ".yaml",
     }
+
+
+@pytest.fixture(autouse=True)
+def clear_lru_cache():
+    from huggingface_hub.inference._providers.hf_inference import _check_supported_task
+
+    _check_supported_task.cache_clear()
+    yield
+    _check_supported_task.cache_clear()
