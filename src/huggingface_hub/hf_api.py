@@ -3471,8 +3471,8 @@ class HfApi:
             >>> api = HfApi()
             >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
 
-            # For instance, select only LFS files in the "checkpoints" folder
-            # Filtering can be done based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            # e.g. select only LFS files in the "checkpoints" folder
             >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
 
             # Permanently delete LFS files
@@ -3532,8 +3532,8 @@ class HfApi:
             >>> api = HfApi()
             >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
 
-            # For instance, select only LFS files in the "checkpoints" folder
-            # Filtering can be done based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            # e.g. select only LFS files in the "checkpoints" folder
             >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
 
             # Permanently delete LFS files
