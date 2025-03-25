@@ -1556,6 +1556,20 @@ class LFSFileInfo:
             Ref where the LFS object has been pushed (if any).
         size (`int`):
             Size of the LFS object.
+
+    Example:
+        ```py
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
+
+        # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+        # e.g. select only LFS files in the "checkpoints" folder
+        >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
+
+        # Permanently delete LFS files
+        >>> api.permanently_delete_lfs_files("username/my-cool-repo", lfs_files_to_delete)
+        ```
     """
 
     file_oid: str
