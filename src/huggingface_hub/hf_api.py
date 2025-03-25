@@ -112,6 +112,7 @@ from .utils import (
     SafetensorsRepoMetadata,
     TensorInfo,
     build_hf_headers,
+    chunk_iterable,
     experimental,
     filter_repo_objects,
     fix_hf_endpoint_in_url,
@@ -1524,6 +1525,53 @@ class PaperInfo:
         self.submitted_at = parse_datetime(submitted_at) if submitted_at else None
         submitted_by = kwargs.pop("submittedBy", None) or kwargs.pop("submittedOnDailyBy", None)
         self.submitted_by = User(**submitted_by) if submitted_by else None
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
+class LFSFileInfo:
+    """
+    Contains information about a file stored as LFS on a repo on the Hub.
+
+    Used in the context of listing and permanently deleting LFS files from a repo to free-up space.
+    See [`list_lfs_files`] and [`permanently_delete_lfs_files`] for more details.
+
+    Git LFS files are tracked using SHA-256 object IDs, rather than file paths, to optimize performance
+    This approach is necessary because a single object can be referenced by multiple paths across different commits,
+    making it impractical to search and resolve these connections. Check out [our documentation](https://huggingface.co/docs/hub/storage-limits#advanced-track-lfs-file-references)
+    to learn how to know which filename(s) is(are) associated with each SHA.
+
+    Attributes:
+        file_oid (`str`):
+            SHA-256 object ID of the file. This is the identifier to pass when permanently deleting the file.
+        filename (`str`):
+            Possible filename for the LFS object. See the note above for more information.
+        oid (`str`):
+            OID of the LFS object.
+        pushed_at (`datetime`):
+            Date the LFS object was pushed to the repo.
+        ref (`str`, *optional*):
+            Ref where the LFS object has been pushed (if any).
+        size (`int`):
+            Size of the LFS object.
+    """
+
+    file_oid: str
+    filename: str
+    oid: str
+    pushed_at: datetime
+    ref: Optional[str]
+    size: int
+
+    def __init__(self, **kwargs) -> None:
+        self.file_oid = kwargs.pop("fileOid")
+        self.filename = kwargs.pop("filename")
+        self.oid = kwargs.pop("oid")
+        self.pushed_at = parse_datetime(kwargs.pop("pushedAt"))
+        self.ref = kwargs.pop("ref", None)
+        self.size = kwargs.pop("size")
 
         # forward compatibility
         self.__dict__.update(**kwargs)
@@ -3386,6 +3434,131 @@ class HfApi:
         # Super-squash
         response = get_session().post(url=url, headers=headers, json={"message": commit_message})
         hf_raise_for_status(response)
+
+    @validate_hf_hub_args
+    def list_lfs_files(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[LFSFileInfo]:
+        """
+        List all LFS files in a repo on the Hub.
+
+        This is primarily useful to count how much storage a repo is using and to eventually clean up large files
+        with [`permanently_delete_lfs_files`]. Note that this would be a permanent action that will affect all commits
+        referencing this deleted files and that cannot be undone.
+
+        Args:
+            repo_id (`str`):
+                The repository for which you are listing LFS files.
+            repo_type (`str`, *optional*):
+                Type of repository. Set to `"dataset"` or `"space"` if listing from a dataset or space, `None` or
+                `"model"` if listing from a model. Default is `None`.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[LFSFileInfo]`: An iterator of [`LFSFileInfo`] objects.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
+
+            # For instance, select only LFS files in the "checkpoints" folder
+            # Filtering can be done based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
+
+            # Permanently delete LFS files
+            >>> api.permanently_delete_lfs_files("username/my-cool-repo", lfs_files_to_delete)
+            ```
+        """
+        # Prepare request
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL
+        url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/lfs-files"
+        headers = self._build_hf_headers(token=token)
+
+        # Paginate over LFS items
+        for item in paginate(url, params={}, headers=headers):
+            yield LFSFileInfo(**item)
+
+    @validate_hf_hub_args
+    def permanently_delete_lfs_files(
+        self,
+        repo_id: str,
+        lfs_files: Iterable[LFSFileInfo],
+        *,
+        rewrite_history: bool = True,
+        repo_type: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        """
+        Permanently delete LFS files from a repo on the Hub.
+
+        <Tip warning={true}>
+
+        This is a permanent action that will affect all commits referencing the deleted files and might corrupt your
+        repository. This is a non-revertible operation. Use it only if you know what you are doing.
+
+        </Tip>
+
+        Args:
+            repo_id (`str`):
+                The repository for which you are listing LFS files.
+            lfs_files (`Iterable[LFSFileInfo]`):
+                An iterable of [`LFSFileInfo`] items to permanently delete from the repo. Use [`list_lfs_files`] to list
+                all LFS files from a repo.
+            rewrite_history (`bool`, *optional*, default to `True`):
+                Whether to rewrite repository history to remove file pointers referencing the deleted LFS files (recommended).
+            repo_type (`str`, *optional*):
+                Type of repository. Set to `"dataset"` or `"space"` if listing from a dataset or space, `None` or
+                `"model"` if listing from a model. Default is `None`.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
+
+            # For instance, select only LFS files in the "checkpoints" folder
+            # Filtering can be done based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
+
+            # Permanently delete LFS files
+            >>> api.permanently_delete_lfs_files("username/my-cool-repo", lfs_files_to_delete)
+            ```
+        """
+        # Prepare request
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL
+        url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/lfs-files/batch"
+        headers = self._build_hf_headers(token=token)
+
+        # Delete LFS items by batches of 1000
+        for batch in chunk_iterable(lfs_files, 1000):
+            shas = [item.file_oid for item in batch]
+            if len(shas) == 0:
+                return
+            payload = {
+                "deletions": {
+                    "sha": shas,
+                    "rewriteHistory": rewrite_history,
+                }
+            }
+            response = get_session().post(url, headers=headers, json=payload)
+            hf_raise_for_status(response)
 
     @validate_hf_hub_args
     def create_repo(
@@ -9641,7 +9814,6 @@ create_repo = api.create_repo
 delete_repo = api.delete_repo
 update_repo_visibility = api.update_repo_visibility
 update_repo_settings = api.update_repo_settings
-super_squash_history = api.super_squash_history
 move_repo = api.move_repo
 upload_file = api.upload_file
 upload_folder = api.upload_folder
@@ -9655,6 +9827,11 @@ delete_branch = api.delete_branch
 create_tag = api.create_tag
 delete_tag = api.delete_tag
 get_full_repo_name = api.get_full_repo_name
+
+# Danger-zone API
+super_squash_history = api.super_squash_history
+list_lfs_files = api.list_lfs_files
+permanently_delete_lfs_files = api.permanently_delete_lfs_files
 
 # Safetensors helpers
 get_safetensors_metadata = api.get_safetensors_metadata
