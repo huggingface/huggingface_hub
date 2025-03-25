@@ -112,7 +112,7 @@ from ._xet import (
     XetFileData,
     XetTokenType,
     fetch_xet_connection_info_from_repo_info,
-    parse_xet_file_data_from_headers_and_links,
+    parse_xet_file_data_from_response,
     refresh_xet_connection_info,
 )
 from .tqdm import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars, tqdm, tqdm_stream_file
