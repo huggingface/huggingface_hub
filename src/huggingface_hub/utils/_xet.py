@@ -24,12 +24,16 @@ class XetConnectionInfo:
     endpoint: str
 
 
-def parse_xet_file_data_from_headers(headers: Dict[str, str]) -> Optional[XetFileData]:
+def parse_xet_file_data_from_headers_and_links(
+    headers: Dict[str, str], links: Dict[str, Dict[str, str]]
+) -> Optional[XetFileData]:
     """
     Parse XET file info from the HTTP headers or return None if not found.
     Args:
         headers (`Dict`):
            HTTP headers to extract the XET metadata from.
+        links (`Dict`):
+           HTTP reponse links parameter to extract the XET metadata from.
     Returns:
         `XetFileData` or `None`:
             The metadata needed for a file download.
@@ -37,7 +41,11 @@ def parse_xet_file_data_from_headers(headers: Dict[str, str]) -> Optional[XetFil
     """
     try:
         file_hash = headers[constants.HUGGINGFACE_HEADER_X_XET_HASH]
-        refresh_route = headers[constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE]
+
+        if constants.HUGGINGFACE_HEADER_LINK_XET_AUTH_KEY in links:
+            refresh_route = links[constants.HUGGINGFACE_HEADER_LINK_XET_AUTH_KEY]["url"]
+        else:
+            refresh_route = headers[constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE]
     except KeyError:
         return None
 

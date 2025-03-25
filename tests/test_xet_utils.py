@@ -7,7 +7,7 @@ from huggingface_hub.utils._xet import (
     XetFileData,
     _fetch_xet_connection_info_with_url,
     parse_xet_connection_info_from_headers,
-    parse_xet_file_data_from_headers,
+    parse_xet_file_data_from_headers_and_links,
     refresh_xet_connection_info,
 )
 
@@ -17,8 +17,24 @@ def test_parse_valid_headers_file_info() -> None:
         "X-Xet-Hash": "sha256:abcdef",
         "X-Xet-Refresh-Route": "/api/refresh",
     }
+    links = {}
 
-    file_data = parse_xet_file_data_from_headers(headers)
+    file_data = parse_xet_file_data_from_headers_and_links(headers, links)
+
+    assert file_data is not None
+    assert file_data.refresh_route == "/api/refresh"
+    assert file_data.file_hash == "sha256:abcdef"
+
+
+def test_parse_valid_headers_file_info_with_link() -> None:
+    headers = {
+        "X-Xet-Hash": "sha256:abcdef",
+    }
+    links = {
+        "xet-auth": {"url": "/api/refresh"},
+    }
+
+    file_data = parse_xet_file_data_from_headers_and_links(headers, links)
 
     assert file_data is not None
     assert file_data.refresh_route == "/api/refresh"
@@ -26,7 +42,7 @@ def test_parse_valid_headers_file_info() -> None:
 
 
 def test_parse_invalid_headers_file_info() -> None:
-    assert parse_xet_file_data_from_headers({"X-foo": "bar"}) is None
+    assert parse_xet_file_data_from_headers_and_links({"X-foo": "bar"}, {}) is None
 
 
 def test_parse_valid_headers_connection_info() -> None:
@@ -53,7 +69,7 @@ def test_parse_valid_headers_full() -> None:
         "X-Xet-Hash": "sha256:abcdef",
     }
 
-    file_metadata = parse_xet_file_data_from_headers(headers)
+    file_metadata = parse_xet_file_data_from_headers_and_links(headers, {})
     connection_info = parse_xet_connection_info_from_headers(headers)
 
     assert file_metadata is not None
