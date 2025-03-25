@@ -63,6 +63,10 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "black-forest-labs": {
         "text-to-image": "black-forest-labs/FLUX.1-dev",
     },
+    "centml": {
+        "conversational": "meta-llama/Llama-3.3-70B-Instruct",
+        "text-generation": "meta-llama/Llama-3.2-3B-Instruct",
+    },
     "cerebras": {
         "conversational": "meta-llama/Llama-3.3-70B-Instruct",
     },
@@ -79,11 +83,14 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "conversational": "meta-llama/Llama-3.3-70B-Instruct",
     },
     "hf-inference": {
-        "audio-classification": "alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech",
+        "audio-classification":
+        "alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech",
         "audio-to-audio": "speechbrain/sepformer-wham",
-        "automatic-speech-recognition": "jonatasgrosman/wav2vec2-large-xlsr-53-english",
+        "automatic-speech-recognition":
+        "jonatasgrosman/wav2vec2-large-xlsr-53-english",
         "conversational": "meta-llama/Llama-3.1-8B-Instruct",
-        "document-question-answering": "naver-clova-ix/donut-base-finetuned-docvqa",
+        "document-question-answering":
+        "naver-clova-ix/donut-base-finetuned-docvqa",
         "feature-extraction": "facebook/bart-base",
         "image-classification": "google/vit-base-patch16-224",
         "image-to-text": "Salesforce/blip-image-captioning-base",
@@ -94,10 +101,12 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "table-question-answering": "google/tapas-base-finetuned-wtq",
         "tabular-classification": "julien-c/wine-quality",
         "tabular-regression": "scikit-learn/Fish-Weight",
-        "text-classification": "distilbert/distilbert-base-uncased-finetuned-sst-2-english",
+        "text-classification":
+        "distilbert/distilbert-base-uncased-finetuned-sst-2-english",
         "text-to-image": "CompVis/stable-diffusion-v1-4",
         "text-to-speech": "espnet/kan-bayashi_ljspeech_vits",
-        "token-classification": "dbmdz/bert-large-cased-finetuned-conll03-english",
+        "token-classification":
+        "dbmdz/bert-large-cased-finetuned-conll03-english",
         "translation": "t5-small",
         "visual-question-answering": "dandelin/vilt-b32-finetuned-vqa",
         "zero-shot-classification": "facebook/bart-large-mnli",

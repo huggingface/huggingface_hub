@@ -133,7 +133,7 @@ class InferenceClient:
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"openai"`, `"replicate"`, "sambanova"` or `"together"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"centml"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"openai"`, `"replicate"`, "sambanova"` or `"together"`.
             defaults to hf-inference (Hugging Face Serverless Inference API).
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
@@ -224,7 +224,7 @@ class InferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: Literal[False] = ...,
-    ) -> bytes: ...
+    ) -> bytes:        ...
 
     @overload
     def post(  # type: ignore[misc]
@@ -235,7 +235,7 @@ class InferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: Literal[True] = ...,
-    ) -> Iterable[bytes]: ...
+    ) -> Iterable[bytes]:        ...
 
     @overload
     def post(
@@ -246,7 +246,7 @@ class InferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: bool = False,
-    ) -> Union[bytes, Iterable[bytes]]: ...
+    ) -> Union[bytes, Iterable[bytes]]:        ...
 
     @_deprecate_method(
         version="0.31.0",
@@ -295,17 +295,17 @@ class InferenceClient:
     @overload
     def _inner_post(  # type: ignore[misc]
         self, request_parameters: RequestParameters, *, stream: Literal[False] = ...
-    ) -> bytes: ...
+    ) -> bytes:        ...
 
     @overload
     def _inner_post(  # type: ignore[misc]
         self, request_parameters: RequestParameters, *, stream: Literal[True] = ...
-    ) -> Iterable[bytes]: ...
+    ) -> Iterable[bytes]:        ...
 
     @overload
     def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, Iterable[bytes]]: ...
+    ) -> Union[bytes, Iterable[bytes]]:        ...
 
     def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
@@ -520,7 +520,7 @@ class InferenceClient:
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
         extra_body: Optional[Dict] = None,
-    ) -> ChatCompletionOutput: ...
+    ) -> ChatCompletionOutput:        ...
 
     @overload
     def chat_completion(  # type: ignore
@@ -546,7 +546,7 @@ class InferenceClient:
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
         extra_body: Optional[Dict] = None,
-    ) -> Iterable[ChatCompletionStreamOutput]: ...
+    ) -> Iterable[ChatCompletionStreamOutput]:        ...
 
     @overload
     def chat_completion(
@@ -572,7 +572,7 @@ class InferenceClient:
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
         extra_body: Optional[Dict] = None,
-    ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]: ...
+    ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:        ...
 
     def chat_completion(
         self,
@@ -1918,7 +1918,7 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> str: ...
+    ) -> str:        ...
 
     @overload
     def text_generation(  # type: ignore
@@ -1948,7 +1948,7 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> TextGenerationOutput: ...
+    ) -> TextGenerationOutput:        ...
 
     @overload
     def text_generation(  # type: ignore
@@ -1978,7 +1978,7 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> Iterable[str]: ...
+    ) -> Iterable[str]:        ...
 
     @overload
     def text_generation(  # type: ignore
@@ -2008,7 +2008,7 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> Iterable[TextGenerationStreamOutput]: ...
+    ) -> Iterable[TextGenerationStreamOutput]:        ...
 
     @overload
     def text_generation(
@@ -2038,7 +2038,7 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> Union[TextGenerationOutput, Iterable[TextGenerationStreamOutput]]: ...
+    ) -> Union[TextGenerationOutput, Iterable[TextGenerationStreamOutput]]:        ...
 
     def text_generation(
         self,
