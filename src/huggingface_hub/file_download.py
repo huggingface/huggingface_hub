@@ -56,7 +56,7 @@ from .utils import (
     is_tf_available,  # noqa: F401 # for backward compatibility
     is_torch_available,  # noqa: F401 # for backward compatibility
     logging,
-    parse_xet_file_data_from_headers,
+    parse_xet_file_data_from_response,
     refresh_xet_connection_info,
     reset_sessions,
     tqdm,
@@ -1422,7 +1422,7 @@ def get_hf_file_metadata(
         size=_int_or_none(
             r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
         ),
-        xet_file_data=parse_xet_file_data_from_headers(r.headers),  # type: ignore
+        xet_file_data=parse_xet_file_data_from_response(r),  # type: ignore
     )
 
 

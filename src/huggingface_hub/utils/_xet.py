@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional
 
+import requests
+
 from .. import constants
 from . import get_session, hf_raise_for_status, validate_hf_hub_args
 
@@ -24,20 +26,30 @@ class XetConnectionInfo:
     endpoint: str
 
 
-def parse_xet_file_data_from_headers(headers: Dict[str, str]) -> Optional[XetFileData]:
+def parse_xet_file_data_from_response(response: requests.Response) -> Optional[XetFileData]:
     """
-    Parse XET file info from the HTTP headers or return None if not found.
+    Parse XET file metadata from an HTTP response.
+
+    This function extracts XET file metadata from the HTTP headers or HTTP links
+    of a given response object. If the required metadata is not found, it returns `None`.
+
     Args:
-        headers (`Dict`):
-           HTTP headers to extract the XET metadata from.
+        response (`requests.Response`):
+            The HTTP response object containing headers dict and links dict to extract the XET metadata from.
     Returns:
-        `XetFileData` or `None`:
-            The metadata needed for a file download.
-            Returns `None` if the headers do not contain the xet file metadata.
+        `Optional[XetFileData]`:
+            An instance of `XetFileData` containing the file hash and refresh route if the metadata
+            is found. Returns `None` if the required metadata is missing.
     """
+    if response is None:
+        return None
     try:
-        file_hash = headers[constants.HUGGINGFACE_HEADER_X_XET_HASH]
-        refresh_route = headers[constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE]
+        file_hash = response.headers[constants.HUGGINGFACE_HEADER_X_XET_HASH]
+
+        if constants.HUGGINGFACE_HEADER_LINK_XET_AUTH_KEY in response.links:
+            refresh_route = response.links[constants.HUGGINGFACE_HEADER_LINK_XET_AUTH_KEY]["url"]
+        else:
+            refresh_route = response.headers[constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE]
     except KeyError:
         return None
 

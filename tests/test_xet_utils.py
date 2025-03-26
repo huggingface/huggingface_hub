@@ -7,18 +7,36 @@ from huggingface_hub.utils._xet import (
     XetFileData,
     _fetch_xet_connection_info_with_url,
     parse_xet_connection_info_from_headers,
-    parse_xet_file_data_from_headers,
+    parse_xet_file_data_from_response,
     refresh_xet_connection_info,
 )
 
 
 def test_parse_valid_headers_file_info() -> None:
-    headers = {
+    mock_response = MagicMock()
+    mock_response.headers = {
         "X-Xet-Hash": "sha256:abcdef",
         "X-Xet-Refresh-Route": "/api/refresh",
     }
+    mock_response.links = {}
 
-    file_data = parse_xet_file_data_from_headers(headers)
+    file_data = parse_xet_file_data_from_response(mock_response)
+
+    assert file_data is not None
+    assert file_data.refresh_route == "/api/refresh"
+    assert file_data.file_hash == "sha256:abcdef"
+
+
+def test_parse_valid_headers_file_info_with_link() -> None:
+    mock_response = MagicMock()
+    mock_response.headers = {
+        "X-Xet-Hash": "sha256:abcdef",
+    }
+    mock_response.links = {
+        "xet-auth": {"url": "/api/refresh"},
+    }
+
+    file_data = parse_xet_file_data_from_response(mock_response)
 
     assert file_data is not None
     assert file_data.refresh_route == "/api/refresh"
@@ -26,7 +44,10 @@ def test_parse_valid_headers_file_info() -> None:
 
 
 def test_parse_invalid_headers_file_info() -> None:
-    assert parse_xet_file_data_from_headers({"X-foo": "bar"}) is None
+    mock_response = MagicMock()
+    mock_response.headers = {"X-foo": "bar"}
+    mock_response.links = {}
+    assert parse_xet_file_data_from_response(mock_response) is None
 
 
 def test_parse_valid_headers_connection_info() -> None:
@@ -45,16 +66,18 @@ def test_parse_valid_headers_connection_info() -> None:
 
 
 def test_parse_valid_headers_full() -> None:
-    headers = {
+    mock_response = MagicMock()
+    mock_response.headers = {
         "X-Xet-Cas-Url": "https://xet.example.com",
         "X-Xet-Access-Token": "xet_token_abc",
         "X-Xet-Token-Expiration": "1234567890",
         "X-Xet-Refresh-Route": "/api/refresh",
         "X-Xet-Hash": "sha256:abcdef",
     }
+    mock_response.links = {}
 
-    file_metadata = parse_xet_file_data_from_headers(headers)
-    connection_info = parse_xet_connection_info_from_headers(headers)
+    file_metadata = parse_xet_file_data_from_response(mock_response)
+    connection_info = parse_xet_connection_info_from_headers(mock_response.headers)
 
     assert file_metadata is not None
     assert file_metadata.refresh_route == "/api/refresh"
