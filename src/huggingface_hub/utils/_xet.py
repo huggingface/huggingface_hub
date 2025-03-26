@@ -37,7 +37,7 @@ def parse_xet_file_data_from_response(response: requests.Response) -> Optional[X
         response (`requests.Response`):
             The HTTP response object containing headers dict and links dict to extract the XET metadata from.
     Returns:
-        `Optional[XetFileData]` or None:
+        `Optional[XetFileData]`:
             An instance of `XetFileData` containing the file hash and refresh route if the metadata
             is found. Returns `None` if the required metadata is missing.
     """
