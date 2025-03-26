@@ -12,7 +12,11 @@ from huggingface_hub.file_download import (
     try_to_load_from_cache,
     xet_get,
 )
-from huggingface_hub.utils import XetMetadata
+from huggingface_hub.utils import (
+    XetConnectionInfo,
+    XetFileData,
+    refresh_xet_connection_info,
+)
 
 from .testing_utils import (
     DUMMY_XET_FILE,
@@ -26,17 +30,7 @@ from .testing_utils import (
 @with_production_testing
 class TestXetFileDownload:
     @contextmanager
-    def _patch_xet_file_metadata(self, with_xet_metadata: bool):
-        xet_metadata = (
-            XetMetadata(
-                endpoint="mock_endpoint",
-                access_token="mock_token",
-                expiration_unix_epoch=9999999999,
-                file_hash="mock_hash",
-            )
-            if with_xet_metadata
-            else None
-        )
+    def _patch_xet_file_metadata(self, with_xet_data: bool):
         patcher = patch("huggingface_hub.file_download.get_hf_file_metadata")
         mock_metadata = patcher.start()
         mock_metadata.return_value = HfFileMetadata(
@@ -44,34 +38,53 @@ class TestXetFileDownload:
             etag="mock_etag",
             location="mock_location",
             size=1024,
-            xet_metadata=xet_metadata,
+            xet_file_data=XetFileData(file_hash="mock_hash", refresh_route="mock/route") if with_xet_data else None,
         )
         try:
             yield mock_metadata
         finally:
             patcher.stop()
 
+    @contextmanager
+    def _patch_get_refresh_xet_connection_info(self):
+        patcher = patch("huggingface_hub.utils.refresh_xet_connection_info")
+        connection_info = (
+            XetConnectionInfo(
+                endpoint="mock_endpoint",
+                access_token="mock_token",
+                expiration_unix_epoch=9999999999,
+            ),
+        )
+
+        mock_xet_connection = patcher.start()
+        mock_xet_connection.return_value = connection_info
+        try:
+            yield mock_xet_connection
+        finally:
+            patcher.stop()
+
     def test_xet_get_called_when_xet_metadata_present(self, tmp_path):
         """Test that xet_get is called when xet metadata is present."""
-        with self._patch_xet_file_metadata(with_xet_metadata=True) as mock_metadata:
-            with patch("huggingface_hub.file_download.xet_get") as mock_xet_get:
-                with patch("huggingface_hub.file_download._create_symlink"):
-                    hf_hub_download(
-                        DUMMY_XET_MODEL_ID,
-                        filename=DUMMY_XET_FILE,
-                        cache_dir=tmp_path,
-                        force_download=True,
-                    )
+        with self._patch_xet_file_metadata(with_xet_data=True) as mock_file_metadata:
+            with self._patch_get_refresh_xet_connection_info():
+                with patch("huggingface_hub.file_download.xet_get") as mock_xet_get:
+                    with patch("huggingface_hub.file_download._create_symlink"):
+                        hf_hub_download(
+                            DUMMY_XET_MODEL_ID,
+                            filename=DUMMY_XET_FILE,
+                            cache_dir=tmp_path,
+                            force_download=True,
+                        )
 
-                    # Verify xet_get was called with correct parameters
-                    mock_xet_get.assert_called_once()
-                    _, kwargs = mock_xet_get.call_args
-                    assert "xet_metadata" in kwargs
-                    assert kwargs["xet_metadata"] == mock_metadata.return_value.xet_metadata
+                        # Verify xet_get was called with correct parameters
+                        mock_xet_get.assert_called_once()
+                        _, kwargs = mock_xet_get.call_args
+                        assert "xet_file_data" in kwargs
+                        assert kwargs["xet_file_data"] == mock_file_metadata.return_value.xet_file_data
 
     def test_backward_compatibility_no_xet_metadata(self, tmp_path):
         """Test backward compatibility when response has no xet metadata."""
-        with self._patch_xet_file_metadata(with_xet_metadata=False):
+        with self._patch_xet_file_metadata(with_xet_data=False):
             with patch("huggingface_hub.file_download.http_get") as mock_http_get:
                 with patch("huggingface_hub.file_download._create_symlink"):
                     hf_hub_download(
@@ -91,13 +104,14 @@ class TestXetFileDownload:
             filename=DUMMY_XET_FILE,
         )
         metadata = get_hf_file_metadata(url)
-        xet_metadata = metadata.xet_metadata
-        assert xet_metadata is not None
-        assert xet_metadata.endpoint is not None
-        assert xet_metadata.access_token is not None
-        assert isinstance(xet_metadata.expiration_unix_epoch, int)
-        assert xet_metadata.file_hash is not None
-        assert xet_metadata.refresh_route is not None
+        assert metadata.xet_file_data is not None
+        assert metadata.xet_file_data.file_hash is not None
+
+        connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers={})
+        assert connection_info is not None
+        assert connection_info.endpoint is not None
+        assert connection_info.access_token is not None
+        assert isinstance(connection_info.expiration_unix_epoch, int)
 
     def test_basic_download(self, tmp_path):
         # Make sure that xet_get is called
@@ -197,46 +211,48 @@ class TestXetFileDownload:
 
     def test_fallback_to_http_when_xet_not_available(self, tmp_path):
         """Test that http_get is used when hf_xet is not available."""
-        with self._patch_xet_file_metadata(with_xet_metadata=True):
-            # Mock is_xet_available to return False
-            with patch.multiple(
-                "huggingface_hub.file_download",
-                is_xet_available=Mock(return_value=False),
-                http_get=DEFAULT,
-                xet_get=DEFAULT,
-                _create_symlink=DEFAULT,
-            ) as mocks:
-                hf_hub_download(
-                    DUMMY_XET_MODEL_ID,
-                    filename=DUMMY_XET_FILE,
-                    cache_dir=tmp_path,
-                    force_download=True,
-                )
+        with self._patch_xet_file_metadata(with_xet_data=True):
+            with self._patch_get_refresh_xet_connection_info():
+                # Mock is_xet_available to return False
+                with patch.multiple(
+                    "huggingface_hub.file_download",
+                    is_xet_available=Mock(return_value=False),
+                    http_get=DEFAULT,
+                    xet_get=DEFAULT,
+                    _create_symlink=DEFAULT,
+                ) as mocks:
+                    hf_hub_download(
+                        DUMMY_XET_MODEL_ID,
+                        filename=DUMMY_XET_FILE,
+                        cache_dir=tmp_path,
+                        force_download=True,
+                    )
 
-                # Verify http_get was called and xet_get was not
-                mocks["http_get"].assert_called_once()
-                mocks["xet_get"].assert_not_called()
+                    # Verify http_get was called and xet_get was not
+                    mocks["http_get"].assert_called_once()
+                    mocks["xet_get"].assert_not_called()
 
     def test_use_xet_when_available(self, tmp_path):
         """Test that xet_get is used when hf_xet is available."""
-        with self._patch_xet_file_metadata(with_xet_metadata=True):
-            with patch.multiple(
-                "huggingface_hub.file_download",
-                is_xet_available=Mock(return_value=True),
-                http_get=DEFAULT,
-                xet_get=DEFAULT,
-                _create_symlink=DEFAULT,
-            ) as mocks:
-                hf_hub_download(
-                    DUMMY_XET_MODEL_ID,
-                    filename=DUMMY_XET_FILE,
-                    cache_dir=tmp_path,
-                    force_download=True,
-                )
+        with self._patch_xet_file_metadata(with_xet_data=True):
+            with self._patch_get_refresh_xet_connection_info():
+                with patch.multiple(
+                    "huggingface_hub.file_download",
+                    is_xet_available=Mock(return_value=True),
+                    http_get=DEFAULT,
+                    xet_get=DEFAULT,
+                    _create_symlink=DEFAULT,
+                ) as mocks:
+                    hf_hub_download(
+                        DUMMY_XET_MODEL_ID,
+                        filename=DUMMY_XET_FILE,
+                        cache_dir=tmp_path,
+                        force_download=True,
+                    )
 
-                # Verify xet_get was called and http_get was not
-                mocks["xet_get"].assert_called_once()
-                mocks["http_get"].assert_not_called()
+                    # Verify xet_get was called and http_get was not
+                    mocks["xet_get"].assert_called_once()
+                    mocks["http_get"].assert_not_called()
 
 
 @requires("hf_xet")

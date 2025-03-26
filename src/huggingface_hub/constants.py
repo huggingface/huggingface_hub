@@ -245,6 +245,7 @@ HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN = "X-Xet-Access-Token"
 HUGGINGFACE_HEADER_X_XET_EXPIRATION = "X-Xet-Token-Expiration"
 HUGGINGFACE_HEADER_X_XET_HASH = "X-Xet-Hash"
 HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE = "X-Xet-Refresh-Route"
+HUGGINGFACE_HEADER_LINK_XET_AUTH_KEY = "xet-auth"
 
 default_xet_cache_path = os.path.join(HF_HOME, "xet")
 HF_XET_CACHE = os.getenv("HF_XET_CACHE", default_xet_cache_path)

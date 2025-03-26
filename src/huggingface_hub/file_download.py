@@ -37,7 +37,7 @@ from .utils import (
     OfflineModeIsEnabled,
     SoftTemporaryDirectory,
     WeakFileLock,
-    XetMetadata,
+    XetFileData,
     build_hf_headers,
     get_fastai_version,  # noqa: F401 # for backward compatibility
     get_fastcore_version,  # noqa: F401 # for backward compatibility
@@ -56,8 +56,8 @@ from .utils import (
     is_tf_available,  # noqa: F401 # for backward compatibility
     is_torch_available,  # noqa: F401 # for backward compatibility
     logging,
-    parse_xet_headers,
-    refresh_xet_metadata,
+    parse_xet_file_data_from_response,
+    refresh_xet_connection_info,
     reset_sessions,
     tqdm,
     validate_hf_hub_args,
@@ -162,15 +162,15 @@ class HfFileMetadata:
         size (`size`):
             Size of the file. In case of an LFS file, contains the size of the actual
             LFS file, not the pointer.
-        xet_metadata (`XetMetadata`, *optional*):
-            Xet metadata for the file. This is only set if the file is stored using Xet storage.
+        xet_file_data (`XetFileData`, *optional*):
+            Xet information for the file. This is only set if the file is stored using Xet storage.
     """
 
     commit_hash: Optional[str]
     etag: Optional[str]
     location: str
     size: Optional[int]
-    xet_metadata: Optional[XetMetadata] = None
+    xet_file_data: Optional[XetFileData]
 
 
 @validate_hf_hub_args
@@ -485,7 +485,7 @@ def http_get(
 def xet_get(
     *,
     incomplete_path: Path,
-    xet_metadata: XetMetadata,
+    xet_file_data: XetFileData,
     headers: Dict[str, str],
     expected_size: Optional[int] = None,
     displayed_filename: Optional[str] = None,
@@ -497,8 +497,8 @@ def xet_get(
     Args:
         incomplete_path (`Path`):
             The path to the file to download.
-        xet_metadata (`XetMetadata`):
-            The metadata needed to make the request to the xet storage service.
+        xet_file_data (`XetFileData`):
+            The file metadata needed to make the request to the xet storage service.
         headers (`Dict[str, str]`):
             The headers to send to the xet storage service.
         expected_size (`int`, *optional*):
@@ -518,7 +518,7 @@ def xet_get(
         - Using authentication to ensure secure access
         - Providing progress updates during download
 
-        Authentication works by regularly refreshing access tokens through `refresh_xet_metadata` to maintain a valid
+        Authentication works by regularly refreshing access tokens through `refresh_xet_connection_info` to maintain a valid
         connection to the storage server.
 
         The download process works like this:
@@ -544,14 +544,16 @@ def xet_get(
             "Try `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`."
         )
 
+    connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
+
     def token_refresher() -> Tuple[str, int]:
-        new_xet_metadata = refresh_xet_metadata(xet_metadata=xet_metadata, headers=headers)
-        if new_xet_metadata is None:
+        connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
+        if connection_info is None:
             raise ValueError("Failed to refresh token using xet metadata.")
-        return new_xet_metadata.access_token, new_xet_metadata.expiration_unix_epoch
+        return connection_info.access_token, connection_info.expiration_unix_epoch
 
     pointer_files = [
-        PyPointerFile(path=str(incomplete_path.absolute()), hash=xet_metadata.file_hash, filesize=expected_size)
+        PyPointerFile(path=str(incomplete_path.absolute()), hash=xet_file_data.file_hash, filesize=expected_size)
     ]
 
     if not displayed_filename:
@@ -577,8 +579,8 @@ def xet_get(
 
         download_files(
             pointer_files,
-            endpoint=xet_metadata.endpoint,
-            token_info=(xet_metadata.access_token, xet_metadata.expiration_unix_epoch),
+            endpoint=connection_info.endpoint,
+            token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
             token_refresher=token_refresher,
             progress_updater=[progress_updater],
         )
@@ -1019,7 +1021,7 @@ def _hf_hub_download_to_cache_dir(
 
     # Try to get metadata (etag, commit_hash, url, size) from the server.
     # If we can't, a HEAD request error is returned.
-    (url_to_download, etag, commit_hash, expected_size, xet_metadata, head_call_error) = _get_metadata_or_catch_error(
+    (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = _get_metadata_or_catch_error(
         repo_id=repo_id,
         filename=filename,
         repo_type=repo_type,
@@ -1103,6 +1105,8 @@ def _hf_hub_download_to_cache_dir(
     if os.name == "nt" and len(os.path.abspath(blob_path)) > 255:
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
+    # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
+
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
     with WeakFileLock(lock_path):
         _download_to_tmp_and_move(
@@ -1115,7 +1119,7 @@ def _hf_hub_download_to_cache_dir(
             filename=filename,
             force_download=force_download,
             etag=etag,
-            xet_metadata=xet_metadata,
+            xet_file_data=xet_file_data,
         )
         if not os.path.exists(pointer_path):
             _create_symlink(blob_path, pointer_path, new_blob=True)
@@ -1166,7 +1170,7 @@ def _hf_hub_download_to_local_dir(
         return str(paths.file_path)
 
     # Local file doesn't exist or commit_hash doesn't match => we need the etag
-    (url_to_download, etag, commit_hash, expected_size, xet_metadata, head_call_error) = _get_metadata_or_catch_error(
+    (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = _get_metadata_or_catch_error(
         repo_id=repo_id,
         filename=filename,
         repo_type=repo_type,
@@ -1244,7 +1248,7 @@ def _hf_hub_download_to_local_dir(
             filename=filename,
             force_download=force_download,
             etag=etag,
-            xet_metadata=xet_metadata,
+            xet_file_data=xet_file_data,
         )
 
     write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
@@ -1418,7 +1422,7 @@ def get_hf_file_metadata(
         size=_int_or_none(
             r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
         ),
-        xet_metadata=parse_xet_headers(r.headers),  # type: ignore
+        xet_file_data=parse_xet_file_data_from_response(r),  # type: ignore
     )
 
 
@@ -1440,8 +1444,8 @@ def _get_metadata_or_catch_error(
     # Either an exception is caught and returned
     Tuple[None, None, None, None, None, Exception],
     # Or the metadata is returned as
-    # `(url_to_download, etag, commit_hash, expected_size, XetMetadata, None)`
-    Tuple[str, str, str, int, Optional[XetMetadata], None],
+    # `(url_to_download, etag, commit_hash, expected_size, xet_file_data, None)`
+    Tuple[str, str, str, int, Optional[XetFileData], None],
 ]:
     """Get metadata for a file on the Hub, safely handling network issues.
 
@@ -1470,7 +1474,7 @@ def _get_metadata_or_catch_error(
     commit_hash: Optional[str] = None
     expected_size: Optional[int] = None
     head_error_call: Optional[Exception] = None
-    xet_metadata: Optional[XetMetadata] = None
+    xet_file_data: Optional[XetFileData] = None
 
     # Try to get metadata from the server.
     # Do not raise yet if the file is not found or not accessible.
@@ -1518,7 +1522,7 @@ def _get_metadata_or_catch_error(
             if expected_size is None:
                 raise FileMetadataError("Distant resource does not have a Content-Length.")
 
-            xet_metadata = metadata.xet_metadata
+            xet_file_data = metadata.xet_file_data
 
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
@@ -1526,7 +1530,7 @@ def _get_metadata_or_catch_error(
             #
             # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
             # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
-            if xet_metadata is None and url != metadata.location:
+            if xet_file_data is None and url != metadata.location:
                 url_to_download = metadata.location
                 if urlparse(url).netloc != urlparse(metadata.location).netloc:
                     # Remove authorization header when downloading a LFS blob
@@ -1564,7 +1568,7 @@ def _get_metadata_or_catch_error(
     if not (local_files_only or etag is not None or head_error_call is not None):
         raise RuntimeError("etag is empty due to uncovered problems")
 
-    return (url_to_download, etag, commit_hash, expected_size, xet_metadata, head_error_call)  # type: ignore [return-value]
+    return (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_error_call)  # type: ignore [return-value]
 
 
 def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, local_files_only: bool) -> NoReturn:
@@ -1609,7 +1613,7 @@ def _download_to_tmp_and_move(
     filename: str,
     force_download: bool,
     etag: Optional[str],
-    xet_metadata: Optional[XetMetadata],
+    xet_file_data: Optional[XetFileData],
 ) -> None:
     """Download content from a URL to a destination path.
 
@@ -1652,18 +1656,17 @@ def _download_to_tmp_and_move(
             _check_disk_space(expected_size, incomplete_path.parent)
             _check_disk_space(expected_size, destination_path.parent)
 
-        is_xet_enabled = xet_metadata is not None and xet_metadata.file_hash is not None
-        if is_xet_enabled and is_xet_available():
+        if xet_file_data is not None and is_xet_available():
             logger.info("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
             xet_get(
                 incomplete_path=incomplete_path,
-                xet_metadata=xet_metadata,  # type: ignore
+                xet_file_data=xet_file_data,
                 headers=headers,
                 expected_size=expected_size,
                 displayed_filename=filename,
             )
         else:
-            if is_xet_enabled:
+            if xet_file_data is not None:
                 logger.warning(
                     "Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. "
                     "Falling back to regular HTTP download. "

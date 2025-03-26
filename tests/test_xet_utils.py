@@ -4,47 +4,89 @@ import pytest
 
 from huggingface_hub import constants
 from huggingface_hub.utils._xet import (
-    XetMetadata,
-    _fetch_xet_metadata_with_url,
-    parse_xet_headers,
-    refresh_xet_metadata,
+    XetFileData,
+    _fetch_xet_connection_info_with_url,
+    parse_xet_connection_info_from_headers,
+    parse_xet_file_data_from_response,
+    refresh_xet_connection_info,
 )
 
 
-def test_parse_valid_headers_minimal() -> None:
+def test_parse_valid_headers_file_info() -> None:
+    mock_response = MagicMock()
+    mock_response.headers = {
+        "X-Xet-Hash": "sha256:abcdef",
+        "X-Xet-Refresh-Route": "/api/refresh",
+    }
+    mock_response.links = {}
+
+    file_data = parse_xet_file_data_from_response(mock_response)
+
+    assert file_data is not None
+    assert file_data.refresh_route == "/api/refresh"
+    assert file_data.file_hash == "sha256:abcdef"
+
+
+def test_parse_valid_headers_file_info_with_link() -> None:
+    mock_response = MagicMock()
+    mock_response.headers = {
+        "X-Xet-Hash": "sha256:abcdef",
+    }
+    mock_response.links = {
+        "xet-auth": {"url": "/api/refresh"},
+    }
+
+    file_data = parse_xet_file_data_from_response(mock_response)
+
+    assert file_data is not None
+    assert file_data.refresh_route == "/api/refresh"
+    assert file_data.file_hash == "sha256:abcdef"
+
+
+def test_parse_invalid_headers_file_info() -> None:
+    mock_response = MagicMock()
+    mock_response.headers = {"X-foo": "bar"}
+    mock_response.links = {}
+    assert parse_xet_file_data_from_response(mock_response) is None
+
+
+def test_parse_valid_headers_connection_info() -> None:
     headers = {
         "X-Xet-Cas-Url": "https://xet.example.com",
         "X-Xet-Access-Token": "xet_token_abc",
         "X-Xet-Token-Expiration": "1234567890",
     }
 
-    metadata = parse_xet_headers(headers)
+    connection_info = parse_xet_connection_info_from_headers(headers)
 
-    assert metadata is not None
-    assert metadata.endpoint == "https://xet.example.com"
-    assert metadata.access_token == "xet_token_abc"
-    assert metadata.expiration_unix_epoch == 1234567890
-    assert metadata.refresh_route is None
-    assert metadata.file_hash is None
+    assert connection_info is not None
+    assert connection_info.endpoint == "https://xet.example.com"
+    assert connection_info.access_token == "xet_token_abc"
+    assert connection_info.expiration_unix_epoch == 1234567890
 
 
 def test_parse_valid_headers_full() -> None:
-    headers = {
+    mock_response = MagicMock()
+    mock_response.headers = {
         "X-Xet-Cas-Url": "https://xet.example.com",
         "X-Xet-Access-Token": "xet_token_abc",
         "X-Xet-Token-Expiration": "1234567890",
         "X-Xet-Refresh-Route": "/api/refresh",
         "X-Xet-Hash": "sha256:abcdef",
     }
+    mock_response.links = {}
 
-    metadata = parse_xet_headers(headers)
+    file_metadata = parse_xet_file_data_from_response(mock_response)
+    connection_info = parse_xet_connection_info_from_headers(mock_response.headers)
 
-    assert metadata is not None
-    assert metadata.endpoint == "https://xet.example.com"
-    assert metadata.access_token == "xet_token_abc"
-    assert metadata.expiration_unix_epoch == 1234567890
-    assert metadata.refresh_route == "/api/refresh"
-    assert metadata.file_hash == "sha256:abcdef"
+    assert file_metadata is not None
+    assert file_metadata.refresh_route == "/api/refresh"
+    assert file_metadata.file_hash == "sha256:abcdef"
+
+    assert connection_info is not None
+    assert connection_info.endpoint == "https://xet.example.com"
+    assert connection_info.access_token == "xet_token_abc"
+    assert connection_info.expiration_unix_epoch == 1234567890
 
 
 @pytest.mark.parametrize(
@@ -65,8 +107,8 @@ def test_parse_missing_required_header(missing_key: str) -> None:
     # Remove the key to test
     headers.pop(missing_key)
 
-    metadata = parse_xet_headers(headers)
-    assert metadata is None
+    connection_info = parse_xet_connection_info_from_headers(headers)
+    assert connection_info is None
 
 
 def test_parse_invalid_expiration() -> None:
@@ -77,18 +119,11 @@ def test_parse_invalid_expiration() -> None:
         "X-Xet-Token-Expiration": "not-a-number",
     }
 
-    metadata = parse_xet_headers(headers)
-    assert metadata is None
+    connection_info = parse_xet_connection_info_from_headers(headers)
+    assert connection_info is None
 
 
 def test_refresh_metadata_success(mocker) -> None:
-    initial_metadata = XetMetadata(
-        endpoint="https://example.xethub.hf.co",
-        access_token="old_token",
-        expiration_unix_epoch=1234567890,
-        refresh_route="/api/models/username/repo_name/xet-read-token/token",
-    )
-
     # Mock headers for the refreshed response
     mock_response = MagicMock()
     mock_response.headers = {
@@ -103,8 +138,11 @@ def test_refresh_metadata_success(mocker) -> None:
     mocker.patch("huggingface_hub.utils._xet.get_session", return_value=mock_session)
 
     headers = {"user-agent": "user-agent-example"}
-    refreshed_metadata = refresh_xet_metadata(
-        xet_metadata=initial_metadata,
+    refreshed_connection = refresh_xet_connection_info(
+        file_data=XetFileData(
+            refresh_route="/api/models/username/repo_name/xet-read-token/token",
+            file_hash="sha256:abcdef",
+        ),
         headers=headers,
     )
 
@@ -116,19 +154,12 @@ def test_refresh_metadata_success(mocker) -> None:
         params=None,
     )
 
-    assert refreshed_metadata.endpoint == "https://example.xethub.hf.co"
-    assert refreshed_metadata.access_token == "new_token"
-    assert refreshed_metadata.expiration_unix_epoch == 1234599999
+    assert refreshed_connection.endpoint == "https://example.xethub.hf.co"
+    assert refreshed_connection.access_token == "new_token"
+    assert refreshed_connection.expiration_unix_epoch == 1234599999
 
 
 def test_refresh_metadata_custom_endpoint(mocker) -> None:
-    initial_metadata = XetMetadata(
-        endpoint="https://example.xethub.hf.co",
-        access_token="old_token",
-        expiration_unix_epoch=1234567890,
-        refresh_route="/api/models/username/repo_name/xet-read-token/token",
-    )
-
     custom_endpoint = "https://custom.xethub.hf.co"
 
     # Mock headers for the refreshed response
@@ -144,8 +175,11 @@ def test_refresh_metadata_custom_endpoint(mocker) -> None:
     mocker.patch("huggingface_hub.utils._xet.get_session", return_value=mock_session)
 
     headers = {"user-agent": "user-agent-example"}
-    refresh_xet_metadata(
-        xet_metadata=initial_metadata,
+    refresh_xet_connection_info(
+        file_data=XetFileData(
+            refresh_route="/api/models/username/repo_name/xet-read-token/token",
+            file_hash="sha256:abcdef",
+        ),
         headers=headers,
         endpoint=custom_endpoint,
     )
@@ -161,19 +195,15 @@ def test_refresh_metadata_custom_endpoint(mocker) -> None:
 
 def test_refresh_metadata_missing_refresh_route() -> None:
     # Create metadata without refresh_route
-    metadata = XetMetadata(
-        endpoint="https://example.xethub.hf.co",
-        access_token="token123",
-        expiration_unix_epoch=1234567890,
-        # No refresh_route
-    )
-
     headers = {"user-agent": "user-agent-example"}
 
     # Verify it raises ValueError
     with pytest.raises(ValueError, match="The provided xet metadata does not contain a refresh endpoint."):
-        refresh_xet_metadata(
-            xet_metadata=metadata,
+        refresh_xet_connection_info(
+            file_data=XetFileData(
+                refresh_route=None,
+                file_hash="sha256:abcdef",
+            ),
             headers=headers,
         )
 
@@ -194,7 +224,7 @@ def test_fetch_xet_metadata_with_url(mocker) -> None:
     # Call the function
     url = "https://example.xethub.hf.co/api/models/username/repo_name/xet-read-token/token"
     headers = {"user-agent": "user-agent-example"}
-    metadata = _fetch_xet_metadata_with_url(url=url, headers=headers)
+    metadata = _fetch_xet_connection_info_with_url(url=url, headers=headers)
 
     # Verify the request
     mock_session.get.assert_called_once_with(
@@ -222,4 +252,4 @@ def test_fetch_xet_metadata_with_url_invalid_response(mocker) -> None:
     headers = {"user-agent": "user-agent-example"}
 
     with pytest.raises(ValueError, match="Xet headers have not been correctly set by the server."):
-        _fetch_xet_metadata_with_url(url=url, headers=headers)
+        _fetch_xet_connection_info_with_url(url=url, headers=headers)
