@@ -546,6 +546,9 @@ def _check_parameters(
     updates = {}
     # Check for new and updated parameters
     for param_name, param_info in dataclass_params.items():
+        if param_name in CORE_PARAMETERS:
+            continue
+
         if param_name not in existing_params:
             # New parameter
             updates[param_name] = {**param_info, "status": "new"}
@@ -761,7 +764,7 @@ def _check_and_update_parameters(
             "❌ Mismatch between between parameters defined in tasks methods signature in "
             "`./src/huggingface_hub/inference/_client.py` and parameters defined in "
             "`./src/huggingface_hub/inference/_generated/types.py \n"
-            "Please run `make inference_update` or `python utils/generate_task_parameters.py --update"
+            "Please run `make inference_update` or `python utils/check_task_parameters.py --update"
         )
         exit(1)
     else:
