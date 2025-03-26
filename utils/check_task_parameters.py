@@ -374,6 +374,7 @@ class UpdateParameters(cst.CSTTransformer):
             # When params_updated is still not empty, it means there are new parameters that are not in the docstring
             # but are in the method signature
             new_params = {**new_params, **params_updated}
+        # Add new parameters to the docstring
         if new_params:
             docstring_lines = self._add_new_params(docstring_lines, new_params, args_index, param_indent, desc_indent)
         # Join the docstring lines back into a single string
