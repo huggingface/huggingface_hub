@@ -114,6 +114,8 @@ from .utils import (
     SafetensorsRepoMetadata,
     TensorInfo,
     build_hf_headers,
+    chunk_iterable,
+    experimental,
     filter_repo_objects,
     fix_hf_endpoint_in_url,
     get_session,
@@ -1526,6 +1528,67 @@ class PaperInfo:
         self.submitted_at = parse_datetime(submitted_at) if submitted_at else None
         submitted_by = kwargs.pop("submittedBy", None) or kwargs.pop("submittedOnDailyBy", None)
         self.submitted_by = User(**submitted_by) if submitted_by else None
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
+class LFSFileInfo:
+    """
+    Contains information about a file stored as LFS on a repo on the Hub.
+
+    Used in the context of listing and permanently deleting LFS files from a repo to free-up space.
+    See [`list_lfs_files`] and [`permanently_delete_lfs_files`] for more details.
+
+    Git LFS files are tracked using SHA-256 object IDs, rather than file paths, to optimize performance
+    This approach is necessary because a single object can be referenced by multiple paths across different commits,
+    making it impractical to search and resolve these connections. Check out [our documentation](https://huggingface.co/docs/hub/storage-limits#advanced-track-lfs-file-references)
+    to learn how to know which filename(s) is(are) associated with each SHA.
+
+    Attributes:
+        file_oid (`str`):
+            SHA-256 object ID of the file. This is the identifier to pass when permanently deleting the file.
+        filename (`str`):
+            Possible filename for the LFS object. See the note above for more information.
+        oid (`str`):
+            OID of the LFS object.
+        pushed_at (`datetime`):
+            Date the LFS object was pushed to the repo.
+        ref (`str`, *optional*):
+            Ref where the LFS object has been pushed (if any).
+        size (`int`):
+            Size of the LFS object.
+
+    Example:
+        ```py
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
+
+        # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+        # e.g. select only LFS files in the "checkpoints" folder
+        >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
+
+        # Permanently delete LFS files
+        >>> api.permanently_delete_lfs_files("username/my-cool-repo", lfs_files_to_delete)
+        ```
+    """
+
+    file_oid: str
+    filename: str
+    oid: str
+    pushed_at: datetime
+    ref: Optional[str]
+    size: int
+
+    def __init__(self, **kwargs) -> None:
+        self.file_oid = kwargs.pop("fileOid")
+        self.filename = kwargs.pop("filename")
+        self.oid = kwargs.pop("oid")
+        self.pushed_at = parse_datetime(kwargs.pop("pushedAt"))
+        self.ref = kwargs.pop("ref", None)
+        self.size = kwargs.pop("size")
 
         # forward compatibility
         self.__dict__.update(**kwargs)
@@ -3388,6 +3451,131 @@ class HfApi:
         # Super-squash
         response = get_session().post(url=url, headers=headers, json={"message": commit_message})
         hf_raise_for_status(response)
+
+    @validate_hf_hub_args
+    def list_lfs_files(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[LFSFileInfo]:
+        """
+        List all LFS files in a repo on the Hub.
+
+        This is primarily useful to count how much storage a repo is using and to eventually clean up large files
+        with [`permanently_delete_lfs_files`]. Note that this would be a permanent action that will affect all commits
+        referencing this deleted files and that cannot be undone.
+
+        Args:
+            repo_id (`str`):
+                The repository for which you are listing LFS files.
+            repo_type (`str`, *optional*):
+                Type of repository. Set to `"dataset"` or `"space"` if listing from a dataset or space, `None` or
+                `"model"` if listing from a model. Default is `None`.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[LFSFileInfo]`: An iterator of [`LFSFileInfo`] objects.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
+
+            # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            # e.g. select only LFS files in the "checkpoints" folder
+            >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
+
+            # Permanently delete LFS files
+            >>> api.permanently_delete_lfs_files("username/my-cool-repo", lfs_files_to_delete)
+            ```
+        """
+        # Prepare request
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL
+        url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/lfs-files"
+        headers = self._build_hf_headers(token=token)
+
+        # Paginate over LFS items
+        for item in paginate(url, params={}, headers=headers):
+            yield LFSFileInfo(**item)
+
+    @validate_hf_hub_args
+    def permanently_delete_lfs_files(
+        self,
+        repo_id: str,
+        lfs_files: Iterable[LFSFileInfo],
+        *,
+        rewrite_history: bool = True,
+        repo_type: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        """
+        Permanently delete LFS files from a repo on the Hub.
+
+        <Tip warning={true}>
+
+        This is a permanent action that will affect all commits referencing the deleted files and might corrupt your
+        repository. This is a non-revertible operation. Use it only if you know what you are doing.
+
+        </Tip>
+
+        Args:
+            repo_id (`str`):
+                The repository for which you are listing LFS files.
+            lfs_files (`Iterable[LFSFileInfo]`):
+                An iterable of [`LFSFileInfo`] items to permanently delete from the repo. Use [`list_lfs_files`] to list
+                all LFS files from a repo.
+            rewrite_history (`bool`, *optional*, default to `True`):
+                Whether to rewrite repository history to remove file pointers referencing the deleted LFS files (recommended).
+            repo_type (`str`, *optional*):
+                Type of repository. Set to `"dataset"` or `"space"` if listing from a dataset or space, `None` or
+                `"model"` if listing from a model. Default is `None`.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
+
+            # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            # e.g. select only LFS files in the "checkpoints" folder
+            >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
+
+            # Permanently delete LFS files
+            >>> api.permanently_delete_lfs_files("username/my-cool-repo", lfs_files_to_delete)
+            ```
+        """
+        # Prepare request
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL
+        url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/lfs-files/batch"
+        headers = self._build_hf_headers(token=token)
+
+        # Delete LFS items by batches of 1000
+        for batch in chunk_iterable(lfs_files, 1000):
+            shas = [item.file_oid for item in batch]
+            if len(shas) == 0:
+                return
+            payload = {
+                "deletions": {
+                    "sha": shas,
+                    "rewriteHistory": rewrite_history,
+                }
+            }
+            response = get_session().post(url, headers=headers, json=payload)
+            hf_raise_for_status(response)
 
     @validate_hf_hub_args
     def create_repo(
@@ -7524,6 +7712,94 @@ class HfApi:
 
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 
+    @experimental
+    @validate_hf_hub_args
+    def create_inference_endpoint_from_catalog(
+        self,
+        repo_id: str,
+        *,
+        name: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+        namespace: Optional[str] = None,
+    ) -> InferenceEndpoint:
+        """Create a new Inference Endpoint from a model in the Hugging Face Inference Catalog.
+
+        The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
+        and for which default configurations have been tested. See https://endpoints.huggingface.co/catalog for a list
+        of available models in the catalog.
+
+        Args:
+            repo_id (`str`):
+                The ID of the model in the catalog to deploy as an Inference Endpoint.
+            name (`str`, *optional*):
+                The unique name for the new Inference Endpoint. If not provided, a random name will be generated.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+            namespace (`str`, *optional*):
+                The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.
+
+        Returns:
+            [`InferenceEndpoint`]: information about the new Inference Endpoint.
+
+        <Tip warning={true}>
+
+        `create_inference_endpoint_from_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
+        if you have any suggestions or requests.
+
+        </Tip>
+        """
+        token = token or self.token or get_token()
+        payload: Dict = {
+            "namespace": namespace or self._get_namespace(token=token),
+            "repoId": repo_id,
+        }
+        if name is not None:
+            payload["endpointName"] = name
+
+        response = get_session().post(
+            f"{constants.INFERENCE_CATALOG_ENDPOINT}/deploy",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(response)
+        data = response.json()["endpoint"]
+        return InferenceEndpoint.from_raw(data, namespace=data["name"], token=token)
+
+    @experimental
+    @validate_hf_hub_args
+    def list_inference_catalog(self, *, token: Union[bool, str, None] = None) -> List[str]:
+        """List models available in the Hugging Face Inference Catalog.
+
+        The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
+        and for which default configurations have been tested. See https://endpoints.huggingface.co/catalog for a list
+        of available models in the catalog.
+
+        Use [`create_inference_endpoint_from_catalog`] to deploy a model from the catalog.
+
+        Args:
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+
+        Returns:
+            List[`str`]: A list of model IDs available in the catalog.
+        <Tip warning={true}>
+
+        `list_inference_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
+        if you have any suggestions or requests.
+
+        </Tip>
+        """
+        response = get_session().get(
+            f"{constants.INFERENCE_CATALOG_ENDPOINT}/repo-list",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return response.json()["models"]
+
     def get_inference_endpoint(
         self, name: str, *, namespace: Optional[str] = None, token: Union[bool, str, None] = None
     ) -> InferenceEndpoint:
@@ -9584,7 +9860,6 @@ create_repo = api.create_repo
 delete_repo = api.delete_repo
 update_repo_visibility = api.update_repo_visibility
 update_repo_settings = api.update_repo_settings
-super_squash_history = api.super_squash_history
 move_repo = api.move_repo
 upload_file = api.upload_file
 upload_folder = api.upload_folder
@@ -9598,6 +9873,11 @@ delete_branch = api.delete_branch
 create_tag = api.create_tag
 delete_tag = api.delete_tag
 get_full_repo_name = api.get_full_repo_name
+
+# Danger-zone API
+super_squash_history = api.super_squash_history
+list_lfs_files = api.list_lfs_files
+permanently_delete_lfs_files = api.permanently_delete_lfs_files
 
 # Safetensors helpers
 get_safetensors_metadata = api.get_safetensors_metadata
@@ -9646,6 +9926,8 @@ delete_inference_endpoint = api.delete_inference_endpoint
 pause_inference_endpoint = api.pause_inference_endpoint
 resume_inference_endpoint = api.resume_inference_endpoint
 scale_to_zero_inference_endpoint = api.scale_to_zero_inference_endpoint
+create_inference_endpoint_from_catalog = api.create_inference_endpoint_from_catalog
+list_inference_catalog = api.list_inference_catalog
 
 # Collections API
 get_collection = api.get_collection

@@ -453,3 +453,9 @@ def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
         return _inner
 
     return _inner_use_tmp_repo
+
+
+def assert_in_logs(caplog: pytest.LogCaptureFixture, expected_output):
+    """Helper to check if a message appears in logs."""
+    log_text = "\n".join(record.message for record in caplog.records)
+    assert expected_output in log_text, f"Expected '{expected_output}' not found in logs"

@@ -353,6 +353,12 @@ async def test_async_generate_timeout_error(monkeypatch: pytest.MonkeyPatch) -> 
     def _mock_aiohttp_client_timeout(*args, **kwargs):
         raise asyncio.TimeoutError
 
+    def mock_check_supported_task(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(
+        "huggingface_hub.inference._providers.hf_inference._check_supported_task", mock_check_supported_task
+    )
     monkeypatch.setattr("aiohttp.ClientSession.post", _mock_aiohttp_client_timeout)
     with pytest.raises(InferenceTimeoutError):
         await AsyncInferenceClient(timeout=1).text_generation("test")
@@ -384,7 +390,7 @@ async def test_openai_compatibility_base_url_and_api_key():
         api_key="my-api-key",
     )
     output = await client.chat.completions.create(
-        model="meta-llama/Llama-3.1-8B-Instruct",
+        model="meta-llama/Meta-Llama-3.1-8B-Instruct",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "Count to 10"},
@@ -401,7 +407,7 @@ async def test_openai_compatibility_base_url_and_api_key():
 async def test_openai_compatibility_without_base_url():
     client = AsyncInferenceClient()
     output = await client.chat.completions.create(
-        model="meta-llama/Meta-Llama-3-8B-Instruct",
+        model="meta-llama/Meta-Llama-3.1-8B-Instruct",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "Count to 10"},
@@ -418,7 +424,7 @@ async def test_openai_compatibility_without_base_url():
 async def test_openai_compatibility_with_stream_true():
     client = AsyncInferenceClient()
     output = await client.chat.completions.create(
-        model="meta-llama/Llama-3.1-8B-Instruct",
+        model="meta-llama/Meta-Llama-3.1-8B-Instruct",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "Count to 10"},

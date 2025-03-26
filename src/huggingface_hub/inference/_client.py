@@ -133,7 +133,7 @@ class InferenceClient:
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"replicate"`, "sambanova"` or `"together"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"openai"`, `"replicate"`, "sambanova"` or `"together"`.
             defaults to hf-inference (Hugging Face Serverless Inference API).
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
@@ -185,7 +185,7 @@ class InferenceClient:
                 " `api_key` is an alias for `token` to make the API compatible with OpenAI's client."
                 " It has the exact same behavior as `token`."
             )
-        token if token is not None else api_key
+        token = token if token is not None else api_key
         if isinstance(token, bool):
             # Legacy behavior: previously is was possible to pass `token=False` to disable authentication. This is not
             # supported anymore as authentication is required. Better to explicitly raise here rather than risking
@@ -315,33 +315,32 @@ class InferenceClient:
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        while True:
-            with _open_as_binary(request_parameters.data) as data_as_binary:
-                try:
-                    response = get_session().post(
-                        request_parameters.url,
-                        json=request_parameters.json,
-                        data=data_as_binary,
-                        headers=request_parameters.headers,
-                        cookies=self.cookies,
-                        timeout=self.timeout,
-                        stream=stream,
-                        proxies=self.proxies,
-                    )
-                except TimeoutError as error:
-                    # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                    raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
-
+        with _open_as_binary(request_parameters.data) as data_as_binary:
             try:
-                hf_raise_for_status(response)
-                return response.iter_lines() if stream else response.content
-            except HTTPError as error:
-                if error.response.status_code == 422 and request_parameters.task != "unknown":
-                    msg = str(error.args[0])
-                    if len(error.response.text) > 0:
-                        msg += f"\n{error.response.text}\n"
-                    error.args = (msg,) + error.args[1:]
-                raise
+                response = get_session().post(
+                    request_parameters.url,
+                    json=request_parameters.json,
+                    data=data_as_binary,
+                    headers=request_parameters.headers,
+                    cookies=self.cookies,
+                    timeout=self.timeout,
+                    stream=stream,
+                    proxies=self.proxies,
+                )
+            except TimeoutError as error:
+                # Convert any `TimeoutError` to a `InferenceTimeoutError`
+                raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
+
+        try:
+            hf_raise_for_status(response)
+            return response.iter_lines() if stream else response.content
+        except HTTPError as error:
+            if error.response.status_code == 422 and request_parameters.task != "unknown":
+                msg = str(error.args[0])
+                if len(error.response.text) > 0:
+                    msg += f"\n{error.response.text}\n"
+                error.args = (msg,) + error.args[1:]
+            raise
 
     def audio_classification(
         self,
@@ -1287,7 +1286,7 @@ class InferenceClient:
         [ImageSegmentationOutputElement(score=0.989008, label='LABEL_184', mask=<PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>), ...]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="audio-classification")
+        provider_helper = get_provider_helper(self.provider, task="image-segmentation")
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={
@@ -2617,7 +2616,7 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
-        response = provider_helper.get_response(response)
+        response = provider_helper.get_response(response, request_parameters)
         return response
 
     def text_to_speech(

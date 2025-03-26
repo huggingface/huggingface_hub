@@ -59,6 +59,7 @@ from huggingface_hub.hf_api import (
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
+    InferenceEndpoint,
     ModelInfo,
     RepoSibling,
     RepoUrl,
@@ -3109,6 +3110,69 @@ class TestSquashHistory(HfApiCommonTest):
         assert len(squashed_branch_commits) == 1
 
 
+class TestListAndPermanentlyDeleteLFSFiles(HfApiCommonTest):
+    @use_tmp_repo()
+    def test_list_and_delete_lfs_files(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+
+        # Main files
+        self._api.upload_file(path_or_fileobj=b"LFS content", path_in_repo="lfs_file.bin", repo_id=repo_id)
+        self._api.upload_file(path_or_fileobj=b"TXT content", path_in_repo="txt_file.txt", repo_id=repo_id)
+        self._api.upload_file(path_or_fileobj=b"LFS content 2", path_in_repo="lfs_file_2.bin", repo_id=repo_id)
+        self._api.upload_file(path_or_fileobj=b"TXT content 2", path_in_repo="txt_file_2.txt", repo_id=repo_id)
+
+        # Branch files
+        self._api.create_branch(repo_id=repo_id, branch="my-branch")
+        self._api.upload_file(
+            path_or_fileobj=b"LFS content branch",
+            path_in_repo="lfs_file_branch.bin",
+            repo_id=repo_id,
+            revision="my-branch",
+        )
+        self._api.upload_file(
+            path_or_fileobj=b"TXT content branch",
+            path_in_repo="txt_file_branch.txt",
+            repo_id=repo_id,
+            revision="my-branch",
+        )
+
+        # PR files
+        self._api.upload_file(
+            path_or_fileobj=b"LFS content PR", path_in_repo="lfs_file_PR.bin", repo_id=repo_id, create_pr=True
+        )
+        self._api.upload_file(
+            path_or_fileobj=b"TXT content PR", path_in_repo="txt_file_PR.txt", repo_id=repo_id, create_pr=True
+        )
+
+        # List LFS files
+        lfs_files = [file for file in self._api.list_lfs_files(repo_id=repo_id)]
+        assert len(lfs_files) == 4
+        assert {file.filename for file in lfs_files} == {
+            "lfs_file.bin",
+            "lfs_file_2.bin",
+            "lfs_file_branch.bin",
+            "lfs_file_PR.bin",
+        }
+
+        # Select LFS files that are on main
+        lfs_files_on_main = [file for file in lfs_files if file.ref == "main"]
+        assert len(lfs_files_on_main) == 2
+
+        # Permanently delete LFS files
+        self._api.permanently_delete_lfs_files(repo_id=repo_id, lfs_files=lfs_files_on_main)
+
+        # LFS files from branch and PR remain
+        lfs_files = [file for file in self._api.list_lfs_files(repo_id=repo_id)]
+        assert len(lfs_files) == 2
+        assert {file.filename for file in lfs_files} == {"lfs_file_branch.bin", "lfs_file_PR.bin"}
+
+        # Downloading "lfs_file.bin" fails with EntryNotFoundError
+        files = self._api.list_repo_files(repo_id=repo_id)
+        assert set(files) == {".gitattributes", "txt_file.txt", "txt_file_2.txt"}
+        with pytest.raises(EntryNotFoundError):
+            self._api.hf_hub_download(repo_id=repo_id, filename="lfs_file.bin")
+
+
 @pytest.mark.vcr
 class TestSpaceAPIProduction(unittest.TestCase):
     """
@@ -4371,3 +4435,69 @@ class TestHfApiAuthCheck(HfApiCommonTest):
 
         with self.assertRaises(GatedRepoError):
             self._api.auth_check(repo_id=repo_id, token=OTHER_TOKEN)
+
+
+class HfApiInferenceCatalogTest(HfApiCommonTest):
+    def test_list_inference_catalog(self) -> None:
+        models = self._api.list_inference_catalog()  # note: @experimental api
+        # Check that server returns a list[str] => at least if it changes in the future, we'll notice
+        assert isinstance(models, List)
+        assert len(models) > 0
+        assert all(isinstance(model, str) for model in models)
+
+    @patch("huggingface_hub.hf_api.get_session")
+    def test_create_inference_endpoint_from_catalog(self, mock_get_session: Mock) -> None:
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "endpoint": {
+                "compute": {
+                    "accelerator": "gpu",
+                    "id": "aws-us-east-1-nvidia-l4-x1",
+                    "instanceSize": "x1",
+                    "instanceType": "nvidia-l4",
+                    "scaling": {
+                        "maxReplica": 1,
+                        "measure": {"hardwareUsage": None},
+                        "metric": "hardwareUsage",
+                        "minReplica": 0,
+                        "scaleToZeroTimeout": 15,
+                    },
+                },
+                "model": {
+                    "env": {},
+                    "framework": "pytorch",
+                    "image": {
+                        "tgi": {
+                            "disableCustomKernels": False,
+                            "healthRoute": "/health",
+                            "port": 80,
+                            "url": "ghcr.io/huggingface/text-generation-inference:3.1.1",
+                        }
+                    },
+                    "repository": "meta-llama/Llama-3.2-3B-Instruct",
+                    "revision": "0cb88a4f764b7a12671c53f0838cd831a0843b95",
+                    "secrets": {},
+                    "task": "text-generation",
+                },
+                "name": "llama-3-2-3b-instruct-eey",
+                "provider": {"region": "us-east-1", "vendor": "aws"},
+                "status": {
+                    "createdAt": "2025-03-07T15:30:13.949Z",
+                    "createdBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
+                    "message": "Endpoint waiting to be scheduled",
+                    "readyReplica": 0,
+                    "state": "pending",
+                    "targetReplica": 1,
+                    "updatedAt": "2025-03-07T15:30:13.949Z",
+                    "updatedBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
+                },
+                "type": "protected",
+            }
+        }
+        mock_get_session.return_value.post.return_value = mock_response
+
+        endpoint = self._api.create_inference_endpoint_from_catalog(
+            repo_id="meta-llama/Llama-3.2-3B-Instruct", namespace="Wauplin"
+        )
+        assert isinstance(endpoint, InferenceEndpoint)
+        assert endpoint.name == "llama-3-2-3b-instruct-eey"

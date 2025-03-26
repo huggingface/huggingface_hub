@@ -121,7 +121,7 @@ class AsyncInferenceClient:
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"replicate"`, "sambanova"` or `"together"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"openai"`, `"replicate"`, "sambanova"` or `"together"`.
             defaults to hf-inference (Hugging Face Serverless Inference API).
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
@@ -176,7 +176,7 @@ class AsyncInferenceClient:
                 " `api_key` is an alias for `token` to make the API compatible with OpenAI's client."
                 " It has the exact same behavior as `token`."
             )
-        token if token is not None else api_key
+        token = token if token is not None else api_key
         if isinstance(token, bool):
             # Legacy behavior: previously is was possible to pass `token=False` to disable authentication. This is not
             # supported anymore as authentication is required. Better to explicitly raise here rather than risking
@@ -313,40 +313,39 @@ class AsyncInferenceClient:
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        while True:
-            with _open_as_binary(request_parameters.data) as data_as_binary:
-                # Do not use context manager as we don't want to close the connection immediately when returning
-                # a stream
-                session = self._get_client_session(headers=request_parameters.headers)
+        with _open_as_binary(request_parameters.data) as data_as_binary:
+            # Do not use context manager as we don't want to close the connection immediately when returning
+            # a stream
+            session = self._get_client_session(headers=request_parameters.headers)
 
-                try:
-                    response = await session.post(
-                        request_parameters.url, json=request_parameters.json, data=data_as_binary, proxy=self.proxies
-                    )
-                    response_error_payload = None
-                    if response.status != 200:
-                        try:
-                            response_error_payload = await response.json()  # get payload before connection closed
-                        except Exception:
-                            pass
-                    response.raise_for_status()
-                    if stream:
-                        return _async_yield_from(session, response)
-                    else:
-                        content = await response.read()
-                        await session.close()
-                        return content
-                except asyncio.TimeoutError as error:
+            try:
+                response = await session.post(
+                    request_parameters.url, json=request_parameters.json, data=data_as_binary, proxy=self.proxies
+                )
+                response_error_payload = None
+                if response.status != 200:
+                    try:
+                        response_error_payload = await response.json()  # get payload before connection closed
+                    except Exception:
+                        pass
+                response.raise_for_status()
+                if stream:
+                    return _async_yield_from(session, response)
+                else:
+                    content = await response.read()
                     await session.close()
-                    # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                    raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
-                except aiohttp.ClientResponseError as error:
-                    error.response_error_payload = response_error_payload
-                    await session.close()
-                    raise error
-                except Exception:
-                    await session.close()
-                    raise
+                    return content
+            except asyncio.TimeoutError as error:
+                await session.close()
+                # Convert any `TimeoutError` to a `InferenceTimeoutError`
+                raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
+            except aiohttp.ClientResponseError as error:
+                error.response_error_payload = response_error_payload
+                await session.close()
+                raise error
+            except Exception:
+                await session.close()
+                raise
 
     async def __aenter__(self):
         return self
@@ -1332,7 +1331,7 @@ class AsyncInferenceClient:
         [ImageSegmentationOutputElement(score=0.989008, label='LABEL_184', mask=<PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>), ...]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="audio-classification")
+        provider_helper = get_provider_helper(self.provider, task="image-segmentation")
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={
@@ -2674,7 +2673,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        response = provider_helper.get_response(response)
+        response = provider_helper.get_response(response, request_parameters)
         return response
 
     async def text_to_speech(

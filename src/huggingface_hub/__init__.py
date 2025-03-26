@@ -165,6 +165,7 @@ _SUBMOD_ATTRS = {
         "create_commit",
         "create_discussion",
         "create_inference_endpoint",
+        "create_inference_endpoint_from_catalog",
         "create_pull_request",
         "create_repo",
         "create_tag",
@@ -205,7 +206,9 @@ _SUBMOD_ATTRS = {
         "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
+        "list_inference_catalog",
         "list_inference_endpoints",
+        "list_lfs_files",
         "list_liked_repos",
         "list_models",
         "list_organization_members",
@@ -228,6 +231,7 @@ _SUBMOD_ATTRS = {
         "parse_safetensors_file_metadata",
         "pause_inference_endpoint",
         "pause_space",
+        "permanently_delete_lfs_files",
         "preupload_lfs_files",
         "reject_access_request",
         "rename_discussion",
@@ -296,6 +300,7 @@ _SUBMOD_ATTRS = {
         "ChatCompletionInputMessageChunkType",
         "ChatCompletionInputStreamOptions",
         "ChatCompletionInputTool",
+        "ChatCompletionInputToolCall",
         "ChatCompletionInputToolChoiceClass",
         "ChatCompletionInputToolChoiceEnum",
         "ChatCompletionInputURL",
@@ -536,6 +541,7 @@ __all__ = [
     "ChatCompletionInputMessageChunkType",
     "ChatCompletionInputStreamOptions",
     "ChatCompletionInputTool",
+    "ChatCompletionInputToolCall",
     "ChatCompletionInputToolChoiceClass",
     "ChatCompletionInputToolChoiceEnum",
     "ChatCompletionInputURL",
@@ -769,6 +775,7 @@ __all__ = [
     "create_commit",
     "create_discussion",
     "create_inference_endpoint",
+    "create_inference_endpoint_from_catalog",
     "create_pull_request",
     "create_repo",
     "create_tag",
@@ -823,7 +830,9 @@ __all__ = [
     "list_accepted_access_requests",
     "list_collections",
     "list_datasets",
+    "list_inference_catalog",
     "list_inference_endpoints",
+    "list_lfs_files",
     "list_liked_repos",
     "list_models",
     "list_organization_members",
@@ -856,6 +865,7 @@ __all__ = [
     "parse_safetensors_file_metadata",
     "pause_inference_endpoint",
     "pause_space",
+    "permanently_delete_lfs_files",
     "preupload_lfs_files",
     "push_to_hub_fastai",
     "push_to_hub_keras",
@@ -1107,6 +1117,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_commit,  # noqa: F401
         create_discussion,  # noqa: F401
         create_inference_endpoint,  # noqa: F401
+        create_inference_endpoint_from_catalog,  # noqa: F401
         create_pull_request,  # noqa: F401
         create_repo,  # noqa: F401
         create_tag,  # noqa: F401
@@ -1147,7 +1158,9 @@ if TYPE_CHECKING:  # pragma: no cover
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
+        list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
+        list_lfs_files,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_models,  # noqa: F401
         list_organization_members,  # noqa: F401
@@ -1170,6 +1183,7 @@ if TYPE_CHECKING:  # pragma: no cover
         parse_safetensors_file_metadata,  # noqa: F401
         pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
+        permanently_delete_lfs_files,  # noqa: F401
         preupload_lfs_files,  # noqa: F401
         reject_access_request,  # noqa: F401
         rename_discussion,  # noqa: F401
@@ -1236,6 +1250,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionInputMessageChunkType,  # noqa: F401
         ChatCompletionInputStreamOptions,  # noqa: F401
         ChatCompletionInputTool,  # noqa: F401
+        ChatCompletionInputToolCall,  # noqa: F401
         ChatCompletionInputToolChoiceClass,  # noqa: F401
         ChatCompletionInputToolChoiceEnum,  # noqa: F401
         ChatCompletionInputURL,  # noqa: F401
