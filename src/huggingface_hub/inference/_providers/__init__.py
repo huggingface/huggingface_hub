@@ -21,7 +21,6 @@ from .sambanova import SambanovaConversationalTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
 from .centml import CentmlConversationalTask, CentmlTextGenerationTask
 
-
 PROVIDER_T = Literal[
     "black-forest-labs",
     "centml",
@@ -63,58 +62,32 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "conversational": FireworksAIConversationalTask(),
     },
     "hf-inference": {
-        "text-to-image":
-        HFInferenceTask("text-to-image"),
-        "conversational":
-        HFInferenceConversational(),
-        "text-generation":
-        HFInferenceTask("text-generation"),
-        "text-classification":
-        HFInferenceTask("text-classification"),
-        "question-answering":
-        HFInferenceTask("question-answering"),
-        "audio-classification":
-        HFInferenceBinaryInputTask("audio-classification"),
-        "automatic-speech-recognition":
-        HFInferenceBinaryInputTask("automatic-speech-recognition"),
-        "fill-mask":
-        HFInferenceTask("fill-mask"),
-        "feature-extraction":
-        HFInferenceTask("feature-extraction"),
-        "image-classification":
-        HFInferenceBinaryInputTask("image-classification"),
-        "image-segmentation":
-        HFInferenceBinaryInputTask("image-segmentation"),
-        "document-question-answering":
-        HFInferenceTask("document-question-answering"),
-        "image-to-text":
-        HFInferenceBinaryInputTask("image-to-text"),
-        "object-detection":
-        HFInferenceBinaryInputTask("object-detection"),
-        "audio-to-audio":
-        HFInferenceBinaryInputTask("audio-to-audio"),
-        "zero-shot-image-classification":
-        HFInferenceBinaryInputTask("zero-shot-image-classification"),
-        "zero-shot-classification":
-        HFInferenceTask("zero-shot-classification"),
-        "image-to-image":
-        HFInferenceBinaryInputTask("image-to-image"),
-        "sentence-similarity":
-        HFInferenceTask("sentence-similarity"),
-        "table-question-answering":
-        HFInferenceTask("table-question-answering"),
-        "tabular-classification":
-        HFInferenceTask("tabular-classification"),
-        "text-to-speech":
-        HFInferenceTask("text-to-speech"),
-        "token-classification":
-        HFInferenceTask("token-classification"),
-        "translation":
-        HFInferenceTask("translation"),
-        "summarization":
-        HFInferenceTask("summarization"),
-        "visual-question-answering":
-        HFInferenceBinaryInputTask("visual-question-answering"),
+        "text-to-image": HFInferenceTask("text-to-image"),
+        "conversational": HFInferenceConversational(),
+        "text-generation": HFInferenceTask("text-generation"),
+        "text-classification": HFInferenceTask("text-classification"),
+        "question-answering": HFInferenceTask("question-answering"),
+        "audio-classification": HFInferenceBinaryInputTask("audio-classification"),
+        "automatic-speech-recognition": HFInferenceBinaryInputTask("automatic-speech-recognition"),
+        "fill-mask": HFInferenceTask("fill-mask"),
+        "feature-extraction": HFInferenceTask("feature-extraction"),
+        "image-classification": HFInferenceBinaryInputTask("image-classification"),
+        "image-segmentation": HFInferenceBinaryInputTask("image-segmentation"),
+        "document-question-answering": HFInferenceTask("document-question-answering"),
+        "image-to-text": HFInferenceBinaryInputTask("image-to-text"),
+        "object-detection": HFInferenceBinaryInputTask("object-detection"),
+        "audio-to-audio": HFInferenceBinaryInputTask("audio-to-audio"),
+        "zero-shot-image-classification": HFInferenceBinaryInputTask("zero-shot-image-classification"),
+        "zero-shot-classification": HFInferenceTask("zero-shot-classification"),
+        "image-to-image": HFInferenceBinaryInputTask("image-to-image"),
+        "sentence-similarity": HFInferenceTask("sentence-similarity"),
+        "table-question-answering": HFInferenceTask("table-question-answering"),
+        "tabular-classification": HFInferenceTask("tabular-classification"),
+        "text-to-speech": HFInferenceTask("text-to-speech"),
+        "token-classification": HFInferenceTask("token-classification"),
+        "translation": HFInferenceTask("translation"),
+        "summarization": HFInferenceTask("summarization"),
+        "visual-question-answering": HFInferenceBinaryInputTask("visual-question-answering"),
     },
     "hyperbolic": {
         "text-to-image": HyperbolicTextToImageTask(),
