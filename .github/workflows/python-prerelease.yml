@@ -3,7 +3,7 @@ name: Python prerelease
 on:
   push:
     tags:
-      - "v*rc*"
+      - v*rc*
 
 jobs:
   trigger_rc_testing:
