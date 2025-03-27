@@ -3103,6 +3103,69 @@ class TestSquashHistory(HfApiCommonTest):
         assert len(squashed_branch_commits) == 1
 
 
+class TestListAndPermanentlyDeleteLFSFiles(HfApiCommonTest):
+    @use_tmp_repo()
+    def test_list_and_delete_lfs_files(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+
+        # Main files
+        self._api.upload_file(path_or_fileobj=b"LFS content", path_in_repo="lfs_file.bin", repo_id=repo_id)
+        self._api.upload_file(path_or_fileobj=b"TXT content", path_in_repo="txt_file.txt", repo_id=repo_id)
+        self._api.upload_file(path_or_fileobj=b"LFS content 2", path_in_repo="lfs_file_2.bin", repo_id=repo_id)
+        self._api.upload_file(path_or_fileobj=b"TXT content 2", path_in_repo="txt_file_2.txt", repo_id=repo_id)
+
+        # Branch files
+        self._api.create_branch(repo_id=repo_id, branch="my-branch")
+        self._api.upload_file(
+            path_or_fileobj=b"LFS content branch",
+            path_in_repo="lfs_file_branch.bin",
+            repo_id=repo_id,
+            revision="my-branch",
+        )
+        self._api.upload_file(
+            path_or_fileobj=b"TXT content branch",
+            path_in_repo="txt_file_branch.txt",
+            repo_id=repo_id,
+            revision="my-branch",
+        )
+
+        # PR files
+        self._api.upload_file(
+            path_or_fileobj=b"LFS content PR", path_in_repo="lfs_file_PR.bin", repo_id=repo_id, create_pr=True
+        )
+        self._api.upload_file(
+            path_or_fileobj=b"TXT content PR", path_in_repo="txt_file_PR.txt", repo_id=repo_id, create_pr=True
+        )
+
+        # List LFS files
+        lfs_files = [file for file in self._api.list_lfs_files(repo_id=repo_id)]
+        assert len(lfs_files) == 4
+        assert {file.filename for file in lfs_files} == {
+            "lfs_file.bin",
+            "lfs_file_2.bin",
+            "lfs_file_branch.bin",
+            "lfs_file_PR.bin",
+        }
+
+        # Select LFS files that are on main
+        lfs_files_on_main = [file for file in lfs_files if file.ref == "main"]
+        assert len(lfs_files_on_main) == 2
+
+        # Permanently delete LFS files
+        self._api.permanently_delete_lfs_files(repo_id=repo_id, lfs_files=lfs_files_on_main)
+
+        # LFS files from branch and PR remain
+        lfs_files = [file for file in self._api.list_lfs_files(repo_id=repo_id)]
+        assert len(lfs_files) == 2
+        assert {file.filename for file in lfs_files} == {"lfs_file_branch.bin", "lfs_file_PR.bin"}
+
+        # Downloading "lfs_file.bin" fails with EntryNotFoundError
+        files = self._api.list_repo_files(repo_id=repo_id)
+        assert set(files) == {".gitattributes", "txt_file.txt", "txt_file_2.txt"}
+        with pytest.raises(EntryNotFoundError):
+            self._api.hf_hub_download(repo_id=repo_id, filename="lfs_file.bin")
+
+
 @pytest.mark.vcr
 class TestSpaceAPIProduction(unittest.TestCase):
     """
