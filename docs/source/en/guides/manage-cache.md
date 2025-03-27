@@ -2,9 +2,11 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Manage `huggingface_hub` cache-system
+# Understand caching
 
-## Understand caching
+`huggingface_hub` utilizes the local disk as two caches, which avoid re-downloading items again. The first cache is a file-based cache, which caches individual files downloaded from the Hub and ensures that the same file is not downloaded again when a repo gets updated. The second cache is a chunk cache, where each chunk represents a byte range from a file and ensures that chunks that are shared across files are only downloaded once.
+
+## File-based caching
 
 The Hugging Face Hub cache-system is designed to be the central cache shared across libraries
 that depend on the Hub. It has been updated in v0.8.0 to prevent re-downloading same files
@@ -170,6 +172,95 @@ When symlinks are not supported, a warning message is displayed to the user to a
 them they are using a degraded version of the cache-system. This warning can be disabled
 by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
 
+## Chunk-based caching (Xet)
+
+To provide more efficient file transfers, `hf_xet` adds a `xet` directory to the existing `huggingface_hub` cache, creating additional caching layer to enable chunk-based deduplication. This cache holds chunks, which are immutable byte ranges from files (up to 64KB) that are created using content-defined chunking. For more information on the Xet Storage system, see this [section](https://huggingface.co/docs/hub/storage-backends).
+
+The `xet` directory, located at `~/.cache/huggingface/xet` by default, contains two caches, utilized for uploads and downloads with the following structure
+
+```bash
+<CACHE_DIR>
+├─ chunk_cache
+├─ shard_cache
+```
+
+The `xet` cache, like the rest of `hf_xet` is fully integrated with `huggingface_hub`.  If you use the existing APIs for interacting with cached assets, there is no need to update your workflow. The `xet` cache is built as an optimization layer on top of the existing `hf_xet` chunk-based deduplication and `huggingface_hub` cache system. 
+
+The `chunk-cache` directory contains cached data chunks that are used to speed up downloads while the `shard-cache` directory contains cached shards that are utilized on the upload path. 
+
+### `chunk_cache`
+
+This cache is used on the download path. The cache directory structure is based on a base-64 encoded hash from the content-addressed store (CAS) that backs each Xet-enabled repository. A CAS hash serves as the key to lookup the offsets of where the data is stored. 
+
+At the topmost level, the first two letters of the base 64 encoded CAS hash are used to create a subdirectory in the `chunk_cache` (keys that share these first two letters are grouped here).  The inner levels are comprised of subdirectories with the full key as the directory name. At the base are the cache items which are ranges of blocks that contain the cached chunks.
+
+```bash
+<CACHE_DIR>
+├─ xet
+│  ├─ chunk_cache
+│  │  ├─ A1
+│  │  │  ├─ A1GerURLUcISVivdseeoY1PnYifYkOaCCJ7V5Q9fjgxkZWZhdWx0
+│  │  │  │  ├─ AAAAAAEAAAA5DQAAAAAAAIhRLjDI3SS5jYs4ysNKZiJy9XFI8CN7Ww0UyEA9KPD9
+│  │  │  │  ├─ AQAAAAIAAABzngAAAAAAAPNqPjd5Zby5aBvabF7Z1itCx0ryMwoCnuQcDwq79jlB
+
+```
+
+When requesting a file, the first thing `hf_xet` does is communicate with Xet storage’s content addressed store (CAS) for reconstruction information. The reconstruction information contains information about the CAS keys required to download the file in its entirety. 
+
+Before executing the requests for the CAS keys, the `chunk_cache` is consulted. If a key in the cache matches a CAS key, then there is no reason to issue a request for that content. `hf_xet` uses the chunks stored in the directory instead.
+
+As the `chunk_cache` is purely an optimization, not a guarantee, `hf_xet` utilizes a computationally efficient eviction policy. When the `chunk_cache` is full (see `Limits and Limitations` below), `hf_xet` implements a random eviction policy when selecting an eviction candidate. This significantly reduces the overhead of managing a robust caching system (e.g., LRU) while still providing most of the benefits of caching chunks. 
+
+### `shard_cache`
+
+This cache is used when uploading content to the Hub. The directory is flat, comprising only of shard files, each using an ID for the shard name. 
+
+```sh
+<CACHE_DIR>
+├─ xet
+│  ├─ shard_cache
+│  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
+│  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
+│  │  ├─ ceeeb7ea4cf6c0a8d395a2cf9c08871211fbbd17b9b5dc1005811845307e6b8f.mdb
+│  │  ├─ e8535155b1b11ebd894c908e91a1e14e3461dddd1392695ddc90ae54a548d8b2.mdb
+```
+
+The `shard_cache` contains shards that are: 
+
+- Locally generated and successfully uploaded to the CAS
+- Downloaded from CAS as part of the global deduplication algorithm
+
+Shards provide a mapping between files and chunks. During uploads, each file is chunked and the hash of the chunk is saved. Every shard in the cache is then consulted. If a shard contains a chunk hash that is present in the local file being uploaded, then that chunk can be discarded as it is already stored in CAS. 
+
+All shards have an expiration date of 3-4 weeks from when they are downloaded. Shards that are expired are not loaded during upload and are deleted one week after expiration. 
+
+### Limits and Limitations
+
+The `chunk_cache` is limited to 10GB in size while the `shard_cache` is technically without limits (in practice, the size and use of shards are such that limiting the cache is unnecessary). 
+
+By design, both caches are without high-level APIs. These caches are used primarily to facilitate the reconstruction (download) or upload of a file. To interact with the assets themselves, it’s recommended that you use the [`huggingface_hub` cache system APIs](https://huggingface.co/docs/huggingface_hub/guides/manage-cache).
+
+If you need to reclaim the space utilized by either cache or need to debug any potential cache-related issues, simply remove the `xet` cache entirely by running `rm -rf ~/<cache_dir>/xet` where `<cache_dir>` is the location of your Hugging Face cache, typically `~/.cache/huggingface` 
+
+Example full `xet`cache directory tree:
+
+```sh
+<CACHE_DIR>
+├─ xet
+│  ├─ chunk_cache
+│  │  ├─ L1
+│  │  │  ├─ L1GerURLUcISVivdseeoY1PnYifYkOaCCJ7V5Q9fjgxkZWZhdWx0
+│  │  │  │  ├─ AAAAAAEAAAA5DQAAAAAAAIhRLjDI3SS5jYs4ysNKZiJy9XFI8CN7Ww0UyEA9KPD9
+│  │  │  │  ├─ AQAAAAIAAABzngAAAAAAAPNqPjd5Zby5aBvabF7Z1itCx0ryMwoCnuQcDwq79jlB
+│  ├─ shard_cache
+│  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
+│  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
+│  │  ├─ ceeeb7ea4cf6c0a8d395a2cf9c08871211fbbd17b9b5dc1005811845307e6b8f.mdb
+│  │  ├─ e8535155b1b11ebd894c908e91a1e14e3461dddd1392695ddc90ae54a548d8b2.mdb
+```
+
+To learn more about Xet Storage, see this [section](https://huggingface.co/docs/hub/storage-backends).
+
 ## Caching assets
 
 In addition to caching files from the Hub, downstream libraries often requires to cache
@@ -232,7 +323,9 @@ In practice, your assets cache should look like the following tree:
                 └── (...)
 ```
 
-## Scan your cache
+## Manage your file-based cache
+
+### Scan your cache
 
 At the moment, cached files are never deleted from your local directory: when you download
 a new revision of a branch, previous files are kept in case you need them again.
@@ -240,7 +333,7 @@ Therefore it can be useful to scan your cache directory in order to know which r
 and revisions are taking the most disk space. `huggingface_hub` provides an helper to
 do so that can be used via `huggingface-cli` or in a python script.
 
-### Scan cache from the terminal
+**Scan cache from the terminal**
 
 The easiest way to scan your HF cache-system is to use the `scan-cache` command from
 `huggingface-cli` tool. This command scans the cache and prints a report with information
@@ -291,7 +384,7 @@ Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
 Got 1 warning(s) while scanning. Use -vvv to print details.
 ```
 
-#### Grep example
+**Grep example**
 
 Since the output is in tabular format, you can combine it with any `grep`-like tools to
 filter the entries. Here is an example to filter only revisions from the "t5-small"
@@ -304,7 +397,7 @@ t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617  
 t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
 ```
 
-### Scan cache from Python
+**Scan cache from Python**
 
 For a more advanced usage, use [`scan_cache_dir`] which is the python utility called by
 the CLI tool.
@@ -368,7 +461,7 @@ HFCacheInfo(
 )
 ```
 
-## Clean your cache
+### Clean your cache
 
 Scanning your cache is interesting but what you really want to do next is usually to
 delete some portions to free up some space on your drive. This is possible using the
@@ -376,7 +469,7 @@ delete some portions to free up some space on your drive. This is possible using
 [`~HFCacheInfo.delete_revisions`] helper from [`HFCacheInfo`] object returned when
 scanning the cache.
 
-### Delete strategy
+**Delete strategy**
 
 To delete some cache, you need to pass a list of revisions to delete. The tool will
 define a strategy to free up the space based on this list. It returns a
@@ -408,7 +501,7 @@ error is thrown. The deletion continues for other paths contained in the
 
 </Tip>
 
-### Clean cache from the terminal
+**Clean cache from the terminal**
 
 The easiest way to delete some revisions from your HF cache-system is to use the
 `delete-cache` command from `huggingface-cli` tool. The command has two modes. By
@@ -417,7 +510,7 @@ revisions to delete. This TUI is currently in beta as it has not been tested on 
 platforms. If the TUI doesn't work on your machine, you can disable it using the
 `--disable-tui` flag.
 
-#### Using the TUI
+**Using the TUI**
 
 This is the default mode. To use it, you first need to install extra dependencies by
 running the following command:
@@ -461,7 +554,7 @@ Start deletion.
 Done. Deleted 1 repo(s) and 0 revision(s) for a total of 3.1G.
 ```
 
-#### Without TUI
+**Without TUI**
 
 As mentioned above, the TUI mode is currently in beta and is optional. It may be the
 case that it doesn't work on your machine or that you don't find it convenient.
@@ -522,7 +615,7 @@ Example of command file:
 #    9cfa5647b32c0a30d0adfca06bf198d82192a0d1 # Refs: main # modified 5 days ago
 ```
 
-### Clean cache from Python
+**Clean cache from Python**
 
 For more flexibility, you can also use the [`~HFCacheInfo.delete_revisions`] method
 programmatically. Here is a simple example. See reference for details.
