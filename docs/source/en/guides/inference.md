@@ -320,6 +320,23 @@ For more information about the `asyncio` module, please refer to the [official d
 
 In the above section, we saw the main aspects of [`InferenceClient`]. Let's dive into some more advanced tips.
 
+### Billing
+
+As an HF user, you get monthly credits to run inference through various providers on the Hub. The amount of credits you get depends on your type of account (Free or PRO or Enterprise Hub). You get charged for every inference request, depending on the provider's pricing table. By default, the requests are billed to your personal account. However, it is possible to set the billing so that requests are charged to an organization you are part of by simply passing `bill_to="<your_org_name>"` to `InferenceClient`. For this to work, your organization must be subscribed to Enterprise Hub. For more details about billing, check out [this guide](https://huggingface.co/docs/api-inference/pricing#features-using-inference-providers).
+
+```py
+>>> from huggingface_hub import InferenceClient
+>>> client = InferenceClient(provider="fal-ai", bill_to="openai")
+>>> image = client.text_to_image(
+...     "A majestic lion in a fantasy forest",
+...     model="black-forest-labs/FLUX.1-schnell",
+... )
+>>> image.save("lion.png")
+```
+
+Note that it is NOT possible to charge another user or an organization you are not part of. If you want to grant someone else some credits, you must create a joint organization with them.
+
+
 ### Timeout
 
 Inference calls can take a significant amount of time. By default, [`InferenceClient`] will wait "indefinitely" until the inference complete. If you want more control in your workflow, you can set the `timeout` parameter to a specific value in seconds. If the timeout delay expires, an [`InferenceTimeoutError`] is raised, which you can catch in your code:
