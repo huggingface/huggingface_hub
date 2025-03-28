@@ -55,7 +55,7 @@ jobs:
         run: |
           cd ${{ matrix.target-repo }}
           VERSION=${{ steps.get-version.outputs.VERSION }}
-          BRANCH_NAME="ci-test-huggingface-hub-${VERSION}"
+          BRANCH_NAME="ci-test-huggingface-hub-${VERSION}-release"
 
           # Create and checkout new branch
           git checkout -b $BRANCH_NAME
