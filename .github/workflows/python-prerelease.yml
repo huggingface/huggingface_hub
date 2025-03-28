@@ -89,4 +89,4 @@ jobs:
         run: |
           VERSION=${{ steps.get-version.outputs.VERSION }}
           echo "https://github.com/huggingface/${{ matrix.target-repo }}/actions"
-          echo "https://github.com/huggingface/${{ matrix.target-repo }}/compare/main...ci-test-huggingface-hub-${VERSION}"
+          echo "https://github.com/huggingface/${{ matrix.target-repo }}/compare/main...${BRANCH_NAME}"
