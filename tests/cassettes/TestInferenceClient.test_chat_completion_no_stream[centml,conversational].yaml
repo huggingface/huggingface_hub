@@ -1,0 +1,75 @@
+interactions:
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '195'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 9f95510c-8aae-4df7-820e-eafbc8ad396f
+    method: POST
+    uri: https://api.centml.com/openai/v1/chat/completions
+  response:
+    body:
+      string: '{"id":"chatcmpl-de1b282d4615cdcf51313490db81295a","object":"chat.completion","created":1742933815,"model":"meta-llama/Llama-3.3-70B-Instruct","choices":[{"index":0,"message":{"role":"assistant","reasoning_content":null,"content":"**Deep
+        Learning: An Overview**\n=====================================\n\nDeep learning
+        is a subset of machine learning that involves the use of artificial neural
+        networks to analyze and interpret data. These neural networks are designed
+        to mimic the structure and function of the human brain, with multiple layers
+        of interconnected nodes (neurons) that process and transmit information.\n\n**Key
+        Characteristics:**\n\n1. **Artificial Neural Networks**: Deep learning models
+        are based on artificial neural networks, which are composed of multiple layers
+        of nodes (neurons) that process and transmit information.\n2. **Multiple Layers**:
+        Deep learning models have multiple layers, each of which performs a specific
+        function, such as feature extraction, feature transformation, or classification.\n3.
+        **Hierarchical Representation**: Deep learning models learn hierarchical representations
+        of data, with early layers learning low-level features and later layers learning
+        higher-level features.\n4. **Large Amounts of Data**: Deep learning models
+        require large amounts of data to train, as they need to learn complex patterns
+        and relationships in the data.\n\n**Types of Deep Learning Models:**\n\n1.
+        **Convolutional Neural Networks (CNNs)**: Used for image and video processing,
+        CNNs are designed to extract features from spatially structured data.\n2.
+        **Recurrent Neural Networks (RNNs)**: Used for sequential data, such as speech
+        or text, RNNs are designed to model temporal relationships in data.\n3. **Autoencoders**:
+        Used for dimensionality reduction and generative modeling, autoencoders are
+        designed to learn compact representations of data.\n\n**Applications:**\n\n1.
+        **Computer Vision**: Deep learning models are widely used in computer vision
+        applications, such as image classification, object detection, and segmentation.\n2.
+        **Natural Language Processing**: Deep learning models are used in NLP applications,
+        such as language modeling, text classification, and machine translation.\n3.
+        **Speech Recognition**: Deep learning models are used in speech recognition
+        applications, such as speech-to-text and voice recognition.\n\n**Advantages:**\n\n1.
+        **High Accuracy**: Deep learning models can achieve high accuracy in complex
+        tasks, such as image recognition and speech recognition.\n2. **Flexibility**:
+        Deep learning models can be used in a wide range of applications, from computer
+        vision to NLP.\n3. **Scalability**: Deep learning models can be trained on
+        large datasets and can scale to large applications.\n\n**Challenges:**\n\n1.
+        **Computational Requirements**: Deep learning models require significant computational
+        resources to train and deploy.\n2. **Data Requirements**: Deep learning models
+        require large amounts of data to train, which can be difficult to obtain.\n3.
+        **Interpretability**: Deep learning models can be difficult to interpret,
+        making it challenging to understand why a particular decision was made.","tool_calls":[]},"logprobs":null,"finish_reason":"stop","stop_reason":null}],"usage":{"prompt_tokens":46,"total_tokens":595,"completion_tokens":549,"prompt_tokens_details":null},"prompt_logprobs":null}'
+    headers:
+      content-type:
+      - application/json
+      date:
+      - Tue, 25 Mar 2025 20:16:54 GMT
+      server:
+      - istio-envoy
+      transfer-encoding:
+      - chunked
+      x-envoy-upstream-service-time:
+      - '3844'
+    status:
+      code: 200
+      message: OK
+version: 1
