@@ -151,6 +151,14 @@ def _check_supported_task(model: str, task: str) -> None:
             return  # Only conversational allowed if tagged as conversational
         raise ValueError("Non-conversational image-text-to-text task is not supported.")
 
+    if (
+        task in ("feature-extraction", "sentence-similarity")
+        and pipeline_tag in ("feature-extraction", "sentence-similarity")
+        and task in tags
+    ):
+        # feature-extraction and sentence-similarity are interchangeable for HF Inference
+        return
+
     # For all other tasks, just check pipeline tag
     if pipeline_tag != task:
         raise ValueError(

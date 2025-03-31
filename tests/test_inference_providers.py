@@ -585,6 +585,21 @@ class TestHFInferenceProvider:
                 "conversational",
                 True,
             ),
+            # Feature-extraction / sentence-similarity are interchangeable for HF Inference
+            (
+                "sentence-similarity",
+                ["tag1", "feature-extraction", "sentence-similarity"],
+                "feature-extraction",
+                False,
+            ),
+            (
+                "feature-extraction",
+                ["tag1", "feature-extraction", "sentence-similarity"],
+                "sentence-similarity",
+                False,
+            ),
+            # if pipeline_tag is not feature-extraction or sentence-similarity, raise
+            ("text-generation", ["tag1", "feature-extraction", "sentence-similarity"], "sentence-similarity", True),
             # Other tasks
             (
                 "audio-classification",
