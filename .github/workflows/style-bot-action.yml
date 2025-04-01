@@ -119,6 +119,18 @@ jobs:
               echo "❌ Last commit on the pull request is newer than the issue comment triggering this run! Abort!";
               exit -1;
             fi
+      - name: Check out PR branch again
+        uses: actions/checkout@v3
+        env: 
+          HEADREPOFULLNAME: ${{ steps.pr_info.outputs.headRepoFullName }}
+          HEADREF: ${{ steps.pr_info.outputs.headRef }}
+        with:
+          # Instead of checking out the base repo, use the contributor's repo name
+          repository: ${{ env.HEADREPOFULLNAME }}
+          ref: ${{ env.HEADREF }}
+          # You may need fetch-depth: 0 for being able to push
+          fetch-depth: 0
+          token: ${{ secrets.bot_token }}
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
