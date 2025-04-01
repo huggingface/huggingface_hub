@@ -105,11 +105,20 @@ jobs:
         env:
           COMMENT_DATE: ${{ github.event.comment.created_at }}
           PR_NUMBER: ${{ steps.pr_info.outputs.prNumber }}
+          BASE_REPO_URL: https://github.com/${{ github.repository }}
+          HEADREF: ${{ steps.pr_info.outputs.headRef }}
         run: |
-            git fetch origin refs/pull/$PR_NUMBER/merge:refs/remotes/pull/$PR_NUMBER/merge
+            echo "--- Checking remotes ---"
+            git remote -v
+            echo "--- Checking ref on origin (${{ steps.pr_info.outputs.headRepoFullName }}) ---"
+            git ls-remote origin refs/pull/$PR_NUMBER/merge || echo "Ref not found on origin (fork)."
+            echo "--- Checking ref on base (${{ github.repository }}) ---"
+            git ls-remote $BASE_REPO_URL refs/pull/$PR_NUMBER/merge || echo "Ref not found on base repository."
+            
+            echo "--- Proceeding with fetch from base repository ---"
+            git fetch $BASE_REPO_URL refs/pull/$PR_NUMBER/merge:refs/remotes/pull/$PR_NUMBER/merge
             git checkout refs/remotes/pull/$PR_NUMBER/merge
             echo "PR_MERGE_SHA: $(git log -1 --format=%H)"
-            echo "PR_MERGE_SHA=$(git log -1 --format=%H)" >> "$GITHUB_OUTPUT"
             PR_MERGE_COMMIT_TIMESTAMP=$(git log -1 --date=unix --format=%cd)
             echo "PR_MERGE_COMMIT_TIMESTAMP: $PR_MERGE_COMMIT_TIMESTAMP"
             COMMENT_TIMESTAMP=$(date -d "${COMMENT_DATE}" +"%s")
@@ -119,18 +128,10 @@ jobs:
               echo "❌ Last commit on the pull request is newer than the issue comment triggering this run! Abort!";
               exit -1;
             fi
-      - name: Check out PR branch again
-        uses: actions/checkout@v3
-        env: 
-          HEADREPOFULLNAME: ${{ steps.pr_info.outputs.headRepoFullName }}
-          HEADREF: ${{ steps.pr_info.outputs.headRef }}
-        with:
-          # Instead of checking out the base repo, use the contributor's repo name
-          repository: ${{ env.HEADREPOFULLNAME }}
-          ref: ${{ env.HEADREF }}
-          # You may need fetch-depth: 0 for being able to push
-          fetch-depth: 0
-          token: ${{ secrets.bot_token }}
+
+            echo "--- Checking out contributor branch ($HEADREF) ---"
+            git checkout $HEADREF
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
