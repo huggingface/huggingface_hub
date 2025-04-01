@@ -15,10 +15,6 @@ on:
           type: string
           description: "Which style command to run (options: 'default' (make style && make quality), 'quality_only', 'style_only')"
           default: "default"
-        pr_number:
-          required: true
-          type: number
-          description: "Pull Request number to process"
         python_quality_dependencies:
           required: true
           type: string
@@ -38,8 +34,7 @@ jobs:
     if: >
       (github.event_name == 'issue_comment' && 
        contains(github.event.comment.body, '@bot /style') &&
-       github.event.issue.pull_request != null) ||
-      github.event_name == 'workflow_dispatch'
+       github.event.issue.pull_request != null)
     runs-on: ubuntu-latest
     outputs:
       is_authorized: ${{ steps.check_user_permission.outputs.has_permission }}
@@ -49,21 +44,16 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            let comment_user;
-            if (context.eventName === 'workflow_dispatch') {
-              comment_user = context.actor;
-              console.log('Workflow triggered manually by:', comment_user);
-            } else {
-              comment_user = context.payload.comment.user.login;
-              console.log('Workflow triggered by comment from:', comment_user);
-            }
+
+            comment_user = context.payload.comment.user.login;
             const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
               owner: context.repo.owner,
               repo: context.repo.repo,
               username: comment_user
             });
-            const authorized = permission.permission === 'admin';
-            console.log(`User ${comment_user} has permission level: ${permission.permission}, authorized: ${authorized} (only admins allowed)`);
+            
+            const authorized = ['admin', 'maintain', 'push'].includes(permission.permission);
+            console.log(`User ${comment_user} has permission level: ${permission.permission}, authorized: ${authorized} (only users with at least write access are allowed to run this action)`);
             core.setOutput('has_permission', authorized);
 
   run-style-bot:
@@ -74,11 +64,9 @@ jobs:
       - name: Extract PR details
         id: pr_info
         uses: actions/github-script@v6
-        env:
-          PR_NUMBER: ${{ inputs.pr_number }}
         with:
           script: |
-            const prNumber = process.env.PR_NUMBER;
+            const prNumber = context.payload.issue.number;
             console.log(`PR number from env: "${prNumber}"`);
             
             const { data: pr } = await github.rest.pulls.get({
@@ -99,7 +87,7 @@ jobs:
               headRef: pr.head.ref,
               baseRef: pr.base.ref
             });
-
+        
       - name: Check out PR branch
         uses: actions/checkout@v3
         env: 
@@ -112,16 +100,25 @@ jobs:
           # You may need fetch-depth: 0 for being able to push
           fetch-depth: 0
           token: ${{ secrets.bot_token }}
-
-      - name: Debug
-        env: 
-          HEADREPOFULLNAME: ${{ steps.pr_info.outputs.headRepoFullName }}
-          HEADREF: ${{ steps.pr_info.outputs.headRef }}
-          PRNUMBER: ${{ steps.pr_info.outputs.prNumber }}
+      
+      - name: Check commit timestamps
+        env:
+          COMMENT_DATE: ${{ github.event.comment.created_at }}
+          PR_NUMBER: ${{ steps.pr_info.outputs.prNumber }}
         run: |
-          echo "PR number: $PRNUMBER"
-          echo "Head Ref: $HEADREF"
-          echo "Head Repo Full Name: $HEADREPOFULLNAME"
+            git fetch origin refs/pull/$PR_NUMBER/merge:refs/remotes/pull/$PR_NUMBER/merge
+            git checkout refs/remotes/pull/$PR_NUMBER/merge
+            echo "PR_MERGE_SHA: $(git log -1 --format=%H)"
+            echo "PR_MERGE_SHA=$(git log -1 --format=%H)" >> "$GITHUB_OUTPUT"
+            PR_MERGE_COMMIT_TIMESTAMP=$(git log -1 --date=unix --format=%cd)
+            echo "PR_MERGE_COMMIT_TIMESTAMP: $PR_MERGE_COMMIT_TIMESTAMP"
+            COMMENT_TIMESTAMP=$(date -d "${COMMENT_DATE}" +"%s")
+            echo "COMMENT_DATE: $COMMENT_DATE"
+            echo "COMMENT_TIMESTAMP: $COMMENT_TIMESTAMP"
+            if [ $COMMENT_TIMESTAMP -le $PR_MERGE_COMMIT_TIMESTAMP ]; then
+              echo "❌ Last commit on the pull request is newer than the issue comment triggering this run! Abort!";
+              exit -1;
+            fi
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
