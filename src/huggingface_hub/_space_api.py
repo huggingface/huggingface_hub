@@ -81,11 +81,6 @@ class SpaceHardware(str, Enum):
     H100 = "h100"
     H100X8 = "h100x8"
 
-    # TPU
-    V5E_1X1 = "v5e-1x1"
-    V5E_2X2 = "v5e-2x2"
-    V5E_2X4 = "v5e-2x4"
-
 
 class SpaceStorage(str, Enum):
     """
