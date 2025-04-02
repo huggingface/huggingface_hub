@@ -201,6 +201,7 @@ jobs:
           uv pip install "huggingface_hub[testing] @ ."
           if ("${{ matrix.test_name }}" -eq "Xet only") {
             uv pip install "huggingface_hub[hf_xet] @ ."
+            uv pip install "hf_xet<1.0.0"
           }
 
       # Run tests
