@@ -200,13 +200,9 @@ jobs:
       - name: Install dependencies
         run: |
           uv pip install "huggingface_hub[testing] @ ."
-
-      - name: Force LFS if not Xet-only
-        if: ${{ matrix.test_name != 'Xet only' }}
-        run: |
-          # If not "Xet only", we want to test upload/download with regular LFS workflow
-          # => uninstall hf_xet to make sure we are not using it.
-          uv pip uninstall hf_xet
+          if ("${{ matrix.test_name }}" -eq "Xet only") {
+            uv pip install "huggingface_hub[hf_xet] @ ."
+          }
 
       # Run tests
       - name: Run tests
@@ -227,10 +223,10 @@ jobs:
 
           switch ("${{ matrix.test_name }}") {
             "Xet only" {
-              python $PYTEST_ARGS -k "xet"
+              python $PYTEST_ARGS -k "test_xet"
             }
             "Everything else" {
-              python $PYTEST_ARGS -k "not xet"
+              python $PYTEST_ARGS -k "not test_xet"
             }
           }
 
