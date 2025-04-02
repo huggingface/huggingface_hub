@@ -95,11 +95,13 @@ jobs:
               uv pip install "huggingface_hub[tensorflow-testing] @ ."
               ;;
 
-            "Xet only")
-              uv pip install "huggingface_hub[hf_xet] @ ."
-              ;;
-
           esac
+
+          # If not "Xet only", we want to test upload/download with regular LFS workflow
+          # => uninstall hf_xet to make sure we are not using it.
+          if [[ "${{ matrix.test_name }}" != "Xet only" ]]; then
+            uv pip uninstall -y hf_xet
+          fi
 
       # Run tests
       - name: Run tests
@@ -198,9 +200,12 @@ jobs:
       - name: Install dependencies
         run: |
           uv pip install "huggingface_hub[testing] @ ."
-          if ("${{ matrix.test_name }}" -eq "Xet only") {
-            uv pip install "huggingface_hub[hf_xet] @ ."
-          }
+
+          # If not "Xet only", we want to test upload/download with regular LFS workflow
+          # => uninstall hf_xet to make sure we are not using it.
+          if [[ "${{ matrix.test_name }}" != "Xet only" ]]; then
+            uv pip uninstall -y hf_xet
+          fi
 
       # Run tests
       - name: Run tests
