@@ -55,7 +55,7 @@ extras["tensorflow-testing"] = [
     "keras<3.0",
 ]
 
-extras["hf_xet"] = ["hf_xet>=1.0.0"]
+extras["hf_xet"] = ["hf_xet>=1.0.0,<2.0.0"]
 
 extras["testing"] = (
     extras["cli"]
