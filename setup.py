@@ -11,12 +11,10 @@ def get_version() -> str:
     raise RuntimeError("Unable to find version string.")
 
 
-hf_xet_dependency = "hf-xet>=1.0.0,<2.0.0"
-
 install_requires = [
     "filelock",
     "fsspec>=2023.5.0",
-    f"{hf_xet_dependency}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='arm64' or platform_machine=='aarch64'",
+    "hf-xet>=1.0.0,<2.0.0; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='arm64' or platform_machine=='aarch64'",
     "packaging>=20.9",
     "pyyaml>=5.1",
     "requests",
@@ -58,7 +56,7 @@ extras["tensorflow-testing"] = [
     "keras<3.0",
 ]
 
-extras["hf_xet"] = [hf_xet_dependency]
+extras["hf_xet"] = ["hf_xet>=1.0.0,<2.0.0"]
 
 extras["testing"] = (
     extras["cli"]
