@@ -18,7 +18,7 @@ from typing import Dict, Iterable, Optional
 
 import requests
 
-from . import get_session, hf_raise_for_status, logging
+from . import get_session, hf_raise_for_status, http_backoff, logging
 
 
 logger = logging.get_logger(__name__)
