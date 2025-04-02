@@ -227,10 +227,10 @@ jobs:
 
           switch ("${{ matrix.test_name }}") {
             "Xet only" {
-              python $PYTEST_ARGS -k "test_xet"
+              python $PYTEST_ARGS -k "xet"
             }
             "Everything else" {
-              python $PYTEST_ARGS -k "not test_xet"
+              python $PYTEST_ARGS -k "not xet"
             }
           }
 
