@@ -24,10 +24,25 @@ class ChatCompletionInputMessageChunk(BaseInferenceType):
 
 
 @dataclass_with_extra
+class ChatCompletionInputFunctionDefinition(BaseInferenceType):
+    arguments: Any
+    name: str
+    description: Optional[str] = None
+
+
+@dataclass_with_extra
+class ChatCompletionInputToolCall(BaseInferenceType):
+    function: ChatCompletionInputFunctionDefinition
+    id: str
+    type: str
+
+
+@dataclass_with_extra
 class ChatCompletionInputMessage(BaseInferenceType):
-    content: Union[List[ChatCompletionInputMessageChunk], str]
     role: str
+    content: Optional[Union[List[ChatCompletionInputMessageChunk], str]] = None
     name: Optional[str] = None
+    tool_calls: Optional[List[ChatCompletionInputToolCall]] = None
 
 
 ChatCompletionInputGrammarTypeType = Literal["json", "regex"]
@@ -45,7 +60,7 @@ class ChatCompletionInputGrammarType(BaseInferenceType):
 
 @dataclass_with_extra
 class ChatCompletionInputStreamOptions(BaseInferenceType):
-    include_usage: bool
+    include_usage: Optional[bool] = None
     """If set, an additional chunk will be streamed before the data: [DONE] message. The usage
     field on this chunk shows the token usage statistics for the entire request, and the
     choices field will always be an empty array. All other chunks will also include a usage
@@ -64,13 +79,6 @@ class ChatCompletionInputToolChoiceClass(BaseInferenceType):
 
 
 ChatCompletionInputToolChoiceEnum = Literal["auto", "none", "required"]
-
-
-@dataclass_with_extra
-class ChatCompletionInputFunctionDefinition(BaseInferenceType):
-    arguments: Any
-    name: str
-    description: Optional[str] = None
 
 
 @dataclass_with_extra
@@ -197,6 +205,7 @@ class ChatCompletionOutputToolCall(BaseInferenceType):
 class ChatCompletionOutputMessage(BaseInferenceType):
     role: str
     content: Optional[str] = None
+    tool_call_id: Optional[str] = None
     tool_calls: Optional[List[ChatCompletionOutputToolCall]] = None
 
 
@@ -249,7 +258,8 @@ class ChatCompletionStreamOutputDeltaToolCall(BaseInferenceType):
 class ChatCompletionStreamOutputDelta(BaseInferenceType):
     role: str
     content: Optional[str] = None
-    tool_calls: Optional[ChatCompletionStreamOutputDeltaToolCall] = None
+    tool_call_id: Optional[str] = None
+    tool_calls: Optional[List[ChatCompletionStreamOutputDeltaToolCall]] = None
 
 
 @dataclass_with_extra

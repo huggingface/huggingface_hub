@@ -121,7 +121,7 @@ class AsyncInferenceClient:
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"replicate"`, "sambanova"` or `"together"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"openai"`, `"replicate"`, "sambanova"` or `"together"`.
             defaults to hf-inference (Hugging Face Serverless Inference API).
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
@@ -134,6 +134,9 @@ class AsyncInferenceClient:
         headers (`Dict[str, str]`, `optional`):
             Additional headers to send to the server. By default only the authorization and user-agent headers are sent.
             Values in this dictionary will override the default values.
+        bill_to (`str`, `optional`):
+            The billing account to use for the requests. By default the requests are billed on the user's account.
+            Requests can only be billed to an organization the user is a member of, and which has subscribed to Enterprise Hub.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
         trust_env ('bool', 'optional'):
@@ -159,6 +162,7 @@ class AsyncInferenceClient:
         cookies: Optional[Dict[str, str]] = None,
         trust_env: bool = False,
         proxies: Optional[Any] = None,
+        bill_to: Optional[str] = None,
         # OpenAI compatibility
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
@@ -194,7 +198,25 @@ class AsyncInferenceClient:
 
         self.model: Optional[str] = base_url or model
         self.token: Optional[str] = token
-        self.headers = headers if headers is not None else {}
+
+        self.headers = {**headers} if headers is not None else {}
+        if bill_to is not None:
+            if (
+                constants.HUGGINGFACE_HEADER_X_BILL_TO in self.headers
+                and self.headers[constants.HUGGINGFACE_HEADER_X_BILL_TO] != bill_to
+            ):
+                warnings.warn(
+                    f"Overriding existing '{self.headers[constants.HUGGINGFACE_HEADER_X_BILL_TO]}' value in headers with '{bill_to}'.",
+                    UserWarning,
+                )
+            self.headers[constants.HUGGINGFACE_HEADER_X_BILL_TO] = bill_to
+
+            if token is not None and not token.startswith("hf_"):
+                warnings.warn(
+                    "You've provided an external provider's API key, so requests will be billed directly by the provider. "
+                    "The `bill_to` parameter is only applicable for Hugging Face billing and will be ignored.",
+                    UserWarning,
+                )
 
         # Configure provider
         self.provider = provider if provider is not None else "hf-inference"
@@ -313,40 +335,39 @@ class AsyncInferenceClient:
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        while True:
-            with _open_as_binary(request_parameters.data) as data_as_binary:
-                # Do not use context manager as we don't want to close the connection immediately when returning
-                # a stream
-                session = self._get_client_session(headers=request_parameters.headers)
+        with _open_as_binary(request_parameters.data) as data_as_binary:
+            # Do not use context manager as we don't want to close the connection immediately when returning
+            # a stream
+            session = self._get_client_session(headers=request_parameters.headers)
 
-                try:
-                    response = await session.post(
-                        request_parameters.url, json=request_parameters.json, data=data_as_binary, proxy=self.proxies
-                    )
-                    response_error_payload = None
-                    if response.status != 200:
-                        try:
-                            response_error_payload = await response.json()  # get payload before connection closed
-                        except Exception:
-                            pass
-                    response.raise_for_status()
-                    if stream:
-                        return _async_yield_from(session, response)
-                    else:
-                        content = await response.read()
-                        await session.close()
-                        return content
-                except asyncio.TimeoutError as error:
+            try:
+                response = await session.post(
+                    request_parameters.url, json=request_parameters.json, data=data_as_binary, proxy=self.proxies
+                )
+                response_error_payload = None
+                if response.status != 200:
+                    try:
+                        response_error_payload = await response.json()  # get payload before connection closed
+                    except Exception:
+                        pass
+                response.raise_for_status()
+                if stream:
+                    return _async_yield_from(session, response)
+                else:
+                    content = await response.read()
                     await session.close()
-                    # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                    raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
-                except aiohttp.ClientResponseError as error:
-                    error.response_error_payload = response_error_payload
-                    await session.close()
-                    raise error
-                except Exception:
-                    await session.close()
-                    raise
+                    return content
+            except asyncio.TimeoutError as error:
+                await session.close()
+                # Convert any `TimeoutError` to a `InferenceTimeoutError`
+                raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
+            except aiohttp.ClientResponseError as error:
+                error.response_error_payload = response_error_payload
+                await session.close()
+                raise error
+            except Exception:
+                await session.close()
+                raise
 
     async def __aenter__(self):
         return self
@@ -1332,7 +1353,7 @@ class AsyncInferenceClient:
         [ImageSegmentationOutputElement(score=0.989008, label='LABEL_184', mask=<PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>), ...]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="audio-classification")
+        provider_helper = get_provider_helper(self.provider, task="image-segmentation")
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={

@@ -24,15 +24,16 @@ class HFInferenceTask(TaskProviderHelper):
         return api_key or get_token()  # type: ignore[return-value]
 
     def _prepare_mapped_model(self, model: Optional[str]) -> str:
-        if model is not None:
+        if model is not None and model.startswith(("http://", "https://")):
             return model
-        model = _fetch_recommended_models().get(self.task)
-        if model is None:
+        model_id = model if model is not None else _fetch_recommended_models().get(self.task)
+        if model_id is None:
             raise ValueError(
                 f"Task {self.task} has no recommended model for HF Inference. Please specify a model"
                 " explicitly. Visit https://huggingface.co/tasks for more info."
             )
-        return model
+        _check_supported_task(model_id, self.task)
+        return model_id
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
         # hf-inference provider can handle URLs (e.g. Inference Endpoints or TGI deployment)
@@ -120,3 +121,47 @@ def _fetch_recommended_models() -> Dict[str, Optional[str]]:
     response = get_session().get(f"{constants.ENDPOINT}/api/tasks", headers=build_hf_headers())
     hf_raise_for_status(response)
     return {task: next(iter(details["widgetModels"]), None) for task, details in response.json().items()}
+
+
+@lru_cache(maxsize=None)
+def _check_supported_task(model: str, task: str) -> None:
+    from huggingface_hub.hf_api import HfApi
+
+    model_info = HfApi().model_info(model)
+    pipeline_tag = model_info.pipeline_tag
+    tags = model_info.tags or []
+    is_conversational = "conversational" in tags
+    if task in ("text-generation", "conversational"):
+        if pipeline_tag == "text-generation":
+            # text-generation + conversational tag -> both tasks allowed
+            if is_conversational:
+                return
+            # text-generation without conversational tag -> only text-generation allowed
+            if task == "text-generation":
+                return
+            raise ValueError(f"Model '{model}' doesn't support task '{task}'.")
+
+    if pipeline_tag == "text2text-generation":
+        if task == "text-generation":
+            return
+        raise ValueError(f"Model '{model}' doesn't support task '{task}'.")
+
+    if pipeline_tag == "image-text-to-text":
+        if is_conversational and task == "conversational":
+            return  # Only conversational allowed if tagged as conversational
+        raise ValueError("Non-conversational image-text-to-text task is not supported.")
+
+    if (
+        task in ("feature-extraction", "sentence-similarity")
+        and pipeline_tag in ("feature-extraction", "sentence-similarity")
+        and task in tags
+    ):
+        # feature-extraction and sentence-similarity are interchangeable for HF Inference
+        return
+
+    # For all other tasks, just check pipeline tag
+    if pipeline_tag != task:
+        raise ValueError(
+            f"Model '{model}' doesn't support task '{task}'. Supported tasks: '{pipeline_tag}', got: '{task}'"
+        )
+    return

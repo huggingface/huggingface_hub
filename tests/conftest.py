@@ -17,6 +17,7 @@ def patch_constants(mocker):
     with SoftTemporaryDirectory() as cache_dir:
         mocker.patch.object(constants, "HF_HOME", cache_dir)
         mocker.patch.object(constants, "HF_HUB_CACHE", os.path.join(cache_dir, "hub"))
+        mocker.patch.object(constants, "HF_XET_CACHE", os.path.join(cache_dir, "xet"))
         mocker.patch.object(constants, "HUGGINGFACE_HUB_CACHE", os.path.join(cache_dir, "hub"))
         mocker.patch.object(constants, "HF_ASSETS_CACHE", os.path.join(cache_dir, "assets"))
         mocker.patch.object(constants, "HF_TOKEN_PATH", os.path.join(cache_dir, "token"))
@@ -78,3 +79,12 @@ def vcr_config():
         "ignore_localhost": True,
         "path_transformer": lambda path: path + ".yaml",
     }
+
+
+@pytest.fixture(autouse=True)
+def clear_lru_cache():
+    from huggingface_hub.inference._providers.hf_inference import _check_supported_task
+
+    _check_supported_task.cache_clear()
+    yield
+    _check_supported_task.cache_clear()

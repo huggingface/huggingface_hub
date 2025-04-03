@@ -26,8 +26,8 @@ jobs:
           [
             "Repository only",
             "Everything else",
-            "Inference only"
-            
+            "Inference only",
+            "Xet only"
           ]
         include:
           - python-version: "3.13" # LFS not ran on 3.8
@@ -95,6 +95,10 @@ jobs:
               uv pip install "huggingface_hub[tensorflow-testing] @ ."
               ;;
 
+            "Xet only")
+              uv pip install "huggingface_hub[hf_xet] @ ."
+              ;;
+
           esac
 
       # Run tests
@@ -121,7 +125,7 @@ jobs:
             ;;
 
             "Everything else")
-              PYTEST="$PYTEST ../tests -k 'not TestRepository and not test_inference' -n 4"
+              PYTEST="$PYTEST ../tests -k 'not TestRepository and not test_inference and not test_xet' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
@@ -129,7 +133,6 @@ jobs:
             lfs)
               eval "RUN_GIT_LFS_TESTS=1 $PYTEST ../tests -k 'HfLargefilesTest'"
             ;;
-
 
             fastai)
               eval "$PYTEST ../tests/test_fastai*"
@@ -145,6 +148,12 @@ jobs:
             "Python 3.8, torch_1.11" | torch_latest)
             eval "$PYTEST ../tests/test_hub_mixin*"
             eval "$PYTEST ../tests/test_serialization.py"
+            ;;
+
+            "Xet only")
+              PYTEST="$PYTEST ../tests -k 'test_xet' -n 4"
+              echo $PYTEST
+              eval $PYTEST
             ;;
 
           esac
@@ -169,6 +178,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.8"]
+        test_name: ["Everything else", "Xet only"]
 
     steps:
       - uses: actions/checkout@v2
@@ -186,14 +196,37 @@ jobs:
 
       # Install dependencies
       - name: Install dependencies
-        run: uv pip install "huggingface_hub[testing] @ ."
+        run: |
+          uv pip install "huggingface_hub[testing] @ ."
+          if ("${{ matrix.test_name }}" -eq "Xet only") {
+            uv pip install "huggingface_hub[hf_xet] @ ."
+          }
 
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
         run: |
           ..\.venv\Scripts\activate
-          python -m pytest -n 4 --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 8 --reruns-delay 2 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)' ../tests
+          $PYTEST_ARGS = @(
+            "-m", "pytest",
+            "-n", "4",
+            "--cov=./huggingface_hub",
+            "--cov-report=xml:../coverage.xml",
+            "--vcr-record=none",
+            "--reruns", "8",
+            "--reruns-delay", "2",
+            "--only-rerun", "(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)",
+            "../tests"
+          )
+
+          switch ("${{ matrix.test_name }}") {
+            "Xet only" {
+              python $PYTEST_ARGS -k "test_xet"
+            }
+            "Everything else" {
+              python $PYTEST_ARGS -k "not test_xet"
+            }
+          }
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action

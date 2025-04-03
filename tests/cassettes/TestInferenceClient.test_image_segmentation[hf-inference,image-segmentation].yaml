@@ -1,5 +1,65 @@
 interactions:
 - request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - 66a92ce5-ac9b-42a2-80d5-9c686b399746
+    method: GET
+    uri: https://huggingface.co/api/models/facebook/detr-resnet-50-panoptic
+  response:
+    body:
+      string: '{"_id":"621ffdc136468d709f17ade2","id":"facebook/detr-resnet-50-panoptic","private":false,"pipeline_tag":"image-segmentation","library_name":"transformers","tags":["transformers","pytorch","detr","image-segmentation","vision","dataset:coco","arxiv:2005.12872","license:apache-2.0","endpoints_compatible","region:us"],"downloads":67335,"likes":135,"modelId":"facebook/detr-resnet-50-panoptic","author":"facebook","sha":"d53b52a799403a8867920f82c869e40732b47037","lastModified":"2024-04-10T14:14:21.000Z","gated":false,"disabled":false,"widgetData":[{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg","example_title":"Football
+        Match"},{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/dog-cat.jpg","example_title":"Dog
+        & Cat"},{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/construction-site.jpg","example_title":"Construction
+        Site"},{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/apple-orange.jpg","example_title":"Apple
+        & Orange"}],"model-index":null,"config":{"architectures":["DetrForSegmentation"],"model_type":"detr"},"cardData":{"license":"apache-2.0","tags":["image-segmentation","vision"],"datasets":["coco"],"widget":[{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg","example_title":"Football
+        Match"},{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/dog-cat.jpg","example_title":"Dog
+        & Cat"},{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/construction-site.jpg","example_title":"Construction
+        Site"},{"src":"https://huggingface.co/datasets/mishig/sample_images/resolve/main/apple-orange.jpg","example_title":"Apple
+        & Orange"}]},"transformersInfo":{"auto_model":"AutoModelForImageSegmentation","pipeline_tag":"image-segmentation","processor":"AutoImageProcessor"},"siblings":[{"rfilename":".gitattributes"},{"rfilename":"README.md"},{"rfilename":"config.json"},{"rfilename":"preprocessor_config.json"},{"rfilename":"pytorch_model.bin"}],"spaces":["microsoft/HuggingGPT","afmck/stable-diffusion-inpainting-segmentation","rkoushikroy2/portrait_photo_generator","taesiri/HuggingGPT-Lite","sofmi/semantic-segmentation-revamped","Omnibus-archive/Image_Dissector","ccarr0807/HuggingGPT","theholycityweb/HuggingGPT","Omnibus-archive/stable-diffusion-inpainting-segmentation","Alfasign/HuggingGPT-Lite","saurshaz/HuggingGPT","JarvisOnSolana/Jarvis","chrisW6825/HuggingGPT","Shenziqian/HuggingGPT","lokutus/HuggingGPT","mimiqiao/HuggingGPT","tsgbalakarthik/HuggingGPT","wowochkin/HuggingGPT","Msp/HuggingGPT","apgarmd/jarvis2","ryan12439/HuggingGPTpub","apgarmd/jarvis","Chokyounghoon/HuggingGPT","turbowed/HuggingGPT","mukulnag/HuggingGPT1","FANCHIYU/HuggingGPT","Betacuckgpt/HuggingGPT","cashqin/HuggingGPT","lollo21/Will-GPT","felixfriday/MICROSOFTT_JARVIS_HuggingGPT","Pfs2021Funny/HuggingGPT","Meffordh/HuggingGPT","lugifudun/HuggingGPT","irritablebro/HuggingGPT","pors/HuggingGPT","leadmaister/HuggingGPT","keaneu/HuggingGPT","MagKoz/HuggingGPT","lzqfree/HuggingGPT","zhangdream/HuggingGPT","bountyfuljr/HuggingGPTplaypublic","viscosity/HuggingGPT","calliber/HuggingGPT","Pitak/HuggingGPT","Mcdof/HuggingGPT","gaocegege/HuggingGPT","BMukhtar/BMA","mearjunsha/HuggingGPT","vs4vijay/HuggingGPT","CollaalloC/HuggingGPT","mastere00/JarvisMeetsProfessor","NaamanSaif/HuggingGPT","dwolfe66/HuggingGPT","passthebutter/HuggingGPT","mckeeboards/HuggingGPT","manu1435/HuggingGPT","xian-sheng/HuggingGPT","trhacknon/HuggingGPT","golddreamok/facebook-detr-resnet-50-panoptic","Future-Tense/test-space-cl","Aygtljl518866/HuggingGPT","Vito99/HuggingGPT-Lite","EinfachOlder/HuggingGPT-Lite","Hemi1403/HuggingGPT","jim2013/facebook-detr-resnet-50-panoptic","innovativeillusions/HuggingGPT","risekid/imageProcess","yuragoithf/mlg_obj_segmentation","dcams/HuggingGPT","dewmal/facebook-detr-resnet-50-panoptic","ylavie/HuggingGPT-Lite","ylavie/HuggingGPT3","CCYAO/HuggingGPT","cndavy/HuggingGPT","ps1212/facebook-detr-resnet-50-panoptic","AsadullaH777/HuggingGPT","wendys-llc/Image_Dissector","Gabolozano/Object_detection","YuhaoL/facebook-detr-resnet-50-panoptic","tiger007001/facebook-detr-resnet-50-panoptic","ZackBradshaw/omni_bot","gatesla/Image-Segmentation-Various","ABE101/facebook-detr-resnet-50-panoptic","Nuanmanee/facebook-detr-resnet-50-panoptic","MiraLiza/HuggingGPT"],"createdAt":"2022-03-02T23:29:05.000Z","inference":"warm","usedStorage":516576822}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '4467'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 21 Mar 2025 11:44:39 GMT
+      ETag:
+      - W/"1173-l5z5XpuPGWKf+VmB5oWMsrre+DI"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 a355d8f903a0cf5525893c863fcdf216.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - rOvrbbxvEeHk7URhv6zH_lL0zITzGG-Gg1IDvswOr3ngz0pQYSTfkg==
+      X-Amz-Cf-Pop:
+      - CDG52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-67dd5127-1d175c2d7c64a9ee48119cc3;66a92ce5-ac9b-42a2-80d5-9c686b399746
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+- request:
     body: !!binary |
       iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAQAAABecRxxAAEAAElEQVR4nOz9WbMleZbdh/18PsO9
       N6bMGhoNohsCQQqkaTLTg76uPoheKSMpyUwUSSMaAMHu6qrKIYY7nMFnPay13KM+AzrKOjszIu45
@@ -3487,7 +3547,7 @@ interactions:
       Content-Length:
       - '198109'
       X-Amzn-Trace-Id:
-      - 920125a0-20b7-4716-b982-e99c1840477c
+      - 02eda3de-5232-4e06-abe7-4409ccebb555
     method: POST
     uri: https://router.huggingface.co/hf-inference/models/facebook/detr-resnet-50-panoptic
   response:
@@ -3496,40 +3556,48 @@ interactions:
     headers:
       Access-Control-Allow-Origin:
       - '*'
-      Access-Control-Expose-Headers:
-      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
       Connection:
       - keep-alive
-      Content-Length:
-      - '8160'
       Content-Type:
       - application/json
       Date:
-      - Thu, 13 Feb 2025 18:50:27 GMT
+      - Fri, 21 Mar 2025 11:44:42 GMT
       Referrer-Policy:
       - strict-origin-when-cross-origin
+      Transfer-Encoding:
+      - chunked
       Via:
-      - 1.1 63029416ff7e6564b60cc4654c08f6aa.cloudfront.net (CloudFront)
+      - 1.1 ab6ec3bb809b5202a1adff9495ec59ca.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - 7BcnWgCOgEZdScWhwm9ImPGhTpHHuFtCXSoOu7Yc7-pZSijzhF9MWA==
+      - sqazjYRGx9h3pn9Ki2EBpu44qZd8mIrMHl1_PWuNk0T3jP7y4FmGEA==
       X-Amz-Cf-Pop:
       - CDG55-P3
       X-Cache:
       - Miss from cloudfront
       X-Powered-By:
       - huggingface-moon
+      X-Robots-Tag:
+      - none
       access-control-allow-credentials:
       - 'true'
+      access-control-expose-headers:
+      - x-compute-type, x-compute-time
       cross-origin-opener-policy:
       - same-origin
+      server:
+      - uvicorn
       vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-characters:
+      - '-1'
       x-compute-time:
-      - '2.319'
+      - '2.185'
       x-compute-type:
-      - cache
+      - cpu
+      x-inference-id:
+      - JTxl0G4EGvlmlb-ZDFWYC
       x-request-id:
-      - Root=1-67ae3ef3-17438acc36e31e951e2af617;920125a0-20b7-4716-b982-e99c1840477c
+      - Root=1-67dd5128-045727d775bea2bf79faea52;02eda3de-5232-4e06-abe7-4409ccebb555
       x-sha:
       - d53b52a799403a8867920f82c869e40732b47037
     status:

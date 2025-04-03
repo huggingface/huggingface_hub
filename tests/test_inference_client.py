@@ -813,8 +813,10 @@ class TestHeadersAndCookies(TestBase):
     @expect_deprecation("post")
     @with_production_testing
     @patch("huggingface_hub.inference._client.get_session")
-    def test_mocked_post(self, get_session_mock: MagicMock) -> None:
+    @patch("huggingface_hub.inference._providers.hf_inference._check_supported_task")
+    def test_mocked_post(self, check_supported_task_mock: MagicMock, get_session_mock: MagicMock) -> None:
         """Test that headers and cookies are correctly passed to the request."""
+
         client = InferenceClient(
             headers={"X-My-Header": "foo"}, cookies={"my-cookie": "bar"}, proxies="custom proxies"
         )
@@ -835,7 +837,13 @@ class TestHeadersAndCookies(TestBase):
 
     @patch("huggingface_hub.inference._client._bytes_to_image")
     @patch("huggingface_hub.inference._client.get_session")
-    def test_accept_header_image(self, get_session_mock: MagicMock, bytes_to_image_mock: MagicMock) -> None:
+    @patch("huggingface_hub.inference._providers.hf_inference._check_supported_task")
+    def test_accept_header_image(
+        self,
+        check_supported_task_mock: MagicMock,
+        get_session_mock: MagicMock,
+        bytes_to_image_mock: MagicMock,
+    ) -> None:
         """Test that Accept: image/png header is set for image tasks."""
         client = InferenceClient()
 
@@ -1071,3 +1079,30 @@ def test_cannot_pass_token_false():
     """
     with pytest.raises(ValueError):
         InferenceClient(token=False)
+
+
+class TestBillToOrganization:
+    def test_bill_to_added_to_new_headers(self):
+        client = InferenceClient(bill_to="huggingface_hub")
+        assert client.headers["X-HF-Bill-To"] == "huggingface_hub"
+
+    def test_bill_to_added_to_existing_headers(self):
+        headers = {"foo": "bar"}
+        client = InferenceClient(bill_to="huggingface_hub", headers=headers)
+        assert client.headers["X-HF-Bill-To"] == "huggingface_hub"
+        assert client.headers["foo"] == "bar"
+        assert headers == {"foo": "bar"}  # do not mutate the original headers
+
+    def test_warning_if_bill_to_already_set(self):
+        headers = {"X-HF-Bill-To": "huggingface"}
+        with pytest.warns(UserWarning, match="Overriding existing 'huggingface' value in headers with 'openai'."):
+            client = InferenceClient(bill_to="openai", headers=headers)
+        assert client.headers["X-HF-Bill-To"] == "openai"
+        assert headers == {"X-HF-Bill-To": "huggingface"}  # do not mutate the original headers
+
+    def test_warning_if_bill_to_with_direct_calls(self):
+        with pytest.warns(
+            UserWarning,
+            match="You've provided an external provider's API key, so requests will be billed directly by the provider.",
+        ):
+            InferenceClient(bill_to="openai", token="replicate_key", provider="replicate")
