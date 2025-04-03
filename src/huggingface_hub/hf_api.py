@@ -4459,13 +4459,27 @@ class HfApi:
         # - the files are provided as str or paths objects,
         # - the library is installed.
         # Otherwise, default back to LFS.
-        xet_enabled = self.repo_info(
-            repo_id=repo_id,
-            repo_type=repo_type,
-            revision=unquote(revision) if revision is not None else revision,
-            expand="xetEnabled",
-            token=token,
-        ).xet_enabled
+        try:
+            xet_enabled = self.repo_info(
+                repo_id=repo_id,
+                repo_type=repo_type,
+                revision=unquote(revision) if revision is not None else revision,
+                expand="xetEnabled",
+                token=token,
+            ).xet_enabled
+        except HfHubHTTPError as e:
+            if (
+                e.response.status_code == 404
+                and self.endpoint != constants._HF_DEFAULT_ENDPOINT
+                and self.endpoint != constants._HF_DEFAULT_STAGING_ENDPOINT
+            ):
+                # It is very likely that the user is using a mirror or an Artifactory.
+                # To prevent errors, we assume Xet is not supported and we continue.
+                # If the repo does not exists, an 404 error will be raised later.
+                xet_enabled = False
+            else:
+                raise
+
         has_binary_data = any(
             isinstance(addition.path_or_fileobj, (bytes, io.BufferedIOBase))
             for addition in new_lfs_additions_to_upload
