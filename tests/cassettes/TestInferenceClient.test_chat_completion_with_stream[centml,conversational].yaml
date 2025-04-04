@@ -1,0 +1,70 @@
+interactions:
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "max_tokens": 20, "stream": true}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '212'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - ad425e9f-bc1f-48df-b84d-a5ebad74cd66
+    method: POST
+    uri: https://api.centml.com/openai/v1/chat/completions
+  response:
+    body:
+      string: 'data: {"id":"chatcmpl-7694e7d5663b4d0e22706f8260bae6df","object":"chat.completion.chunk","created":1742933819,"model":"meta-llama/Llama-3.3-70B-Instruct","choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}]}
+
+
+        data: {"id":"chatcmpl-7694e7d5663b4d0e22706f8260bae6df","object":"chat.completion.chunk","created":1742933819,"model":"meta-llama/Llama-3.3-70B-Instruct","choices":[{"index":0,"delta":{"content":"**"},"logprobs":null,"finish_reason":null}]}
+
+
+        data: {"id":"chatcmpl-7694e7d5663b4d0e22706f8260bae6df","object":"chat.completion.chunk","created":1742933819,"model":"meta-llama/Llama-3.3-70B-Instruct","choices":[{"index":0,"delta":{"content":"Deep"},"logprobs":null,"finish_reason":null}]}
+
+
+        data: {"id":"chatcmpl-7694e7d5663b4d0e22706f8260bae6df","object":"chat.completion.chunk","created":1742933819,"model":"meta-llama/Llama-3.3-70B-Instruct","choices":[{"index":0,"delta":{"content":"
+        Learning Overview"},"logprobs":null,"finish_reason":null}]}
+
+
+        data: {"id":"chatcmpl-7694e7d5663b4d0e22706f8260bae6df","object":"chat.completion.chunk","created":1742933819,"model":"meta-llama/Llama-3.3-70B-Instruct","choices":[{"index":0,"delta":{"content":"**\n=========================\n\nDeep
+        learning is a"},"logprobs":null,"finish_reason":null}]}
+
+
+        data: {"id":"chatcmpl-7694e7d5663b4d0e22706f8260bae6df","object":"chat.completion.chunk","created":1742933819,"model":"meta-llama/Llama-3.3-70B-Instruct","choices":[{"index":0,"delta":{"content":"
+        subset"},"logprobs":null,"finish_reason":null}]}
+
+
+        data: {"id":"chatcmpl-7694e7d5663b4d0e22706f8260bae6df","object":"chat.completion.chunk","created":1742933819,"model":"meta-llama/Llama-3.3-70B-Instruct","choices":[{"index":0,"delta":{"content":"
+        of machine learning that involves"},"logprobs":null,"finish_reason":null}]}
+
+
+        data: {"id":"chatcmpl-7694e7d5663b4d0e22706f8260bae6df","object":"chat.completion.chunk","created":1742933819,"model":"meta-llama/Llama-3.3-70B-Instruct","choices":[{"index":0,"delta":{"content":"
+        the use"},"logprobs":null,"finish_reason":"length","stop_reason":null}]}
+
+
+        data: [DONE]
+
+
+        '
+    headers:
+      content-type:
+      - text/event-stream; charset=utf-8; charset=utf-8
+      date:
+      - Tue, 25 Mar 2025 20:16:58 GMT
+      server:
+      - istio-envoy
+      transfer-encoding:
+      - chunked
+      x-envoy-upstream-service-time:
+      - '328'
+    status:
+      code: 200
+      message: OK
+version: 1
