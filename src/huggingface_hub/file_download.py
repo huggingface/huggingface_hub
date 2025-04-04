@@ -319,6 +319,7 @@ def http_get(
     headers: Optional[Dict[str, Any]] = None,
     expected_size: Optional[int] = None,
     displayed_filename: Optional[str] = None,
+    disable_hf_transfer: bool = False,
     _nb_retries: int = 5,
     _tqdm_bar: Optional[tqdm] = None,
 ) -> None:
@@ -347,13 +348,16 @@ def http_get(
         displayed_filename (`str`, *optional*):
             The filename of the file that is being downloaded. Value is used only to display a nice progress bar. If
             not set, the filename is guessed from the URL or the `Content-Disposition` header.
+        disable_hf_transfer (`bool`, *optional*):
+            Whether to disable the use of the 'hf_transfer' library for faster downloads. If set to False (default),
+            the function will attempt to use 'hf_transfer' if available and enabled.
     """
     if expected_size is not None and resume_size == expected_size:
         # If the file is already fully downloaded, we don't need to download it again.
         return
 
     hf_transfer = None
-    if constants.HF_HUB_ENABLE_HF_TRANSFER:
+    if not disable_hf_transfer and constants.HF_HUB_ENABLE_HF_TRANSFER:
         if resume_size != 0:
             warnings.warn("'hf_transfer' does not support `resume_size`: falling back to regular download method")
         elif proxies is not None:
