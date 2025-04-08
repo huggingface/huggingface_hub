@@ -2400,8 +2400,8 @@ class InferenceClient:
         # Data can be a single element (dict) or an iterable of dicts where we select the first element of.
         if isinstance(data, list):
             data = data[0]
-
-        return TextGenerationOutput.parse_obj_as_instance(data) if details else data["generated_text"]
+        response = provider_helper.get_response(data, request_parameters)
+        return TextGenerationOutput.parse_obj_as_instance(response) if details else response["generated_text"]
 
     def text_to_image(
         self,
