@@ -22,6 +22,16 @@ class NovitaTextGenerationTask(BaseTextGenerationTask):
         # there is no v1/ route for novita
         return "/v3/openai/completions"
 
+    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+        output = _as_dict(response)["choices"][0]
+        return {
+            "generated_text": output["text"],
+            "details": {
+                "finish_reason": output.get("finish_reason"),
+                "seed": output.get("seed"),
+            },
+        }
+
 
 class NovitaConversationalTask(BaseConversationalTask):
     def __init__(self):
