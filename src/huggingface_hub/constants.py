@@ -206,6 +206,9 @@ HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IM
 # - https://github.com/huggingface/hf_transfer (private)
 HF_HUB_ENABLE_HF_TRANSFER: bool = _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER"))
 
+HF_ENABLE_PARALLEL_DOWNLOADING: bool = _is_true(os.environ.get("HF_ENABLE_PARALLEL_DOWNLOADING"))
+
+
 
 # UNUSED
 # We don't use symlinks in local dir anymore.
