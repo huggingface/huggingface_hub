@@ -638,6 +638,7 @@ class InferenceClient:
         </Tip>
 
         <Tip>
+        Tool Calling might not be supported for this model with the provider you are using.
         Support for Tool Calling varies depending on the provider. Please check the provider documentation for a list of models that support tool calling.
         </Tip>
 
