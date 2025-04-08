@@ -14,6 +14,16 @@ class NebiusTextGenerationTask(BaseTextGenerationTask):
     def __init__(self):
         super().__init__(provider="nebius", base_url="https://api.studio.nebius.ai")
 
+    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+        output = _as_dict(response)["choices"][0]
+        return {
+            "generated_text": output["text"],
+            "details": {
+                "finish_reason": output.get("finish_reason"),
+                "seed": output.get("seed"),
+            },
+        }
+
 
 class NebiusConversationalTask(BaseConversationalTask):
     def __init__(self):
