@@ -57,6 +57,11 @@ extras["tensorflow-testing"] = [
 
 extras["hf_xet"] = ["hf_xet>=0.1.4"]
 
+extras["mcp"] = [
+    "mcp>=1.6.0",
+    "aiohttp",  # for AsyncInferenceClient
+]
+
 extras["testing"] = (
     extras["cli"]
     + extras["inference"]
