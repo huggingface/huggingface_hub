@@ -60,7 +60,7 @@ class MCPClient(AsyncInferenceClient):
         ]
 
     async def process_query(self, query: str) -> ChatCompletionOutput:
-        """Process a query using Claude and available tools"""
+        """Process a query using `self.model` and available tools"""
         messages = [{"role": "user", "content": query}]
 
         response = await self.chat.completions.create(
