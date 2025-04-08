@@ -637,6 +637,10 @@ class InferenceClient:
         You can pass provider-specific parameters to the model by using the `extra_body` argument.
         </Tip>
 
+        <Tip>
+        Support for Tool Calling varies depending on the provider. Please check the provider documentation for a list of models that support tool calling.
+        </Tip>
+
         Args:
             messages (List of [`ChatCompletionInputMessage`]):
                 Conversation history consisting of roles and content pairs.
