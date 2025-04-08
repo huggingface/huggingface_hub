@@ -82,7 +82,7 @@ class HFInferenceBinaryInputTask(HFInferenceTask):
 
 class HFInferenceConversational(HFInferenceTask):
     def __init__(self):
-        super().__init__("text-generation")
+        super().__init__("conversational")
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
         payload_model = parameters.get("model") or mapped_model
