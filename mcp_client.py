@@ -15,7 +15,7 @@ from huggingface_hub.inference._providers import PROVIDER_T
 ToolName: TypeAlias = str
 
 
-class MCPClient(AsyncInferenceClient):
+class MCPClient:
     def __init__(
         self,
         *,
@@ -23,7 +23,7 @@ class MCPClient(AsyncInferenceClient):
         model: str,
         api_key: Optional[str] = None,
     ):
-        super().__init__(
+        self.client = AsyncInferenceClient(
             provider=provider,
             api_key=api_key,
         )
@@ -72,7 +72,7 @@ class MCPClient(AsyncInferenceClient):
         """Process a query using `self.model` and available tools"""
         messages = [{"role": "user", "content": query}]
 
-        response = await self.chat.completions.create(
+        response = await self.client.chat.completions.create(
             model=self.model,
             messages=messages,
             tools=self.available_tools,
@@ -111,7 +111,7 @@ class MCPClient(AsyncInferenceClient):
                         }
                     )
 
-        function_enriched_response = await self.chat.completions.create(
+        function_enriched_response = await self.client.chat.completions.create(
             model=self.model,
             messages=messages,
         )
