@@ -189,16 +189,14 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
         # inspired from https://stackoverflow.com/a/18601897
         with patch("socket.socket", offline_socket):
             with patch("huggingface_hub.utils._http.get_session") as get_session_mock:
-                with patch("huggingface_hub.file_download.get_session") as get_session_mock:
-                    get_session_mock.return_value = requests.Session()  # not an existing one
-                    yield
+                get_session_mock.return_value = requests.Session()  # not an existing one
+                yield
     elif mode is OfflineSimulationMode.CONNECTION_TIMES_OUT:
         # inspired from https://stackoverflow.com/a/904609
         with patch("requests.request", timeout_request):
             with patch("huggingface_hub.utils._http.get_session") as get_session_mock:
-                with patch("huggingface_hub.file_download.get_session") as get_session_mock:
-                    get_session_mock().request = timeout_request
-                    yield
+                get_session_mock().request = timeout_request
+                yield
     elif mode is OfflineSimulationMode.HF_HUB_OFFLINE_SET_TO_1:
         with patch("huggingface_hub.constants.HF_HUB_OFFLINE", True):
             reset_sessions()
