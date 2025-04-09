@@ -1711,7 +1711,7 @@ def _download_to_tmp_and_move(
                 proxies=proxies,
                 resume_size=resume_size,
                 headers=headers,
-                expected_size=expected_size
+                expected_size=expected_size,
             )
 
     logger.info(f"Download complete. Moving file to {destination_path}")
