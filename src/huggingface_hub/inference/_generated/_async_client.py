@@ -85,7 +85,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
-from huggingface_hub.inference._providers import PROVIDER_T, HFInferenceTask, get_provider_helper
+from huggingface_hub.inference._providers import PROVIDER_T, get_provider_helper
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
 from huggingface_hub.utils._auth import get_token
 from huggingface_hub.utils._deprecation import _deprecate_method
@@ -231,83 +231,6 @@ class AsyncInferenceClient:
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
-
-    @overload
-    async def post(  # type: ignore[misc]
-        self,
-        *,
-        json: Optional[Union[str, Dict, List]] = None,
-        data: Optional[ContentT] = None,
-        model: Optional[str] = None,
-        task: Optional[str] = None,
-        stream: Literal[False] = ...,
-    ) -> bytes: ...
-
-    @overload
-    async def post(  # type: ignore[misc]
-        self,
-        *,
-        json: Optional[Union[str, Dict, List]] = None,
-        data: Optional[ContentT] = None,
-        model: Optional[str] = None,
-        task: Optional[str] = None,
-        stream: Literal[True] = ...,
-    ) -> AsyncIterable[bytes]: ...
-
-    @overload
-    async def post(
-        self,
-        *,
-        json: Optional[Union[str, Dict, List]] = None,
-        data: Optional[ContentT] = None,
-        model: Optional[str] = None,
-        task: Optional[str] = None,
-        stream: bool = False,
-    ) -> Union[bytes, AsyncIterable[bytes]]: ...
-
-    @_deprecate_method(
-        version="0.31.0",
-        message=(
-            "Making direct POST requests to the inference server is not supported anymore. "
-            "Please use task methods instead (e.g. `InferenceClient.chat_completion`). "
-            "If your use case is not supported, please open an issue in https://github.com/huggingface/huggingface_hub."
-        ),
-    )
-    async def post(
-        self,
-        *,
-        json: Optional[Union[str, Dict, List]] = None,
-        data: Optional[ContentT] = None,
-        model: Optional[str] = None,
-        task: Optional[str] = None,
-        stream: bool = False,
-    ) -> Union[bytes, AsyncIterable[bytes]]:
-        """
-        Make a POST request to the inference server.
-
-        This method is deprecated and will be removed in the future.
-        Please use task methods instead (e.g. `InferenceClient.chat_completion`).
-        """
-        if self.provider != "hf-inference":
-            raise ValueError(
-                "Cannot use `post` with another provider than `hf-inference`. "
-                "`InferenceClient.post` is deprecated and should not be used directly anymore."
-            )
-        provider_helper = HFInferenceTask(task or "unknown")
-        mapped_model = provider_helper._prepare_mapped_model(model or self.model)
-        url = provider_helper._prepare_url(self.token, mapped_model)  # type: ignore[arg-type]
-        headers = provider_helper._prepare_headers(self.headers, self.token)  # type: ignore[arg-type]
-        return await self._inner_post(
-            request_parameters=RequestParameters(
-                url=url,
-                task=task or "unknown",
-                model=model or "unknown",
-                json=json,
-                data=data,
-                headers=headers,
-            ),
-            stream=stream,
-        )
 
     @overload
     async def _inner_post(  # type: ignore[misc]
@@ -2456,8 +2379,8 @@ class AsyncInferenceClient:
         # Data can be a single element (dict) or an iterable of dicts where we select the first element of.
         if isinstance(data, list):
             data = data[0]
-
-        return TextGenerationOutput.parse_obj_as_instance(data) if details else data["generated_text"]
+        response = provider_helper.get_response(data, request_parameters)
+        return TextGenerationOutput.parse_obj_as_instance(response) if details else response["generated_text"]
 
     async def text_to_image(
         self,
