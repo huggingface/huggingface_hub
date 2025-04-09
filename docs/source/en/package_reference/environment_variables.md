@@ -172,6 +172,29 @@ Please note that using `hf_transfer` comes with certain limitations. Since it is
 
 </Tip>
 
+### HF_ENABLE_PARALLEL_DOWNLOADING
+
+Set to `True` for faster downloads.
+
+By default this is disabled. Enables the parallel downloading of models with sharded weight files. Can decrease the time to load large models significantly, often times producing _speed ups of greater than 50%_.
+
+Can be set to a string equal to `"false"` or `"true"`. e.g. `os.environ["HF_ENABLE_PARALLEL_DOWNLOADING"] = "true"`
+
+While downloading is already parallelized at the file level when `HF_HUB_ENABLE_HF_TRANSFER` is enabled, `HF_ENABLE_PARALLEL_DOWNLOADING` parallelizes the number of files that can be concurrently downloaded. Which can greatly speed up downloads if the machine you're using can handle it in terms of network and IO bandwidth.
+
+e.g. here's a comparison for `facebook/opt-30b` on an AWS EC2 `g4dn.metal`:
+
+- `HF_HUB_ENABLE_HF_TRANSFER` enabled, `HF_ENABLE_PARALLEL_DOWNLOADING` disabled
+
+  - ~45s download
+
+- `HF_HUB_ENABLE_HF_TRANSFER` enabled, `HF_ENABLE_PARALLEL_DOWNLOADING` enabled
+  - ~12s download
+
+To fully saturate a machine capable of massive network bandwidth, set `HF_ENABLE_PARALLEL_DOWNLOADING="True"` and `HF_HUB_ENABLE_HF_TRANSFER="True"`
+
+_Note, you will want to profile your code before committing to using this environment variable, this will not produce speed ups for smaller models._
+
 ## Deprecated environment variables
 
 In order to standardize all environment variables within the Hugging Face ecosystem, some variables have been marked as deprecated. Although they remain functional, they no longer take precedence over their replacements. The following table outlines the deprecated variables and their corresponding alternatives:

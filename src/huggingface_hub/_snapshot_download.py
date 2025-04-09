@@ -287,11 +287,10 @@ def snapshot_download(
             headers=headers,
         )
 
-    if constants.HF_HUB_ENABLE_HF_TRANSFER:
-        # when using hf_transfer we don't want extra parallelism
-        # from the one hf_transfer provides
-        for file in filtered_repo_files:
-            _inner_hf_hub_download(file)
+    # Second condition allows it to skip serial file downloads with HF_HUB_ENABLE_HF_TRANSFER and instead also use the thread pool
+    if constants.HF_HUB_ENABLE_HF_TRANSFER and not constants.HF_ENABLE_PARALLEL_DOWNLOADING:
+            for file in filtered_repo_files:
+                _inner_hf_hub_download(file)
     else:
         thread_map(
             _inner_hf_hub_download,
