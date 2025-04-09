@@ -310,6 +310,32 @@ def _request_wrapper(
     return response
 
 
+def _get_file_length_from_http_response(response: requests.Response) -> Optional[int]:
+    """
+    Get the length of the file from the HTTP response headers.
+
+    This function extracts the file size from the HTTP response headers, either from the
+    `Content-Range` or `Content-Length` header, if available (in that order).
+        The HTTP response object containing the headers.
+        `int` or `None`: The length of the file in bytes if the information is available,
+        otherwise `None`.
+
+    Args:
+        response (`requests.Response`):
+            The HTTP response object.
+
+    Returns:
+        `int` or `None`: The length of the file in bytes, or None if not available.
+    """
+
+    if response.headers.get("Content-Range"):
+        return int(response.headers.get("Content-Range").rsplit("/")[-1])
+
+    if response.headers.get("Content-Length"):
+        return int(response.headers.get("Content-Length"))
+    return None
+
+
 def http_get(
     url: str,
     temp_file: BinaryIO,
@@ -374,26 +400,12 @@ def http_get(
     if resume_size > 0:
         headers["Range"] = _adjust_range_header(headers.get("Range"), resume_size)
 
-    if (resume_size is None or resume_size == 0 ) and _xet_file_data is not None:
+    r = _request_wrapper(
+        method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT
+    )
 
-        headers_with_range = copy.deepcopy(headers) or {}
-        headers_with_range["Range"] = "bytes=0-0"
-        r = _request_wrapper(
-            method="GET", url=url, stream=True, proxies=proxies, headers=headers_with_range, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT
-        )
-
-        hf_raise_for_status(r)
-        content_length = r.headers.get("Content-Range").rsplit("/")[-1]
-        print(f"Range request, received content-range: {content_length}")
-
-    else:
-
-        r = _request_wrapper(
-            method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT
-        )
-
-        hf_raise_for_status(r)
-        content_length = r.headers.get("Content-Length")
+    hf_raise_for_status(r)
+    content_length = _get_file_length_from_http_response(r)
 
     # NOTE: 'total' is the total number of bytes to download, not the number of bytes in the file.
     #       If the file is compressed, the number of bytes in the saved file will be higher than 'total'.
@@ -1688,6 +1700,12 @@ def _download_to_tmp_and_move(
                     "Falling back to regular HTTP download. "
                     "For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`"
                 )
+
+                # Specify range header so files > 50GB with hf_transfer can still be downloaded over http
+                # issuing a GET request with Range bytes=0-0 will return the file size in the Content-Range response header
+                # This response header is set by S3 and by Xet Storage backend (CAS).
+                headers = {**headers, "Range": "bytes=0-0"}
+
             http_get(
                 url_to_download,
                 f,
@@ -1695,7 +1713,7 @@ def _download_to_tmp_and_move(
                 resume_size=resume_size,
                 headers=headers,
                 expected_size=expected_size,
-                _xet_file_data=xet_file_data
+                _xet_file_data=xet_file_data,
             )
 
     logger.info(f"Download complete. Moving file to {destination_path}")
