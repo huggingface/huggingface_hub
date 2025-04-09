@@ -328,11 +328,14 @@ def _get_file_length_from_http_response(response: requests.Response) -> Optional
         `int` or `None`: The length of the file in bytes, or None if not available.
     """
 
-    if response.headers.get("Content-Range"):
-        return int(response.headers.get("Content-Range").rsplit("/")[-1])
+    content_range = response.headers.get("Content-Range")
+    if content_range is not None:
+        return int(content_range.rsplit("/")[-1])
 
-    if response.headers.get("Content-Length"):
-        return int(response.headers.get("Content-Length"))
+    content_length = response.headers.get("Content-Length")
+    if content_length is not None:
+        return int(content_length)
+
     return None
 
 
