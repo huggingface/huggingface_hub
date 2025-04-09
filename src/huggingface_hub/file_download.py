@@ -347,7 +347,6 @@ def http_get(
     displayed_filename: Optional[str] = None,
     _nb_retries: int = 5,
     _tqdm_bar: Optional[tqdm] = None,
-    _xet_file_data: Optional[XetFileData] = None,
 ) -> None:
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
@@ -1712,8 +1711,7 @@ def _download_to_tmp_and_move(
                 proxies=proxies,
                 resume_size=resume_size,
                 headers=headers,
-                expected_size=expected_size,
-                _xet_file_data=xet_file_data,
+                expected_size=expected_size
             )
 
     logger.info(f"Download complete. Moving file to {destination_path}")
