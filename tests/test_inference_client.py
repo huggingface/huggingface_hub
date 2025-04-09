@@ -53,7 +53,6 @@ from huggingface_hub.inference._common import (
 )
 from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.inference._providers.hf_inference import _build_chat_completion_url
-from huggingface_hub.utils import build_hf_headers
 
 from .testing_utils import expect_deprecation, with_production_testing
 
@@ -809,31 +808,6 @@ class TestHeadersAndCookies(TestBase):
         client = InferenceClient(headers={"X-My-Header": "foo"}, cookies={"my-cookie": "bar"})
         assert client.headers["X-My-Header"] == "foo"
         assert client.cookies["my-cookie"] == "bar"
-
-    @expect_deprecation("post")
-    @with_production_testing
-    @patch("huggingface_hub.inference._client.get_session")
-    @patch("huggingface_hub.inference._providers.hf_inference._check_supported_task")
-    def test_mocked_post(self, check_supported_task_mock: MagicMock, get_session_mock: MagicMock) -> None:
-        """Test that headers and cookies are correctly passed to the request."""
-
-        client = InferenceClient(
-            headers={"X-My-Header": "foo"}, cookies={"my-cookie": "bar"}, proxies="custom proxies"
-        )
-        response = client.post(data=b"content", model="username/repo_name", task="text-classification")
-        assert response == get_session_mock().post.return_value.content
-
-        expected_headers = build_hf_headers()
-        get_session_mock().post.assert_called_once_with(
-            "https://router.huggingface.co/hf-inference/models/username/repo_name",
-            json=None,
-            data=b"content",
-            headers={**expected_headers, "X-My-Header": "foo"},
-            cookies={"my-cookie": "bar"},
-            timeout=None,
-            stream=False,
-            proxies="custom proxies",
-        )
 
     @patch("huggingface_hub.inference._client._bytes_to_image")
     @patch("huggingface_hub.inference._client.get_session")

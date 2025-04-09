@@ -368,19 +368,6 @@ class CustomException(Exception):
     """Mock any exception that could happen while making a POST request."""
 
 
-@patch("aiohttp.ClientSession.post", side_effect=CustomException())
-@patch("aiohttp.ClientSession.close")
-@pytest.mark.asyncio
-async def test_close_connection_on_post_error(mock_close: Mock, mock_post: Mock) -> None:
-    async_client = AsyncInferenceClient()
-
-    with pytest.warns(FutureWarning, match=".*'post'.*"):
-        with pytest.raises(CustomException):
-            await async_client.post(model="http://127.0.0.1/api", json={})
-
-    mock_close.assert_called_once()
-
-
 @pytest.mark.vcr
 @pytest.mark.asyncio
 @with_production_testing
