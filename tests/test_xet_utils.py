@@ -130,7 +130,7 @@ def test_refresh_metadata_success(mocker) -> None:
         "X-Xet-Cas-Url": "https://example.xethub.hf.co",
         "X-Xet-Access-Token": "new_token",
         "X-Xet-Token-Expiration": "1234599999",
-        "X-Xet-Refresh-Route": "/api/models/username/repo_name/xet-read-token/token",
+        "X-Xet-Refresh-Route": f"{constants.ENDPOINT}/api/models/username/repo_name/xet-read-token/token",
     }
 
     mock_session = MagicMock()
@@ -140,7 +140,7 @@ def test_refresh_metadata_success(mocker) -> None:
     headers = {"user-agent": "user-agent-example"}
     refreshed_connection = refresh_xet_connection_info(
         file_data=XetFileData(
-            refresh_route="/api/models/username/repo_name/xet-read-token/token",
+            refresh_route=f"{constants.ENDPOINT}/api/models/username/repo_name/xet-read-token/token",
             file_hash="sha256:abcdef",
         ),
         headers=headers,
@@ -177,7 +177,7 @@ def test_refresh_metadata_custom_endpoint(mocker) -> None:
     headers = {"user-agent": "user-agent-example"}
     refresh_xet_connection_info(
         file_data=XetFileData(
-            refresh_route="/api/models/username/repo_name/xet-read-token/token",
+            refresh_route=f"{custom_endpoint}/api/models/username/repo_name/xet-read-token/token",
             file_hash="sha256:abcdef",
         ),
         headers=headers,
