@@ -181,7 +181,6 @@ def test_refresh_metadata_custom_endpoint(mocker) -> None:
             file_hash="sha256:abcdef",
         ),
         headers=headers,
-        endpoint=custom_endpoint,
     )
 
     # Verify the request used the custom endpoint
