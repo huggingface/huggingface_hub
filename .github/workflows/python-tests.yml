@@ -198,8 +198,8 @@ jobs:
       - name: Install dependencies
         run: |
           uv pip install "huggingface_hub[testing] @ ."
-          if ("${{ matrix.test_name }}" -ne "Xet only") {
-            uv pip uninstall hf_xet
+          if ("${{ matrix.test_name }}" -eq "Xet only") {
+            uv pip install "huggingface_hub[hf_xet] @ ."
           }
 
       # Run tests
