@@ -81,42 +81,44 @@ class MCPClient:
 
         # Process response and handle tool calls
         tool_calls = response.choices[0].message.tool_calls
-        if tool_calls:
-            for tool_call in tool_calls:
-                function_name = tool_call.function.name
-                function_args = json.loads(tool_call.function.arguments)
+        if tool_calls is None or len(tool_calls) == 0:
+            return response
 
-                # Get the appropriate session for this tool
-                session = self.sessions.get(function_name)
-                if session:
-                    # Execute tool call with the appropriate session
-                    result = await session.call_tool(function_name, function_args)
-                    messages.append(
-                        {
-                            "tool_call_id": tool_call.id,
-                            "role": "tool",
-                            "name": function_name,
-                            "content": result.content[0].text,
-                        }
-                    )
-                else:
-                    error_msg = f"No session found for tool: {function_name}"
-                    print(f"Error: {error_msg}")
-                    messages.append(
-                        {
-                            "tool_call_id": tool_call.id,
-                            "role": "tool",
-                            "name": function_name,
-                            "content": f"Error: {error_msg}",
-                        }
-                    )
+        for tool_call in tool_calls:
+            function_name = tool_call.function.name
+            function_args = json.loads(tool_call.function.arguments)
 
-        function_enriched_response = await self.client.chat.completions.create(
+            # Get the appropriate session for this tool
+            session = self.sessions.get(function_name)
+            if session:
+                # Execute tool call with the appropriate session
+                result = await session.call_tool(function_name, function_args)
+                messages.append(
+                    {
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": function_name,
+                        "content": result.content[0].text,
+                    }
+                )
+            else:
+                error_msg = f"No session found for tool: {function_name}"
+                print(f"Error: {error_msg}")
+                messages.append(
+                    {
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": function_name,
+                        "content": f"Error: {error_msg}",
+                    }
+                )
+
+        enriched_response = await self.client.chat.completions.create(
             model=self.model,
             messages=messages,
         )
 
-        return function_enriched_response
+        return enriched_response
 
     async def cleanup(self):
         """Clean up resources"""
