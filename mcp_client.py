@@ -33,13 +33,13 @@ class MCPClient:
         self.exit_stack = AsyncExitStack()
         self.available_tools: List[ChatCompletionInputTool] = []
 
-    async def add_mcp_server(self, command: str, args: List[str]):
+    async def add_mcp_server(self, command: str, args: List[str], env: Dict[str, str]):
         """Connect to an MCP server
 
         Args:
             todo
         """
-        server_params = StdioServerParameters(command=command, args=args, env={"HF_TOKEN": os.environ["HF_TOKEN"]})
+        server_params = StdioServerParameters(command=command, args=args, env=env)
 
         stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
         stdio, write = stdio_transport
@@ -131,7 +131,9 @@ async def main():
     )
     try:
         await client.add_mcp_server(
-            "node", ["--disable-warning=ExperimentalWarning", f"{os.path.expanduser('~')}/Desktop/hf-mcp/index.ts"]
+            "node",
+            ["--disable-warning=ExperimentalWarning", f"{os.path.expanduser('~')}/Desktop/hf-mcp/index.ts"],
+            {"HF_TOKEN": os.environ["HF_TOKEN"]},
         )
         response = await client.process_query(
             """
