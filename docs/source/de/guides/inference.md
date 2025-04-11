@@ -125,18 +125,6 @@ Schauen Sie sich die [Aufgaben](https://huggingface.co/tasks)-Seite an, um mehr 
 
 </Tip>
 
-## Benutzerdefinierte Anfragen
-
-Es ist jedoch nicht immer möglich, alle Anwendungsfälle abzudecken. Für benutzerdefinierte Anfragen bietet die [`InferenceClient.post`] Methode Ihnen die Flexibilität, jede Anfrage an die Inferenz API zu senden. Zum Beispiel können Sie angeben, wie die Eingaben und Ausgaben geparst werden sollen. Im folgenden Beispiel wird das generierte Bild als Roh-Bytes zurückgegeben, anstatt es als `PIL Image` zu parsen. Dies kann hilfreich sein, wenn Sie `Pillow` in Ihrer Einrichtung nicht installiert haben und Ihnen nur die Binärinhalt des Bildes wichtig ist. [`InferenceClient.post`] ist auch nützlich, um Aufgaben zu behandeln, die noch nicht offiziell unterstützt werden.
-
-```python
->>> from huggingface_hub import InferenceClient
->>> client = InferenceClient()
->>> response = client.post(json={"inputs": "An astronaut riding a horse on the moon."}, model="stabilityai/stable-diffusion-2-1")
->>> response.content # raw bytes
-b'...'
-```
-
 ## Asynchroner Client
 
 Eine asynchrone Version des Clients wird ebenfalls bereitgestellt, basierend auf `asyncio` und `aiohttp`. Sie können entweder `aiohttp` direkt installieren oder das `[inference]` Extra verwenden:
