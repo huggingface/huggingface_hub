@@ -95,12 +95,13 @@ jobs:
               uv pip install "huggingface_hub[tensorflow-testing] @ ."
               ;;
 
-            "Xet only")
-              uv pip install "huggingface_hub[hf_xet] @ ."
-              ;;
-
           esac
 
+          # If not "Xet only", we want to test upload/download with regular LFS workflow
+          # => uninstall hf_xet to make sure we are not using it.
+          if [[ "${{ matrix.test_name }}" != "Xet only" ]]; then
+            uv pip uninstall hf_xet
+          fi
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
@@ -168,7 +169,6 @@ jobs:
   build-windows:
     # (almost) Duplicate config compared to `build-ubuntu` but running on Windows.
     # Please make sure to keep it updated as well.
-    # Lighter version of the tests with only 1 test suite running on Python3.8.
     runs-on: windows-latest
     env:
       DISABLE_SYMLINKS_IN_WINDOWS_TESTS: 1
@@ -177,7 +177,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8"]
+        python-version: ["3.8", "3.11"]
         test_name: ["Everything else", "Xet only"]
 
     steps:
@@ -199,7 +199,7 @@ jobs:
         run: |
           uv pip install "huggingface_hub[testing] @ ."
           if ("${{ matrix.test_name }}" -eq "Xet only") {
-            uv pip install "huggingface_hub[hf_xet] @ ."
+            uv pip install hf_xet
           }
 
       # Run tests
