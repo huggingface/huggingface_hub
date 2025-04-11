@@ -310,6 +310,35 @@ def _request_wrapper(
     return response
 
 
+def _get_file_length_from_http_response(response: requests.Response) -> Optional[int]:
+    """
+    Get the length of the file from the HTTP response headers.
+
+    This function extracts the file size from the HTTP response headers, either from the
+    `Content-Range` or `Content-Length` header, if available (in that order).
+        The HTTP response object containing the headers.
+        `int` or `None`: The length of the file in bytes if the information is available,
+        otherwise `None`.
+
+    Args:
+        response (`requests.Response`):
+            The HTTP response object.
+
+    Returns:
+        `int` or `None`: The length of the file in bytes, or None if not available.
+    """
+
+    content_range = response.headers.get("Content-Range")
+    if content_range is not None:
+        return int(content_range.rsplit("/")[-1])
+
+    content_length = response.headers.get("Content-Length")
+    if content_length is not None:
+        return int(content_length)
+
+    return None
+
+
 def http_get(
     url: str,
     temp_file: BinaryIO,
@@ -379,8 +408,9 @@ def http_get(
     r = _request_wrapper(
         method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT
     )
+
     hf_raise_for_status(r)
-    content_length = r.headers.get("Content-Length")
+    content_length = _get_file_length_from_http_response(r)
 
     # NOTE: 'total' is the total number of bytes to download, not the number of bytes in the file.
     #       If the file is compressed, the number of bytes in the saved file will be higher than 'total'.
@@ -1675,6 +1705,12 @@ def _download_to_tmp_and_move(
                     "Falling back to regular HTTP download. "
                     "For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`"
                 )
+
+                # Specify range header so files > 50GB with hf_transfer can still be downloaded over http
+                # issuing a GET request with Range bytes=0-0 will return the file size in the Content-Range response header
+                # This response header is set by S3 and by Xet Storage backend (CAS).
+                headers = {**headers, "Range": "bytes=0-0"}
+
             http_get(
                 url_to_download,
                 f,
