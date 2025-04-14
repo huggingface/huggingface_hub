@@ -361,9 +361,7 @@ class ModelCardData(CardData):
         if self.eval_results:
             if isinstance(self.eval_results, EvalResult):
                 self.eval_results = [self.eval_results]
-            if not isinstance(self.eval_results, list) or not all(
-                isinstance(result, EvalResult) for result in self.eval_results
-            ):
+            if not all(isinstance(result, EvalResult) for result in self.eval_results):
                 if ignore_metadata_errors:
                     logger.warning(
                         f"`eval_results` is provided but not structured correctly, should be of type `EvalResult` or a list of `EvalResult`, got {type(self.eval_results)}. "
