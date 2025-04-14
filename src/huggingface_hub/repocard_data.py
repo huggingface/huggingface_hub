@@ -361,15 +361,23 @@ class ModelCardData(CardData):
         if self.eval_results:
             if isinstance(self.eval_results, EvalResult):
                 self.eval_results = [self.eval_results]
-            if self.model_name is None:
+            if not isinstance(self.eval_results, list) or not all(
+                isinstance(result, EvalResult) for result in self.eval_results
+            ):
                 if ignore_metadata_errors:
                     logger.warning(
-                        "`eval_results` is provided but not structured correctly. Not loading eval results into CardData."
+                        f"`eval_results` is provided but not structured correctly, should be of type `EvalResult` or a list of `EvalResult`, got {type(self.eval_results)}. "
+                        "Not loading eval results into CardData."
                     )
                 else:
                     raise ValueError(
-                        "Passing `eval_results` requires `model_name` to be set. This is likely because `eval_results` is not structured correctly."
+                        f"`eval_results` is provided but not structured correctly. `eval_results` should be of type `EvalResult` or a list of `EvalResult`, got {type(self.eval_results)}."
                     )
+            elif self.model_name is None:
+                if ignore_metadata_errors:
+                    logger.warning("Passing `eval_results` requires `model_name` to be set.")
+                else:
+                    raise ValueError("Passing `eval_results` requires `model_name` to be set.")
 
     def _to_dict(self, data_dict):
         """Format the internal data dict. In this case, we convert eval results to a valid model index"""
