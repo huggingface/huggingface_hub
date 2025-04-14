@@ -404,6 +404,16 @@ def http_get(
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
         headers["Range"] = _adjust_range_header(headers.get("Range"), resume_size)
+    else:
+        # If the file is to be downloaded with hf_transfer, we only need the size. Otherwise, we need the full file.
+        if hf_transfer:
+            headers["Range"] = "bytes=0-0"
+        elif expected_size and expected_size > constants.MAX_HTTP_DOWNLOAD_SIZE:
+            # Any files over 50GB will not be available through the regular download method.
+            raise ValueError(
+                "The file is too large to be downloaded using the regular download method. Use `hf_transfer` or `xet_get` instead."
+                " Try `pip install hf_transfer` or `pip install hf_xet`."
+            )
 
     r = _request_wrapper(
         method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT
@@ -458,7 +468,7 @@ def http_get(
                     filename=temp_file.name,
                     max_files=constants.HF_TRANSFER_CONCURRENCY,
                     chunk_size=constants.DOWNLOAD_CHUNK_SIZE,
-                    headers=headers,
+                    headers=initial_headers,
                     parallel_failures=3,
                     max_retries=5,
                     **({"callback": progress.update} if supports_callback else {}),
@@ -1705,11 +1715,6 @@ def _download_to_tmp_and_move(
                     "Falling back to regular HTTP download. "
                     "For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`"
                 )
-
-                # Specify range header so files > 50GB with hf_transfer can still be downloaded over http
-                # issuing a GET request with Range bytes=0-0 will return the file size in the Content-Range response header
-                # This response header is set by S3 and by Xet Storage backend (CAS).
-                headers = {**headers, "Range": "bytes=0-0"}
 
             http_get(
                 url_to_download,
