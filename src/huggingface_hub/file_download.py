@@ -404,12 +404,12 @@ def http_get(
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
         headers["Range"] = _adjust_range_header(headers.get("Range"), resume_size)
-    else:
-        # If the file is to be downloaded with hf_transfer, we only need the size. Otherwise, we need the full file.
+    elif expected_size and expected_size > constants.MAX_HTTP_DOWNLOAD_SIZE:
+        # Any files over 50GB will not be available through hf_transfer. Setting the range header to 0-0 will
+        # force the server to return the file size in the Content-Range header.
         if hf_transfer:
             headers["Range"] = "bytes=0-0"
-        elif expected_size and expected_size > constants.MAX_HTTP_DOWNLOAD_SIZE:
-            # Any files over 50GB will not be available through the regular download method.
+        else:
             raise ValueError(
                 "The file is too large to be downloaded using the regular download method. Use `hf_transfer` or `xet_get` instead."
                 " Try `pip install hf_transfer` or `pip install hf_xet`."
