@@ -16,7 +16,7 @@ class OpenAIConversationalTask(BaseConversationalTask):
             )
         return api_key
 
-    def _prepare_mapped_model(self, model: Optional[str]) -> ProviderMappingInfo:
+    def _prepare_mapping_info(self, model: Optional[str]) -> ProviderMappingInfo:
         if model is None:
             raise ValueError("Please provide an OpenAI model ID, e.g. `gpt-4o` or `o1`.")
-        return ProviderMappingInfo(provider_id=model)
+        return ProviderMappingInfo(provider_id=model, task="conversational", status="live", hf_model_id=model)

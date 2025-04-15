@@ -23,9 +23,9 @@ class HFInferenceTask(TaskProviderHelper):
         # special case: for HF Inference we allow not providing an API key
         return api_key or get_token()  # type: ignore[return-value]
 
-    def _prepare_mapped_model(self, model: Optional[str]) -> ProviderMappingInfo:
+    def _prepare_mapping_info(self, model: Optional[str]) -> ProviderMappingInfo:
         if model is not None and model.startswith(("http://", "https://")):
-            return ProviderMappingInfo(provider_id=model)
+            return ProviderMappingInfo(provider_id=model, hf_model_id=model, task=self.task, status="live")
         model_id = model if model is not None else _fetch_recommended_models().get(self.task)
         if model_id is None:
             raise ValueError(
@@ -33,7 +33,7 @@ class HFInferenceTask(TaskProviderHelper):
                 " explicitly. Visit https://huggingface.co/tasks for more info."
             )
         _check_supported_task(model_id, self.task)
-        return ProviderMappingInfo(provider_id=model_id)
+        return ProviderMappingInfo(provider_id=model_id, hf_model_id=model_id, task=self.task, status="live")
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
         # hf-inference provider can handle URLs (e.g. Inference Endpoints or TGI deployment)

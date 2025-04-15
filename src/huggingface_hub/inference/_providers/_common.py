@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Literal, Optional, Union
 
 from huggingface_hub import constants
 from huggingface_hub.inference._common import RequestParameters
@@ -10,14 +10,24 @@ from huggingface_hub.utils import build_hf_headers, get_token, logging
 logger = logging.get_logger(__name__)
 
 
+@dataclass
+class ProviderMappingInfo:
+    hf_model_id: str
+    provider_id: str
+    task: str
+    status: Literal["live", "staging"]
+    adapter: Optional[str] = None
+    adapter_weights_path: Optional[str] = None
+
+
 # Dev purposes only.
 # If you want to try to run inference for a new model locally before it's registered on huggingface.co
 # for a given Inference Provider, you can add it to the following dictionary.
-HARDCODED_MODEL_ID_MAPPING: Dict[str, Dict[str, str]] = {
-    # "HF model ID" => "Model ID on Inference Provider's side"
+HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, ProviderMappingInfo]] = {
+    # "HF model ID" => ProviderMappingInfo object initialized with "Model ID on Inference Provider's side"
     #
     # Example:
-    # "Qwen/Qwen2.5-Coder-32B-Instruct": "Qwen2.5-Coder-32B-Instruct",
+    # "Qwen/Qwen2.5-Coder-32B-Instruct": ProviderMappingInfo(provider_id="Qwen2.5-Coder-32B-Instruct")
     "cerebras": {},
     "cohere": {},
     "fal-ai": {},
@@ -33,13 +43,6 @@ HARDCODED_MODEL_ID_MAPPING: Dict[str, Dict[str, str]] = {
 
 def filter_none(d: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in d.items() if v is not None}
-
-
-@dataclass
-class ProviderMappingInfo:
-    provider_id: str
-    adapter_weights_path: Optional[str] = None
-    hf_model_id: Optional[str] = None
 
 
 class TaskProviderHelper:
@@ -69,7 +72,7 @@ class TaskProviderHelper:
         api_key = self._prepare_api_key(api_key)
 
         # mapped model from HF model ID
-        provider_mapping_info = self._prepare_mapped_model(model)
+        provider_mapping_info = self._prepare_mapping_info(model)
 
         # default HF headers + user headers (to customize in subclasses)
         headers = self._prepare_headers(headers, api_key)
@@ -117,7 +120,7 @@ class TaskProviderHelper:
             )
         return api_key
 
-    def _prepare_mapped_model(self, model: Optional[str]) -> ProviderMappingInfo:
+    def _prepare_mapping_info(self, model: Optional[str]) -> ProviderMappingInfo:
         """Return the mapped model ID to use for the request.
 
         Usually not overwritten in subclasses."""
@@ -125,10 +128,8 @@ class TaskProviderHelper:
             raise ValueError(f"Please provide an HF model ID supported by {self.provider}.")
 
         # hardcoded mapping for local testing
-        if HARDCODED_MODEL_ID_MAPPING.get(self.provider, {}).get(model):
-            return ProviderMappingInfo(
-                provider_id=HARDCODED_MODEL_ID_MAPPING[self.provider][model],
-            )
+        if HARDCODED_MODEL_INFERENCE_MAPPING.get(self.provider, {}).get(model):
+            return HARDCODED_MODEL_INFERENCE_MAPPING[self.provider][model]
 
         provider_mapping = _fetch_inference_provider_mapping(model).get(self.provider)
         if provider_mapping is None:
@@ -150,9 +151,16 @@ class TaskProviderHelper:
                 adapter_weights_path=adapter_weights_path,
                 provider_id=provider_mapping.provider_id,
                 hf_model_id=model,
+                task=provider_mapping.task,
+                status=provider_mapping.status,
             )
 
-        return ProviderMappingInfo(provider_id=provider_mapping.provider_id)
+        return ProviderMappingInfo(
+            provider_id=provider_mapping.provider_id,
+            hf_model_id=model,
+            task=provider_mapping.task,
+            status=provider_mapping.status,
+        )
 
     def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
         """Return the headers to use for the request.

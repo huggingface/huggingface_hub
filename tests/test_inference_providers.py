@@ -28,21 +28,13 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceConversational,
     HFInferenceTask,
 )
-from huggingface_hub.inference._providers.hyperbolic import (
-    HyperbolicTextGenerationTask,
-    HyperbolicTextToImageTask,
-)
+from huggingface_hub.inference._providers.hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
 from huggingface_hub.inference._providers.nebius import NebiusTextToImageTask
-from huggingface_hub.inference._providers.novita import (
-    NovitaConversationalTask,
-    NovitaTextGenerationTask,
-)
+from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
-from huggingface_hub.inference._providers.together import (
-    TogetherTextToImageTask,
-)
+from huggingface_hub.inference._providers.together import TogetherTextToImageTask
 
 from .testing_utils import assert_in_logs
 
@@ -65,13 +57,13 @@ class TestBasicTaskProviderHelper:
             with pytest.raises(ValueError, match="You must provide an api_key.*"):
                 helper._prepare_api_key(None)
 
-    def test_prepare_mapped_model(self, mocker, caplog: LogCaptureFixture):
+    def test_prepare_mapping_info(self, mocker, caplog: LogCaptureFixture):
         helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
         caplog.set_level(logging.INFO)
 
         # Test missing model
         with pytest.raises(ValueError, match="Please provide an HF model ID.*"):
-            helper._prepare_mapped_model(None)
+            helper._prepare_mapping_info(None)
 
         # Test unsupported model
         mocker.patch(
@@ -79,22 +71,29 @@ class TestBasicTaskProviderHelper:
             return_value={"other-provider": "mapping"},
         )
         with pytest.raises(ValueError, match="Model test-model is not supported.*"):
-            helper._prepare_mapped_model("test-model")
+            helper._prepare_mapping_info("test-model")
 
         # Test task mismatch
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value={"provider-name": mocker.Mock(task="other-task", provider_id="mapped-id", status="active")},
+            return_value={
+                "provider-name": mocker.Mock(
+                    task="other-task",
+                    provider_id="mapped-id",
+                    status="live",
+                )
+            },
         )
         with pytest.raises(ValueError, match="Model test-model is not supported for task.*"):
-            helper._prepare_mapped_model("test-model")
+            helper._prepare_mapping_info("test-model")
 
         # Test staging model
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
             return_value={"provider-name": mocker.Mock(task="task-name", provider_id="mapped-id", status="staging")},
         )
-        assert helper._prepare_mapped_model("test-model") == "mapped-id"
+        assert helper._prepare_mapping_info("test-model").provider_id == "mapped-id"
+
         assert_in_logs(
             caplog, "Model test-model is in staging mode for provider provider-name. Meant for test purposes only."
         )
@@ -103,10 +102,30 @@ class TestBasicTaskProviderHelper:
         caplog.clear()
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value={"provider-name": mocker.Mock(task="task-name", provider_id="mapped-id", status="active")},
+            return_value={"provider-name": mocker.Mock(task="task-name", provider_id="mapped-id", status="live")},
         )
-        assert helper._prepare_mapped_model("test-model") == "mapped-id"
+        assert helper._prepare_mapping_info("test-model").provider_id == "mapped-id"
+        assert helper._prepare_mapping_info("test-model").hf_model_id == "test-model"
+        assert helper._prepare_mapping_info("test-model").task == "task-name"
+        assert helper._prepare_mapping_info("test-model").status == "live"
         assert len(caplog.records) == 0
+
+        # Test with loras
+        mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+            return_value={
+                "provider-name": mocker.Mock(task="task-name", provider_id="mapped-id", status="live", adapter="lora")
+            },
+        )
+        mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_lora_weights_path",
+            return_value="lora-weights-path",
+        )
+        assert helper._prepare_mapping_info("test-model").adapter_weights_path == "lora-weights-path"
+        assert helper._prepare_mapping_info("test-model").provider_id == "mapped-id"
+        assert helper._prepare_mapping_info("test-model").hf_model_id == "test-model"
+        assert helper._prepare_mapping_info("test-model").task == "task-name"
+        assert helper._prepare_mapping_info("test-model").status == "live"
 
     def test_prepare_headers(self):
         helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
@@ -353,7 +372,7 @@ class TestFireworksAIConversationalTask:
 
 
 class TestHFInferenceProvider:
-    def test_prepare_mapped_model(self, mocker):
+    def test_prepare_mapping_info(self, mocker):
         helper = HFInferenceTask("text-classification")
         mocker.patch(
             "huggingface_hub.inference._providers.hf_inference._check_supported_task",
@@ -363,13 +382,13 @@ class TestHFInferenceProvider:
             "huggingface_hub.inference._providers.hf_inference._fetch_recommended_models",
             return_value={"text-classification": "username/repo_name"},
         )
-        assert helper._prepare_mapped_model("username/repo_name") == "username/repo_name"
-        assert helper._prepare_mapped_model(None) == "username/repo_name"
-        assert helper._prepare_mapped_model("https://any-url.com") == "https://any-url.com"
+        assert helper._prepare_mapping_info("username/repo_name").provider_id == "username/repo_name"
+        assert helper._prepare_mapping_info(None).provider_id == "username/repo_name"
+        assert helper._prepare_mapping_info("https://any-url.com").provider_id == "https://any-url.com"
 
-    def test_prepare_mapped_model_unknown_task(self):
+    def test_prepare_mapping_info_unknown_task(self):
         with pytest.raises(ValueError, match="Task unknown-task has no recommended model for HF Inference."):
-            HFInferenceTask("unknown-task")._prepare_mapped_model(None)
+            HFInferenceTask("unknown-task")._prepare_mapping_info(None)
 
     def test_prepare_url(self):
         helper = HFInferenceTask("text-classification")
