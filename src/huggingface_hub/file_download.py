@@ -411,7 +411,7 @@ def http_get(
             headers["Range"] = "bytes=0-0"
         else:
             raise ValueError(
-                "The file is too large to be downloaded using the regular download method. Use `hf_transfer` or `xet_get` instead."
+                "The file is too large to be downloaded using the regular download method. Use `hf_transfer` or `hf_xet` instead."
                 " Try `pip install hf_transfer` or `pip install hf_xet`."
             )
 
