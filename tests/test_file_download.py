@@ -44,7 +44,7 @@ from huggingface_hub.file_download import (
     http_get,
     try_to_load_from_cache,
 )
-from huggingface_hub.utils import SoftTemporaryDirectory, get_session, hf_raise_for_status
+from huggingface_hub.utils import SoftTemporaryDirectory, get_session, hf_raise_for_status, is_hf_transfer_available
 
 from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
 from .testing_utils import (
@@ -1221,14 +1221,6 @@ class TestEtagTimeoutConfig(unittest.TestCase):
 
 @with_production_testing
 class TestExtraLargeFileDownloadPaths(unittest.TestCase):
-    def _is_hf_transfer_installed():
-        try:
-            import hf_transfer  # noqa: F401
-
-            return True
-        except ImportError:
-            return False
-
     @patch("huggingface_hub.file_download.constants.HF_HUB_ENABLE_HF_TRANSFER", False)
     def test_large_file_http_path_error(self):
         with SoftTemporaryDirectory() as cache_dir:
@@ -1247,7 +1239,7 @@ class TestExtraLargeFileDownloadPaths(unittest.TestCase):
     # Test "large" file download with hf_transfer. Use a tiny file to keep the tests fast and avoid
     # internal gateway transfer quotas.
     @unittest.skipIf(
-        not _is_hf_transfer_installed(),
+        not is_hf_transfer_available(),
         "hf_transfer not installed, so skipping large file download with hf_transfer check.",
     )
     @patch("huggingface_hub.file_download.constants.HF_HUB_ENABLE_HF_TRANSFER", True)
