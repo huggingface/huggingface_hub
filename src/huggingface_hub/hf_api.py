@@ -711,11 +711,13 @@ class InferenceProviderMapping:
     status: Literal["live", "staging"]
     provider_id: str
     task: str
+    adapter: Optional[str] = None
 
     def __init__(self, **kwargs):
         self.status = kwargs.pop("status")
         self.provider_id = kwargs.pop("providerId")
         self.task = kwargs.pop("task")
+        self.adapter = kwargs.pop("adapter", None)
         self.__dict__.update(**kwargs)
 
 
