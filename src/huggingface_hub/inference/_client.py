@@ -1546,9 +1546,9 @@ class InferenceClient:
         """
         provider_helper = get_provider_helper(self.provider, task="sentence-similarity")
         request_parameters = provider_helper.prepare_request(
-            inputs=None,
+            inputs={"source_sentence": sentence, "sentences": other_sentences},
             parameters={},
-            extra_payload={"source_sentence": sentence, "sentences": other_sentences},
+            extra_payload={},
             headers=self.headers,
             model=model or self.model,
             api_key=self.token,
