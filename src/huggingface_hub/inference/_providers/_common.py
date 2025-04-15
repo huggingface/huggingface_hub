@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Dict, Optional, Union
 
@@ -34,6 +35,13 @@ def filter_none(d: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in d.items() if v is not None}
 
 
+@dataclass
+class ProviderMappingInfo:
+    provider_id: str
+    adapter_weights_path: Optional[str] = None
+    hf_model_id: Optional[str] = None
+
+
 class TaskProviderHelper:
     """Base class for task-specific provider helpers."""
 
@@ -61,28 +69,30 @@ class TaskProviderHelper:
         api_key = self._prepare_api_key(api_key)
 
         # mapped model from HF model ID
-        mapped_model = self._prepare_mapped_model(model)
+        provider_mapping_info = self._prepare_mapped_model(model)
 
         # default HF headers + user headers (to customize in subclasses)
         headers = self._prepare_headers(headers, api_key)
 
         # routed URL if HF token, or direct URL (to customize in '_prepare_route' in subclasses)
-        url = self._prepare_url(api_key, mapped_model)
+        url = self._prepare_url(api_key, provider_mapping_info.provider_id)
 
         # prepare payload (to customize in subclasses)
-        payload = self._prepare_payload_as_dict(inputs, parameters, mapped_model=mapped_model)
+        payload = self._prepare_payload_as_dict(inputs, parameters, provider_mapping_info=provider_mapping_info)
         if payload is not None:
             payload = recursive_merge(payload, extra_payload or {})
 
         # body data (to customize in subclasses)
-        data = self._prepare_payload_as_bytes(inputs, parameters, mapped_model, extra_payload)
+        data = self._prepare_payload_as_bytes(inputs, parameters, provider_mapping_info, extra_payload)
 
         # check if both payload and data are set and return
         if payload is not None and data is not None:
             raise ValueError("Both payload and data cannot be set in the same request.")
         if payload is None and data is None:
             raise ValueError("Either payload or data must be set in the request.")
-        return RequestParameters(url=url, task=self.task, model=mapped_model, json=payload, data=data, headers=headers)
+        return RequestParameters(
+            url=url, task=self.task, model=provider_mapping_info.provider_id, json=payload, data=data, headers=headers
+        )
 
     def get_response(
         self,
@@ -107,7 +117,7 @@ class TaskProviderHelper:
             )
         return api_key
 
-    def _prepare_mapped_model(self, model: Optional[str]) -> str:
+    def _prepare_mapped_model(self, model: Optional[str]) -> ProviderMappingInfo:
         """Return the mapped model ID to use for the request.
 
         Usually not overwritten in subclasses."""
@@ -116,7 +126,9 @@ class TaskProviderHelper:
 
         # hardcoded mapping for local testing
         if HARDCODED_MODEL_ID_MAPPING.get(self.provider, {}).get(model):
-            return HARDCODED_MODEL_ID_MAPPING[self.provider][model]
+            return ProviderMappingInfo(
+                provider_id=HARDCODED_MODEL_ID_MAPPING[self.provider][model],
+            )
 
         provider_mapping = _fetch_inference_provider_mapping(model).get(self.provider)
         if provider_mapping is None:
@@ -132,7 +144,15 @@ class TaskProviderHelper:
             logger.warning(
                 f"Model {model} is in staging mode for provider {self.provider}. Meant for test purposes only."
             )
-        return provider_mapping.provider_id
+        if provider_mapping.adapter == "lora":
+            adapter_weights_path = _fetch_lora_weights_path(model)
+            return ProviderMappingInfo(
+                adapter_weights_path=adapter_weights_path,
+                provider_id=provider_mapping.provider_id,
+                hf_model_id=model,
+            )
+
+        return ProviderMappingInfo(provider_id=provider_mapping.provider_id)
 
     def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
         """Return the headers to use for the request.
@@ -168,7 +188,9 @@ class TaskProviderHelper:
         """
         return ""
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+    ) -> Optional[Dict]:
         """Return the payload to use for the request, as a dict.
 
         Override this method in subclasses for customized payloads.
@@ -177,7 +199,7 @@ class TaskProviderHelper:
         return None
 
     def _prepare_payload_as_bytes(
-        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
+        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo, extra_payload: Optional[Dict]
     ) -> Optional[bytes]:
         """Return the body to use for the request, as bytes.
 
@@ -199,8 +221,10 @@ class BaseConversationalTask(TaskProviderHelper):
     def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return "/v1/chat/completions"
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
-        return {"messages": inputs, **filter_none(parameters), "model": mapped_model}
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+    ) -> Optional[Dict]:
+        return {"messages": inputs, **filter_none(parameters), "model": provider_mapping_info.provider_id}
 
 
 class BaseTextGenerationTask(TaskProviderHelper):
@@ -215,8 +239,10 @@ class BaseTextGenerationTask(TaskProviderHelper):
     def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return "/v1/completions"
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
-        return {"prompt": inputs, **filter_none(parameters), "model": mapped_model}
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+    ) -> Optional[Dict]:
+        return {"prompt": inputs, **filter_none(parameters), "model": provider_mapping_info.provider_id}
 
 
 @lru_cache(maxsize=None)
@@ -231,6 +257,17 @@ def _fetch_inference_provider_mapping(model: str) -> Dict:
     if provider_mapping is None:
         raise ValueError(f"No provider mapping found for model {model}")
     return provider_mapping
+
+
+@lru_cache(maxsize=None)
+def _fetch_lora_weights_path(model: str) -> str:
+    from huggingface_hub.hf_api import HfApi
+
+    repo_files = HfApi().list_repo_files(model)
+    safetensors_files = [f for f in repo_files if f.endswith(".safetensors")]
+    if len(safetensors_files) != 1:
+        raise ValueError(f"Expected exactly one safetensors file in repo {model}, got {len(safetensors_files)}.")
+    return safetensors_files[0]
 
 
 def recursive_merge(dict1: Dict, dict2: Dict) -> Dict:

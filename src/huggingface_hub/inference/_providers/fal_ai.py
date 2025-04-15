@@ -4,8 +4,9 @@ from abc import ABC
 from typing import Any, Dict, Optional, Union
 from urllib.parse import urlparse
 
+from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.inference._common import RequestParameters, _as_dict
-from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
+from huggingface_hub.inference._providers._common import ProviderMappingInfo, TaskProviderHelper, filter_none
 from huggingface_hub.utils import get_session, hf_raise_for_status
 from huggingface_hub.utils.logging import get_logger
 
@@ -34,7 +35,9 @@ class FalAIAutomaticSpeechRecognitionTask(FalAITask):
     def __init__(self):
         super().__init__("automatic-speech-recognition")
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+    ) -> Optional[Dict]:
         if isinstance(inputs, str) and inputs.startswith(("http://", "https://")):
             # If input is a URL, pass it directly
             audio_url = inputs
@@ -61,14 +64,29 @@ class FalAITextToImageTask(FalAITask):
     def __init__(self):
         super().__init__("text-to-image")
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
-        parameters = filter_none(parameters)
-        if "width" in parameters and "height" in parameters:
-            parameters["image_size"] = {
-                "width": parameters.pop("width"),
-                "height": parameters.pop("height"),
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+    ) -> Optional[Dict]:
+        payload: Dict[str, Any] = {
+            "prompt": inputs,
+            **filter_none(parameters),
+        }
+        if "width" in payload and "height" in payload:
+            payload["image_size"] = {
+                "width": payload.pop("width"),
+                "height": payload.pop("height"),
             }
-        return {"prompt": inputs, **parameters}
+        if provider_mapping_info.adapter_weights_path is not None:
+            lora_path = (
+                f"{ENDPOINT}/"
+                f"{provider_mapping_info.hf_model_id}/resolve/main/"
+                f"{provider_mapping_info.adapter_weights_path}"
+            )
+            payload["loras"] = [{"path": lora_path, "scale": 1}]
+            if provider_mapping_info.provider_id == "fal-ai/lora":
+                payload["model_name"] = "stabilityai/stable-diffusion-xl-base-1.0"
+
+        return payload
 
     def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
         url = _as_dict(response)["images"][0]["url"]
@@ -79,7 +97,9 @@ class FalAITextToSpeechTask(FalAITask):
     def __init__(self):
         super().__init__("text-to-speech")
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+    ) -> Optional[Dict]:
         return {"lyrics": inputs, **filter_none(parameters)}
 
     def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
@@ -104,7 +124,9 @@ class FalAITextToVideoTask(FalAITask):
             return f"/{mapped_model}?_subdomain=queue"
         return f"/{mapped_model}"
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+    ) -> Optional[Dict]:
         return {"prompt": inputs, **filter_none(parameters)}
 
     def get_response(

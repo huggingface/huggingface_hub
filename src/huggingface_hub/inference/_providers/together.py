@@ -6,6 +6,7 @@ from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
     BaseTextGenerationTask,
+    ProviderMappingInfo,
     TaskProviderHelper,
     filter_none,
 )
@@ -55,7 +56,10 @@ class TogetherTextToImageTask(TogetherTask):
     def __init__(self):
         super().__init__("text-to-image")
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+    ) -> Optional[Dict]:
+        mapped_model = provider_mapping_info.provider_id
         parameters = filter_none(parameters)
         if "num_inference_steps" in parameters:
             parameters["steps"] = parameters.pop("num_inference_steps")
