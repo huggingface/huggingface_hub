@@ -57,8 +57,9 @@ DUMMY_XET_REGULAR_FILE = "dummy.txt"
 
 # extra large file for testing on production
 DUMMY_EXTRA_LARGE_FILE_MODEL_ID = "brianronan/dummy-xet-edge-case-files"
-DUMMY_EXTRA_LARGE_FILE_NAME = "verylargemodel.safetensors" # > 50GB file 
-DUMMY_TINY_FILE_NAME = "tiny.safetensors" # 45 byte file
+DUMMY_EXTRA_LARGE_FILE_NAME = "verylargemodel.safetensors"  # > 50GB file
+DUMMY_TINY_FILE_NAME = "tiny.safetensors"  # 45 byte file
+
 
 def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
     """
