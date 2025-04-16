@@ -89,7 +89,6 @@ def refresh_xet_connection_info(
     *,
     file_data: XetFileData,
     headers: Dict[str, str],
-    endpoint: Optional[str] = None,
 ) -> XetConnectionInfo:
     """
     Utilizes the information in the parsed metadata to request the Hub xet connection information.
@@ -99,8 +98,6 @@ def refresh_xet_connection_info(
             The file data needed to refresh the xet connection information.
         headers (`Dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
-        endpoint (`str`, `optional`):
-            The endpoint to use for the request. Defaults to the Hub endpoint.
     Returns:
         `XetConnectionInfo`:
             The connection information needed to make the request to the xet storage service.
@@ -112,15 +109,7 @@ def refresh_xet_connection_info(
     """
     if file_data.refresh_route is None:
         raise ValueError("The provided xet metadata does not contain a refresh endpoint.")
-    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-
-    # TODO: An upcoming version of hub will prepend the endpoint to the refresh route in
-    # the headers. Once that's deployed we can call fetch on the refresh route directly.
-    url = file_data.refresh_route
-    if url.startswith("/"):
-        url = f"{endpoint}{url}"
-
-    return _fetch_xet_connection_info_with_url(url, headers)
+    return _fetch_xet_connection_info_with_url(file_data.refresh_route, headers)
 
 
 @validate_hf_hub_args

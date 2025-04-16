@@ -1063,8 +1063,8 @@ class AsyncInferenceClient:
             text (`str`):
                 The text to embed.
             model (`str`, *optional*):
-                The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
+                The model to use for the feature extraction task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended feature extraction model will be used.
                 Defaults to None.
             normalize (`bool`, *optional*):
                 Whether to normalize the embeddings or not.
@@ -1565,8 +1565,8 @@ class AsyncInferenceClient:
             other_sentences (`List[str]`):
                 The list of sentences to compare to.
             model (`str`, *optional*):
-                The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
+                The model to use for the sentence similarity task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended sentence similarity model will be used.
                 Defaults to None.
 
         Returns:
@@ -1596,9 +1596,9 @@ class AsyncInferenceClient:
         """
         provider_helper = get_provider_helper(self.provider, task="sentence-similarity")
         request_parameters = provider_helper.prepare_request(
-            inputs=None,
+            inputs={"source_sentence": sentence, "sentences": other_sentences},
             parameters={},
-            extra_payload={"source_sentence": sentence, "sentences": other_sentences},
+            extra_payload={},
             headers=self.headers,
             model=model or self.model,
             api_key=self.token,
