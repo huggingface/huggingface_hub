@@ -405,8 +405,9 @@ def http_get(
     if resume_size > 0:
         headers["Range"] = _adjust_range_header(headers.get("Range"), resume_size)
     elif expected_size and expected_size > constants.MAX_HTTP_DOWNLOAD_SIZE:
-        # Any files over 50GB will not be available through hf_transfer. Setting the range header to 0-0 will
-        # force the server to return the file size in the Content-Range header.
+        # Any files over 50GB will not be available through basic http request.
+        # Setting the range header to 0-0 will force the server to return the file size in the Content-Range header.
+        # Since hf_transfer splits the download into chunks, the process will succeed afterwards.
         if hf_transfer:
             headers["Range"] = "bytes=0-0"
         else:
