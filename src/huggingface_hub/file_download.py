@@ -353,12 +353,15 @@ def http_get(
         # If the file is already fully downloaded, we don't need to download it again.
         return
 
+    has_custom_range_header = headers is not None and any(h.lower() == "range" for h in headers)
     hf_transfer = None
     if constants.HF_HUB_ENABLE_HF_TRANSFER:
         if resume_size != 0:
             warnings.warn("'hf_transfer' does not support `resume_size`: falling back to regular download method")
         elif proxies is not None:
             warnings.warn("'hf_transfer' does not support `proxies`: falling back to regular download method")
+        elif has_custom_range_header:
+            warnings.warn("'hf_transfer' ignores custom 'Range' headers; falling back to regular download method")
         else:
             try:
                 import hf_transfer  # type: ignore[no-redef]

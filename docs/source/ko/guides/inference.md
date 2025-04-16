@@ -125,17 +125,7 @@ Hugging Face Hub에는 20만 개가 넘는 모델이 있습니다! [`InferenceCl
 
 </Tip>
 
-## 사용자 정의 요청[[custom-requests]]
 
-그러나 모든 경우를 항상 완벽하게 다루는 것은 어렵습니다. 사용자 정의 요청의 경우, [`InferenceClient.post`] 메소드를 사용하여 Inference API로 요청을 보낼 수 있습니다. 예를 들어, 입력 및 출력을 어떻게 파싱할지 지정할 수 있습니다. 아래 예시에서 생성된 이미지는 `PIL Image`로 파싱하는 대신 원본 바이트로 반환됩니다. 이는 설치된 `Pillow`가 없고 이미지의 이진 콘텐츠에만 관심이 있는 경우에 유용합니다. [`InferenceClient.post`]는 아직 공식적으로 지원되지 않는 작업을 처리하는 데도 유용합니다.
-
-```python
->>> from huggingface_hub import InferenceClient
->>> client = InferenceClient()
->>> response = client.post(json={"inputs": "An astronaut riding a horse on the moon."}, model="stabilityai/stable-diffusion-2-1")
->>> response.content # 원시 바이트
-b'...'
-```
 
 ## 비동기 클라이언트[[async-client]]
 
@@ -258,16 +248,6 @@ pip install --upgrade huggingface_hub[inference]
 [{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
 ```
 
-변경 후:
-
-```python
->>> from huggingface_hub import InferenceClient
->>> client = InferenceClient()
->>> response = client.post(json={"inputs": "The goal of life is [MASK]."}, model="bert-base-uncased")
->>> response.json()
-[{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
-```
-
 ### 매개변수와 함께 실행하기[[run-with-parameters]]
 
 변경 전:
@@ -278,17 +258,5 @@ pip install --upgrade huggingface_hub[inference]
 >>> inputs = "Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"
 >>> params = {"candidate_labels":["refund", "legal", "faq"]}
 >>> inference(inputs, params)
-{'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
-```
-
-변경 후:
-
-```python
->>> from huggingface_hub import InferenceClient
->>> client = InferenceClient()
->>> inputs = "Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"
->>> params = {"candidate_labels":["refund", "legal", "faq"]}
->>> response = client.post(json={"inputs": inputs, "parameters": params}, model="typeform/distilbert-base-uncased-mnli")
->>> response.json()
 {'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
 ```

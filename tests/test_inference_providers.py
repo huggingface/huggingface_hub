@@ -470,7 +470,7 @@ class TestHFInferenceProvider:
         assert (
             request.url == "https://router.huggingface.co/hf-inference/models/username/repo_name/v1/chat/completions"
         )
-        assert request.task == "text-generation"
+        assert request.task == "conversational"
         assert request.model == "username/repo_name"
         assert request.json == {
             "model": "username/repo_name",
