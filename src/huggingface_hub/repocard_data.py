@@ -247,7 +247,7 @@ class CardData:
 
 def _validate_eval_results(
     eval_results: Optional[Union[EvalResult, List[EvalResult]]],
-    model_name: Optional[str] = None,
+    model_name: Optional[str],
 ) -> List[EvalResult]:
     if eval_results is None:
         return []
