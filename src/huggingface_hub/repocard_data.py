@@ -245,6 +245,23 @@ class CardData:
         return len(self.__dict__)
 
 
+def _validate_eval_results(
+    eval_results: Optional[Union[EvalResult, List[EvalResult]]],
+    model_name: Optional[str] = None,
+) -> List[EvalResult]:
+    if eval_results is None:
+        return []
+    if isinstance(eval_results, EvalResult):
+        eval_results = [eval_results]
+    if not isinstance(eval_results, list) or not all(isinstance(r, EvalResult) for r in eval_results):
+        raise ValueError(
+            f"`eval_results` should be of type `EvalResult` or a list of `EvalResult`, got {type(eval_results)}."
+        )
+    if model_name is None:
+        raise ValueError("Passing `eval_results` requires `model_name` to be set.")
+    return eval_results
+
+
 class ModelCardData(CardData):
     """Model Card Metadata that is used by Hugging Face Hub when included at the top of your README.md
 
@@ -359,23 +376,13 @@ class ModelCardData(CardData):
         super().__init__(**kwargs)
 
         if self.eval_results:
-            if isinstance(self.eval_results, EvalResult):
-                self.eval_results = [self.eval_results]
-            if not all(isinstance(result, EvalResult) for result in self.eval_results):
+            try:
+                self.eval_results = _validate_eval_results(self.eval_results, self.model_name)
+            except Exception as e:
                 if ignore_metadata_errors:
-                    logger.warning(
-                        f"`eval_results` is provided but not structured correctly, should be of type `EvalResult` or a list of `EvalResult`, got {type(self.eval_results)}. "
-                        "Not loading eval results into CardData."
-                    )
+                    logger.warning(f"Failed to validate eval_results: {e}. Not loading eval results into CardData.")
                 else:
-                    raise ValueError(
-                        f"`eval_results` is provided but not structured correctly. `eval_results` should be of type `EvalResult` or a list of `EvalResult`, got {type(self.eval_results)}."
-                    )
-            elif self.model_name is None:
-                if ignore_metadata_errors:
-                    logger.warning("Passing `eval_results` requires `model_name` to be set.")
-                else:
-                    raise ValueError("Passing `eval_results` requires `model_name` to be set.")
+                    raise ValueError(f"Failed to validate eval_results: {e}") from e
 
     def _to_dict(self, data_dict):
         """Format the internal data dict. In this case, we convert eval results to a valid model index"""
