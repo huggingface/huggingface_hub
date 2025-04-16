@@ -876,9 +876,6 @@ class InferenceClient:
         ```
         """
 
-        if model is None:
-            raise ValueError(f"Please provide an HF model ID supported by {self.provider}.")
-
         provider_mapping = _fetch_inference_provider_mapping(self.model or model)
         # If provider="auto", resolve to the first provider sent by server:
         provider = next(iter(provider_mapping)) if self.provider == "auto" else self.provider
