@@ -101,6 +101,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._providers import PROVIDER_T, get_provider_helper
+from huggingface_hub.inference._providers._common import _fetch_inference_provider_mapping
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
 from huggingface_hub.utils._auth import get_token
 from huggingface_hub.utils._deprecation import _deprecate_method
@@ -134,7 +135,7 @@ class InferenceClient:
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
             Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"openai"`, `"replicate"`, "sambanova"` or `"together"`.
-            defaults to hf-inference (Hugging Face Serverless Inference API).
+            defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
@@ -165,7 +166,7 @@ class InferenceClient:
         self,
         model: Optional[str] = None,
         *,
-        provider: Optional[PROVIDER_T] = None,
+        provider: Optional[PROVIDER_T] = "auto",
         token: Optional[str] = None,
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
@@ -228,7 +229,7 @@ class InferenceClient:
                 )
 
         # Configure provider
-        self.provider = provider if provider is not None else "hf-inference"
+        self.provider = provider if provider is not None else "auto"
 
         self.cookies = cookies
         self.timeout = timeout
@@ -874,8 +875,16 @@ class InferenceClient:
         '{\n\n"activity": "bike ride",\n"animals": ["puppy", "cat", "raccoon"],\n"animals_seen": 3,\n"location": "park"}'
         ```
         """
+
+        if model is None:
+            raise ValueError(f"Please provide an HF model ID supported by {self.provider}.")
+
+        provider_mapping = _fetch_inference_provider_mapping(self.model or model)
+        # If provider="auto", resolve to the first provider sent by server:
+        provider = next(iter(provider_mapping)) if self.provider == "auto" else self.provider
+
         # Get the provider helper
-        provider_helper = get_provider_helper(self.provider, task="conversational")
+        provider_helper = get_provider_helper(provider, task="conversational")
 
         # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
         # `self.model` takes precedence over 'model' argument for building URL.
