@@ -44,7 +44,6 @@ from .utils import (
     get_graphviz_version,  # noqa: F401 # for backward compatibility
     get_jinja_version,  # noqa: F401 # for backward compatibility
     get_pydot_version,  # noqa: F401 # for backward compatibility
-    get_session,
     get_tf_version,  # noqa: F401 # for backward compatibility
     get_torch_version,  # noqa: F401 # for backward compatibility
     hf_raise_for_status,
@@ -62,7 +61,7 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._http import _adjust_range_header
+from .utils._http import _adjust_range_header, http_backoff
 from .utils._runtime import _PY_VERSION, is_xet_available  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
@@ -268,6 +267,8 @@ def _request_wrapper(
     """Wrapper around requests methods to follow relative redirects if `follow_relative_redirects=True` even when
     `allow_redirection=False`.
 
+    A backoff mechanism retries the HTTP call on 429, 503 and 504 errors.
+
     Args:
         method (`str`):
             HTTP method, such as 'GET' or 'HEAD'.
@@ -305,7 +306,7 @@ def _request_wrapper(
         return response
 
     # Perform request and return if status_code is not in the retry list.
-    response = get_session().request(method=method, url=url, **params)
+    response = http_backoff(method=method, url=url, **params, retry_on_exceptions=(), retry_on_status_codes=(429,))
     hf_raise_for_status(response)
     return response
 
