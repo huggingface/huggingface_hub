@@ -256,6 +256,49 @@ class ModelCardDataTest(unittest.TestCase):
         assert as_obj.pipeline_tag is None
         assert "pipeline_tag" not in as_dict  # top level none value should be removed
 
+    def test_eval_results_requires_evalresult_type(self):
+        with pytest.raises(ValueError, match="should be of type `EvalResult` or a list of `EvalResult`"):
+            ModelCardData(model_name="my-cool-model", eval_results="this is not an EvalResult")
+
+        with pytest.raises(ValueError, match="should be of type `EvalResult` or a list of `EvalResult`"):
+            ModelCardData(model_name="my-cool-model", eval_results=["accuracy: 0.9", "f1: 0.85"])
+
+        data = ModelCardData(
+            model_name="my-cool-model",
+            eval_results="this is not an EvalResult",
+            ignore_metadata_errors=True,
+        )
+        assert data.eval_results is not None and data.eval_results == "this is not an EvalResult"
+
+    def test_model_name_required_with_eval_results(self):
+        with pytest.raises(ValueError, match="`eval_results` requires `model_name` to be set"):
+            ModelCardData(
+                eval_results=[
+                    EvalResult(
+                        task_type="image-classification",
+                        dataset_type="beans",
+                        dataset_name="Beans",
+                        metric_type="acc",
+                        metric_value=0.9,
+                    ),
+                ],
+            )
+
+        eval_results = [
+            EvalResult(
+                task_type="image-classification",
+                dataset_type="beans",
+                dataset_name="Beans",
+                metric_type="acc",
+                metric_value=0.9,
+            ),
+        ]
+        data = ModelCardData(
+            eval_results=eval_results,
+            ignore_metadata_errors=True,
+        )
+        assert data.eval_results is not None and data.eval_results == eval_results
+
 
 class DatasetCardDataTest(unittest.TestCase):
     def test_train_eval_index_keys_updated(self):
