@@ -4,7 +4,7 @@ from abc import ABC
 from typing import Any, Dict, Optional, Union
 from urllib.parse import urlparse
 
-from huggingface_hub.constants import ENDPOINT
+from huggingface_hub import constants
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import ProviderMappingInfo, TaskProviderHelper, filter_none
 from huggingface_hub.utils import get_session, hf_raise_for_status
@@ -77,10 +77,10 @@ class FalAITextToImageTask(FalAITask):
                 "height": payload.pop("height"),
             }
         if provider_mapping_info.adapter_weights_path is not None:
-            lora_path = (
-                f"{ENDPOINT}/"
-                f"{provider_mapping_info.hf_model_id}/resolve/main/"
-                f"{provider_mapping_info.adapter_weights_path}"
+            lora_path = constants.HUGGINGFACE_CO_URL_TEMPLATE.format(
+                repo_id=provider_mapping_info.hf_model_id,
+                revision="main",
+                filename=provider_mapping_info.adapter_weights_path,
             )
             payload["loras"] = [{"path": lora_path, "scale": 1}]
             if provider_mapping_info.provider_id == "fal-ai/lora":

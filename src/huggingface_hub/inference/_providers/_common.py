@@ -16,6 +16,7 @@ class ProviderMappingInfo:
     provider_id: str
     task: str
     status: Literal["live", "staging"]
+
     adapter: Optional[str] = None
     adapter_weights_path: Optional[str] = None
 
@@ -27,7 +28,10 @@ HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, ProviderMappingInfo]] = {
     # "HF model ID" => ProviderMappingInfo object initialized with "Model ID on Inference Provider's side"
     #
     # Example:
-    # "Qwen/Qwen2.5-Coder-32B-Instruct": ProviderMappingInfo(provider_id="Qwen2.5-Coder-32B-Instruct")
+    # "Qwen/Qwen2.5-Coder-32B-Instruct": ProviderMappingInfo(hf_model_id="Qwen/Qwen2.5-Coder-32B-Instruct",
+    #                                    provider_id="Qwen2.5-Coder-32B-Instruct",
+    #                                    task="conversational",
+    #                                    status="live")
     "cerebras": {},
     "cohere": {},
     "fal-ai": {},
@@ -145,22 +149,16 @@ class TaskProviderHelper:
             logger.warning(
                 f"Model {model} is in staging mode for provider {self.provider}. Meant for test purposes only."
             )
-        if provider_mapping.adapter == "lora":
-            adapter_weights_path = _fetch_lora_weights_path(model)
-            return ProviderMappingInfo(
-                adapter_weights_path=adapter_weights_path,
-                provider_id=provider_mapping.provider_id,
-                hf_model_id=model,
-                task=provider_mapping.task,
-                status=provider_mapping.status,
-            )
-
-        return ProviderMappingInfo(
-            provider_id=provider_mapping.provider_id,
+        mapping_info = ProviderMappingInfo(
             hf_model_id=model,
-            task=provider_mapping.task,
+            provider_id=provider_mapping.provider_id,
             status=provider_mapping.status,
+            task=provider_mapping.task,
+            adapter=provider_mapping.adapter,
         )
+        if provider_mapping.adapter == "lora":
+            mapping_info.adapter_weights_path = _fetch_lora_weights_path(model)
+        return mapping_info
 
     def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
         """Return the headers to use for the request.
