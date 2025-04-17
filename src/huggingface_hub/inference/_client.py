@@ -165,7 +165,7 @@ class InferenceClient:
         self,
         model: Optional[str] = None,
         *,
-        provider: Optional[PROVIDER_T] = "auto",
+        provider: Optional[PROVIDER_T] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
