@@ -134,7 +134,7 @@ def get_provider_helper(provider: PROVIDER_T, task: str, model: str) -> TaskProv
     """
     if provider != "auto" and provider not in PROVIDERS:
         raise ValueError(
-            f"Provider '{provider}' not supported. Available providers: {list(PROVIDERS.keys())} "
+            f"Provider '{provider}' not supported. Available providers: {['auto'] + list(PROVIDERS.keys())}, "
             "'auto' will automatically select the first provider available for the model, sorted "
             "by the user's order in https://hf.co/settings/inference-providers."
         )
