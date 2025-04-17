@@ -164,13 +164,14 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def test_offline_mode_with_cache_and_empty_local_dir(self):
         """Test that when cache exists but an empty local_dir is specified in offline mode, we raise an error."""
-        with SoftTemporaryDirectory() as tmpdir_cache, SoftTemporaryDirectory() as tmpdir_local:
+        with SoftTemporaryDirectory() as tmpdir_cache:
             snapshot_download(self.repo_id, cache_dir=tmpdir_cache)
 
             for offline_mode in OfflineSimulationMode:
                 with offline(mode=offline_mode):
                     with self.assertRaises(LocalEntryNotFoundError):
-                        snapshot_download(self.repo_id, cache_dir=tmpdir_cache, local_dir=tmpdir_local)
+                        with SoftTemporaryDirectory() as tmpdir:
+                            snapshot_download(self.repo_id, cache_dir=tmpdir_cache, local_dir=tmpdir)
 
     def test_download_model_offline_mode_not_in_local_dir(self):
         """Test when connection error but local_dir is empty."""
