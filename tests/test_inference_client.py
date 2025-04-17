@@ -47,10 +47,7 @@ from huggingface_hub import (
 )
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
 from huggingface_hub.inference._client import _open_as_binary
-from huggingface_hub.inference._common import (
-    _stream_chat_completion_response,
-    _stream_text_generation_response,
-)
+from huggingface_hub.inference._common import _stream_chat_completion_response, _stream_text_generation_response
 from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.inference._providers.hf_inference import _build_chat_completion_url
 
@@ -507,14 +504,14 @@ class TestInferenceClient(TestBase):
     def test_hf_inference_get_recommended_model_has_recommendation(self) -> None:
         from huggingface_hub.inference._providers.hf_inference import HFInferenceTask
 
-        HFInferenceTask("feature-extraction")._prepare_mapped_model(None) == "facebook/bart-base"
-        HFInferenceTask("translation")._prepare_mapped_model(None) == "t5-small"
+        HFInferenceTask("feature-extraction")._prepare_mapping_info(None).provider_id == "facebook/bart-base"
+        HFInferenceTask("translation")._prepare_mapping_info(None).provider_id == "t5-small"
 
     def test_hf_inference_get_recommended_model_no_recommendation(self) -> None:
         from huggingface_hub.inference._providers.hf_inference import HFInferenceTask
 
         with pytest.raises(ValueError):
-            HFInferenceTask("text-generation")._prepare_mapped_model(None)
+            HFInferenceTask("text-generation")._prepare_mapping_info(None)
 
     @pytest.mark.parametrize("client", list_clients("image-classification"), indirect=True)
     def test_image_classification(self, client: InferenceClient):
