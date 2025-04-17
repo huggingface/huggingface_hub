@@ -1,6 +1,6 @@
 from typing import Dict, Literal
 
-from ._common import TaskProviderHelper
+from ._common import TaskProviderHelper, _fetch_inference_provider_mapping
 from .black_forest_labs import BlackForestLabsTextToImageTask
 from .cerebras import CerebrasConversationalTask
 from .cohere import CohereConversationalTask
@@ -35,6 +35,7 @@ PROVIDER_T = Literal[
     "replicate",
     "sambanova",
     "together",
+    "auto",
 ]
 
 PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
@@ -118,21 +119,30 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
 }
 
 
-def get_provider_helper(provider: PROVIDER_T, task: str) -> TaskProviderHelper:
+def get_provider_helper(provider: PROVIDER_T, task: str, model: str) -> TaskProviderHelper:
     """Get provider helper instance by name and task.
 
     Args:
         provider (str): Name of the provider
         task (str): Name of the task
-
+        model (str): Name of the model
     Returns:
         TaskProviderHelper: Helper instance for the specified provider and task
 
     Raises:
         ValueError: If provider or task is not supported
     """
-    if provider not in PROVIDERS:
-        raise ValueError(f"Provider '{provider}' not supported. Available providers: {list(PROVIDERS.keys())}")
+    if provider != "auto" and provider not in PROVIDERS:
+        raise ValueError(
+            f"Provider '{provider}' not supported. Available providers: {list(PROVIDERS.keys())} "
+            "'auto' will automatically select the first provider available for the model, sorted "
+            "by the user's order in https://hf.co/settings/inference-providers."
+        )
+
+    if provider == "auto":
+        provider_mapping = _fetch_inference_provider_mapping(model)
+        provider = next(iter(provider_mapping))
+
     if task not in PROVIDERS[provider]:
         raise ValueError(
             f"Task '{task}' not supported for provider '{provider}'. "

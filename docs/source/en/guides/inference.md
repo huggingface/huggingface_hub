@@ -98,7 +98,7 @@ all the parameters available for each task.
 
 ### Using a specific provider
 
-If you want to use a specific provider, you can specify it when initializing the client. The default provider is "hf-inference", the Hugging Face Serverless Inference API. Refer to the [Supported providers and tasks](#supported-providers-and-tasks) section for a list of supported providers.
+If you want to use a specific provider, you can specify it when initializing the client. The default value is "auto" which will select the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.. Refer to the [Supported providers and tasks](#supported-providers-and-tasks) section for a list of supported providers.
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -112,20 +112,18 @@ What if you want to use a specific model? You can specify it either as a paramet
 ```python
 >>> from huggingface_hub import InferenceClient
 # Initialize client for a specific model
->>> client = InferenceClient(model="prompthero/openjourney-v4")
+>>> client = InferenceClient(provider="together", model="meta-llama/Llama-3.1-8B-Instruct")
 >>> client.text_to_image(...)
 # Or use a generic client but pass your model as an argument
->>> client = InferenceClient()
->>> client.text_to_image(..., model="prompthero/openjourney-v4")
+>>> client = InferenceClient(provider="together")
+>>> client.text_to_image(..., model="meta-llama/Llama-3.1-8B-Instruct")
 ```
 
 <Tip>
 
-When using the Hugging Face Inference API (default provider), each task comes with a recommended model from the 200k+ models available on the Hub.
+When using the Hugging Face Inference API, each task comes with a recommended model from the 200k+ models available on the Hub.
 However, this recommendation can change over time, so it's best to explicitly set a model once you've decided which one to use.
 For third-party providers, you must always specify a model that is compatible with that provider.
-
-Visit the [Models](https://huggingface.co/models?inference=warm) page on the Hub to explore models available through the Inference API, or check the provider's documentation for their supported models.
 
 </Tip>
 
@@ -149,18 +147,7 @@ Note that you cannot specify both a URL and a provider - they are mutually exclu
 
 ### Authentication
 
-Authentication depends on which provider you are using:
-
-1. For the default Hugging Face Inference API, you can authenticate using a [User Access Token](https://huggingface.co/docs/hub/security-tokens):
-
-```python
->>> from huggingface_hub import InferenceClient
->>> client = InferenceClient(token="hf_***")
-```
-
-By default, it will use the token saved on your machine if you are logged in (see [how to authenticate](https://huggingface.co/docs/huggingface_hub/quick-start#authentication)).
-
-2. For third-party providers, you have two options:
+Authentication can be done in two ways:
 
 **Direct access to provider**: Use your own API key to interact directly with the provider's service:
 ```python
@@ -170,9 +157,19 @@ By default, it will use the token saved on your machine if you are logged in (se
 )
 ```
 
-**Routed through Hugging Face** : Use Hugging Face as a proxy to access third-party providers. Simply specify
-your Hugging Face token and the provider you want to use. The calls will be routed through Hugging Face's infrastructure
-using our provider keys, and the usage will be billed directly to your Hugging Face account:
+**Routed through Hugging Face** : Use Hugging Face as a proxy to access third-party providers. The calls will be routed through Hugging Face's infrastructure using our provider keys, and the usage will be billed directly to your Hugging Face account. 
+
+You can authenticate using a [User Access Token](https://huggingface.co/docs/hub/security-tokens). You can provide your Hugging Face token directly using the `api_key` parameter:
+ 
+```python
+>>> client = InferenceClient(
+    provider="replicate",
+    api_key="hf_****"  # Your HF token
+)
+```
+
+If you *don't* pass an `api_key`, the client will attempt to find and use a token stored locally on your machine. This typically happens if you've previously logged in. See the [Authentication Guide](https://huggingface.co/docs/huggingface_hub/quick-start#authentication) for details on login.
+
 ```python
 >>> client = InferenceClient(
     provider="replicate",
