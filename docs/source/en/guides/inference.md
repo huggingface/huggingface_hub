@@ -149,14 +149,6 @@ Note that you cannot specify both a URL and a provider - they are mutually exclu
 
 Authentication can be done in two ways:
 
-**Direct access to provider**: Use your own API key to interact directly with the provider's service:
-```python
->>> client = InferenceClient(
-    provider="replicate",
-    api_key="r8_****"  # Your Replicate API key
-)
-```
-
 **Routed through Hugging Face** : Use Hugging Face as a proxy to access third-party providers. The calls will be routed through Hugging Face's infrastructure using our provider keys, and the usage will be billed directly to your Hugging Face account. 
 
 You can authenticate using a [User Access Token](https://huggingface.co/docs/hub/security-tokens). You can provide your Hugging Face token directly using the `api_key` parameter:
@@ -174,6 +166,14 @@ If you *don't* pass an `api_key`, the client will attempt to find and use a toke
 >>> client = InferenceClient(
     provider="replicate",
     token="hf_****"  # Your HF token
+)
+```
+
+**Direct access to provider**: Use your own API key to interact directly with the provider's service:
+```python
+>>> client = InferenceClient(
+    provider="replicate",
+    api_key="r8_****"  # Your Replicate API key
 )
 ```
 
