@@ -165,6 +165,18 @@ downloading https://huggingface.co/gpt2/resolve/main/config.json to /home/waupli
 
 The command will always print on the last line the path to the file on your local machine.
 
+
+### Download a single file with direct URL to the model and file, if YAML Metadata Warning
+
+To download a file when _YAML Metadata Warning: empty or missing yaml metadata in repo card_
+you have to type full URL and path to the file 
+
+```bash
+>>> huggingface-cli download $MODEL_URL $FULL_PATH_TO_FILE
+>>> huggingface-cli download Comfy-Org/HiDream-I1_ComfyUI split_files/text_encoders/llama_3.1_8b_instruct_fp8_scaled.safetensors 
+Downloading 'split_files/text_encoders/llama_3.1_8b_instruct_fp8_scaled.safetensors' to '/home/user/.cache/huggingface/hub/models--Comfy-Org--HiDream-I1_ComfyUI/blobs/9f86897bbeb933ef4fd06297740edb8dd962c94efcd92b373a...'
+```
+
 ### Download an entire repository
 
 In some cases, you just want to download all the files from a repository. This can be done by just specifying the repo id:
