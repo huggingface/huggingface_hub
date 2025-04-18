@@ -7612,7 +7612,7 @@ class HfApi:
             type ([`InferenceEndpointType]`, *optional*):
                 The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
             domain (`str`, *optional*):
-                The custom domain for the Inference Endpoint (e.g. `"my-new-domain.endpoints.huggingface.tech"`).
+                The custom domain for the Inference Endpoint (e.g. `"my-new-domain.cool-website.woof"`).
             path (`str`, *optional*):
                 The custom path for the Inference Endpoint, should start with a `/` (e.g. `"/models/google-bert/bert-base-uncased"`).
             cache_http_responses (`bool`, *optional*):
@@ -7937,7 +7937,7 @@ class HfApi:
                 Secret values to inject in the container environment.
 
             domain (`str`, *optional*):
-                The custom domain for the Inference Endpoint (e.g. `"my-new-domain.endpoints.huggingface.tech"`).
+                The custom domain for the Inference Endpoint (e.g. `"my-new-domain.cool-website.woof"`).
             path (`str`, *optional*):
                 The custom path for the Inference Endpoint, should start with a `/` (e.g. `"/models/google-bert/bert-base-uncased"`).
 
