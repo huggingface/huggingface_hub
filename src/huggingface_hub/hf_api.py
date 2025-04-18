@@ -7566,6 +7566,8 @@ class HfApi:
         custom_image: Optional[Dict] = None,
         secrets: Optional[Dict[str, str]] = None,
         type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
+        domain: Optional[str] = None,
+        path: Optional[str] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
@@ -7607,6 +7609,10 @@ class HfApi:
                 Secret values to inject in the container environment.
             type ([`InferenceEndpointType]`, *optional*):
                 The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
+            domain (`str`, *optional*):
+                The custom domain for the Inference Endpoint (e.g. `"api-inference.endpoints.huggingface.tech"`).
+            path (`str`, *optional*):
+                The custom path for the Inference Endpoint (e.g. `"/models/google-bert/bert-base-uncased"`).
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.
             token (Union[bool, str, None], optional):
@@ -7703,6 +7709,13 @@ class HfApi:
         }
         if secrets:
             payload["model"]["secrets"] = secrets
+        if domain is not None or path is not None:
+            payload["route"] = {}
+            if domain is not None:
+                payload["route"]["domain"] = domain
+            if path is not None:
+                payload["route"]["path"] = path
+
         response = get_session().post(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
             headers=self._build_hf_headers(token=token),
