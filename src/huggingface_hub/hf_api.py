@@ -7568,6 +7568,8 @@ class HfApi:
         type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
         domain: Optional[str] = None,
         path: Optional[str] = None,
+        cache_http_responses: Optional[bool] = None,
+        tags: Optional[List[str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
@@ -7613,6 +7615,10 @@ class HfApi:
                 The custom domain for the Inference Endpoint (e.g. `"api-inference.endpoints.huggingface.tech"`).
             path (`str`, *optional*):
                 The custom path for the Inference Endpoint (e.g. `"/models/google-bert/bert-base-uncased"`).
+            cache_http_responses (`bool`, *optional*):
+                Whether to cache HTTP responses from the Inference Endpoint. Defaults to `False`.
+            tags (`List[str]`, *optional*):
+                A list of tags to associate with the Inference Endpoint.
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.
             token (Union[bool, str, None], optional):
@@ -7674,6 +7680,7 @@ class HfApi:
             ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
             ...     },
             ...    secrets={"MY_SECRET_KEY": "secret_value"},
+            ...    tags=["dev", "text-generation"],
             ... )
 
             ```
@@ -7715,6 +7722,10 @@ class HfApi:
                 payload["route"]["domain"] = domain
             if path is not None:
                 payload["route"]["path"] = path
+        if cache_http_responses is not None:
+            payload["cacheHttpResponses"] = cache_http_responses
+        if tags is not None:
+            payload["tags"] = tags
 
         response = get_session().post(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
@@ -7882,6 +7893,8 @@ class HfApi:
         domain: Optional[str] = None,
         path: Optional[str] = None,
         # Other
+        cache_http_responses: Optional[bool] = None,
+        tags: Optional[List[str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
@@ -7928,6 +7941,11 @@ class HfApi:
             path (`str`, *optional*):
                 The custom path for the Inference Endpoint (e.g. `"/models/google-bert/bert-base-uncased"`).
 
+            cache_http_responses (`bool`, *optional*):
+                Whether to cache HTTP responses from the Inference Endpoint.
+            tags (`List[str]`, *optional*):
+                A list of tags to associate with the Inference Endpoint.
+
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be updated. Defaults to the current user's namespace.
             token (Union[bool, str, None], optional):
@@ -7971,6 +7989,10 @@ class HfApi:
             payload["route"]["domain"] = domain
         if path is not None:
             payload["route"]["path"] = path
+        if cache_http_responses is not None:
+            payload["cacheHttpResponses"] = cache_http_responses
+        if tags is not None:
+            payload["tags"] = tags
 
         response = get_session().put(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
