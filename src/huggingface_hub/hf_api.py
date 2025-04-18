@@ -7865,14 +7865,17 @@ class HfApi:
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
         secrets: Optional[Dict[str, str]] = None,
+        # Route update
+        domain: Optional[str] = None,
+        path: Optional[str] = None,
         # Other
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
         """Update an Inference Endpoint.
 
-        This method allows the update of either the compute configuration, the deployed model, or both. All arguments are
-        optional but at least one must be provided.
+        This method allows the update of either the compute configuration, the deployed model, the route, or any combination.
+        All arguments are optional but at least one must be provided.
 
         For convenience, you can also update an Inference Endpoint using [`InferenceEndpoint.update`].
 
@@ -7906,6 +7909,12 @@ class HfApi:
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
             secrets (`Dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
+
+            domain (`str`, *optional*):
+                The custom domain for the Inference Endpoint (e.g. `"api-inference.endpoints.huggingface.tech"`).
+            path (`str`, *optional*):
+                The custom path for the Inference Endpoint (e.g. `"/models/google-bert/bert-base-uncased"`).
+
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be updated. Defaults to the current user's namespace.
             token (Union[bool, str, None], optional):
@@ -7945,6 +7954,10 @@ class HfApi:
             payload["model"]["image"] = {"custom": custom_image}
         if secrets is not None:
             payload["model"]["secrets"] = secrets
+        if domain is not None:
+            payload["route"]["domain"] = domain
+        if path is not None:
+            payload["route"]["path"] = path
 
         response = get_session().put(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
