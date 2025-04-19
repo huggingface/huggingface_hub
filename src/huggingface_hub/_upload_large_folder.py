@@ -29,12 +29,12 @@ from urllib.parse import quote
 
 from . import constants
 from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
-from ._local_folder import (LocalUploadFileMetadata, LocalUploadFilePaths,
-                            get_local_upload_paths, read_upload_metadata)
+from ._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths, get_local_upload_paths, read_upload_metadata
 from .constants import DEFAULT_REVISION, REPO_TYPES
 from .utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects, tqdm
 from .utils._cache_manager import _format_size
 from .utils.sha import sha_fileobj
+
 
 if TYPE_CHECKING:
     from .hf_api import HfApi
@@ -45,6 +45,7 @@ WAITING_TIME_IF_NO_TASKS = 10  # seconds
 MAX_NB_REGULAR_FILES_PER_COMMIT = 75
 MAX_NB_LFS_FILES_PER_COMMIT = 150
 COMMIT_SIZE_SCALE: list[int] = [20, 50, 75, 100, 125, 200, 250, 400, 600, 1000]
+
 
 def upload_large_folder_internal(
     api: "HfApi",
@@ -200,7 +201,7 @@ class LargeUploadStatus:
                 self.queue_commit.put(item)
             else:
                 logger.debug(f"Skipping file {paths.path_in_repo} (already uploaded and committed)")
-    
+
     def target_chunk(self) -> int:
         with self._chunk_lock:
             return COMMIT_SIZE_SCALE[self._chunk_idx]
