@@ -29,12 +29,12 @@ from urllib.parse import quote
 
 from . import constants
 from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
-from ._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths, get_local_upload_paths, read_upload_metadata
+from ._local_folder import (LocalUploadFileMetadata, LocalUploadFilePaths,
+                            get_local_upload_paths, read_upload_metadata)
 from .constants import DEFAULT_REVISION, REPO_TYPES
 from .utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects, tqdm
 from .utils._cache_manager import _format_size
 from .utils.sha import sha_fileobj
-
 
 if TYPE_CHECKING:
     from .hf_api import HfApi
@@ -431,7 +431,7 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
         elif status.queue_get_upload_mode.qsize() > 0 and status.nb_workers_get_upload_mode == 0:
             status.nb_workers_get_upload_mode += 1
             logger.debug("Job: get upload mode (no other worker getting upload mode)")
-            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, 50))
+            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, status.target_chunk()))
 
         # 7. Preupload LFS file if at least 1 file
         #    Skip if hf_transfer is enabled and there is already a worker preuploading LFS
