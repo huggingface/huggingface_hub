@@ -200,12 +200,13 @@ def snapshot_download(
                     commit_hash = f.read()
 
         # Try to locate snapshot folder for this commit hash
-        if commit_hash is not None:
+        if commit_hash is not None and local_dir is None:
             snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
             if os.path.exists(snapshot_folder):
                 # Snapshot folder exists => let's return it
                 # (but we can't check if all the files are actually there)
                 return snapshot_folder
+
         # If local_dir is not None, return it if it exists and is not empty
         if local_dir is not None:
             local_dir = Path(local_dir)
@@ -214,6 +215,12 @@ def snapshot_download(
                     f"Returning existing local_dir `{local_dir}` as remote repo cannot be accessed in `snapshot_download` ({api_call_error})."
                 )
                 return str(local_dir.resolve())
+            # If local_dir doesn't exist or is empty, raise an error when in offline mode
+            raise LocalEntryNotFoundError(
+                f"Cannot download files to the specified local directory '{local_dir}' as remote repo cannot be "
+                f"accessed in offline mode. Please check your internet connection or set HF_HUB_OFFLINE=0 to enable "
+                f"online mode."
+            )
         # If we couldn't find the appropriate folder on disk, raise an error.
         if local_files_only:
             raise LocalEntryNotFoundError(
