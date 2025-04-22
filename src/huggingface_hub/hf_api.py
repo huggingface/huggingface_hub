@@ -103,6 +103,7 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
+from .inference._providers import PROVIDER_T
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
@@ -708,13 +709,15 @@ class RepoFolder:
 
 @dataclass
 class InferenceProviderMapping:
-    status: Literal["live", "staging"]
+    provider: str
     provider_id: str
+    status: Literal["live", "staging"]
     task: str
 
     def __init__(self, **kwargs):
-        self.status = kwargs.pop("status")
+        self.provider = kwargs.pop("provider")
         self.provider_id = kwargs.pop("providerId")
+        self.status = kwargs.pop("status")
         self.task = kwargs.pop("task")
         self.__dict__.update(**kwargs)
 
@@ -757,12 +760,10 @@ class ModelInfo:
             If so, whether there is manual or automatic approval.
         gguf (`Dict`, *optional*):
             GGUF information of the model.
-        inference (`Literal["cold", "frozen", "warm"]`, *optional*):
-            Status of the model on the inference API.
-            Warm models are available for immediate use. Cold models will be loaded on first inference call.
-            Frozen models are not available in Inference API.
-        inference_provider_mapping (`Dict`, *optional*):
-            Model's inference provider mapping.
+        inference (`Literal["warm"]`, *optional*):
+            Status of the model on Inference Providers. Warm if the model is served by at least one provider.
+        inference_provider_mapping (`List[InferenceProviderMapping]`, *optional*):
+            A list of [`InferenceProviderMapping`] ordered after the user's provider order.
         likes (`int`):
             Number of likes of the model.
         library_name (`str`, *optional*):
@@ -807,8 +808,8 @@ class ModelInfo:
     downloads_all_time: Optional[int]
     gated: Optional[Literal["auto", "manual", False]]
     gguf: Optional[Dict]
-    inference: Optional[Literal["warm", "cold", "frozen"]]
-    inference_provider_mapping: Optional[Dict[str, InferenceProviderMapping]]
+    inference: Optional[Literal["warm"]]
+    inference_provider_mapping: Optional[List[InferenceProviderMapping]]
     likes: Optional[int]
     library_name: Optional[str]
     tags: Optional[List[str]]
@@ -846,10 +847,9 @@ class ModelInfo:
         self.inference = kwargs.pop("inference", None)
         self.inference_provider_mapping = kwargs.pop("inferenceProviderMapping", None)
         if self.inference_provider_mapping:
-            self.inference_provider_mapping = {
-                provider: InferenceProviderMapping(**value)
-                for provider, value in self.inference_provider_mapping.items()
-            }
+            self.inference_provider_mapping = [
+                InferenceProviderMapping(**value) for value in self.inference_provider_mapping
+            ]
 
         self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
@@ -1816,7 +1816,8 @@ class HfApi:
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         gated: Optional[bool] = None,
-        inference: Optional[Literal["cold", "frozen", "warm"]] = None,
+        inference: Optional[Literal["warm"]] = None,
+        inference_provider: Optional[Union[Literal["all"], PROVIDER_T, List[PROVIDER_T]]] = None,
         library: Optional[Union[str, List[str]]] = None,
         language: Optional[Union[str, List[str]]] = None,
         model_name: Optional[str] = None,
@@ -1850,10 +1851,11 @@ class HfApi:
                 A boolean to filter models on the Hub that are gated or not. By default, all models are returned.
                 If `gated=True` is passed, only gated models are returned.
                 If `gated=False` is passed, only non-gated models are returned.
-            inference (`Literal["cold", "frozen", "warm"]`, *optional*):
-                A string to filter models on the Hub by their state on the Inference API.
-                Warm models are available for immediate use. Cold models will be loaded on first inference call.
-                Frozen models are not available in Inference API.
+            inference (`Literal["warm"]`, *optional*):
+                If "warm", filter models on the Hub currently served by at least one provider.
+            inference_provider (`Literal["all"]` or `str`, *optional*):
+                A string to filter models on the Hub that are served by a specific provider.
+                Pass `"all"` to get all models served by at least one provider.
             library (`str` or `List`, *optional*):
                 A string or list of strings of foundational libraries models were
                 originally trained from, such as pytorch, tensorflow, or allennlp.
@@ -1943,6 +1945,9 @@ class HfApi:
         # List all models with "bert" in their name made by google
         >>> api.list_models(search="bert", author="google")
         ```
+
+        # List all models served by Cohere
+        >>> api.list_models(inference_provider="cohere")
         """
         if expand and (full or cardData or fetch_config):
             raise ValueError("`expand` cannot be used if `full`, `cardData` or `fetch_config` are passed.")
@@ -1983,6 +1988,8 @@ class HfApi:
             params["gated"] = gated
         if inference is not None:
             params["inference"] = inference
+        if inference_provider is not None:
+            params["inference_provider"] = inference_provider
         if pipeline_tag:
             params["pipeline_tag"] = pipeline_tag
         search_list = []

@@ -76,7 +76,9 @@ class TestBasicTaskProviderHelper:
         # Test unsupported model
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value={"other-provider": "mapping"},
+            return_value=[
+                mocker.Mock(provider="other-provider", task="task-name", provider_id="mapped-id", status="active")
+            ],
         )
         with pytest.raises(ValueError, match="Model test-model is not supported.*"):
             helper._prepare_mapped_model("test-model")
@@ -84,7 +86,9 @@ class TestBasicTaskProviderHelper:
         # Test task mismatch
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value={"provider-name": mocker.Mock(task="other-task", provider_id="mapped-id", status="active")},
+            return_value=[
+                mocker.Mock(provider="provider-name", task="other-task", provider_id="mapped-id", status="active")
+            ],
         )
         with pytest.raises(ValueError, match="Model test-model is not supported for task.*"):
             helper._prepare_mapped_model("test-model")
@@ -92,7 +96,9 @@ class TestBasicTaskProviderHelper:
         # Test staging model
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value={"provider-name": mocker.Mock(task="task-name", provider_id="mapped-id", status="staging")},
+            return_value=[
+                mocker.Mock(provider="provider-name", task="task-name", provider_id="mapped-id", status="staging")
+            ],
         )
         assert helper._prepare_mapped_model("test-model") == "mapped-id"
         assert_in_logs(
@@ -103,7 +109,9 @@ class TestBasicTaskProviderHelper:
         caplog.clear()
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value={"provider-name": mocker.Mock(task="task-name", provider_id="mapped-id", status="active")},
+            return_value=[
+                mocker.Mock(provider="provider-name", task="task-name", provider_id="mapped-id", status="live")
+            ],
         )
         assert helper._prepare_mapped_model("test-model") == "mapped-id"
         assert len(caplog.records) == 0
