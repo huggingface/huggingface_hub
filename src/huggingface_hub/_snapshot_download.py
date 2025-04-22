@@ -215,12 +215,6 @@ def snapshot_download(
                     f"Returning existing local_dir `{local_dir}` as remote repo cannot be accessed in `snapshot_download` ({api_call_error})."
                 )
                 return str(local_dir.resolve())
-            # If local_dir doesn't exist or is empty, raise an error when in offline mode
-            raise LocalEntryNotFoundError(
-                f"Cannot download files to the specified local directory '{local_dir}' as remote repo cannot be "
-                f"accessed in offline mode. Please check your internet connection or set HF_HUB_OFFLINE=0 to enable "
-                f"online mode."
-            )
         # If we couldn't find the appropriate folder on disk, raise an error.
         if local_files_only:
             raise LocalEntryNotFoundError(
