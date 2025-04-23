@@ -379,7 +379,7 @@ def _worker_job(
                     status.queue_commit.put(item)
                 success = False
             duration = time.time() - start_ts
-            status.update_chunk(success, duration)
+            status.update_chunk(success, len(items), duration)
             with status.lock:
                 status.last_commit_attempt = time.time()
                 status.nb_workers_commit -= 1
