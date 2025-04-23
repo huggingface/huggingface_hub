@@ -206,13 +206,16 @@ class LargeUploadStatus:
         with self._chunk_lock:
             return COMMIT_SIZE_SCALE[self._chunk_idx]
 
-    def update_chunk(self, success: bool, duration: float) -> None:
+    def update_chunk(self, success: bool, nb_items: int, duration: float) -> None:
         with self._chunk_lock:
-            if not success and self._chunk_idx > 0:
+            if not success:
+                logger.warn(f"Failed to commit {nb_items} files at once. Will retry with less files in next batch.")
                 self._chunk_idx -= 1
-            else:
-                if duration < 40 and self._chunk_idx < len(COMMIT_SIZE_SCALE) - 1:
-                    self._chunk_idx += 1
+            elif nb_items >= COMMIT_SIZE_SCALE[self._chunk_idx] and duration < 40:
+                logger.info(f"Successfully committed {nb_items} at once. Increasing the limit for next batch.")
+                self._chunk_idx += 1
+
+            self._chunk_idx = max(0, min(self._chunk_idx, len(COMMIT_SIZE_SCALE) - 1))
 
     def current_report(self) -> str:
         """Generate a report of the current status of the large upload."""
