@@ -925,7 +925,6 @@ def test_get_provider_helper_auto(mocker):
 
     mock_provider_a_helper = mocker.Mock(spec=TaskProviderHelper)
     mock_provider_b_helper = mocker.Mock(spec=TaskProviderHelper)
-    original_providers = PROVIDERS.copy()
     PROVIDERS["provider-a"] = {"test-task": mock_provider_a_helper}
     PROVIDERS["provider-b"] = {"test-task": mock_provider_b_helper}
 
