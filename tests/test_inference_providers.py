@@ -941,5 +941,5 @@ def test_get_provider_helper_auto(mocker):
     # The helper should be the one from provider-a
     assert helper is mock_provider_a_helper
 
-    PROVIDERS.clear()
-    PROVIDERS.update(original_providers)
+    PROVIDERS.pop("provider-a", None)
+    PROVIDERS.pop("provider-b", None)
