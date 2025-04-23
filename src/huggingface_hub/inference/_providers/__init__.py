@@ -1,3 +1,4 @@
+import warnings
 from typing import Dict, Literal, Optional, Union
 
 from ._common import TaskProviderHelper, _fetch_inference_provider_mapping
@@ -120,19 +121,28 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
 }
 
 
-def get_provider_helper(provider: PROVIDER_OR_POLICY_T, task: str, model: Optional[str]) -> TaskProviderHelper:
+def get_provider_helper(
+    provider: Optional[PROVIDER_OR_POLICY_T], task: str, model: Optional[str]
+) -> TaskProviderHelper:
     """Get provider helper instance by name and task.
 
     Args:
-        provider (str): name of the provider, or "auto" to automatically select the provider for the model.
-        task (str): Name of the task
-        model (str): Name of the model
+        provider (`PROVIDER_OR_POLICY_T`, *optional*): name of the provider, or "auto" to automatically select the provider for the model.
+        task (`str`): Name of the task
+        model (`str`, *optional*): Name of the model
     Returns:
         TaskProviderHelper: Helper instance for the specified provider and task
 
     Raises:
         ValueError: If provider or task is not supported
     """
+    if provider is None:
+        warnings.warn(
+            "Defaulting to 'auto' which will select the first provider available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.",
+            UserWarning,
+        )
+        provider = "auto"
+
     if provider == "auto":
         if model is None:
             raise ValueError("Specifying a model is required when provider is 'auto'")

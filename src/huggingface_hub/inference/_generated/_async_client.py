@@ -219,7 +219,7 @@ class AsyncInferenceClient:
                 )
 
         # Configure provider
-        self.provider = provider if provider is not None else "auto"
+        self.provider = provider
 
         self.cookies = cookies
         self.timeout = timeout
