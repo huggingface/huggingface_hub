@@ -140,6 +140,10 @@ def get_provider_helper(
     Raises:
         ValueError: If provider or task is not supported
     """
+
+    if model is None and provider in (None, "auto"):
+        provider = "hf-inference"
+
     if provider is None:
         logger.info(
             "Defaulting to 'auto' which will select the first provider available for the model, sorted by the user's order in https://hf.co/settings/inference-providers."
