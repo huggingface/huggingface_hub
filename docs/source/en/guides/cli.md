@@ -165,6 +165,12 @@ downloading https://huggingface.co/gpt2/resolve/main/config.json to /home/waupli
 
 The command will always print on the last line the path to the file on your local machine.
 
+To download a file located in a subdirectory of the repo, you should provide the path of the file in the repo in posix format like this:
+
+```bash
+>>> huggingface-cli download HiDream-ai/HiDream-I1-Full text_encoder/model.safetensors
+```
+
 ### Download an entire repository
 
 In some cases, you just want to download all the files from a repository. This can be done by just specifying the repo id:

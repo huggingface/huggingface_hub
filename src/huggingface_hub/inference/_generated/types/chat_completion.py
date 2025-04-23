@@ -25,8 +25,8 @@ class ChatCompletionInputMessageChunk(BaseInferenceType):
 
 @dataclass_with_extra
 class ChatCompletionInputFunctionDefinition(BaseInferenceType):
-    arguments: Any
     name: str
+    parameters: Any
     description: Optional[str] = None
 
 
@@ -189,7 +189,7 @@ class ChatCompletionOutputLogprobs(BaseInferenceType):
 
 @dataclass_with_extra
 class ChatCompletionOutputFunctionDefinition(BaseInferenceType):
-    arguments: Any
+    arguments: str
     name: str
     description: Optional[str] = None
 
