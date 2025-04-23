@@ -1,5 +1,6 @@
-import warnings
 from typing import Dict, Literal, Optional, Union
+
+from huggingface_hub.utils import logging
 
 from ._common import TaskProviderHelper, _fetch_inference_provider_mapping
 from .black_forest_labs import BlackForestLabsTextToImageTask
@@ -20,6 +21,9 @@ from .openai import OpenAIConversationalTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
+
+
+logger = logging.get_logger(__name__)
 
 
 PROVIDER_T = Literal[
@@ -137,9 +141,8 @@ def get_provider_helper(
         ValueError: If provider or task is not supported
     """
     if provider is None:
-        warnings.warn(
-            "Defaulting to 'auto' which will select the first provider available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.",
-            UserWarning,
+        logger.info(
+            "Defaulting to 'auto' which will select the first provider available for the model, sorted by the user's order in https://hf.co/settings/inference-providers."
         )
         provider = "auto"
 
@@ -149,13 +152,14 @@ def get_provider_helper(
         provider_mapping = _fetch_inference_provider_mapping(model)
         provider = next(iter(provider_mapping))
 
-    if provider not in PROVIDERS:
+    provider_tasks = PROVIDERS.get(provider)  # type: ignore
+    if provider_tasks is None:
         raise ValueError(
             f"Provider '{provider}' not supported. Available values: 'auto' or any provider from {list(PROVIDERS.keys())}."
             "Passing 'auto' (default value) will automatically select the first provider available for the model, sorted "
             "by the user's order in https://hf.co/settings/inference-providers."
         )
-    provider_tasks = PROVIDERS[provider]  # type: ignore
+
     if task not in provider_tasks:
         raise ValueError(
             f"Task '{task}' not supported for provider '{provider}'. Available tasks: {list(provider_tasks.keys())}"
