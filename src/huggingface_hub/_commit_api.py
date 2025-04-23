@@ -572,7 +572,7 @@ def _upload_xet_files(
     for i, chunk in enumerate(chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES)):
         _chunk = [op for op in chunk]
 
-        byte_arrays = [(op.path_or_fileobj, op.path_in_repo) if isinstance(op.path_or_fileobj, bytes) else None for op in _chunk]
+        byte_arrays = [op.path_or_fileobj if isinstance(op.path_or_fileobj, bytes) else None for op in _chunk]
         if len(byte_arrays) > 0:
             byte_arrays = list(filter(lambda x: x is not None, byte_arrays))
 
@@ -581,7 +581,7 @@ def _upload_xet_files(
             paths = list(filter(lambda x: x is not None, paths))
 
         expected_size = sum([os.path.getsize(path) for path in paths])
-        expected_size += sum([len(byte_array) for byte_array, _ in byte_arrays])
+        expected_size += sum([len(byte_array) for byte_array in byte_arrays])
 
         if num_chunks > 1:
             description = f"Uploading Batch [{str(i + 1).zfill(num_chunks_num_digits)}/{num_chunks}]..."
