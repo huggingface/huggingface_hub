@@ -273,7 +273,7 @@ class TestFalAIProvider:
     def test_text_to_speech_payload(self):
         helper = FalAITextToSpeechTask()
         payload = helper._prepare_payload_as_dict("Hello world", {}, "username/repo_name")
-        assert payload == {"lyrics": "Hello world"}
+        assert payload == {"text": "Hello world"}
 
     def test_text_to_speech_response(self, mocker):
         helper = FalAITextToSpeechTask()
