@@ -7614,7 +7614,7 @@ class HfApi:
             domain (`str`, *optional*):
                 The custom domain for the Inference Endpoint deployment, if setup the inference endpoint will be available at this domain (e.g. `"my-new-domain.cool-website.woof"`).
             path (`str`, *optional*):
-                The custom path to model artifacts, should start with a `/` (e.g. `"/models/google-bert/bert-base-uncased"`).
+                The custom path to the deployed model, should start with a `/` (e.g. `"/models/google-bert/bert-base-uncased"`).
             cache_http_responses (`bool`, *optional*):
                 Whether to cache HTTP responses from the Inference Endpoint. Defaults to `False`.
             tags (`List[str]`, *optional*):
@@ -7939,7 +7939,7 @@ class HfApi:
             domain (`str`, *optional*):
                 The custom domain for the Inference Endpoint deployment, if setup the inference endpoint will be available at this domain (e.g. `"my-new-domain.cool-website.woof"`).
             path (`str`, *optional*):
-                The custom path to model artifacts, should start with a `/` (e.g. `"/models/google-bert/bert-base-uncased"`).
+                The custom path to the deployed model, should start with a `/` (e.g. `"/models/google-bert/bert-base-uncased"`).
 
             cache_http_responses (`bool`, *optional*):
                 Whether to cache HTTP responses from the Inference Endpoint.
