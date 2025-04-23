@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 WAITING_TIME_IF_NO_TASKS = 10  # seconds
 MAX_NB_REGULAR_FILES_PER_COMMIT = 75
 MAX_NB_LFS_FILES_PER_COMMIT = 150
-COMMIT_SIZE_SCALE: list[int] = [20, 50, 75, 100, 125, 200, 250, 400, 600, 1000]
+COMMIT_SIZE_SCALE: List[int] = [20, 50, 75, 100, 125, 200, 250, 400, 600, 1000]
 
 
 def upload_large_folder_internal(
