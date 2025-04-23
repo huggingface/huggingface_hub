@@ -121,7 +121,7 @@ What if you want to use a specific model? You can specify it either as a paramet
 
 <Tip>
 
-When using the Hugging Face Inference API, each task comes with a recommended model from the 200k+ models available on the Hub.
+When using the "hf-inference" provider, each task comes with a recommended model from the 1M+ models available on the Hub.
 However, this recommendation can change over time, so it's best to explicitly set a model once you've decided which one to use.
 For third-party providers, you must always specify a model that is compatible with that provider.
 
