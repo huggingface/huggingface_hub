@@ -266,7 +266,7 @@ class TestFalAIProvider:
     def test_text_to_speech_payload(self):
         helper = FalAITextToSpeechTask()
         payload = helper._prepare_payload_as_dict("Hello world", {}, "username/repo_name")
-        assert payload == {"lyrics": "Hello world"}
+        assert payload == {"text": "Hello world"}
 
     def test_text_to_speech_response(self, mocker):
         helper = FalAITextToSpeechTask()
@@ -941,5 +941,5 @@ def test_get_provider_helper_auto(mocker):
     # The helper should be the one from provider-a
     assert helper is mock_provider_a_helper
 
-    PROVIDERS.clear()
-    PROVIDERS.update(original_providers)
+    PROVIDERS.pop("provider-a", None)
+    PROVIDERS.pop("provider-b", None)

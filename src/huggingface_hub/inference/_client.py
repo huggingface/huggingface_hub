@@ -884,7 +884,7 @@ class InferenceClient:
         payload_model = model or self.model
 
         # Get the provider helper
-        provider_helper = get_provider_helper(self.provider, task="conversational", model=payload_model)  # type: ignore
+        provider_helper = get_provider_helper(self.provider, task="conversational", model=payload_model)
 
         # Prepare the payload
         parameters = {
