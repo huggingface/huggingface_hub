@@ -98,7 +98,7 @@ all the parameters available for each task.
 
 ### Using a specific provider
 
-If you want to use a specific provider, you can specify it when initializing the client. The default value is "auto" which will select the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.. Refer to the [Supported providers and tasks](#supported-providers-and-tasks) section for a list of supported providers.
+If you want to use a specific provider, you can specify it when initializing the client. The default value is "auto" which will select the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers. Refer to the [Supported providers and tasks](#supported-providers-and-tasks) section for a list of supported providers.
 
 ```python
 >>> from huggingface_hub import InferenceClient
