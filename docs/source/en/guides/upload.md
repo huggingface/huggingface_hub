@@ -205,6 +205,10 @@ pip install -U huggingface_hub[hf_xet]
 
 All other `huggingface_hub` APIs will continue to work without any modification. To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/storage-backends).
 
+**Cluster / Distributed Filesystem Upload Considerations**
+
+When uploading from a cluster, the files being uploaded often reside on a distributed or networked filesystem (NFS, EBS, Lustre, Fsx, etc). Xet storage will chunk those files and write them into blocks (also called xorbs) locally, and once the block is completed will upload them. For better performance when uploading from a distributed filesystem, make sure to set [`HF_XET_CACHE`](../package_reference/environment_variables#hfxetcache) to a directory that is on a local disk (ex. a local NVMe or SSD disk). The default location for the Xet cache is under `HF_HOME` at (`~/.cache/huggingface/xet`) and this being in the user's home directory is often also located on the distributed filesystem.
+
 ### Non-blocking uploads
 
 In some cases, you want to push data without blocking your main thread. This is particularly useful to upload logs and
