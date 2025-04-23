@@ -1,4 +1,4 @@
-from typing import Dict, Literal
+from typing import Dict, Literal, Optional, Union
 
 from ._common import TaskProviderHelper, _fetch_inference_provider_mapping
 from .black_forest_labs import BlackForestLabsTextToImageTask
@@ -35,8 +35,9 @@ PROVIDER_T = Literal[
     "replicate",
     "sambanova",
     "together",
-    "auto",
 ]
+
+PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
 
 PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     "black-forest-labs": {
@@ -119,11 +120,11 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
 }
 
 
-def get_provider_helper(provider: PROVIDER_T, task: str, model: str) -> TaskProviderHelper:
+def get_provider_helper(provider: PROVIDER_OR_POLICY_T, task: str, model: Optional[str]) -> TaskProviderHelper:
     """Get provider helper instance by name and task.
 
     Args:
-        provider (str): Name of the provider
+        provider (str): name of the provider, or "auto" to automatically select the provider for the model.
         task (str): Name of the task
         model (str): Name of the model
     Returns:
@@ -132,20 +133,21 @@ def get_provider_helper(provider: PROVIDER_T, task: str, model: str) -> TaskProv
     Raises:
         ValueError: If provider or task is not supported
     """
-    if provider != "auto" and provider not in PROVIDERS:
-        raise ValueError(
-            f"Provider '{provider}' not supported. Available providers: {['auto'] + list(PROVIDERS.keys())}, "
-            "'auto' will automatically select the first provider available for the model, sorted "
-            "by the user's order in https://hf.co/settings/inference-providers."
-        )
-
     if provider == "auto":
+        if model is None:
+            raise ValueError("Specifying a model is required when provider is 'auto'")
         provider_mapping = _fetch_inference_provider_mapping(model)
         provider = next(iter(provider_mapping))
 
-    if task not in PROVIDERS[provider]:
+    if provider not in PROVIDERS:
         raise ValueError(
-            f"Task '{task}' not supported for provider '{provider}'. "
-            f"Available tasks: {list(PROVIDERS[provider].keys())}"
+            f"Provider '{provider}' not supported. Available values: 'auto' or any provider from {list(PROVIDERS.keys())}."
+            "Passing 'auto' (default value) will automatically select the first provider available for the model, sorted "
+            "by the user's order in https://hf.co/settings/inference-providers."
         )
-    return PROVIDERS[provider][task]
+    provider_tasks = PROVIDERS[provider]  # type: ignore
+    if task not in provider_tasks:
+        raise ValueError(
+            f"Task '{task}' not supported for provider '{provider}'. Available tasks: {list(provider_tasks.keys())}"
+        )
+    return provider_tasks[task]

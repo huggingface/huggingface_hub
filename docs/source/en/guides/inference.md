@@ -125,6 +125,7 @@ When using the "hf-inference" provider, each task comes with a recommended model
 However, this recommendation can change over time, so it's best to explicitly set a model once you've decided which one to use.
 For third-party providers, you must always specify a model that is compatible with that provider.
 
+Visit the [Models](https://huggingface.co/models?inference=warm) page on the Hub to explore models available through Inference Providers.
 </Tip>
 
 ### Using a specific URL
@@ -176,6 +177,8 @@ If you *don't* pass an `api_key`, the client will attempt to find and use a toke
     api_key="r8_****"  # Your Replicate API key
 )
 ```
+
+For more details, refer to the [Inference Providers pricing documentation](https://huggingface.co/docs/inference-providers/pricing#routed-requests-vs-direct-calls).
 
 ## Supported providers and tasks
 
