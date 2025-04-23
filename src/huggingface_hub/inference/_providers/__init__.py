@@ -127,7 +127,7 @@ def get_provider_helper(
     """Get provider helper instance by name and task.
 
     Args:
-        provider (`PROVIDER_OR_POLICY_T`, *optional*): name of the provider, or "auto" to automatically select the provider for the model.
+        provider (`str`, *optional*): name of the provider, or "auto" to automatically select the provider for the model.
         task (`str`): Name of the task
         model (`str`, *optional*): Name of the model
     Returns:
