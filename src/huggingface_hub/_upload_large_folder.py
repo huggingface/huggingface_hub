@@ -29,12 +29,12 @@ from urllib.parse import quote
 
 from . import constants
 from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
-from ._local_folder import (LocalUploadFileMetadata, LocalUploadFilePaths,
-                            get_local_upload_paths, read_upload_metadata)
+from ._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths, get_local_upload_paths, read_upload_metadata
 from .constants import DEFAULT_REVISION, REPO_TYPES
 from .utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects, tqdm
 from .utils._cache_manager import _format_size
 from .utils.sha import sha_fileobj
+
 
 if TYPE_CHECKING:
     from .hf_api import HfApi
