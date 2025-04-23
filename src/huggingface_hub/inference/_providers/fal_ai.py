@@ -80,7 +80,7 @@ class FalAITextToSpeechTask(FalAITask):
         super().__init__("text-to-speech")
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
-        return {"lyrics": inputs, **filter_none(parameters)}
+        return {"text": inputs, **filter_none(parameters)}
 
     def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
         url = _as_dict(response)["audio"]["url"]
