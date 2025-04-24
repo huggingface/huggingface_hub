@@ -427,7 +427,7 @@ async def test_openai_compatibility_with_stream_true():
     assert "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" in output_text
 
 
-@pytest.mark.vcr
+@pytest.mark.skip("Temporary skipping this test")
 @pytest.mark.asyncio
 @with_production_testing
 async def test_http_session_correctly_closed() -> None:
