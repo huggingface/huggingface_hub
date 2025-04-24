@@ -5,8 +5,9 @@ from typing import Any, Dict, Optional, Union
 from urllib.parse import urlparse
 
 from huggingface_hub import constants
+from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
-from huggingface_hub.inference._providers._common import ProviderMappingInfo, TaskProviderHelper, filter_none
+from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
 from huggingface_hub.utils import get_session, hf_raise_for_status
 from huggingface_hub.utils.logging import get_logger
 
@@ -36,7 +37,7 @@ class FalAIAutomaticSpeechRecognitionTask(FalAITask):
         super().__init__("automatic-speech-recognition")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
         if isinstance(inputs, str) and inputs.startswith(("http://", "https://")):
             # If input is a URL, pass it directly
@@ -65,7 +66,7 @@ class FalAITextToImageTask(FalAITask):
         super().__init__("text-to-image")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
         payload: Dict[str, Any] = {
             "prompt": inputs,
@@ -98,7 +99,7 @@ class FalAITextToSpeechTask(FalAITask):
         super().__init__("text-to-speech")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
         return {"lyrics": inputs, **filter_none(parameters)}
 
@@ -125,7 +126,7 @@ class FalAITextToVideoTask(FalAITask):
         return f"/{mapped_model}"
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
         return {"prompt": inputs, **filter_none(parameters)}
 

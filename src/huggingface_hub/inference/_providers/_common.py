@@ -1,34 +1,22 @@
-from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import constants
+from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters
 from huggingface_hub.utils import build_hf_headers, get_token, logging
 
 
 logger = logging.get_logger(__name__)
 
-
-@dataclass
-class ProviderMappingInfo:
-    hf_model_id: str
-    provider_id: str
-    task: str
-    status: Literal["live", "staging"]
-
-    adapter: Optional[str] = None
-    adapter_weights_path: Optional[str] = None
-
-
 # Dev purposes only.
 # If you want to try to run inference for a new model locally before it's registered on huggingface.co
 # for a given Inference Provider, you can add it to the following dictionary.
-HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, ProviderMappingInfo]] = {
-    # "HF model ID" => ProviderMappingInfo object initialized with "Model ID on Inference Provider's side"
+HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, InferenceProviderMapping]] = {
+    # "HF model ID" => InferenceProviderMapping object initialized with "Model ID on Inference Provider's side"
     #
     # Example:
-    # "Qwen/Qwen2.5-Coder-32B-Instruct": ProviderMappingInfo(hf_model_id="Qwen/Qwen2.5-Coder-32B-Instruct",
+    # "Qwen/Qwen2.5-Coder-32B-Instruct": InferenceProviderMapping(hf_model_id="Qwen/Qwen2.5-Coder-32B-Instruct",
     #                                    provider_id="Qwen2.5-Coder-32B-Instruct",
     #                                    task="conversational",
     #                                    status="live")
@@ -124,7 +112,7 @@ class TaskProviderHelper:
             )
         return api_key
 
-    def _prepare_mapping_info(self, model: Optional[str]) -> ProviderMappingInfo:
+    def _prepare_mapping_info(self, model: Optional[str]) -> InferenceProviderMapping:
         """Return the mapped model ID to use for the request.
 
         Usually not overwritten in subclasses."""
@@ -149,16 +137,7 @@ class TaskProviderHelper:
             logger.warning(
                 f"Model {model} is in staging mode for provider {self.provider}. Meant for test purposes only."
             )
-        mapping_info = ProviderMappingInfo(
-            hf_model_id=model,
-            provider_id=provider_mapping.provider_id,
-            status=provider_mapping.status,
-            task=provider_mapping.task,
-            adapter=provider_mapping.adapter,
-        )
-        if provider_mapping.adapter == "lora":
-            mapping_info.adapter_weights_path = _fetch_lora_weights_path(model)
-        return mapping_info
+        return provider_mapping
 
     def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
         """Return the headers to use for the request.
@@ -195,7 +174,7 @@ class TaskProviderHelper:
         return ""
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
         """Return the payload to use for the request, as a dict.
 
@@ -205,7 +184,11 @@ class TaskProviderHelper:
         return None
 
     def _prepare_payload_as_bytes(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo, extra_payload: Optional[Dict]
+        self,
+        inputs: Any,
+        parameters: Dict,
+        provider_mapping_info: InferenceProviderMapping,
+        extra_payload: Optional[Dict],
     ) -> Optional[bytes]:
         """Return the body to use for the request, as bytes.
 
@@ -228,7 +211,7 @@ class BaseConversationalTask(TaskProviderHelper):
         return "/v1/chat/completions"
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
         return {"messages": inputs, **filter_none(parameters), "model": provider_mapping_info.provider_id}
 
@@ -246,7 +229,7 @@ class BaseTextGenerationTask(TaskProviderHelper):
         return "/v1/completions"
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
         return {"prompt": inputs, **filter_none(parameters), "model": provider_mapping_info.provider_id}
 

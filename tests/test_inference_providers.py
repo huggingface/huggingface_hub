@@ -6,11 +6,11 @@ from unittest.mock import patch
 import pytest
 from pytest import LogCaptureFixture
 
+from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters
 from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
     BaseTextGenerationTask,
-    ProviderMappingInfo,
     TaskProviderHelper,
     recursive_merge,
 )
@@ -80,7 +80,8 @@ class TestBasicTaskProviderHelper:
             return_value={
                 "provider-name": mocker.Mock(
                     task="other-task",
-                    provider_id="mapped-id",
+                    providerId="mapped-id",
+                    hf_model_id="test-model",
                     status="live",
                 )
             },
@@ -91,7 +92,11 @@ class TestBasicTaskProviderHelper:
         # Test staging model
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value={"provider-name": mocker.Mock(task="task-name", provider_id="mapped-id", status="staging")},
+            return_value={
+                "provider-name": mocker.Mock(
+                    task="task-name", hf_model_id="test-model", provider_id="mapped-id", status="staging"
+                )
+            },
         )
         assert helper._prepare_mapping_info("test-model").provider_id == "mapped-id"
 
@@ -103,7 +108,11 @@ class TestBasicTaskProviderHelper:
         caplog.clear()
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value={"provider-name": mocker.Mock(task="task-name", provider_id="mapped-id", status="live")},
+            return_value={
+                "provider-name": mocker.Mock(
+                    task="task-name", hf_model_id="test-model", provider_id="mapped-id", status="live"
+                )
+            },
         )
         assert helper._prepare_mapping_info("test-model").provider_id == "mapped-id"
         assert helper._prepare_mapping_info("test-model").hf_model_id == "test-model"
@@ -115,13 +124,17 @@ class TestBasicTaskProviderHelper:
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
             return_value={
-                "provider-name": mocker.Mock(task="task-name", provider_id="mapped-id", status="live", adapter="lora")
+                "provider-name": mocker.Mock(
+                    task="task-name",
+                    hf_model_id="test-model",
+                    provider_id="mapped-id",
+                    status="live",
+                    adapter_weights_path="lora-weights-path",
+                    adapter="lora",
+                )
             },
         )
-        mocker.patch(
-            "huggingface_hub.inference._providers._common._fetch_lora_weights_path",
-            return_value="lora-weights-path",
-        )
+
         assert helper._prepare_mapping_info("test-model").adapter_weights_path == "lora-weights-path"
         assert helper._prepare_mapping_info("test-model").provider_id == "mapped-id"
         assert helper._prepare_mapping_info("test-model").hf_model_id == "test-model"
@@ -236,9 +249,9 @@ class TestCohereConversationalTask:
         payload = helper._prepare_payload_as_dict(
             [{"role": "user", "content": "Hello!"}],
             {},
-            ProviderMappingInfo(
+            InferenceProviderMapping(
                 hf_model_id="CohereForAI/command-r7b-12-2024",
-                provider_id="CohereForAI/command-r7b-12-2024",
+                providerId="CohereForAI/command-r7b-12-2024",
                 task="conversational",
                 status="live",
             ),
@@ -285,9 +298,9 @@ class TestFalAIProvider:
         payload = helper._prepare_payload_as_dict(
             "a beautiful cat",
             {"width": 512, "height": 512},
-            ProviderMappingInfo(
+            InferenceProviderMapping(
                 hf_model_id="username/repo_name",
-                provider_id="username/repo_name",
+                providerId="username/repo_name",
                 task="text-to-image",
                 status="live",
             ),
@@ -380,9 +393,9 @@ class TestFireworksAIConversationalTask:
         payload = helper._prepare_payload_as_dict(
             [{"role": "user", "content": "Hello!"}],
             {},
-            ProviderMappingInfo(
+            InferenceProviderMapping(
                 hf_model_id="meta-llama/Llama-3.1-8B-Instruct",
-                provider_id="meta-llama/Llama-3.1-8B-Instruct",
+                providerId="meta-llama/Llama-3.1-8B-Instruct",
                 task="conversational",
                 status="live",
             ),
@@ -423,9 +436,9 @@ class TestHFInferenceProvider:
 
     def test_prepare_payload_as_dict(self):
         helper = HFInferenceTask("text-classification")
-        mapping_info = ProviderMappingInfo(
+        mapping_info = InferenceProviderMapping(
             hf_model_id="username/repo_name",
-            provider_id="username/repo_name",
+            providerId="username/repo_name",
             task="text-classification",
             status="live",
         )
@@ -447,9 +460,9 @@ class TestHFInferenceProvider:
 
     def test_prepare_payload_as_bytes(self):
         helper = HFInferenceBinaryInputTask("image-classification")
-        mapping_info = ProviderMappingInfo(
+        mapping_info = InferenceProviderMapping(
             hf_model_id="username/repo_name",
-            provider_id="username/repo_name",
+            providerId="username/repo_name",
             task="image-classification",
             status="live",
         )
@@ -571,9 +584,9 @@ class TestHFInferenceProvider:
     def test_prepare_payload_as_dict_conversational(self, mapped_model, parameters, expected_model):
         helper = HFInferenceConversational()
         messages = [{"role": "user", "content": "Hello!"}]
-        provider_mapping_info = ProviderMappingInfo(
+        provider_mapping_info = InferenceProviderMapping(
             hf_model_id=mapped_model,
-            provider_id=mapped_model,
+            providerId=mapped_model,
             task="conversational",
             status="live",
         )
@@ -708,9 +721,9 @@ class TestHyperbolicProvider:
         payload = helper._prepare_payload_as_dict(
             [{"role": "user", "content": "Hello!"}],
             {"temperature": 0.7},
-            ProviderMappingInfo(
+            InferenceProviderMapping(
                 hf_model_id="meta-llama/Llama-3.2-3B-Instruct",
-                provider_id="meta-llama/Llama-3.2-3B-Instruct",
+                providerId="meta-llama/Llama-3.2-3B-Instruct",
                 task="conversational",
                 status="live",
             ),
@@ -733,9 +746,9 @@ class TestHyperbolicProvider:
                 "height": 512,
                 "seed": 42,
             },
-            ProviderMappingInfo(
+            InferenceProviderMapping(
                 hf_model_id="stabilityai/sdxl-turbo",
-                provider_id="stabilityai/sdxl",
+                providerId="stabilityai/sdxl",
                 task="text-to-image",
                 status="live",
             ),
@@ -768,9 +781,9 @@ class TestNebiusProvider:
         payload = helper._prepare_payload_as_dict(
             "a beautiful cat",
             {"num_inference_steps": 10, "width": 512, "height": 512, "guidance_scale": 7.5},
-            ProviderMappingInfo(
+            InferenceProviderMapping(
                 hf_model_id="black-forest-labs/flux-schnell",
-                provider_id="black-forest-labs/flux-schnell",
+                providerId="black-forest-labs/flux-schnell",
                 task="text-to-image",
                 status="live",
             ),
@@ -833,9 +846,9 @@ class TestReplicateProvider:
         payload = helper._prepare_payload_as_dict(
             "a beautiful cat",
             {"num_inference_steps": 20},
-            ProviderMappingInfo(
+            InferenceProviderMapping(
                 hf_model_id="black-forest-labs/FLUX.1-schnell",
-                provider_id="black-forest-labs/FLUX.1-schnell",
+                providerId="black-forest-labs/FLUX.1-schnell",
                 task="text-to-image",
                 status="live",
             ),
@@ -846,9 +859,9 @@ class TestReplicateProvider:
         payload = helper._prepare_payload_as_dict(
             "a beautiful cat",
             {"num_inference_steps": 20},
-            ProviderMappingInfo(
+            InferenceProviderMapping(
                 hf_model_id="black-forest-labs/FLUX.1-schnell",
-                provider_id="black-forest-labs/FLUX.1-schnell:1944af04d098ef",
+                providerId="black-forest-labs/FLUX.1-schnell:1944af04d098ef",
                 task="text-to-image",
                 status="live",
             ),
@@ -863,9 +876,9 @@ class TestReplicateProvider:
         payload = helper._prepare_payload_as_dict(
             "Hello world",
             {},
-            ProviderMappingInfo(
+            InferenceProviderMapping(
                 hf_model_id="hexgrad/Kokoro-82M",
-                provider_id="hexgrad/Kokoro-82M:f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
+                providerId="hexgrad/Kokoro-82M:f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
                 task="text-to-speech",
                 status="live",
             ),
@@ -907,9 +920,9 @@ class TestTogetherProvider:
         payload = helper._prepare_payload_as_dict(
             "a beautiful cat",
             {"num_inference_steps": 10, "guidance_scale": 1, "width": 512, "height": 512},
-            ProviderMappingInfo(
+            InferenceProviderMapping(
                 hf_model_id="black-forest-labs/FLUX.1-schnell",
-                provider_id="black-forest-labs/FLUX.1-schnell",
+                providerId="black-forest-labs/FLUX.1-schnell",
                 task="text-to-image",
                 status="live",
             ),
@@ -944,9 +957,9 @@ class TestBaseConversationalTask:
         payload = helper._prepare_payload_as_dict(
             inputs=messages,
             parameters=parameters,
-            provider_mapping_info=ProviderMappingInfo(
+            provider_mapping_info=InferenceProviderMapping(
                 hf_model_id="test-model",
-                provider_id="test-provider-id",
+                providerId="test-provider-id",
                 task="conversational",
                 status="live",
             ),
@@ -974,9 +987,9 @@ class TestBaseTextGenerationTask:
         payload = helper._prepare_payload_as_dict(
             inputs=prompt,
             parameters=parameters,
-            provider_mapping_info=ProviderMappingInfo(
+            provider_mapping_info=InferenceProviderMapping(
                 hf_model_id="test-model",
-                provider_id="test-provider-id",
+                providerId="test-provider-id",
                 task="text-generation",
                 status="live",
             ),

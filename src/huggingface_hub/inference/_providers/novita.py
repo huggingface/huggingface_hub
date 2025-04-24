@@ -1,10 +1,10 @@
 from typing import Any, Dict, Optional, Union
 
+from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
     BaseTextGenerationTask,
-    ProviderMappingInfo,
     TaskProviderHelper,
     filter_none,
 )
@@ -51,7 +51,7 @@ class NovitaTextToVideoTask(TaskProviderHelper):
         return f"/v3/hf/{mapped_model}"
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: ProviderMappingInfo
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
         return {"prompt": inputs, **filter_none(parameters)}
 
