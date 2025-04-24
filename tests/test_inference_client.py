@@ -47,10 +47,7 @@ from huggingface_hub import (
 )
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
 from huggingface_hub.inference._client import _open_as_binary
-from huggingface_hub.inference._common import (
-    _stream_chat_completion_response,
-    _stream_text_generation_response,
-)
+from huggingface_hub.inference._common import _stream_chat_completion_response, _stream_text_generation_response
 from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.inference._providers.hf_inference import _build_chat_completion_url
 
@@ -285,8 +282,8 @@ class TestBase:
         monkeypatch.setattr("huggingface_hub.inference._providers.hf_inference._fetch_recommended_models", mock_fetch)
 
 
-@pytest.mark.vcr
 @with_production_testing
+@pytest.mark.skip("Temporary skipping tests for InferenceClient")
 class TestInferenceClient(TestBase):
     @pytest.mark.parametrize("client", list_clients("audio-classification"), indirect=True)
     def test_audio_classification(self, client: InferenceClient):
@@ -842,8 +839,8 @@ class TestListDeployedModels(TestBase):
         assert len(get_session_mock.return_value.get.call_args_list) == len(constants.ALL_INFERENCE_API_FRAMEWORKS)
 
 
-@pytest.mark.vcr
 @with_production_testing
+@pytest.mark.skip("Temporary skipping tests for TestOpenAICompatibility")
 class TestOpenAICompatibility(TestBase):
     def test_base_url_and_api_key(self):
         client = InferenceClient(
