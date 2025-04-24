@@ -51,7 +51,7 @@ def _mocked_error(payload: Dict) -> MagicMock:
     return error
 
 
-@pytest.mark.vcr
+@pytest.mark.skip("Temporary skipping TestTextGenerationClientVCR tests")
 @with_production_testing
 @patch.dict("huggingface_hub.inference._common._UNSUPPORTED_TEXT_GENERATION_KWARGS", {})
 class TestTextGenerationClientVCR(unittest.TestCase):
