@@ -19,10 +19,11 @@ from .openai import OpenAIConversationalTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
-
+from .centml import CentmlConversationalTask, CentmlTextGenerationTask
 
 PROVIDER_T = Literal[
     "black-forest-labs",
+    "centml",
     "cerebras",
     "cohere",
     "fal-ai",
@@ -40,6 +41,10 @@ PROVIDER_T = Literal[
 PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     "black-forest-labs": {
         "text-to-image": BlackForestLabsTextToImageTask(),
+    },
+    "centml": {
+        "conversational": CentmlConversationalTask(),
+        "text-generation": CentmlTextGenerationTask(),
     },
     "cerebras": {
         "conversational": CerebrasConversationalTask(),
