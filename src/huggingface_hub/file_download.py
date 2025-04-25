@@ -585,8 +585,8 @@ def xet_get(
         from hf_xet import PyPointerFile, download_files  # type: ignore[no-redef]
     except ImportError:
         raise ValueError(
-            "To use optimized download using Xet storage, you need to install the hf_xet package. "
-            "Try `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`."
+            'To use optimized download using Xet storage, you need to install the hf_xet package. '
+            'Try `pip install "huggingface_hub[hf_xet]"` or `pip install hf_xet`.'
         )
 
     connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
