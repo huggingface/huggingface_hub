@@ -248,17 +248,6 @@ def _fetch_inference_provider_mapping(model: str) -> Dict:
     return provider_mapping
 
 
-@lru_cache(maxsize=None)
-def _fetch_lora_weights_path(model: str) -> str:
-    from huggingface_hub.hf_api import HfApi
-
-    repo_files = HfApi().list_repo_files(model)
-    safetensors_files = [f for f in repo_files if f.endswith(".safetensors")]
-    if len(safetensors_files) != 1:
-        raise ValueError(f"Expected exactly one safetensors file in repo {model}, got {len(safetensors_files)}.")
-    return safetensors_files[0]
-
-
 def recursive_merge(dict1: Dict, dict2: Dict) -> Dict:
     return {
         **dict1,
