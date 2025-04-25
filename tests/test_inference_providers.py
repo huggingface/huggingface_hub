@@ -8,6 +8,7 @@ from pytest import LogCaptureFixture
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters
+from huggingface_hub.inference._providers import PROVIDERS, get_provider_helper
 from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
     BaseTextGenerationTask,
@@ -320,7 +321,7 @@ class TestFalAIProvider:
     def test_text_to_speech_payload(self):
         helper = FalAITextToSpeechTask()
         payload = helper._prepare_payload_as_dict("Hello world", {}, "username/repo_name")
-        assert payload == {"lyrics": "Hello world"}
+        assert payload == {"text": "Hello world"}
 
     def test_text_to_speech_response(self, mocker):
         helper = FalAITextToSpeechTask()
@@ -1053,3 +1054,27 @@ def test_recursive_merge(dict1: Dict, dict2: Dict, expected: Dict):
     # does not mutate the inputs
     assert dict1 == initial_dict1
     assert dict2 == initial_dict2
+
+
+def test_get_provider_helper_auto(mocker):
+    """Test the 'auto' provider selection logic."""
+
+    mock_provider_a_helper = mocker.Mock(spec=TaskProviderHelper)
+    mock_provider_b_helper = mocker.Mock(spec=TaskProviderHelper)
+    PROVIDERS["provider-a"] = {"test-task": mock_provider_a_helper}
+    PROVIDERS["provider-b"] = {"test-task": mock_provider_b_helper}
+
+    mocker.patch(
+        "huggingface_hub.inference._providers._fetch_inference_provider_mapping",
+        return_value={
+            "provider-a": mocker.Mock(),
+            "provider-b": mocker.Mock(),
+        },
+    )
+    helper = get_provider_helper(provider="auto", task="test-task", model="test-model")
+
+    # The helper should be the one from provider-a
+    assert helper is mock_provider_a_helper
+
+    PROVIDERS.pop("provider-a", None)
+    PROVIDERS.pop("provider-b", None)
