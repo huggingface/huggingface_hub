@@ -187,7 +187,7 @@ Please note that using `hf_transfer` comes with certain limitations. Since it is
 
 `hf_xet` is an alternative to `hf_transfer`. It provides efficient file transfers through a chunk-based deduplication strategy, custom Xet storage (replacing Git LFS), and a seamless integration with `huggingface_hub`. 
 
-[Read more about the package](https://huggingface.co/docs/hub/storage-backends) and enable with `pip install huggingface_hub[hf_xet]`.
+[Read more about the package](https://huggingface.co/docs/hub/storage-backends) and enable with `pip install "huggingface_hub[hf_xet]"`.
 
 </Tip>
 
