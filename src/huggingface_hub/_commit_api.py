@@ -530,7 +530,7 @@ def _upload_xet_files(
     if len(additions) == 0:
         return
     # at this point, we know that hf_xet is installed
-    from hf_xet import upload_files, upload_bytes
+    from hf_xet import upload_bytes, upload_files
 
     try:
         xet_connection_info = fetch_xet_connection_info_from_repo_info(

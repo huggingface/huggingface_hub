@@ -582,7 +582,7 @@ def xet_get(
 
     """
     try:
-        from hf_xet import download_files, PyXetDownloadInfo # type: ignore[no-redef]
+        from hf_xet import PyXetDownloadInfo, download_files  # type: ignore[no-redef]
     except ImportError:
         raise ValueError(
             "To use optimized download using Xet storage, you need to install the hf_xet package. "
@@ -597,8 +597,10 @@ def xet_get(
             raise ValueError("Failed to refresh token using xet metadata.")
         return connection_info.access_token, connection_info.expiration_unix_epoch
 
-    pointer_files = [
-        PyXetDownloadInfo(destination_path=str(incomplete_path.absolute()), hash=xet_file_data.file_hash, file_size=expected_size)
+    xet_download_info = [
+        PyXetDownloadInfo(
+            destination_path=str(incomplete_path.absolute()), hash=xet_file_data.file_hash, file_size=expected_size
+        )
     ]
 
     if not displayed_filename:
@@ -623,7 +625,7 @@ def xet_get(
             progress.update(progress_bytes)
 
         download_files(
-            pointer_files,
+            xet_download_info,
             endpoint=connection_info.endpoint,
             token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
             token_refresher=token_refresher,

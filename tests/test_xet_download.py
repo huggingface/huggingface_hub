@@ -1,6 +1,7 @@
 import os
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Tuple
 from unittest.mock import DEFAULT, Mock, patch
 
 from huggingface_hub import snapshot_download
@@ -293,3 +294,42 @@ class TestXetSnapshotDownload:
 
             # Verify xet_get was not called (files were cached)
             mock_xet_get.assert_not_called()
+
+    def test_download_backward_compatibitily(self, tmp_path):
+        """Test that xet download works with the old pointer file protocol.
+
+        Until the next major version of hf-xet is released, we need to support the old
+        pointer file based download to support old huggingface_hub versions.
+        """
+
+        file_path = os.path.join(tmp_path, DUMMY_XET_FILE)
+
+        file_metadata = get_hf_file_metadata(
+            hf_hub_url(
+                repo_id=DUMMY_XET_MODEL_ID,
+                filename=DUMMY_XET_FILE,
+            )
+        )
+
+        xet_file_data = file_metadata.xet_file_data
+
+        # Mock the response to not include xet metadata
+        from hf_xet import PyPointerFile, download_files
+
+        connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers={})
+
+        def token_refresher() -> Tuple[str, int]:
+            connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers={})
+            return connection_info.access_token, connection_info.expiration_unix_epoch
+
+        pointer_files = [PyPointerFile(path=file_path, hash=xet_file_data.file_hash, filesize=file_metadata.size)]
+
+        download_files(
+            pointer_files,
+            endpoint=connection_info.endpoint,
+            token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
+            token_refresher=token_refresher,
+            progress_updater=None,
+        )
+
+        assert os.path.exists(file_path)
