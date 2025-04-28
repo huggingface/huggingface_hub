@@ -299,7 +299,7 @@ class TestXetE2E(TestXetUpload):
 
         This test ensures that the downloaded file is the same as the uploaded file.
         """
-        from hf_xet import PyPointerFile, download_files
+        from hf_xet import PyXetDownloadInfo, download_files
 
         filename_in_repo = "binary_file.bin"
         repo_id = repo_url.repo_id
@@ -342,13 +342,13 @@ class TestXetE2E(TestXetUpload):
         mock_token_refresher = MagicMock(side_effect=token_refresher)
 
         incomplete_path = Path(tmp_path) / "file.bin.incomplete"
-        py_file = [
-            PyPointerFile(path=str(incomplete_path.absolute()), hash=xet_filedata.file_hash, filesize=expected_size)
+        file_info = [
+            PyXetDownloadInfo(destination_path=str(incomplete_path.absolute()), hash=xet_filedata.file_hash, file_size=expected_size)
         ]
 
         # Call the download_files function with the token refresher, set expiration to 0 forcing a refresh
         download_files(
-            py_file,
+            file_info,
             endpoint=xet_connection_info.endpoint,
             token_info=(xet_connection_info.access_token, 0),
             token_refresher=mock_token_refresher,
