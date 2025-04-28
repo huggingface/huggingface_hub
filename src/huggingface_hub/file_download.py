@@ -598,7 +598,7 @@ def xet_get(
         return connection_info.access_token, connection_info.expiration_unix_epoch
 
     pointer_files = [
-        PyXetDownloadInfo(destination_path=str(incomplete_path.absolute()), hash=xet_file_data.file_hash, filesize=expected_size)
+        PyXetDownloadInfo(destination_path=str(incomplete_path.absolute()), hash=xet_file_data.file_hash, file_size=expected_size)
     ]
 
     if not displayed_filename:
