@@ -2314,6 +2314,18 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = self._api.list_models(filter="co2_eq_emissions")
         assert all(model.card_data is None for model in models)
 
+    def test_filter_models_by_inference_provider(self):
+        models = list(
+            self._api.list_models(inference_provider="hf-inference", expand=["inferenceProviderMapping"], limit=10)
+        )
+        assert len(models) > 0
+        for model in models:
+            assert model.inference_provider_mapping is not None
+            assert any(mapping.provider == "hf-inference" for mapping in model.inference_provider_mapping)
+
+        models = self._api.list_models(filter="co2_eq_emissions")
+        assert all(model.card_data is None for model in models)
+
     def test_is_emission_within_threshold(self):
         # tests that dictionary is handled correctly as "emissions" and that
         # 17g is accepted and parsed correctly as a value
