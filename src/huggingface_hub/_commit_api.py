@@ -580,8 +580,8 @@ def _upload_xet_files(
         if len(paths) > 0:
             paths = list(filter(lambda x: x is not None, paths))
 
-        expected_size = sum([os.path.getsize(path) for path in paths])
-        expected_size += sum([len(byte_array) for byte_array in byte_arrays])
+        expected_size = sum([os.path.getsize(path) for path in paths if path is not None])
+        expected_size += sum([len(byte_array) for byte_array in byte_arrays if byte_array is not None])
 
         if num_chunks > 1:
             description = f"Uploading Batch [{str(i + 1).zfill(num_chunks_num_digits)}/{num_chunks}]..."
