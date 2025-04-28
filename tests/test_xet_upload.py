@@ -343,7 +343,9 @@ class TestXetE2E(TestXetUpload):
 
         incomplete_path = Path(tmp_path) / "file.bin.incomplete"
         file_info = [
-            PyXetDownloadInfo(destination_path=str(incomplete_path.absolute()), hash=xet_filedata.file_hash, file_size=expected_size)
+            PyXetDownloadInfo(
+                destination_path=str(incomplete_path.absolute()), hash=xet_filedata.file_hash, file_size=expected_size
+            )
         ]
 
         # Call the download_files function with the token refresher, set expiration to 0 forcing a refresh
