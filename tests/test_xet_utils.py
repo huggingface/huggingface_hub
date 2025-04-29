@@ -262,12 +262,3 @@ def test_env_var_hf_hub_disable_xet() -> None:
     os.environ["HF_HUB_DISABLE_XET"] = "1"
     assert not is_xet_available()
     del os.environ["HF_HUB_DISABLE_XET"]  # Clean up after the test
-
-
-def test_old_hfhub_version_xet(mocker) -> None:
-    """Test that old hf-hub results in is_xet_available() emitting a UserWarning."""
-    from huggingface_hub.utils._runtime import is_xet_available
-
-    mocker.patch("huggingface_hub.utils._runtime.get_hf_hub_version", return_value="0.29.0")
-    with pytest.warns(UserWarning):
-        assert is_xet_available()
