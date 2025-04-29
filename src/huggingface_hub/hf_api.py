@@ -708,14 +708,21 @@ class RepoFolder:
 
 @dataclass
 class InferenceProviderMapping:
+    hf_model_id: str
     status: Literal["live", "staging"]
     provider_id: str
     task: str
 
+    adapter: Optional[str] = None
+    adapter_weights_path: Optional[str] = None
+
     def __init__(self, **kwargs):
+        self.hf_model_id = kwargs.pop("hf_model_id")
         self.status = kwargs.pop("status")
         self.provider_id = kwargs.pop("providerId")
         self.task = kwargs.pop("task")
+        self.adapter = kwargs.pop("adapter", None)
+        self.adapter_weights_path = kwargs.pop("adapterWeightsPath", None)
         self.__dict__.update(**kwargs)
 
 
@@ -847,7 +854,9 @@ class ModelInfo:
         self.inference_provider_mapping = kwargs.pop("inferenceProviderMapping", None)
         if self.inference_provider_mapping:
             self.inference_provider_mapping = {
-                provider: InferenceProviderMapping(**value)
+                provider: InferenceProviderMapping(
+                    **{**value, "hf_model_id": self.id}
+                )  # little hack to simplify Inference Providers logic
                 for provider, value in self.inference_provider_mapping.items()
             }
 
