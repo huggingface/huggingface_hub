@@ -13,13 +13,18 @@ from .fal_ai import (
     FalAITextToVideoTask,
 )
 from .fireworks_ai import FireworksAIConversationalTask
-from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
+from .hf_inference import (
+    HFInferenceBinaryInputTask,
+    HFInferenceConversational,
+    HFInferenceFeatureExtractionTask,
+    HFInferenceTask,
+)
 from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
 from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .openai import OpenAIConversationalTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
-from .sambanova import SambanovaConversationalTask
+from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
 
 
@@ -72,7 +77,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "audio-classification": HFInferenceBinaryInputTask("audio-classification"),
         "automatic-speech-recognition": HFInferenceBinaryInputTask("automatic-speech-recognition"),
         "fill-mask": HFInferenceTask("fill-mask"),
-        "feature-extraction": HFInferenceTask("feature-extraction"),
+        "feature-extraction": HFInferenceFeatureExtractionTask(),
         "image-classification": HFInferenceBinaryInputTask("image-classification"),
         "image-segmentation": HFInferenceBinaryInputTask("image-segmentation"),
         "document-question-answering": HFInferenceTask("document-question-answering"),
@@ -116,6 +121,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     },
     "sambanova": {
         "conversational": SambanovaConversationalTask(),
+        "feature-extraction": SambanovaFeatureExtractionTask(),
     },
     "together": {
         "text-to-image": TogetherTextToImageTask(),
