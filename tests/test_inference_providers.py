@@ -912,8 +912,17 @@ class TestSambanovaProvider:
 
     def test_prepare_payload_as_dict_feature_extraction(self):
         helper = SambanovaFeatureExtractionTask()
-        payload = helper._prepare_payload_as_dict("Hello world", {"truncate": True}, "username/repo_name")
-        assert payload == {"input": "Hello world", "model": "username/repo_name", "truncate": True}
+        payload = helper._prepare_payload_as_dict(
+            "Hello world",
+            {"truncate": True},
+            InferenceProviderMapping(
+                hf_model_id="username/repo_name",
+                providerId="provider-id",
+                task="feature-extraction",
+                status="live",
+            ),
+        )
+        assert payload == {"input": "Hello world", "model": "provider-id", "truncate": True}
 
     def test_prepare_url_feature_extraction(self):
         helper = SambanovaFeatureExtractionTask()

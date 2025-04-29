@@ -183,11 +183,6 @@ class HFInferenceFeatureExtractionTask(HFInferenceTask):
     def __init__(self):
         super().__init__("feature-extraction")
 
-    def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
-        return {"inputs": inputs, "parameters": filter_none(parameters)}
-
     def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
         if isinstance(response, bytes):
             return _bytes_to_dict(response)
