@@ -2,7 +2,6 @@ import os
 from unittest.mock import MagicMock
 
 import pytest
-import warnings
 
 from huggingface_hub import constants
 from huggingface_hub.utils._xet import (
@@ -263,6 +262,7 @@ def test_env_var_hf_hub_disable_xet() -> None:
     os.environ["HF_HUB_DISABLE_XET"] = "1"
     assert not is_xet_available()
     del os.environ["HF_HUB_DISABLE_XET"]  # Clean up after the test
+
 
 def test_old_hfhub_version_xet(mocker) -> None:
     """Test that old hf-hub results in is_xet_available() emitting a UserWarning."""
