@@ -26,8 +26,8 @@ jobs:
           [
             "Repository only",
             "Everything else",
-            "Inference only"
-            
+            "Inference only",
+            "Xet only"
           ]
         include:
           - python-version: "3.13" # LFS not ran on 3.8
@@ -97,6 +97,11 @@ jobs:
 
           esac
 
+          # If not "Xet only", we want to test upload/download with regular LFS workflow
+          # => uninstall hf_xet to make sure we are not using it.
+          if [[ "${{ matrix.test_name }}" != "Xet only" ]]; then
+            uv pip uninstall hf_xet
+          fi
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
@@ -121,7 +126,7 @@ jobs:
             ;;
 
             "Everything else")
-              PYTEST="$PYTEST ../tests -k 'not TestRepository and not test_inference' -n 4"
+              PYTEST="$PYTEST ../tests -k 'not TestRepository and not test_inference and not test_xet' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
@@ -129,7 +134,6 @@ jobs:
             lfs)
               eval "RUN_GIT_LFS_TESTS=1 $PYTEST ../tests -k 'HfLargefilesTest'"
             ;;
-
 
             fastai)
               eval "$PYTEST ../tests/test_fastai*"
@@ -147,6 +151,12 @@ jobs:
             eval "$PYTEST ../tests/test_serialization.py"
             ;;
 
+            "Xet only")
+              PYTEST="$PYTEST ../tests -k 'test_xet' -n 4"
+              echo $PYTEST
+              eval $PYTEST
+            ;;
+
           esac
 
       # Upload code coverage
@@ -159,7 +169,6 @@ jobs:
   build-windows:
     # (almost) Duplicate config compared to `build-ubuntu` but running on Windows.
     # Please make sure to keep it updated as well.
-    # Lighter version of the tests with only 1 test suite running on Python3.8.
     runs-on: windows-latest
     env:
       DISABLE_SYMLINKS_IN_WINDOWS_TESTS: 1
@@ -168,7 +177,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8"]
+        python-version: ["3.8", "3.11"]
+        test_name: ["Everything else", "Xet only"]
 
     steps:
       - uses: actions/checkout@v2
@@ -186,14 +196,37 @@ jobs:
 
       # Install dependencies
       - name: Install dependencies
-        run: uv pip install "huggingface_hub[testing] @ ."
+        run: |
+          uv pip install "huggingface_hub[testing] @ ."
+          if ("${{ matrix.test_name }}" -eq "Xet only") {
+            uv pip install hf_xet
+          }
 
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
         run: |
           ..\.venv\Scripts\activate
-          python -m pytest -n 4 --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 8 --reruns-delay 2 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)' ../tests
+          $PYTEST_ARGS = @(
+            "-m", "pytest",
+            "-n", "4",
+            "--cov=./huggingface_hub",
+            "--cov-report=xml:../coverage.xml",
+            "--vcr-record=none",
+            "--reruns", "8",
+            "--reruns-delay", "2",
+            "--only-rerun", "(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)",
+            "../tests"
+          )
+
+          switch ("${{ matrix.test_name }}") {
+            "Xet only" {
+              python $PYTEST_ARGS -k "test_xet"
+            }
+            "Everything else" {
+              python $PYTEST_ARGS -k "not test_xet"
+            }
+          }
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action

@@ -1,6 +1,7 @@
 from typing import Any, Dict, Optional, Union
 
-from huggingface_hub.inference._common import _as_dict
+from huggingface_hub.hf_api import InferenceProviderMapping
+from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
 from huggingface_hub.utils import get_session
 
@@ -18,19 +19,22 @@ class ReplicateTask(TaskProviderHelper):
         headers["Prefer"] = "wait"
         return headers
 
-    def _prepare_route(self, mapped_model: str) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         if ":" in mapped_model:
             return "/v1/predictions"
         return f"/v1/models/{mapped_model}/predictions"
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
+        mapped_model = provider_mapping_info.provider_id
         payload: Dict[str, Any] = {"input": {"prompt": inputs, **filter_none(parameters)}}
         if ":" in mapped_model:
             version = mapped_model.split(":", 1)[1]
             payload["version"] = version
         return payload
 
-    def get_response(self, response: Union[bytes, Dict]) -> Any:
+    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
         response_dict = _as_dict(response)
         if response_dict.get("output") is None:
             raise TimeoutError(
@@ -47,7 +51,9 @@ class ReplicateTextToSpeechTask(ReplicateTask):
     def __init__(self):
         super().__init__("text-to-speech")
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
-        payload: Dict = super()._prepare_payload_as_dict(inputs, parameters, mapped_model)  # type: ignore[assignment]
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
+        payload: Dict = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)  # type: ignore[assignment]
         payload["input"]["text"] = payload["input"].pop("prompt")  # rename "prompt" to "text" for TTS
         return payload

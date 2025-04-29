@@ -200,12 +200,13 @@ def snapshot_download(
                     commit_hash = f.read()
 
         # Try to locate snapshot folder for this commit hash
-        if commit_hash is not None:
+        if commit_hash is not None and local_dir is None:
             snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
             if os.path.exists(snapshot_folder):
                 # Snapshot folder exists => let's return it
                 # (but we can't check if all the files are actually there)
                 return snapshot_folder
+
         # If local_dir is not None, return it if it exists and is not empty
         if local_dir is not None:
             local_dir = Path(local_dir)

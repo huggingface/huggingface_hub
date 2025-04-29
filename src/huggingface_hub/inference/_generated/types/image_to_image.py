@@ -30,6 +30,8 @@ class ImageToImageParameters(BaseInferenceType):
     """For diffusion models. The number of denoising steps. More denoising steps usually lead to
     a higher quality image at the expense of slower inference.
     """
+    prompt: Optional[str] = None
+    """The text prompt to guide the image generation."""
     target_size: Optional[ImageToImageTargetSize] = None
     """The size in pixel of the output image."""
 

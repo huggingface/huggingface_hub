@@ -44,14 +44,17 @@ from huggingface_hub.file_download import (
     http_get,
     try_to_load_from_cache,
 )
-from huggingface_hub.utils import SoftTemporaryDirectory, get_session, hf_raise_for_status
+from huggingface_hub.utils import SoftTemporaryDirectory, get_session, hf_raise_for_status, is_hf_transfer_available
 
 from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
 from .testing_utils import (
+    DUMMY_EXTRA_LARGE_FILE_MODEL_ID,
+    DUMMY_EXTRA_LARGE_FILE_NAME,
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_RENAMED_NEW_MODEL_ID,
     DUMMY_RENAMED_OLD_MODEL_ID,
+    DUMMY_TINY_FILE_NAME,
     SAMPLE_DATASET_IDENTIFIER,
     repo_name,
     use_tmp_repo,
@@ -505,7 +508,7 @@ class CachedDownloadTests(unittest.TestCase):
         url = hf_hub_url("gpt2", filename="tf_model.h5")
         metadata = get_hf_file_metadata(url)
 
-        self.assertIn("cdn-lfs", metadata.location)  # Redirection
+        self.assertIn("xethub.hf.co", metadata.location)  # Redirection
         self.assertEqual(metadata.size, 497933648)  # Size of LFS file, not pointer
 
     def test_file_consistency_check_fails_regular_file(self):
@@ -523,6 +526,7 @@ class CachedDownloadTests(unittest.TestCase):
                     etag=metadata.etag,
                     location=metadata.location,
                     size=450,  # will expect 450 bytes but will download 496 bytes
+                    xet_file_data=None,
                 )
 
             with patch("huggingface_hub.file_download.get_hf_file_metadata", _mocked_hf_file_metadata):
@@ -544,6 +548,7 @@ class CachedDownloadTests(unittest.TestCase):
                     etag=metadata.etag,
                     location=metadata.location,
                     size=65000,  # will expect 65000 bytes but will download 65074 bytes
+                    xet_file_data=None,
                 )
 
             with patch("huggingface_hub.file_download.get_hf_file_metadata", _mocked_hf_file_metadata):
@@ -1212,6 +1217,46 @@ class TestEtagTimeoutConfig(unittest.TestCase):
                 kwargs = mock_etag_call.call_args.kwargs
                 self.assertIn("timeout", kwargs)
                 self.assertEqual(kwargs["timeout"], 12)  # passed value ignored, HF_HUB_ETAG_TIMEOUT takes priority
+
+
+@with_production_testing
+class TestExtraLargeFileDownloadPaths(unittest.TestCase):
+    @patch("huggingface_hub.file_download.constants.HF_HUB_ENABLE_HF_TRANSFER", False)
+    def test_large_file_http_path_error(self):
+        with SoftTemporaryDirectory() as cache_dir:
+            with self.assertRaises(
+                ValueError,
+                msg="The file is too large to be downloaded using the regular download method. Use `hf_transfer` or `xet_get` instead. Try `pip install hf_transfer` or `pip install hf_xet`.",
+            ):
+                hf_hub_download(
+                    DUMMY_EXTRA_LARGE_FILE_MODEL_ID,
+                    filename=DUMMY_EXTRA_LARGE_FILE_NAME,
+                    cache_dir=cache_dir,
+                    revision="main",
+                    etag_timeout=10,
+                )
+
+    # Test "large" file download with hf_transfer. Use a tiny file to keep the tests fast and avoid
+    # internal gateway transfer quotas.
+    @unittest.skipIf(
+        not is_hf_transfer_available(),
+        "hf_transfer not installed, so skipping large file download with hf_transfer check.",
+    )
+    @patch("huggingface_hub.file_download.constants.HF_HUB_ENABLE_HF_TRANSFER", True)
+    @patch("huggingface_hub.file_download.constants.MAX_HTTP_DOWNLOAD_SIZE", 44)
+    @patch("huggingface_hub.file_download.constants.DOWNLOAD_CHUNK_SIZE", 2)  # make sure hf_download is used
+    def test_large_file_download_with_hf_transfer(self):
+        with SoftTemporaryDirectory() as cache_dir:
+            path = hf_hub_download(
+                DUMMY_EXTRA_LARGE_FILE_MODEL_ID,
+                filename=DUMMY_TINY_FILE_NAME,
+                cache_dir=cache_dir,
+                revision="main",
+                etag_timeout=10,
+            )
+            with open(path, "rb") as f:
+                content = f.read()
+                self.assertEqual(content, b"test\n" * 9)  # the file is 9 lines of "test"
 
 
 def _recursive_chmod(path: str, mode: int) -> None:
