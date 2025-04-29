@@ -854,7 +854,9 @@ class ModelInfo:
         self.inference_provider_mapping = kwargs.pop("inferenceProviderMapping", None)
         if self.inference_provider_mapping:
             self.inference_provider_mapping = {
-                provider: InferenceProviderMapping(**{**value, "hf_model_id": self.id})  # little hack to simplify Inference Providers logic
+                provider: InferenceProviderMapping(
+                    **{**value, "hf_model_id": self.id}
+                )  # little hack to simplify Inference Providers logic
                 for provider, value in self.inference_provider_mapping.items()
             }
 
