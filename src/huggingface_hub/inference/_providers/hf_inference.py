@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from huggingface_hub import constants
+from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import _b64_encode, _open_as_binary
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
 from huggingface_hub.utils import build_hf_headers, get_session, get_token, hf_raise_for_status
@@ -23,9 +24,9 @@ class HFInferenceTask(TaskProviderHelper):
         # special case: for HF Inference we allow not providing an API key
         return api_key or get_token()  # type: ignore[return-value]
 
-    def _prepare_mapped_model(self, model: Optional[str]) -> str:
+    def _prepare_mapping_info(self, model: Optional[str]) -> InferenceProviderMapping:
         if model is not None and model.startswith(("http://", "https://")):
-            return model
+            return InferenceProviderMapping(providerId=model, hf_model_id=model, task=self.task, status="live")
         model_id = model if model is not None else _fetch_recommended_models().get(self.task)
         if model_id is None:
             raise ValueError(
@@ -33,7 +34,7 @@ class HFInferenceTask(TaskProviderHelper):
                 " explicitly. Visit https://huggingface.co/tasks for more info."
             )
         _check_supported_task(model_id, self.task)
-        return model_id
+        return InferenceProviderMapping(providerId=model_id, hf_model_id=model_id, task=self.task, status="live")
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
         # hf-inference provider can handle URLs (e.g. Inference Endpoints or TGI deployment)
@@ -47,7 +48,9 @@ class HFInferenceTask(TaskProviderHelper):
             else f"{self.base_url}/models/{mapped_model}"
         )
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
         if isinstance(inputs, bytes):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
         if isinstance(inputs, Path):
@@ -56,11 +59,17 @@ class HFInferenceTask(TaskProviderHelper):
 
 
 class HFInferenceBinaryInputTask(HFInferenceTask):
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
         return None
 
     def _prepare_payload_as_bytes(
-        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
+        self,
+        inputs: Any,
+        parameters: Dict,
+        provider_mapping_info: InferenceProviderMapping,
+        extra_payload: Optional[Dict],
     ) -> Optional[bytes]:
         parameters = filter_none({k: v for k, v in parameters.items() if v is not None})
         extra_payload = extra_payload or {}
@@ -84,7 +93,10 @@ class HFInferenceConversational(HFInferenceTask):
     def __init__(self):
         super().__init__("conversational")
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
+        mapped_model = provider_mapping_info.provider_id
         payload_model = parameters.get("model") or mapped_model
 
         if payload_model is None or payload_model.startswith(("http://", "https://")):

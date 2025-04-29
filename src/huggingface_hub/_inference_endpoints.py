@@ -6,14 +6,13 @@ from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from huggingface_hub.errors import InferenceEndpointError, InferenceEndpointTimeoutError
 
-from .inference._client import InferenceClient
-from .inference._generated._async_client import AsyncInferenceClient
 from .utils import get_session, logging, parse_datetime
 
 
 if TYPE_CHECKING:
     from .hf_api import HfApi
-
+    from .inference._client import InferenceClient
+    from .inference._generated._async_client import AsyncInferenceClient
 
 logger = logging.get_logger(__name__)
 
@@ -138,7 +137,7 @@ class InferenceEndpoint:
         self._populate_from_raw()
 
     @property
-    def client(self) -> InferenceClient:
+    def client(self) -> "InferenceClient":
         """Returns a client to make predictions on this Inference Endpoint.
 
         Returns:
@@ -152,13 +151,15 @@ class InferenceEndpoint:
                 "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
                 "Please wait for the Inference Endpoint to be deployed using `endpoint.wait()` and try again."
             )
+        from .inference._client import InferenceClient
+
         return InferenceClient(
             model=self.url,
             token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
         )
 
     @property
-    def async_client(self) -> AsyncInferenceClient:
+    def async_client(self) -> "AsyncInferenceClient":
         """Returns a client to make predictions on this Inference Endpoint.
 
         Returns:
@@ -172,6 +173,8 @@ class InferenceEndpoint:
                 "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
                 "Please wait for the Inference Endpoint to be deployed using `endpoint.wait()` and try again."
             )
+        from .inference._generated._async_client import AsyncInferenceClient
+
         return AsyncInferenceClient(
             model=self.url,
             token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
