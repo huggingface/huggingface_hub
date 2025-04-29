@@ -21,6 +21,8 @@ import sys
 import warnings
 from typing import Any, Dict
 
+from packaging.version import Version
+
 from .. import __version__, constants
 
 
@@ -157,7 +159,14 @@ def is_xet_available() -> bool:
     # since hf_xet is automatically used if available, allow explicit disabling via environment variable
     if constants._is_true(os.environ.get("HF_HUB_DISABLE_XET")):  # type: ignore
         return False
-    return is_package_available("hf_xet")
+
+    is_xet = is_package_available("hf_xet")
+    if is_xet and Version(get_hf_hub_version()) < Version("0.30.0"):
+        # if hf_xet is installed but huggingface_hub is older than 0.30.0, we need to warn the user
+        # that they need to upgrade huggingface_hub
+        warnings.warn("hf_xet is installed but requires huggingface_hub>=0.30.0. Please upgrade huggingface_hub.")
+
+    return is_xet
 
 
 def get_xet_version() -> str:
