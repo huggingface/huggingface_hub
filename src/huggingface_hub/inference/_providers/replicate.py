@@ -1,5 +1,6 @@
 from typing import Any, Dict, Optional, Union
 
+from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
 from huggingface_hub.utils import get_session
@@ -23,7 +24,10 @@ class ReplicateTask(TaskProviderHelper):
             return "/v1/predictions"
         return f"/v1/models/{mapped_model}/predictions"
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
+        mapped_model = provider_mapping_info.provider_id
         payload: Dict[str, Any] = {"input": {"prompt": inputs, **filter_none(parameters)}}
         if ":" in mapped_model:
             version = mapped_model.split(":", 1)[1]
@@ -47,7 +51,9 @@ class ReplicateTextToSpeechTask(ReplicateTask):
     def __init__(self):
         super().__init__("text-to-speech")
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
-        payload: Dict = super()._prepare_payload_as_dict(inputs, parameters, mapped_model)  # type: ignore[assignment]
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
+        payload: Dict = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)  # type: ignore[assignment]
         payload["input"]["text"] = payload["input"].pop("prompt")  # rename "prompt" to "text" for TTS
         return payload
