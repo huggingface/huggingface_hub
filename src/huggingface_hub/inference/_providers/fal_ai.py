@@ -85,6 +85,8 @@ class FalAITextToImageTask(FalAITask):
             )
             payload["loras"] = [{"path": lora_path, "scale": 1}]
             if provider_mapping_info.provider_id == "fal-ai/lora":
+                # little hack: fal requires the base model for stable-diffusion-based loras but not for flux-based
+                # See payloads in https://fal.ai/models/fal-ai/lora/api vs https://fal.ai/models/fal-ai/flux-lora/api
                 payload["model_name"] = "stabilityai/stable-diffusion-xl-base-1.0"
 
         return payload
