@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
 
+import os
+
 import pytest
 
 from huggingface_hub import constants
@@ -252,3 +254,10 @@ def test_fetch_xet_metadata_with_url_invalid_response(mocker) -> None:
 
     with pytest.raises(ValueError, match="Xet headers have not been correctly set by the server."):
         _fetch_xet_connection_info_with_url(url=url, headers=headers)
+
+def test_env_var_hf_hub_disable_xet() -> None:
+    """Test that setting HF_HUB_DISABLE_XET results in is_xet_available() returning False."""
+    from huggingface_hub.utils._runtime import is_xet_available
+    os.environ["HF_HUB_DISABLE_XET"] = "1"
+    assert not is_xet_available()
+    del os.environ["HF_HUB_DISABLE_XET"]  # Clean up after the test

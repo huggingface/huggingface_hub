@@ -89,6 +89,7 @@ Integer value to define the number of seconds to wait for server response when d
 * [`HF_XET_CACHE`](../package_reference/environment_variables#hfxetcache)
 * [`HF_XET_HIGH_PERFORMANCE`](../package_reference/environment_variables#hfxethighperformance)
 * [`HF_XET_RECONSTRUCT_WRITE_SEQUENTIALLY`](../package_reference/environment_variables#hfxetreconstructwritesequentially)
+* [`HF_HUB_DISABLE_XET`](../package_reference/environment_variables#hfhubdisablexet)
 
 ### HF_XET_CHUNK_CACHE_SIZE_BYTES
 
@@ -163,6 +164,10 @@ By default, some data is collected by HF libraries (`transformers`, `datasets`, 
 Each library defines its own policy (i.e. which usage to monitor) but the core implementation happens in `huggingface_hub` (see [`send_telemetry`]).
 
 You can set `HF_HUB_DISABLE_TELEMETRY=1` as environment variable to globally disable telemetry.
+
+### HF_HUB_DISABLE_XET
+
+Set to disable using `hf-xet`, even if it is available in your Python environment. This is since `hf-xet` will be used automatically if it is found, this allows explicitly disabling its usage.
 
 ### HF_HUB_ENABLE_HF_TRANSFER
 
