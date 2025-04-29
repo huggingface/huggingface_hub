@@ -34,7 +34,7 @@ from huggingface_hub.inference._providers.nebius import NebiusTextToImageTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
-from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
+from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from huggingface_hub.inference._providers.together import TogetherTextToImageTask
 
 from .testing_utils import assert_in_logs
@@ -782,11 +782,23 @@ class TestReplicateProvider:
 
 
 class TestSambanovaProvider:
-    def test_prepare_url(self):
+    def test_prepare_url_conversational(self):
         helper = SambanovaConversationalTask()
         assert (
             helper._prepare_url("sambanova_token", "username/repo_name")
             == "https://api.sambanova.ai/v1/chat/completions"
+        )
+
+    def test_prepare_payload_as_dict_feature_extraction(self):
+        helper = SambanovaFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict("Hello world", {"truncate": True}, "username/repo_name")
+        assert payload == {"input": "Hello world", "model": "username/repo_name", "truncate": True}
+
+    def test_prepare_url_feature_extraction(self):
+        helper = SambanovaFeatureExtractionTask()
+        assert (
+            helper._prepare_url("hf_token", "username/repo_name")
+            == "https://router.huggingface.co/sambanova/v1/embeddings"
         )
 
 

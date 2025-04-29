@@ -1080,7 +1080,7 @@ class InferenceClient:
         )
         response = self._inner_post(request_parameters)
         np = _import_numpy()
-        return np.array(_bytes_to_dict(response), dtype="float32")
+        return np.array(provider_helper.get_response(response), dtype="float32")
 
     def fill_mask(
         self,

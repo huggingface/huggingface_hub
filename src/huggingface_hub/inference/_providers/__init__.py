@@ -19,7 +19,7 @@ from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTe
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .openai import OpenAIConversationalTask
 from .replicate import ReplicateTask, ReplicateTextToSpeechTask
-from .sambanova import SambanovaConversationalTask
+from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
 
 
@@ -116,6 +116,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     },
     "sambanova": {
         "conversational": SambanovaConversationalTask(),
+        "feature-extraction": SambanovaFeatureExtractionTask(),
     },
     "together": {
         "text-to-image": TogetherTextToImageTask(),
