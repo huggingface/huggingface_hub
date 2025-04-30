@@ -102,7 +102,6 @@ from ._runtime import (
     is_torch_available,
 )
 from ._safetensors import SafetensorsFileMetadata, SafetensorsRepoMetadata, TensorInfo
-from ._strict_dataclass import strict_dataclass, validated_field
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess
 from ._telemetry import send_telemetry
 from ._typing import is_jsonable, is_simple_optional_type, unwrap_simple_optional_type

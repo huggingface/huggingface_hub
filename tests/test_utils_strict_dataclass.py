@@ -1,12 +1,12 @@
 import inspect
-from dataclasses import asdict, astuple, is_dataclass
+from dataclasses import asdict, astuple, dataclass, is_dataclass
 from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union, get_type_hints
 
 import jedi
 import pytest
 
+from huggingface_hub.dataclasses import _is_validator, strict, type_validator, validated_field
 from huggingface_hub.errors import StrictDataclassDefinitionError, StrictDataclassFieldValidationError
-from huggingface_hub.utils._strict_dataclass import _is_validator, strict_dataclass, type_validator, validated_field
 
 
 def positive_int(value: int):
@@ -19,10 +19,18 @@ def multiple_of_64(value: int):
         raise ValueError(f"Value must be a multiple of 64, got {value}")
 
 
-@strict_dataclass
+@strict
+@dataclass
 class Config:
     model_type: str
     hidden_size: int = validated_field(validator=[positive_int, multiple_of_64])
+    vocab_size: int = validated_field(validator=positive_int, default=16)
+
+
+@strict(accept_kwargs=True)
+@dataclass
+class ConfigWithKwargs:
+    model_type: str
     vocab_size: int = validated_field(validator=positive_int, default=16)
 
 
@@ -85,13 +93,15 @@ def test_custom_validator_must_be_callable():
     """Must raise at class definition time."""
     with pytest.raises(StrictDataclassDefinitionError):
 
-        @strict_dataclass
+        @strict
+        @dataclass
         class Config:
             model_type: str = validated_field(validator="not_a_function")
 
     with pytest.raises(StrictDataclassDefinitionError):
 
-        @strict_dataclass
+        @strict
+        @dataclass
         class Config:
             model_type: str = validated_field(validator=lambda: None)  # not a validator either
 
@@ -242,27 +252,23 @@ def test_not_a_validator(obj):
 
 
 def test_accept_kwargs():
-    @strict_dataclass(accept_kwargs=True)
-    class Config:
-        model_type: str
-        hidden_size: int = validated_field(validator=positive_int, default=16)
-
-    config = Config(model_type="bert", vocab_size=30000, hidden_size=768)
+    config = ConfigWithKwargs(model_type="bert", vocab_size=30000, hidden_size=768)
     assert config.model_type == "bert"
     assert config.vocab_size == 30000
     assert config.hidden_size == 768
 
     # Defined fields are still validated
     with pytest.raises(StrictDataclassFieldValidationError):
-        Config(model_type="bert", hidden_size=-1)
+        ConfigWithKwargs(model_type="bert", vocab_size=-1)
 
     # Default values are still used
-    config = Config(model_type="bert")
-    assert config.hidden_size == 16
+    config = ConfigWithKwargs(model_type="bert")
+    assert config.vocab_size == 16
 
 
 def test_do_not_accept_kwargs():
-    @strict_dataclass
+    @strict
+    @dataclass
     class Config:
         model_type: str
 
@@ -330,32 +336,93 @@ def test_correct_eq_repr():
     assert repr(config1) == "Config(model_type='bert', hidden_size=0, vocab_size=16)"
 
 
+def test_repr_if_accept_kwargs():
+    config1 = ConfigWithKwargs(foo="bar", model_type="bert")
+    assert repr(config1) == "ConfigWithKwargs(model_type='bert', vocab_size=16, *foo='bar')"
+
+
 def test_autocompletion_attribute_without_kwargs():
     # Create a sample script
     completions = jedi.Script("""
-@strict_dataclass
+from dataclasses import dataclass
+from huggingface_hub.dataclasses import strict
+
+@strict
+@dataclass
 class Config:
     model_type: str
     hidden_size: int = 768
 
 config = Config(model_type="bert")
 config.
-""").complete(line=8, column=7)
+""").complete(line=12, column=7)
     completion_names = [c.name for c in completions]
     assert "model_type" in completion_names
     assert "hidden_size" in completion_names
+
+
+def test_autocompletion_attribute_with_kwargs():
+    # Create a sample script
+    completions = jedi.Script("""
+from dataclasses import dataclass
+from huggingface_hub.dataclasses import strict
+
+@strict(accept_kwargs=True)
+@dataclass
+class Config:
+    model_type: str
+    hidden_size: int = 768
+
+config = Config(model_type="bert", foo="bar")
+config.
+""").complete(line=12, column=7)
+    completion_names = [c.name for c in completions]
+    assert "model_type" in completion_names
+    assert "hidden_size" in completion_names
+    assert "foo" not in completion_names  # not an official arg
 
 
 def test_autocompletion_init_without_kwargs():
     # Create a sample script
     completions = jedi.Script("""
-@strict_dataclass
+from dataclasses import dataclass
+from huggingface_hub.dataclasses import strict
+
+@strict
+@dataclass
 class Config:
     model_type: str
     hidden_size: int = 768
 
 config = Config(
-""").complete(line=7, column=16)
+""").complete(line=11, column=16)
     completion_names = [c.name for c in completions]
-    assert "model_type" in completion_names
-    assert "hidden_size" in completion_names
+    assert "model_type=" in completion_names
+    assert "hidden_size=" in completion_names
+
+
+def test_autocompletion_init_with_kwargs():
+    # Create a sample script
+    completions = jedi.Script("""
+from dataclasses import dataclass
+from huggingface_hub.dataclasses import strict
+
+@strict(accept_kwargs=True)
+@dataclass
+class Config:
+    model_type: str
+    hidden_size: int = 768
+
+config = Config(
+""").complete(line=11, column=16)
+    completion_names = [c.name for c in completions]
+    assert "model_type=" in completion_names
+    assert "hidden_size=" in completion_names
+
+
+def test_strict_requires_dataclass():
+    with pytest.raises(StrictDataclassDefinitionError):
+
+        @strict
+        class InvalidConfig:
+            model_type: str
