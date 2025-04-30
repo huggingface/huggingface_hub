@@ -86,10 +86,10 @@ Integer value to define the number of seconds to wait for server response when d
 ## Xet 
 
 ### Other Xet environment variables
+* [`HF_HUB_DISABLE_XET`](../package_reference/environment_variables#hfhubdisablexet)
 * [`HF_XET_CACHE`](../package_reference/environment_variables#hfxetcache)
 * [`HF_XET_HIGH_PERFORMANCE`](../package_reference/environment_variables#hfxethighperformance)
 * [`HF_XET_RECONSTRUCT_WRITE_SEQUENTIALLY`](../package_reference/environment_variables#hfxetreconstructwritesequentially)
-* [`HF_HUB_DISABLE_XET`](../package_reference/environment_variables#hfhubdisablexet)
 
 ### HF_XET_CHUNK_CACHE_SIZE_BYTES
 

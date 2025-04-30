@@ -216,12 +216,7 @@ class UploadCommand(BaseHuggingfaceCLICommand):
             if self.delete is not None and len(self.delete) > 0:
                 warnings.warn("Ignoring `--delete` since a single file is uploaded.")
 
-        if not is_xet_available():
-            logger.info(
-                "Consider using `hf_xet` for faster uploads. See"
-                " https://huggingface.co/docs/huggingface_hub/guides/upload#faster-uploads for more details."
-            )
-        elif not HF_HUB_ENABLE_HF_TRANSFER:
+        if not is_xet_available() and not HF_HUB_ENABLE_HF_TRANSFER:
             logger.info(
                 "Consider using `hf_transfer` for faster uploads. This solution comes with some limitations. See"
                 " https://huggingface.co/docs/huggingface_hub/hf_transfer for more details."
