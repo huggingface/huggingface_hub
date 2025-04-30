@@ -884,7 +884,11 @@ class InferenceClient:
         payload_model = model or self.model
 
         # Get the provider helper
-        provider_helper = get_provider_helper(self.provider, task="conversational", model=payload_model)
+        provider_helper = get_provider_helper(
+            self.provider,
+            task="conversational",
+            model=model_id_or_url if model_id_or_url.startswith(("http://", "https://")) else payload_model,
+        )
 
         # Prepare the payload
         parameters = {
