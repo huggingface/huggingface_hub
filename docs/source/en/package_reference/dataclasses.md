@@ -1,22 +1,22 @@
 # Strict Dataclasses
 
-The `huggingface_hub` package provides a utility to create **strict dataclasses**. These are enhanced versions of Python's standard `dataclass` with additional validation features. Strict dataclasses ensure that fields are validated both during initialization and assignment, making them useful for scenarios where data integrity is critical.
+The `huggingface_hub` package provides a utility to create **strict dataclasses**. These are enhanced versions of Python's standard `dataclass` with additional validation features. Strict dataclasses ensure that fields are validated both during initialization and assignment, making them ideal for scenarios where data integrity is critical.
 
 ## Overview
 
 Strict dataclasses are created using the `@strict` decorator. They extend the functionality of regular dataclasses by:
 
-- Validating field types based on type hints.
-- Supporting custom validators for additional checks.
-- Optionally allowing arbitrary keyword arguments in the constructor.
-- Validating fields on initialization and on field assignment. 
+- Validating field types based on type hints
+- Supporting custom validators for additional checks
+- Optionally allowing arbitrary keyword arguments in the constructor
+- Validating fields both at initialization and during assignment
 
 ## Benefits
 
-- **Data Integrity**: Ensures that fields always contain valid data.
-- **Ease of Use**: Integrates seamlessly with Python's `dataclass` module.
-- **Customizability**: Supports custom validators for complex validation logic.
-- **Lightweight**: do not require any additional dependency like Pydantic, attrs, etc.
+- **Data Integrity**: Ensures fields always contain valid data
+- **Ease of Use**: Integrates seamlessly with Python's `dataclass` module
+- **Flexibility**: Supports custom validators for complex validation logic
+- **Lightweight**: Requires no additional dependencies such as Pydantic, attrs, or similar libraries
 
 ## Usage
 
@@ -85,7 +85,7 @@ config = ConfigWithKwargs(model_type="bert", vocab_size=30000, extra_field="extr
 print(config)  # ConfigWithKwargs(model_type='bert', vocab_size=30000, *extra_field='extra_value')
 ```
 
-Additional keyword arguments are shown in the representation of the dataclass but prefixed with `*` to highlight that they are not validated.
+Additional keyword arguments appear in the string representation of the dataclass but are prefixed with `*` to highlight that they are not validated.
 
 ### Integration with Type Hints
 
@@ -103,7 +103,7 @@ config = Config(layers=[64, 128])  # Valid
 config = Config(layers="not_a_list")  # Raises StrictDataclassFieldValidationError
 ```
 
-Supported types:
+Supported types include:
 - Any
 - Union
 - Optional
@@ -113,7 +113,7 @@ Supported types:
 - Tuple
 - Set
 
-And any combination of them.
+And any combination of these types.
 
 ## API Reference
 
@@ -137,10 +137,10 @@ Creates a dataclass field with custom validation.
 
 [[autodoc]] errors.StrictDataclassFieldValidationError
 
-## Why not chose `pydantic` ? (or `attrs`? or `marshmallow_dataclass`?)
+## Why Not Use `pydantic`? (or `attrs`? or `marshmallow_dataclass`?)
 
-- See discussion in https://github.com/huggingface/transformers/issues/36329 related to adding pydantic as a new dependency. Would be an heavy addition + require careful logic to support both v1 and v2.
-- we do not want most of pydantic's features, especially the ones related to automatic casting, jsonschema, serializations, aliases, ...
-- we do not need to be able to instantiate a class from a dictionary
-- we do not want to mutate data. In `@strict`, "validation" refers to "checking if a value is valid". In Pydantic, "validation" refers to "casting a value, possibly mutating it and then check if it's valid".
-- we do not need blazing fast validation. `@strict` is not meant for heavy load where performances is critical. Common use case will be to validate a model configuration (only done once and very neglectable compared to running a model). This allows us to keep code minimal.
+- See discussion in https://github.com/huggingface/transformers/issues/36329 regarding adding Pydantic as a dependency. It would be a heavy addition and require careful logic to support both v1 and v2.
+- We don't need most of Pydantic's features, especially those related to automatic casting, jsonschema, serialization, aliases, etc.
+- We don't need the ability to instantiate a class from a dictionary.
+- We don't want to mutate data. In `@strict`, "validation" means "checking if a value is valid." In Pydantic, "validation" means "casting a value, possibly mutating it, and then checking if it's valid."
+- We don't need blazing-fast validation. `@strict` isn't designed for heavy loads where performance is critical. Common use cases involve validating a model configuration (performed once and negligible compared to running a model). This allows us to keep the code minimal.
