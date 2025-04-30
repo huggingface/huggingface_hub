@@ -147,7 +147,11 @@ def get_provider_helper(
         ValueError: If provider or task is not supported
     """
 
-    if model is None and provider in (None, "auto") or (model.startswith(("http://", "https://"))):
+    if (
+        model is None
+        and provider in (None, "auto")
+        or (model is not None and model.startswith(("http://", "https://")))
+    ):
         provider = "hf-inference"
 
     if provider is None:

@@ -887,7 +887,9 @@ class InferenceClient:
         provider_helper = get_provider_helper(
             self.provider,
             task="conversational",
-            model=model_id_or_url if model_id_or_url.startswith(("http://", "https://")) else payload_model,
+            model=model_id_or_url
+            if model_id_or_url is not None and model_id_or_url.startswith(("http://", "https://"))
+            else payload_model,
         )
 
         # Prepare the payload
