@@ -1,6 +1,21 @@
 import inspect
 from dataclasses import Field, dataclass, field, fields
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, TypeVar, Union, get_args, get_origin
+from functools import wraps
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+    overload,
+)
 
 from ..errors import StrictDataclassDefinitionError, StrictDataclassFieldValidationError
 
@@ -30,61 +45,105 @@ def validated_field(validator: Union[List[Validator_T], Validator_T], **kwargs: 
     return field(metadata=metadata, **kwargs)
 
 
-def strict_dataclass(cls: Type[T]) -> Type[T]:
+# The overload decorator helps type checkers understand the different return types
+@overload
+def strict_dataclass(cls: Type[T]) -> Type[T]: ...
+
+
+@overload
+def strict_dataclass(*, accept_kwargs: bool = False) -> Callable[[Type[T]], Type[T]]: ...
+
+
+def strict_dataclass(
+    cls: Optional[Type[T]] = None, *, accept_kwargs: bool = False
+) -> Union[Type[T], Callable[[Type[T]], Type[T]]]:
     """
     Decorator to create a strict dataclass with type validation.
 
+    Can be used with or without arguments:
+    - `@strict_dataclass`
+    - `@strict_dataclass(accept_kwargs=True)`
+
     Args:
-        cls: The class to convert to a strict dataclass.
+        cls:
+            The class to convert to a strict dataclass.
+        accept_kwargs (`bool`, *optional*):
+            If True, allows arbitrary keyword arguments in `__init__`. Defaults to False.
 
     Returns:
         A dataclass with strict type validation on field assignment.
-
-    Raises:
-        [`StrictDataclassDefinitionError`]: If the class definition is invalid
-
-    Example:
-    ```python
-    >>> from huggingface_hub.utils import strict_dataclass, validated_field
-
-    >>> def positive_int(value: int):
-    ...     if not value >= 0:
-    ...         raise ValueError(f"Value must be positive, got {value}")
-
-    >>> @strict_dataclass
-    ... class User:
-    ...     name: str
-    ...     age: int = validated_field(positive_int)
-    >>> user = User(name="John", age=30)
-
-    >>> User(name="John", age="30")  # Invalid type
-    StrictDataclassFieldValidationError(...)
-    ```
     """
-    cls = dataclass(cls)
 
-    # List all validator fields
-    field_validators: Dict[str, List[Validator_T]] = {}
-    for f in fields(cls):  # type: ignore[arg-type]
-        validators = []
-        validators.append(_create_type_validator(f))
-        if custom_validator := f.metadata.get("validator"):
-            if not isinstance(custom_validator, list):
-                custom_validator = [custom_validator]
-            for validator in custom_validator:
-                if not _is_validator(validator):
-                    raise StrictDataclassDefinitionError(
-                        f"Invalid validator for field '{f.name}': {validator}. Must be a callable taking a single argument."
-                    )
-            validators.extend(custom_validator)
-        field_validators[f.name] = validators
+    def wrap(cls: Type[T]) -> Type[T]:
+        cls = dataclass(cls)
 
-    cls.__validators__ = field_validators  # type: ignore
+        # List all validator fields
+        field_validators: Dict[str, List[Validator_T]] = {}
+        for f in fields(cls):
+            validators = []
+            validators.append(_create_type_validator(f))
+            custom_validator = f.metadata.get("validator")
+            if custom_validator is not None:
+                if not isinstance(custom_validator, list):
+                    custom_validator = [custom_validator]
+                for validator in custom_validator:
+                    if not _is_validator(validator):
+                        raise StrictDataclassDefinitionError(
+                            f"Invalid validator for field '{f.name}': {validator}. Must be a callable taking a single argument."
+                        )
+                validators.extend(custom_validator)
+            field_validators[f.name] = validators
 
-    # Override __setattr__ to type_validator on assignment
-    cls.__setattr__ = _strict_setattr  # type: ignore[method-assign]
+        # Store validators on the class
+        cls.__validators__ = field_validators  # type: ignore
 
-    return cls
+        # Save the original __setattr__ to restore it after wrapping
+        original_setattr = cls.__setattr__
+
+        # Define new __setattr__ that validates on assignment
+        def __strict_setattr__(self: Any, name: str, value: Any) -> None:
+            """Custom __setattr__ method for strict dataclasses."""
+            # Run all validators
+            for validator in self.__validators__.get(name, []):
+                try:
+                    validator(value)
+                except (ValueError, TypeError) as e:
+                    raise StrictDataclassFieldValidationError(field=name, cause=e) from e
+
+            # If validation passed, set the attribute
+            original_setattr(self, name, value)
+
+        # Override __setattr__ to type_validator on assignment
+        cls.__setattr__ = __strict_setattr__  # type: ignore[method-assign]
+
+        # If accept_kwargs is True, we need to wrap the __init__ method
+        if accept_kwargs:
+            original_init = cls.__init__
+
+            @wraps(original_init)
+            def __init__(self, **kwargs: Any) -> None:
+                # Extract only the fields that are part of the dataclass
+                dataclass_fields = {f.name for f in fields(cls)}
+                standard_kwargs = {k: v for k, v in kwargs.items() if k in dataclass_fields}
+
+                # Call the original __init__ with standard fields
+                original_init(self, **standard_kwargs)
+
+                # Add any additional kwargs as attributes
+                for name, value in kwargs.items():
+                    if name not in dataclass_fields:
+                        self.__setattr__(name, value)
+
+            cls.__init__ = __init__  # type: ignore[method-assign]
+
+        return cls
+
+    # If used without arguments
+    if cls is not None:
+        return wrap(cls)
+
+    # If used with arguments
+    return wrap
 
 
 def type_validator(name: str, value: Any, expected_type: Any) -> None:
