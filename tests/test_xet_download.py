@@ -295,7 +295,7 @@ class TestXetSnapshotDownload:
             # Verify xet_get was not called (files were cached)
             mock_xet_get.assert_not_called()
 
-    def test_download_backward_compatibitily(self, tmp_path):
+    def test_download_backward_compatibility(self, tmp_path):
         """Test that xet download works with the old pointer file protocol.
 
         Until the next major version of hf-xet is released, we need to support the old
