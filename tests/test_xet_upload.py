@@ -138,7 +138,7 @@ class TestXetUpload:
 
     def test_upload_file_with_byte_array(self, api, tmp_path, repo_url):
         repo_id = repo_url.repo_id
-        content = bytes(self.bin_content)
+        content = self.bin_content
         with assert_upload_mode("xet"):
             api.upload_file(
                 path_or_fileobj=content,
