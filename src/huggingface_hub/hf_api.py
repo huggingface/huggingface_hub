@@ -4485,7 +4485,7 @@ class HfApi:
             if xet_enabled and is_xet_available():
                 if has_binary_data:
                     logger.warning(
-                        "Uploading files as a binary IO objects is not supported by Xet Storage. "
+                        "Uploading files as a binary IO buffer is not supported by Xet Storage. "
                         "Falling back to HTTP upload."
                     )
             _upload_lfs_files(**upload_kwargs, num_threads=num_threads)  # type: ignore [arg-type]
