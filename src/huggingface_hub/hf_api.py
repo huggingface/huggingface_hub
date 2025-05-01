@@ -4476,7 +4476,7 @@ class HfApi:
             token=token,
         ).xet_enabled
         has_binary_data = any(
-            isinstance(addition.path_or_fileobj, (io.BufferedIOBase)) for addition in new_lfs_additions_to_upload
+            isinstance(addition.path_or_fileobj, io.BufferedIOBase) for addition in new_lfs_additions_to_upload
         )
         if xet_enabled and not has_binary_data and is_xet_available():
             logger.info("Uploading files using Xet Storage..")
