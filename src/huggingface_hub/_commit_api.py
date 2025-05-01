@@ -595,9 +595,23 @@ def _upload_xet_files(
                 progress.update(increment)
 
             if len(paths_ops) > 0:
-                upload_files([str(op.path_or_fileobj) for op in paths_ops], xet_endpoint, access_token_info, token_refresher, update_progress, repo_type)
+                upload_files(
+                    [str(op.path_or_fileobj) for op in paths_ops],
+                    xet_endpoint,
+                    access_token_info,
+                    token_refresher,
+                    update_progress,
+                    repo_type,
+                )
             if len(bytes_ops) > 0:
-                upload_bytes([op.path_or_fileobj for op in bytes_ops], xet_endpoint, access_token_info, token_refresher, update_progress, repo_type)
+                upload_bytes(
+                    [op.path_or_fileobj for op in bytes_ops],
+                    xet_endpoint,
+                    access_token_info,
+                    token_refresher,
+                    update_progress,
+                    repo_type,
+                )
     return
 
 
