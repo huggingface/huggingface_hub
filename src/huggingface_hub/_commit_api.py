@@ -573,7 +573,7 @@ def _upload_xet_files(
         _chunk = [op for op in chunk]
 
         bytes_ops = [op for op in _chunk if isinstance(op.path_or_fileobj, bytes)]
-        paths_ops = [op for op in _chunk if isinstance(op.path_or_fileobj, (str, Path)]
+        paths_ops = [op for op in _chunk if isinstance(op.path_or_fileobj, (str, Path))]
         expected_size = sum(op.upload_info.size for op in bytes_ops + paths_ops)
 
         if num_chunks > 1:
