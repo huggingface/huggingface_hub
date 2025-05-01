@@ -107,7 +107,7 @@ Das Ziel von [`InferenceClient`] ist es, die einfachste Schnittstelle zum Ausfü
 | | [Feature Extraction](https://huggingface.co/tasks/feature-extraction)             | ✅ | [`~InferenceClient.feature_extraction`] |
 | | [Fill Mask](https://huggingface.co/tasks/fill-mask)                      | ✅ | [`~InferenceClient.fill_mask`] |
 | | [Question Answering](https://huggingface.co/tasks/question-answering)             | ✅ | [`~InferenceClient.question_answering`] |
-| | [Sentence Similarity](https://huggingface.co/tasks/sentence-similarity)            | ✅ | [`~InferenceClient.sentence_similarity`] |
+| | [Sentence Similarity](https://huggingface.co/tasks/sentence-similarity) | ✅ | [`~InferenceClient.sentence_similarity`] |
 | | [Summarization](https://huggingface.co/tasks/summarization)                  | ✅ | [`~InferenceClient.summarization`] |
 | | [Table Question Answering](https://huggingface.co/tasks/table-question-answering)       | ✅ | [`~InferenceClient.table_question_answering`] |
 | | [Text Classification](https://huggingface.co/tasks/text-classification)            | ✅ | [`~InferenceClient.text_classification`] |
@@ -124,18 +124,6 @@ Das Ziel von [`InferenceClient`] ist es, die einfachste Schnittstelle zum Ausfü
 Schauen Sie sich die [Aufgaben](https://huggingface.co/tasks)-Seite an, um mehr über jede Aufgabe zu erfahren, wie man sie verwendet und die beliebtesten Modelle für jede Aufgabe.
 
 </Tip>
-
-## Benutzerdefinierte Anfragen
-
-Es ist jedoch nicht immer möglich, alle Anwendungsfälle abzudecken. Für benutzerdefinierte Anfragen bietet die [`InferenceClient.post`] Methode Ihnen die Flexibilität, jede Anfrage an die Inferenz API zu senden. Zum Beispiel können Sie angeben, wie die Eingaben und Ausgaben geparst werden sollen. Im folgenden Beispiel wird das generierte Bild als Roh-Bytes zurückgegeben, anstatt es als `PIL Image` zu parsen. Dies kann hilfreich sein, wenn Sie `Pillow` in Ihrer Einrichtung nicht installiert haben und Ihnen nur die Binärinhalt des Bildes wichtig ist. [`InferenceClient.post`] ist auch nützlich, um Aufgaben zu behandeln, die noch nicht offiziell unterstützt werden.
-
-```python
->>> from huggingface_hub import InferenceClient
->>> client = InferenceClient()
->>> response = client.post(json={"inputs": "An astronaut riding a horse on the moon."}, model="stabilityai/stable-diffusion-2-1")
->>> response.content # raw bytes
-b'...'
-```
 
 ## Asynchroner Client
 

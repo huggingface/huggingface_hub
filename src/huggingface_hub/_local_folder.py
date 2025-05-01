@@ -49,6 +49,8 @@ a16a55fda99d2f2e7b69cce5cf93ff4ad3049930
 ```
 """
 
+import base64
+import hashlib
 import logging
 import os
 import time
@@ -84,7 +86,7 @@ class LocalDownloadFilePaths:
 
     def incomplete_path(self, etag: str) -> Path:
         """Return the path where a file will be temporarily downloaded before being moved to `file_path`."""
-        return self.metadata_path.with_suffix(f".{etag}.incomplete")
+        return self.metadata_path.parent / f"{_short_hash(self.metadata_path.name)}.{etag}.incomplete"
 
 
 @dataclass(frozen=True)
@@ -413,9 +415,18 @@ def _huggingface_dir(local_dir: Path) -> Path:
     gitignore_lock = path / ".gitignore.lock"
     if not gitignore.exists():
         try:
-            with WeakFileLock(gitignore_lock):
+            with WeakFileLock(gitignore_lock, timeout=0.1):
                 gitignore.write_text("*")
+        except IndexError:
+            pass
+        except OSError:  # TimeoutError, FileNotFoundError, PermissionError, etc.
+            pass
+        try:
             gitignore_lock.unlink()
-        except OSError:  # FileNotFoundError, PermissionError, etc.
+        except OSError:
             pass
     return path
+
+
+def _short_hash(filename: str) -> str:
+    return base64.urlsafe_b64encode(hashlib.sha1(filename.encode()).digest()).decode()

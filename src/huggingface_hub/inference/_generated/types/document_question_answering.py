@@ -3,13 +3,12 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, List, Optional, Union
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class DocumentQuestionAnsweringInputData(BaseInferenceType):
     """One (document, question) pair to answer"""
 
@@ -19,11 +18,9 @@ class DocumentQuestionAnsweringInputData(BaseInferenceType):
     """A question to ask of the document"""
 
 
-@dataclass
+@dataclass_with_extra
 class DocumentQuestionAnsweringParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Document Question Answering
-    """
+    """Additional inference parameters for Document Question Answering"""
 
     doc_stride: Optional[int] = None
     """If the words in the document are too long to fit with the question for the model, it will
@@ -55,17 +52,17 @@ class DocumentQuestionAnsweringParameters(BaseInferenceType):
     """
 
 
-@dataclass
+@dataclass_with_extra
 class DocumentQuestionAnsweringInput(BaseInferenceType):
     """Inputs for Document Question Answering inference"""
 
     inputs: DocumentQuestionAnsweringInputData
     """One (document, question) pair to answer"""
     parameters: Optional[DocumentQuestionAnsweringParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Document Question Answering"""
 
 
-@dataclass
+@dataclass_with_extra
 class DocumentQuestionAnsweringOutputElement(BaseInferenceType):
     """Outputs of inference for the Document Question Answering task"""
 
@@ -81,5 +78,3 @@ class DocumentQuestionAnsweringOutputElement(BaseInferenceType):
     """The start word index of the answer (in the OCR’d version of the input or provided word
     boxes).
     """
-    words: List[int]
-    """The index of each word/box pair that is in the answer"""

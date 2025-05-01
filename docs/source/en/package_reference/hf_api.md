@@ -57,6 +57,10 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.GitRefs
 
+### LFSFileInfo
+
+[[autodoc]] huggingface_hub.hf_api.LFSFileInfo
+
 ### ModelInfo
 
 [[autodoc]] huggingface_hub.hf_api.ModelInfo

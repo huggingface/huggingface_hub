@@ -36,6 +36,7 @@ DEFAULT_DOWNLOAD_TIMEOUT = 10
 DEFAULT_REQUEST_TIMEOUT = 10
 DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024
 HF_TRANSFER_CONCURRENCY = 100
+MAX_HTTP_DOWNLOAD_SIZE = 50 * 1000 * 1000 * 1000  # 50 GB
 
 # Constants for serialization
 
@@ -63,18 +64,26 @@ _staging_mode = _is_true(os.environ.get("HUGGINGFACE_CO_STAGING"))
 
 _HF_DEFAULT_ENDPOINT = "https://huggingface.co"
 _HF_DEFAULT_STAGING_ENDPOINT = "https://hub-ci.huggingface.co"
-ENDPOINT = os.getenv("HF_ENDPOINT") or (_HF_DEFAULT_STAGING_ENDPOINT if _staging_mode else _HF_DEFAULT_ENDPOINT)
-
+ENDPOINT = os.getenv("HF_ENDPOINT", _HF_DEFAULT_ENDPOINT).rstrip("/")
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
+
+if _staging_mode:
+    ENDPOINT = _HF_DEFAULT_STAGING_ENDPOINT
+    HUGGINGFACE_CO_URL_TEMPLATE = _HF_DEFAULT_STAGING_ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
+
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
 HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
 HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
+HUGGINGFACE_HEADER_X_BILL_TO = "X-HF-Bill-To"
 
 INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-inference.huggingface.co")
 
 # See https://huggingface.co/docs/inference-endpoints/index
 INFERENCE_ENDPOINTS_ENDPOINT = "https://api.endpoints.huggingface.cloud/v2"
+INFERENCE_CATALOG_ENDPOINT = "https://endpoints.huggingface.co/api/catalog"
 
+# Proxy for third-party providers
+INFERENCE_PROXY_TEMPLATE = "https://router.huggingface.co/{provider}"
 
 REPO_ID_SEPARATOR = "--"
 # ^ this substring is not allowed in repo_ids on hf.co
@@ -107,10 +116,12 @@ WEBHOOK_DOMAIN_T = Literal["repo", "discussions"]
 
 # default cache
 default_home = os.path.join(os.path.expanduser("~"), ".cache")
-HF_HOME = os.path.expanduser(
-    os.getenv(
-        "HF_HOME",
-        os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "huggingface"),
+HF_HOME = os.path.expandvars(
+    os.path.expanduser(
+        os.getenv(
+            "HF_HOME",
+            os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "huggingface"),
+        )
     )
 )
 hf_cache_home = HF_HOME  # for backward compatibility. TODO: remove this in 1.0.0
@@ -123,10 +134,28 @@ HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
 HUGGINGFACE_ASSETS_CACHE = os.getenv("HUGGINGFACE_ASSETS_CACHE", default_assets_cache_path)
 
 # New env variables
-HF_HUB_CACHE = os.getenv("HF_HUB_CACHE", HUGGINGFACE_HUB_CACHE)
-HF_ASSETS_CACHE = os.getenv("HF_ASSETS_CACHE", HUGGINGFACE_ASSETS_CACHE)
+HF_HUB_CACHE = os.path.expandvars(
+    os.path.expanduser(
+        os.getenv(
+            "HF_HUB_CACHE",
+            HUGGINGFACE_HUB_CACHE,
+        )
+    )
+)
+HF_ASSETS_CACHE = os.path.expandvars(
+    os.path.expanduser(
+        os.getenv(
+            "HF_ASSETS_CACHE",
+            HUGGINGFACE_ASSETS_CACHE,
+        )
+    )
+)
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
+
+# If set, log level will be set to DEBUG and all requests made to the Hub will be logged
+# as curl commands for reproducibility.
+HF_DEBUG = _is_true(os.environ.get("HF_DEBUG"))
 
 # Opt-out from telemetry requests
 HF_HUB_DISABLE_TELEMETRY = (
@@ -135,18 +164,22 @@ HF_HUB_DISABLE_TELEMETRY = (
     or _is_true(os.environ.get("DO_NOT_TRACK"))  # https://consoledonottrack.com/
 )
 
-# In the past, token was stored in a hardcoded location
-# `_OLD_HF_TOKEN_PATH` is deprecated and will be removed "at some point".
-# See https://github.com/huggingface/huggingface_hub/issues/1232
-_OLD_HF_TOKEN_PATH = os.path.expanduser("~/.huggingface/token")
-HF_TOKEN_PATH = os.environ.get("HF_TOKEN_PATH", os.path.join(HF_HOME, "token"))
+HF_TOKEN_PATH = os.path.expandvars(
+    os.path.expanduser(
+        os.getenv(
+            "HF_TOKEN_PATH",
+            os.path.join(HF_HOME, "token"),
+        )
+    )
+)
 HF_STORED_TOKENS_PATH = os.path.join(os.path.dirname(HF_TOKEN_PATH), "stored_tokens")
 
 if _staging_mode:
     # In staging mode, we use a different cache to ensure we don't mix up production and staging data or tokens
+    # In practice in `huggingface_hub` tests, we monkeypatch these values with temporary directories. The following
+    # lines are only used in third-party libraries tests (e.g. `transformers`, `diffusers`, etc.).
     _staging_home = os.path.join(os.path.expanduser("~"), ".cache", "huggingface_staging")
     HUGGINGFACE_HUB_CACHE = os.path.join(_staging_home, "hub")
-    _OLD_HF_TOKEN_PATH = os.path.join(_staging_home, "_old_token")
     HF_TOKEN_PATH = os.path.join(_staging_home, "token")
 
 # Here, `True` will disable progress bars globally without possibility of enabling it
@@ -186,6 +219,9 @@ HF_HUB_ETAG_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_ETAG_TIMEOUT")) or DEF
 
 # Used to override the get request timeout on a system level
 HF_HUB_DOWNLOAD_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_DOWNLOAD_TIMEOUT")) or DEFAULT_DOWNLOAD_TIMEOUT
+
+# Allows to add information about the requester in the user-agent (eg. partner name)
+HF_HUB_USER_AGENT_ORIGIN: Optional[str] = os.environ.get("HF_HUB_USER_AGENT_ORIGIN")
 
 # List frameworks that are handled by the InferenceAPI service. Useful to scan endpoints and check which models are
 # deployed and running. Since 95% of the models are using the top 4 frameworks listed below, we scan only those by
@@ -233,3 +269,14 @@ OAUTH_CLIENT_ID = os.environ.get("OAUTH_CLIENT_ID")
 OAUTH_CLIENT_SECRET = os.environ.get("OAUTH_CLIENT_SECRET")
 OAUTH_SCOPES = os.environ.get("OAUTH_SCOPES")
 OPENID_PROVIDER_URL = os.environ.get("OPENID_PROVIDER_URL")
+
+# Xet constants
+HUGGINGFACE_HEADER_X_XET_ENDPOINT = "X-Xet-Cas-Url"
+HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN = "X-Xet-Access-Token"
+HUGGINGFACE_HEADER_X_XET_EXPIRATION = "X-Xet-Token-Expiration"
+HUGGINGFACE_HEADER_X_XET_HASH = "X-Xet-Hash"
+HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE = "X-Xet-Refresh-Route"
+HUGGINGFACE_HEADER_LINK_XET_AUTH_KEY = "xet-auth"
+
+default_xet_cache_path = os.path.join(HF_HOME, "xet")
+HF_XET_CACHE = os.getenv("HF_XET_CACHE", default_xet_cache_path)

@@ -5,52 +5,49 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate, br
+      - gzip, deflate
       Connection:
       - keep-alive
       X-Amzn-Trace-Id:
-      - e795ef40-19a7-4701-8811-8f33552bf1ee
-      user-agent:
-      - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
-        fastcore/1.5.23
+      - 48899fdf-d647-479d-8d12-ce1b1ff9ee6e
     method: GET
     uri: https://huggingface.co/api/models/sentence-transformers/paraphrase-albert-small-v2
   response:
     body:
-      string: '{"_id":"621ffdc136468d709f1802e8","id":"sentence-transformers/paraphrase-albert-small-v2","modelId":"sentence-transformers/paraphrase-albert-small-v2","author":"sentence-transformers","sha":"08663f27e632f8215246d80118296ebc05b717a8","lastModified":"2024-03-27T12:15:35.000Z","private":false,"disabled":false,"gated":false,"pipeline_tag":"sentence-similarity","tags":["sentence-transformers","pytorch","tf","rust","safetensors","albert","feature-extraction","sentence-similarity","transformers","dataset:flax-sentence-embeddings/stackexchange_xml","dataset:s2orc","dataset:ms_marco","dataset:wiki_atomic_edits","dataset:snli","dataset:multi_nli","dataset:embedding-data/altlex","dataset:embedding-data/simple-wiki","dataset:embedding-data/flickr30k-captions","dataset:embedding-data/coco_captions","dataset:embedding-data/sentence-compression","dataset:embedding-data/QQP","dataset:yahoo_answers_topics","arxiv:1908.10084","license:apache-2.0","endpoints_compatible","has_space","region:us"],"downloads":161086,"library_name":"sentence-transformers","mask_token":"[MASK]","widgetData":[{"source_sentence":"That
+      string: '{"_id":"621ffdc136468d709f1802e8","id":"sentence-transformers/paraphrase-albert-small-v2","private":false,"pipeline_tag":"sentence-similarity","library_name":"sentence-transformers","tags":["sentence-transformers","pytorch","tf","rust","onnx","safetensors","openvino","albert","feature-extraction","sentence-similarity","transformers","dataset:flax-sentence-embeddings/stackexchange_xml","dataset:s2orc","dataset:ms_marco","dataset:wiki_atomic_edits","dataset:snli","dataset:multi_nli","dataset:embedding-data/altlex","dataset:embedding-data/simple-wiki","dataset:embedding-data/flickr30k-captions","dataset:embedding-data/coco_captions","dataset:embedding-data/sentence-compression","dataset:embedding-data/QQP","dataset:yahoo_answers_topics","arxiv:1908.10084","license:apache-2.0","autotrain_compatible","endpoints_compatible","region:us"],"downloads":285986,"likes":9,"modelId":"sentence-transformers/paraphrase-albert-small-v2","author":"sentence-transformers","sha":"39d5b65549dbfc88a4c56fc853a8b7242873d583","lastModified":"2024-11-05T18:20:00.000Z","gated":false,"inference":"cold","disabled":false,"mask_token":"[MASK]","widgetData":[{"source_sentence":"That
         is a happy person","sentences":["That is a happy dog","That is a very happy
-        person","Today is a sunny day"]}],"likes":4,"model-index":null,"config":{"architectures":["AlbertModel"],"model_type":"albert","tokenizer_config":{"bos_token":"[CLS]","eos_token":"[SEP]","unk_token":"<unk>","sep_token":"[SEP]","pad_token":"<pad>","cls_token":"[CLS]","mask_token":{"content":"[MASK]","single_word":false,"lstrip":true,"rstrip":false,"normalized":true,"__type":"AddedToken"}}},"cardData":{"license":"apache-2.0","library_name":"sentence-transformers","tags":["sentence-transformers","feature-extraction","sentence-similarity","transformers"],"datasets":["flax-sentence-embeddings/stackexchange_xml","s2orc","ms_marco","wiki_atomic_edits","snli","multi_nli","embedding-data/altlex","embedding-data/simple-wiki","embedding-data/flickr30k-captions","embedding-data/coco_captions","embedding-data/sentence-compression","embedding-data/QQP","yahoo_answers_topics"],"pipeline_tag":"sentence-similarity"},"transformersInfo":{"auto_model":"AutoModel","pipeline_tag":"feature-extraction","processor":"AutoTokenizer"},"spaces":["Gradio-Blocks/pubmed-abstract-retriever","pritamdeka/health-article-keyphrase-generator","pritamdeka/pubmed-abstract-retriever","Hushh/Generative_QNA"],"gitalyUid":"1dbbc64e6b72c64fe803a240d906f0113723accd0c69dc7ca9e0f08929677bcd","siblings":[{"rfilename":".gitattributes"},{"rfilename":"1_Pooling/config.json"},{"rfilename":"README.md"},{"rfilename":"config.json"},{"rfilename":"config_sentence_transformers.json"},{"rfilename":"model.safetensors"},{"rfilename":"modules.json"},{"rfilename":"pytorch_model.bin"},{"rfilename":"rust_model.ot"},{"rfilename":"sentence_bert_config.json"},{"rfilename":"special_tokens_map.json"},{"rfilename":"spiece.model"},{"rfilename":"tf_model.h5"},{"rfilename":"tokenizer.json"},{"rfilename":"tokenizer_config.json"}],"createdAt":"2022-03-02T23:29:05.000Z","safetensors":{"parameters":{"I64":512,"F32":11683584},"total":11684096}}'
+        person","Today is a sunny day"]}],"model-index":null,"config":{"architectures":["AlbertModel"],"model_type":"albert","tokenizer_config":{"bos_token":"[CLS]","eos_token":"[SEP]","unk_token":"<unk>","sep_token":"[SEP]","pad_token":"<pad>","cls_token":"[CLS]","mask_token":{"content":"[MASK]","single_word":false,"lstrip":true,"rstrip":false,"normalized":true,"__type":"AddedToken"}}},"cardData":{"license":"apache-2.0","library_name":"sentence-transformers","tags":["sentence-transformers","feature-extraction","sentence-similarity","transformers"],"datasets":["flax-sentence-embeddings/stackexchange_xml","s2orc","ms_marco","wiki_atomic_edits","snli","multi_nli","embedding-data/altlex","embedding-data/simple-wiki","embedding-data/flickr30k-captions","embedding-data/coco_captions","embedding-data/sentence-compression","embedding-data/QQP","yahoo_answers_topics"],"pipeline_tag":"sentence-similarity"},"transformersInfo":{"auto_model":"AutoModel","pipeline_tag":"feature-extraction","processor":"AutoTokenizer"},"siblings":[{"rfilename":".gitattributes"},{"rfilename":"1_Pooling/config.json"},{"rfilename":"README.md"},{"rfilename":"config.json"},{"rfilename":"config_sentence_transformers.json"},{"rfilename":"model.safetensors"},{"rfilename":"modules.json"},{"rfilename":"onnx/model.onnx"},{"rfilename":"onnx/model_O1.onnx"},{"rfilename":"onnx/model_O2.onnx"},{"rfilename":"onnx/model_O3.onnx"},{"rfilename":"onnx/model_O4.onnx"},{"rfilename":"onnx/model_qint8_arm64.onnx"},{"rfilename":"onnx/model_qint8_avx512.onnx"},{"rfilename":"onnx/model_qint8_avx512_vnni.onnx"},{"rfilename":"onnx/model_quint8_avx2.onnx"},{"rfilename":"openvino/openvino_model.bin"},{"rfilename":"openvino/openvino_model.xml"},{"rfilename":"openvino/openvino_model_qint8_quantized.bin"},{"rfilename":"openvino/openvino_model_qint8_quantized.xml"},{"rfilename":"pytorch_model.bin"},{"rfilename":"rust_model.ot"},{"rfilename":"sentence_bert_config.json"},{"rfilename":"special_tokens_map.json"},{"rfilename":"spiece.model"},{"rfilename":"tf_model.h5"},{"rfilename":"tokenizer.json"},{"rfilename":"tokenizer_config.json"}],"spaces":["Gradio-Blocks/pubmed-abstract-retriever","pritamdeka/health-article-keyphrase-generator","pritamdeka/pubmed-abstract-retriever"],"createdAt":"2022-03-02T23:29:05.000Z","safetensors":{"parameters":{"I64":512,"F32":11683584},"total":11684096},"usedStorage":578652826}'
     headers:
       Access-Control-Allow-Origin:
       - https://huggingface.co
       Access-Control-Expose-Headers:
-      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Xet-Access-Token,X-Xet-Token-Expiration,X-Xet-Refresh-Route,X-Xet-Cas-Url,X-Xet-Hash
       Connection:
       - keep-alive
       Content-Length:
-      - '3084'
+      - '3617'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Tue, 09 Apr 2024 08:46:19 GMT
+      - Wed, 22 Jan 2025 18:24:33 GMT
       ETag:
-      - W/"c0c-weDvfVtA7pSBGRKjUGpCRK8pevU"
+      - W/"e21-MXShfRGRyOneN66PubYqdWkGPSU"
       Referrer-Policy:
       - strict-origin-when-cross-origin
       Vary:
       - Origin
       Via:
-      - 1.1 e14614617e85116e937d5168b35a94de.cloudfront.net (CloudFront)
+      - 1.1 887aba73f027fe4e82f965d15238ed3e.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - Q5fyBDLY7txpKKGCHu5zZhYphmtDpTsEisCkPEy5znwhkX3dbSPT9A==
+      - 2NNdzWr0gEdSvzElBjXv2GvinessqJ6FucSiK0g1dEqEUAcdUPurgw==
       X-Amz-Cf-Pop:
-      - PRG50-C1
+      - CDG52-P4
       X-Cache:
       - Miss from cloudfront
       X-Powered-By:
       - huggingface-moon
       X-Request-Id:
-      - Root=1-6615005b-406de80b5d57df1b4abe2b47;e795ef40-19a7-4701-8811-8f33552bf1ee
+      - Root=1-679137e1-51fa1cab438b9e665860af66;48899fdf-d647-479d-8d12-ce1b1ff9ee6e
       cross-origin-opener-policy:
       - same-origin
     status:
@@ -63,7 +60,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate, br
+      - gzip, deflate
       Connection:
       - keep-alive
       Content-Length:
@@ -71,10 +68,7 @@ interactions:
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - 3f1bdec9-2d97-4a16-b108-cc9b744026a5
-      user-agent:
-      - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
-        fastcore/1.5.23
+      - ae0eac6b-0519-4d7f-9e77-b7e3e943f4c5
     method: POST
     uri: https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/paraphrase-albert-small-v2
   response:
@@ -83,24 +77,35 @@ interactions:
     headers:
       Connection:
       - keep-alive
-      Content-Length:
-      - '15402'
       Content-Type:
       - application/json
       Date:
-      - Tue, 09 Apr 2024 08:46:20 GMT
+      - Wed, 22 Jan 2025 18:24:44 GMT
+      Transfer-Encoding:
+      - chunked
       access-control-allow-credentials:
       - 'true'
+      access-control-expose-headers:
+      - x-compute-type, x-compute-time
+      server:
+      - uvicorn
       vary:
-      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - Accept-Encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
+      x-compute-characters:
+      - '24'
       x-compute-time:
-      - '0.026'
+      - '0.013'
       x-compute-type:
-      - cache
+      - cpu
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /
       x-request-id:
-      - JtowRhDiDmFRnJzbY0sct
+      - 6cNDfB
       x-sha:
-      - 08663f27e632f8215246d80118296ebc05b717a8
+      - 39d5b65549dbfc88a4c56fc853a8b7242873d583
     status:
       code: 200
       message: OK

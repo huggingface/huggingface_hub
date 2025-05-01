@@ -8,12 +8,6 @@ The `huggingface_hub` library provides a Python interface to create, share, and 
 Visit [the dedicated documentation page](https://huggingface.co/docs/hub/models-cards)
 for a deeper view of what Model Cards on the Hub are, and how they work under the hood.
 
-<Tip>
-
-[New (beta)! Try our experimental Model Card Creator App](https://huggingface.co/spaces/huggingface/Model_Cards_Writing_Tool)
-
-</Tip>
-
 ## Load a Model Card from the Hub
 
 To load an existing card from the Hub, you can use the [`ModelCard.load`] function. Here, we'll load the card from [`nateraw/vit-base-beans`](https://huggingface.co/nateraw/vit-base-beans).

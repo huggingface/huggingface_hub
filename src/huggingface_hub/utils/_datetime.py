@@ -46,15 +46,20 @@ def parse_datetime(date_string: str) -> datetime:
             If `date_string` cannot be parsed.
     """
     try:
-        # Datetime ending with a Z means "UTC". We parse the date and then explicitly
-        # set the timezone to UTC.
-        # See https://en.wikipedia.org/wiki/ISO_8601#Coordinated_Universal_Time_(UTC)
-        # Taken from https://stackoverflow.com/a/3168394.
-        if len(date_string) == 30:
-            # Means timezoned-timestamp with nanoseconds precision. We need to truncate the last 3 digits.
-            date_string = date_string[:-4] + "Z"
-        dt = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ")
-        return dt.replace(tzinfo=timezone.utc)  # Set explicit timezone
+        # Normalize the string to always have 6 digits of fractional seconds
+        if date_string.endswith("Z"):
+            # Case 1: No decimal point (e.g., "2024-11-16T00:27:02Z")
+            if "." not in date_string:
+                # No fractional seconds - insert .000000
+                date_string = date_string[:-1] + ".000000Z"
+            # Case 2: Has decimal point (e.g., "2022-08-19T07:19:38.123456789Z")
+            else:
+                # Get the fractional and base parts
+                base, fraction = date_string[:-1].split(".")
+                # fraction[:6] takes first 6 digits and :0<6 pads with zeros if less than 6 digits
+                date_string = f"{base}.{fraction[:6]:0<6}Z"
+
+        return datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
     except ValueError as e:
         raise ValueError(
             f"Cannot parse '{date_string}' as a datetime. Date string is expected to"

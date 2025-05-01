@@ -22,7 +22,8 @@ import time
 import uuid
 from functools import lru_cache
 from http import HTTPStatus
-from typing import Callable, Optional, Tuple, Type, Union
+from shlex import quote
+from typing import Any, Callable, List, Optional, Tuple, Type, Union
 
 import requests
 from requests import HTTPError, Response
@@ -82,13 +83,15 @@ class UniqueRequestIdAdapter(HTTPAdapter):
             request.headers[X_AMZN_TRACE_ID] = request.headers.get(X_REQUEST_ID) or str(uuid.uuid4())
 
         # Add debug log
-        has_token = str(request.headers.get("authorization", "")).startswith("Bearer hf_")
+        has_token = len(str(request.headers.get("authorization", ""))) > 0
         logger.debug(
             f"Request {request.headers[X_AMZN_TRACE_ID]}: {request.method} {request.url} (authenticated: {has_token})"
         )
 
     def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
         """Catch any RequestException to append request id to the error message for debugging."""
+        if constants.HF_DEBUG:
+            logger.debug(f"Send: {_curlify(request)}")
         try:
             return super().send(request, *args, **kwargs)
         except requests.RequestException as e:
@@ -338,9 +341,9 @@ def fix_hf_endpoint_in_url(url: str, endpoint: Optional[str]) -> str:
 
     This is useful when using a proxy and the Hugging Face Hub returns a URL with the default endpoint.
     """
-    endpoint = endpoint or constants.ENDPOINT
+    endpoint = endpoint.rstrip("/") if endpoint else constants.ENDPOINT
     # check if a proxy has been set => if yes, update the returned URL to use the proxy
-    if endpoint not in (None, constants._HF_DEFAULT_ENDPOINT, constants._HF_DEFAULT_STAGING_ENDPOINT):
+    if endpoint not in (constants._HF_DEFAULT_ENDPOINT, constants._HF_DEFAULT_STAGING_ENDPOINT):
         url = url.replace(constants._HF_DEFAULT_ENDPOINT, endpoint)
         url = url.replace(constants._HF_DEFAULT_STAGING_ENDPOINT, endpoint)
     return url
@@ -434,6 +437,7 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
 
         elif error_code == "RepoNotFound" or (
             response.status_code == 401
+            and error_message != "Invalid credentials in Authorization header"
             and response.request is not None
             and response.request.url is not None
             and REPO_API_REGEX.search(response.request.url) is not None
@@ -449,7 +453,8 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
                 + f"Repository Not Found for url: {response.url}."
                 + "\nPlease make sure you specified the correct `repo_id` and"
                 " `repo_type`.\nIf you are trying to access a private or gated repo,"
-                " make sure you are authenticated."
+                " make sure you are authenticated. For more details, see"
+                " https://huggingface.co/docs/huggingface_hub/authentication"
             )
             raise _format(RepositoryNotFoundError, message, response) from e
 
@@ -513,7 +518,7 @@ def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: Res
             server_errors.append(response.text)
 
     # Strip all server messages
-    server_errors = [line.strip() for line in server_errors if line.strip()]
+    server_errors = [str(line).strip() for line in server_errors if str(line).strip()]
 
     # Deduplicate server messages (keep order)
     # taken from https://stackoverflow.com/a/17016257
@@ -549,3 +554,84 @@ def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: Res
 
     # Return
     return error_type(final_error_message.strip(), response=response, server_message=server_message or None)
+
+
+def _curlify(request: requests.PreparedRequest) -> str:
+    """Convert a `requests.PreparedRequest` into a curl command (str).
+
+    Used for debug purposes only.
+
+    Implementation vendored from https://github.com/ofw/curlify/blob/master/curlify.py.
+    MIT License Copyright (c) 2016 Egor.
+    """
+    parts: List[Tuple[Any, Any]] = [
+        ("curl", None),
+        ("-X", request.method),
+    ]
+
+    for k, v in sorted(request.headers.items()):
+        if k.lower() == "authorization":
+            v = "<TOKEN>"  # Hide authorization header, no matter its value (can be Bearer, Key, etc.)
+        parts += [("-H", "{0}: {1}".format(k, v))]
+
+    if request.body:
+        body = request.body
+        if isinstance(body, bytes):
+            body = body.decode("utf-8", errors="ignore")
+        elif hasattr(body, "read"):
+            body = "<file-like object>"  # Don't try to read it to avoid consuming the stream
+        if len(body) > 1000:
+            body = body[:1000] + " ... [truncated]"
+        parts += [("-d", body.replace("\n", ""))]
+
+    parts += [(None, request.url)]
+
+    flat_parts = []
+    for k, v in parts:
+        if k:
+            flat_parts.append(quote(k))
+        if v:
+            flat_parts.append(quote(v))
+
+    return " ".join(flat_parts)
+
+
+# Regex to parse HTTP Range header
+RANGE_REGEX = re.compile(r"^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$", re.IGNORECASE)
+
+
+def _adjust_range_header(original_range: Optional[str], resume_size: int) -> Optional[str]:
+    """
+    Adjust HTTP Range header to account for resume position.
+    """
+    if not original_range:
+        return f"bytes={resume_size}-"
+
+    if "," in original_range:
+        raise ValueError(f"Multiple ranges detected - {original_range!r}, not supported yet.")
+
+    match = RANGE_REGEX.match(original_range)
+    if not match:
+        raise RuntimeError(f"Invalid range format - {original_range!r}.")
+    start, end = match.groups()
+
+    if not start:
+        if not end:
+            raise RuntimeError(f"Invalid range format - {original_range!r}.")
+
+        new_suffix = int(end) - resume_size
+        new_range = f"bytes=-{new_suffix}"
+        if new_suffix <= 0:
+            raise RuntimeError(f"Empty new range - {new_range!r}.")
+        return new_range
+
+    start = int(start)
+    new_start = start + resume_size
+    if end:
+        end = int(end)
+        new_range = f"bytes={new_start}-{end}"
+        if new_start > end:
+            raise RuntimeError(f"Empty new range - {new_range!r}.")
+        return new_range
+
+    return f"bytes={new_start}-"

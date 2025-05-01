@@ -42,7 +42,7 @@ import re
 import textwrap
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, NoReturn, Optional, Set
+from typing import Any, Dict, List, NoReturn, Optional, Set, Tuple
 
 import libcst as cst
 from helpers import format_source_code
@@ -68,15 +68,13 @@ TASKS_TO_SKIP = [
     "audio_to_audio",
     "feature_extraction",
     "sentence_similarity",
-    "table_question_answering",
     "automatic_speech_recognition",
     "image_to_text",
-    "image_to_image",
 ]
 
 PARAMETERS_DATACLASS_REGEX = re.compile(
     r"""
-    ^@dataclass
+    ^@dataclass_with_extra
     \nclass\s(\w+Parameters)\(BaseInferenceType\):
     """,
     re.VERBOSE | re.MULTILINE,
@@ -92,6 +90,7 @@ CORE_PARAMETERS = {
     "question",  # For QA tasks
     "context",  # For QA tasks
     "labels",  # For classification tasks
+    "extra_body",  # For extra parameters
 }
 
 #### NODE VISITORS (READING THE CODE)
@@ -312,7 +311,7 @@ class UpdateParameters(cst.CSTTransformer):
                 new_param = cst.Param(
                     name=cst.Name(param_name),
                     annotation=annotation,
-                    default=param_info["default_value"],
+                    default=cst.Name(param_info["default_value"]),
                 )
                 new_kwonly_params.append(new_param)
         # Return the updated parameters object with new and updated parameters
@@ -369,9 +368,12 @@ class UpdateParameters(cst.CSTTransformer):
         desc_indent = param_indent + "    "  # Indentation for description lines
         # Update existing parameters in the docstring
         if update_params:
-            docstring_lines = self._process_existing_params(
+            docstring_lines, params_updated = self._process_existing_params(
                 docstring_lines, update_params, args_index, param_indent, desc_indent
             )
+            # When params_updated is still not empty, it means there are new parameters that are not in the docstring
+            # but are in the method signature
+            new_params = {**new_params, **params_updated}
         # Add new parameters to the docstring
         if new_params:
             docstring_lines = self._add_new_params(docstring_lines, new_params, args_index, param_indent, desc_indent)
@@ -420,8 +422,10 @@ class UpdateParameters(cst.CSTTransformer):
         args_index: int,
         param_indent: str,
         desc_indent: str,
-    ) -> List[str]:
+    ) -> Tuple[List[str], Dict[str, Dict[str, str]]]:
         """Update existing parameters in the docstring."""
+        # track the params that are updated
+        params_updated = params_to_update.copy()
         i = args_index + 1  # Start after the 'Args:' section
         while i < len(docstring_lines):
             line = docstring_lines[i]
@@ -437,9 +441,9 @@ class UpdateParameters(cst.CSTTransformer):
                 # Check if the line is a parameter line
                 param_line = stripped_line
                 param_name = param_line.strip().split()[0]  # Extract parameter name
-                if param_name in params_to_update:
+                if param_name in params_updated:
                     # Get the updated parameter info
-                    param_info = params_to_update[param_name]
+                    param_info = params_updated.pop(param_name)
                     # Format the new parameter docstring
                     param_doc_lines = self._format_param_docstring(param_name, param_info, param_indent, desc_indent)
                     # Find the end of the current parameter's description
@@ -465,7 +469,7 @@ class UpdateParameters(cst.CSTTransformer):
                 i += 1
             else:
                 i += 1  # Move to the next line if not a parameter line
-        return docstring_lines
+        return docstring_lines, params_updated
 
     def _add_new_params(
         self,
@@ -547,6 +551,8 @@ def _check_parameters(
     updates = {}
     # Check for new and updated parameters
     for param_name, param_info in dataclass_params.items():
+        if param_name in CORE_PARAMETERS:
+            continue
         if param_name not in existing_params:
             # New parameter
             updates[param_name] = {**param_info, "status": "new"}
@@ -762,7 +768,7 @@ def _check_and_update_parameters(
             "❌ Mismatch between between parameters defined in tasks methods signature in "
             "`./src/huggingface_hub/inference/_client.py` and parameters defined in "
             "`./src/huggingface_hub/inference/_generated/types.py \n"
-            "Please run `make inference_update` or `python utils/generate_task_parameters.py --update"
+            "Please run `make inference_update` or `python utils/check_task_parameters.py --update"
         )
         exit(1)
     else:

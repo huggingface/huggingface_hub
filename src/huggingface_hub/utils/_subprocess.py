@@ -44,8 +44,10 @@ def capture_output() -> Generator[StringIO, None, None]:
     output = StringIO()
     previous_output = sys.stdout
     sys.stdout = output
-    yield output
-    sys.stdout = previous_output
+    try:
+        yield output
+    finally:
+        sys.stdout = previous_output
 
 
 def run_subprocess(

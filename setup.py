@@ -14,6 +14,7 @@ def get_version() -> str:
 install_requires = [
     "filelock",
     "fsspec>=2023.5.0",
+    "hf-xet>=1.0.2,<2.0.0; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='arm64' or platform_machine=='aarch64'",
     "packaging>=20.9",
     "pyyaml>=5.1",
     "requests",
@@ -62,6 +63,7 @@ extras["tensorflow-testing"] = [
     "keras<3.0",
 ]
 
+extras["hf_xet"] = ["hf_xet>=1.0.2,<2.0.0"]
 
 extras["testing"] = (
     extras["cli"]
@@ -100,7 +102,7 @@ extras["typing"] = [
 ]
 
 extras["quality"] = [
-    "ruff>=0.5.0",
+    "ruff>=0.9.0",
     "mypy==1.5.1",
     "libcst==1.4.0",
 ]
@@ -146,4 +148,5 @@ setup(
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     include_package_data=True,
+    package_data={"huggingface_hub": ["py.typed"]},  # Needed for wheel installation
 )

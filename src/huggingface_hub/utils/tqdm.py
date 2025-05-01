@@ -81,10 +81,12 @@ Group-based control:
 """
 
 import io
+import logging
+import os
 import warnings
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import Dict, Iterator, Optional, Union
+from typing import ContextManager, Dict, Iterator, Optional, Union
 
 from tqdm.auto import tqdm as old_tqdm
 
@@ -196,6 +198,19 @@ def are_progress_bars_disabled(name: Optional[str] = None) -> bool:
     return not progress_bar_states.get("_global", True)
 
 
+def is_tqdm_disabled(log_level: int) -> Optional[bool]:
+    """
+    Determine if tqdm progress bars should be disabled based on logging level and environment settings.
+
+    see https://github.com/huggingface/huggingface_hub/pull/2000 and https://github.com/huggingface/huggingface_hub/pull/2698.
+    """
+    if log_level == logging.NOTSET:
+        return True
+    if os.getenv("TQDM_POSITION") == "-1":
+        return False
+    return None
+
+
 class tqdm(old_tqdm):
     """
     Class to override `disable` argument in case progress bars are globally disabled.
@@ -262,3 +277,31 @@ def tqdm_stream_file(path: Union[Path, str]) -> Iterator[io.BufferedReader]:
         yield f
 
         pbar.close()
+
+
+def _get_progress_bar_context(
+    *,
+    desc: str,
+    log_level: int,
+    total: Optional[int] = None,
+    initial: int = 0,
+    unit: str = "B",
+    unit_scale: bool = True,
+    name: Optional[str] = None,
+    _tqdm_bar: Optional[tqdm] = None,
+) -> ContextManager[tqdm]:
+    if _tqdm_bar is not None:
+        return nullcontext(_tqdm_bar)
+        # ^ `contextlib.nullcontext` mimics a context manager that does nothing
+        #   Makes it easier to use the same code path for both cases but in the later
+        #   case, the progress bar is not closed when exiting the context manager.
+
+    return tqdm(
+        unit=unit,
+        unit_scale=unit_scale,
+        total=total,
+        initial=initial,
+        desc=desc,
+        disable=is_tqdm_disabled(log_level=log_level),
+        name=name,
+    )

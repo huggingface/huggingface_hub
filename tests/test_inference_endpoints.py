@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
-from unittest.mock import Mock, patch
+from itertools import chain, repeat
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -109,6 +110,39 @@ MOCK_FAILED = {
         "targetReplica": 1,
     },
 }
+# added for test_wait_update function
+MOCK_UPDATE = {
+    "name": "my-endpoint-name",
+    "type": "protected",
+    "accountId": None,
+    "provider": {"vendor": "aws", "region": "us-east-1"},
+    "compute": {
+        "accelerator": "cpu",
+        "instanceType": "intel-icl",
+        "instanceSize": "x2",
+        "scaling": {"minReplica": 0, "maxReplica": 1},
+    },
+    "model": {
+        "repository": "gpt2",
+        "revision": "11c5a3d5811f50298f278a704980280950aedb10",
+        "task": "text-generation",
+        "framework": "pytorch",
+        "image": {"huggingface": {}},
+        "secret": {"token": "my-token"},
+    },
+    "status": {
+        "createdAt": "2023-10-26T12:41:53.263078506Z",
+        "createdBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
+        "updatedAt": "2023-10-26T12:41:53.263079138Z",
+        "updatedBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
+        "private": None,
+        "state": "updating",
+        "url": "https://vksrvs8pc1xnifhq.us-east-1.aws.endpoints.huggingface.cloud",
+        "message": "Endpoint waiting for the update",
+        "readyReplica": 0,
+        "targetReplica": 1,
+    },
+}
 
 
 def test_from_raw_initialization():
@@ -167,12 +201,12 @@ def test_get_client_ready():
     # => Client available
     client = endpoint.client
     assert isinstance(client, InferenceClient)
-    assert "my-token" in client.headers["Authorization"]
+    assert client.token == "my-token"
 
     # => AsyncClient available
     async_client = endpoint.async_client
     assert isinstance(async_client, AsyncInferenceClient)
-    assert "my-token" in async_client.headers["Authorization"]
+    assert async_client.token == "my-token"
 
 
 @patch("huggingface_hub.hf_api.HfApi.get_inference_endpoint")
@@ -189,7 +223,7 @@ def test_fetch(mock_get: Mock):
 @patch("huggingface_hub._inference_endpoints.get_session")
 @patch("huggingface_hub.hf_api.HfApi.get_inference_endpoint")
 def test_wait_until_running(mock_get: Mock, mock_session: Mock):
-    """Test waits waits until the endpoint is ready."""
+    """Test waits until the endpoint is ready."""
     endpoint = InferenceEndpoint.from_raw(MOCK_INITIALIZING, namespace="foo")
 
     mock_get.side_effect = [
@@ -242,6 +276,27 @@ def test_wait_failed(mock_get: Mock):
     ]
     with pytest.raises(InferenceEndpointError, match=".*failed to deploy.*"):
         endpoint.wait(refresh_every=0.001)
+
+
+@patch("huggingface_hub.hf_api.HfApi.get_inference_endpoint")
+@patch("huggingface_hub._inference_endpoints.get_session")
+def test_wait_update(mock_get_session, mock_get_inference_endpoint):
+    """Test that wait() returns when the endpoint transitions to running."""
+    endpoint = InferenceEndpoint.from_raw(MOCK_INITIALIZING, namespace="foo")
+    # Create an iterator that yields three MOCK_UPDATE responses,and then infinitely yields MOCK_RUNNING responses.
+    responses = chain(
+        [InferenceEndpoint.from_raw(MOCK_UPDATE, namespace="foo")] * 3,
+        repeat(InferenceEndpoint.from_raw(MOCK_RUNNING, namespace="foo")),
+    )
+    mock_get_inference_endpoint.side_effect = lambda *args, **kwargs: next(responses)
+
+    # Patch the get_session().get() call to always return a fake response with status_code 200.
+    fake_response = MagicMock()
+    fake_response.status_code = 200
+    mock_get_session.return_value.get.return_value = fake_response
+
+    endpoint.wait(refresh_every=0.05)
+    assert endpoint.status == "running"
 
 
 @patch("huggingface_hub.hf_api.HfApi.pause_inference_endpoint")

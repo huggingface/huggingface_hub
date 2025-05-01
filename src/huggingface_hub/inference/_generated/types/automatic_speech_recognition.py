@@ -3,20 +3,17 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import List, Literal, Optional, Union
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 AutomaticSpeechRecognitionEarlyStoppingEnum = Literal["never"]
 
 
-@dataclass
+@dataclass_with_extra
 class AutomaticSpeechRecognitionGenerationParameters(BaseInferenceType):
-    """Parametrization of the text generation process
-    Ad-hoc parametrization of the text generation process
-    """
+    """Parametrization of the text generation process"""
 
     do_sample: Optional[bool] = None
     """Whether to use sampling instead of greedy decoding when generating new tokens."""
@@ -74,19 +71,17 @@ class AutomaticSpeechRecognitionGenerationParameters(BaseInferenceType):
     """Whether the model should use the past last key/values attentions to speed up decoding"""
 
 
-@dataclass
+@dataclass_with_extra
 class AutomaticSpeechRecognitionParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Automatic Speech Recognition
-    """
+    """Additional inference parameters for Automatic Speech Recognition"""
 
-    generate: Optional[AutomaticSpeechRecognitionGenerationParameters] = None
+    generation_parameters: Optional[AutomaticSpeechRecognitionGenerationParameters] = None
     """Parametrization of the text generation process"""
     return_timestamps: Optional[bool] = None
     """Whether to output corresponding timestamps with the generated text"""
 
 
-@dataclass
+@dataclass_with_extra
 class AutomaticSpeechRecognitionInput(BaseInferenceType):
     """Inputs for Automatic Speech Recognition inference"""
 
@@ -95,18 +90,18 @@ class AutomaticSpeechRecognitionInput(BaseInferenceType):
     also provide the audio data as a raw bytes payload.
     """
     parameters: Optional[AutomaticSpeechRecognitionParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Automatic Speech Recognition"""
 
 
-@dataclass
+@dataclass_with_extra
 class AutomaticSpeechRecognitionOutputChunk(BaseInferenceType):
     text: str
     """A chunk of text identified by the model"""
-    timestamps: List[float]
+    timestamp: List[float]
     """The start and end timestamps corresponding with the text"""
 
 
-@dataclass
+@dataclass_with_extra
 class AutomaticSpeechRecognitionOutput(BaseInferenceType):
     """Outputs of inference for the Automatic Speech Recognition task"""
 

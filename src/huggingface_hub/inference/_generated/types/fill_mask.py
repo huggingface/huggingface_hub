@@ -3,17 +3,14 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, List, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class FillMaskParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Fill Mask
-    """
+    """Additional inference parameters for Fill Mask"""
 
     targets: Optional[List[str]] = None
     """When passed, the model will limit the scores to the passed targets instead of looking up
@@ -25,17 +22,17 @@ class FillMaskParameters(BaseInferenceType):
     """When passed, overrides the number of predictions to return."""
 
 
-@dataclass
+@dataclass_with_extra
 class FillMaskInput(BaseInferenceType):
     """Inputs for Fill Mask inference"""
 
     inputs: str
     """The text with masked tokens"""
     parameters: Optional[FillMaskParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Fill Mask"""
 
 
-@dataclass
+@dataclass_with_extra
 class FillMaskOutputElement(BaseInferenceType):
     """Outputs of inference for the Fill Mask task"""
 

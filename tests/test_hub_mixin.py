@@ -4,9 +4,10 @@ import os
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, get_type_hints
 from unittest.mock import Mock, patch
 
+import jedi
 import pytest
 
 from huggingface_hub import HfApi, hf_hub_download
@@ -90,7 +91,12 @@ class DummyModelFromPretrainedExpectsConfig(ModelHubMixin):
         return cls(**kwargs)
 
 
-class BaseModelForInheritance(ModelHubMixin, repo_url="https://hf.co/my-repo", library_name="my-cool-library"):
+class BaseModelForInheritance(
+    ModelHubMixin,
+    repo_url="https://hf.co/my-repo",
+    paper_url="https://arxiv.org/abs/2304.12244",
+    library_name="my-cool-library",
+):
     pass
 
 
@@ -165,6 +171,26 @@ class DummyModelWithCustomTypes(
     @classmethod
     def _from_pretrained(cls, **kwargs):
         return cls(**kwargs)
+
+    @classmethod
+    def _save_pretrained(cls, save_directory: Path):
+        return
+
+
+@dataclass
+class DummyDataclass:
+    foo: int
+    bar: str
+
+
+class DummyWithDataclassInputs(ModelHubMixin):
+    def __init__(self, arg1: DummyDataclass, arg2: DummyDataclass):
+        self.arg1 = arg1
+        self.arg2 = arg2
+
+    @classmethod
+    def _from_pretrained(cls, **kwargs):
+        return cls(arg1=kwargs["arg1"], arg2=kwargs["arg2"])
 
     @classmethod
     def _save_pretrained(cls, save_directory: Path):
@@ -451,4 +477,66 @@ class HubMixinTest(unittest.TestCase):
         """Test MixinInfo attributes are inherited from the parent class."""
         model = DummyModelInherited()
         assert model._hub_mixin_info.repo_url == "https://hf.co/my-repo"
+        assert model._hub_mixin_info.paper_url == "https://arxiv.org/abs/2304.12244"
         assert model._hub_mixin_info.model_card_data.library_name == "my-cool-library"
+
+    def test_autocomplete_works_as_expected(self):
+        """Regression test for #2694.
+
+        Ensure that autocomplete works as expected when inheriting from `ModelHubMixin`.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2694.
+        """
+        source = """
+from huggingface_hub import ModelHubMixin
+
+class Dummy(ModelHubMixin):
+    def dummy_example_for_test(self, x: str) -> str:
+        return x
+
+a = Dummy()
+a.dum""".strip()
+        script = jedi.Script(source, path="example.py")
+        source_lines = source.split("\n")
+        completions = script.complete(len(source_lines), len(source_lines[-1]))
+        assert any(completion.name == "dummy_example_for_test" for completion in completions)
+
+    def test_get_type_hints_works_as_expected(self):
+        """
+        Ensure that `typing.get_type_hints` works as expected when inheriting from `ModelHubMixin`.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2727.
+        """
+
+        class ModelWithHints(ModelHubMixin):
+            def method_with_hints(self, x: int) -> str:
+                return str(x)
+
+        assert get_type_hints(ModelWithHints) != {}
+
+        # Test method type hints on class
+        hints = get_type_hints(ModelWithHints.method_with_hints)
+        assert hints == {"x": int, "return": str}
+
+        # Test method type hints on instance
+        model = ModelWithHints()
+        assert get_type_hints(model.method_with_hints) == {"x": int, "return": str}
+
+    def test_with_dataclass_inputs(self):
+        model = DummyWithDataclassInputs(
+            arg1=DummyDataclass(foo=1, bar="1"),
+            arg2=DummyDataclass(foo=2, bar="2"),
+        )
+        model.save_pretrained(self.cache_dir)
+
+        config = json.loads((self.cache_dir / "config.json").read_text())
+        assert config == {
+            "arg1": {"foo": 1, "bar": "1"},
+            "arg2": {"foo": 2, "bar": "2"},
+        }
+
+        model_reloaded = DummyWithDataclassInputs.from_pretrained(self.cache_dir)
+        assert model_reloaded.arg1.foo == 1
+        assert model_reloaded.arg1.bar == "1"
+        assert model_reloaded.arg2.foo == 2
+        assert model_reloaded.arg2.bar == "2"

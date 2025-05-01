@@ -1,21 +1,21 @@
 import inspect
 import json
-from dataclasses import dataclass
 from typing import List, Optional, Union, get_args, get_origin
 
 import pytest
 
 import huggingface_hub.inference._generated.types as types
-from huggingface_hub.inference._generated.types import AutomaticSpeechRecognitionParameters, BaseInferenceType
+from huggingface_hub.inference._generated.types import AutomaticSpeechRecognitionParameters
+from huggingface_hub.inference._generated.types.base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class DummyType(BaseInferenceType):
     foo: int
     bar: str
 
 
-@dataclass
+@dataclass_with_extra
 class DummyNestedType(BaseInferenceType):
     item: DummyType
     items: List[DummyType]
@@ -129,6 +129,42 @@ def test_none_inferred():
     # Doing this should not fail with
     # TypeError: __init__() missing 2 required positional arguments: 'generate' and 'return_timestamps'
     AutomaticSpeechRecognitionParameters()
+
+
+def test_other_fields_are_set():
+    instance = DummyNestedType.parse_obj(
+        {
+            "item": DUMMY_AS_DICT,
+            "extra": "value",
+            "items": [{"foo": 42, "another_extra": "value", "bar": "baz"}],
+            "maybe_items": None,
+        }
+    )
+    assert instance.extra == "value"
+    assert instance.items[0].another_extra == "value"
+    assert str(instance.items[0]) == "DummyType(foo=42, bar='baz', another_extra='value')"  # extra field always last
+    assert (
+        repr(instance)  # works both with __str__ and __repr__
+        == (
+            "DummyNestedType("
+            "item=DummyType(foo=42, bar='baz'), "
+            "items=[DummyType(foo=42, bar='baz', another_extra='value')], "
+            "maybe_items=None, extra='value'"
+            ")"
+        )
+    )
+
+
+def test_other_fields_not_proper_dataclass_fields():
+    instance_1 = DummyType.parse_obj({"foo": 42, "bar": "baz", "extra": "value1"})
+    instance_2 = DummyType.parse_obj({"foo": 42, "bar": "baz", "extra": "value2", "another_extra": "value2.1"})
+    assert instance_1.extra == "value1"
+    assert instance_2.extra == "value2"
+    assert instance_2.another_extra == "value2.1"
+
+    # extra fields are not part of the dataclass fields
+    # all dataclass methods except __repr__ should work as if the extra fields were not there
+    assert instance_1 == instance_2
 
 
 def _is_optional(field) -> bool:

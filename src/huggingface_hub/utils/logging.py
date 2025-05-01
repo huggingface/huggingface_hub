@@ -28,6 +28,8 @@ from logging import (
 )
 from typing import Optional
 
+from .. import constants
+
 
 log_levels = {
     "debug": logging.DEBUG,
@@ -59,7 +61,7 @@ def _get_default_logging_level():
             return log_levels[env_level_str]
         else:
             logging.getLogger().warning(
-                f"Unknown option HF_HUB_VERBOSITY={env_level_str}, has to be one of: { ', '.join(log_levels.keys()) }"
+                f"Unknown option HF_HUB_VERBOSITY={env_level_str}, has to be one of: {', '.join(log_levels.keys())}"
             )
     return _default_log_level
 
@@ -180,3 +182,7 @@ def enable_propagation() -> None:
 
 
 _configure_library_root_logger()
+
+if constants.HF_DEBUG:
+    # If `HF_DEBUG` environment variable is set, set the verbosity of `huggingface_hub` logger to `DEBUG`.
+    set_verbosity_debug()

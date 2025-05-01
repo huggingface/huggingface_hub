@@ -3,20 +3,17 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, Literal, Optional, Union
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 TextToAudioEarlyStoppingEnum = Literal["never"]
 
 
-@dataclass
+@dataclass_with_extra
 class TextToAudioGenerationParameters(BaseInferenceType):
-    """Parametrization of the text generation process
-    Ad-hoc parametrization of the text generation process
-    """
+    """Parametrization of the text generation process"""
 
     do_sample: Optional[bool] = None
     """Whether to use sampling instead of greedy decoding when generating new tokens."""
@@ -40,11 +37,11 @@ class TextToAudioGenerationParameters(BaseInferenceType):
     max_length: Optional[int] = None
     """The maximum length (in tokens) of the generated text, including the input."""
     max_new_tokens: Optional[int] = None
-    """The maximum number of tokens to generate. Takes precedence over maxLength."""
+    """The maximum number of tokens to generate. Takes precedence over max_length."""
     min_length: Optional[int] = None
     """The minimum length (in tokens) of the generated text, including the input."""
     min_new_tokens: Optional[int] = None
-    """The minimum number of tokens to generate. Takes precedence over maxLength."""
+    """The minimum number of tokens to generate. Takes precedence over min_length."""
     num_beam_groups: Optional[int] = None
     """Number of groups to divide num_beams into in order to ensure diversity among different
     groups of beams. See [this paper](https://hf.co/papers/1610.02424) for more details.
@@ -74,32 +71,29 @@ class TextToAudioGenerationParameters(BaseInferenceType):
     """Whether the model should use the past last key/values attentions to speed up decoding"""
 
 
-@dataclass
+@dataclass_with_extra
 class TextToAudioParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Text To Audio
-    """
+    """Additional inference parameters for Text To Audio"""
 
-    generate: Optional[TextToAudioGenerationParameters] = None
+    generation_parameters: Optional[TextToAudioGenerationParameters] = None
     """Parametrization of the text generation process"""
 
 
-@dataclass
+@dataclass_with_extra
 class TextToAudioInput(BaseInferenceType):
     """Inputs for Text To Audio inference"""
 
     inputs: str
     """The input text data"""
     parameters: Optional[TextToAudioParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Text To Audio"""
 
 
-@dataclass
+@dataclass_with_extra
 class TextToAudioOutput(BaseInferenceType):
     """Outputs of inference for the Text To Audio task"""
 
     audio: Any
     """The generated audio waveform."""
-    sampling_rate: Any
-    text_to_audio_output_sampling_rate: Optional[float] = None
+    sampling_rate: float
     """The sampling rate of the generated audio waveform."""

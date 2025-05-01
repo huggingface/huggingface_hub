@@ -44,15 +44,8 @@ from huggingface_hub.repocard import REGEX_YAML_BLOCK
 from huggingface_hub.repocard_data import CardData
 from huggingface_hub.utils import SoftTemporaryDirectory, is_jinja_available
 
-from .testing_constants import (
-    ENDPOINT_STAGING,
-    TOKEN,
-    USER,
-)
-from .testing_utils import (
-    repo_name,
-    with_production_testing,
-)
+from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
+from .testing_utils import repo_name, with_production_testing
 
 
 SAMPLE_CARDS_DIR = Path(__file__).parent / "fixtures/cards"
@@ -269,6 +262,28 @@ class RepocardMetadataTest(unittest.TestCase):
         metadata_save(self.filepath, data)
         content = self.filepath.read_text().splitlines()
         self.assertEqual(content, DUMMY_MODELCARD_EVAL_RESULT.splitlines())
+
+
+@with_production_testing
+def test_load_from_hub_if_repo_id_or_path_is_a_dir(monkeypatch, tmp_path):
+    """If `repo_id_or_path` happens to be both a `repo_id` and a local directory, the card must be loaded from the Hub.
+
+    Path can only be a file path.
+
+    Regression test for https://github.com/huggingface/huggingface_hub/issues/2768.
+    """
+    repo_id = "openai-community/gpt2"
+    monkeypatch.chdir(tmp_path)
+
+    test_dir = tmp_path / "openai-community"
+    test_dir.mkdir()
+
+    model_dir = test_dir / "gpt2"
+    model_dir.mkdir()
+
+    card = RepoCard.load(repo_id)
+    assert "GPT-2" in str(card)  # loaded from Hub
+    assert Path(repo_id).is_dir()
 
 
 class RepocardMetadataUpdateTest(unittest.TestCase):

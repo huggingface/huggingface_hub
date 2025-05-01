@@ -221,7 +221,8 @@ class CardData:
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get value for a given metadata key."""
-        return self.__dict__.get(key, default)
+        value = self.__dict__.get(key)
+        return default if value is None else value
 
     def pop(self, key: str, default: Any = None) -> Any:
         """Pop value for a given metadata key."""
@@ -242,6 +243,23 @@ class CardData:
     def __len__(self) -> int:
         """Return the number of metadata keys set."""
         return len(self.__dict__)
+
+
+def _validate_eval_results(
+    eval_results: Optional[Union[EvalResult, List[EvalResult]]],
+    model_name: Optional[str],
+) -> List[EvalResult]:
+    if eval_results is None:
+        return []
+    if isinstance(eval_results, EvalResult):
+        eval_results = [eval_results]
+    if not isinstance(eval_results, list) or not all(isinstance(r, EvalResult) for r in eval_results):
+        raise ValueError(
+            f"`eval_results` should be of type `EvalResult` or a list of `EvalResult`, got {type(eval_results)}."
+        )
+    if model_name is None:
+        raise ValueError("Passing `eval_results` requires `model_name` to be set.")
+    return eval_results
 
 
 class ModelCardData(CardData):
@@ -358,10 +376,13 @@ class ModelCardData(CardData):
         super().__init__(**kwargs)
 
         if self.eval_results:
-            if isinstance(self.eval_results, EvalResult):
-                self.eval_results = [self.eval_results]
-            if self.model_name is None:
-                raise ValueError("Passing `eval_results` requires `model_name` to be set.")
+            try:
+                self.eval_results = _validate_eval_results(self.eval_results, self.model_name)
+            except Exception as e:
+                if ignore_metadata_errors:
+                    logger.warning(f"Failed to validate eval_results: {e}. Not loading eval results into CardData.")
+                else:
+                    raise ValueError(f"Failed to validate eval_results: {e}") from e
 
     def _to_dict(self, data_dict):
         """Format the internal data dict. In this case, we convert eval results to a valid model index"""

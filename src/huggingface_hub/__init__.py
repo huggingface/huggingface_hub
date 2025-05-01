@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.27.0.dev0"
+__version__ = "0.31.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -172,6 +172,7 @@ _SUBMOD_ATTRS = {
         "create_commit",
         "create_discussion",
         "create_inference_endpoint",
+        "create_inference_endpoint_from_catalog",
         "create_pull_request",
         "create_repo",
         "create_tag",
@@ -209,13 +210,13 @@ _SUBMOD_ATTRS = {
         "get_user_overview",
         "get_webhook",
         "grant_access",
-        "like",
         "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
+        "list_inference_catalog",
         "list_inference_endpoints",
+        "list_lfs_files",
         "list_liked_repos",
-        "list_metrics",
         "list_models",
         "list_organization_members",
         "list_papers",
@@ -237,6 +238,7 @@ _SUBMOD_ATTRS = {
         "parse_safetensors_file_metadata",
         "pause_inference_endpoint",
         "pause_space",
+        "permanently_delete_lfs_files",
         "preupload_lfs_files",
         "reject_access_request",
         "rename_discussion",
@@ -304,7 +306,10 @@ _SUBMOD_ATTRS = {
         "ChatCompletionInputMessageChunk",
         "ChatCompletionInputMessageChunkType",
         "ChatCompletionInputStreamOptions",
-        "ChatCompletionInputToolType",
+        "ChatCompletionInputTool",
+        "ChatCompletionInputToolCall",
+        "ChatCompletionInputToolChoiceClass",
+        "ChatCompletionInputToolChoiceEnum",
         "ChatCompletionInputURL",
         "ChatCompletionOutput",
         "ChatCompletionOutputComplete",
@@ -356,6 +361,7 @@ _SUBMOD_ATTRS = {
         "ObjectDetectionInput",
         "ObjectDetectionOutputElement",
         "ObjectDetectionParameters",
+        "Padding",
         "QuestionAnsweringInput",
         "QuestionAnsweringInputData",
         "QuestionAnsweringOutputElement",
@@ -369,6 +375,7 @@ _SUBMOD_ATTRS = {
         "TableQuestionAnsweringInput",
         "TableQuestionAnsweringInputData",
         "TableQuestionAnsweringOutputElement",
+        "TableQuestionAnsweringParameters",
         "Text2TextGenerationInput",
         "Text2TextGenerationOutput",
         "Text2TextGenerationParameters",
@@ -397,17 +404,18 @@ _SUBMOD_ATTRS = {
         "TextToImageInput",
         "TextToImageOutput",
         "TextToImageParameters",
-        "TextToImageTargetSize",
         "TextToSpeechEarlyStoppingEnum",
         "TextToSpeechGenerationParameters",
         "TextToSpeechInput",
         "TextToSpeechOutput",
         "TextToSpeechParameters",
+        "TextToVideoInput",
+        "TextToVideoOutput",
+        "TextToVideoParameters",
         "TokenClassificationAggregationStrategy",
         "TokenClassificationInput",
         "TokenClassificationOutputElement",
         "TokenClassificationParameters",
-        "ToolElement",
         "TranslationInput",
         "TranslationOutput",
         "TranslationParameters",
@@ -422,17 +430,15 @@ _SUBMOD_ATTRS = {
         "VisualQuestionAnsweringOutputElement",
         "VisualQuestionAnsweringParameters",
         "ZeroShotClassificationInput",
-        "ZeroShotClassificationInputData",
         "ZeroShotClassificationOutputElement",
         "ZeroShotClassificationParameters",
         "ZeroShotImageClassificationInput",
-        "ZeroShotImageClassificationInputData",
         "ZeroShotImageClassificationOutputElement",
         "ZeroShotImageClassificationParameters",
         "ZeroShotObjectDetectionBoundingBox",
         "ZeroShotObjectDetectionInput",
-        "ZeroShotObjectDetectionInputData",
         "ZeroShotObjectDetectionOutputElement",
+        "ZeroShotObjectDetectionParameters",
     ],
     "inference_api": [
         "InferenceApi",
@@ -468,11 +474,19 @@ _SUBMOD_ATTRS = {
         "get_tf_storage_size",
         "get_torch_storage_id",
         "get_torch_storage_size",
+        "load_state_dict_from_file",
+        "load_torch_model",
         "save_torch_model",
         "save_torch_state_dict",
         "split_state_dict_into_shards_factory",
         "split_tf_state_dict_into_shards",
         "split_torch_state_dict_into_shards",
+    ],
+    "serialization._dduf": [
+        "DDUFEntry",
+        "export_entries_as_dduf",
+        "export_folder_as_dduf",
+        "read_dduf_file",
     ],
     "utils": [
         "CacheNotFound",
@@ -493,6 +507,414 @@ _SUBMOD_ATTRS = {
     ],
 }
 
+# WARNING: __all__ is generated automatically, Any manual edit will be lost when re-generating this file !
+#
+# To update the static imports, please run the following command and commit the changes.
+# ```
+# # Use script
+# python utils/check_all_variable.py --update
+#
+# # Or run style on codebase
+# make style
+# ```
+
+__all__ = [
+    "AsyncInferenceClient",
+    "AudioClassificationInput",
+    "AudioClassificationOutputElement",
+    "AudioClassificationOutputTransform",
+    "AudioClassificationParameters",
+    "AudioToAudioInput",
+    "AudioToAudioOutputElement",
+    "AutomaticSpeechRecognitionEarlyStoppingEnum",
+    "AutomaticSpeechRecognitionGenerationParameters",
+    "AutomaticSpeechRecognitionInput",
+    "AutomaticSpeechRecognitionOutput",
+    "AutomaticSpeechRecognitionOutputChunk",
+    "AutomaticSpeechRecognitionParameters",
+    "CONFIG_NAME",
+    "CacheNotFound",
+    "CachedFileInfo",
+    "CachedRepoInfo",
+    "CachedRevisionInfo",
+    "CardData",
+    "ChatCompletionInput",
+    "ChatCompletionInputFunctionDefinition",
+    "ChatCompletionInputFunctionName",
+    "ChatCompletionInputGrammarType",
+    "ChatCompletionInputGrammarTypeType",
+    "ChatCompletionInputMessage",
+    "ChatCompletionInputMessageChunk",
+    "ChatCompletionInputMessageChunkType",
+    "ChatCompletionInputStreamOptions",
+    "ChatCompletionInputTool",
+    "ChatCompletionInputToolCall",
+    "ChatCompletionInputToolChoiceClass",
+    "ChatCompletionInputToolChoiceEnum",
+    "ChatCompletionInputURL",
+    "ChatCompletionOutput",
+    "ChatCompletionOutputComplete",
+    "ChatCompletionOutputFunctionDefinition",
+    "ChatCompletionOutputLogprob",
+    "ChatCompletionOutputLogprobs",
+    "ChatCompletionOutputMessage",
+    "ChatCompletionOutputToolCall",
+    "ChatCompletionOutputTopLogprob",
+    "ChatCompletionOutputUsage",
+    "ChatCompletionStreamOutput",
+    "ChatCompletionStreamOutputChoice",
+    "ChatCompletionStreamOutputDelta",
+    "ChatCompletionStreamOutputDeltaToolCall",
+    "ChatCompletionStreamOutputFunction",
+    "ChatCompletionStreamOutputLogprob",
+    "ChatCompletionStreamOutputLogprobs",
+    "ChatCompletionStreamOutputTopLogprob",
+    "ChatCompletionStreamOutputUsage",
+    "Collection",
+    "CollectionItem",
+    "CommitInfo",
+    "CommitOperation",
+    "CommitOperationAdd",
+    "CommitOperationCopy",
+    "CommitOperationDelete",
+    "CommitScheduler",
+    "CorruptedCacheException",
+    "DDUFEntry",
+    "DatasetCard",
+    "DatasetCardData",
+    "DatasetInfo",
+    "DeleteCacheStrategy",
+    "DepthEstimationInput",
+    "DepthEstimationOutput",
+    "Discussion",
+    "DiscussionComment",
+    "DiscussionCommit",
+    "DiscussionEvent",
+    "DiscussionStatusChange",
+    "DiscussionTitleChange",
+    "DiscussionWithDetails",
+    "DocumentQuestionAnsweringInput",
+    "DocumentQuestionAnsweringInputData",
+    "DocumentQuestionAnsweringOutputElement",
+    "DocumentQuestionAnsweringParameters",
+    "EvalResult",
+    "FLAX_WEIGHTS_NAME",
+    "FeatureExtractionInput",
+    "FeatureExtractionInputTruncationDirection",
+    "FillMaskInput",
+    "FillMaskOutputElement",
+    "FillMaskParameters",
+    "GitCommitInfo",
+    "GitRefInfo",
+    "GitRefs",
+    "HFCacheInfo",
+    "HFSummaryWriter",
+    "HUGGINGFACE_CO_URL_HOME",
+    "HUGGINGFACE_CO_URL_TEMPLATE",
+    "HfApi",
+    "HfFileMetadata",
+    "HfFileSystem",
+    "HfFileSystemFile",
+    "HfFileSystemResolvedPath",
+    "HfFileSystemStreamFile",
+    "HfFolder",
+    "ImageClassificationInput",
+    "ImageClassificationOutputElement",
+    "ImageClassificationOutputTransform",
+    "ImageClassificationParameters",
+    "ImageSegmentationInput",
+    "ImageSegmentationOutputElement",
+    "ImageSegmentationParameters",
+    "ImageSegmentationSubtask",
+    "ImageToImageInput",
+    "ImageToImageOutput",
+    "ImageToImageParameters",
+    "ImageToImageTargetSize",
+    "ImageToTextEarlyStoppingEnum",
+    "ImageToTextGenerationParameters",
+    "ImageToTextInput",
+    "ImageToTextOutput",
+    "ImageToTextParameters",
+    "InferenceApi",
+    "InferenceClient",
+    "InferenceEndpoint",
+    "InferenceEndpointError",
+    "InferenceEndpointStatus",
+    "InferenceEndpointTimeoutError",
+    "InferenceEndpointType",
+    "InferenceTimeoutError",
+    "KerasModelHubMixin",
+    "ModelCard",
+    "ModelCardData",
+    "ModelHubMixin",
+    "ModelInfo",
+    "ObjectDetectionBoundingBox",
+    "ObjectDetectionInput",
+    "ObjectDetectionOutputElement",
+    "ObjectDetectionParameters",
+    "PYTORCH_WEIGHTS_NAME",
+    "Padding",
+    "PyTorchModelHubMixin",
+    "QuestionAnsweringInput",
+    "QuestionAnsweringInputData",
+    "QuestionAnsweringOutputElement",
+    "QuestionAnsweringParameters",
+    "REPO_TYPE_DATASET",
+    "REPO_TYPE_MODEL",
+    "REPO_TYPE_SPACE",
+    "RepoCard",
+    "RepoUrl",
+    "Repository",
+    "SentenceSimilarityInput",
+    "SentenceSimilarityInputData",
+    "SpaceCard",
+    "SpaceCardData",
+    "SpaceHardware",
+    "SpaceInfo",
+    "SpaceRuntime",
+    "SpaceStage",
+    "SpaceStorage",
+    "SpaceVariable",
+    "StateDictSplit",
+    "SummarizationInput",
+    "SummarizationOutput",
+    "SummarizationParameters",
+    "SummarizationTruncationStrategy",
+    "TF2_WEIGHTS_NAME",
+    "TF_WEIGHTS_NAME",
+    "TableQuestionAnsweringInput",
+    "TableQuestionAnsweringInputData",
+    "TableQuestionAnsweringOutputElement",
+    "TableQuestionAnsweringParameters",
+    "Text2TextGenerationInput",
+    "Text2TextGenerationOutput",
+    "Text2TextGenerationParameters",
+    "Text2TextGenerationTruncationStrategy",
+    "TextClassificationInput",
+    "TextClassificationOutputElement",
+    "TextClassificationOutputTransform",
+    "TextClassificationParameters",
+    "TextGenerationInput",
+    "TextGenerationInputGenerateParameters",
+    "TextGenerationInputGrammarType",
+    "TextGenerationOutput",
+    "TextGenerationOutputBestOfSequence",
+    "TextGenerationOutputDetails",
+    "TextGenerationOutputFinishReason",
+    "TextGenerationOutputPrefillToken",
+    "TextGenerationOutputToken",
+    "TextGenerationStreamOutput",
+    "TextGenerationStreamOutputStreamDetails",
+    "TextGenerationStreamOutputToken",
+    "TextToAudioEarlyStoppingEnum",
+    "TextToAudioGenerationParameters",
+    "TextToAudioInput",
+    "TextToAudioOutput",
+    "TextToAudioParameters",
+    "TextToImageInput",
+    "TextToImageOutput",
+    "TextToImageParameters",
+    "TextToSpeechEarlyStoppingEnum",
+    "TextToSpeechGenerationParameters",
+    "TextToSpeechInput",
+    "TextToSpeechOutput",
+    "TextToSpeechParameters",
+    "TextToVideoInput",
+    "TextToVideoOutput",
+    "TextToVideoParameters",
+    "TokenClassificationAggregationStrategy",
+    "TokenClassificationInput",
+    "TokenClassificationOutputElement",
+    "TokenClassificationParameters",
+    "TranslationInput",
+    "TranslationOutput",
+    "TranslationParameters",
+    "TranslationTruncationStrategy",
+    "TypeEnum",
+    "User",
+    "UserLikes",
+    "VideoClassificationInput",
+    "VideoClassificationOutputElement",
+    "VideoClassificationOutputTransform",
+    "VideoClassificationParameters",
+    "VisualQuestionAnsweringInput",
+    "VisualQuestionAnsweringInputData",
+    "VisualQuestionAnsweringOutputElement",
+    "VisualQuestionAnsweringParameters",
+    "WebhookInfo",
+    "WebhookPayload",
+    "WebhookPayloadComment",
+    "WebhookPayloadDiscussion",
+    "WebhookPayloadDiscussionChanges",
+    "WebhookPayloadEvent",
+    "WebhookPayloadMovedTo",
+    "WebhookPayloadRepo",
+    "WebhookPayloadUrl",
+    "WebhookPayloadWebhook",
+    "WebhookWatchedItem",
+    "WebhooksServer",
+    "ZeroShotClassificationInput",
+    "ZeroShotClassificationOutputElement",
+    "ZeroShotClassificationParameters",
+    "ZeroShotImageClassificationInput",
+    "ZeroShotImageClassificationOutputElement",
+    "ZeroShotImageClassificationParameters",
+    "ZeroShotObjectDetectionBoundingBox",
+    "ZeroShotObjectDetectionInput",
+    "ZeroShotObjectDetectionOutputElement",
+    "ZeroShotObjectDetectionParameters",
+    "_CACHED_NO_EXIST",
+    "_save_pretrained_fastai",
+    "accept_access_request",
+    "add_collection_item",
+    "add_space_secret",
+    "add_space_variable",
+    "auth_check",
+    "auth_list",
+    "auth_switch",
+    "cached_assets_path",
+    "cancel_access_request",
+    "change_discussion_status",
+    "comment_discussion",
+    "configure_http_backend",
+    "create_branch",
+    "create_collection",
+    "create_commit",
+    "create_discussion",
+    "create_inference_endpoint",
+    "create_inference_endpoint_from_catalog",
+    "create_pull_request",
+    "create_repo",
+    "create_tag",
+    "create_webhook",
+    "dataset_info",
+    "delete_branch",
+    "delete_collection",
+    "delete_collection_item",
+    "delete_file",
+    "delete_folder",
+    "delete_inference_endpoint",
+    "delete_repo",
+    "delete_space_secret",
+    "delete_space_storage",
+    "delete_space_variable",
+    "delete_tag",
+    "delete_webhook",
+    "disable_webhook",
+    "dump_environment_info",
+    "duplicate_space",
+    "edit_discussion_comment",
+    "enable_webhook",
+    "export_entries_as_dduf",
+    "export_folder_as_dduf",
+    "file_exists",
+    "from_pretrained_fastai",
+    "from_pretrained_keras",
+    "get_collection",
+    "get_dataset_tags",
+    "get_discussion_details",
+    "get_full_repo_name",
+    "get_hf_file_metadata",
+    "get_inference_endpoint",
+    "get_model_tags",
+    "get_paths_info",
+    "get_repo_discussions",
+    "get_safetensors_metadata",
+    "get_session",
+    "get_space_runtime",
+    "get_space_variables",
+    "get_tf_storage_size",
+    "get_token",
+    "get_token_permission",
+    "get_torch_storage_id",
+    "get_torch_storage_size",
+    "get_user_overview",
+    "get_webhook",
+    "grant_access",
+    "hf_hub_download",
+    "hf_hub_url",
+    "interpreter_login",
+    "list_accepted_access_requests",
+    "list_collections",
+    "list_datasets",
+    "list_inference_catalog",
+    "list_inference_endpoints",
+    "list_lfs_files",
+    "list_liked_repos",
+    "list_models",
+    "list_organization_members",
+    "list_papers",
+    "list_pending_access_requests",
+    "list_rejected_access_requests",
+    "list_repo_commits",
+    "list_repo_files",
+    "list_repo_likers",
+    "list_repo_refs",
+    "list_repo_tree",
+    "list_spaces",
+    "list_user_followers",
+    "list_user_following",
+    "list_webhooks",
+    "load_state_dict_from_file",
+    "load_torch_model",
+    "logging",
+    "login",
+    "logout",
+    "merge_pull_request",
+    "metadata_eval_result",
+    "metadata_load",
+    "metadata_save",
+    "metadata_update",
+    "model_info",
+    "move_repo",
+    "notebook_login",
+    "paper_info",
+    "parse_safetensors_file_metadata",
+    "pause_inference_endpoint",
+    "pause_space",
+    "permanently_delete_lfs_files",
+    "preupload_lfs_files",
+    "push_to_hub_fastai",
+    "push_to_hub_keras",
+    "read_dduf_file",
+    "reject_access_request",
+    "rename_discussion",
+    "repo_exists",
+    "repo_info",
+    "repo_type_and_id_from_hf_id",
+    "request_space_hardware",
+    "request_space_storage",
+    "restart_space",
+    "resume_inference_endpoint",
+    "revision_exists",
+    "run_as_future",
+    "save_pretrained_keras",
+    "save_torch_model",
+    "save_torch_state_dict",
+    "scale_to_zero_inference_endpoint",
+    "scan_cache_dir",
+    "set_space_sleep_time",
+    "snapshot_download",
+    "space_info",
+    "split_state_dict_into_shards_factory",
+    "split_tf_state_dict_into_shards",
+    "split_torch_state_dict_into_shards",
+    "super_squash_history",
+    "try_to_load_from_cache",
+    "unlike",
+    "update_collection_item",
+    "update_collection_metadata",
+    "update_inference_endpoint",
+    "update_repo_settings",
+    "update_repo_visibility",
+    "update_webhook",
+    "upload_file",
+    "upload_folder",
+    "upload_large_folder",
+    "webhook_endpoint",
+    "whoami",
+]
+
 
 def _attach(package_name, submodules=None, submod_attrs=None):
     """Attach lazily loaded submodules, functions, or other attributes.
@@ -506,14 +928,14 @@ def _attach(package_name, submodules=None, submod_attrs=None):
     from .foo import someattr
     ```
 
-    The idea is to replace a package's `__getattr__`, `__dir__`, and
-    `__all__`, such that all imports work exactly the way they would
-    with normal imports, except that the import occurs upon first use.
+    The idea is to replace a package's `__getattr__`, `__dir__`, such that all imports
+    work exactly the way they would with normal imports, except that the import occurs
+    upon first use.
 
     The typical way to call this function, replacing the above imports, is:
 
     ```python
-    __getattr__, __dir__, __all__ = lazy.attach(
+    __getattr__, __dir__ = lazy.attach(
         __name__,
         ['mysubmodule', 'anothersubmodule'],
         {'foo': ['someattr']}
@@ -543,8 +965,6 @@ def _attach(package_name, submodules=None, submod_attrs=None):
         submodules = set(submodules)
 
     attr_to_modules = {attr: mod for mod, attrs in submod_attrs.items() for attr in attrs}
-
-    __all__ = list(submodules | attr_to_modules.keys())
 
     def __getattr__(name):
         if name in submodules:
@@ -576,10 +996,10 @@ def _attach(package_name, submodules=None, submod_attrs=None):
     def __dir__():
         return __all__
 
-    return __getattr__, __dir__, list(__all__)
+    return __getattr__, __dir__
 
 
-__getattr__, __dir__, __all__ = _attach(__name__, submodules=[], submod_attrs=_SUBMOD_ATTRS)
+__getattr__, __dir__ = _attach(__name__, submodules=[], submod_attrs=_SUBMOD_ATTRS)
 
 if os.environ.get("EAGER_IMPORT", ""):
     for attr in __all__:
@@ -591,7 +1011,7 @@ if os.environ.get("EAGER_IMPORT", ""):
 # To update the static imports, please run the following command and commit the changes.
 # ```
 # # Use script
-# python utils/check_static_imports.py --update-file
+# python utils/check_static_imports.py --update
 #
 # # Or run style on codebase
 # make style
@@ -711,6 +1131,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_commit,  # noqa: F401
         create_discussion,  # noqa: F401
         create_inference_endpoint,  # noqa: F401
+        create_inference_endpoint_from_catalog,  # noqa: F401
         create_pull_request,  # noqa: F401
         create_repo,  # noqa: F401
         create_tag,  # noqa: F401
@@ -748,13 +1169,13 @@ if TYPE_CHECKING:  # pragma: no cover
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
-        like,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
+        list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
+        list_lfs_files,  # noqa: F401
         list_liked_repos,  # noqa: F401
-        list_metrics,  # noqa: F401
         list_models,  # noqa: F401
         list_organization_members,  # noqa: F401
         list_papers,  # noqa: F401
@@ -776,6 +1197,7 @@ if TYPE_CHECKING:  # pragma: no cover
         parse_safetensors_file_metadata,  # noqa: F401
         pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
+        permanently_delete_lfs_files,  # noqa: F401
         preupload_lfs_files,  # noqa: F401
         reject_access_request,  # noqa: F401
         rename_discussion,  # noqa: F401
@@ -841,7 +1263,10 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionInputMessageChunk,  # noqa: F401
         ChatCompletionInputMessageChunkType,  # noqa: F401
         ChatCompletionInputStreamOptions,  # noqa: F401
-        ChatCompletionInputToolType,  # noqa: F401
+        ChatCompletionInputTool,  # noqa: F401
+        ChatCompletionInputToolCall,  # noqa: F401
+        ChatCompletionInputToolChoiceClass,  # noqa: F401
+        ChatCompletionInputToolChoiceEnum,  # noqa: F401
         ChatCompletionInputURL,  # noqa: F401
         ChatCompletionOutput,  # noqa: F401
         ChatCompletionOutputComplete,  # noqa: F401
@@ -893,6 +1318,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ObjectDetectionInput,  # noqa: F401
         ObjectDetectionOutputElement,  # noqa: F401
         ObjectDetectionParameters,  # noqa: F401
+        Padding,  # noqa: F401
         QuestionAnsweringInput,  # noqa: F401
         QuestionAnsweringInputData,  # noqa: F401
         QuestionAnsweringOutputElement,  # noqa: F401
@@ -906,6 +1332,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TableQuestionAnsweringInput,  # noqa: F401
         TableQuestionAnsweringInputData,  # noqa: F401
         TableQuestionAnsweringOutputElement,  # noqa: F401
+        TableQuestionAnsweringParameters,  # noqa: F401
         Text2TextGenerationInput,  # noqa: F401
         Text2TextGenerationOutput,  # noqa: F401
         Text2TextGenerationParameters,  # noqa: F401
@@ -934,17 +1361,18 @@ if TYPE_CHECKING:  # pragma: no cover
         TextToImageInput,  # noqa: F401
         TextToImageOutput,  # noqa: F401
         TextToImageParameters,  # noqa: F401
-        TextToImageTargetSize,  # noqa: F401
         TextToSpeechEarlyStoppingEnum,  # noqa: F401
         TextToSpeechGenerationParameters,  # noqa: F401
         TextToSpeechInput,  # noqa: F401
         TextToSpeechOutput,  # noqa: F401
         TextToSpeechParameters,  # noqa: F401
+        TextToVideoInput,  # noqa: F401
+        TextToVideoOutput,  # noqa: F401
+        TextToVideoParameters,  # noqa: F401
         TokenClassificationAggregationStrategy,  # noqa: F401
         TokenClassificationInput,  # noqa: F401
         TokenClassificationOutputElement,  # noqa: F401
         TokenClassificationParameters,  # noqa: F401
-        ToolElement,  # noqa: F401
         TranslationInput,  # noqa: F401
         TranslationOutput,  # noqa: F401
         TranslationParameters,  # noqa: F401
@@ -959,17 +1387,15 @@ if TYPE_CHECKING:  # pragma: no cover
         VisualQuestionAnsweringOutputElement,  # noqa: F401
         VisualQuestionAnsweringParameters,  # noqa: F401
         ZeroShotClassificationInput,  # noqa: F401
-        ZeroShotClassificationInputData,  # noqa: F401
         ZeroShotClassificationOutputElement,  # noqa: F401
         ZeroShotClassificationParameters,  # noqa: F401
         ZeroShotImageClassificationInput,  # noqa: F401
-        ZeroShotImageClassificationInputData,  # noqa: F401
         ZeroShotImageClassificationOutputElement,  # noqa: F401
         ZeroShotImageClassificationParameters,  # noqa: F401
         ZeroShotObjectDetectionBoundingBox,  # noqa: F401
         ZeroShotObjectDetectionInput,  # noqa: F401
-        ZeroShotObjectDetectionInputData,  # noqa: F401
         ZeroShotObjectDetectionOutputElement,  # noqa: F401
+        ZeroShotObjectDetectionParameters,  # noqa: F401
     )
     from .inference_api import InferenceApi  # noqa: F401
     from .keras_mixin import (
@@ -1001,11 +1427,19 @@ if TYPE_CHECKING:  # pragma: no cover
         get_tf_storage_size,  # noqa: F401
         get_torch_storage_id,  # noqa: F401
         get_torch_storage_size,  # noqa: F401
+        load_state_dict_from_file,  # noqa: F401
+        load_torch_model,  # noqa: F401
         save_torch_model,  # noqa: F401
         save_torch_state_dict,  # noqa: F401
         split_state_dict_into_shards_factory,  # noqa: F401
         split_tf_state_dict_into_shards,  # noqa: F401
         split_torch_state_dict_into_shards,  # noqa: F401
+    )
+    from .serialization._dduf import (
+        DDUFEntry,  # noqa: F401
+        export_entries_as_dduf,  # noqa: F401
+        export_folder_as_dduf,  # noqa: F401
+        read_dduf_file,  # noqa: F401
     )
     from .utils import (
         CachedFileInfo,  # noqa: F401

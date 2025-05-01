@@ -1,4 +1,3 @@
-import contextlib
 import copy
 import errno
 import inspect
@@ -29,6 +28,7 @@ from .errors import (
     EntryNotFoundError,
     FileMetadataError,
     GatedRepoError,
+    HfHubHTTPError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -37,13 +37,13 @@ from .utils import (
     OfflineModeIsEnabled,
     SoftTemporaryDirectory,
     WeakFileLock,
+    XetFileData,
     build_hf_headers,
     get_fastai_version,  # noqa: F401 # for backward compatibility
     get_fastcore_version,  # noqa: F401 # for backward compatibility
     get_graphviz_version,  # noqa: F401 # for backward compatibility
     get_jinja_version,  # noqa: F401 # for backward compatibility
     get_pydot_version,  # noqa: F401 # for backward compatibility
-    get_session,
     get_tf_version,  # noqa: F401 # for backward compatibility
     get_torch_version,  # noqa: F401 # for backward compatibility
     hf_raise_for_status,
@@ -55,13 +55,17 @@ from .utils import (
     is_tf_available,  # noqa: F401 # for backward compatibility
     is_torch_available,  # noqa: F401 # for backward compatibility
     logging,
+    parse_xet_file_data_from_response,
+    refresh_xet_connection_info,
     reset_sessions,
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
+from .utils._http import _adjust_range_header, http_backoff
+from .utils._runtime import _PY_VERSION, is_xet_available  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
+from .utils.tqdm import _get_progress_bar_context
 
 
 logger = logging.get_logger(__name__)
@@ -157,12 +161,15 @@ class HfFileMetadata:
         size (`size`):
             Size of the file. In case of an LFS file, contains the size of the actual
             LFS file, not the pointer.
+        xet_file_data (`XetFileData`, *optional*):
+            Xet information for the file. This is only set if the file is stored using Xet storage.
     """
 
     commit_hash: Optional[str]
     etag: Optional[str]
     location: str
     size: Optional[int]
+    xet_file_data: Optional[XetFileData]
 
 
 @validate_hf_hub_args
@@ -260,6 +267,8 @@ def _request_wrapper(
     """Wrapper around requests methods to follow relative redirects if `follow_relative_redirects=True` even when
     `allow_redirection=False`.
 
+    A backoff mechanism retries the HTTP call on 429, 503 and 504 errors.
+
     Args:
         method (`str`):
             HTTP method, such as 'GET' or 'HEAD'.
@@ -297,9 +306,38 @@ def _request_wrapper(
         return response
 
     # Perform request and return if status_code is not in the retry list.
-    response = get_session().request(method=method, url=url, **params)
+    response = http_backoff(method=method, url=url, **params, retry_on_exceptions=(), retry_on_status_codes=(429,))
     hf_raise_for_status(response)
     return response
+
+
+def _get_file_length_from_http_response(response: requests.Response) -> Optional[int]:
+    """
+    Get the length of the file from the HTTP response headers.
+
+    This function extracts the file size from the HTTP response headers, either from the
+    `Content-Range` or `Content-Length` header, if available (in that order).
+        The HTTP response object containing the headers.
+        `int` or `None`: The length of the file in bytes if the information is available,
+        otherwise `None`.
+
+    Args:
+        response (`requests.Response`):
+            The HTTP response object.
+
+    Returns:
+        `int` or `None`: The length of the file in bytes, or None if not available.
+    """
+
+    content_range = response.headers.get("Content-Range")
+    if content_range is not None:
+        return int(content_range.rsplit("/")[-1])
+
+    content_length = response.headers.get("Content-Length")
+    if content_length is not None:
+        return int(content_length)
+
+    return None
 
 
 def http_get(
@@ -307,8 +345,8 @@ def http_get(
     temp_file: BinaryIO,
     *,
     proxies: Optional[Dict] = None,
-    resume_size: float = 0,
-    headers: Optional[Dict[str, str]] = None,
+    resume_size: int = 0,
+    headers: Optional[Dict[str, Any]] = None,
     expected_size: Optional[int] = None,
     displayed_filename: Optional[str] = None,
     _nb_retries: int = 5,
@@ -328,7 +366,7 @@ def http_get(
             The file-like object where to save the file.
         proxies (`dict`, *optional*):
             Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
-        resume_size (`float`, *optional*):
+        resume_size (`int`, *optional*):
             The number of bytes already downloaded. If set to 0 (default), the whole file is download. If set to a
             positive number, the download will resume at the given position.
         headers (`dict`, *optional*):
@@ -344,12 +382,15 @@ def http_get(
         # If the file is already fully downloaded, we don't need to download it again.
         return
 
+    has_custom_range_header = headers is not None and any(h.lower() == "range" for h in headers)
     hf_transfer = None
     if constants.HF_HUB_ENABLE_HF_TRANSFER:
         if resume_size != 0:
             warnings.warn("'hf_transfer' does not support `resume_size`: falling back to regular download method")
         elif proxies is not None:
             warnings.warn("'hf_transfer' does not support `proxies`: falling back to regular download method")
+        elif has_custom_range_header:
+            warnings.warn("'hf_transfer' ignores custom 'Range' headers; falling back to regular download method")
         else:
             try:
                 import hf_transfer  # type: ignore[no-redef]
@@ -363,13 +404,25 @@ def http_get(
     initial_headers = headers
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
-        headers["Range"] = "bytes=%d-" % (resume_size,)
+        headers["Range"] = _adjust_range_header(headers.get("Range"), resume_size)
+    elif expected_size and expected_size > constants.MAX_HTTP_DOWNLOAD_SIZE:
+        # Any files over 50GB will not be available through basic http request.
+        # Setting the range header to 0-0 will force the server to return the file size in the Content-Range header.
+        # Since hf_transfer splits the download into chunks, the process will succeed afterwards.
+        if hf_transfer:
+            headers["Range"] = "bytes=0-0"
+        else:
+            raise ValueError(
+                "The file is too large to be downloaded using the regular download method. Use `hf_transfer` or `hf_xet` instead."
+                " Try `pip install hf_transfer` or `pip install hf_xet`."
+            )
 
     r = _request_wrapper(
         method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT
     )
+
     hf_raise_for_status(r)
-    content_length = r.headers.get("Content-Length")
+    content_length = _get_file_length_from_http_response(r)
 
     # NOTE: 'total' is the total number of bytes to download, not the number of bytes in the file.
     #       If the file is compressed, the number of bytes in the saved file will be higher than 'total'.
@@ -393,25 +446,13 @@ def http_get(
         f" {{actual_size}} ({displayed_filename}).\nThis is usually due to network issues while downloading the file."
         " Please retry with `force_download=True`."
     )
-
-    # Stream file to buffer
-    progress_cm: tqdm = (
-        tqdm(  # type: ignore[assignment]
-            unit="B",
-            unit_scale=True,
-            total=total,
-            initial=resume_size,
-            desc=displayed_filename,
-            disable=True if (logger.getEffectiveLevel() == logging.NOTSET) else None,
-            # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
-            # see https://github.com/huggingface/huggingface_hub/pull/2000
-            name="huggingface_hub.http_get",
-        )
-        if _tqdm_bar is None
-        else contextlib.nullcontext(_tqdm_bar)
-        # ^ `contextlib.nullcontext` mimics a context manager that does nothing
-        #   Makes it easier to use the same code path for both cases but in the later
-        #   case, the progress bar is not closed when exiting the context manager.
+    progress_cm = _get_progress_bar_context(
+        desc=displayed_filename,
+        log_level=logger.getEffectiveLevel(),
+        total=total,
+        initial=resume_size,
+        name="huggingface_hub.http_get",
+        _tqdm_bar=_tqdm_bar,
     )
 
     with progress_cm as progress:
@@ -429,7 +470,7 @@ def http_get(
                     filename=temp_file.name,
                     max_files=constants.HF_TRANSFER_CONCURRENCY,
                     chunk_size=constants.DOWNLOAD_CHUNK_SIZE,
-                    headers=headers,
+                    headers=initial_headers,
                     parallel_failures=3,
                     max_retries=5,
                     **({"callback": progress.update} if supports_callback else {}),
@@ -483,6 +524,110 @@ def http_get(
             consistency_error_message.format(
                 actual_size=temp_file.tell(),
             )
+        )
+
+
+def xet_get(
+    *,
+    incomplete_path: Path,
+    xet_file_data: XetFileData,
+    headers: Dict[str, str],
+    expected_size: Optional[int] = None,
+    displayed_filename: Optional[str] = None,
+    _tqdm_bar: Optional[tqdm] = None,
+) -> None:
+    """
+    Download a file using Xet storage service.
+
+    Args:
+        incomplete_path (`Path`):
+            The path to the file to download.
+        xet_file_data (`XetFileData`):
+            The file metadata needed to make the request to the xet storage service.
+        headers (`Dict[str, str]`):
+            The headers to send to the xet storage service.
+        expected_size (`int`, *optional*):
+            The expected size of the file to download. If set, the download will raise an error if the size of the
+            received content is different from the expected one.
+        displayed_filename (`str`, *optional*):
+            The filename of the file that is being downloaded. Value is used only to display a nice progress bar. If
+            not set, the filename is guessed from the URL or the `Content-Disposition` header.
+
+    **How it works:**
+        The file download system uses Xet storage, which is a content-addressable storage system that breaks files into chunks
+        for efficient storage and transfer.
+
+        `hf_xet.download_files` manages downloading files by:
+        - Taking a list of files to download (each with its unique content hash)
+        - Connecting to a storage server (CAS server) that knows how files are chunked
+        - Using authentication to ensure secure access
+        - Providing progress updates during download
+
+        Authentication works by regularly refreshing access tokens through `refresh_xet_connection_info` to maintain a valid
+        connection to the storage server.
+
+        The download process works like this:
+        1. Create a local cache folder at `~/.cache/huggingface/xet/chunk-cache` to store reusable file chunks
+        2. Download files in parallel:
+            2.1. Prepare to write the file to disk
+            2.2. Ask the server "how is this file split into chunks?" using the file's unique hash
+                The server responds with:
+                - Which chunks make up the complete file
+                - Where each chunk can be downloaded from
+            2.3. For each needed chunk:
+                - Checks if we already have it in our local cache
+                - If not, download it from cloud storage (S3)
+                - Save it to cache for future use
+                - Assemble the chunks in order to recreate the original file
+
+    """
+    try:
+        from hf_xet import PyPointerFile, download_files  # type: ignore[no-redef]
+    except ImportError:
+        raise ValueError(
+            "To use optimized download using Xet storage, you need to install the hf_xet package. "
+            'Try `pip install "huggingface_hub[hf_xet]"` or `pip install hf_xet`.'
+        )
+
+    connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
+
+    def token_refresher() -> Tuple[str, int]:
+        connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
+        if connection_info is None:
+            raise ValueError("Failed to refresh token using xet metadata.")
+        return connection_info.access_token, connection_info.expiration_unix_epoch
+
+    pointer_files = [
+        PyPointerFile(path=str(incomplete_path.absolute()), hash=xet_file_data.file_hash, filesize=expected_size)
+    ]
+
+    if not displayed_filename:
+        displayed_filename = incomplete_path.name
+
+    # Truncate filename if too long to display
+    if len(displayed_filename) > 40:
+        displayed_filename = f"{displayed_filename[:40]}(…)"
+
+    progress_cm = _get_progress_bar_context(
+        desc=displayed_filename,
+        log_level=logger.getEffectiveLevel(),
+        total=expected_size,
+        initial=0,
+        name="huggingface_hub.xet_get",
+        _tqdm_bar=_tqdm_bar,
+    )
+
+    with progress_cm as progress:
+
+        def progress_updater(progress_bytes: float):
+            progress.update(progress_bytes)
+
+        download_files(
+            pointer_files,
+            endpoint=connection_info.endpoint,
+            token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
+            token_refresher=token_refresher,
+            progress_updater=[progress_updater],
         )
 
 
@@ -921,7 +1066,7 @@ def _hf_hub_download_to_cache_dir(
 
     # Try to get metadata (etag, commit_hash, url, size) from the server.
     # If we can't, a HEAD request error is returned.
-    (url_to_download, etag, commit_hash, expected_size, head_call_error) = _get_metadata_or_catch_error(
+    (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = _get_metadata_or_catch_error(
         repo_id=repo_id,
         filename=filename,
         repo_type=repo_type,
@@ -1005,6 +1150,8 @@ def _hf_hub_download_to_cache_dir(
     if os.name == "nt" and len(os.path.abspath(blob_path)) > 255:
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
+    # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
+
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
     with WeakFileLock(lock_path):
         _download_to_tmp_and_move(
@@ -1016,6 +1163,8 @@ def _hf_hub_download_to_cache_dir(
             expected_size=expected_size,
             filename=filename,
             force_download=force_download,
+            etag=etag,
+            xet_file_data=xet_file_data,
         )
         if not os.path.exists(pointer_path):
             _create_symlink(blob_path, pointer_path, new_blob=True)
@@ -1066,7 +1215,7 @@ def _hf_hub_download_to_local_dir(
         return str(paths.file_path)
 
     # Local file doesn't exist or commit_hash doesn't match => we need the etag
-    (url_to_download, etag, commit_hash, expected_size, head_call_error) = _get_metadata_or_catch_error(
+    (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = _get_metadata_or_catch_error(
         repo_id=repo_id,
         filename=filename,
         repo_type=repo_type,
@@ -1143,6 +1292,8 @@ def _hf_hub_download_to_local_dir(
             expected_size=expected_size,
             filename=filename,
             force_download=force_download,
+            etag=etag,
+            xet_file_data=xet_file_data,
         )
 
     write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
@@ -1316,6 +1467,7 @@ def get_hf_file_metadata(
         size=_int_or_none(
             r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
         ),
+        xet_file_data=parse_xet_file_data_from_response(r),  # type: ignore
     )
 
 
@@ -1335,10 +1487,10 @@ def _get_metadata_or_catch_error(
     storage_folder: Optional[str] = None,  # only used to store `.no_exists` in cache
 ) -> Union[
     # Either an exception is caught and returned
-    Tuple[None, None, None, None, Exception],
+    Tuple[None, None, None, None, None, Exception],
     # Or the metadata is returned as
-    # `(url_to_download, etag, commit_hash, expected_size, None)`
-    Tuple[str, str, str, int, None],
+    # `(url_to_download, etag, commit_hash, expected_size, xet_file_data, None)`
+    Tuple[str, str, str, int, Optional[XetFileData], None],
 ]:
     """Get metadata for a file on the Hub, safely handling network issues.
 
@@ -1355,6 +1507,7 @@ def _get_metadata_or_catch_error(
             None,
             None,
             None,
+            None,
             OfflineModeIsEnabled(
                 f"Cannot access file since 'local_files_only=True' as been set. (repo_id: {repo_id}, repo_type: {repo_type}, revision: {revision}, filename: {filename})"
             ),
@@ -1366,6 +1519,7 @@ def _get_metadata_or_catch_error(
     commit_hash: Optional[str] = None
     expected_size: Optional[int] = None
     head_error_call: Optional[Exception] = None
+    xet_file_data: Optional[XetFileData] = None
 
     # Try to get metadata from the server.
     # Do not raise yet if the file is not found or not accessible.
@@ -1413,13 +1567,15 @@ def _get_metadata_or_catch_error(
             if expected_size is None:
                 raise FileMetadataError("Distant resource does not have a Content-Length.")
 
+            xet_file_data = metadata.xet_file_data
+
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
             #
             # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
             # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
-            if url != metadata.location:
+            if xet_file_data is None and url != metadata.location:
                 url_to_download = metadata.location
                 if urlparse(url).netloc != urlparse(metadata.location).netloc:
                     # Remove authorization header when downloading a LFS blob
@@ -1457,12 +1613,11 @@ def _get_metadata_or_catch_error(
     if not (local_files_only or etag is not None or head_error_call is not None):
         raise RuntimeError("etag is empty due to uncovered problems")
 
-    return (url_to_download, etag, commit_hash, expected_size, head_error_call)  # type: ignore [return-value]
+    return (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_error_call)  # type: ignore [return-value]
 
 
 def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, local_files_only: bool) -> NoReturn:
     """Raise an appropriate error when the HEAD call failed and we cannot locate a local file."""
-
     # No head call => we cannot force download.
     if force_download:
         if local_files_only:
@@ -1478,8 +1633,11 @@ def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, 
             "Cannot find the requested files in the disk cache and outgoing traffic has been disabled. To enable"
             " hf.co look-ups and downloads online, set 'local_files_only' to False."
         )
-    elif isinstance(head_call_error, RepositoryNotFoundError) or isinstance(head_call_error, GatedRepoError):
+    elif isinstance(head_call_error, (RepositoryNotFoundError, GatedRepoError)) or (
+        isinstance(head_call_error, HfHubHTTPError) and head_call_error.response.status_code == 401
+    ):
         # Repo not found or gated => let's raise the actual error
+        # Unauthorized => likely a token issue => let's raise the actual error
         raise head_call_error
     else:
         # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
@@ -1499,6 +1657,8 @@ def _download_to_tmp_and_move(
     expected_size: Optional[int],
     filename: str,
     force_download: bool,
+    etag: Optional[str],
+    xet_file_data: Optional[XetFileData],
 ) -> None:
     """Download content from a URL to a destination path.
 
@@ -1541,14 +1701,31 @@ def _download_to_tmp_and_move(
             _check_disk_space(expected_size, incomplete_path.parent)
             _check_disk_space(expected_size, destination_path.parent)
 
-        http_get(
-            url_to_download,
-            f,
-            proxies=proxies,
-            resume_size=resume_size,
-            headers=headers,
-            expected_size=expected_size,
-        )
+        if xet_file_data is not None and is_xet_available():
+            logger.info("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
+            xet_get(
+                incomplete_path=incomplete_path,
+                xet_file_data=xet_file_data,
+                headers=headers,
+                expected_size=expected_size,
+                displayed_filename=filename,
+            )
+        else:
+            if xet_file_data is not None:
+                logger.warning(
+                    "Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. "
+                    "Falling back to regular HTTP download. "
+                    "For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`"
+                )
+
+            http_get(
+                url_to_download,
+                f,
+                proxies=proxies,
+                resume_size=resume_size,
+                headers=headers,
+                expected_size=expected_size,
+            )
 
     logger.info(f"Download complete. Moving file to {destination_path}")
     _chmod_and_move(incomplete_path, destination_path)
@@ -1582,8 +1759,7 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
         os.chmod(str(src), stat.S_IMODE(cache_dir_mode))
     except OSError as e:
         logger.warning(
-            f"Could not set the permissions on the file '{src}'. "
-            f"Error: {e}.\nContinuing without setting permissions."
+            f"Could not set the permissions on the file '{src}'. Error: {e}.\nContinuing without setting permissions."
         )
     finally:
         try:

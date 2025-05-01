@@ -3,20 +3,17 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, Literal, Optional, Union
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 ImageToTextEarlyStoppingEnum = Literal["never"]
 
 
-@dataclass
+@dataclass_with_extra
 class ImageToTextGenerationParameters(BaseInferenceType):
-    """Parametrization of the text generation process
-    Ad-hoc parametrization of the text generation process
-    """
+    """Parametrization of the text generation process"""
 
     do_sample: Optional[bool] = None
     """Whether to use sampling instead of greedy decoding when generating new tokens."""
@@ -74,29 +71,27 @@ class ImageToTextGenerationParameters(BaseInferenceType):
     """Whether the model should use the past last key/values attentions to speed up decoding"""
 
 
-@dataclass
+@dataclass_with_extra
 class ImageToTextParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Image To Text
-    """
+    """Additional inference parameters for Image To Text"""
 
-    generate: Optional[ImageToTextGenerationParameters] = None
+    generation_parameters: Optional[ImageToTextGenerationParameters] = None
     """Parametrization of the text generation process"""
     max_new_tokens: Optional[int] = None
     """The amount of maximum tokens to generate."""
 
 
-@dataclass
+@dataclass_with_extra
 class ImageToTextInput(BaseInferenceType):
     """Inputs for Image To Text inference"""
 
     inputs: Any
     """The input image data"""
     parameters: Optional[ImageToTextParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Image To Text"""
 
 
-@dataclass
+@dataclass_with_extra
 class ImageToTextOutput(BaseInferenceType):
     """Outputs of inference for the Image To Text task"""
 

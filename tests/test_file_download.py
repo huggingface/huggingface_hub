@@ -19,7 +19,7 @@ import unittest
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, List
 from unittest.mock import Mock, patch
 
 import pytest
@@ -44,16 +44,18 @@ from huggingface_hub.file_download import (
     http_get,
     try_to_load_from_cache,
 )
-from huggingface_hub.utils import SoftTemporaryDirectory, get_session, hf_raise_for_status
+from huggingface_hub.utils import SoftTemporaryDirectory, get_session, hf_raise_for_status, is_hf_transfer_available
 
 from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
 from .testing_utils import (
+    DUMMY_EXTRA_LARGE_FILE_MODEL_ID,
+    DUMMY_EXTRA_LARGE_FILE_NAME,
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_RENAMED_NEW_MODEL_ID,
     DUMMY_RENAMED_OLD_MODEL_ID,
+    DUMMY_TINY_FILE_NAME,
     SAMPLE_DATASET_IDENTIFIER,
-    expect_deprecation,
     repo_name,
     use_tmp_repo,
     with_production_testing,
@@ -143,7 +145,6 @@ class StagingDownloadTests(unittest.TestCase):
                     repo_id=repo_url.repo_id, filename=".gitattributes", token=OTHER_TOKEN, cache_dir=tmpdir
                 )
 
-    @expect_deprecation("update_repo_visibility")
     @use_tmp_repo()
     def test_download_regular_file_from_private_renamed_repo(self, repo_url: RepoUrl) -> None:
         """Regression test for #1999.
@@ -154,7 +155,7 @@ class StagingDownloadTests(unittest.TestCase):
         repo_id_after = repo_url.repo_id + "_renamed"
 
         # Make private + rename + upload regular file
-        self._api.update_repo_visibility(repo_id_before, private=True)
+        self._api.update_repo_settings(repo_id_before, private=True)
         self._api.upload_file(repo_id=repo_id_before, path_in_repo="file.txt", path_or_fileobj=b"content")
         self._api.move_repo(repo_id_before, repo_id_after)
 
@@ -193,18 +194,18 @@ class CachedDownloadTests(unittest.TestCase):
                 )
 
     def test_private_repo_and_file_cached_locally(self):
-        api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-        repo_id = api.create_repo(repo_id=repo_name(), private=True).repo_id
-        api.upload_file(path_or_fileobj=b"content", path_in_repo=constants.CONFIG_NAME, repo_id=repo_id)
+        api = HfApi(endpoint=ENDPOINT_STAGING)
+        repo_id = api.create_repo(repo_id=repo_name(), private=True, token=TOKEN).repo_id
+        api.upload_file(path_or_fileobj=b"content", path_in_repo="config.json", repo_id=repo_id, token=TOKEN)
 
         with SoftTemporaryDirectory() as tmpdir:
             # Download a first time with token => file is cached
-            filepath_1 = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir, token=TOKEN)
+            filepath_1 = api.hf_hub_download(repo_id, filename="config.json", cache_dir=tmpdir, token=TOKEN)
 
             # Download without token => return cached file
-            filepath_2 = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir)
+            filepath_2 = api.hf_hub_download(repo_id, filename="config.json", cache_dir=tmpdir, token=False)
 
-            self.assertEqual(filepath_1, filepath_2)
+            assert filepath_1 == filepath_2
 
     def test_file_cached_and_read_only_access(self):
         """Should works if file is already cached and user has read-only permission.
@@ -507,7 +508,7 @@ class CachedDownloadTests(unittest.TestCase):
         url = hf_hub_url("gpt2", filename="tf_model.h5")
         metadata = get_hf_file_metadata(url)
 
-        self.assertIn("cdn-lfs", metadata.location)  # Redirection
+        self.assertIn("xethub.hf.co", metadata.location)  # Redirection
         self.assertEqual(metadata.size, 497933648)  # Size of LFS file, not pointer
 
     def test_file_consistency_check_fails_regular_file(self):
@@ -525,6 +526,7 @@ class CachedDownloadTests(unittest.TestCase):
                     etag=metadata.etag,
                     location=metadata.location,
                     size=450,  # will expect 450 bytes but will download 496 bytes
+                    xet_file_data=None,
                 )
 
             with patch("huggingface_hub.file_download.get_hf_file_metadata", _mocked_hf_file_metadata):
@@ -546,6 +548,7 @@ class CachedDownloadTests(unittest.TestCase):
                     etag=metadata.etag,
                     location=metadata.location,
                     size=65000,  # will expect 65000 bytes but will download 65074 bytes
+                    xet_file_data=None,
                 )
 
             with patch("huggingface_hub.file_download.get_hf_file_metadata", _mocked_hf_file_metadata):
@@ -934,8 +937,8 @@ class TestHfHubDownloadRelativePaths(unittest.TestCase):
             _get_pointer_path("path/to/storage", "abcdef", relative_filename)
 
 
-class TestHttpGet(unittest.TestCase):
-    def test_http_get_with_ssl_and_timeout_error(self):
+class TestHttpGet:
+    def test_http_get_with_ssl_and_timeout_error(self, caplog):
         def _iter_content_1() -> Iterable[bytes]:
             yield b"0" * 10
             yield b"0" * 10
@@ -968,22 +971,99 @@ class TestHttpGet(unittest.TestCase):
 
             temp_file = io.BytesIO()
 
-            with self.assertLogs("huggingface_hub.file_download", level="WARNING") as records:
-                http_get("fake_url", temp_file=temp_file)
+            http_get("fake_url", temp_file=temp_file)
 
-        # Check 3 warnings
-        self.assertEqual(len(records.records), 3)
+        assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 3
 
         # Check final value
-        self.assertEqual(temp_file.tell(), 100)
-        self.assertEqual(temp_file.getvalue(), b"0" * 100)
+        assert temp_file.tell() == 100
+        assert temp_file.getvalue() == b"0" * 100
 
         # Check number of calls + correct range headers
-        self.assertEqual(len(mock.call_args_list), 4)
-        self.assertEqual(mock.call_args_list[0].kwargs["headers"], {})
-        self.assertEqual(mock.call_args_list[1].kwargs["headers"], {"Range": "bytes=20-"})
-        self.assertEqual(mock.call_args_list[2].kwargs["headers"], {"Range": "bytes=30-"})
-        self.assertEqual(mock.call_args_list[3].kwargs["headers"], {"Range": "bytes=60-"})
+        assert len(mock.call_args_list) == 4
+        assert mock.call_args_list[0].kwargs["headers"] == {}
+        assert mock.call_args_list[1].kwargs["headers"] == {"Range": "bytes=20-"}
+        assert mock.call_args_list[2].kwargs["headers"] == {"Range": "bytes=30-"}
+        assert mock.call_args_list[3].kwargs["headers"] == {"Range": "bytes=60-"}
+
+    @pytest.mark.parametrize(
+        "initial_range,expected_ranges",
+        [
+            # Test suffix ranges (bytes=-100)
+            (
+                "bytes=-100",
+                [
+                    "bytes=-100",
+                    "bytes=-80",
+                    "bytes=-70",
+                    "bytes=-40",
+                ],
+            ),
+            # Test prefix ranges (bytes=15-)
+            (
+                "bytes=15-",
+                [
+                    "bytes=15-",
+                    "bytes=35-",
+                    "bytes=45-",
+                    "bytes=75-",
+                ],
+            ),
+            # Test double closed ranges (bytes=15-114)
+            (
+                "bytes=15-114",
+                [
+                    "bytes=15-114",
+                    "bytes=35-114",
+                    "bytes=45-114",
+                    "bytes=75-114",
+                ],
+            ),
+        ],
+    )
+    def test_http_get_with_range_headers(self, caplog, initial_range: str, expected_ranges: List[str]):
+        def _iter_content_1() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            raise requests.exceptions.SSLError("Fake SSLError")
+
+        def _iter_content_2() -> Iterable[bytes]:
+            yield b"0" * 10
+            raise requests.ReadTimeout("Fake ReadTimeout")
+
+        def _iter_content_3() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+            raise requests.ConnectionError("Fake ConnectionError")
+
+        def _iter_content_4() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+
+        with patch("huggingface_hub.file_download._request_wrapper") as mock:
+            mock.return_value.headers = {"Content-Length": 100}
+            mock.return_value.iter_content.side_effect = [
+                _iter_content_1(),
+                _iter_content_2(),
+                _iter_content_3(),
+                _iter_content_4(),
+            ]
+
+            temp_file = io.BytesIO()
+
+            http_get("fake_url", temp_file=temp_file, headers={"Range": initial_range})
+
+        assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 3
+
+        assert temp_file.tell() == 100
+        assert temp_file.getvalue() == b"0" * 100
+
+        assert len(mock.call_args_list) == 4
+        for i, expected_range in enumerate(expected_ranges):
+            assert mock.call_args_list[i].kwargs["headers"] == {"Range": expected_range}
 
 
 class CreateSymlinkTest(unittest.TestCase):
@@ -1137,6 +1217,46 @@ class TestEtagTimeoutConfig(unittest.TestCase):
                 kwargs = mock_etag_call.call_args.kwargs
                 self.assertIn("timeout", kwargs)
                 self.assertEqual(kwargs["timeout"], 12)  # passed value ignored, HF_HUB_ETAG_TIMEOUT takes priority
+
+
+@with_production_testing
+class TestExtraLargeFileDownloadPaths(unittest.TestCase):
+    @patch("huggingface_hub.file_download.constants.HF_HUB_ENABLE_HF_TRANSFER", False)
+    def test_large_file_http_path_error(self):
+        with SoftTemporaryDirectory() as cache_dir:
+            with self.assertRaises(
+                ValueError,
+                msg="The file is too large to be downloaded using the regular download method. Use `hf_transfer` or `xet_get` instead. Try `pip install hf_transfer` or `pip install hf_xet`.",
+            ):
+                hf_hub_download(
+                    DUMMY_EXTRA_LARGE_FILE_MODEL_ID,
+                    filename=DUMMY_EXTRA_LARGE_FILE_NAME,
+                    cache_dir=cache_dir,
+                    revision="main",
+                    etag_timeout=10,
+                )
+
+    # Test "large" file download with hf_transfer. Use a tiny file to keep the tests fast and avoid
+    # internal gateway transfer quotas.
+    @unittest.skipIf(
+        not is_hf_transfer_available(),
+        "hf_transfer not installed, so skipping large file download with hf_transfer check.",
+    )
+    @patch("huggingface_hub.file_download.constants.HF_HUB_ENABLE_HF_TRANSFER", True)
+    @patch("huggingface_hub.file_download.constants.MAX_HTTP_DOWNLOAD_SIZE", 44)
+    @patch("huggingface_hub.file_download.constants.DOWNLOAD_CHUNK_SIZE", 2)  # make sure hf_download is used
+    def test_large_file_download_with_hf_transfer(self):
+        with SoftTemporaryDirectory() as cache_dir:
+            path = hf_hub_download(
+                DUMMY_EXTRA_LARGE_FILE_MODEL_ID,
+                filename=DUMMY_TINY_FILE_NAME,
+                cache_dir=cache_dir,
+                revision="main",
+                etag_timeout=10,
+            )
+            with open(path, "rb") as f:
+                content = f.read()
+                self.assertEqual(content, b"test\n" * 9)  # the file is 9 lines of "test"
 
 
 def _recursive_chmod(path: str, mode: int) -> None:

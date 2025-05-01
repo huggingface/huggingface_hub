@@ -4,18 +4,15 @@ rendered properly in your Markdown viewer.
 
 # Run Inference on servers
 
-Inference is the process of using a trained model to make predictions on new data. As this process can be compute-intensive,
-running on a dedicated server can be an interesting option. The `huggingface_hub` library provides an easy way to call a
-service that runs inference for hosted models. There are several services you can connect to:
-- [Inference API](https://huggingface.co/docs/api-inference/index): a service that allows you to run accelerated inference
-on Hugging Face's infrastructure for free. This service is a fast way to get started, test different models, and
-prototype AI products.
-- [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index): a product to easily deploy models to production.
-Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
+Inference is the process of using a trained model to make predictions on new data. Because this process can be compute-intensive, running on a dedicated or external service can be an interesting option.
+The `huggingface_hub` library provides a unified interface to run inference across multiple services for models hosted on the Hugging Face Hub:
 
-These services can be called with the [`InferenceClient`] object. It acts as a replacement for the legacy
-[`InferenceApi`] client, adding specific support for tasks and handling inference on both
-[Inference API](https://huggingface.co/docs/api-inference/index) and [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index).
+1.  [HF Inference API](https://huggingface.co/docs/api-inference/index): a serverless solution that allows you to run model inference on Hugging Face's infrastructure for free. This service is a fast way to get started, test different models, and prototype AI products.
+2.  [Third-party providers](#supported-providers-and-tasks): various serverless solution provided by external providers (Together, Sambanova, etc.). These providers offer production-ready APIs on a pay-as-you-go model. This is the fastest way to integrate AI in your products with a maintenance-free and scalable solution. Refer to the [Supported providers and tasks](#supported-providers-and-tasks) section for a list of supported providers.
+3.  [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index): a product to easily deploy models to production. Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
+
+These services can all be called from the [`InferenceClient`] object. It acts as a replacement for the legacy
+[`InferenceApi`] client, adding specific support for tasks and third-party providers.
 Learn how to migrate to the new client in the [Legacy InferenceAPI client](#legacy-inferenceapi-client) section.
 
 <Tip>
@@ -35,49 +32,60 @@ Let's get started with a text-to-image task:
 
 ```python
 >>> from huggingface_hub import InferenceClient
->>> client = InferenceClient()
 
->>> image = client.text_to_image("An astronaut riding a horse on the moon.")
->>> image.save("astronaut.png")  # 'image' is a PIL.Image object
+# Example with an external provider (e.g. replicate)
+>>> replicate_client = InferenceClient(
+    provider="replicate",
+    api_key="my_replicate_api_key",
+)
+>>> replicate_image = replicate_client.text_to_image(
+    "A flying car crossing a futuristic cityscape.",
+    model="black-forest-labs/FLUX.1-schnell",
+)
+>>> replicate_image.save("flying_car.png")
+
 ```
 
-In the example above, we initialized an [`InferenceClient`] with the default parameters. The only thing you need to know is the [task](#supported-tasks) you want to perform. By default, the client will connect to the Inference API and select a model to complete the task. In our example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a file. For more details, check out the [`~InferenceClient.text_to_image`] documentation.
+In the example above, we initialized an [`InferenceClient`] with a third-party provider, [Replicate](https://replicate.com/). When using a provider, you must specify the model you want to use. The model id must be the id of the model on the Hugging Face Hub, not the id of the model from the third-party provider.
+In our example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a file. For more details, check out the [`~InferenceClient.text_to_image`] documentation.
 
-Let's now see an example using the [~`InferenceClient.chat_completion`] API. This task uses an LLM to generate a response from a list of messages:
+Let's now see an example using the [`~InferenceClient.chat_completion`] API. This task uses an LLM to generate a response from a list of messages:
 
 ```python
 >>> from huggingface_hub import InferenceClient
->>> messages = [{"role": "user", "content": "What is the capital of France?"}]
->>> client = InferenceClient("meta-llama/Meta-Llama-3-8B-Instruct")
+>>> messages = [
+    {
+        "role": "user",
+        "content": "What is the capital of France?",
+    }
+]
+>>> client = InferenceClient(
+    provider="together",
+    model="meta-llama/Meta-Llama-3-8B-Instruct",
+    api_key="my_together_api_key",
+)
 >>> client.chat_completion(messages, max_tokens=100)
 ChatCompletionOutput(
     choices=[
         ChatCompletionOutputComplete(
-            finish_reason='eos_token',
+            finish_reason="eos_token",
             index=0,
             message=ChatCompletionOutputMessage(
-                role='assistant',
-                content='The capital of France is Paris.',
-                name=None,
-                tool_calls=None
+                role="assistant", content="The capital of France is Paris.", name=None, tool_calls=None
             ),
-            logprobs=None
+            logprobs=None,
         )
     ],
     created=1719907176,
-    id='',
-    model='meta-llama/Meta-Llama-3-8B-Instruct',
-    object='text_completion',
-    system_fingerprint='2.0.4-sha-f426a33',
-    usage=ChatCompletionOutputUsage(
-        completion_tokens=8,
-        prompt_tokens=17,
-        total_tokens=25
-    )
+    id="",
+    model="meta-llama/Meta-Llama-3-8B-Instruct",
+    object="text_completion",
+    system_fingerprint="2.0.4-sha-f426a33",
+    usage=ChatCompletionOutputUsage(completion_tokens=8, prompt_tokens=17, total_tokens=25),
 )
 ```
 
-In this example, we specified which model we want to use (`"meta-llama/Meta-Llama-3-8B-Instruct"`). You can find a list of compatible models [on this page](https://huggingface.co/models?other=conversational&sort=likes). We then gave a list of messages to complete (here, a single question) and passed an additional parameter to API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be accessed with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
+In the example above, we used a third-party provider ([Together AI](https://www.together.ai/)) and specified which model we want to use (`"meta-llama/Meta-Llama-3-8B-Instruct"`). We then gave a list of messages to complete (here, a single question) and passed an additional parameter to the API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be accessed with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
 
 
 <Tip warning={true}>
@@ -88,6 +96,15 @@ all the parameters available for each task.
 
 </Tip>
 
+### Using a specific provider
+
+If you want to use a specific provider, you can specify it when initializing the client. The default value is "auto" which will select the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers. Refer to the [Supported providers and tasks](#supported-providers-and-tasks) section for a list of supported providers.
+
+```python
+>>> from huggingface_hub import InferenceClient
+>>> client = InferenceClient(provider="replicate", api_key="my_replicate_api_key")
+```
+
 ### Using a specific model
 
 What if you want to use a specific model? You can specify it either as a parameter or directly at an instance level:
@@ -95,25 +112,25 @@ What if you want to use a specific model? You can specify it either as a paramet
 ```python
 >>> from huggingface_hub import InferenceClient
 # Initialize client for a specific model
->>> client = InferenceClient(model="prompthero/openjourney-v4")
+>>> client = InferenceClient(provider="together", model="meta-llama/Llama-3.1-8B-Instruct")
 >>> client.text_to_image(...)
 # Or use a generic client but pass your model as an argument
->>> client = InferenceClient()
->>> client.text_to_image(..., model="prompthero/openjourney-v4")
+>>> client = InferenceClient(provider="together")
+>>> client.text_to_image(..., model="meta-llama/Llama-3.1-8B-Instruct")
 ```
 
 <Tip>
 
-There are more than 200k models on the Hugging Face Hub! Each task in the [`InferenceClient`] comes with a recommended
-model. Be aware that the HF recommendation can change over time without prior notice. Therefore it is best to explicitly
-set a model once you are decided. Also, in most cases you'll be interested in finding a model specific to _your_ needs.
-Visit the [Models](https://huggingface.co/models) page on the Hub to explore your possibilities.
+When using the "hf-inference" provider, each task comes with a recommended model from the 1M+ models available on the Hub.
+However, this recommendation can change over time, so it's best to explicitly set a model once you've decided which one to use.
+For third-party providers, you must always specify a model that is compatible with that provider.
 
+Visit the [Models](https://huggingface.co/models?inference=warm) page on the Hub to explore models available through Inference Providers.
 </Tip>
 
 ### Using a specific URL
 
-The examples we saw above use the Serverless Inference API. This proves to be very useful for prototyping
+The examples we saw above use either the Hugging Face Inference API or third-party providers. While these prove to be very useful for prototyping
 and testing things quickly. Once you're ready to deploy your model to production, you'll need to use a dedicated infrastructure.
 That's where [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) comes into play. It allows you to deploy
 any model and expose it as a private API. Once deployed, you'll get a URL that you can connect to using exactly the same
@@ -127,23 +144,80 @@ code as before, changing only the `model` parameter:
 >>> client.text_to_image(..., model="https://uu149rez6gw9ehej.eu-west-1.aws.endpoints.huggingface.cloud/deepfloyd-if")
 ```
 
+Note that you cannot specify both a URL and a provider - they are mutually exclusive. URLs are used to connect directly to deployed endpoints.
+
 ### Authentication
 
-Calls made with the [`InferenceClient`] can be authenticated using a [User Access Token](https://huggingface.co/docs/hub/security-tokens).
-By default, it will use the token saved on your machine if you are logged in (check out
-[how to authenticate](https://huggingface.co/docs/huggingface_hub/quick-start#authentication)). If you are not logged in, you can pass
-your token as an instance parameter:
+Authentication can be done in two ways:
+
+**Routed through Hugging Face** : Use Hugging Face as a proxy to access third-party providers. The calls will be routed through Hugging Face's infrastructure using our provider keys, and the usage will be billed directly to your Hugging Face account. 
+
+You can authenticate using a [User Access Token](https://huggingface.co/docs/hub/security-tokens). You can provide your Hugging Face token directly using the `api_key` parameter:
+ 
+```python
+>>> client = InferenceClient(
+    provider="replicate",
+    api_key="hf_****"  # Your HF token
+)
+```
+
+If you *don't* pass an `api_key`, the client will attempt to find and use a token stored locally on your machine. This typically happens if you've previously logged in. See the [Authentication Guide](https://huggingface.co/docs/huggingface_hub/quick-start#authentication) for details on login.
 
 ```python
->>> from huggingface_hub import InferenceClient
->>> client = InferenceClient(token="hf_***")
+>>> client = InferenceClient(
+    provider="replicate",
+    token="hf_****"  # Your HF token
+)
 ```
+
+**Direct access to provider**: Use your own API key to interact directly with the provider's service:
+```python
+>>> client = InferenceClient(
+    provider="replicate",
+    api_key="r8_****"  # Your Replicate API key
+)
+```
+
+For more details, refer to the [Inference Providers pricing documentation](https://huggingface.co/docs/inference-providers/pricing#routed-requests-vs-direct-calls).
+
+## Supported providers and tasks
+
+[`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models, on any provider. It has a simple API that supports the most common tasks. Here is a table showing which providers support which tasks:
+
+| Task                                                | Black Forest Labs | Cerebras | Cohere | fal-ai | Fireworks AI | HF Inference | Hyperbolic | Nebius AI Studio | Novita AI | Replicate | Sambanova | Together |
+| --------------------------------------------------- | ----------------- | -------- | ------ | ------ | ------------ | ------------ | ---------- | ---------------- | --------- | --------- | --------- | -------- |
+| [`~InferenceClient.audio_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.audio_to_audio`]                 | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.automatic_speech_recognition`]   | ❌                 | ❌        | ❌      | ✅      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.chat_completion`]                | ❌                 | ✅        | ✅      | ❌      | ✅            | ✅            | ✅          | ✅                | ✅         | ❌         | ✅         | ✅        |
+| [`~InferenceClient.document_question_answering`]    | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.feature_extraction`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ✅         | ❌        |
+| [`~InferenceClient.fill_mask`]                      | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.image_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.image_segmentation`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.image_to_image`]                 | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.image_to_text`]                  | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.object_detection`]               | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.question_answering`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.sentence_similarity`]            | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.summarization`]                  | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.table_question_answering`]       | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.text_classification`]            | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.text_generation`]                | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ✅          | ✅                | ✅         | ❌         | ❌         | ✅        |
+| [`~InferenceClient.text_to_image`]                  | ✅                 | ❌        | ❌      | ✅      | ❌            | ✅            | ✅          | ✅                | ❌         | ✅         | ❌         | ✅        |
+| [`~InferenceClient.text_to_speech`]                 | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ✅         | ❌         | ❌        |
+| [`~InferenceClient.text_to_video`]                  | ❌                 | ❌        | ❌      | ✅      | ❌            | ❌            | ❌          | ❌                | ❌         | ✅         | ❌         | ❌        |
+| [`~InferenceClient.tabular_classification`]         | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.tabular_regression`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.token_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.translation`]                    | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.visual_question_answering`]      | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.zero_shot_image_classification`] | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.zero_shot_classification`]       | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
 
 <Tip>
 
-Authentication is NOT mandatory when using the Inference API. However, authenticated users get a higher free-tier to
-play with the service. Token is also mandatory if you want to run inference on your private models or on private
-endpoints.
+Check out the [Tasks](https://huggingface.co/tasks) page to learn more about each task.
 
 </Tip>
 
@@ -211,64 +285,6 @@ You might wonder why using [`InferenceClient`] instead of OpenAI's client? There
 
 </Tip>
 
-## Supported tasks
-
-[`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models. It
-has a simple API that supports the most common tasks. Here is a list of the currently supported tasks:
-
-| Domain | Task                           | Supported    | Documentation                             |
-|--------|--------------------------------|--------------|------------------------------------|
-| Audio | [Audio Classification](https://huggingface.co/tasks/audio-classification)           | ✅ | [`~InferenceClient.audio_classification`] |
-| Audio | [Audio-to-Audio](https://huggingface.co/tasks/audio-to-audio)           | ✅ | [`~InferenceClient.audio_to_audio`] |
-| | [Automatic Speech Recognition](https://huggingface.co/tasks/automatic-speech-recognition)   | ✅ | [`~InferenceClient.automatic_speech_recognition`] |
-| | [Text-to-Speech](https://huggingface.co/tasks/text-to-speech)                 | ✅ | [`~InferenceClient.text_to_speech`] |
-| Computer Vision | [Image Classification](https://huggingface.co/tasks/image-classification)           | ✅ | [`~InferenceClient.image_classification`] |
-| | [Image Segmentation](https://huggingface.co/tasks/image-segmentation)             | ✅ | [`~InferenceClient.image_segmentation`] |
-| | [Image-to-Image](https://huggingface.co/tasks/image-to-image)                 | ✅ | [`~InferenceClient.image_to_image`] |
-| | [Image-to-Text](https://huggingface.co/tasks/image-to-text)                  | ✅ | [`~InferenceClient.image_to_text`] |
-| | [Object Detection](https://huggingface.co/tasks/object-detection)            | ✅ | [`~InferenceClient.object_detection`] |
-| | [Text-to-Image](https://huggingface.co/tasks/text-to-image)                  | ✅ | [`~InferenceClient.text_to_image`] |
-| | [Zero-Shot-Image-Classification](https://huggingface.co/tasks/zero-shot-image-classification)                  | ✅ | [`~InferenceClient.zero_shot_image_classification`] |
-| Multimodal | [Documentation Question Answering](https://huggingface.co/tasks/document-question-answering) | ✅ | [`~InferenceClient.document_question_answering`]
-| | [Visual Question Answering](https://huggingface.co/tasks/visual-question-answering)      | ✅ | [`~InferenceClient.visual_question_answering`] |
-| NLP | Conversational                 |   | *deprecated*, use Chat Completion |
-| | [Chat Completion](https://huggingface.co/tasks/text-generation)             | ✅ | [`~InferenceClient.chat_completion`] |
-| | [Feature Extraction](https://huggingface.co/tasks/feature-extraction)             | ✅ | [`~InferenceClient.feature_extraction`] |
-| | [Fill Mask](https://huggingface.co/tasks/fill-mask)                      | ✅ | [`~InferenceClient.fill_mask`] |
-| | [Question Answering](https://huggingface.co/tasks/question-answering)             | ✅ | [`~InferenceClient.question_answering`]
-| | [Sentence Similarity](https://huggingface.co/tasks/sentence-similarity)            | ✅ | [`~InferenceClient.sentence_similarity`] |
-| | [Summarization](https://huggingface.co/tasks/summarization)                  | ✅ | [`~InferenceClient.summarization`] |
-| | [Table Question Answering](https://huggingface.co/tasks/table-question-answering)       | ✅ | [`~InferenceClient.table_question_answering`] |
-| | [Text Classification](https://huggingface.co/tasks/text-classification)            | ✅ | [`~InferenceClient.text_classification`] |
-| | [Text Generation](https://huggingface.co/tasks/text-generation)   | ✅ | [`~InferenceClient.text_generation`] |
-| | [Token Classification](https://huggingface.co/tasks/token-classification)           | ✅ | [`~InferenceClient.token_classification`] |
-| | [Translation](https://huggingface.co/tasks/translation)       | ✅ | [`~InferenceClient.translation`] |
-| | [Zero Shot Classification](https://huggingface.co/tasks/zero-shot-classification)       | ✅ | [`~InferenceClient.zero_shot_classification`] |
-| Tabular | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         | ✅ | [`~InferenceClient.tabular_classification`] |
-| | [Tabular Regression](https://huggingface.co/tasks/tabular-regression)             | ✅ | [`~InferenceClient.tabular_regression`] |
-
-<Tip>
-
-Check out the [Tasks](https://huggingface.co/tasks) page to learn more about each task, how to use them, and the
-most popular models for each task.
-
-</Tip>
-
-## Custom requests
-
-However, it is not always possible to cover all use cases. For custom requests, the [`InferenceClient.post`] method
-gives you the flexibility to send any request to the Inference API. For example, you can specify how to parse the inputs
-and outputs. In the example below, the generated image is returned as raw bytes instead of parsing it as a `PIL Image`.
-This can be helpful if you don't have `Pillow` installed in your setup and just care about the binary content of the
-image. [`InferenceClient.post`] is also useful to handle tasks that are not yet officially supported.
-
-```python
->>> from huggingface_hub import InferenceClient
->>> client = InferenceClient()
->>> response = client.post(json={"inputs": "An astronaut riding a horse on the moon."}, model="stabilityai/stable-diffusion-2-1")
->>> response.content # raw bytes
-b'...'
-```
 
 ## Async client
 
@@ -304,16 +320,26 @@ For more information about the `asyncio` module, please refer to the [official d
 
 In the above section, we saw the main aspects of [`InferenceClient`]. Let's dive into some more advanced tips.
 
+### Billing
+
+As an HF user, you get monthly credits to run inference through various providers on the Hub. The amount of credits you get depends on your type of account (Free or PRO or Enterprise Hub). You get charged for every inference request, depending on the provider's pricing table. By default, the requests are billed to your personal account. However, it is possible to set the billing so that requests are charged to an organization you are part of by simply passing `bill_to="<your_org_name>"` to `InferenceClient`. For this to work, your organization must be subscribed to Enterprise Hub. For more details about billing, check out [this guide](https://huggingface.co/docs/api-inference/pricing#features-using-inference-providers).
+
+```py
+>>> from huggingface_hub import InferenceClient
+>>> client = InferenceClient(provider="fal-ai", bill_to="openai")
+>>> image = client.text_to_image(
+...     "A majestic lion in a fantasy forest",
+...     model="black-forest-labs/FLUX.1-schnell",
+... )
+>>> image.save("lion.png")
+```
+
+Note that it is NOT possible to charge another user or an organization you are not part of. If you want to grant someone else some credits, you must create a joint organization with them.
+
+
 ### Timeout
 
-When doing inference, there are two main causes for a timeout:
-- The inference process takes a long time to complete.
-- The model is not available, for example when Inference API is loading it for the first time.
-
-[`InferenceClient`] has a global `timeout` parameter to handle those two aspects. By default, it is set to `None`,
-meaning that the client will wait indefinitely for the inference to complete. If you want more control in your workflow,
-you can set it to a specific value in seconds. If the timeout delay expires, an [`InferenceTimeoutError`] is raised.
-You can catch it and handle it in your code:
+Inference calls can take a significant amount of time. By default, [`InferenceClient`] will wait "indefinitely" until the inference complete. If you want more control in your workflow, you can set the `timeout` parameter to a specific value in seconds. If the timeout delay expires, an [`InferenceTimeoutError`] is raised, which you can catch in your code:
 
 ```python
 >>> from huggingface_hub import InferenceClient, InferenceTimeoutError
@@ -339,98 +365,4 @@ sending it to the Inference API.
 >>> client = InferenceClient()
 >>> client.image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
 [{'score': 0.9779096841812134, 'label': 'Blenheim spaniel'}, ...]
-```
-
-## Legacy InferenceAPI client
-
-[`InferenceClient`] acts as a replacement for the legacy [`InferenceApi`] client. It adds specific support for tasks and
-handles inference on both [Inference API](https://huggingface.co/docs/api-inference/index) and [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index).
-
-Here is a short guide to help you migrate from [`InferenceApi`] to [`InferenceClient`].
-
-### Initialization
-
-Change from
-
-```python
->>> from huggingface_hub import InferenceApi
->>> inference = InferenceApi(repo_id="bert-base-uncased", token=API_TOKEN)
-```
-
-to
-
-```python
->>> from huggingface_hub import InferenceClient
->>> inference = InferenceClient(model="bert-base-uncased", token=API_TOKEN)
-```
-
-### Run on a specific task
-
-Change from
-
-```python
->>> from huggingface_hub import InferenceApi
->>> inference = InferenceApi(repo_id="paraphrase-xlm-r-multilingual-v1", task="feature-extraction")
->>> inference(...)
-```
-
-to
-
-```python
->>> from huggingface_hub import InferenceClient
->>> inference = InferenceClient()
->>> inference.feature_extraction(..., model="paraphrase-xlm-r-multilingual-v1")
-```
-
-<Tip>
-
-This is the recommended way to adapt your code to [`InferenceClient`]. It lets you benefit from the task-specific
-methods like `feature_extraction`.
-
-</Tip>
-
-### Run custom request
-
-Change from
-
-```python
->>> from huggingface_hub import InferenceApi
->>> inference = InferenceApi(repo_id="bert-base-uncased")
->>> inference(inputs="The goal of life is [MASK].")
-[{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
-```
-
-to
-
-```python
->>> from huggingface_hub import InferenceClient
->>> client = InferenceClient()
->>> response = client.post(json={"inputs": "The goal of life is [MASK]."}, model="bert-base-uncased")
->>> response.json()
-[{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
-```
-
-### Run with parameters
-
-Change from
-
-```python
->>> from huggingface_hub import InferenceApi
->>> inference = InferenceApi(repo_id="typeform/distilbert-base-uncased-mnli")
->>> inputs = "Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"
->>> params = {"candidate_labels":["refund", "legal", "faq"]}
->>> inference(inputs, params)
-{'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
-```
-
-to
-
-```python
->>> from huggingface_hub import InferenceClient
->>> client = InferenceClient()
->>> inputs = "Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"
->>> params = {"candidate_labels":["refund", "legal", "faq"]}
->>> response = client.post(json={"inputs": inputs, "parameters": params}, model="typeform/distilbert-base-uncased-mnli")
->>> response.json()
-{'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
 ```

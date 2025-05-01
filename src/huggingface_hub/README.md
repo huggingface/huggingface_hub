@@ -83,7 +83,7 @@ single file to a repo or listing models from the Hub, you'll find helpers in
 * `list_repo_files()`
 * `list_repo_objects()`
 * `delete_repo()`
-* `update_repo_visibility()`
+* `update_repo_settings()`
 * `create_commit()`
 * `upload_file()`
 * `delete_file()`
@@ -98,7 +98,7 @@ huggingface-cli whoami
 huggingface-cli repo create
 ```
 
-With the `HfApi` class there are methods to query models, datasets, and metrics by specific tags (e.g. if you want to list models compatible with your library):
+With the `HfApi` class there are methods to query models, datasets, and Spaces by specific tags (e.g. if you want to list models compatible with your library):
 - **Models**:
   - `list_models()`
   - `model_info()`

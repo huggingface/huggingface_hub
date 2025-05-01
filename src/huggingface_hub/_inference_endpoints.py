@@ -6,14 +6,13 @@ from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from huggingface_hub.errors import InferenceEndpointError, InferenceEndpointTimeoutError
 
-from .inference._client import InferenceClient
-from .inference._generated._async_client import AsyncInferenceClient
 from .utils import get_session, logging, parse_datetime
 
 
 if TYPE_CHECKING:
     from .hf_api import HfApi
-
+    from .inference._client import InferenceClient
+    from .inference._generated._async_client import AsyncInferenceClient
 
 logger = logging.get_logger(__name__)
 
@@ -138,7 +137,7 @@ class InferenceEndpoint:
         self._populate_from_raw()
 
     @property
-    def client(self) -> InferenceClient:
+    def client(self) -> "InferenceClient":
         """Returns a client to make predictions on this Inference Endpoint.
 
         Returns:
@@ -152,10 +151,15 @@ class InferenceEndpoint:
                 "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
                 "Please wait for the Inference Endpoint to be deployed using `endpoint.wait()` and try again."
             )
-        return InferenceClient(model=self.url, token=self._token)
+        from .inference._client import InferenceClient
+
+        return InferenceClient(
+            model=self.url,
+            token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
+        )
 
     @property
-    def async_client(self) -> AsyncInferenceClient:
+    def async_client(self) -> "AsyncInferenceClient":
         """Returns a client to make predictions on this Inference Endpoint.
 
         Returns:
@@ -169,7 +173,12 @@ class InferenceEndpoint:
                 "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
                 "Please wait for the Inference Endpoint to be deployed using `endpoint.wait()` and try again."
             )
-        return AsyncInferenceClient(model=self.url, token=self._token)
+        from .inference._generated._async_client import AsyncInferenceClient
+
+        return AsyncInferenceClient(
+            model=self.url,
+            token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
+        )
 
     def wait(self, timeout: Optional[int] = None, refresh_every: int = 5) -> "InferenceEndpoint":
         """Wait for the Inference Endpoint to be deployed.
@@ -201,16 +210,21 @@ class InferenceEndpoint:
 
         start = time.time()
         while True:
-            if self.url is not None:
-                # Means the URL is provisioned => check if the endpoint is reachable
-                response = get_session().get(self.url, headers=self._api._build_hf_headers(token=self._token))
-                if response.status_code == 200:
-                    logger.info("Inference Endpoint is ready to be used.")
-                    return self
             if self.status == InferenceEndpointStatus.FAILED:
                 raise InferenceEndpointError(
                     f"Inference Endpoint {self.name} failed to deploy. Please check the logs for more information."
                 )
+            if self.status == InferenceEndpointStatus.UPDATE_FAILED:
+                raise InferenceEndpointError(
+                    f"Inference Endpoint {self.name} failed to update. Please check the logs for more information."
+                )
+            if self.status == InferenceEndpointStatus.RUNNING and self.url is not None:
+                # Verify the endpoint is actually reachable
+                response = get_session().get(self.url, headers=self._api._build_hf_headers(token=self._token))
+                if response.status_code == 200:
+                    logger.info("Inference Endpoint is ready to be used.")
+                    return self
+
             if timeout is not None:
                 if time.time() - start > timeout:
                     raise InferenceEndpointTimeoutError("Timeout while waiting for Inference Endpoint to be deployed.")

@@ -308,3 +308,41 @@ class BadRequestError(HfHubHTTPError, ValueError):
     huggingface_hub.utils._errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
     ```
     """
+
+
+# DDUF file format ERROR
+
+
+class DDUFError(Exception):
+    """Base exception for errors related to the DDUF format."""
+
+
+class DDUFCorruptedFileError(DDUFError):
+    """Exception thrown when the DDUF file is corrupted."""
+
+
+class DDUFExportError(DDUFError):
+    """Base exception for errors during DDUF export."""
+
+
+class DDUFInvalidEntryNameError(DDUFExportError):
+    """Exception thrown when the entry name is invalid."""
+
+
+# XET ERRORS
+
+
+class XetError(Exception):
+    """Base exception for errors related to Xet Storage."""
+
+
+class XetAuthorizationError(XetError):
+    """Exception thrown when the user does not have the right authorization to use Xet Storage."""
+
+
+class XetRefreshTokenError(XetError):
+    """Exception thrown when the refresh token is invalid."""
+
+
+class XetDownloadError(Exception):
+    """Exception thrown when the download from Xet Storage fails."""

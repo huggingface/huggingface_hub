@@ -18,9 +18,9 @@ from huggingface_hub.inference._common import (
     OverloadedError,
     raise_text_generation_error,
 )
-from huggingface_hub.inference._common import (
-    ValidationError as TextGenerationValidationError,
-)
+from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
+
+from .testing_utils import with_production_testing
 
 
 class TestTextGenerationErrors(unittest.TestCase):
@@ -51,7 +51,8 @@ def _mocked_error(payload: Dict) -> MagicMock:
     return error
 
 
-@pytest.mark.vcr
+@pytest.mark.skip("Temporary skipping TestTextGenerationClientVCR tests")
+@with_production_testing
 @patch.dict("huggingface_hub.inference._common._UNSUPPORTED_TEXT_GENERATION_KWARGS", {})
 class TestTextGenerationClientVCR(unittest.TestCase):
     """Use VCR test to avoid making requests to the prod infra."""

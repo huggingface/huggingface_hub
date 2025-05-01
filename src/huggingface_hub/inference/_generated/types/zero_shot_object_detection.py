@@ -3,33 +3,30 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import List
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
-class ZeroShotObjectDetectionInputData(BaseInferenceType):
-    """The input image data, with candidate labels"""
+@dataclass_with_extra
+class ZeroShotObjectDetectionParameters(BaseInferenceType):
+    """Additional inference parameters for Zero Shot Object Detection"""
 
     candidate_labels: List[str]
     """The candidate labels for this image"""
-    image: Any
-    """The image data to generate bounding boxes from"""
 
 
-@dataclass
+@dataclass_with_extra
 class ZeroShotObjectDetectionInput(BaseInferenceType):
     """Inputs for Zero Shot Object Detection inference"""
 
-    inputs: ZeroShotObjectDetectionInputData
-    """The input image data, with candidate labels"""
-    parameters: Optional[Dict[str, Any]] = None
-    """Additional inference parameters"""
+    inputs: str
+    """The input image data as a base64-encoded string."""
+    parameters: ZeroShotObjectDetectionParameters
+    """Additional inference parameters for Zero Shot Object Detection"""
 
 
-@dataclass
+@dataclass_with_extra
 class ZeroShotObjectDetectionBoundingBox(BaseInferenceType):
     """The predicted bounding box. Coordinates are relative to the top left corner of the input
     image.
@@ -41,7 +38,7 @@ class ZeroShotObjectDetectionBoundingBox(BaseInferenceType):
     ymin: int
 
 
-@dataclass
+@dataclass_with_extra
 class ZeroShotObjectDetectionOutputElement(BaseInferenceType):
     """Outputs of inference for the Zero Shot Object Detection task"""
 

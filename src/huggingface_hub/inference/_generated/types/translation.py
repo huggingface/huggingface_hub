@@ -3,20 +3,17 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, Dict, Literal, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 TranslationTruncationStrategy = Literal["do_not_truncate", "longest_first", "only_first", "only_second"]
 
 
-@dataclass
+@dataclass_with_extra
 class TranslationParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Translation
-    """
+    """Additional inference parameters for Translation"""
 
     clean_up_tokenization_spaces: Optional[bool] = None
     """Whether to clean up the potential extra spaces in the text output."""
@@ -34,17 +31,17 @@ class TranslationParameters(BaseInferenceType):
     """The truncation strategy to use."""
 
 
-@dataclass
+@dataclass_with_extra
 class TranslationInput(BaseInferenceType):
     """Inputs for Translation inference"""
 
     inputs: str
     """The text to translate."""
     parameters: Optional[TranslationParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Translation"""
 
 
-@dataclass
+@dataclass_with_extra
 class TranslationOutput(BaseInferenceType):
     """Outputs of inference for the Translation task"""
 

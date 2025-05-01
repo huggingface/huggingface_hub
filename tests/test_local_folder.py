@@ -19,6 +19,7 @@ See `huggingface_hub/src/_local_folder.py` for the implementation.
 
 import logging
 import os
+import threading
 import time
 from pathlib import Path, WindowsPath
 
@@ -49,6 +50,18 @@ def test_creates_huggingface_dir_with_gitignore(tmp_path: Path):
     assert (huggingface_dir / ".gitignore").read_text() == "*"
 
 
+def test_gitignore_lock_timeout_is_ignored(tmp_path: Path):
+    local_dir = tmp_path / "path" / "to" / "local"
+
+    threads = [threading.Thread(target=_huggingface_dir, args=(local_dir,)) for _ in range(10)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert (local_dir / ".cache" / "huggingface" / ".gitignore").exists()
+    assert not (local_dir / ".cache" / "huggingface" / ".gitignore.lock").exists()
+
+
 def test_local_download_paths(tmp_path: Path):
     """Test local download paths are valid + usable."""
     paths = get_local_download_paths(tmp_path, "path/in/repo.txt")
@@ -66,12 +79,16 @@ def test_local_download_paths(tmp_path: Path):
     assert paths.metadata_path.parent.is_dir()
     assert paths.lock_path.parent.is_dir()
 
-    # Incomplete path are etag-based
-    assert (
-        paths.incomplete_path("etag123")
-        == tmp_path / ".cache" / "huggingface" / "download" / "path" / "in" / "repo.txt.etag123.incomplete"
-    )
+    # Incomplete paths are etag-based
+    incomplete_path = paths.incomplete_path("etag123")
+    assert incomplete_path.parent == tmp_path / ".cache" / "huggingface" / "download" / "path" / "in"
+    assert incomplete_path.name.endswith(".etag123.incomplete")
     assert paths.incomplete_path("etag123").parent.is_dir()
+
+    # Incomplete paths are unique per file per etag
+    other_paths = get_local_download_paths(tmp_path, "path/in/repo_other.txt")
+    other_incomplete_path = other_paths.incomplete_path("etag123")
+    assert incomplete_path != other_incomplete_path  # different .incomplete files to prevent concurrency issues
 
 
 def test_local_download_paths_are_recreated_each_time(tmp_path: Path):

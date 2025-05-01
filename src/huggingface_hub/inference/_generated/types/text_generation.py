@@ -3,16 +3,15 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Any, List, Literal, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 TypeEnum = Literal["json", "regex"]
 
 
-@dataclass
+@dataclass_with_extra
 class TextGenerationInputGrammarType(BaseInferenceType):
     type: "TypeEnum"
     value: Any
@@ -22,7 +21,7 @@ class TextGenerationInputGrammarType(BaseInferenceType):
     """
 
 
-@dataclass
+@dataclass_with_extra
 class TextGenerationInputGenerateParameters(BaseInferenceType):
     adapter_id: Optional[str] = None
     """Lora adapter id"""
@@ -73,7 +72,7 @@ class TextGenerationInputGenerateParameters(BaseInferenceType):
     """
 
 
-@dataclass
+@dataclass_with_extra
 class TextGenerationInput(BaseInferenceType):
     """Text Generation Input.
     Auto-generated from TGI specs.
@@ -89,14 +88,14 @@ class TextGenerationInput(BaseInferenceType):
 TextGenerationOutputFinishReason = Literal["length", "eos_token", "stop_sequence"]
 
 
-@dataclass
+@dataclass_with_extra
 class TextGenerationOutputPrefillToken(BaseInferenceType):
     id: int
     logprob: float
     text: str
 
 
-@dataclass
+@dataclass_with_extra
 class TextGenerationOutputToken(BaseInferenceType):
     id: int
     logprob: float
@@ -104,7 +103,7 @@ class TextGenerationOutputToken(BaseInferenceType):
     text: str
 
 
-@dataclass
+@dataclass_with_extra
 class TextGenerationOutputBestOfSequence(BaseInferenceType):
     finish_reason: "TextGenerationOutputFinishReason"
     generated_text: str
@@ -115,7 +114,7 @@ class TextGenerationOutputBestOfSequence(BaseInferenceType):
     top_tokens: Optional[List[List[TextGenerationOutputToken]]] = None
 
 
-@dataclass
+@dataclass_with_extra
 class TextGenerationOutputDetails(BaseInferenceType):
     finish_reason: "TextGenerationOutputFinishReason"
     generated_tokens: int
@@ -126,7 +125,7 @@ class TextGenerationOutputDetails(BaseInferenceType):
     top_tokens: Optional[List[List[TextGenerationOutputToken]]] = None
 
 
-@dataclass
+@dataclass_with_extra
 class TextGenerationOutput(BaseInferenceType):
     """Text Generation Output.
     Auto-generated from TGI specs.
@@ -138,7 +137,7 @@ class TextGenerationOutput(BaseInferenceType):
     details: Optional[TextGenerationOutputDetails] = None
 
 
-@dataclass
+@dataclass_with_extra
 class TextGenerationStreamOutputStreamDetails(BaseInferenceType):
     finish_reason: "TextGenerationOutputFinishReason"
     generated_tokens: int
@@ -146,7 +145,7 @@ class TextGenerationStreamOutputStreamDetails(BaseInferenceType):
     seed: Optional[int] = None
 
 
-@dataclass
+@dataclass_with_extra
 class TextGenerationStreamOutputToken(BaseInferenceType):
     id: int
     logprob: float
@@ -154,7 +153,7 @@ class TextGenerationStreamOutputToken(BaseInferenceType):
     text: str
 
 
-@dataclass
+@dataclass_with_extra
 class TextGenerationStreamOutput(BaseInferenceType):
     """Text Generation Stream Output.
     Auto-generated from TGI specs.

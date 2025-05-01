@@ -3,32 +3,23 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, Optional
 
-from .base import BaseInferenceType
-
-
-@dataclass
-class TextToImageTargetSize(BaseInferenceType):
-    """The size in pixel of the output image"""
-
-    height: int
-    width: int
+from .base import BaseInferenceType, dataclass_with_extra
 
 
-@dataclass
+@dataclass_with_extra
 class TextToImageParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Text To Image
-    """
+    """Additional inference parameters for Text To Image"""
 
     guidance_scale: Optional[float] = None
     """A higher guidance scale value encourages the model to generate images closely linked to
     the text prompt, but values too high may cause saturation and other artifacts.
     """
-    negative_prompt: Optional[List[str]] = None
-    """One or several prompt to guide what NOT to include in image generation."""
+    height: Optional[int] = None
+    """The height in pixels of the output image"""
+    negative_prompt: Optional[str] = None
+    """One prompt to guide what NOT to include in image generation."""
     num_inference_steps: Optional[int] = None
     """The number of denoising steps. More denoising steps usually lead to a higher quality
     image at the expense of slower inference.
@@ -37,21 +28,21 @@ class TextToImageParameters(BaseInferenceType):
     """Override the scheduler with a compatible one."""
     seed: Optional[int] = None
     """Seed for the random number generator."""
-    target_size: Optional[TextToImageTargetSize] = None
-    """The size in pixel of the output image"""
+    width: Optional[int] = None
+    """The width in pixels of the output image"""
 
 
-@dataclass
+@dataclass_with_extra
 class TextToImageInput(BaseInferenceType):
     """Inputs for Text To Image inference"""
 
     inputs: str
     """The input text data (sometimes called "prompt")"""
     parameters: Optional[TextToImageParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Text To Image"""
 
 
-@dataclass
+@dataclass_with_extra
 class TextToImageOutput(BaseInferenceType):
     """Outputs of inference for the Text To Image task"""
 

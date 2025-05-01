@@ -4,6 +4,7 @@ Type definitions and utilities for the `create_commit` API
 
 import base64
 import io
+import math
 import os
 import warnings
 from collections import defaultdict
@@ -16,12 +17,14 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List,
 from tqdm.contrib.concurrent import thread_map
 
 from . import constants
-from .errors import EntryNotFoundError
+from .errors import EntryNotFoundError, HfHubHTTPError, XetAuthorizationError, XetRefreshTokenError
 from .file_download import hf_hub_url
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
     FORBIDDEN_FOLDERS,
+    XetTokenType,
     chunk_iterable,
+    fetch_xet_connection_info_from_repo_info,
     get_session,
     hf_raise_for_status,
     logging,
@@ -30,6 +33,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
+from .utils.tqdm import _get_progress_bar_context
 
 
 if TYPE_CHECKING:
@@ -46,6 +50,8 @@ UploadMode = Literal["lfs", "regular"]
 # HfHubHTTPError: 413 Client Error: Payload Too Large for url: https://huggingface.co/api/datasets/xxx (Request ID: xxx)\n\ntoo many parameters
 # See https://github.com/huggingface/huggingface_hub/issues/1503
 FETCH_LFS_BATCH_SIZE = 500
+
+UPLOAD_BATCH_MAX_NUM_FILES = 256
 
 
 @dataclass
@@ -103,6 +109,12 @@ class CommitOperationCopy:
     src_path_in_repo: str
     path_in_repo: str
     src_revision: Optional[str] = None
+    # set to the OID of the file to be copied if it has already been uploaded
+    # useful to determine if a commit will be empty or not.
+    _src_oid: Optional[str] = None
+    # set to the OID of the file to copy to if it has already been uploaded
+    # useful to determine if a commit will be empty or not.
+    _dest_oid: Optional[str] = None
 
     def __post_init__(self):
         self.src_path_in_repo = _validate_path_in_repo(self.src_path_in_repo)
@@ -385,7 +397,7 @@ def _upload_lfs_files(
     #         Upload instructions are retrieved by chunk of 256 files to avoid reaching
     #         the payload limit.
     batch_actions: List[Dict] = []
-    for chunk in chunk_iterable(additions, chunk_size=256):
+    for chunk in chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES):
         batch_actions_chunk, batch_errors_chunk = post_lfs_batch_info(
             upload_infos=[op.upload_info for op in chunk],
             repo_id=repo_id,
@@ -400,7 +412,7 @@ def _upload_lfs_files(
         if batch_errors_chunk:
             message = "\n".join(
                 [
-                    f'Encountered error for file with OID {err.get("oid")}: `{err.get("error", {}).get("message")}'
+                    f"Encountered error for file with OID {err.get('oid')}: `{err.get('error', {}).get('message')}"
                     for err in batch_errors_chunk
                 ]
             )
@@ -452,6 +464,138 @@ def _upload_lfs_files(
         )
 
 
+@validate_hf_hub_args
+def _upload_xet_files(
+    *,
+    additions: List[CommitOperationAdd],
+    repo_type: str,
+    repo_id: str,
+    headers: Dict[str, str],
+    endpoint: Optional[str] = None,
+    revision: Optional[str] = None,
+    create_pr: Optional[bool] = None,
+):
+    """
+    Uploads the content of `additions` to the Hub using the xet storage protocol.
+    This chunks the files and deduplicates the chunks before uploading them to xetcas storage.
+
+    Args:
+        additions (`List` of `CommitOperationAdd`):
+            The files to be uploaded.
+        repo_type (`str`):
+            Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
+        repo_id (`str`):
+            A namespace (user or an organization) and a repo name separated
+            by a `/`.
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
+        endpoint: (`str`, *optional*):
+            The endpoint to use for the xetcas service. Defaults to `constants.ENDPOINT`.
+        revision (`str`, *optional*):
+            The git revision to upload to.
+        create_pr (`bool`, *optional*):
+            Whether or not to create a Pull Request with that commit.
+
+    Raises:
+        [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+            If an upload failed for any reason.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the server returns malformed responses or if the user is unauthorized to upload to xet storage.
+        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+            If the LFS batch endpoint returned an HTTP error.
+
+    **How it works:**
+        The file download system uses Xet storage, which is a content-addressable storage system that breaks files into chunks
+            for efficient storage and transfer.
+
+        `hf_xet.upload_files` manages uploading files by:
+            - Taking a list of file paths to upload
+            - Breaking files into smaller chunks for efficient storage
+            - Avoiding duplicate storage by recognizing identical chunks across files
+            - Connecting to a storage server (CAS server) that manages these chunks
+
+        The upload process works like this:
+        1. Create a local folder at ~/.cache/huggingface/xet/chunk-cache to store file chunks for reuse.
+        2. Process files in parallel (up to 8 files at once):
+            2.1. Read the file content.
+            2.2. Split the file content into smaller chunks based on content patterns: each chunk gets a unique ID based on what's in it.
+            2.3. For each chunk:
+                - Check if it already exists in storage.
+                - Skip uploading chunks that already exist.
+            2.4. Group chunks into larger blocks for efficient transfer.
+            2.5. Upload these blocks to the storage server.
+            2.6. Create and upload information about how the file is structured.
+        3. Return reference files that contain information about the uploaded files, which can be used later to download them.
+    """
+    if len(additions) == 0:
+        return
+    # at this point, we know that hf_xet is installed
+    from hf_xet import upload_files
+
+    try:
+        xet_connection_info = fetch_xet_connection_info_from_repo_info(
+            token_type=XetTokenType.WRITE,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            headers=headers,
+            endpoint=endpoint,
+            params={"create_pr": "1"} if create_pr else None,
+        )
+    except HfHubHTTPError as e:
+        if e.response.status_code == 401:
+            raise XetAuthorizationError(
+                f"You are unauthorized to upload to xet storage for {repo_type}/{repo_id}. "
+                f"Please check that you have configured your access token with write access to the repo."
+            ) from e
+        raise
+
+    xet_endpoint = xet_connection_info.endpoint
+    access_token_info = (xet_connection_info.access_token, xet_connection_info.expiration_unix_epoch)
+
+    def token_refresher() -> Tuple[str, int]:
+        new_xet_connection = fetch_xet_connection_info_from_repo_info(
+            token_type=XetTokenType.WRITE,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            headers=headers,
+            endpoint=endpoint,
+            params={"create_pr": "1"} if create_pr else None,
+        )
+        if new_xet_connection is None:
+            raise XetRefreshTokenError("Failed to refresh xet token")
+        return new_xet_connection.access_token, new_xet_connection.expiration_unix_epoch
+
+    num_chunks = math.ceil(len(additions) / UPLOAD_BATCH_MAX_NUM_FILES)
+    num_chunks_num_digits = int(math.log10(num_chunks)) + 1
+    for i, chunk in enumerate(chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES)):
+        _chunk = [op for op in chunk]
+        paths = [str(op.path_or_fileobj) for op in _chunk]
+        expected_size = sum([os.path.getsize(path) for path in paths])
+
+        if num_chunks > 1:
+            description = f"Uploading Batch [{str(i + 1).zfill(num_chunks_num_digits)}/{num_chunks}]..."
+        else:
+            description = "Uploading..."
+        progress_cm = _get_progress_bar_context(
+            desc=description,
+            total=expected_size,
+            initial=0,
+            unit="B",
+            unit_scale=True,
+            name="huggingface_hub.xet_put",
+            log_level=logger.getEffectiveLevel(),
+        )
+        with progress_cm as progress:
+
+            def update_progress(increment: int):
+                progress.update(increment)
+
+            upload_files(paths, xet_endpoint, access_token_info, token_refresher, update_progress, repo_type)
+    return
+
+
 def _validate_preupload_info(preupload_info: dict):
     files = preupload_info.get("files")
     if not isinstance(files, list):
@@ -479,8 +623,8 @@ def _fetch_upload_modes(
     gitignore_content: Optional[str] = None,
 ) -> None:
     """
-    Requests the Hub "preupload" endpoint to determine whether each input file should be uploaded as a regular git blob
-    or as git LFS blob. Input `additions` are mutated in-place with the upload mode.
+    Requests the Hub "preupload" endpoint to determine whether each input file should be uploaded as a regular git blob,
+    as a git LFS blob, or as a XET file. Input `additions` are mutated in-place with the upload mode.
 
     Args:
         additions (`Iterable` of :class:`CommitOperationAdd`):
@@ -595,19 +739,38 @@ def _fetch_files_to_copy(
 
     hf_api = HfApi(endpoint=endpoint, headers=headers)
     files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]] = {}
+    # Store (path, revision) -> oid mapping
+    oid_info: Dict[Tuple[str, Optional[str]], Optional[str]] = {}
+    # 1. Fetch OIDs for destination paths in batches.
+    dest_paths = [op.path_in_repo for op in copies]
+    for offset in range(0, len(dest_paths), FETCH_LFS_BATCH_SIZE):
+        dest_repo_files = hf_api.get_paths_info(
+            repo_id=repo_id,
+            paths=dest_paths[offset : offset + FETCH_LFS_BATCH_SIZE],
+            revision=revision,
+            repo_type=repo_type,
+        )
+        for file in dest_repo_files:
+            if not isinstance(file, RepoFolder):
+                oid_info[(file.path, revision)] = file.blob_id
+
+    # 2. Group by source revision and fetch source file info in batches.
     for src_revision, operations in groupby(copies, key=lambda op: op.src_revision):
         operations = list(operations)  # type: ignore
-        paths = [op.src_path_in_repo for op in operations]
-        for offset in range(0, len(paths), FETCH_LFS_BATCH_SIZE):
+        src_paths = [op.src_path_in_repo for op in operations]
+        for offset in range(0, len(src_paths), FETCH_LFS_BATCH_SIZE):
             src_repo_files = hf_api.get_paths_info(
                 repo_id=repo_id,
-                paths=paths[offset : offset + FETCH_LFS_BATCH_SIZE],
+                paths=src_paths[offset : offset + FETCH_LFS_BATCH_SIZE],
                 revision=src_revision or revision,
                 repo_type=repo_type,
             )
+
             for src_repo_file in src_repo_files:
                 if isinstance(src_repo_file, RepoFolder):
                     raise NotImplementedError("Copying a folder is not implemented.")
+                oid_info[(src_repo_file.path, src_revision)] = src_repo_file.blob_id
+                # If it's an LFS file, store the RepoFile object. Otherwise, download raw bytes.
                 if src_repo_file.lfs:
                     files_to_copy[(src_repo_file.path, src_revision)] = src_repo_file
                 else:
@@ -622,12 +785,16 @@ def _fetch_files_to_copy(
                     response = get_session().get(url, headers=headers)
                     hf_raise_for_status(response)
                     files_to_copy[(src_repo_file.path, src_revision)] = response.content
+        # 3. Ensure all operations found a corresponding file in the Hub
+        #  and track src/dest OIDs for each operation.
         for operation in operations:
             if (operation.src_path_in_repo, src_revision) not in files_to_copy:
                 raise EntryNotFoundError(
                     f"Cannot copy {operation.src_path_in_repo} at revision "
                     f"{src_revision or revision}: file is missing on repo."
                 )
+            operation._src_oid = oid_info.get((operation.src_path_in_repo, operation.src_revision))
+            operation._dest_oid = oid_info.get((operation.path_in_repo, revision))
     return files_to_copy
 
 

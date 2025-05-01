@@ -3,20 +3,17 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from dataclasses import dataclass
 from typing import Literal, Optional
 
-from .base import BaseInferenceType
+from .base import BaseInferenceType, dataclass_with_extra
 
 
 ImageSegmentationSubtask = Literal["instance", "panoptic", "semantic"]
 
 
-@dataclass
+@dataclass_with_extra
 class ImageSegmentationParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Image Segmentation
-    """
+    """Additional inference parameters for Image Segmentation"""
 
     mask_threshold: Optional[float] = None
     """Threshold to use when turning the predicted masks into binary values."""
@@ -28,7 +25,7 @@ class ImageSegmentationParameters(BaseInferenceType):
     """Probability threshold to filter out predicted masks."""
 
 
-@dataclass
+@dataclass_with_extra
 class ImageSegmentationInput(BaseInferenceType):
     """Inputs for Image Segmentation inference"""
 
@@ -37,10 +34,10 @@ class ImageSegmentationInput(BaseInferenceType):
     also provide the image data as a raw bytes payload.
     """
     parameters: Optional[ImageSegmentationParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Image Segmentation"""
 
 
-@dataclass
+@dataclass_with_extra
 class ImageSegmentationOutputElement(BaseInferenceType):
     """Outputs of inference for the Image Segmentation task
     A predicted mask / segment
