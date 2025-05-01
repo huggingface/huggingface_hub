@@ -4475,15 +4475,15 @@ class HfApi:
             expand="xetEnabled",
             token=token,
         ).xet_enabled
-        has_binary_data = any(
+        has_buffered_io_data = any(
             isinstance(addition.path_or_fileobj, io.BufferedIOBase) for addition in new_lfs_additions_to_upload
         )
-        if xet_enabled and not has_binary_data and is_xet_available():
+        if xet_enabled and not has_buffered_io_data and is_xet_available():
             logger.info("Uploading files using Xet Storage..")
             _upload_xet_files(**upload_kwargs, create_pr=create_pr)  # type: ignore [arg-type]
         else:
             if xet_enabled and is_xet_available():
-                if has_binary_data:
+                if has_buffered_io_data:
                     logger.warning(
                         "Uploading files as a binary IO buffer is not supported by Xet Storage. "
                         "Falling back to HTTP upload."
