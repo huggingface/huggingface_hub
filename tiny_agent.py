@@ -148,8 +148,8 @@ class MCPServerSse(MCPServerBase):
 
     async def _setup_tools(self) -> None:
         self.client = sse_client(
-            url=self.mcp_tool.url,
-            headers=dict(self.mcp_tool.headers or {}),
+            url=self.mcp_tool['url'],
+            headers=dict(self.mcp_tool.get('headers') or {}),
         )
 
         await super()._setup_tools()
