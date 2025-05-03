@@ -256,7 +256,6 @@ class TinyAgent:
         self.clients: dict[str, ToolExecutor] = {}
         self.available_tools: list[dict[str, Any]] = []
         self.exit_loop_tools = [task_completion_tool()]
-        self.mcp_servers = []
         self._mcp_servers = []
         self.mcp_tools = []
 
@@ -299,7 +298,6 @@ class TinyAgent:
                 mcp_server = await self.add_sse_mcp_server(**server)
             else:
                 raise ValueError(f"Unsupported MCP server type: {server['type']}")
-            self.mcp_servers.append(mcp_server)
             for tool in mcp_server.tools:
                 self.mcp_tools.append(tool)
         for tool in self.mcp_tools:
@@ -555,7 +553,10 @@ class TinyAgent:
             return "\n".join(combined_results)
 
         return str(message.content)
-
+    async def cleanup(self):
+        """Close all resources."""
+        for server in self._mcp_servers:
+            await server._exit_stack.aclose()
 
 async def main():
     agent = TinyAgent(
@@ -566,22 +567,25 @@ async def main():
         model="Qwen/Qwen2.5-72B-Instruct",
         api_key=os.environ["HF_TOKEN"],
     )
-    await agent.load_agent(
-        [
-            {
-                "type": "stdio",
-                "command": "uvx",
-                "args": ["mcp-server-time", "--local-timezone=America/New_York"],
-                "tools": [
-                    "get_current_time",
-                ],
-                "env_vars": {},
-            },
-        ]
-    )
-    response = await agent.run_async("What time is it? Please use the get_current_time tool to find out.", max_turns=5)
-    print("Final response:", response["final_output"])
-    print("Raw responses:", response["raw_responses"])
+    try:
+        await agent.load_agent(
+            [
+                {
+                    "type": "stdio",
+                    "command": "uvx",
+                    "args": ["mcp-server-time", "--local-timezone=America/New_York"],
+                    "tools": [
+                        "get_current_time",
+                    ],
+                    "env_vars": {},
+                },
+            ]
+        )
+        response = await agent.run_async("What time is it? Please use the get_current_time tool to find out.", max_turns=5)
+        print("Final response:", response["final_output"])
+        print("Raw responses:", response["raw_responses"])
+    finally:
+        await agent.cleanup()
 
 
 if __name__ == "__main__":
