@@ -23,7 +23,7 @@ logger = logging.get_logger(__name__)
 
 
 class MCPServerBase:
-    """Initialize and grab the tools from the MCP server that the MCP client will connect to."""
+    """Modified MCP implementation from any-agent https://github.com/mozilla-ai/any-agent/pull/168"""
 
     client: Any | None = None
     session: Any | None = None
