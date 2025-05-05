@@ -42,7 +42,7 @@ class HFInferenceTask(TaskProviderHelper):
             return mapped_model
         return (
             # Feature-extraction and sentence-similarity are the only cases where we handle models with several tasks.
-            f"{self.base_url}/pipeline/{self.task}/{mapped_model}"
+            f"{self.base_url}/models/{mapped_model}/pipeline/{self.task}"
             if self.task in ("feature-extraction", "sentence-similarity")
             # Otherwise, we use the default endpoint
             else f"{self.base_url}/models/{mapped_model}"
