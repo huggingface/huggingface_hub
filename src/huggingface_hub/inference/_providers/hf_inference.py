@@ -1,11 +1,11 @@
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
-from huggingface_hub.inference._common import _b64_encode, _open_as_binary
+from huggingface_hub.inference._common import RequestParameters, _b64_encode, _bytes_to_dict, _open_as_binary
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
 from huggingface_hub.utils import build_hf_headers, get_session, get_token, hf_raise_for_status
 
@@ -177,3 +177,13 @@ def _check_supported_task(model: str, task: str) -> None:
             f"Model '{model}' doesn't support task '{task}'. Supported tasks: '{pipeline_tag}', got: '{task}'"
         )
     return
+
+
+class HFInferenceFeatureExtractionTask(HFInferenceTask):
+    def __init__(self):
+        super().__init__("feature-extraction")
+
+    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+        if isinstance(response, bytes):
+            return _bytes_to_dict(response)
+        return response
