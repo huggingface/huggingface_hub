@@ -7573,6 +7573,7 @@ class HfApi:
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
+        env: Optional[Dict[str, str]] = None,
         secrets: Optional[Dict[str, str]] = None,
         type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
         domain: Optional[str] = None,
@@ -7616,6 +7617,8 @@ class HfApi:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+            env (`Dict[str, str]`, *optional*):
+                Non-secret environment variables to inject in the container environment.
             secrets (`Dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
             type ([`InferenceEndpointType]`, *optional*):
@@ -7678,14 +7681,14 @@ class HfApi:
             ...     type="protected",
             ...     instance_size="x1",
             ...     instance_type="nvidia-a10g",
+            ...     env={
+            ...           "MAX_BATCH_PREFILL_TOKENS": "2048",
+            ...           "MAX_INPUT_LENGTH": "1024",
+            ...           "MAX_TOTAL_TOKENS": "1512",
+            ...           "MODEL_ID": "/repository"
+            ...         },
             ...     custom_image={
             ...         "health_route": "/health",
-            ...         "env": {
-            ...             "MAX_BATCH_PREFILL_TOKENS": "2048",
-            ...             "MAX_INPUT_LENGTH": "1024",
-            ...             "MAX_TOTAL_TOKENS": "1512",
-            ...             "MODEL_ID": "/repository"
-            ...         },
             ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
             ...     },
             ...    secrets={"MY_SECRET_KEY": "secret_value"},
@@ -7723,6 +7726,8 @@ class HfApi:
             },
             "type": type,
         }
+        if env:
+            payload["model"]["env"] = env
         if secrets:
             payload["model"]["secrets"] = secrets
         if domain is not None or path is not None:
@@ -7897,6 +7902,7 @@ class HfApi:
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
+        env: Optional[Dict[str, str]] = None,
         secrets: Optional[Dict[str, str]] = None,
         # Route update
         domain: Optional[str] = None,
@@ -7942,6 +7948,8 @@ class HfApi:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+            env (`Dict[str, str]`, *optional*):
+                Non-secret environment variables to inject in the container environment
             secrets (`Dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
 
@@ -7992,6 +8000,8 @@ class HfApi:
             payload["model"]["task"] = task
         if custom_image is not None:
             payload["model"]["image"] = {"custom": custom_image}
+        if env is not None:
+            payload["model"]["env"] = env
         if secrets is not None:
             payload["model"]["secrets"] = secrets
         if domain is not None:
