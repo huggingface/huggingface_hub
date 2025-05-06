@@ -1087,3 +1087,84 @@ class TestBillToOrganization:
             match="You've provided an external provider's API key, so requests will be billed directly by the provider.",
         ):
             InferenceClient(bill_to="openai", token="replicate_key", provider="replicate")
+
+
+@pytest.mark.parametrize(
+    "client_init_arg, init_kwarg_name, expected_request_url, expected_payload_model",
+    [
+        # passing a custom endpoint in the model argument
+        pytest.param(
+            "https://my-custom-endpoint.com/custom_path",
+            "model",
+            "https://my-custom-endpoint.com/custom_path/v1/chat/completions",
+            "dummy",
+            id="client_model_is_url",
+        ),
+        # passing a custom endpoint in the base_url argument
+        pytest.param(
+            "https://another-endpoint.com/v1/",
+            "base_url",
+            "https://another-endpoint.com/v1/chat/completions",
+            "dummy",
+            id="client_base_url_is_url",
+        ),
+        # passing a model ID
+        pytest.param(
+            "username/repo_name",
+            "model",
+            f"{constants.INFERENCE_PROXY_TEMPLATE.format(provider='hf-inference')}/models/username/repo_name/v1/chat/completions",
+            "username/repo_name",
+            id="client_model_is_id",
+        ),
+        # passing a custom endpoint in the model argument
+        pytest.param(
+            "https://specific-chat-endpoint.com/v1/chat/completions",
+            "model",
+            "https://specific-chat-endpoint.com/v1/chat/completions",
+            "dummy",
+            id="client_model_is_full_chat_url",
+        ),
+        # passing a localhost URL in the model argument
+        pytest.param(
+            "http://localhost:8080",
+            "model",
+            "http://localhost:8080/v1/chat/completions",
+            "dummy",
+            id="client_model_is_localhost_url",
+        ),
+        # passing a localhost URL in the base_url argument
+        pytest.param(
+            "http://127.0.0.1:8000/custom/path/v1",
+            "base_url",
+            "http://127.0.0.1:8000/custom/path/v1/chat/completions",
+            "dummy",
+            id="client_base_url_is_localhost_ip_with_path",
+        ),
+    ],
+)
+def test_chat_completion_url_resolution(
+    mocker, client_init_arg, init_kwarg_name, expected_request_url, expected_payload_model
+):
+    init_kwargs = {init_kwarg_name: client_init_arg, "provider": "hf-inference"}
+    client = InferenceClient(**init_kwargs)
+
+    mock_response_content = b'{"choices": [{"message": {"content": "Mock response"}}]}'
+    mocker.patch(
+        "huggingface_hub.inference._providers.hf_inference._check_supported_task",
+        return_value=None,
+    )
+
+    with patch.object(InferenceClient, "_inner_post", return_value=mock_response_content) as mock_inner_post:
+        client.chat_completion(messages=[{"role": "user", "content": "Hello?"}], stream=False)
+
+        mock_inner_post.assert_called_once()
+
+        request_params = mock_inner_post.call_args[0][0]
+        inner_post_kwargs = mock_inner_post.call_args[1]
+
+        assert request_params.url == expected_request_url
+
+        assert request_params.json is not None
+        assert request_params.json.get("model") == expected_payload_model
+
+        assert inner_post_kwargs.get("stream") is False
