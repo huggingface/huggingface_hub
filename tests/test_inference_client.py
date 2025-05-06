@@ -1112,7 +1112,7 @@ class TestBillToOrganization:
         pytest.param(
             "username/repo_name",
             "model",
-            f"{constants.INFERENCE_PROXY_TEMPLATE.format(provider='hf-inference')}/models/username/repo_name/v1/chat/completions",
+            "https://router.huggingface.co/hf-inference/models/username/repo_name/v1/chat/completions",
             "username/repo_name",
             id="client_model_is_id",
         ),
