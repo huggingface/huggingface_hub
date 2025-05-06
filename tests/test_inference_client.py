@@ -1160,9 +1160,6 @@ def test_chat_completion_url_resolution(
         mock_inner_post.assert_called_once()
 
         request_params = mock_inner_post.call_args[0][0]
-        inner_post_kwargs = mock_inner_post.call_args[1]
-
         assert request_params.url == expected_request_url
-
         assert request_params.json is not None
         assert request_params.json.get("model") == expected_payload_model
