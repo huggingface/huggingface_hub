@@ -45,7 +45,7 @@ class ChatCompletionInputMessage(BaseInferenceType):
     tool_calls: Optional[List[ChatCompletionInputToolCall]] = None
 
 
-ChatCompletionInputGrammarTypeType = Literal["json", "regex"]
+ChatCompletionInputGrammarTypeType = Literal["json", "regex", "json_schema"]
 
 
 @dataclass_with_extra
