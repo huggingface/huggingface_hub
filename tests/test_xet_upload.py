@@ -136,6 +136,21 @@ class TestXetUpload:
             downloaded_content = f.read()
             assert downloaded_content == self.bin_content
 
+    def test_upload_file_with_byte_array(self, api, tmp_path, repo_url):
+        repo_id = repo_url.repo_id
+        content = self.bin_content
+        with assert_upload_mode("xet"):
+            api.upload_file(
+                path_or_fileobj=content,
+                path_in_repo="bytearray_file.bin",
+                repo_id=repo_id,
+            )
+        # Download and verify content
+        downloaded_file = hf_hub_download(repo_id=repo_id, filename="bytearray_file.bin", cache_dir=tmp_path)
+        with open(downloaded_file, "rb") as f:
+            downloaded_content = f.read()
+            assert downloaded_content == self.bin_content
+
     def test_fallback_to_lfs_when_xet_not_available(self, api, repo_url):
         repo_id = repo_url.repo_id
         with patch("huggingface_hub.hf_api.is_xet_available", return_value=False):
@@ -284,7 +299,7 @@ class TestXetE2E(TestXetUpload):
 
         This test ensures that the downloaded file is the same as the uploaded file.
         """
-        from hf_xet import PyPointerFile, download_files
+        from hf_xet import PyXetDownloadInfo, download_files
 
         filename_in_repo = "binary_file.bin"
         repo_id = repo_url.repo_id
@@ -327,13 +342,15 @@ class TestXetE2E(TestXetUpload):
         mock_token_refresher = MagicMock(side_effect=token_refresher)
 
         incomplete_path = Path(tmp_path) / "file.bin.incomplete"
-        py_file = [
-            PyPointerFile(path=str(incomplete_path.absolute()), hash=xet_filedata.file_hash, filesize=expected_size)
+        file_info = [
+            PyXetDownloadInfo(
+                destination_path=str(incomplete_path.absolute()), hash=xet_filedata.file_hash, file_size=expected_size
+            )
         ]
 
         # Call the download_files function with the token refresher, set expiration to 0 forcing a refresh
         download_files(
-            py_file,
+            file_info,
             endpoint=xet_connection_info.endpoint,
             token_info=(xet_connection_info.access_token, 0),
             token_refresher=mock_token_refresher,
