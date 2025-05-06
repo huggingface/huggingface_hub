@@ -21,7 +21,7 @@ The caching system is designed as follows:
 ├─ <SPACES>
 ```
 
-The `<CACHE_DIR>` is usually your user's home directory. However, it is customizable with the `cache_dir` argument on all methods, or by specifying either `HF_HOME` or `HF_HUB_CACHE` environment variable.
+The default `<CACHE_DIR>` is `~/.cache/huggingface/hub`. However, it is customizable with the `cache_dir` argument on all methods, or by specifying either `HF_HOME` or `HF_HUB_CACHE` environment variable.
 
 Models, datasets and spaces share a common root. Each of these repositories contains the
 repository type, the namespace (organization or username) if it exists and the

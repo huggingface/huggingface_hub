@@ -141,8 +141,7 @@ class InferenceClient:
             Note: for better compatibility with OpenAI's client, `token` has been aliased as `api_key`. Those 2
             arguments are mutually exclusive and have the exact same behavior.
         timeout (`float`, `optional`):
-            The maximum number of seconds to wait for a response from the server. Loading a new model in Inference
-            API can take up to several minutes. Defaults to None, meaning it will loop until the server is available.
+            The maximum number of seconds to wait for a response from the server. Defaults to None, meaning it will loop until the server is available.
         headers (`Dict[str, str]`, `optional`):
             Additional headers to send to the server. By default only the authorization and user-agent headers are sent.
             Values in this dictionary will override the default values.
