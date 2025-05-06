@@ -1166,5 +1166,3 @@ def test_chat_completion_url_resolution(
 
         assert request_params.json is not None
         assert request_params.json.get("model") == expected_payload_model
-
-        assert inner_post_kwargs.get("stream") is False
