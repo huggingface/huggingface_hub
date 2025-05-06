@@ -23,7 +23,7 @@ from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
 from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .openai import OpenAIConversationalTask
-from .replicate import ReplicateTask, ReplicateTextToSpeechTask
+from .replicate import ReplicateTask, ReplicateTextToImageTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
 
@@ -115,7 +115,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "conversational": OpenAIConversationalTask(),
     },
     "replicate": {
-        "text-to-image": ReplicateTask("text-to-image"),
+        "text-to-image": ReplicateTextToImageTask(),
         "text-to-speech": ReplicateTextToSpeechTask(),
         "text-to-video": ReplicateTask("text-to-video"),
     },
