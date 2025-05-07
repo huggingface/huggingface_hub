@@ -32,6 +32,13 @@ extras["inference"] = [
     "aiohttp",  # for AsyncInferenceClient
 ]
 
+extras["oauth"] = [
+    "authlib>=1.3.2",  # minimum version to include https://github.com/lepture/authlib/pull/644
+    "fastapi",
+    "httpx",  # required for authlib but not included in its dependencies
+    "itsdangerous",  # required for starlette SessionMiddleware
+]
+
 extras["torch"] = [
     "torch",
     "safetensors[torch]",
@@ -61,6 +68,7 @@ extras["hf_xet"] = ["hf_xet>=1.1.0,<2.0.0"]
 extras["testing"] = (
     extras["cli"]
     + extras["inference"]
+    + extras["oauth"]
     + [
         "jedi",
         "Jinja2",
