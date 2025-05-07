@@ -435,6 +435,20 @@ class TestHFInferenceProvider:
 
         assert helper._prepare_url("hf_test_token", "https://any-url.com") == "https://any-url.com"
 
+    def test_prepare_url_feature_extraction(self):
+        helper = HFInferenceTask("feature-extraction")
+        assert (
+            helper._prepare_url("hf_test_token", "username/repo_name")
+            == "https://router.huggingface.co/hf-inference/models/username/repo_name/pipeline/feature-extraction"
+        )
+
+    def test_prepare_url_sentence_similarity(self):
+        helper = HFInferenceTask("sentence-similarity")
+        assert (
+            helper._prepare_url("hf_test_token", "username/repo_name")
+            == "https://router.huggingface.co/hf-inference/models/username/repo_name/pipeline/sentence-similarity"
+        )
+
     def test_prepare_payload_as_dict(self):
         helper = HFInferenceTask("text-classification")
         mapping_info = InferenceProviderMapping(

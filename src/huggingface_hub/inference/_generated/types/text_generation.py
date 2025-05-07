@@ -8,7 +8,7 @@ from typing import Any, List, Literal, Optional
 from .base import BaseInferenceType, dataclass_with_extra
 
 
-TypeEnum = Literal["json", "regex"]
+TypeEnum = Literal["json", "regex", "json_schema"]
 
 
 @dataclass_with_extra

@@ -23,7 +23,7 @@ from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
 from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .openai import OpenAIConversationalTask
-from .replicate import ReplicateTask, ReplicateTextToSpeechTask
+from .replicate import ReplicateTask, ReplicateTextToImageTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
 
@@ -115,7 +115,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "conversational": OpenAIConversationalTask(),
     },
     "replicate": {
-        "text-to-image": ReplicateTask("text-to-image"),
+        "text-to-image": ReplicateTextToImageTask(),
         "text-to-speech": ReplicateTextToSpeechTask(),
         "text-to-video": ReplicateTask("text-to-video"),
     },
@@ -147,7 +147,9 @@ def get_provider_helper(
         ValueError: If provider or task is not supported
     """
 
-    if model is None and provider in (None, "auto"):
+    if (model is None and provider in (None, "auto")) or (
+        model is not None and model.startswith(("http://", "https://"))
+    ):
         provider = "hf-inference"
 
     if provider is None:
