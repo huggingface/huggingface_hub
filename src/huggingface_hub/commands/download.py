@@ -36,6 +36,7 @@ Usage:
     huggingface-cli download gpt2 --local-dir=./models/gpt2
 """
 
+import os
 import warnings
 from argparse import Namespace, _SubParsersAction
 from typing import List, Optional
@@ -197,4 +198,5 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             local_dir=self.local_dir,
             library_name="huggingface-cli",
             max_workers=self.max_workers,
+            endpoint=os.environ.get('HF_ENDPOINT', None)
         )
