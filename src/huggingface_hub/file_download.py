@@ -1130,19 +1130,21 @@ def _hf_hub_download_to_cache_dir(
     # In that case store a ref.
     _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
 
-    # If file already exists, return it (except if force_download=True)
-    if not force_download:
-        if os.path.exists(pointer_path):
-            return pointer_path
-
-        if os.path.exists(blob_path):
-            # we have the blob already, but not the pointer
-            _create_symlink(blob_path, pointer_path, new_blob=False)
-            return pointer_path
-
     # Prevent parallel downloads of the same file with a lock.
     # etag could be duplicated across repos,
     lock_path = os.path.join(locks_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type), f"{etag}.lock")
+    Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
+
+    # If file already exists, return it (except if force_download=True)
+    with WeakFileLock(lock_path):
+        if not force_download:
+            if os.path.exists(pointer_path):
+                return pointer_path
+
+            if os.path.exists(blob_path):
+                # we have the blob already, but not the pointer
+                _create_symlink(blob_path, pointer_path, new_blob=False)
+                return pointer_path
 
     # Some Windows versions do not allow for paths longer than 255 characters.
     # In this case, we must specify it as an extended path by using the "\\?\" prefix.
@@ -1154,7 +1156,6 @@ def _hf_hub_download_to_cache_dir(
 
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
-    Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
     with WeakFileLock(lock_path):
         _download_to_tmp_and_move(
             incomplete_path=Path(blob_path + ".incomplete"),
