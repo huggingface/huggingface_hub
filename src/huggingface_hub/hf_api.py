@@ -7566,9 +7566,9 @@ class HfApi:
         region: str,
         vendor: str,
         account_id: Optional[str] = None,
-        min_replica: int = 0,
+        min_replica: int = 1,
         max_replica: int = 1,
-        scale_to_zero_timeout: int = 15,
+        scale_to_zero_timeout: int | None = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
@@ -7604,11 +7604,13 @@ class HfApi:
             account_id (`str`, *optional*):
                 The account ID used to link a VPC to a private Inference Endpoint (if applicable).
             min_replica (`int`, *optional*):
-                The minimum number of replicas (instances) to keep running for the Inference Endpoint. Defaults to 0.
+                The minimum number of replicas (instances) to keep running for the Inference Endpoint. To enable
+                scaling to zero, set this value to 0 and adjust `scale_to_zero_timeout` accordingly. Defaults to 1.
             max_replica (`int`, *optional*):
                 The maximum number of replicas (instances) to scale to for the Inference Endpoint. Defaults to 1.
             scale_to_zero_timeout (`int`, *optional*):
-                The duration in minutes before an inactive endpoint is scaled to zero. Defaults to 15.
+                The duration in minutes before an inactive endpoint is scaled to zero, or no scaling to zero if
+                set to None and `min_replica` is not 0. Defaults to None.
             revision (`str`, *optional*):
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
@@ -7693,8 +7695,32 @@ class HfApi:
             ...    secrets={"MY_SECRET_KEY": "secret_value"},
             ...    tags=["dev", "text-generation"],
             ... )
-
             ```
+
+            ```python
+            # Start an Inference Endpoint running ProsusAI/finbert while scaling to zero in 15 minutes
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> endpoint = api.create_inference_endpoint(
+            ...     "finbert-classifier",
+            ...     repository="ProsusAI/finbert",
+            ...     framework="pytorch",
+            ...     task="text-classification",
+            ...     min_replica=0,
+            ...     scale_to_zero_timeout=15,
+            ...     accelerator="cpu",
+            ...     vendor="aws",
+            ...     region="us-east-1",
+            ...     type="protected",
+            ...     instance_size="x2",
+            ...     instance_type="intel-icl",
+            ... )
+            >>> endpoint.wait(timeout=300)
+            # Run inference on the endpoint
+            >>> endpoint.client.text_generation(...)
+            TextClassificationOutputElement(label='positive', score=0.8983615040779114)
+            ```
+
         """
         namespace = namespace or self._get_namespace(token=token)
 
