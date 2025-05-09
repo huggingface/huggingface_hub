@@ -37,6 +37,11 @@ from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from huggingface_hub.inference._providers.together import TogetherTextToImageTask
+from huggingface_hub.inference._providers.wavespeed_ai import (
+    WavespeedAIImageToImageTask,
+    WavespeedAITextToImageTask,
+    WavespeedAITextToVideoTask,
+)
 
 from .testing_utils import assert_in_logs
 
@@ -978,6 +983,133 @@ class TestTogetherProvider:
         response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
         assert response == b"image_bytes"
 
+
+class TestWavespeedAIProvider:
+    """Test Wavespeed AI provider functionality."""
+
+    def test_prepare_headers(self):
+        """Test header preparation for both direct and routed calls."""
+        helper = WavespeedAITextToImageTask()
+        
+        # Test with Wavespeed API key
+        headers = helper._prepare_headers({}, "ws_test_key")
+        assert headers["authorization"] == "Bearer ws_test_key"
+
+        # Test with HF token
+        headers = helper._prepare_headers({}, "hf_token")
+        assert headers["authorization"] == "Bearer hf_token"
+
+    def test_prepare_text_to_image_payload(self):
+        """Test payload preparation for text-to-image task."""
+        helper = WavespeedAITextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful cat",
+            {
+                "num_inference_steps": 30,
+                "guidance_scale": 7.5,
+                "width": 512,
+                "height": 512,
+                "seed": 42,
+            },
+            InferenceProviderMapping(
+                hf_model_id="wavespeed-ai/flux-schnell",
+                providerId="wavespeed-ai/flux-schnell",
+                task="text-to-image",
+                status="live",
+            )
+        )
+        assert payload == {
+            "prompt": "a beautiful cat",
+            "num_inference_steps": 30,
+            "guidance_scale": 7.5,
+            "width": 512,
+            "height": 512,
+            "seed": 42,
+        }
+
+    def test_prepare_text_to_video_payload(self):
+        """Test payload preparation for text-to-video task."""
+        helper = WavespeedAITextToVideoTask()
+        payload = helper._prepare_payload_as_dict(
+            "a dancing cat",
+            {
+                "guidance_scale": 5,
+                "num_inference_steps": 30,
+                "seed": -1,
+                "duration": 5,
+                "enable_safety_checker": True,
+                "flow_shift": 2.9,
+                "size": "480*832"
+            },
+            InferenceProviderMapping(
+                hf_model_id="wavespeed-ai/wan-2.1/t2v-480p",
+                providerId="wavespeed-ai/wan-2.1/t2v-480p", 
+                task="text-to-video",
+                status="live"
+            )
+        )
+        assert payload == {
+            "prompt": "a dancing cat",
+            "guidance_scale": 5,
+            "num_inference_steps": 30,
+            "seed": -1,
+            "duration": 5,
+            "enable_safety_checker": True,
+            "flow_shift": 2.9,
+            "size": "480*832"
+        }
+
+    def test_prepare_image_to_image_payload(self, mocker):
+        """Test payload preparation for image-to-image task."""
+        helper = WavespeedAIImageToImageTask()
+        
+        # Mock image data
+        image_data = b"dummy_image_data"
+        mock_encode = mocker.patch("base64.b64encode")
+        mock_encode.return_value.decode.return_value = "base64_encoded_image"
+
+        payload = helper._prepare_payload_as_dict(
+            image_data,
+            {
+                "prompt": "The leopard chases its prey",
+                "guidance_scale": 5,
+                "num_inference_steps": 30,
+                "seed": -1
+            },
+            InferenceProviderMapping(
+                hf_model_id="wavespeed-ai/hidream-e1-full",
+                providerId="wavespeed-ai/hidream-e1-full",
+                task="image-to-image",
+                status="live"
+            )
+        )
+
+        assert payload == {
+            "image": "data:image/jpeg;base64,base64_encoded_image",
+            "prompt": "The leopard chases its prey", 
+            "guidance_scale": 5,
+            "num_inference_steps": 30,
+            "seed": -1
+        }
+        mock_encode.assert_called_once_with(image_data)
+        
+    def test_prepare_urls(self):
+        """Test URL preparation for different tasks."""
+        # Text to Image
+        t2i_helper = WavespeedAITextToImageTask()
+        t2i_url = t2i_helper._prepare_url("ws_test_key", "wavespeed-ai/flux-schnell")
+        assert t2i_url == "https://api.wavespeed.ai/api/v2/wavespeed-ai/flux-schnell"
+
+        # Text to Video
+        t2v_helper = WavespeedAITextToVideoTask()
+        t2v_url = t2v_helper._prepare_url("ws_test_key", "wavespeed-ai/wan-2.1/t2v-480p")
+        assert t2v_url == "https://api.wavespeed.ai/api/v2/wavespeed-ai/wan-2.1/t2v-480p"
+
+        # Image to Image  
+        i2i_helper = WavespeedAIImageToImageTask()
+        i2i_url = i2i_helper._prepare_url("ws_test_key", "wavespeed-ai/hidream-e1-full")
+        assert i2i_url == "https://api.wavespeed.ai/api/v2/wavespeed-ai/hidream-e1-full"
+  
 
 class TestBaseConversationalTask:
     def test_prepare_route(self):

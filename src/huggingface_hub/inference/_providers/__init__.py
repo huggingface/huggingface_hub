@@ -26,6 +26,11 @@ from .openai import OpenAIConversationalTask
 from .replicate import ReplicateTask, ReplicateTextToImageTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
+from .wavespeed_ai import (
+    WavespeedAIImageToImageTask,
+    WavespeedAITextToImageTask,
+    WavespeedAITextToVideoTask,
+)
 
 
 logger = logging.get_logger(__name__)
@@ -45,6 +50,7 @@ PROVIDER_T = Literal[
     "replicate",
     "sambanova",
     "together",
+    "wavespeed-ai",
 ]
 
 PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
@@ -127,6 +133,11 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-image": TogetherTextToImageTask(),
         "conversational": TogetherConversationalTask(),
         "text-generation": TogetherTextGenerationTask(),
+    },
+    "wavespeed-ai": {
+        "text-to-image": WavespeedAITextToImageTask(),
+        "text-to-video": WavespeedAITextToVideoTask(),
+        "image-to-image": WavespeedAIImageToImageTask(),
     },
 }
 
