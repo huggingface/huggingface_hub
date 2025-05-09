@@ -33,6 +33,7 @@ from huggingface_hub.inference._providers.hf_inference import (
 from huggingface_hub.inference._providers.hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
 from huggingface_hub.inference._providers.nebius import NebiusTextToImageTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
+from huggingface_hub.inference._providers.nscale import NscaleChatCompletion, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
@@ -828,6 +829,56 @@ class TestNovitaProvider:
         helper = NovitaConversationalTask()
         url = helper._prepare_url("novita_token", "username/repo_name")
         assert url == "https://api.novita.ai/v3/openai/chat/completions"
+
+class TestNscaleProvider:
+    def test_prepare_route_text_to_image(self):
+        helper = NscaleTextToImageTask()
+        assert helper._prepare_route("model_name", "api_key") == "/v1/images/generations"
+
+    def test_prepare_route_chat_completion(self):
+        helper = NscaleChatCompletion()
+        assert helper._prepare_route("model_name", "api_key") == "/v1/chat/completions"    
+    
+    def test_prepare_payload_with_size_conversion(self):
+        helper = NscaleTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful landscape",
+            {
+                "width": 512,
+                "height": 512,
+            },
+            "stabilityai/stable-diffusion-xl-base-1.0",
+        )
+        assert payload == {
+            "prompt": "a beautiful landscape",
+            "size": "512x512",
+            "response_format": "b64_json",
+            "model": "stabilityai/stable-diffusion-xl-base-1.0",
+        }
+        
+    def test_prepare_payload_as_dict(self):
+        helper = NscaleTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful landscape",
+            {
+                "width": 1024,
+                "height": 768,
+                "cfg_scale": 7.5,
+                "num_inference_steps": 50,
+            },
+            "stabilityai/stable-diffusion-xl-base-1.0",
+        )
+        assert "width" not in payload
+        assert "height" not in payload
+        assert "num_inference_steps" not in payload
+        assert "cfg_scale" not in payload
+        assert payload["size"] == "1024x768"
+        assert payload["model"] == "stabilityai/stable-diffusion-xl-base-1.0"
+        
+    def test_text_to_image_get_response(self):
+        helper = NscaleTextToImageTask()
+        response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
+        assert response == b"image_bytes"
 
 
 class TestOpenAIProvider:
