@@ -46,6 +46,16 @@ def is_wrapper_tensor_subclass_available():
         return False
 
 
+def is_dtensor_available():
+    try:
+        from torch.distributed.device_mesh import init_device_mesh  # type: ignore[import] # noqa: F401
+        from torch.distributed.tensor import DTensor  # type: ignore[import] # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 @pytest.fixture
 def dummy_state_dict() -> Dict[str, List[int]]:
     return {
@@ -248,6 +258,33 @@ def test_get_torch_storage_size():
 
     assert get_torch_storage_size(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)) == 5 * 8
     assert get_torch_storage_size(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)) == 5 * 2
+
+
+@requires("torch")
+@pytest.mark.skipif(not is_dtensor_available(), reason="requires torch with dtensor available")
+def test_get_torch_storage_size_dtensor():
+    # testing distributed sharded tensors isn't very easy, would need to subprocess call torchrun, so this should be good enough
+    import torch
+    import torch.distributed as dist
+    from torch.distributed.device_mesh import init_device_mesh
+    from torch.distributed.tensor import DTensor, Replicate
+
+    if dist.is_available() and not dist.is_initialized():
+        dist.init_process_group(
+            backend="gloo",
+            store=dist.HashStore(),
+            rank=0,
+            world_size=1,
+        )
+
+    mesh = init_device_mesh("cpu", (1,))
+    local = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)
+    dt = DTensor.from_local(local, mesh, [Replicate()])
+
+    assert get_torch_storage_size(dt) == 5 * 2
+
+    if dist.is_initialized():
+        dist.destroy_process_group()
 
 
 @requires("torch")
