@@ -161,8 +161,16 @@ def get_provider_helper(
     if provider == "auto":
         if model is None:
             raise ValueError("Specifying a model is required when provider is 'auto'")
-        provider_mapping = _fetch_inference_provider_mapping(model)
-        provider = next(iter(provider_mapping))
+        for available_provider in _fetch_inference_provider_mapping(model):
+            if available_provider in PROVIDERS and task in PROVIDERS[available_provider]:
+                provider = available_provider
+                break
+        else:
+            raise ValueError(
+                f"No supported provider found for model '{model}' and task '{task}'. "
+                f"Available providers: {list(provider_mapping)}. "
+                f"Supported providers: {list(PROVIDERS.keys())}."
+            )
 
     provider_tasks = PROVIDERS.get(provider)  # type: ignore
     if provider_tasks is None:
