@@ -82,6 +82,9 @@ INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-infere
 INFERENCE_ENDPOINTS_ENDPOINT = "https://api.endpoints.huggingface.cloud/v2"
 INFERENCE_CATALOG_ENDPOINT = "https://endpoints.huggingface.co/api/catalog"
 
+# See https://api.endpoints.huggingface.cloud/#post-/v2/endpoint/-namespace-
+INFERENCE_ENDPOINT_IMAGE_KEYS = ["huggingface", "huggingfaceNeuron", "tgi", "tgiNeuron", "tei", "llamacpp", "custom"]
+
 # Proxy for third-party providers
 INFERENCE_PROXY_TEMPLATE = "https://router.huggingface.co/{provider}"
 
