@@ -67,8 +67,6 @@ class NebiusFeatureExtractionTask(TaskProviderHelper):
     ) -> Optional[Dict]:
         return {"input": inputs, "model": provider_mapping_info.provider_id}
 
-    def get_response(
-        self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None
-    ) -> Any:
+    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
         embeddings = _as_dict(response)["data"]
         return [embedding["embedding"] for embedding in embeddings]
