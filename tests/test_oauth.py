@@ -168,4 +168,3 @@ def test_get_mocked_oauth_info(monkeypatch):
     assert oauth_info["expires_in"] == 28800  # 8 hours
     assert oauth_info["expires_at"] <= time.time() + oauth_info["expires_in"]
     assert oauth_info["expires_at"] + 2 > time.time() + oauth_info["expires_in"]  # 2 seconds of margin
-
