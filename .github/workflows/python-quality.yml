@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - add-oauth-helpers
     paths-ignore:
       - "js/**"
       - "api-inference-community/**"
