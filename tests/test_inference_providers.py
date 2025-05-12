@@ -830,6 +830,7 @@ class TestNovitaProvider:
         url = helper._prepare_url("novita_token", "username/repo_name")
         assert url == "https://api.novita.ai/v3/openai/chat/completions"
 
+
 class TestNscaleProvider:
     def test_prepare_route_text_to_image(self):
         helper = NscaleTextToImageTask()
@@ -837,8 +838,8 @@ class TestNscaleProvider:
 
     def test_prepare_route_chat_completion(self):
         helper = NscaleChatCompletion()
-        assert helper._prepare_route("model_name", "api_key") == "/v1/chat/completions"    
-    
+        assert helper._prepare_route("model_name", "api_key") == "/v1/chat/completions"
+
     def test_prepare_payload_with_size_conversion(self):
         helper = NscaleTextToImageTask()
         payload = helper._prepare_payload_as_dict(
@@ -855,7 +856,7 @@ class TestNscaleProvider:
             "response_format": "b64_json",
             "model": "stabilityai/stable-diffusion-xl-base-1.0",
         }
-        
+
     def test_prepare_payload_as_dict(self):
         helper = NscaleTextToImageTask()
         payload = helper._prepare_payload_as_dict(
@@ -874,7 +875,7 @@ class TestNscaleProvider:
         assert "cfg_scale" not in payload
         assert payload["size"] == "1024x768"
         assert payload["model"] == "stabilityai/stable-diffusion-xl-base-1.0"
-        
+
     def test_text_to_image_get_response(self):
         helper = NscaleTextToImageTask()
         response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
