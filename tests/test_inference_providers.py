@@ -31,7 +31,7 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceTask,
 )
 from huggingface_hub.inference._providers.hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
-from huggingface_hub.inference._providers.nebius import NebiusTextToImageTask
+from huggingface_hub.inference._providers.nebius import NebiusFeatureExtractionTask, NebiusTextToImageTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleChatCompletion, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
@@ -817,6 +817,27 @@ class TestNebiusProvider:
         helper = NebiusTextToImageTask()
         response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
         assert response == b"image_bytes"
+
+    def test_prepare_payload_as_dict_feature_extraction(self):
+        helper = NebiusFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello world",
+            {"param-that-will-be-ignored": True},
+            InferenceProviderMapping(
+                hf_model_id="username/repo_name",
+                providerId="provider-id",
+                task="feature-extraction",
+                status="live",
+            ),
+        )
+        assert payload == {"input": "Hello world", "model": "provider-id"}
+
+    def test_prepare_url_feature_extraction(self):
+        helper = NebiusFeatureExtractionTask()
+        assert (
+            helper._prepare_url("hf_token", "username/repo_name")
+            == "https://router.huggingface.co/nebius/v1/embeddings"
+        )
 
 
 class TestNovitaProvider:

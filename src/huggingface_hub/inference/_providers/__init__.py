@@ -20,7 +20,12 @@ from .hf_inference import (
     HFInferenceTask,
 )
 from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
-from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
+from .nebius import (
+    NebiusConversationalTask,
+    NebiusFeatureExtractionTask,
+    NebiusTextGenerationTask,
+    NebiusTextToImageTask,
+)
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .nscale import NscaleChatCompletion, NscaleTextToImageTask
 from .openai import OpenAIConversationalTask
@@ -107,6 +112,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-image": NebiusTextToImageTask(),
         "conversational": NebiusConversationalTask(),
         "text-generation": NebiusTextGenerationTask(),
+        "feature-extraction": NebiusFeatureExtractionTask(),
     },
     "novita": {
         "text-generation": NovitaTextGenerationTask(),
