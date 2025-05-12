@@ -7568,7 +7568,7 @@ class HfApi:
         account_id: Optional[str] = None,
         min_replica: int = 1,
         max_replica: int = 1,
-        scale_to_zero_timeout: int | None = None,
+        scale_to_zero_timeout: Optional[int] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
