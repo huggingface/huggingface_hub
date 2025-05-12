@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - ci_*
+      - add-oauth-helpers
     paths-ignore:
       - "docs/**"
   pull_request:

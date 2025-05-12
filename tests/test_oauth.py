@@ -158,7 +158,8 @@ def test_get_oauth_uris_with_prefix_not_stripped():
     assert logout_uri == "/my/custom/router/oauth/huggingface/logout"
 
 
-def test_get_mocked_oauth_info():
+def test_get_mocked_oauth_info(monkeypatch):
+    monkeypatch.setenv("HF_TOKEN", TOKEN)
     oauth_info = _get_mocked_oauth_info()
 
     # Test mock data with logged in user/token
@@ -167,3 +168,4 @@ def test_get_mocked_oauth_info():
     assert oauth_info["expires_in"] == 28800  # 8 hours
     assert oauth_info["expires_at"] <= time.time() + oauth_info["expires_in"]
     assert oauth_info["expires_at"] + 2 > time.time() + oauth_info["expires_in"]  # 2 seconds of margin
+
