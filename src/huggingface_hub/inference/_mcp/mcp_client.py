@@ -1,10 +1,10 @@
 import json
 import logging
+import warnings
 from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterable, Dict, List, Optional, TypeAlias, Union
 
-from ...utils import experimental
 from ...utils._runtime import get_hf_hub_version
 from .._generated._async_client import AsyncInferenceClient
 from .._generated.types import (
@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 ToolName: TypeAlias = str
 
 
-@experimental
 class MCPClient:
     def __init__(
         self,
@@ -35,6 +34,11 @@ class MCPClient:
         provider: Optional[PROVIDER_OR_POLICY_T] = None,
         api_key: Optional[str] = None,
     ):
+        warnings.warn(
+            "'MCPClient' is experimental and might be subject to breaking changes in the future without prior notice.",
+            UserWarning,
+        )
+
         # Initialize MCP sessions as a dictionary of ClientSession objects
         self.sessions: Dict[ToolName, "ClientSession"] = {}
         self.exit_stack = AsyncExitStack()
