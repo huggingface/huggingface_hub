@@ -23,7 +23,7 @@ This module provides tools to integrate Hugging Face OAuth into a FastAPI applic
 
 ## OAuth Overview
 
-The `attach_huggingface_oauth` function adds login, logout, and callback endpoints to your FastAPI app. When used in a Space, it connects to the Hugging Face OAuth system. When used locall it will inject a mocked user. Click here to learn more about [adding a Sign-In with HF option to your Space](https://huggingface.co/docs/hub/en/spaces-oauth)
+The `attach_huggingface_oauth` function adds login, logout, and callback endpoints to your FastAPI app. When used in a Space, it connects to the Hugging Face OAuth system. When used locally it will inject a mocked user. Click here to learn more about [adding a Sign-In with HF option to your Space](https://huggingface.co/docs/hub/en/spaces-oauth)
 
 
 ### How to use it?
