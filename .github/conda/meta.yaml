@@ -21,7 +21,6 @@ requirements:
     - typing-extensions
     - packaging
     - pyyaml
-    - hf-xet >=1.1.1,<2.0.0
   run:
     - python
     - pip
@@ -31,7 +30,6 @@ requirements:
     - typing-extensions
     - packaging
     - pyyaml
-    - hf-xet >=1.1.1,<2.0.0
 
 test:
   imports:
