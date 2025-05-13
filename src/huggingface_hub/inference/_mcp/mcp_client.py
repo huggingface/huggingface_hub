@@ -63,7 +63,14 @@ class MCPClient:
         """Connect to an MCP server
 
         Args:
-            todo
+            command (str):
+                The command to run the MCP server.
+            args (List[str], optional):
+                Arguments for the command.
+            env (Dict[str, str], optional):
+                Environment variables for the command. Default to empty environment.
+            cwd (Union[str, Path, None], optional):
+                Working directory for the command. Default to current directory.
         """
         logger.info(f"Connecting to MCP server with command: {command} {args}")
         server_params = StdioServerParameters(
