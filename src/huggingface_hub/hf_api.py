@@ -708,14 +708,21 @@ class RepoFolder:
 
 @dataclass
 class InferenceProviderMapping:
+    hf_model_id: str
     status: Literal["live", "staging"]
     provider_id: str
     task: str
 
+    adapter: Optional[str] = None
+    adapter_weights_path: Optional[str] = None
+
     def __init__(self, **kwargs):
+        self.hf_model_id = kwargs.pop("hf_model_id")
         self.status = kwargs.pop("status")
         self.provider_id = kwargs.pop("providerId")
         self.task = kwargs.pop("task")
+        self.adapter = kwargs.pop("adapter", None)
+        self.adapter_weights_path = kwargs.pop("adapterWeightsPath", None)
         self.__dict__.update(**kwargs)
 
 
@@ -847,7 +854,9 @@ class ModelInfo:
         self.inference_provider_mapping = kwargs.pop("inferenceProviderMapping", None)
         if self.inference_provider_mapping:
             self.inference_provider_mapping = {
-                provider: InferenceProviderMapping(**value)
+                provider: InferenceProviderMapping(
+                    **{**value, "hf_model_id": self.id}
+                )  # little hack to simplify Inference Providers logic
                 for provider, value in self.inference_provider_mapping.items()
             }
 
@@ -4466,18 +4475,17 @@ class HfApi:
             expand="xetEnabled",
             token=token,
         ).xet_enabled
-        has_binary_data = any(
-            isinstance(addition.path_or_fileobj, (bytes, io.BufferedIOBase))
-            for addition in new_lfs_additions_to_upload
+        has_buffered_io_data = any(
+            isinstance(addition.path_or_fileobj, io.BufferedIOBase) for addition in new_lfs_additions_to_upload
         )
-        if xet_enabled and not has_binary_data and is_xet_available():
+        if xet_enabled and not has_buffered_io_data and is_xet_available():
             logger.info("Uploading files using Xet Storage..")
             _upload_xet_files(**upload_kwargs, create_pr=create_pr)  # type: ignore [arg-type]
         else:
             if xet_enabled and is_xet_available():
-                if has_binary_data:
+                if has_buffered_io_data:
                     logger.warning(
-                        "Uploading files as bytes or binary IO objects is not supported by Xet Storage. "
+                        "Uploading files as a binary IO buffer is not supported by Xet Storage. "
                         "Falling back to HTTP upload."
                     )
             _upload_lfs_files(**upload_kwargs, num_threads=num_threads)  # type: ignore [arg-type]
@@ -7564,8 +7572,13 @@ class HfApi:
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
+        env: Optional[Dict[str, str]] = None,
         secrets: Optional[Dict[str, str]] = None,
         type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
+        domain: Optional[str] = None,
+        path: Optional[str] = None,
+        cache_http_responses: Optional[bool] = None,
+        tags: Optional[List[str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
@@ -7603,10 +7616,20 @@ class HfApi:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+            env (`Dict[str, str]`, *optional*):
+                Non-secret environment variables to inject in the container environment.
             secrets (`Dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
             type ([`InferenceEndpointType]`, *optional*):
                 The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
+            domain (`str`, *optional*):
+                The custom domain for the Inference Endpoint deployment, if setup the inference endpoint will be available at this domain (e.g. `"my-new-domain.cool-website.woof"`).
+            path (`str`, *optional*):
+                The custom path to the deployed model, should start with a `/` (e.g. `"/models/google-bert/bert-base-uncased"`).
+            cache_http_responses (`bool`, *optional*):
+                Whether to cache HTTP responses from the Inference Endpoint. Defaults to `False`.
+            tags (`List[str]`, *optional*):
+                A list of tags to associate with the Inference Endpoint.
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.
             token (Union[bool, str, None], optional):
@@ -7657,17 +7680,18 @@ class HfApi:
             ...     type="protected",
             ...     instance_size="x1",
             ...     instance_type="nvidia-a10g",
+            ...     env={
+            ...           "MAX_BATCH_PREFILL_TOKENS": "2048",
+            ...           "MAX_INPUT_LENGTH": "1024",
+            ...           "MAX_TOTAL_TOKENS": "1512",
+            ...           "MODEL_ID": "/repository"
+            ...         },
             ...     custom_image={
             ...         "health_route": "/health",
-            ...         "env": {
-            ...             "MAX_BATCH_PREFILL_TOKENS": "2048",
-            ...             "MAX_INPUT_LENGTH": "1024",
-            ...             "MAX_TOTAL_TOKENS": "1512",
-            ...             "MODEL_ID": "/repository"
-            ...         },
             ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
             ...     },
             ...    secrets={"MY_SECRET_KEY": "secret_value"},
+            ...    tags=["dev", "text-generation"],
             ... )
 
             ```
@@ -7701,8 +7725,21 @@ class HfApi:
             },
             "type": type,
         }
+        if env:
+            payload["model"]["env"] = env
         if secrets:
             payload["model"]["secrets"] = secrets
+        if domain is not None or path is not None:
+            payload["route"] = {}
+            if domain is not None:
+                payload["route"]["domain"] = domain
+            if path is not None:
+                payload["route"]["path"] = path
+        if cache_http_responses is not None:
+            payload["cacheHttpResponses"] = cache_http_responses
+        if tags is not None:
+            payload["tags"] = tags
+
         response = get_session().post(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
             headers=self._build_hf_headers(token=token),
@@ -7864,15 +7901,21 @@ class HfApi:
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
+        env: Optional[Dict[str, str]] = None,
         secrets: Optional[Dict[str, str]] = None,
+        # Route update
+        domain: Optional[str] = None,
+        path: Optional[str] = None,
         # Other
+        cache_http_responses: Optional[bool] = None,
+        tags: Optional[List[str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
         """Update an Inference Endpoint.
 
-        This method allows the update of either the compute configuration, the deployed model, or both. All arguments are
-        optional but at least one must be provided.
+        This method allows the update of either the compute configuration, the deployed model, the route, or any combination.
+        All arguments are optional but at least one must be provided.
 
         For convenience, you can also update an Inference Endpoint using [`InferenceEndpoint.update`].
 
@@ -7904,8 +7947,21 @@ class HfApi:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+            env (`Dict[str, str]`, *optional*):
+                Non-secret environment variables to inject in the container environment
             secrets (`Dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
+
+            domain (`str`, *optional*):
+                The custom domain for the Inference Endpoint deployment, if setup the inference endpoint will be available at this domain (e.g. `"my-new-domain.cool-website.woof"`).
+            path (`str`, *optional*):
+                The custom path to the deployed model, should start with a `/` (e.g. `"/models/google-bert/bert-base-uncased"`).
+
+            cache_http_responses (`bool`, *optional*):
+                Whether to cache HTTP responses from the Inference Endpoint.
+            tags (`List[str]`, *optional*):
+                A list of tags to associate with the Inference Endpoint.
+
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be updated. Defaults to the current user's namespace.
             token (Union[bool, str, None], optional):
@@ -7943,8 +7999,18 @@ class HfApi:
             payload["model"]["task"] = task
         if custom_image is not None:
             payload["model"]["image"] = {"custom": custom_image}
+        if env is not None:
+            payload["model"]["env"] = env
         if secrets is not None:
             payload["model"]["secrets"] = secrets
+        if domain is not None:
+            payload["route"]["domain"] = domain
+        if path is not None:
+            payload["route"]["path"] = path
+        if cache_http_responses is not None:
+            payload["cacheHttpResponses"] = cache_http_responses
+        if tags is not None:
+            payload["tags"] = tags
 
         response = get_session().put(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",

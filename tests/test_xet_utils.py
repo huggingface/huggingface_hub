@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 
 from huggingface_hub import constants
 from huggingface_hub.utils._xet import (
@@ -130,7 +131,7 @@ def test_refresh_metadata_success(mocker) -> None:
         "X-Xet-Cas-Url": "https://example.xethub.hf.co",
         "X-Xet-Access-Token": "new_token",
         "X-Xet-Token-Expiration": "1234599999",
-        "X-Xet-Refresh-Route": "/api/models/username/repo_name/xet-read-token/token",
+        "X-Xet-Refresh-Route": f"{constants.ENDPOINT}/api/models/username/repo_name/xet-read-token/token",
     }
 
     mock_session = MagicMock()
@@ -140,7 +141,7 @@ def test_refresh_metadata_success(mocker) -> None:
     headers = {"user-agent": "user-agent-example"}
     refreshed_connection = refresh_xet_connection_info(
         file_data=XetFileData(
-            refresh_route="/api/models/username/repo_name/xet-read-token/token",
+            refresh_route=f"{constants.ENDPOINT}/api/models/username/repo_name/xet-read-token/token",
             file_hash="sha256:abcdef",
         ),
         headers=headers,
@@ -177,11 +178,10 @@ def test_refresh_metadata_custom_endpoint(mocker) -> None:
     headers = {"user-agent": "user-agent-example"}
     refresh_xet_connection_info(
         file_data=XetFileData(
-            refresh_route="/api/models/username/repo_name/xet-read-token/token",
+            refresh_route=f"{custom_endpoint}/api/models/username/repo_name/xet-read-token/token",
             file_hash="sha256:abcdef",
         ),
         headers=headers,
-        endpoint=custom_endpoint,
     )
 
     # Verify the request used the custom endpoint
@@ -253,3 +253,12 @@ def test_fetch_xet_metadata_with_url_invalid_response(mocker) -> None:
 
     with pytest.raises(ValueError, match="Xet headers have not been correctly set by the server."):
         _fetch_xet_connection_info_with_url(url=url, headers=headers)
+
+
+def test_env_var_hf_hub_disable_xet() -> None:
+    """Test that setting HF_HUB_DISABLE_XET results in is_xet_available() returning False."""
+    from huggingface_hub.utils._runtime import is_xet_available
+
+    monkeypatch = MonkeyPatch()
+    monkeypatch.setenv("HF_HUB_DISABLE_XET", "1")
+    assert not is_xet_available()

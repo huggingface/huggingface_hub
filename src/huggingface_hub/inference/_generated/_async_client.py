@@ -85,7 +85,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
-from huggingface_hub.inference._providers import PROVIDER_T, HFInferenceTask, get_provider_helper
+from huggingface_hub.inference._providers import PROVIDER_T, get_provider_helper
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
 from huggingface_hub.utils._auth import get_token
 from huggingface_hub.utils._deprecation import _deprecate_method
@@ -122,15 +122,14 @@ class AsyncInferenceClient:
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
             Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"openai"`, `"replicate"`, "sambanova"` or `"together"`.
-            defaults to hf-inference (Hugging Face Serverless Inference API).
+            Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
             Note: for better compatibility with OpenAI's client, `token` has been aliased as `api_key`. Those 2
             arguments are mutually exclusive and have the exact same behavior.
         timeout (`float`, `optional`):
-            The maximum number of seconds to wait for a response from the server. Loading a new model in Inference
-            API can take up to several minutes. Defaults to None, meaning it will loop until the server is available.
+            The maximum number of seconds to wait for a response from the server. Defaults to None, meaning it will loop until the server is available.
         headers (`Dict[str, str]`, `optional`):
             Additional headers to send to the server. By default only the authorization and user-agent headers are sent.
             Values in this dictionary will override the default values.
@@ -155,7 +154,7 @@ class AsyncInferenceClient:
         self,
         model: Optional[str] = None,
         *,
-        provider: Optional[PROVIDER_T] = None,
+        provider: Union[Literal["auto"], PROVIDER_T, None] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
@@ -219,7 +218,7 @@ class AsyncInferenceClient:
                 )
 
         # Configure provider
-        self.provider = provider if provider is not None else "hf-inference"
+        self.provider = provider
 
         self.cookies = cookies
         self.timeout = timeout
@@ -231,83 +230,6 @@ class AsyncInferenceClient:
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
-
-    @overload
-    async def post(  # type: ignore[misc]
-        self,
-        *,
-        json: Optional[Union[str, Dict, List]] = None,
-        data: Optional[ContentT] = None,
-        model: Optional[str] = None,
-        task: Optional[str] = None,
-        stream: Literal[False] = ...,
-    ) -> bytes: ...
-
-    @overload
-    async def post(  # type: ignore[misc]
-        self,
-        *,
-        json: Optional[Union[str, Dict, List]] = None,
-        data: Optional[ContentT] = None,
-        model: Optional[str] = None,
-        task: Optional[str] = None,
-        stream: Literal[True] = ...,
-    ) -> AsyncIterable[bytes]: ...
-
-    @overload
-    async def post(
-        self,
-        *,
-        json: Optional[Union[str, Dict, List]] = None,
-        data: Optional[ContentT] = None,
-        model: Optional[str] = None,
-        task: Optional[str] = None,
-        stream: bool = False,
-    ) -> Union[bytes, AsyncIterable[bytes]]: ...
-
-    @_deprecate_method(
-        version="0.31.0",
-        message=(
-            "Making direct POST requests to the inference server is not supported anymore. "
-            "Please use task methods instead (e.g. `InferenceClient.chat_completion`). "
-            "If your use case is not supported, please open an issue in https://github.com/huggingface/huggingface_hub."
-        ),
-    )
-    async def post(
-        self,
-        *,
-        json: Optional[Union[str, Dict, List]] = None,
-        data: Optional[ContentT] = None,
-        model: Optional[str] = None,
-        task: Optional[str] = None,
-        stream: bool = False,
-    ) -> Union[bytes, AsyncIterable[bytes]]:
-        """
-        Make a POST request to the inference server.
-
-        This method is deprecated and will be removed in the future.
-        Please use task methods instead (e.g. `InferenceClient.chat_completion`).
-        """
-        if self.provider != "hf-inference":
-            raise ValueError(
-                "Cannot use `post` with another provider than `hf-inference`. "
-                "`InferenceClient.post` is deprecated and should not be used directly anymore."
-            )
-        provider_helper = HFInferenceTask(task or "unknown")
-        mapped_model = provider_helper._prepare_mapped_model(model or self.model)
-        url = provider_helper._prepare_url(self.token, mapped_model)  # type: ignore[arg-type]
-        headers = provider_helper._prepare_headers(self.headers, self.token)  # type: ignore[arg-type]
-        return await self._inner_post(
-            request_parameters=RequestParameters(
-                url=url,
-                task=task or "unknown",
-                model=model or "unknown",
-                json=json,
-                data=data,
-                headers=headers,
-            ),
-            stream=stream,
-        )
 
     @overload
     async def _inner_post(  # type: ignore[misc]
@@ -441,12 +363,13 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="audio-classification")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="audio-classification", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=audio,
             parameters={"function_to_apply": function_to_apply, "top_k": top_k},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -490,12 +413,13 @@ class AsyncInferenceClient:
                     f.write(item.blob)
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="audio-to-audio")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="audio-to-audio", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=audio,
             parameters={},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -541,12 +465,13 @@ class AsyncInferenceClient:
         "hello world"
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="automatic-speech-recognition")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="automatic-speech-recognition", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=audio,
             parameters={**(extra_body or {})},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -991,14 +916,20 @@ class AsyncInferenceClient:
         '{\n\n"activity": "bike ride",\n"animals": ["puppy", "cat", "raccoon"],\n"animals_seen": 3,\n"location": "park"}'
         ```
         """
-        # Get the provider helper
-        provider_helper = get_provider_helper(self.provider, task="conversational")
-
         # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
         # `self.model` takes precedence over 'model' argument for building URL.
         # `model` takes precedence for payload value.
         model_id_or_url = self.model or model
         payload_model = model or self.model
+
+        # Get the provider helper
+        provider_helper = get_provider_helper(
+            self.provider,
+            task="conversational",
+            model=model_id_or_url
+            if model_id_or_url is not None and model_id_or_url.startswith(("http://", "https://"))
+            else payload_model,
+        )
 
         # Prepare the payload
         parameters = {
@@ -1102,8 +1033,9 @@ class AsyncInferenceClient:
         [DocumentQuestionAnsweringOutputElement(answer='us-001', end=16, score=0.9999666213989258, start=16)]
         ```
         """
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="document-question-answering", model=model_id)
         inputs: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
-        provider_helper = get_provider_helper(self.provider, task="document-question-answering")
         request_parameters = provider_helper.prepare_request(
             inputs=inputs,
             parameters={
@@ -1117,7 +1049,7 @@ class AsyncInferenceClient:
                 "word_boxes": word_boxes,
             },
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -1140,8 +1072,8 @@ class AsyncInferenceClient:
             text (`str`):
                 The text to embed.
             model (`str`, *optional*):
-                The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
+                The model to use for the feature extraction task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended feature extraction model will be used.
                 Defaults to None.
             normalize (`bool`, *optional*):
                 Whether to normalize the embeddings or not.
@@ -1179,7 +1111,8 @@ class AsyncInferenceClient:
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="feature-extraction")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="feature-extraction", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={
@@ -1189,12 +1122,12 @@ class AsyncInferenceClient:
                 "truncation_direction": truncation_direction,
             },
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
         np = _import_numpy()
-        return np.array(_bytes_to_dict(response), dtype="float32")
+        return np.array(provider_helper.get_response(response), dtype="float32")
 
     async def fill_mask(
         self,
@@ -1241,12 +1174,13 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="fill-mask")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="fill-mask", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={"targets": targets, "top_k": top_k},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -1291,12 +1225,13 @@ class AsyncInferenceClient:
         [ImageClassificationOutputElement(label='Blenheim spaniel', score=0.9779096841812134), ...]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="image-classification")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="image-classification", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={"function_to_apply": function_to_apply, "top_k": top_k},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -1353,7 +1288,8 @@ class AsyncInferenceClient:
         [ImageSegmentationOutputElement(score=0.989008, label='LABEL_184', mask=<PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>), ...]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="image-segmentation")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="image-segmentation", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={
@@ -1363,7 +1299,7 @@ class AsyncInferenceClient:
                 "threshold": threshold,
             },
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -1430,7 +1366,8 @@ class AsyncInferenceClient:
         >>> image.save("tiger.jpg")
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="image-to-image")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="image-to-image", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={
@@ -1442,7 +1379,7 @@ class AsyncInferenceClient:
                 **kwargs,
             },
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -1482,12 +1419,13 @@ class AsyncInferenceClient:
         'a dog laying on the grass next to a flower pot '
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="image-to-text")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="image-to-text", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -1534,12 +1472,13 @@ class AsyncInferenceClient:
         [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=ObjectDetectionBoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="object-detection")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="object-detection", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={"threshold": threshold},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -1608,7 +1547,8 @@ class AsyncInferenceClient:
         QuestionAnsweringOutputElement(answer='Clara', end=16, score=0.9326565265655518, start=11)
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="question-answering")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="question-answering", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=None,
             parameters={
@@ -1622,7 +1562,7 @@ class AsyncInferenceClient:
             },
             extra_payload={"question": question, "context": context},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -1642,8 +1582,8 @@ class AsyncInferenceClient:
             other_sentences (`List[str]`):
                 The list of sentences to compare to.
             model (`str`, *optional*):
-                The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
+                The model to use for the sentence similarity task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended sentence similarity model will be used.
                 Defaults to None.
 
         Returns:
@@ -1671,13 +1611,14 @@ class AsyncInferenceClient:
         [0.7785726189613342, 0.45876261591911316, 0.2906220555305481]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="sentence-similarity")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="sentence-similarity", model=model_id)
         request_parameters = provider_helper.prepare_request(
-            inputs=None,
+            inputs={"source_sentence": sentence, "sentences": other_sentences},
             parameters={},
-            extra_payload={"source_sentence": sentence, "sentences": other_sentences},
+            extra_payload={},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -1730,12 +1671,13 @@ class AsyncInferenceClient:
             "generate_parameters": generate_parameters,
             "truncation": truncation,
         }
-        provider_helper = get_provider_helper(self.provider, task="summarization")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="summarization", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters=parameters,
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -1792,13 +1734,14 @@ class AsyncInferenceClient:
         TableQuestionAnsweringOutputElement(answer='36542', coordinates=[[0, 1]], cells=['36542'], aggregator='AVERAGE')
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="table-question-answering")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="table-question-answering", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=None,
             parameters={"model": model, "padding": padding, "sequential": sequential, "truncation": truncation},
             extra_payload={"query": query, "table": table},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -1847,13 +1790,14 @@ class AsyncInferenceClient:
         ["5", "5", "5"]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="tabular-classification")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="tabular-classification", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=None,
             extra_payload={"table": table},
             parameters={},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -1897,13 +1841,14 @@ class AsyncInferenceClient:
         [110, 120, 130]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="tabular-regression")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="tabular-regression", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=None,
             parameters={},
             extra_payload={"table": table},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -1953,7 +1898,8 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="text-classification")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="text-classification", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={
@@ -1961,7 +1907,7 @@ class AsyncInferenceClient:
                 "top_k": top_k,
             },
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -2403,13 +2349,14 @@ class AsyncInferenceClient:
                     " Please pass `stream=False` as input."
                 )
 
-        provider_helper = get_provider_helper(self.provider, task="text-generation")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="text-generation", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=prompt,
             parameters=parameters,
             extra_payload={"stream": stream},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
 
@@ -2425,7 +2372,7 @@ class AsyncInferenceClient:
                     prompt=prompt,
                     details=details,
                     stream=stream,
-                    model=model or self.model,
+                    model=model_id,
                     adapter_id=adapter_id,
                     best_of=best_of,
                     decoder_input_details=decoder_input_details,
@@ -2581,7 +2528,8 @@ class AsyncInferenceClient:
         >>> image.save("astronaut.png")
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="text-to-image")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="text-to-image", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=prompt,
             parameters={
@@ -2595,7 +2543,7 @@ class AsyncInferenceClient:
                 **(extra_body or {}),
             },
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -2679,7 +2627,8 @@ class AsyncInferenceClient:
         ...     file.write(video)
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="text-to-video")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="text-to-video", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=prompt,
             parameters={
@@ -2691,7 +2640,7 @@ class AsyncInferenceClient:
                 **(extra_body or {}),
             },
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -2877,7 +2826,8 @@ class AsyncInferenceClient:
         ...     f.write(audio)
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="text-to-speech")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="text-to-speech", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={
@@ -2900,7 +2850,7 @@ class AsyncInferenceClient:
                 **(extra_body or {}),
             },
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -2967,7 +2917,8 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="token-classification")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="token-classification", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={
@@ -2976,7 +2927,7 @@ class AsyncInferenceClient:
                 "stride": stride,
             },
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -3054,7 +3005,8 @@ class AsyncInferenceClient:
         if src_lang is None and tgt_lang is not None:
             raise ValueError("You cannot specify `tgt_lang` without specifying `src_lang`.")
 
-        provider_helper = get_provider_helper(self.provider, task="translation")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="translation", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={
@@ -3065,7 +3017,7 @@ class AsyncInferenceClient:
                 "generate_parameters": generate_parameters,
             },
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -3118,12 +3070,13 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="visual-question-answering")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="visual-question-answering", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={"top_k": top_k},
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
             extra_payload={"question": question, "image": _b64_encode(image)},
         )
@@ -3218,7 +3171,8 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        provider_helper = get_provider_helper(self.provider, task="zero-shot-classification")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="zero-shot-classification", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={
@@ -3227,7 +3181,7 @@ class AsyncInferenceClient:
                 "hypothesis_template": hypothesis_template,
             },
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
@@ -3290,7 +3244,8 @@ class AsyncInferenceClient:
         if len(candidate_labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare.")
 
-        provider_helper = get_provider_helper(self.provider, task="zero-shot-image-classification")
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="zero-shot-image-classification", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={
@@ -3298,7 +3253,7 @@ class AsyncInferenceClient:
                 "hypothesis_template": hypothesis_template,
             },
             headers=self.headers,
-            model=model or self.model,
+            model=model_id,
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)

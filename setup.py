@@ -31,6 +31,13 @@ extras["inference"] = [
     "aiohttp",  # for AsyncInferenceClient
 ]
 
+extras["oauth"] = [
+    "authlib>=1.3.2",  # minimum version to include https://github.com/lepture/authlib/pull/644
+    "fastapi",
+    "httpx",  # required for authlib but not included in its dependencies
+    "itsdangerous",  # required for starlette SessionMiddleware
+]
+
 extras["torch"] = [
     "torch",
     "safetensors[torch]",
@@ -55,7 +62,7 @@ extras["tensorflow-testing"] = [
     "keras<3.0",
 ]
 
-extras["hf_xet"] = ["hf_xet>=0.1.4"]
+extras["hf_xet"] = ["hf-xet>=1.1.1,<2.0.0"]
 
 extras["mcp"] = [
     "mcp>=1.6.0",
@@ -65,6 +72,7 @@ extras["mcp"] = [
 extras["testing"] = (
     extras["cli"]
     + extras["inference"]
+    + extras["oauth"]
     + [
         "jedi",
         "Jinja2",

@@ -2,21 +2,24 @@ from functools import lru_cache
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import constants
+from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters
 from huggingface_hub.utils import build_hf_headers, get_token, logging
 
 
 logger = logging.get_logger(__name__)
 
-
 # Dev purposes only.
 # If you want to try to run inference for a new model locally before it's registered on huggingface.co
 # for a given Inference Provider, you can add it to the following dictionary.
-HARDCODED_MODEL_ID_MAPPING: Dict[str, Dict[str, str]] = {
-    # "HF model ID" => "Model ID on Inference Provider's side"
+HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, InferenceProviderMapping]] = {
+    # "HF model ID" => InferenceProviderMapping object initialized with "Model ID on Inference Provider's side"
     #
     # Example:
-    # "Qwen/Qwen2.5-Coder-32B-Instruct": "Qwen2.5-Coder-32B-Instruct",
+    # "Qwen/Qwen2.5-Coder-32B-Instruct": InferenceProviderMapping(hf_model_id="Qwen/Qwen2.5-Coder-32B-Instruct",
+    #                                    provider_id="Qwen2.5-Coder-32B-Instruct",
+    #                                    task="conversational",
+    #                                    status="live")
     "cerebras": {},
     "cohere": {},
     "fal-ai": {},
@@ -61,28 +64,30 @@ class TaskProviderHelper:
         api_key = self._prepare_api_key(api_key)
 
         # mapped model from HF model ID
-        mapped_model = self._prepare_mapped_model(model)
+        provider_mapping_info = self._prepare_mapping_info(model)
 
         # default HF headers + user headers (to customize in subclasses)
         headers = self._prepare_headers(headers, api_key)
 
         # routed URL if HF token, or direct URL (to customize in '_prepare_route' in subclasses)
-        url = self._prepare_url(api_key, mapped_model)
+        url = self._prepare_url(api_key, provider_mapping_info.provider_id)
 
         # prepare payload (to customize in subclasses)
-        payload = self._prepare_payload_as_dict(inputs, parameters, mapped_model=mapped_model)
+        payload = self._prepare_payload_as_dict(inputs, parameters, provider_mapping_info=provider_mapping_info)
         if payload is not None:
             payload = recursive_merge(payload, extra_payload or {})
 
         # body data (to customize in subclasses)
-        data = self._prepare_payload_as_bytes(inputs, parameters, mapped_model, extra_payload)
+        data = self._prepare_payload_as_bytes(inputs, parameters, provider_mapping_info, extra_payload)
 
         # check if both payload and data are set and return
         if payload is not None and data is not None:
             raise ValueError("Both payload and data cannot be set in the same request.")
         if payload is None and data is None:
             raise ValueError("Either payload or data must be set in the request.")
-        return RequestParameters(url=url, task=self.task, model=mapped_model, json=payload, data=data, headers=headers)
+        return RequestParameters(
+            url=url, task=self.task, model=provider_mapping_info.provider_id, json=payload, data=data, headers=headers
+        )
 
     def get_response(
         self,
@@ -107,7 +112,7 @@ class TaskProviderHelper:
             )
         return api_key
 
-    def _prepare_mapped_model(self, model: Optional[str]) -> str:
+    def _prepare_mapping_info(self, model: Optional[str]) -> InferenceProviderMapping:
         """Return the mapped model ID to use for the request.
 
         Usually not overwritten in subclasses."""
@@ -115,8 +120,8 @@ class TaskProviderHelper:
             raise ValueError(f"Please provide an HF model ID supported by {self.provider}.")
 
         # hardcoded mapping for local testing
-        if HARDCODED_MODEL_ID_MAPPING.get(self.provider, {}).get(model):
-            return HARDCODED_MODEL_ID_MAPPING[self.provider][model]
+        if HARDCODED_MODEL_INFERENCE_MAPPING.get(self.provider, {}).get(model):
+            return HARDCODED_MODEL_INFERENCE_MAPPING[self.provider][model]
 
         provider_mapping = _fetch_inference_provider_mapping(model).get(self.provider)
         if provider_mapping is None:
@@ -132,7 +137,7 @@ class TaskProviderHelper:
             logger.warning(
                 f"Model {model} is in staging mode for provider {self.provider}. Meant for test purposes only."
             )
-        return provider_mapping.provider_id
+        return provider_mapping
 
     def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
         """Return the headers to use for the request.
@@ -168,7 +173,9 @@ class TaskProviderHelper:
         """
         return ""
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
         """Return the payload to use for the request, as a dict.
 
         Override this method in subclasses for customized payloads.
@@ -177,7 +184,11 @@ class TaskProviderHelper:
         return None
 
     def _prepare_payload_as_bytes(
-        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
+        self,
+        inputs: Any,
+        parameters: Dict,
+        provider_mapping_info: InferenceProviderMapping,
+        extra_payload: Optional[Dict],
     ) -> Optional[bytes]:
         """Return the body to use for the request, as bytes.
 
@@ -199,8 +210,10 @@ class BaseConversationalTask(TaskProviderHelper):
     def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return "/v1/chat/completions"
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
-        return {"messages": inputs, **filter_none(parameters), "model": mapped_model}
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
+        return {"messages": inputs, **filter_none(parameters), "model": provider_mapping_info.provider_id}
 
 
 class BaseTextGenerationTask(TaskProviderHelper):
@@ -215,8 +228,10 @@ class BaseTextGenerationTask(TaskProviderHelper):
     def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return "/v1/completions"
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
-        return {"prompt": inputs, **filter_none(parameters), "model": mapped_model}
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
+        return {"prompt": inputs, **filter_none(parameters), "model": provider_mapping_info.provider_id}
 
 
 @lru_cache(maxsize=None)

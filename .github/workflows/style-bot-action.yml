@@ -52,7 +52,7 @@ jobs:
               username: comment_user
             });
             
-            const authorized = ['admin', 'maintain', 'push'].includes(permission.permission);
+            const authorized = ['admin', 'maintain', 'push', 'write'].includes(permission.permission);
             console.log(`User ${comment_user} has permission level: ${permission.permission}, authorized: ${authorized} (only users with at least write access are allowed to run this action)`);
             core.setOutput('has_permission', authorized);
 
