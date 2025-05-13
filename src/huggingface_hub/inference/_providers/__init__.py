@@ -120,7 +120,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-video": NovitaTextToVideoTask(),
     },
     "nscale": {
-        "conversational": NscaleChatCompletion(),
+        "conversational": NscaleConversationalTask(),
         "text-to-image": NscaleTextToImageTask(),
     },
     "openai": {
