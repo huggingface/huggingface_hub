@@ -6,7 +6,7 @@ import time
 import urllib.parse
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 from . import constants
 from .hf_api import whoami
@@ -170,11 +170,11 @@ def attach_huggingface_oauth(app: "fastapi.FastAPI", route_prefix: str = "/"):
         ) from e
     session_secret = (constants.OAUTH_CLIENT_SECRET or "") + "-v1"
     app.add_middleware(
-        SessionMiddleware,
+        SessionMiddleware,  # type: ignore[arg-type]
         secret_key=hashlib.sha256(session_secret.encode()).hexdigest(),
         same_site="none",
         https_only=True,
-    )
+    )  # type: ignore
 
     # Add OAuth endpoints to the FastAPI app:
     #   - {route_prefix}/oauth/huggingface/login
@@ -310,7 +310,7 @@ def _add_oauth_routes(app: "fastapi.FastAPI", route_prefix: str) -> None:
             target_url = request.query_params.get("_target_url")
 
             # Build redirect URI with the same query params as before and bump nb_redirects count
-            query_params: dict[str, str | int] = {"_nb_redirects": nb_redirects + 1}
+            query_params: dict[str, Union[int, str]] = {"_nb_redirects": nb_redirects + 1}
             if target_url:
                 query_params["_target_url"] = target_url
 
