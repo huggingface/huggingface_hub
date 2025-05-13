@@ -7,12 +7,13 @@ rendered properly in your Markdown viewer.
 
 OAuth is an open standard for access delegation, commonly used to grant applications limited access to a user's information without exposing their credentials. When combined with FastAPI it allows you to build secure APIs that allow users to log in using external identity providers like Google or GitHub.
 In a usual scenario:
-    FastAPI will define the API endpoints and handles the HTTP requests.
-    OAuth is integrated using libraries like fastapi.security or external tools like Authlib.
-    When a user wants to log in, FastAPI redirects them to the OAuth provider’s login page.
-    After successful login, the provider redirects back with a token.
-    FastAPI verifies this token and uses it to authorize the user or fetch user profile data.
-    This approach helps avoid handling passwords directly and offloads identity management to trusted providers.
+- FastAPI will define the API endpoints and handles the HTTP requests.
+- OAuth is integrated using libraries like fastapi.security or external tools like Authlib.
+- When a user wants to log in, FastAPI redirects them to the OAuth provider’s login page.
+- After successful login, the provider redirects back with a token.
+- FastAPI verifies this token and uses it to authorize the user or fetch user profile data.
+
+This approach helps avoid handling passwords directly and offloads identity management to trusted providers.
 
 # Hugging Face OAuth Integration in FastAPI
 
