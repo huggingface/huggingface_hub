@@ -72,7 +72,6 @@ extras["testing"] = (
     extras["cli"]
     + extras["inference"]
     + extras["oauth"]
-    + extras["mcp"]
     + [
         "jedi",
         "Jinja2",
