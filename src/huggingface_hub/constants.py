@@ -260,9 +260,17 @@ ALL_INFERENCE_API_FRAMEWORKS = MAIN_INFERENCE_API_FRAMEWORKS + [
     "timm",
 ]
 
+# If OAuth didn't work after 2 redirects, there's likely a third-party cookie issue in the Space iframe view.
+# In this case, we redirect the user to the non-iframe view.
+OAUTH_MAX_REDIRECTS = 2
+
+# OAuth-related environment variables injected by the Space
+OAUTH_CLIENT_ID = os.environ.get("OAUTH_CLIENT_ID")
+OAUTH_CLIENT_SECRET = os.environ.get("OAUTH_CLIENT_SECRET")
+OAUTH_SCOPES = os.environ.get("OAUTH_SCOPES")
+OPENID_PROVIDER_URL = os.environ.get("OPENID_PROVIDER_URL")
+
 # Xet constants
-
-
 HUGGINGFACE_HEADER_X_XET_ENDPOINT = "X-Xet-Cas-Url"
 HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN = "X-Xet-Access-Token"
 HUGGINGFACE_HEADER_X_XET_EXPIRATION = "X-Xet-Token-Expiration"
