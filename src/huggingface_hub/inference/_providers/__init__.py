@@ -27,6 +27,7 @@ from .nebius import (
     NebiusTextToImageTask,
 )
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
+from .nscale import NscaleConversationalTask, NscaleTextToImageTask
 from .openai import OpenAIConversationalTask
 from .replicate import ReplicateTask, ReplicateTextToImageTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
@@ -46,6 +47,7 @@ PROVIDER_T = Literal[
     "hyperbolic",
     "nebius",
     "novita",
+    "nscale",
     "openai",
     "replicate",
     "sambanova",
@@ -116,6 +118,10 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-generation": NovitaTextGenerationTask(),
         "conversational": NovitaConversationalTask(),
         "text-to-video": NovitaTextToVideoTask(),
+    },
+    "nscale": {
+        "conversational": NscaleConversationalTask(),
+        "text-to-image": NscaleTextToImageTask(),
     },
     "openai": {
         "conversational": OpenAIConversationalTask(),
