@@ -70,6 +70,13 @@ _SUBMOD_ATTRS = {
         "logout",
         "notebook_login",
     ],
+    "_oauth": [
+        "OAuthInfo",
+        "OAuthOrgInfo",
+        "OAuthUserInfo",
+        "attach_huggingface_oauth",
+        "parse_huggingface_oauth",
+    ],
     "_snapshot_download": [
         "snapshot_download",
     ],
@@ -641,6 +648,9 @@ __all__ = [
     "ModelCardData",
     "ModelHubMixin",
     "ModelInfo",
+    "OAuthInfo",
+    "OAuthOrgInfo",
+    "OAuthUserInfo",
     "ObjectDetectionBoundingBox",
     "ObjectDetectionInput",
     "ObjectDetectionOutputElement",
@@ -762,6 +772,7 @@ __all__ = [
     "add_collection_item",
     "add_space_secret",
     "add_space_variable",
+    "attach_huggingface_oauth",
     "auth_check",
     "auth_list",
     "auth_switch",
@@ -862,6 +873,7 @@ __all__ = [
     "move_repo",
     "notebook_login",
     "paper_info",
+    "parse_huggingface_oauth",
     "parse_safetensors_file_metadata",
     "pause_inference_endpoint",
     "pause_space",
@@ -1025,6 +1037,13 @@ if TYPE_CHECKING:  # pragma: no cover
         login,  # noqa: F401
         logout,  # noqa: F401
         notebook_login,  # noqa: F401
+    )
+    from ._oauth import (
+        OAuthInfo,  # noqa: F401
+        OAuthOrgInfo,  # noqa: F401
+        OAuthUserInfo,  # noqa: F401
+        attach_huggingface_oauth,  # noqa: F401
+        parse_huggingface_oauth,  # noqa: F401
     )
     from ._snapshot_download import snapshot_download  # noqa: F401
     from ._space_api import (
