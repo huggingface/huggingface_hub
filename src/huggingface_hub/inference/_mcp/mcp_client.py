@@ -3,7 +3,9 @@ import logging
 import warnings
 from contextlib import AsyncExitStack
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterable, Dict, List, Optional, TypeAlias, Union
+from typing import TYPE_CHECKING, AsyncIterable, Dict, List, Optional, Union
+
+from typing_extensions import TypeAlias
 
 from ...utils._runtime import get_hf_hub_version
 from .._generated._async_client import AsyncInferenceClient
@@ -136,7 +138,7 @@ class MCPClient:
         messages: List[Union[Dict, ChatCompletionInputMessage]],
         exit_loop_tools: Optional[List[ChatCompletionInputTool]] = None,
         exit_if_first_chunk_no_tool: bool = False,
-    ) -> AsyncIterable[ChatCompletionStreamOutput | ChatCompletionInputMessage]:
+    ) -> AsyncIterable[Union[ChatCompletionStreamOutput, ChatCompletionInputMessage]]:
         """Process a query using `self.model` and available tools, yielding chunks and tool outputs.
 
         Args:
