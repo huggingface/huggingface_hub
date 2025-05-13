@@ -33,7 +33,7 @@ from huggingface_hub.inference._providers.hf_inference import (
 from huggingface_hub.inference._providers.hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
 from huggingface_hub.inference._providers.nebius import NebiusFeatureExtractionTask, NebiusTextToImageTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
-from huggingface_hub.inference._providers.nscale import NscaleChatCompletion, NscaleTextToImageTask
+from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
@@ -858,7 +858,7 @@ class TestNscaleProvider:
         assert helper._prepare_route("model_name", "api_key") == "/v1/images/generations"
 
     def test_prepare_route_chat_completion(self):
-        helper = NscaleChatCompletion()
+        helper = NscaleConversationalTask()
         assert helper._prepare_route("model_name", "api_key") == "/v1/chat/completions"
 
     def test_prepare_payload_with_size_conversion(self):
@@ -869,7 +869,12 @@ class TestNscaleProvider:
                 "width": 512,
                 "height": 512,
             },
-            "stabilityai/stable-diffusion-xl-base-1.0",
+            InferenceProviderMapping(
+                hf_model_id="stabilityai/stable-diffusion-xl-base-1.0",
+                providerId="stabilityai/stable-diffusion-xl-base-1.0",
+                task="text-to-image",
+                status="live",
+            ),
         )
         assert payload == {
             "prompt": "a beautiful landscape",
@@ -888,7 +893,12 @@ class TestNscaleProvider:
                 "cfg_scale": 7.5,
                 "num_inference_steps": 50,
             },
-            "stabilityai/stable-diffusion-xl-base-1.0",
+            InferenceProviderMapping(
+                hf_model_id="stabilityai/stable-diffusion-xl-base-1.0",
+                providerId="stabilityai/stable-diffusion-xl-base-1.0",
+                task="text-to-image",
+                status="live",
+            ),
         )
         assert "width" not in payload
         assert "height" not in payload

@@ -27,7 +27,7 @@ from .nebius import (
     NebiusTextToImageTask,
 )
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
-from .nscale import NscaleChatCompletion, NscaleTextToImageTask
+from .nscale import NscaleConversationalTask, NscaleTextToImageTask
 from .openai import OpenAIConversationalTask
 from .replicate import ReplicateTask, ReplicateTextToImageTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
