@@ -24,8 +24,10 @@ from .. import constants
 def experimental(fn: Callable) -> Callable:
     """Decorator to flag a feature as experimental.
 
-    An experimental feature trigger a warning when used as it might be subject to breaking changes in the future.
-    Warnings can be disabled by setting the environment variable `HF_EXPERIMENTAL_WARNING` to `0`.
+    An experimental feature triggers a warning when used as it might be subject to breaking changes without prior notice
+    in the future.
+
+    Warnings can be disabled by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as environment variable.
 
     Args:
         fn (`Callable`):
@@ -44,8 +46,8 @@ def experimental(fn: Callable) -> Callable:
     ...     print("Hello world!")
 
     >>> my_function()
-    UserWarning: 'my_function' is experimental and might be subject to breaking changes in the future. You can disable
-    this warning by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as environment variable.
+    UserWarning: 'my_function' is experimental and might be subject to breaking changes in the future without prior
+    notice. You can disable this warning by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as environment variable.
     Hello world!
     ```
     """
@@ -56,7 +58,7 @@ def experimental(fn: Callable) -> Callable:
     def _inner_fn(*args, **kwargs):
         if not constants.HF_HUB_DISABLE_EXPERIMENTAL_WARNING:
             warnings.warn(
-                f"'{name}' is experimental and might be subject to breaking changes in the future."
+                f"'{name}' is experimental and might be subject to breaking changes in the future without prior notice."
                 " You can disable this warning by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as environment"
                 " variable.",
                 UserWarning,
