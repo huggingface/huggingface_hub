@@ -3,6 +3,10 @@ import logging
 from typing import Dict
 from unittest.mock import patch
 
+from huggingface_hub.inference._providers.featherless_ai import (
+    FeatherlessConversationalTask,
+    FeatherlessTextGenerationTask,
+)
 import pytest
 from pytest import LogCaptureFixture
 
@@ -382,6 +386,15 @@ class TestFalAIProvider:
         )
         mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
         assert response == b"video_content"
+
+
+class TestFeatherlessAIProvider:
+    def test_prepare_route_chat_completionurl(self):
+        helper = FeatherlessConversationalTask()
+        assert helper._prepare_url("rc_xxxx", "ownner/model_id") == "https://api.featherless.ai/v1/chat/completions"
+
+        helper = FeatherlessTextGenerationTask()
+        assert helper._prepare_url("rc_xxxx", "ownner/model_id") == "https://api.featherless.ai/v1/completions"
 
 
 class TestFireworksAIConversationalTask:
