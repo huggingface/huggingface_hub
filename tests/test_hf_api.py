@@ -1659,10 +1659,10 @@ class HfApiBranchEndpointTest(HfApiCommonTest):
         """Test `create_branch` on existing branch."""
         self._api.create_branch(repo_url.repo_id, branch="cool-branch")
 
-        with self.assertRaisesRegex(HfHubHTTPError, r"Reference .* already exists"):
+        with self.assertRaisesRegex(HfHubHTTPError, r"Reference refs/heads/cool-branch already exists"):
             self._api.create_branch(repo_url.repo_id, branch="cool-branch")
 
-        with self.assertRaisesRegex(HfHubHTTPError, r"Reference .* already exists"):
+        with self.assertRaisesRegex(HfHubHTTPError, r"Reference refs/heads/main already exists"):
             self._api.create_branch(repo_url.repo_id, branch="main")
 
         # exist_ok=True => doesn't fail
