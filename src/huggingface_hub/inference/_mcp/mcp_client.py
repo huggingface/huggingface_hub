@@ -2,11 +2,7 @@ import json
 import logging
 from contextlib import AsyncExitStack
 from pathlib import Path
-from typing import AsyncIterable, Dict, List, Optional, TypeAlias, Union
-
-from mcp import ClientSession, StdioServerParameters
-from mcp import types as mcp_types
-from mcp.client.stdio import stdio_client
+from typing import TYPE_CHECKING, AsyncIterable, Dict, List, Optional, TypeAlias, Union
 
 from ...utils import experimental
 from ...utils._runtime import get_hf_hub_version
@@ -20,6 +16,9 @@ from .._generated.types import (
 from .._providers import PROVIDER_OR_POLICY_T
 from .utils import format_result
 
+
+if TYPE_CHECKING:
+    from mcp import ClientSession
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,7 @@ class MCPClient:
         api_key: Optional[str] = None,
     ):
         # Initialize MCP sessions as a dictionary of ClientSession objects
-        self.sessions: Dict[ToolName, ClientSession] = {}
+        self.sessions: Dict[ToolName, "ClientSession"] = {}
         self.exit_stack = AsyncExitStack()
         self.available_tools: List[ChatCompletionInputTool] = []
 
@@ -74,6 +73,10 @@ class MCPClient:
             cwd (Union[str, Path, None], optional):
                 Working directory for the command. Default to current directory.
         """
+        from mcp import ClientSession, StdioServerParameters
+        from mcp import types as mcp_types
+        from mcp.client.stdio import stdio_client
+
         logger.info(f"Connecting to MCP server with command: {command} {args}")
         server_params = StdioServerParameters(
             command=command,

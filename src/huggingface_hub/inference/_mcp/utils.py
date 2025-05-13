@@ -4,12 +4,15 @@ Utility functions for formatting results from mcp.CallToolResult.
 Taken from the JS SDK: https://github.com/huggingface/huggingface.js/blob/main/packages/mcp-client/src/ResultFormatter.ts.
 """
 
-from typing import List
-
-from mcp import types as mcp_types
+from typing import List, TYPE_CHECKING
 
 
-def format_result(result: mcp_types.CallToolResult) -> str:
+if TYPE_CHECKING
+    from mcp import types as mcp_types
+
+
+
+def format_result(result: "mcp_types.CallToolResult") -> str:
     """
     Formats a mcp.types.CallToolResult content into a human-readable string.
 
