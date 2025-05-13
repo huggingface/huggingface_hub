@@ -66,6 +66,7 @@ from huggingface_hub.inference._generated.types import (
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
     ChatCompletionInputGrammarType,
+    ChatCompletionInputMessage,
     ChatCompletionInputStreamOptions,
     ChatCompletionInputTool,
     ChatCompletionInputToolChoiceClass,
@@ -446,7 +447,7 @@ class InferenceClient:
     @overload
     def chat_completion(  # type: ignore
         self,
-        messages: List[Dict],
+        messages: List[Union[Dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: Literal[False] = False,
@@ -472,7 +473,7 @@ class InferenceClient:
     @overload
     def chat_completion(  # type: ignore
         self,
-        messages: List[Dict],
+        messages: List[Union[Dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: Literal[True] = True,
@@ -498,7 +499,7 @@ class InferenceClient:
     @overload
     def chat_completion(
         self,
-        messages: List[Dict],
+        messages: List[Union[Dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: bool = False,
@@ -523,7 +524,7 @@ class InferenceClient:
 
     def chat_completion(
         self,
-        messages: List[Dict],
+        messages: List[Union[Dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: bool = False,

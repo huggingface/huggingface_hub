@@ -8,6 +8,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp import types as mcp_types
 from mcp.client.stdio import stdio_client
 
+from ...utils import experimental
 from ...utils._runtime import get_hf_hub_version
 from .._generated._async_client import AsyncInferenceClient
 from .._generated.types import (
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 ToolName: TypeAlias = str
 
 
+@experimental
 class MCPClient:
     def __init__(
         self,
