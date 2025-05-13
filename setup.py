@@ -66,8 +66,7 @@ extras["hf_xet"] = ["hf-xet>=1.1.1,<2.0.0"]
 
 extras["mcp"] = [
     "mcp>=1.6.0",
-    "aiohttp",  # for AsyncInferenceClient
-]
+] + extras["inference"]
 
 extras["testing"] = (
     extras["cli"]
