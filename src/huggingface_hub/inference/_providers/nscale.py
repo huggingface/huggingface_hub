@@ -10,26 +10,15 @@ from ._common import (
 )
 
 
-class NscaleTask(TaskProviderHelper):
-    def __init__(self, task: str):
-        super().__init__(provider="nscale", base_url="https://inference.api.nscale.com", task=task)
-
-    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
-        if self.task == "text-to-image":
-            return "/v1/images/generations"
-        elif self.task == "conversational":
-            return "/v1/chat/completions"
-        raise ValueError(f"Unsupported task '{self.task}' for Nscale API.")
-
-
-class NscaleChatCompletion(BaseConversationalTask):
+class NscaleConversationalTask(BaseConversationalTask):
     def __init__(self):
         super().__init__(provider="nscale", base_url="https://inference.api.nscale.com")
-
-
-class NscaleTextToImageTask(NscaleTask):
+        
+class NscaleTextToImageTask(TaskProviderHelper):
     def __init__(self):
-        super().__init__("text-to-image")
+        super().__init__(provider="nscale", base_url="https://inference.api.nscale.com", task="text-to-image")
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
+        return "/v1/images/generations"
 
     def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping) -> Optional[Dict]:
     mapped_model = provider_mapping_info.provider_id
