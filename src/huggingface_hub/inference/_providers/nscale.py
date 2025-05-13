@@ -31,7 +31,8 @@ class NscaleTextToImageTask(NscaleTask):
     def __init__(self):
         super().__init__("text-to-image")
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping) -> Optional[Dict]:
+    mapped_model = provider_mapping_info.provider_id
         # Combine all parameters except inputs and parameters
         parameters = filter_none(parameters)
         if "width" in parameters and "height" in parameters:
