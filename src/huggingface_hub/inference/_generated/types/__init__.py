@@ -24,7 +24,6 @@ from .chat_completion import (
     ChatCompletionInputFunctionDefinition,
     ChatCompletionInputFunctionName,
     ChatCompletionInputGrammarType,
-    ChatCompletionInputGrammarTypeType,
     ChatCompletionInputMessage,
     ChatCompletionInputMessageChunk,
     ChatCompletionInputMessageChunkType,

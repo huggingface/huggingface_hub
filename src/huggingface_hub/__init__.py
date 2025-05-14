@@ -301,7 +301,6 @@ _SUBMOD_ATTRS = {
         "ChatCompletionInputFunctionDefinition",
         "ChatCompletionInputFunctionName",
         "ChatCompletionInputGrammarType",
-        "ChatCompletionInputGrammarTypeType",
         "ChatCompletionInputMessage",
         "ChatCompletionInputMessageChunk",
         "ChatCompletionInputMessageChunkType",
@@ -542,7 +541,6 @@ __all__ = [
     "ChatCompletionInputFunctionDefinition",
     "ChatCompletionInputFunctionName",
     "ChatCompletionInputGrammarType",
-    "ChatCompletionInputGrammarTypeType",
     "ChatCompletionInputMessage",
     "ChatCompletionInputMessageChunk",
     "ChatCompletionInputMessageChunkType",
@@ -1263,7 +1261,6 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionInputFunctionDefinition,  # noqa: F401
         ChatCompletionInputFunctionName,  # noqa: F401
         ChatCompletionInputGrammarType,  # noqa: F401
-        ChatCompletionInputGrammarTypeType,  # noqa: F401
         ChatCompletionInputMessage,  # noqa: F401
         ChatCompletionInputMessageChunk,  # noqa: F401
         ChatCompletionInputMessageChunkType,  # noqa: F401
