@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any, Dict, List, Literal, Optional, TypeAlias, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -88,9 +88,7 @@ class ResponseFormatJSONObject(BaseInferenceType):
     type: Literal["json_object"]
 
 
-ChatCompletionInputGrammarType: TypeAlias = Union[
-    ResponseFormatText, ResponseFormatJSONSchema, ResponseFormatJSONObject
-]
+ChatCompletionInputGrammarType = Union[ResponseFormatText, ResponseFormatJSONSchema, ResponseFormatJSONObject]
 
 
 @dataclass_with_extra
