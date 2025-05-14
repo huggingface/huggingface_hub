@@ -51,19 +51,16 @@ class JSONSchema(BaseInferenceType):
     """
     The name of the response format.
     """
-
     description: Optional[str] = None
     """
     A description of what the response format is for, used by the model to determine
     how to respond in the format.
     """
-
     schema: Optional[Dict[str, object]] = None
     """
     The schema for the response format, described as a JSON Schema object. Learn how
     to build JSON schemas [here](https://json-schema.org/).
     """
-
     strict: Optional[bool] = None
     """
     Whether to enable strict schema adherence when generating the output. If set to

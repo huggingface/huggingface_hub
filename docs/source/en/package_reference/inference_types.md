@@ -57,8 +57,6 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ChatCompletionInputFunctionName
 
-[[autodoc]] huggingface_hub.ChatCompletionInputGrammarType
-
 [[autodoc]] huggingface_hub.ChatCompletionInputMessage
 
 [[autodoc]] huggingface_hub.ChatCompletionInputMessageChunk
@@ -108,6 +106,14 @@ This part of the lib is still under development and will be improved in future r
 [[autodoc]] huggingface_hub.ChatCompletionStreamOutputTopLogprob
 
 [[autodoc]] huggingface_hub.ChatCompletionStreamOutputUsage
+
+[[autodoc]] huggingface_hub.JSONSchema
+
+[[autodoc]] huggingface_hub.ResponseFormatJSONObject
+
+[[autodoc]] huggingface_hub.ResponseFormatJSONSchema
+
+[[autodoc]] huggingface_hub.ResponseFormatText
 
 
 
