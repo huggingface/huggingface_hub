@@ -522,6 +522,7 @@ def _get_upload_mode(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_t
         repo_id=repo_id,
         headers=api._build_hf_headers(),
         revision=quote(revision, safe=""),
+        endpoint=api.endpoint,
     )
     for item, addition in zip(items, additions):
         paths, metadata = item
