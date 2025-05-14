@@ -1,5 +1,5 @@
 import inspect
-from dataclasses import MISSING, Field, field, fields
+from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields
 from functools import wraps
 from typing import (
     Any,
@@ -99,7 +99,7 @@ def strict(
 
         # List and store validators
         field_validators: Dict[str, List[Validator_T]] = {}
-        for f in fields(cls):
+        for f in fields(cls):  # type: ignore [arg-type]
             validators = []
             validators.append(_create_type_validator(f))
             custom_validator = f.metadata.get("validator")
@@ -139,7 +139,7 @@ def strict(
             @wraps(original_init)
             def __init__(self, **kwargs: Any) -> None:
                 # Extract only the fields that are part of the dataclass
-                dataclass_fields = {f.name for f in fields(cls)}
+                dataclass_fields = {f.name for f in fields(cls)}  # type: ignore [arg-type]
                 standard_kwargs = {k: v for k, v in kwargs.items() if k in dataclass_fields}
 
                 # Call the original __init__ with standard fields
@@ -165,14 +165,14 @@ def strict(
                     # add a '*' in front of additional kwargs to let the user know they are not part of the dataclass
                     f"*{k}={v!r}"
                     for k, v in self.__dict__.items()
-                    if k not in cls.__dataclass_fields__
+                    if k not in cls.__dataclass_fields__  # type: ignore [attr-defined]
                 ]
                 additional_repr = ", ".join(additional_kwargs)
 
                 # Combine both representations
                 return f"{standard_repr[:-1]}, {additional_repr})" if additional_kwargs else standard_repr
 
-            cls.__repr__ = __repr__
+            cls.__repr__ = __repr__  # type: ignore [method-assign]
 
         return cls
 
@@ -182,8 +182,8 @@ def strict(
 
 def validated_field(
     validator: Union[List[Validator_T], Validator_T],
-    default: Any = MISSING,
-    default_factory: Callable[[], Any] = MISSING,
+    default: Union[Any, _MISSING_TYPE] = MISSING,
+    default_factory: Union[Callable[[], Any], _MISSING_TYPE] = MISSING,
     init: bool = True,
     repr: bool = True,
     hash: Optional[bool] = None,
@@ -211,7 +211,7 @@ def validated_field(
     if metadata is None:
         metadata = {}
     metadata["validator"] = validator
-    return field(
+    return field(  # type: ignore
         default=default,
         default_factory=default_factory,
         init=init,
@@ -233,8 +233,8 @@ def as_validated_field(validator: Validator_T):
     """
 
     def _inner(
-        default: Any = MISSING,
-        default_factory: Callable[[], Any] = MISSING,
+        default: Union[Any, _MISSING_TYPE] = MISSING,
+        default_factory: Union[Callable[[], Any], _MISSING_TYPE] = MISSING,
         init: bool = True,
         repr: bool = True,
         hash: Optional[bool] = None,
