@@ -538,3 +538,38 @@ class TestClassValidation:
         with pytest.raises(StrictDataclassClassValidationError, match="foo must be 4 characters long, got 6"):
             # post init doubles the value and then the validation fails
             self.ChildConfigWithPostInit(foo="bar", foo_length=2)
+
+
+class TestClassValidationWithInheritance:
+    """Regression test.
+
+    If parent class is not a strict dataclass but defines validators, the child class should validate them too.
+    """
+
+    class Base:
+        def validate_foo(self):
+            if self.foo < 0:
+                raise ValueError("foo must be positive")
+
+    @strict
+    @dataclass
+    class Config(Base):
+        foo: int
+        bar: int
+
+        def validate_bar(self):
+            if self.bar < 0:
+                raise ValueError("bar must be positive")
+
+    def test_class_validation_with_inheritance(self):
+        # Test valid initialization
+        config = self.Config(foo=0, bar=0)
+        assert config.foo == 0
+        assert config.bar == 0
+
+        # Test invalid initialization
+        with pytest.raises(StrictDataclassClassValidationError):
+            self.Config(foo=0, bar=-1)  # validation from child class
+
+        with pytest.raises(StrictDataclassClassValidationError):
+            self.Config(foo=-1, bar=0)  # validation from parent class

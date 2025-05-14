@@ -180,19 +180,20 @@ def strict(
 
         # List all public methods starting with `validate_` => class validators.
         class_validators = []
-        if hasattr(cls, "__class_validators__"):
-            # If inheriting from a class with class validators, add them to the list
-            class_validators += cls.__class_validators__  # type: ignore [attr-defined]
 
-        for name, method in cls.__dict__.items():
-            if name.startswith("validate_") and callable(method):
-                if len(inspect.signature(method).parameters) != 1:
-                    raise StrictDataclassDefinitionError(
-                        f"Class '{cls.__name__}' has a class validator '{name}' that takes more than one argument."
-                        " Class validators must take only 'self' as an argument. Methods starting with 'validate_'"
-                        " are considered to be class validators."
-                    )
-                class_validators.append(method)
+        for name in dir(cls):
+            if not name.startswith("validate_"):
+                continue
+            method = getattr(cls, name)
+            if not callable(method):
+                continue
+            if len(inspect.signature(method).parameters) != 1:
+                raise StrictDataclassDefinitionError(
+                    f"Class '{cls.__name__}' has a class validator '{name}' that takes more than one argument."
+                    " Class validators must take only 'self' as an argument. Methods starting with 'validate_'"
+                    " are considered to be class validators."
+                )
+            class_validators.append(method)
 
         cls.__class_validators__ = class_validators  # type: ignore [attr-defined]
 
