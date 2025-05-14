@@ -20,10 +20,16 @@ from .hf_inference import (
     HFInferenceTask,
 )
 from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
-from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
+from .nebius import (
+    NebiusConversationalTask,
+    NebiusFeatureExtractionTask,
+    NebiusTextGenerationTask,
+    NebiusTextToImageTask,
+)
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
+from .nscale import NscaleConversationalTask, NscaleTextToImageTask
 from .openai import OpenAIConversationalTask
-from .replicate import ReplicateTask, ReplicateTextToSpeechTask
+from .replicate import ReplicateTask, ReplicateTextToImageTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
 
@@ -41,6 +47,7 @@ PROVIDER_T = Literal[
     "hyperbolic",
     "nebius",
     "novita",
+    "nscale",
     "openai",
     "replicate",
     "sambanova",
@@ -105,17 +112,22 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-image": NebiusTextToImageTask(),
         "conversational": NebiusConversationalTask(),
         "text-generation": NebiusTextGenerationTask(),
+        "feature-extraction": NebiusFeatureExtractionTask(),
     },
     "novita": {
         "text-generation": NovitaTextGenerationTask(),
         "conversational": NovitaConversationalTask(),
         "text-to-video": NovitaTextToVideoTask(),
     },
+    "nscale": {
+        "conversational": NscaleConversationalTask(),
+        "text-to-image": NscaleTextToImageTask(),
+    },
     "openai": {
         "conversational": OpenAIConversationalTask(),
     },
     "replicate": {
-        "text-to-image": ReplicateTask("text-to-image"),
+        "text-to-image": ReplicateTextToImageTask(),
         "text-to-speech": ReplicateTextToSpeechTask(),
         "text-to-video": ReplicateTask("text-to-video"),
     },
@@ -147,7 +159,9 @@ def get_provider_helper(
         ValueError: If provider or task is not supported
     """
 
-    if model is None and provider in (None, "auto"):
+    if (model is None and provider in (None, "auto")) or (
+        model is not None and model.startswith(("http://", "https://"))
+    ):
         provider = "hf-inference"
 
     if provider is None:

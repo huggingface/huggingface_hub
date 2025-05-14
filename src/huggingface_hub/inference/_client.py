@@ -133,7 +133,7 @@ class InferenceClient:
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"openai"`, `"replicate"`, "sambanova"` or `"together"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"openai"`, `"replicate"`, "sambanova"` or `"together"`.
             Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
@@ -141,8 +141,7 @@ class InferenceClient:
             Note: for better compatibility with OpenAI's client, `token` has been aliased as `api_key`. Those 2
             arguments are mutually exclusive and have the exact same behavior.
         timeout (`float`, `optional`):
-            The maximum number of seconds to wait for a response from the server. Loading a new model in Inference
-            API can take up to several minutes. Defaults to None, meaning it will loop until the server is available.
+            The maximum number of seconds to wait for a response from the server. Defaults to None, meaning it will loop until the server is available.
         headers (`Dict[str, str]`, `optional`):
             Additional headers to send to the server. By default only the authorization and user-agent headers are sent.
             Values in this dictionary will override the default values.
@@ -884,7 +883,13 @@ class InferenceClient:
         payload_model = model or self.model
 
         # Get the provider helper
-        provider_helper = get_provider_helper(self.provider, task="conversational", model=payload_model)
+        provider_helper = get_provider_helper(
+            self.provider,
+            task="conversational",
+            model=model_id_or_url
+            if model_id_or_url is not None and model_id_or_url.startswith(("http://", "https://"))
+            else payload_model,
+        )
 
         # Prepare the payload
         parameters = {

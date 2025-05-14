@@ -31,8 +31,9 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceTask,
 )
 from huggingface_hub.inference._providers.hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
-from huggingface_hub.inference._providers.nebius import NebiusTextToImageTask
+from huggingface_hub.inference._providers.nebius import NebiusFeatureExtractionTask, NebiusTextToImageTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
+from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
@@ -435,6 +436,20 @@ class TestHFInferenceProvider:
 
         assert helper._prepare_url("hf_test_token", "https://any-url.com") == "https://any-url.com"
 
+    def test_prepare_url_feature_extraction(self):
+        helper = HFInferenceTask("feature-extraction")
+        assert (
+            helper._prepare_url("hf_test_token", "username/repo_name")
+            == "https://router.huggingface.co/hf-inference/models/username/repo_name/pipeline/feature-extraction"
+        )
+
+    def test_prepare_url_sentence_similarity(self):
+        helper = HFInferenceTask("sentence-similarity")
+        assert (
+            helper._prepare_url("hf_test_token", "username/repo_name")
+            == "https://router.huggingface.co/hf-inference/models/username/repo_name/pipeline/sentence-similarity"
+        )
+
     def test_prepare_payload_as_dict(self):
         helper = HFInferenceTask("text-classification")
         mapping_info = InferenceProviderMapping(
@@ -803,6 +818,27 @@ class TestNebiusProvider:
         response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
         assert response == b"image_bytes"
 
+    def test_prepare_payload_as_dict_feature_extraction(self):
+        helper = NebiusFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello world",
+            {"param-that-will-be-ignored": True},
+            InferenceProviderMapping(
+                hf_model_id="username/repo_name",
+                providerId="provider-id",
+                task="feature-extraction",
+                status="live",
+            ),
+        )
+        assert payload == {"input": "Hello world", "model": "provider-id"}
+
+    def test_prepare_url_feature_extraction(self):
+        helper = NebiusFeatureExtractionTask()
+        assert (
+            helper._prepare_url("hf_token", "username/repo_name")
+            == "https://router.huggingface.co/nebius/v1/embeddings"
+        )
+
 
 class TestNovitaProvider:
     def test_prepare_url_text_generation(self):
@@ -814,6 +850,67 @@ class TestNovitaProvider:
         helper = NovitaConversationalTask()
         url = helper._prepare_url("novita_token", "username/repo_name")
         assert url == "https://api.novita.ai/v3/openai/chat/completions"
+
+
+class TestNscaleProvider:
+    def test_prepare_route_text_to_image(self):
+        helper = NscaleTextToImageTask()
+        assert helper._prepare_route("model_name", "api_key") == "/v1/images/generations"
+
+    def test_prepare_route_chat_completion(self):
+        helper = NscaleConversationalTask()
+        assert helper._prepare_route("model_name", "api_key") == "/v1/chat/completions"
+
+    def test_prepare_payload_with_size_conversion(self):
+        helper = NscaleTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful landscape",
+            {
+                "width": 512,
+                "height": 512,
+            },
+            InferenceProviderMapping(
+                hf_model_id="stabilityai/stable-diffusion-xl-base-1.0",
+                providerId="stabilityai/stable-diffusion-xl-base-1.0",
+                task="text-to-image",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "prompt": "a beautiful landscape",
+            "size": "512x512",
+            "response_format": "b64_json",
+            "model": "stabilityai/stable-diffusion-xl-base-1.0",
+        }
+
+    def test_prepare_payload_as_dict(self):
+        helper = NscaleTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful landscape",
+            {
+                "width": 1024,
+                "height": 768,
+                "cfg_scale": 7.5,
+                "num_inference_steps": 50,
+            },
+            InferenceProviderMapping(
+                hf_model_id="stabilityai/stable-diffusion-xl-base-1.0",
+                providerId="stabilityai/stable-diffusion-xl-base-1.0",
+                task="text-to-image",
+                status="live",
+            ),
+        )
+        assert "width" not in payload
+        assert "height" not in payload
+        assert "num_inference_steps" not in payload
+        assert "cfg_scale" not in payload
+        assert payload["size"] == "1024x768"
+        assert payload["model"] == "stabilityai/stable-diffusion-xl-base-1.0"
+
+    def test_text_to_image_get_response(self):
+        helper = NscaleTextToImageTask()
+        response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
+        assert response == b"image_bytes"
 
 
 class TestOpenAIProvider:
