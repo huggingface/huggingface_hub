@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union, get_ty
 import jedi
 import pytest
 
-from huggingface_hub.dataclasses import _is_validator, strict, type_validator, validated_field
+from huggingface_hub.dataclasses import _is_validator, as_validated_field, strict, type_validator, validated_field
 from huggingface_hub.errors import StrictDataclassDefinitionError, StrictDataclassFieldValidationError
 
 
@@ -19,12 +19,18 @@ def multiple_of_64(value: int):
         raise ValueError(f"Value must be a multiple of 64, got {value}")
 
 
+@as_validated_field
+def strictly_positive(value: int):
+    if not value > 0:
+        raise ValueError(f"Value must be strictly positive, got {value}")
+
+
 @strict
 @dataclass
 class Config:
     model_type: str
     hidden_size: int = validated_field(validator=[positive_int, multiple_of_64])
-    vocab_size: int = validated_field(validator=positive_int, default=16)
+    vocab_size: int = strictly_positive(default=16)
 
 
 @strict(accept_kwargs=True)
@@ -81,6 +87,8 @@ def test_validated_on_assignment():
         config.vocab_size = "10000"  # type validator checked
     with pytest.raises(StrictDataclassFieldValidationError):
         config.vocab_size = -1  # custom validators checked
+    with pytest.raises(StrictDataclassFieldValidationError):
+        config.vocab_size = 0  # must be strictly positive
 
 
 def test_lax_on_new_attributes():
@@ -249,6 +257,13 @@ def test_is_validator(obj):
 )
 def test_not_a_validator(obj):
     assert not _is_validator(5)
+
+
+def test_preserve_metadata():
+    class ConfigWithMetadataField:
+        foo: int = strictly_positive(metadata={"foo": "bar"}, default=10)
+
+    assert ConfigWithMetadataField.foo.metadata["foo"] == "bar"
 
 
 def test_accept_kwargs():

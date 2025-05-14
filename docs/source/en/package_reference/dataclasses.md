@@ -24,9 +24,10 @@ Strict dataclasses are created using the `@strict` decorator. They extend the fu
 
 ```python
 from dataclasses import dataclass
-from huggingface_hub.dataclasses import strict, validated_field
+from huggingface_hub.dataclasses import strict, as_validated_field
 
 # Custom validator to ensure a value is positive
+@as_validated_field
 def positive_int(value: int):
     if not value >= 0:
         raise ValueError(f"Value must be positive, got {value}")
@@ -35,7 +36,7 @@ def positive_int(value: int):
 @dataclass
 class Config:
     model_type: str
-    hidden_size: int = validated_field(validator=positive_int)
+    hidden_size: int = positive_int(default=32)
     vocab_size: int = 16  # Default value
 ```
 
@@ -55,7 +56,7 @@ config.hidden_size = -1   # Raises StrictDataclassFieldValidationError
 
 ### Custom Validators
 
-You can attach multiple custom validators to fields using `validated_field`. A validator is a callable that takes a single argument and raises an exception if the value is invalid.
+You can attach multiple custom validators to fields using [`validated_field`]. A validator is a callable that takes a single argument and raises an exception if the value is invalid.
 
 ```python
 def multiple_of_64(value: int):
@@ -122,6 +123,12 @@ And any combination of these types.
 The `@strict` decorator enhances a dataclass with strict validation.
 
 [[autodoc]] dataclasses.strict
+
+### `as_validated_field`
+
+Decorator to create a [`validated_field`]. Recommended for fields with a single validator to avoid boilerplate code.
+
+[[autodoc]] dataclasses.as_validated_field
 
 ### `validated_field`
 

@@ -1,5 +1,5 @@
 import inspect
-from dataclasses import Field, field, fields
+from dataclasses import MISSING, Field, field, fields
 from functools import wraps
 from typing import (
     Any,
@@ -58,8 +58,9 @@ def strict(
     Example:
     ```py
     >>> from dataclasses import dataclass
-    >>> from huggingface_hub.dataclasses import strict, validated_field
+    >>> from huggingface_hub.dataclasses import as_validated_field, strict, validated_field
 
+    >>> @as_validated_field
     >>> def positive_int(value: int):
     ...     if not value >= 0:
     ...         raise ValueError(f"Value must be positive, got {value}")
@@ -68,16 +69,23 @@ def strict(
     ... @dataclass
     ... class User:
     ...     name: str
-    ...     age: int = validated_field(positive_int)
+    ...     age: int = positive_int(default=10)
 
+    # Initialize
+    >>> User(name="John")
+    User(name='John', age=10)
+
+    # Extra kwargs are accepted
     >>> User(name="John", age=30, lastname="Doe")
     User(name='John', age=30, *lastname='Doe')
 
-    >>> User(name="John", age="30") # invalid type
+    # Invalid type => raises
+    >>> User(name="John", age="30")
     huggingface_hub.errors.StrictDataclassFieldValidationError: Validation error for field 'age':
         TypeError: Field 'age' expected int, got str (value: '30')
 
-    >>> User(name="John", age=-1) # invalid value
+    # Invalid value => raises
+    >>> User(name="John", age=-1)
     huggingface_hub.errors.StrictDataclassFieldValidationError: Validation error for field 'age':
         ValueError: Value must be positive, got -1
     ```
@@ -172,9 +180,21 @@ def strict(
     return wrap(cls) if cls is not None else wrap
 
 
-def validated_field(validator: Union[List[Validator_T], Validator_T], **kwargs: Any) -> Any:
+def validated_field(
+    validator: Union[List[Validator_T], Validator_T],
+    default: Any = MISSING,
+    default_factory: Callable[[], Any] = MISSING,
+    init: bool = True,
+    repr: bool = True,
+    hash: Optional[bool] = None,
+    compare: bool = True,
+    metadata: Optional[Dict] = None,
+    **kwargs: Any,
+) -> Any:
     """
     Create a dataclass field with a custom validator.
+
+    Useful to apply several checks to a field. If only applying one rule, check out the [`as_validated_field`] decorator.
 
     Args:
         validator (`Callable` or `List[Callable]`):
@@ -186,11 +206,55 @@ def validated_field(validator: Union[List[Validator_T], Validator_T], **kwargs: 
     Returns:
         A field with the validator attached in metadata
     """
-    metadata = kwargs.pop("metadata", {})
     if not isinstance(validator, list):
         validator = [validator]
+    if metadata is None:
+        metadata = {}
     metadata["validator"] = validator
-    return field(metadata=metadata, **kwargs)
+    return field(
+        default=default,
+        default_factory=default_factory,
+        init=init,
+        repr=repr,
+        hash=hash,
+        compare=compare,
+        metadata=metadata,
+        **kwargs,
+    )
+
+
+def as_validated_field(validator: Validator_T):
+    """
+    Decorates a validator function as a [`validated_field`] (i.e. a dataclass field with a custom validator).
+
+    Args:
+        validator (`Callable`):
+            A method that takes a value as input and raises ValueError/TypeError if the value is invalid.
+    """
+
+    def _inner(
+        default: Any = MISSING,
+        default_factory: Callable[[], Any] = MISSING,
+        init: bool = True,
+        repr: bool = True,
+        hash: Optional[bool] = None,
+        compare: bool = True,
+        metadata: Optional[Dict] = None,
+        **kwargs: Any,
+    ):
+        return validated_field(
+            validator,
+            default=default,
+            default_factory=default_factory,
+            init=init,
+            repr=repr,
+            hash=hash,
+            compare=compare,
+            metadata=metadata,
+            **kwargs,
+        )
+
+    return _inner
 
 
 def type_validator(name: str, value: Any, expected_type: Any) -> None:
