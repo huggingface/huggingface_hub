@@ -645,6 +645,7 @@ __all__ = [
     "InferenceEndpointTimeoutError",
     "InferenceEndpointType",
     "InferenceTimeoutError",
+    "JSONSchema",
     "KerasModelHubMixin",
     "ModelCard",
     "ModelCardData",
@@ -670,6 +671,9 @@ __all__ = [
     "RepoCard",
     "RepoUrl",
     "Repository",
+    "ResponseFormatJSONObject",
+    "ResponseFormatJSONSchema",
+    "ResponseFormatText",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
     "SpaceCard",
@@ -1320,6 +1324,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageToTextInput,  # noqa: F401
         ImageToTextOutput,  # noqa: F401
         ImageToTextParameters,  # noqa: F401
+        JSONSchema,  # noqa: F401
         ObjectDetectionBoundingBox,  # noqa: F401
         ObjectDetectionInput,  # noqa: F401
         ObjectDetectionOutputElement,  # noqa: F401
@@ -1329,6 +1334,9 @@ if TYPE_CHECKING:  # pragma: no cover
         QuestionAnsweringInputData,  # noqa: F401
         QuestionAnsweringOutputElement,  # noqa: F401
         QuestionAnsweringParameters,  # noqa: F401
+        ResponseFormatJSONObject,  # noqa: F401
+        ResponseFormatJSONSchema,  # noqa: F401
+        ResponseFormatText,  # noqa: F401
         SentenceSimilarityInput,  # noqa: F401
         SentenceSimilarityInputData,  # noqa: F401
         SummarizationInput,  # noqa: F401
