@@ -6,7 +6,11 @@ import jedi
 import pytest
 
 from huggingface_hub.dataclasses import _is_validator, as_validated_field, strict, type_validator, validated_field
-from huggingface_hub.errors import StrictDataclassDefinitionError, StrictDataclassFieldValidationError
+from huggingface_hub.errors import (
+    StrictDataclassClassValidationError,
+    StrictDataclassDefinitionError,
+    StrictDataclassFieldValidationError,
+)
 
 
 def positive_int(value: int):
@@ -441,3 +445,96 @@ def test_strict_requires_dataclass():
         @strict
         class InvalidConfig:
             model_type: str
+
+
+class TestClassValidation:
+    @strict
+    @dataclass
+    class ParentConfig:
+        foo: str = "bar"
+        foo_length: int = 3
+
+        def validate_foo_length(self):
+            if len(self.foo) != self.foo_length:
+                raise ValueError(f"foo must be {self.foo_length} characters long, got {len(self.foo)}")
+
+    @strict
+    @dataclass
+    class ChildConfig(ParentConfig):
+        number: int = 42
+
+        def validate_number_multiple_of_foo_length(self):
+            if self.number % self.foo_length != 0:
+                raise ValueError(f"number must be a multiple of foo_length ({self.foo_length}), got {self.number}")
+
+    @strict
+    @dataclass
+    class OtherChildConfig(ParentConfig):
+        number: int = 42
+
+    @strict
+    @dataclass
+    class ChildConfigWithPostInit(ParentConfig):
+        def __post_init__(self):
+            # Let's assume post_init doubles each value
+            # Validation is ran AFTER __post_init__
+            self.foo = self.foo * 2
+            self.foo_length = self.foo_length * 2
+
+    def test_parent_config_validation(self):
+        # Test valid initialization
+        config = self.ParentConfig(foo="bar", foo_length=3)
+        assert config.foo == "bar"
+        assert config.foo_length == 3
+
+        # Test invalid initialization
+        with pytest.raises(StrictDataclassClassValidationError):
+            self.ParentConfig(foo="bar", foo_length=4)
+
+    def test_child_config_validation(self):
+        # Test valid initialization
+        config = self.ChildConfig(foo="bar", foo_length=3, number=42)
+        assert config.foo == "bar"
+        assert config.foo_length == 3
+        assert config.number == 42
+
+        # Test invalid initialization
+        with pytest.raises(StrictDataclassClassValidationError):
+            self.ChildConfig(foo="bar", foo_length=4, number=40)
+
+        with pytest.raises(StrictDataclassClassValidationError):
+            self.ChildConfig(foo="bar", foo_length=3, number=43)
+
+    def test_other_child_config_validation(self):
+        # Test valid initialization
+        config = self.OtherChildConfig(foo="bar", foo_length=3, number=43)
+        assert config.foo == "bar"
+        assert config.foo_length == 3
+        assert config.number == 43  # not validated => did not fail
+
+        # Test invalid initialization
+        with pytest.raises(StrictDataclassClassValidationError):
+            self.OtherChildConfig(foo="bar", foo_length=4, number=42)
+
+    def test_validate_after_init(self):
+        # Test valid initialization
+        config = self.ParentConfig(foo="bar", foo_length=3)
+
+        # Attributes can be updated after initialization
+        config.foo = "abcd"
+        config.foo_length = 4
+        config.validate()  # Explicit call required
+
+        # Explicit validation fails
+        config.foo_length = 5
+        with pytest.raises(StrictDataclassClassValidationError):
+            config.validate()
+
+    def test_validation_runs_after_post_init(self):
+        config = self.ChildConfigWithPostInit(foo="bar", foo_length=3)
+        assert config.foo == "barbar"
+        assert config.foo_length == 6
+
+        with pytest.raises(StrictDataclassClassValidationError, match="foo must be 4 characters long, got 6"):
+            # post init doubles the value and then the validation fails
+            self.ChildConfigWithPostInit(foo="bar", foo_length=2)

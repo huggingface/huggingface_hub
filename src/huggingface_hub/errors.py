@@ -349,6 +349,15 @@ class StrictDataclassFieldValidationError(StrictDataclassError):
         super().__init__(error_message)
 
 
+class StrictDataclassClassValidationError(StrictDataclassError):
+    """Exception thrown when a strict dataclass fails validation on a class validator."""
+
+    def __init__(self, validator: str, cause: Exception):
+        error_message = f"Class validation error for validator '{validator}':"
+        error_message += f"\n    {cause.__class__.__name__}: {cause}"
+        super().__init__(error_message)
+
+
 # XET ERRORS
 
 

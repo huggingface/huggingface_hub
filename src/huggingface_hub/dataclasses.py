@@ -17,7 +17,11 @@ from typing import (
     overload,
 )
 
-from .errors import StrictDataclassDefinitionError, StrictDataclassFieldValidationError
+from .errors import (
+    StrictDataclassClassValidationError,
+    StrictDataclassDefinitionError,
+    StrictDataclassFieldValidationError,
+)
 
 
 Validator_T = Callable[[Any], None]
@@ -173,6 +177,46 @@ def strict(
                 return f"{standard_repr[:-1]}, {additional_repr})" if additional_kwargs else standard_repr
 
             cls.__repr__ = __repr__  # type: ignore [method-assign]
+
+        # List all public methods starting with `validate_` => class validators.
+        class_validators = []
+        if hasattr(cls, "__class_validators__"):
+            # If inheriting from a class with class validators, add them to the list
+            class_validators += cls.__class_validators__  # type: ignore [attr-defined]
+
+        for name, method in cls.__dict__.items():
+            if name.startswith("validate_") and callable(method):
+                if len(inspect.signature(method).parameters) != 1:
+                    raise StrictDataclassDefinitionError(
+                        f"Class '{cls.__name__}' has a class validator '{name}' that takes more than one argument."
+                        " Class validators must take only 'self' as an argument. Methods starting with 'validate_'"
+                        " are considered to be class validators."
+                    )
+                class_validators.append(method)
+
+        cls.__class_validators__ = class_validators  # type: ignore [attr-defined]
+
+        # Add `validate` method to the class
+        def validate(self: T) -> None:
+            """Run class validators on the instance."""
+            for validator in cls.__class_validators__:  # type: ignore [attr-defined]
+                try:
+                    validator(self)
+                except (ValueError, TypeError) as e:
+                    raise StrictDataclassClassValidationError(validator=validator.__name__, cause=e) from e
+
+        cls.validate = validate  # type: ignore
+
+        # Run class validators after initialization
+        initial_init = cls.__init__
+
+        @wraps(initial_init)
+        def init_with_validate(self, *args, **kwargs) -> None:
+            """Run class validators after initialization."""
+            initial_init(self, *args, **kwargs)  # type: ignore [call-arg]
+            cls.validate(self)  # type: ignore [attr-defined]
+
+        setattr(cls, "__init__", init_with_validate)
 
         return cls
 
@@ -441,6 +485,7 @@ __all__ = [
     "strict",
     "validated_field",
     "Validator_T",
+    "StrictDataclassClassValidationError",
     "StrictDataclassDefinitionError",
     "StrictDataclassFieldValidationError",
 ]

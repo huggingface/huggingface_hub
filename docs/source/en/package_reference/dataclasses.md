@@ -36,15 +36,26 @@ def positive_int(value: int):
 @dataclass
 class Config:
     model_type: str
-    hidden_size: int = positive_int(default=32)
-    vocab_size: int = 16  # Default value
+    hidden_size: int = positive_int(default=16)
+    vocab_size: int = 32  # Default value
+
+    def validate_big_enough_vocab(self):
+        if self.vocab_size < self.hidden_size:
+            raise ValueError(f"vocab_size ({self.vocab_size}) must be greater than hidden_size ({self.hidden_size})")
 ```
 
 Fields are validated during initialization:
 
 ```python
-config = Config(model_type="bert", hidden_size=768)  # Valid
+config = Config(model_type="bert", hidden_size=24)   # Valid
 config = Config(model_type="bert", hidden_size=-1)   # Raises StrictDataclassFieldValidationError
+```
+
+Consistency between fields is also validated during initialization (class-wise validation):
+
+```python
+# `vocab_size` too small compared to `hidden_size`
+config = Config(model_type="bert", hidden_size=32, vocab_size=16)   # Raises StrictDataclassClassValidationError
 ```
 
 Fields are also validated during assignment:
@@ -54,11 +65,20 @@ config.hidden_size = 512  # Valid
 config.hidden_size = -1   # Raises StrictDataclassFieldValidationError
 ```
 
+To re-run class-wide validation after assignment, you must call `.validate` explicitly:
+
+```python
+config.validate()  # Runs all class validators
+```
+
 ### Custom Validators
 
 You can attach multiple custom validators to fields using [`validated_field`]. A validator is a callable that takes a single argument and raises an exception if the value is invalid.
 
 ```python
+from dataclasses import dataclass
+from huggingface_hub.dataclasses import strict, validated_field
+
 def multiple_of_64(value: int):
     if value % 64 != 0:
         raise ValueError(f"Value must be a multiple of 64, got {value}")
@@ -76,6 +96,9 @@ In this example, both validators are applied to the `hidden_size` field.
 By default, strict dataclasses only accept fields defined in the class. You can allow additional keyword arguments by setting `accept_kwargs=True` in the `@strict` decorator.
 
 ```python
+from dataclasses import dataclass
+from huggingface_hub.dataclasses import strict
+
 @strict(accept_kwargs=True)
 @dataclass
 class ConfigWithKwargs:
@@ -94,6 +117,8 @@ Strict dataclasses respect type hints and validate them automatically. For examp
 
 ```python
 from typing import List
+from dataclasses import dataclass
+from huggingface_hub.dataclasses import strict
 
 @strict
 @dataclass
@@ -115,6 +140,42 @@ Supported types include:
 - Set
 
 And any combination of these types.
+
+### Class validators
+
+Methods named `validate_xxx` are treated as class validators. These methods must only take `self` as an argument. Class validators are run once during initialization, right after `__post_init__`. You can define as many of them as needed—they'll be executed sequentially in the order they appear.
+
+Note that class validators are not automatically re-run when a field is updated after initialization. To manually re-validate the object, you need to call `obj.validate()`.
+
+```py
+from dataclasses import dataclass
+from huggingface_hub.dataclasses import strict
+
+@strict
+@dataclass
+class Config:
+    foo: str
+    foo_length: int
+    upper_case: bool = False
+
+    def validate_foo_length(self):
+        if len(self.foo) != self.foo_length:
+            raise ValueError(f"foo must be {self.foo_length} characters long, got {len(self.foo)}")
+
+    def validate_foo_casing(self):
+        if self.upper_case and self.foo.upper() != self.foo:
+            raise ValueError(f"foo must be uppercase, got {self.foo}")
+
+config = Config(foo="bar", foo_length=3) # ok
+
+config.upper_case = True
+config.validate() # Raises StrictDataclassFieldValidationError
+
+Config(foo="abcd", foo_length=3) # Raises StrictDataclassFieldValidationError
+Config(foo="Bar", foo_length=3, upper_case=True) # Raises StrictDataclassFieldValidationError
+
+
+```
 
 ## API Reference
 
