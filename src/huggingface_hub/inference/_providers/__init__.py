@@ -1,5 +1,9 @@
 from typing import Dict, Literal, Optional, Union
 
+from huggingface_hub.inference._providers.featherless_ai import (
+    FeatherlessConversationalTask,
+    FeatherlessTextGenerationTask,
+)
 from huggingface_hub.utils import logging
 
 from ._common import TaskProviderHelper, _fetch_inference_provider_mapping
@@ -42,6 +46,7 @@ PROVIDER_T = Literal[
     "cerebras",
     "cohere",
     "fal-ai",
+    "featherless-ai",
     "fireworks-ai",
     "hf-inference",
     "hyperbolic",
@@ -71,6 +76,10 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-image": FalAITextToImageTask(),
         "text-to-speech": FalAITextToSpeechTask(),
         "text-to-video": FalAITextToVideoTask(),
+    },
+    "featherless-ai": {
+        "conversational": FeatherlessConversationalTask(),
+        "text-generation": FeatherlessTextGenerationTask(),
     },
     "fireworks-ai": {
         "conversational": FireworksAIConversationalTask(),
