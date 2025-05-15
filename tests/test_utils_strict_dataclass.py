@@ -252,15 +252,14 @@ def test_is_validator(obj):
 @pytest.mark.parametrize(
     "obj",
     [
-        positive_int,
-        multiple_of_64,
+        5,  # not callable
         lambda: None,  # no argument
         lambda value1, value2: None,  # more than one argument with default values
         lambda *, value: None,  # keyword-only argument
     ],
 )
 def test_not_a_validator(obj):
-    assert not _is_validator(5)
+    assert not _is_validator(obj)
 
 
 def test_preserve_metadata():
