@@ -17,12 +17,6 @@ Learn how to migrate to the new client in the [Legacy InferenceAPI client](#lega
 
 <Tip>
 
-[`InferenceClient`] can be used to run inference with any OpenAI API-compatible endpoint.
-
-</Tip>
-
-<Tip>
-
 [`InferenceClient`] is a Python client making HTTP calls to our APIs. If you want to make the HTTP calls directly using
 your preferred tool (curl, postman,...), please refer to the [Inference Providers](https://huggingface.co/docs/inference-providers/index) documentation
 or to the [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) documentation pages.
@@ -169,6 +163,12 @@ You can use [`InferenceClient`] to run chat completion with local inference serv
 ... )
 >>> print(response.choices[0].message.content)
 ```
+
+<Tip>
+
+Similarily to the OpenAI Python client, [`InferenceClient`] can be used to run Chat Completion inference with any OpenAI REST API-compatible endpoint.
+
+</Tip>
 
 ### Authentication
 
