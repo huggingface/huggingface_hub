@@ -29,7 +29,7 @@ from huggingface_hub.dataclasses import strict, as_validated_field
 # Custom validator to ensure a value is positive
 @as_validated_field
 def positive_int(value: int):
-    if not value >= 0:
+    if not value > 0:
         raise ValueError(f"Value must be positive, got {value}")
 
 @strict
