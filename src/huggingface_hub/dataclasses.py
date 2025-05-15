@@ -332,12 +332,6 @@ def _validate_union(name: str, value: Any, args: Tuple[Any, ...]) -> None:
     )
 
 
-def _validate_optional(name: str, value: Any, args: Tuple[Any, ...]) -> None:
-    """Validate Optional[T] type."""
-    if value is not None:
-        type_validator(name, value, args[0])
-
-
 def _validate_literal(name: str, value: Any, args: Tuple[Any, ...]) -> None:
     """Validate Literal type."""
     if value not in args:
@@ -457,7 +451,6 @@ def _is_validator(validator: Any) -> bool:
 
 _BASIC_TYPE_VALIDATORS = {
     Union: _validate_union,
-    Optional: _validate_optional,
     Literal: _validate_literal,
     list: _validate_list,
     dict: _validate_dict,
