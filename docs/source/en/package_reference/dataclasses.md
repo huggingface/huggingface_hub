@@ -140,7 +140,7 @@ Supported types include:
 - Tuple
 - Set
 
-And any combination of these types.
+And any combination of these types. If validation for a different type is desired, it can be done through a custom validator.
 
 ### Class validators
 
