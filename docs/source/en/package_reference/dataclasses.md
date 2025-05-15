@@ -39,6 +39,7 @@ class Config:
     hidden_size: int = positive_int(default=16)
     vocab_size: int = 32  # Default value
 
+    # Methods named `validate_xxx` are treated as class-wise validators
     def validate_big_enough_vocab(self):
         if self.vocab_size < self.hidden_size:
             raise ValueError(f"vocab_size ({self.vocab_size}) must be greater than hidden_size ({self.hidden_size})")
