@@ -428,22 +428,6 @@ def _create_type_validator(field: Field) -> Validator_T:
     return validator
 
 
-def _strict_setattr(self: Any, name: str, value: Any) -> None:
-    """Custom __setattr__ method for strict dataclasses.
-
-    Check is lax on new attributes, but strict on existing ones.
-    """
-    # Run all validators
-    for validator in self.__validators__.get(name, []):
-        try:
-            validator(value)
-        except (ValueError, TypeError) as e:
-            raise StrictDataclassFieldValidationError(field=name, cause=e) from e
-
-    # If validation passed, set the attribute
-    super(self.__class__, self).__setattr__(name, value)
-
-
 def _is_validator(validator: Any) -> bool:
     """Check if a function is a validator.
 
