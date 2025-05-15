@@ -26,7 +26,6 @@ If you are interested in game development, you might have a look at our [C# proj
 
 </Tip>
 
-
 ## Getting started
 
 Let's get started with a text-to-image task:
