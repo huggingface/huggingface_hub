@@ -7,9 +7,9 @@ rendered properly in your Markdown viewer.
 Inference is the process of using a trained model to make predictions on new data. Because this process can be compute-intensive, running on a dedicated or external service can be an interesting option.
 The `huggingface_hub` library provides a unified interface to run inference across multiple services for models hosted on the Hugging Face Hub:
 
-1.  [HF Inference API](https://huggingface.co/docs/api-inference/index): a serverless solution that allows you to run model inference on Hugging Face's infrastructure for free. This service is a fast way to get started, test different models, and prototype AI products.
-2.  [Third-party providers](#supported-providers-and-tasks): various serverless solution provided by external providers (Together, Sambanova, etc.). These providers offer production-ready APIs on a pay-as-you-go model. This is the fastest way to integrate AI in your products with a maintenance-free and scalable solution. Refer to the [Supported providers and tasks](#supported-providers-and-tasks) section for a list of supported providers.
-3.  [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index): a product to easily deploy models to production. Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
+1.  [Inference Providers](https://huggingface.co/docs/inference-providers/index): various serverless solution provided by inference partners (Together, Sambanova, HF Inference API, etc.). These providers offer production-ready APIs on a pay-as-you-go model. This is the fastest way to integrate AI in your products with a maintenance-free and scalable solution. Refer to the [documentation](https://huggingface.co/docs/inference-providers/index#partners) for a list of supported providers.
+2.  [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index): a product to easily deploy models to production. Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
+3.  Local endpoints: you can also run inference with local inference servers like [llama.cpp](https://github.com/ggerganov/llama.cpp), [Ollama](https://ollama.com/), [vLLM](https://github.com/vllm-project/vllm), [LiteLLM](https://docs.litellm.ai/docs/simple_proxy), or [Text Generation Inference (TGI)](https://github.com/huggingface/text-generation-inference) by connecting the client to these local endpoints.
 
 These services can all be called from the [`InferenceClient`] object. It acts as a replacement for the legacy
 [`InferenceApi`] client, adding specific support for tasks and third-party providers.
@@ -17,14 +17,21 @@ Learn how to migrate to the new client in the [Legacy InferenceAPI client](#lega
 
 <Tip>
 
+[`InferenceClient`] can be used to run inference with any OpenAI API-compatible endpoint.
+
+</Tip>
+
+<Tip>
+
 [`InferenceClient`] is a Python client making HTTP calls to our APIs. If you want to make the HTTP calls directly using
-your preferred tool (curl, postman,...), please refer to the [Inference API](https://huggingface.co/docs/api-inference/index)
+your preferred tool (curl, postman,...), please refer to the [Inference Providers](https://huggingface.co/docs/inference-providers/index)ence
 or to the [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) documentation pages.
 
 For web development, a [JS client](https://huggingface.co/docs/huggingface.js/inference/README) has been released.
 If you are interested in game development, you might have a look at our [C# project](https://github.com/huggingface/unity-api).
 
 </Tip>
+
 
 ## Getting started
 
@@ -128,9 +135,9 @@ For third-party providers, you must always specify a model that is compatible wi
 Visit the [Models](https://huggingface.co/models?inference=warm) page on the Hub to explore models available through Inference Providers.
 </Tip>
 
-### Using a specific URL
+### Using Inference Endpoints
 
-The examples we saw above use either the Hugging Face Inference API or third-party providers. While these prove to be very useful for prototyping
+The examples we saw above use inference providers. While these prove to be very useful for prototyping
 and testing things quickly. Once you're ready to deploy your model to production, you'll need to use a dedicated infrastructure.
 That's where [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) comes into play. It allows you to deploy
 any model and expose it as a private API. Once deployed, you'll get a URL that you can connect to using exactly the same
@@ -145,6 +152,23 @@ code as before, changing only the `model` parameter:
 ```
 
 Note that you cannot specify both a URL and a provider - they are mutually exclusive. URLs are used to connect directly to deployed endpoints.
+
+### Using local endpoints
+
+You can use [`InferenceClient`] to run chat completion with local inference servers (llama.cpp, vllm, litellm server, TGI, mlx, etc.) running on your own machine. The API should be OpenAI API-compatible.
+
+```python
+>>> from huggingface_hub import InferenceClient
+>>> client = InferenceClient(model="http://localhost:8080")
+
+>>> response = client.chat.completions.create(
+...     messages=[
+...         {"role": "user", "content": "What is the capital of France?"}
+...     ],
+...     max_tokens=100
+... )
+>>> print(response.choices[0].message.content)
+```
 
 ### Authentication
 
@@ -275,7 +299,7 @@ asyncio.run(main())
 ```
 
 You might wonder why using [`InferenceClient`] instead of OpenAI's client? There are a few reasons for that:
-1. [`InferenceClient`] is configured for Hugging Face services. You don't need to provide a `base_url` to run models on the serverless Inference API. You also don't need to provide a `token` or `api_key` if your machine is already correctly logged in.
+1. [`InferenceClient`] is configured for Hugging Face services. You don't need to provide a `base_url` to run models with Inference Providers. You also don't need to provide a `token` or `api_key` if your machine is already correctly logged in.
 2. [`InferenceClient`] is tailored for both Text-Generation-Inference (TGI) and `transformers` frameworks, meaning you are assured it will always be on-par with the latest updates.
 3. [`InferenceClient`] is integrated with our Inference Endpoints service, making it easier to launch an Inference Endpoint, check its status and run inference on it. Check out the [Inference Endpoints](./inference_endpoints.md) guide for more details.
 
@@ -358,7 +382,7 @@ tries to be as permissive as possible and accept different types:
 - a file-like object, opened as binary (`with open("audio.flac", "rb") as f: ...`)
 - a path (`str` or `Path`) pointing to a local file
 - a URL (`str`) pointing to a remote file (e.g. `https://...`). In this case, the file will be downloaded locally before
-sending it to the Inference API.
+sending it to the API.
 
 ```py
 >>> from huggingface_hub import InferenceClient
