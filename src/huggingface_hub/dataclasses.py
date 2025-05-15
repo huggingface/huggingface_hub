@@ -197,7 +197,7 @@ def strict(
 
         cls.__class_validators__ = class_validators  # type: ignore [attr-defined]
 
-        # Add `validate` method to the class
+        # Add `validate` method to the class, but first check if it already exists
         def validate(self: T) -> None:
             """Run class validators on the instance."""
             for validator in cls.__class_validators__:  # type: ignore [attr-defined]
@@ -205,6 +205,18 @@ def strict(
                     validator(self)
                 except (ValueError, TypeError) as e:
                     raise StrictDataclassClassValidationError(validator=validator.__name__, cause=e) from e
+
+        # Hack to be able to raise if `.validate()` already exists except if it was created by this decorator on a parent class
+        # (in which case we just override it)
+        validate.__is_defined_by_strict_decorator__ = True  # type: ignore [attr-defined]
+
+        if hasattr(cls, "validate"):
+            if not getattr(cls.validate, "__is_defined_by_strict_decorator__", False):  # type: ignore [attr-defined]
+                raise StrictDataclassDefinitionError(
+                    f"Class '{cls.__name__}' already implements a method called 'validate'."
+                    " This method name is reserved when using the @strict decorator on a dataclass."
+                    " If you want to keep your own method, please rename it."
+                )
 
         cls.validate = validate  # type: ignore
 

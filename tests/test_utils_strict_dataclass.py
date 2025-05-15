@@ -572,3 +572,33 @@ class TestClassValidationWithInheritance:
 
         with pytest.raises(StrictDataclassClassValidationError):
             self.Config(foo=-1, bar=0)  # validation from parent class
+
+
+class TestClassValidateAlreadyExists:
+    """Regression test.
+
+    If a class already has a validate method, it should raise a StrictDataclassDefinitionError.
+    """
+
+    def test_validate_already_defined_by_class(self):
+        with pytest.raises(StrictDataclassDefinitionError):
+
+            @strict
+            @dataclass
+            class Config:
+                foo: int = 0
+
+                def validate(self):
+                    pass  # already defined => should raise an error
+
+    def test_validate_already_defined_by_parent(self):
+        with pytest.raises(StrictDataclassDefinitionError):
+
+            class ParentClass:
+                def validate(self):
+                    pass
+
+            @strict
+            @dataclass
+            class ConfigWithParent(ParentClass):  # 'validate' already defined => should raise an error
+                foo: int = 0
