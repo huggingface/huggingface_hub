@@ -381,7 +381,7 @@ tries to be as permissive as possible and accept different types:
 - a file-like object, opened as binary (`with open("audio.flac", "rb") as f: ...`)
 - a path (`str` or `Path`) pointing to a local file
 - a URL (`str`) pointing to a remote file (e.g. `https://...`). In this case, the file will be downloaded locally before
-sending it to the API.
+being sent to the API.
 
 ```py
 >>> from huggingface_hub import InferenceClient
