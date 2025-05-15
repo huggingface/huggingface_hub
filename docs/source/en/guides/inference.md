@@ -24,7 +24,7 @@ Learn how to migrate to the new client in the [Legacy InferenceAPI client](#lega
 <Tip>
 
 [`InferenceClient`] is a Python client making HTTP calls to our APIs. If you want to make the HTTP calls directly using
-your preferred tool (curl, postman,...), please refer to the [Inference Providers](https://huggingface.co/docs/inference-providers/index)ence
+your preferred tool (curl, postman,...), please refer to the [Inference Providers](https://huggingface.co/docs/inference-providers/index) documentation
 or to the [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) documentation pages.
 
 For web development, a [JS client](https://huggingface.co/docs/huggingface.js/inference/README) has been released.
