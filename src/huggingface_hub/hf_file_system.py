@@ -1059,7 +1059,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
 
     def read(self, length: int = -1):
         read_args = (length,) if length >= 0 else ()
-        if self.response is None or self.response.raw.isclosed():
+        if self.response is None:
             url = hf_hub_url(
                 repo_id=self.resolved_path.repo_id,
                 revision=self.resolved_path.revision,
