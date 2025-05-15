@@ -170,7 +170,7 @@ class Config:
 config = Config(foo="bar", foo_length=3) # ok
 
 config.upper_case = True
-config.validate() # Raises StrictDataclassFieldValidationError
+config.validate() # Raises StrictDataclassClassValidationError
 
 Config(foo="abcd", foo_length=3) # Raises StrictDataclassFieldValidationError
 Config(foo="Bar", foo_length=3, upper_case=True) # Raises StrictDataclassFieldValidationError
