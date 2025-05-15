@@ -14,7 +14,6 @@ def get_version() -> str:
 install_requires = [
     "filelock",
     "fsspec>=2023.5.0",
-    "hf-xet>=1.0.2,<2.0.0; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='arm64' or platform_machine=='aarch64'",
     "packaging>=20.9",
     "pyyaml>=5.1",
     "requests",
@@ -30,6 +29,13 @@ extras["cli"] = [
 
 extras["inference"] = [
     "aiohttp",  # for AsyncInferenceClient
+]
+
+extras["oauth"] = [
+    "authlib>=1.3.2",  # minimum version to include https://github.com/lepture/authlib/pull/644
+    "fastapi",
+    "httpx",  # required for authlib but not included in its dependencies
+    "itsdangerous",  # required for starlette SessionMiddleware
 ]
 
 extras["torch"] = [
@@ -56,11 +62,12 @@ extras["tensorflow-testing"] = [
     "keras<3.0",
 ]
 
-extras["hf_xet"] = ["hf_xet>=1.0.2,<2.0.0"]
+extras["hf_xet"] = ["hf-xet>=1.1.1,<2.0.0"]
 
 extras["testing"] = (
     extras["cli"]
     + extras["inference"]
+    + extras["oauth"]
     + [
         "jedi",
         "Jinja2",

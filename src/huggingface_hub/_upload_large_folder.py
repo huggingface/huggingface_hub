@@ -209,7 +209,7 @@ class LargeUploadStatus:
     def update_chunk(self, success: bool, nb_items: int, duration: float) -> None:
         with self._chunk_lock:
             if not success:
-                logger.warn(f"Failed to commit {nb_items} files at once. Will retry with less files in next batch.")
+                logger.warning(f"Failed to commit {nb_items} files at once. Will retry with less files in next batch.")
                 self._chunk_idx -= 1
             elif nb_items >= COMMIT_SIZE_SCALE[self._chunk_idx] and duration < 40:
                 logger.info(f"Successfully committed {nb_items} at once. Increasing the limit for next batch.")
@@ -522,6 +522,7 @@ def _get_upload_mode(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_t
         repo_id=repo_id,
         headers=api._build_hf_headers(),
         revision=quote(revision, safe=""),
+        endpoint=api.endpoint,
     )
     for item, addition in zip(items, additions):
         paths, metadata = item

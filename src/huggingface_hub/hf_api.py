@@ -4475,18 +4475,17 @@ class HfApi:
             expand="xetEnabled",
             token=token,
         ).xet_enabled
-        has_binary_data = any(
-            isinstance(addition.path_or_fileobj, (bytes, io.BufferedIOBase))
-            for addition in new_lfs_additions_to_upload
+        has_buffered_io_data = any(
+            isinstance(addition.path_or_fileobj, io.BufferedIOBase) for addition in new_lfs_additions_to_upload
         )
-        if xet_enabled and not has_binary_data and is_xet_available():
+        if xet_enabled and not has_buffered_io_data and is_xet_available():
             logger.info("Uploading files using Xet Storage..")
             _upload_xet_files(**upload_kwargs, create_pr=create_pr)  # type: ignore [arg-type]
         else:
             if xet_enabled and is_xet_available():
-                if has_binary_data:
+                if has_buffered_io_data:
                     logger.warning(
-                        "Uploading files as bytes or binary IO objects is not supported by Xet Storage. "
+                        "Uploading files as a binary IO buffer is not supported by Xet Storage. "
                         "Falling back to HTTP upload."
                     )
             _upload_lfs_files(**upload_kwargs, num_threads=num_threads)  # type: ignore [arg-type]
@@ -7567,12 +7566,13 @@ class HfApi:
         region: str,
         vendor: str,
         account_id: Optional[str] = None,
-        min_replica: int = 0,
+        min_replica: int = 1,
         max_replica: int = 1,
-        scale_to_zero_timeout: int = 15,
+        scale_to_zero_timeout: Optional[int] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
+        env: Optional[Dict[str, str]] = None,
         secrets: Optional[Dict[str, str]] = None,
         type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
         domain: Optional[str] = None,
@@ -7604,11 +7604,13 @@ class HfApi:
             account_id (`str`, *optional*):
                 The account ID used to link a VPC to a private Inference Endpoint (if applicable).
             min_replica (`int`, *optional*):
-                The minimum number of replicas (instances) to keep running for the Inference Endpoint. Defaults to 0.
+                The minimum number of replicas (instances) to keep running for the Inference Endpoint. To enable
+                scaling to zero, set this value to 0 and adjust `scale_to_zero_timeout` accordingly. Defaults to 1.
             max_replica (`int`, *optional*):
                 The maximum number of replicas (instances) to scale to for the Inference Endpoint. Defaults to 1.
             scale_to_zero_timeout (`int`, *optional*):
-                The duration in minutes before an inactive endpoint is scaled to zero. Defaults to 15.
+                The duration in minutes before an inactive endpoint is scaled to zero, or no scaling to zero if
+                set to None and `min_replica` is not 0. Defaults to None.
             revision (`str`, *optional*):
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
@@ -7616,6 +7618,8 @@ class HfApi:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+            env (`Dict[str, str]`, *optional*):
+                Non-secret environment variables to inject in the container environment.
             secrets (`Dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
             type ([`InferenceEndpointType]`, *optional*):
@@ -7678,21 +7682,45 @@ class HfApi:
             ...     type="protected",
             ...     instance_size="x1",
             ...     instance_type="nvidia-a10g",
+            ...     env={
+            ...           "MAX_BATCH_PREFILL_TOKENS": "2048",
+            ...           "MAX_INPUT_LENGTH": "1024",
+            ...           "MAX_TOTAL_TOKENS": "1512",
+            ...           "MODEL_ID": "/repository"
+            ...         },
             ...     custom_image={
             ...         "health_route": "/health",
-            ...         "env": {
-            ...             "MAX_BATCH_PREFILL_TOKENS": "2048",
-            ...             "MAX_INPUT_LENGTH": "1024",
-            ...             "MAX_TOTAL_TOKENS": "1512",
-            ...             "MODEL_ID": "/repository"
-            ...         },
             ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
             ...     },
             ...    secrets={"MY_SECRET_KEY": "secret_value"},
             ...    tags=["dev", "text-generation"],
             ... )
-
             ```
+
+            ```python
+            # Start an Inference Endpoint running ProsusAI/finbert while scaling to zero in 15 minutes
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> endpoint = api.create_inference_endpoint(
+            ...     "finbert-classifier",
+            ...     repository="ProsusAI/finbert",
+            ...     framework="pytorch",
+            ...     task="text-classification",
+            ...     min_replica=0,
+            ...     scale_to_zero_timeout=15,
+            ...     accelerator="cpu",
+            ...     vendor="aws",
+            ...     region="us-east-1",
+            ...     type="protected",
+            ...     instance_size="x2",
+            ...     instance_type="intel-icl",
+            ... )
+            >>> endpoint.wait(timeout=300)
+            # Run inference on the endpoint
+            >>> endpoint.client.text_generation(...)
+            TextClassificationOutputElement(label='positive', score=0.8983615040779114)
+            ```
+
         """
         namespace = namespace or self._get_namespace(token=token)
 
@@ -7723,6 +7751,8 @@ class HfApi:
             },
             "type": type,
         }
+        if env:
+            payload["model"]["env"] = env
         if secrets:
             payload["model"]["secrets"] = secrets
         if domain is not None or path is not None:
@@ -7897,6 +7927,7 @@ class HfApi:
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
+        env: Optional[Dict[str, str]] = None,
         secrets: Optional[Dict[str, str]] = None,
         # Route update
         domain: Optional[str] = None,
@@ -7942,6 +7973,8 @@ class HfApi:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+            env (`Dict[str, str]`, *optional*):
+                Non-secret environment variables to inject in the container environment
             secrets (`Dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
 
@@ -7992,6 +8025,8 @@ class HfApi:
             payload["model"]["task"] = task
         if custom_image is not None:
             payload["model"]["image"] = {"custom": custom_image}
+        if env is not None:
+            payload["model"]["env"] = env
         if secrets is not None:
             payload["model"]["secrets"] = secrets
         if domain is not None:
