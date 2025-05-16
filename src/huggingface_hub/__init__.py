@@ -301,7 +301,6 @@ _SUBMOD_ATTRS = {
         "ChatCompletionInputFunctionDefinition",
         "ChatCompletionInputFunctionName",
         "ChatCompletionInputGrammarType",
-        "ChatCompletionInputGrammarTypeType",
         "ChatCompletionInputMessage",
         "ChatCompletionInputMessageChunk",
         "ChatCompletionInputMessageChunkType",
@@ -357,6 +356,7 @@ _SUBMOD_ATTRS = {
         "ImageToTextInput",
         "ImageToTextOutput",
         "ImageToTextParameters",
+        "JSONSchema",
         "ObjectDetectionBoundingBox",
         "ObjectDetectionInput",
         "ObjectDetectionOutputElement",
@@ -366,6 +366,9 @@ _SUBMOD_ATTRS = {
         "QuestionAnsweringInputData",
         "QuestionAnsweringOutputElement",
         "QuestionAnsweringParameters",
+        "ResponseFormatJSONObject",
+        "ResponseFormatJSONSchema",
+        "ResponseFormatText",
         "SentenceSimilarityInput",
         "SentenceSimilarityInputData",
         "SummarizationInput",
@@ -542,7 +545,6 @@ __all__ = [
     "ChatCompletionInputFunctionDefinition",
     "ChatCompletionInputFunctionName",
     "ChatCompletionInputGrammarType",
-    "ChatCompletionInputGrammarTypeType",
     "ChatCompletionInputMessage",
     "ChatCompletionInputMessageChunk",
     "ChatCompletionInputMessageChunkType",
@@ -643,6 +645,7 @@ __all__ = [
     "InferenceEndpointTimeoutError",
     "InferenceEndpointType",
     "InferenceTimeoutError",
+    "JSONSchema",
     "KerasModelHubMixin",
     "ModelCard",
     "ModelCardData",
@@ -668,6 +671,9 @@ __all__ = [
     "RepoCard",
     "RepoUrl",
     "Repository",
+    "ResponseFormatJSONObject",
+    "ResponseFormatJSONSchema",
+    "ResponseFormatText",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
     "SpaceCard",
@@ -1263,7 +1269,6 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionInputFunctionDefinition,  # noqa: F401
         ChatCompletionInputFunctionName,  # noqa: F401
         ChatCompletionInputGrammarType,  # noqa: F401
-        ChatCompletionInputGrammarTypeType,  # noqa: F401
         ChatCompletionInputMessage,  # noqa: F401
         ChatCompletionInputMessageChunk,  # noqa: F401
         ChatCompletionInputMessageChunkType,  # noqa: F401
@@ -1319,6 +1324,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageToTextInput,  # noqa: F401
         ImageToTextOutput,  # noqa: F401
         ImageToTextParameters,  # noqa: F401
+        JSONSchema,  # noqa: F401
         ObjectDetectionBoundingBox,  # noqa: F401
         ObjectDetectionInput,  # noqa: F401
         ObjectDetectionOutputElement,  # noqa: F401
@@ -1328,6 +1334,9 @@ if TYPE_CHECKING:  # pragma: no cover
         QuestionAnsweringInputData,  # noqa: F401
         QuestionAnsweringOutputElement,  # noqa: F401
         QuestionAnsweringParameters,  # noqa: F401
+        ResponseFormatJSONObject,  # noqa: F401
+        ResponseFormatJSONSchema,  # noqa: F401
+        ResponseFormatText,  # noqa: F401
         SentenceSimilarityInput,  # noqa: F401
         SentenceSimilarityInputData,  # noqa: F401
         SummarizationInput,  # noqa: F401

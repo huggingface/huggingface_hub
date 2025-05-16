@@ -56,8 +56,6 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.ChatCompletionInputFunctionName
 
-[[autodoc]] huggingface_hub.ChatCompletionInputGrammarType
-
 [[autodoc]] huggingface_hub.ChatCompletionInputMessage
 
 [[autodoc]] huggingface_hub.ChatCompletionInputMessageChunk
@@ -107,6 +105,14 @@ rendered properly in your Markdown viewer.
 [[autodoc]] huggingface_hub.ChatCompletionStreamOutputTopLogprob
 
 [[autodoc]] huggingface_hub.ChatCompletionStreamOutputUsage
+
+[[autodoc]] huggingface_hub.JSONSchema
+
+[[autodoc]] huggingface_hub.ResponseFormatJSONObject
+
+[[autodoc]] huggingface_hub.ResponseFormatJSONSchema
+
+[[autodoc]] huggingface_hub.ResponseFormatText
 
 
 
