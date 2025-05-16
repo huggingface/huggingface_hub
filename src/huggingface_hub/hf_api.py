@@ -7698,7 +7698,15 @@ class HfApi:
         """
         namespace = namespace or self._get_namespace(token=token)
 
-        image = {"custom": custom_image} if custom_image is not None else {"huggingface": {}}
+        if custom_image is not None:
+            image = (
+                custom_image
+                if next(iter(custom_image)) in constants.INFERENCE_ENDPOINT_IMAGE_KEYS
+                else {"custom": custom_image}
+            )
+        else:
+            image = {"huggingface": {}}
+
         payload: Dict = {
             "accountId": account_id,
             "compute": {
