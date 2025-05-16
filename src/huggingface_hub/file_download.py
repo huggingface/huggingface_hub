@@ -1135,16 +1135,17 @@ def _hf_hub_download_to_cache_dir(
     lock_path = os.path.join(locks_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type), f"{etag}.lock")
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
 
-    # If file already exists, return it (except if force_download=True)
-    with WeakFileLock(lock_path):
-        if not force_download:
-            if os.path.exists(pointer_path):
-                return pointer_path
+ 
+    # pointer already exists -> immediate return
+    if not force_download and os.path.exists(pointer_path):
+        return pointer_path
 
-            if os.path.exists(blob_path):
-                # we have the blob already, but not the pointer
+    # Blob exists but pointer must be (safely) created -> take the lock
+    if not force_download and os.path.exists(blob_path):
+        with WeakFileLock(lock_path):
+            if not os.path.exists(pointer_path):
                 _create_symlink(blob_path, pointer_path, new_blob=False)
-                return pointer_path
+            return pointer_path
 
     # Some Windows versions do not allow for paths longer than 255 characters.
     # In this case, we must specify it as an extended path by using the "\\?\" prefix.
