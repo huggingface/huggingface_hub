@@ -1133,6 +1133,15 @@ def _hf_hub_download_to_cache_dir(
     # Prevent parallel downloads of the same file with a lock.
     # etag could be duplicated across repos,
     lock_path = os.path.join(locks_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type), f"{etag}.lock")
+
+    # Some Windows versions do not allow for paths longer than 255 characters.
+    # In this case, we must specify it as an extended path by using the "\\?\" prefix.
+    if os.name == "nt" and len(os.path.abspath(lock_path)) > 255:
+        lock_path = "\\\\?\\" + os.path.abspath(lock_path)
+
+    if os.name == "nt" and len(os.path.abspath(blob_path)) > 255:
+        blob_path = "\\\\?\\" + os.path.abspath(blob_path)
+
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
 
  
@@ -1146,14 +1155,6 @@ def _hf_hub_download_to_cache_dir(
             if not os.path.exists(pointer_path):
                 _create_symlink(blob_path, pointer_path, new_blob=False)
             return pointer_path
-
-    # Some Windows versions do not allow for paths longer than 255 characters.
-    # In this case, we must specify it as an extended path by using the "\\?\" prefix.
-    if os.name == "nt" and len(os.path.abspath(lock_path)) > 255:
-        lock_path = "\\\\?\\" + os.path.abspath(lock_path)
-
-    if os.name == "nt" and len(os.path.abspath(blob_path)) > 255:
-        blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
