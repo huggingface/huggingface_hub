@@ -44,8 +44,12 @@ def greet_json(request: Request):
 ```
 
 <Tip>
-You might also be interested in [a practical example that demonstrates OAuth in action](https://huggingface.co/spaces/medoidai/GiveBackGPT/blob/main/src/main.py)
+  You might also be interested in
+  <a href="https://huggingface.co/spaces/medoidai/GiveBackGPT/blob/main/src/main.py" target="_blank" rel="noopener noreferrer">
+    a practical example that demonstrates OAuth in action
+  </a>.
 </Tip>
+
 
 ### attach_huggingface_oauth
 
