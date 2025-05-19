@@ -1009,7 +1009,9 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         """
         if self.mode == "rb" and (length is None or length == -1) and self.loc == 0:
             with self.fs.open(self.path, "rb", block_size=0) as f:  # block_size=0 enables fast streaming
-                return f.read()
+                out = f.read()
+                self.loc += len(out)
+                return out
         return super().read(length)
 
     def url(self) -> str:
@@ -1057,7 +1059,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
 
     def read(self, length: int = -1):
         read_args = (length,) if length >= 0 else ()
-        if self.response is None or self.response.raw.isclosed():
+        if self.response is None:
             url = hf_hub_url(
                 repo_id=self.resolved_path.repo_id,
                 revision=self.resolved_path.revision,

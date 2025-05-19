@@ -4501,3 +4501,138 @@ class HfApiInferenceCatalogTest(HfApiCommonTest):
         )
         assert isinstance(endpoint, InferenceEndpoint)
         assert endpoint.name == "llama-3-2-3b-instruct-eey"
+
+
+@pytest.mark.parametrize(
+    "custom_image, expected_image_payload",
+    [
+        # Case 1: No custom_image provided
+        (
+            None,
+            {
+                "huggingface": {},
+            },
+        ),
+        # Case 2: Flat dictionary custom_image provided
+        (
+            {
+                "url": "my.registry/my-image:latest",
+                "port": 8080,
+            },
+            {
+                "custom": {
+                    "url": "my.registry/my-image:latest",
+                    "port": 8080,
+                }
+            },
+        ),
+        # Case 3: Explicitly keyed ('tgi') custom_image provided
+        (
+            {
+                "tgi": {
+                    "url": "ghcr.io/huggingface/text-generation-inference:latest",
+                }
+            },
+            {
+                "tgi": {
+                    "url": "ghcr.io/huggingface/text-generation-inference:latest",
+                }
+            },
+        ),
+        # Case 4: Explicitly keyed ('custom') custom_image provided
+        (
+            {
+                "custom": {
+                    "url": "another.registry/custom:v2",
+                }
+            },
+            {
+                "custom": {
+                    "url": "another.registry/custom:v2",
+                }
+            },
+        ),
+    ],
+    ids=["no_custom_image", "flat_dict_custom_image", "keyed_tgi_custom_image", "keyed_custom_custom_image"],
+)
+@patch("huggingface_hub.hf_api.get_session")
+def test_create_inference_endpoint_custom_image_payload(
+    mock_post: Mock,
+    custom_image: Optional[dict],
+    expected_image_payload: dict,
+):
+    common_args = {
+        "name": "test-endpoint-custom-img",
+        "repository": "meta-llama/Llama-2-7b-chat-hf",
+        "framework": "pytorch",
+        "accelerator": "gpu",
+        "instance_size": "medium",
+        "instance_type": "nvidia-a10g",
+        "region": "us-east-1",
+        "vendor": "aws",
+        "type": "protected",
+        "task": "text-generation",
+        "namespace": "Wauplin",
+    }
+    mock_session = mock_post.return_value
+    mock_post_method = mock_session.post
+    mock_response = Mock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "compute": {
+            "accelerator": "gpu",
+            "id": "aws-us-east-1-nvidia-l4-x1",
+            "instanceSize": "x1",
+            "instanceType": "nvidia-l4",
+            "scaling": {
+                "maxReplica": 1,
+                "measure": {"hardwareUsage": None},
+                "metric": "hardwareUsage",
+                "minReplica": 0,
+                "scaleToZeroTimeout": 15,
+            },
+        },
+        "model": {
+            "env": {},
+            "framework": "pytorch",
+            "image": {
+                "tgi": {
+                    "disableCustomKernels": False,
+                    "healthRoute": "/health",
+                    "port": 80,
+                    "url": "ghcr.io/huggingface/text-generation-inference:3.1.1",
+                }
+            },
+            "repository": "meta-llama/Llama-3.2-3B-Instruct",
+            "revision": "0cb88a4f764b7a12671c53f0838cd831a0843b95",
+            "secrets": {},
+            "task": "text-generation",
+        },
+        "name": "llama-3-2-3b-instruct-eey",
+        "provider": {"region": "us-east-1", "vendor": "aws"},
+        "status": {
+            "createdAt": "2025-03-07T15:30:13.949Z",
+            "createdBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
+            "message": "Endpoint waiting to be scheduled",
+            "readyReplica": 0,
+            "state": "pending",
+            "targetReplica": 1,
+            "updatedAt": "2025-03-07T15:30:13.949Z",
+            "updatedBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
+        },
+        "type": "protected",
+    }
+    mock_post_method.return_value = mock_response
+
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    if custom_image is not None:
+        api.create_inference_endpoint(custom_image=custom_image, **common_args)
+    else:
+        api.create_inference_endpoint(**common_args)
+
+    mock_post_method.assert_called_once()
+    _, call_kwargs = mock_post_method.call_args
+    payload = call_kwargs.get("json", {})
+
+    assert "model" in payload and "image" in payload["model"]
+    assert payload["model"]["image"] == expected_image_payload
