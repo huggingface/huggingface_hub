@@ -1144,7 +1144,6 @@ def _hf_hub_download_to_cache_dir(
 
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
 
- 
     # pointer already exists -> immediate return
     if not force_download and os.path.exists(pointer_path):
         return pointer_path
