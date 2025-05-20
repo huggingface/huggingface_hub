@@ -19,7 +19,7 @@ class StdioServerConfig(TypedDict):
     config: "StdioServerParameters"
 
 
-# TODO: Add SSE andHTTP server config
+# TODO: Add SSE and HTTP server config
 # ServerConfigTypes = [StdioServerConfig, SSEServerConfig, HTTPServerConfig]
 
 
