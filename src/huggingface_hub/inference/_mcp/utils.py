@@ -9,13 +9,14 @@ from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from mcp import types as mcp_types
+    from mcp.client.stdio import StdioServerParameters
 
-from typing import Any, Dict, Literal, TypedDict
+from typing import Literal, TypedDict
 
 
 class StdioServerConfig(TypedDict):
     type: Literal["stdio"]
-    config: Dict[str, Any]
+    config: "StdioServerParameters"
 
 
 # TODO: Add SSE andHTTP server config
