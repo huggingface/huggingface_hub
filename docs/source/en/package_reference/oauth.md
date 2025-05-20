@@ -45,7 +45,7 @@ def greet_json(request: Request):
 
 <Tip>
   You might also be interested in
-  <a href="https://huggingface.co/spaces/medoidai/GiveBackGPT/blob/main/src/main.py" target="_blank" rel="noopener noreferrer">
+  <a href="https://huggingface.co/spaces/Wauplin/fastapi-oauth/blob/main/app.py" target="_blank" rel="noopener noreferrer">
     a practical example that demonstrates OAuth in action
   </a>.
 </Tip>
