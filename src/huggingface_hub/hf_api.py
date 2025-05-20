@@ -3623,7 +3623,7 @@ class HfApi:
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
             resource_group_id (`str`, *optional*):
-                Resource group in which to create the repo. Resource groups is only available for organizations and
+                Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations and
                 allow to define which members of the organization can access the resource. The ID of a resource group
                 can be found in the URL of the resource's page on the Hub (e.g. `"66670e5163145ca562cb1988"`).
                 To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
