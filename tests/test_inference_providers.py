@@ -3,10 +3,6 @@ import logging
 from typing import Dict
 from unittest.mock import patch
 
-from huggingface_hub.inference._providers.featherless_ai import (
-    FeatherlessConversationalTask,
-    FeatherlessTextGenerationTask,
-)
 import pytest
 from pytest import LogCaptureFixture
 
@@ -27,6 +23,10 @@ from huggingface_hub.inference._providers.fal_ai import (
     FalAITextToImageTask,
     FalAITextToSpeechTask,
     FalAITextToVideoTask,
+)
+from huggingface_hub.inference._providers.featherless_ai import (
+    FeatherlessConversationalTask,
+    FeatherlessTextGenerationTask,
 )
 from huggingface_hub.inference._providers.fireworks_ai import FireworksAIConversationalTask
 from huggingface_hub.inference._providers.hf_inference import (
