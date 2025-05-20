@@ -1,0 +1,16 @@
+{
+	"model": "Qwen/Qwen2.5-72B-Instruct",
+	"provider": "nebius",
+	"servers": [
+		{
+			"type": "stdio",
+			"config": {
+				"command": "npx",
+				"args": [
+					"-y",
+					"@playwright/mcp@latest"
+				]
+			}
+		}
+	]
+}

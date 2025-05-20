@@ -1,12 +1,11 @@
 import json
 import logging
+import os
 from contextlib import AsyncExitStack
-from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterable, Dict, List, Optional, Union
 
 from typing_extensions import TypeAlias
 
-from ...utils._runtime import get_hf_hub_version
 from .._generated._async_client import AsyncInferenceClient
 from .._generated.types import (
     ChatCompletionInputMessage,
@@ -15,7 +14,7 @@ from .._generated.types import (
     ChatCompletionStreamOutputDeltaToolCall,
 )
 from .._providers import PROVIDER_OR_POLICY_T
-from .utils import format_result
+from .utils import ServerConfigTypes, format_result
 
 
 if TYPE_CHECKING:
@@ -66,64 +65,65 @@ class MCPClient:
 
     async def add_mcp_server(
         self,
-        *,
-        command: str,
-        args: Optional[List[str]] = None,
-        env: Optional[Dict[str, str]] = None,
-        cwd: Union[str, Path, None] = None,
+        server: Union[ServerConfigTypes, Dict],
     ):
-        """Connect to an MCP server
-
-        Args:
-            command (str):
-                The command to run the MCP server.
-            args (List[str], optional):
-                Arguments for the command.
-            env (Dict[str, str], optional):
-                Environment variables for the command. Default is to inherit the parent environment.
-            cwd (Union[str, Path, None], optional):
-                Working directory for the command. Default to current directory.
-        """
-        from mcp import ClientSession, StdioServerParameters
+        """Connect to an MCP server"""
+        from mcp import ClientSession
         from mcp import types as mcp_types
-        from mcp.client.stdio import stdio_client
+        from mcp.client.sse import sse_client
+        from mcp.client.stdio import StdioServerParameters, stdio_client
+        from yarl import URL
 
-        logger.info(f"Connecting to MCP server with command: {command} {args}")
-        server_params = StdioServerParameters(
-            command=command,
-            args=args if args is not None else [],
-            env=env,
-            cwd=cwd,
-        )
+        def _merge_env(env: Optional[Dict[str, str]]) -> Dict[str, str]:
+            merged = dict(env or {})
+            merged.setdefault("PATH", os.getenv("PATH", ""))
+            return merged
 
-        read, write = await self.exit_stack.enter_async_context(stdio_client(server_params))
+        if "type" not in server:
+            params = StdioServerParameters(
+                command=server["command"],
+                args=server.get("args", []),
+                env=_merge_env(server.get("env")),
+                cwd=server.get("cwd"),
+            )
+            read, write = await self.exit_stack.enter_async_context(stdio_client(params))
+        else:
+            cfg = server["config"]
+            if server["type"] == "stdio":
+                params = StdioServerParameters(
+                    command=cfg["command"],
+                    args=cfg.get("args", []),
+                    env=_merge_env(cfg.get("env")),
+                    cwd=cfg.get("cwd"),
+                )
+                read, write = await self.exit_stack.enter_async_context(stdio_client(params))
+            elif server["type"] == "sse":
+                url = URL(cfg["url"])
+                read, write = await self.exit_stack.enter_async_context(sse_client(url, cfg.get("options")))
+            else:
+                raise ValueError(f"Unsupported server type: {server['type']}")
+
+        # Connect MCP session
         session = await self.exit_stack.enter_async_context(
             ClientSession(
                 read_stream=read,
                 write_stream=write,
                 client_info=mcp_types.Implementation(
                     name="huggingface_hub.MCPClient",
-                    version=get_hf_hub_version(),
+                    version="0.1",
                 ),
             )
         )
 
-        logger.debug("Initializing session...")
         await session.initialize()
+        tools_result = await session.list_tools()
+        logger.debug("Connected to server with tools: %s", [tool.name for tool in tools_result.tools])
 
-        # List available tools
-        response = await session.list_tools()
-        logger.debug("Connected to server with tools:", [tool.name for tool in response.tools])
-
-        for tool in response.tools:
+        for tool in tools_result.tools:
             if tool.name in self.sessions:
                 logger.warning(f"Tool '{tool.name}' already defined by another server. Skipping.")
                 continue
-
-            # Map tool names to their server for later lookup
             self.sessions[tool.name] = session
-
-            # Add tool to the list of available tools (for use in chat completions)
             self.available_tools.append(
                 ChatCompletionInputTool.parse_obj_as_instance(
                     {

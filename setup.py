@@ -66,6 +66,7 @@ extras["hf_xet"] = ["hf-xet>=1.1.1,<2.0.0"]
 
 extras["mcp"] = [
     "mcp>=1.8.0",
+    "colorama",
 ] + extras["inference"]
 
 extras["testing"] = (
@@ -129,7 +130,10 @@ setup(
     packages=find_packages("src"),
     extras_require=extras,
     entry_points={
-        "console_scripts": ["huggingface-cli=huggingface_hub.commands.huggingface_cli:main"],
+        "console_scripts": [
+            "huggingface-cli=huggingface_hub.commands.huggingface_cli:main",
+            "tiny-agents=huggingface_hub.inference._mcp.cli:main",
+        ],
         "fsspec.specs": "hf=huggingface_hub.HfFileSystem",
     },
     python_requires=">=3.8.0",
