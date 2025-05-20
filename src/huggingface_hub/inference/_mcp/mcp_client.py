@@ -154,7 +154,7 @@ class MCPClient:
                 Exit if no tool is present in the first chunks. Default to False.
 
         Yields:
-            ChatCompletionStreamOutput chunks or ChatCompletionInputMessage objects
+            [`ChatCompletionStreamOutput`] chunks or [`ChatCompletionInputMessage`] objects
         """
         # Prepare tools list based on options
         tools = self.available_tools
