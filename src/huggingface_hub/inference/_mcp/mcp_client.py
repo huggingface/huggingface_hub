@@ -91,11 +91,10 @@ class MCPClient:
             cwd=cwd,
         )
 
-        stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
-        stdio, write = stdio_transport
+        read, write = await self.exit_stack.enter_async_context(stdio_client(server_params))
         session = await self.exit_stack.enter_async_context(
             ClientSession(
-                read_stream=stdio,
+                read_stream=read,
                 write_stream=write,
                 client_info=mcp_types.Implementation(
                     name="huggingface_hub.MCPClient",
