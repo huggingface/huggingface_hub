@@ -440,6 +440,9 @@ _SUBMOD_ATTRS = {
         "ZeroShotObjectDetectionOutputElement",
         "ZeroShotObjectDetectionParameters",
     ],
+    "inference._mcp.mcp_client": [
+        "MCPClient",
+    ],
     "inference_api": [
         "InferenceApi",
     ],
@@ -644,6 +647,7 @@ __all__ = [
     "InferenceEndpointType",
     "InferenceTimeoutError",
     "KerasModelHubMixin",
+    "MCPClient",
     "ModelCard",
     "ModelCardData",
     "ModelHubMixin",
@@ -1402,6 +1406,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ZeroShotObjectDetectionOutputElement,  # noqa: F401
         ZeroShotObjectDetectionParameters,  # noqa: F401
     )
+    from .inference._mcp.mcp_client import MCPClient  # noqa: F401
     from .inference_api import InferenceApi  # noqa: F401
     from .keras_mixin import (
         KerasModelHubMixin,  # noqa: F401
