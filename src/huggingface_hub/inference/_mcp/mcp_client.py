@@ -1,6 +1,5 @@
 import json
 import logging
-import warnings
 from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterable, Dict, List, Optional, Union
@@ -29,6 +28,16 @@ ToolName: TypeAlias = str
 
 
 class MCPClient:
+    """
+    Client for connecting to one or more MCP servers and processing chat completions with tools.
+
+    <Tip warning={true}>
+
+    This class is experimental and might be subject to breaking changes in the future without prior notice.
+
+    </Tip>
+    """
+
     def __init__(
         self,
         *,
@@ -36,11 +45,6 @@ class MCPClient:
         provider: Optional[PROVIDER_OR_POLICY_T] = None,
         api_key: Optional[str] = None,
     ):
-        warnings.warn(
-            "'MCPClient' is experimental and might be subject to breaking changes in the future without prior notice.",
-            UserWarning,
-        )
-
         # Initialize MCP sessions as a dictionary of ClientSession objects
         self.sessions: Dict[ToolName, "ClientSession"] = {}
         self.exit_stack = AsyncExitStack()
@@ -52,6 +56,7 @@ class MCPClient:
     async def __aenter__(self):
         """Enter the context manager"""
         await self.client.__aenter__()
+        await self.exit_stack.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -75,7 +80,7 @@ class MCPClient:
             args (List[str], optional):
                 Arguments for the command.
             env (Dict[str, str], optional):
-                Environment variables for the command. Default to empty environment.
+                Environment variables for the command. Default is to inherit the parent environment.
             cwd (Union[str, Path, None], optional):
                 Working directory for the command. Default to current directory.
         """
