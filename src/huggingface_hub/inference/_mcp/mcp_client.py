@@ -141,10 +141,12 @@ class MCPClient:
         """Process a query using `self.model` and available tools, yielding chunks and tool outputs.
 
         Args:
-            query: The user query to process
-            opts: Optional parameters including:
-                - exit_loop_tools: List of tools that should exit the generator when called
-                - exit_if_first_chunk_no_tool: Exit if no tool is present in the first chunks
+            messages (`List[Dict]`):
+                List of message objects representing the conversation history
+            exit_loop_tools (`List[ChatCompletionInputTool]`, *optional*):
+                List of tools that should exit the generator when called
+            exit_if_first_chunk_no_tool (`bool`, *optional*):
+                Exit if no tool is present in the first chunks. Default to False.
 
         Yields:
             ChatCompletionStreamOutput chunks or ChatCompletionInputMessage objects
