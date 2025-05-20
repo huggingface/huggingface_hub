@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from mcp import types as mcp_types
 
-from typing import Any, Dict, Literal, TypedDict, Union
+from typing import Any, Dict, Literal, TypedDict
 
 
 class StdioServerConfig(TypedDict):
@@ -18,13 +18,8 @@ class StdioServerConfig(TypedDict):
     config: Dict[str, Any]
 
 
-class SSEServerConfig(TypedDict):
-    type: Literal["sse"]
-    config: Dict[str, Any]
-
-
-# TODO: Add HTTP server config
-ServerConfigTypes = Union[StdioServerConfig, SSEServerConfig]
+# TODO: Add SSE andHTTP server config
+# ServerConfigTypes = [StdioServerConfig, SSEServerConfig, HTTPServerConfig]
 
 
 def format_result(result: "mcp_types.CallToolResult") -> str:

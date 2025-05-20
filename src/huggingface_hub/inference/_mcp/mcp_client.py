@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, AsyncIterable, Dict, List, Optional, Union
 
 from typing_extensions import TypeAlias
 
+from ...utils._runtime import get_hf_hub_version
 from .._generated._async_client import AsyncInferenceClient
 from .._generated.types import (
     ChatCompletionInputMessage,
@@ -14,7 +15,7 @@ from .._generated.types import (
     ChatCompletionStreamOutputDeltaToolCall,
 )
 from .._providers import PROVIDER_OR_POLICY_T
-from .utils import ServerConfigTypes, format_result
+from .utils import StdioServerConfig, format_result
 
 
 if TYPE_CHECKING:
@@ -65,43 +66,31 @@ class MCPClient:
 
     async def add_mcp_server(
         self,
-        server: Union[ServerConfigTypes, Dict],
+        server: Union[StdioServerConfig, Dict],
     ):
         """Connect to an MCP server"""
         from mcp import ClientSession
         from mcp import types as mcp_types
-        from mcp.client.sse import sse_client
         from mcp.client.stdio import StdioServerParameters, stdio_client
-        from yarl import URL
 
         def _merge_env(env: Optional[Dict[str, str]]) -> Dict[str, str]:
             merged = dict(env or {})
             merged.setdefault("PATH", os.getenv("PATH", ""))
             return merged
 
-        if "type" not in server:
-            params = StdioServerParameters(
-                command=server["command"],
-                args=server.get("args", []),
-                env=_merge_env(server.get("env")),
-                cwd=server.get("cwd"),
-            )
-            read, write = await self.exit_stack.enter_async_context(stdio_client(params))
-        else:
-            cfg = server["config"]
-            if server["type"] == "stdio":
-                params = StdioServerParameters(
-                    command=cfg["command"],
-                    args=cfg.get("args", []),
-                    env=_merge_env(cfg.get("env")),
-                    cwd=cfg.get("cwd"),
-                )
-                read, write = await self.exit_stack.enter_async_context(stdio_client(params))
-            elif server["type"] == "sse":
-                url = URL(cfg["url"])
-                read, write = await self.exit_stack.enter_async_context(sse_client(url, cfg.get("options")))
-            else:
-                raise ValueError(f"Unsupported server type: {server['type']}")
+        # TODO: Add SSE and HTTP server config
+        if server.get("type", "stdio") != "stdio":
+            raise ValueError(f"Unsupported server type: {server.get('type')}")
+
+        cfg = server.get("config", server)
+
+        params = StdioServerParameters(
+            command=cfg["command"],
+            args=cfg.get("args", []),
+            env=_merge_env(cfg.get("env")),
+            cwd=cfg.get("cwd"),
+        )
+        read, write = await self.exit_stack.enter_async_context(stdio_client(params))
 
         # Connect MCP session
         session = await self.exit_stack.enter_async_context(
@@ -110,7 +99,7 @@ class MCPClient:
                 write_stream=write,
                 client_info=mcp_types.Implementation(
                     name="huggingface_hub.MCPClient",
-                    version="0.1",
+                    version=get_hf_hub_version(),
                 ),
             )
         )
