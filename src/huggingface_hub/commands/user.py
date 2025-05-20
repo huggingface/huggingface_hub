@@ -28,32 +28,18 @@ Usage:
 
     # find out which huggingface.co account you are logged in as
     huggingface-cli whoami
-
-    # create a new dataset repo on the Hub
-    huggingface-cli repo create mydataset --type=dataset
-
 """
 
-import subprocess
 from argparse import _SubParsersAction
 from typing import List, Optional
 
 from requests.exceptions import HTTPError
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.constants import ENDPOINT, REPO_TYPES, REPO_TYPES_URL_PREFIXES, SPACES_SDK_TYPES
+from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.hf_api import HfApi
 
-from .._login import (  # noqa: F401 # for backward compatibility  # noqa: F401 # for backward compatibility
-    NOTEBOOK_LOGIN_PASSWORD_HTML,
-    NOTEBOOK_LOGIN_TOKEN_HTML_END,
-    NOTEBOOK_LOGIN_TOKEN_HTML_START,
-    auth_list,
-    auth_switch,
-    login,
-    logout,
-    notebook_login,
-)
+from .._login import auth_list, auth_switch, login, logout
 from ..utils import get_stored_tokens, get_token, logging
 from ._cli_utils import ANSI
 
@@ -111,34 +97,6 @@ class UserCommands(BaseHuggingfaceCLICommand):
         auth_switch_parser.set_defaults(func=lambda args: AuthSwitchCommand(args))
         auth_list_parser = auth_subparsers.add_parser("list", help="List all stored access tokens")
         auth_list_parser.set_defaults(func=lambda args: AuthListCommand(args))
-        # new system: git-based repo system
-        repo_parser = parser.add_parser("repo", help="{create} Commands to interact with your huggingface.co repos.")
-        repo_subparsers = repo_parser.add_subparsers(help="huggingface.co repos related commands")
-        repo_create_parser = repo_subparsers.add_parser("create", help="Create a new repo on huggingface.co")
-        repo_create_parser.add_argument(
-            "name",
-            type=str,
-            help="Name for your repo. Will be namespaced under your username to build the repo id.",
-        )
-        repo_create_parser.add_argument(
-            "--type",
-            type=str,
-            help='Optional: repo_type: set to "dataset" or "space" if creating a dataset or space, default is model.',
-        )
-        repo_create_parser.add_argument("--organization", type=str, help="Optional: organization namespace.")
-        repo_create_parser.add_argument(
-            "--space_sdk",
-            type=str,
-            help='Optional: Hugging Face Spaces SDK type. Required when --type is set to "space".',
-            choices=SPACES_SDK_TYPES,
-        )
-        repo_create_parser.add_argument(
-            "-y",
-            "--yes",
-            action="store_true",
-            help="Optional: answer Yes to the prompt",
-        )
-        repo_create_parser.set_defaults(func=lambda args: RepoCreateCommand(args))
 
 
 class BaseUserCommand:
@@ -238,67 +196,3 @@ class WhoamiCommand(BaseUserCommand):
             print(e)
             print(ANSI.red(e.response.text))
             exit(1)
-
-
-class RepoCreateCommand(BaseUserCommand):
-    def run(self):
-        token = get_token()
-        if token is None:
-            print("Not logged in")
-            exit(1)
-        try:
-            stdout = subprocess.check_output(["git", "--version"]).decode("utf-8")
-            print(ANSI.gray(stdout.strip()))
-        except FileNotFoundError:
-            print("Looks like you do not have git installed, please install.")
-
-        try:
-            stdout = subprocess.check_output(["git-lfs", "--version"]).decode("utf-8")
-            print(ANSI.gray(stdout.strip()))
-        except FileNotFoundError:
-            print(
-                ANSI.red(
-                    "Looks like you do not have git-lfs installed, please install."
-                    " You can install from https://git-lfs.github.com/."
-                    " Then run `git lfs install` (you only have to do this once)."
-                )
-            )
-        print("")
-
-        user = self._api.whoami(token)["name"]
-        namespace = self.args.organization if self.args.organization is not None else user
-
-        repo_id = f"{namespace}/{self.args.name}"
-
-        if self.args.type not in REPO_TYPES:
-            print("Invalid repo --type")
-            exit(1)
-
-        if self.args.type in REPO_TYPES_URL_PREFIXES:
-            prefixed_repo_id = REPO_TYPES_URL_PREFIXES[self.args.type] + repo_id
-        else:
-            prefixed_repo_id = repo_id
-
-        print(f"You are about to create {ANSI.bold(prefixed_repo_id)}")
-
-        if not self.args.yes:
-            choice = input("Proceed? [Y/n] ").lower()
-            if not (choice == "" or choice == "y" or choice == "yes"):
-                print("Abort")
-                exit()
-        try:
-            url = self._api.create_repo(
-                repo_id=repo_id,
-                token=token,
-                repo_type=self.args.type,
-                space_sdk=self.args.space_sdk,
-            )
-        except HTTPError as e:
-            print(e)
-            print(ANSI.red(e.response.text))
-            exit(1)
-        print("\nYour repo now lives at:")
-        print(f"  {ANSI.bold(url)}")
-        print("\nYou can clone it locally with the command below, and commit/push as usual.")
-        print(f"\n  git clone {url}")
-        print("")
