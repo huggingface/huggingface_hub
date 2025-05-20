@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
-import platform
-from pathlib import Path
 from typing import AsyncGenerator, Dict, List, Optional, Sequence, Union
 
 from huggingface_hub import ChatCompletionInputMessage, ChatCompletionInputTool, ChatCompletionStreamOutput, MCPClient
@@ -25,7 +22,7 @@ problem and think insightfully.
 
 MAX_NUM_TURNS = 10
 
-TASK_COMPLETE_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(
+TASK_COMPLETE_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(  # type: ignore[assignment]
     {
         "type": "function",
         "function": {
@@ -36,7 +33,7 @@ TASK_COMPLETE_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(
     }
 )
 
-ASK_QUESTION_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(
+ASK_QUESTION_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(  # type: ignore[assignment]
     {
         "type": "function",
         "function": {
@@ -48,14 +45,6 @@ ASK_QUESTION_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(
 )
 
 EXIT_LOOP_TOOLS: List[ChatCompletionInputTool] = [TASK_COMPLETE_TOOL, ASK_QUESTION_TOOL]
-
-
-MODEL_ID = os.getenv("MODEL_ID", "Qwen/Qwen2.5-72B-Instruct")
-PROVIDER = os.getenv("PROVIDER", "nebius")
-
-HOME = Path.home()
-
-DESKTOP = HOME / "Desktop" if platform.system() == "Darwin" else HOME
 
 
 class Agent(MCPClient):

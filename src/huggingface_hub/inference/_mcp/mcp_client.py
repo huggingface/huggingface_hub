@@ -68,7 +68,12 @@ class MCPClient:
         self,
         server: Union[StdioServerConfig, Dict],
     ):
-        """Connect to an MCP server"""
+        """Connect to an MCP server
+        Args:
+            server (Union[StdioServerConfig, Dict]):
+                The server configuration. should be a dict with a "type" key and a "config" key that contains a `StdioServerParameters` object.
+
+        """
         from mcp import ClientSession
         from mcp import types as mcp_types
         from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -84,15 +89,15 @@ class MCPClient:
 
         cfg = server.get("config", server)
 
-        params = StdioServerParameters(
+        logger.info(f"Connecting to MCP server with command: {cfg['command']} {cfg.get('args', [])}")
+        server_params = StdioServerParameters(
             command=cfg["command"],
             args=cfg.get("args", []),
             env=_merge_env(cfg.get("env")),
             cwd=cfg.get("cwd"),
         )
-        read, write = await self.exit_stack.enter_async_context(stdio_client(params))
+        read, write = await self.exit_stack.enter_async_context(stdio_client(server_params))
 
-        # Connect MCP session
         session = await self.exit_stack.enter_async_context(
             ClientSession(
                 read_stream=read,

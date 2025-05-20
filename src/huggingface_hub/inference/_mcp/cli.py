@@ -148,8 +148,8 @@ async def run_agent(source: Optional[str], extra_urls: Optional[List[str]]) -> N
     asyncio.get_running_loop().add_signal_handler(signal.SIGINT, _sigint_handler)
 
     async with Agent(
-        provider=config.get("provider"),
-        model=config.get("model"),
+        provider=config["provider"],
+        model=config["model"],
         api_key=hf_token,
         servers=servers,
         prompt=prompt,
