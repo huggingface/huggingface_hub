@@ -269,8 +269,8 @@ def validated_field(
         metadata = {}
     metadata["validator"] = validator
     return field(  # type: ignore
-        default=default,
-        default_factory=default_factory,
+        default=default,  # type: ignore [arg-type]
+        default_factory=default_factory,  # type: ignore [arg-type]
         init=init,
         repr=repr,
         hash=hash,
