@@ -42,16 +42,17 @@ class PlainBarColumn(BarColumn):
         return Text(bar_str)
 
 class PlainTransferSpeedColumn(ProgressColumn):
-    """
-    Renders human readable transfer speed.
-    """
-
+    """Column showing total average speed: total bytes / total time"""
     def render(self, task: Task) -> Text:
-        speed = task.finished_speed or task.speed
-        if speed is None:
-            return Text("?")
-        else:
-            return Text(f"{format_bytes(speed)}/s")
+        if task.total is None or task.start_time is None:
+            return Text("---")
+        elapsed = task.finished_time or task.elapsed
+        if not elapsed or elapsed <= 0.0:
+            return Text("0.0 B/s")
+
+        speed = task.completed / elapsed
+        return Text(f"{format_bytes(speed)}/s")
+    
 
 class PlainPercentageColumn(TextColumn): 
     """
