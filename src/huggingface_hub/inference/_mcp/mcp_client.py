@@ -157,49 +157,48 @@ class MCPClient:
             tools = [*exit_loop_tools, *self.available_tools]
 
         # Create the streaming request
-        async with self.client:
-            response = await self.client.chat.completions.create(
-                messages=messages,
-                tools=tools,
-                tool_choice="auto",
-                stream=True,
-            )
+        response = await self.client.chat.completions.create(
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+            stream=True,
+        )
 
-            message = {"role": "unknown", "content": ""}
-            final_tool_calls: Dict[int, ChatCompletionStreamOutputDeltaToolCall] = {}
-            num_of_chunks = 0
+        message = {"role": "unknown", "content": ""}
+        final_tool_calls: Dict[int, ChatCompletionStreamOutputDeltaToolCall] = {}
+        num_of_chunks = 0
 
-            # Read from stream
-            async for chunk in response:
-                # Yield each chunk to caller
-                yield chunk
+        # Read from stream
+        async for chunk in response:
+            # Yield each chunk to caller
+            yield chunk
 
-                num_of_chunks += 1
-                delta = chunk.choices[0].delta if chunk.choices and len(chunk.choices) > 0 else None
-                if not delta:
-                    continue
+            num_of_chunks += 1
+            delta = chunk.choices[0].delta if chunk.choices and len(chunk.choices) > 0 else None
+            if not delta:
+                continue
 
-                # Process message
-                if delta.role:
-                    message["role"] = delta.role
-                if delta.content:
-                    message["content"] += delta.content
+            # Process message
+            if delta.role:
+                message["role"] = delta.role
+            if delta.content:
+                message["content"] += delta.content
 
-                # Process tool calls
-                if delta.tool_calls:
-                    for tool_call in delta.tool_calls:
-                        # Aggregate chunks into tool calls
-                        if tool_call.index not in final_tool_calls:
-                            if tool_call.function.arguments is None:  # Corner case (depends on provider)
-                                tool_call.function.arguments = ""
-                            final_tool_calls[tool_call.index] = tool_call
+            # Process tool calls
+            if delta.tool_calls:
+                for tool_call in delta.tool_calls:
+                    # Aggregate chunks into tool calls
+                    if tool_call.index not in final_tool_calls:
+                        if tool_call.function.arguments is None:  # Corner case (depends on provider)
+                            tool_call.function.arguments = ""
+                        final_tool_calls[tool_call.index] = tool_call
 
-                        if tool_call.function.arguments:
-                            final_tool_calls[tool_call.index].function.arguments += tool_call.function.arguments
+                    if tool_call.function.arguments:
+                        final_tool_calls[tool_call.index].function.arguments += tool_call.function.arguments
 
-                # Optionally exit early if no tools in first chunks
-                if exit_if_first_chunk_no_tool and num_of_chunks <= 2 and len(final_tool_calls) == 0:
-                    return
+            # Optionally exit early if no tools in first chunks
+            if exit_if_first_chunk_no_tool and num_of_chunks <= 2 and len(final_tool_calls) == 0:
+                return
 
         if message["content"]:
             messages.append(message)
