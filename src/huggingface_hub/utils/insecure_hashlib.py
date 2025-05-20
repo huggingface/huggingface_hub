@@ -28,7 +28,6 @@ import hashlib
 import sys
 
 
-_kwargs = {"usedforsecurity": False} if sys.version_info >= (3, 9) else {}
 if sys.version_info >= (3, 9):
     md5 = functools.partial(hashlib.md5, usedforsecurity=False)
     sha1 = functools.partial(hashlib.sha1, usedforsecurity=False)
