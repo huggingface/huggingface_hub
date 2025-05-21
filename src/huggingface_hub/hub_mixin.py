@@ -353,7 +353,7 @@ class ModelHubMixin:
     def _encode_arg(cls, arg: Any) -> Any:
         """Encode an argument into a JSON serializable format."""
         if is_dataclass(arg):
-            return asdict(arg)
+            return asdict(arg)  # type: ignore[arg-type]
         for type_, (encoder, _) in cls._hub_mixin_coders.items():
             if isinstance(arg, type_):
                 if arg is None:
@@ -767,7 +767,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
         model_to_save = self.module if hasattr(self, "module") else self  # type: ignore
-        save_model_as_safetensor(model_to_save, str(save_directory / constants.SAFETENSORS_SINGLE_FILE))
+        save_model_as_safetensor(model_to_save, str(save_directory / constants.SAFETENSORS_SINGLE_FILE))  # type: ignore [arg-type]
 
     @classmethod
     def _from_pretrained(
