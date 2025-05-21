@@ -354,17 +354,16 @@ def _worker_job(
                 status.nb_workers_get_upload_mode -= 1
 
         elif job == WorkerJob.PREUPLOAD_LFS:
+            item = items[0]  # single item
             try:
-                _preupload_lfs(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
-                for item in items:
-                    status.queue_commit.put(item)
+                _preupload_lfs(item, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
+                status.queue_commit.put(item)
             except KeyboardInterrupt:
                 raise
             except Exception as e:
                 logger.error(f"Failed to preupload LFS: {e}")
                 traceback.format_exc()
-                for item in items:
-                    status.queue_preupload_lfs.put(item)
+                status.queue_preupload_lfs.put(item)
 
             with status.lock:
                 status.nb_workers_preupload_lfs -= 1
@@ -423,7 +422,7 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
         elif status.queue_preupload_lfs.qsize() > 0 and status.nb_workers_preupload_lfs == 0:
             status.nb_workers_preupload_lfs += 1
             logger.debug("Job: preupload LFS (no other worker preuploading LFS)")
-            return (WorkerJob.PREUPLOAD_LFS, _get_n(status.queue_preupload_lfs, 100))
+            return (WorkerJob.PREUPLOAD_LFS, _get_one(status.queue_preupload_lfs))
 
         # 5. Compute sha256 if at least 1 file and no worker is computing sha256
         elif status.queue_sha256.qsize() > 0 and status.nb_workers_sha256 == 0:
@@ -444,7 +443,7 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
         ):
             status.nb_workers_preupload_lfs += 1
             logger.debug("Job: preupload LFS")
-            return (WorkerJob.PREUPLOAD_LFS, _get_n(status.queue_preupload_lfs, 100))
+            return (WorkerJob.PREUPLOAD_LFS, _get_one(status.queue_preupload_lfs))
 
         # 8. Compute sha256 if at least 1 file
         elif status.queue_sha256.qsize() > 0:
@@ -532,20 +531,19 @@ def _get_upload_mode(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_t
         metadata.save(paths)
 
 
-def _preupload_lfs(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_type: str, revision: str) -> None:
+def _preupload_lfs(item: JOB_ITEM_T, api: "HfApi", repo_id: str, repo_type: str, revision: str) -> None:
     """Preupload LFS file and update metadata."""
-    additions = [_build_hacky_operation(item) for item in items]
+    paths, metadata = item
+    addition = _build_hacky_operation(item)
     api.preupload_lfs_files(
         repo_id=repo_id,
         repo_type=repo_type,
         revision=revision,
-        additions=additions,
+        additions=[addition],
     )
 
-    for item in items:
-        paths, metadata = item
-        metadata.is_uploaded = True
-        metadata.save(paths)
+    metadata.is_uploaded = True
+    metadata.save(paths)
 
 
 def _commit(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_type: str, revision: str) -> None:
