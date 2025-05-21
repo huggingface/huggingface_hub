@@ -1,93 +1,100 @@
-"""
-Tiny Agents CLI
-
-A squad of lightweight composable AI applications built on Hugging Face's Inference Client and MCP stack.
-Usage:
-    pip install huggingface-hub[mcp]
-    tiny-agents run <path> [--url <remote-url>]...
-
-Arguments:
-    <path>       Path to an agent folder, a standalone agent.json file, or the name of a built-in agent.
-    --url        (Optional) One or more remote MCP server URLs to override the servers defined in agent.json.
-
-Examples:
-    tiny-agents run my-agent
-    tiny-agents run agent.json
-"""
-
-import argparse
 import asyncio
 import signal
-import sys
 from functools import partial
 from typing import Any, Dict, List, Optional
 
-from colorama import Fore, Style
-from colorama import init as colorama_init
+import typer
+from rich import print
 
 from huggingface_hub.utils import get_token
 
 from .agent import Agent
-from .utils import _load_config, _url_to_server_config
+from .constants import DEFAULT_REPO_ID
+from .utils import _load_agent_config, _url_to_server_config
 
 
-colorama_init()
-BLUE, GREEN, GRAY, RESET = Fore.BLUE, Fore.GREEN, Fore.LIGHTBLACK_EX, Style.RESET_ALL
+app = typer.Typer(
+    rich_markup_mode="rich",
+    help="A squad of lightweight composable AI applications built on Hugging Face's Inference Client and MCP stack.",
+)
+
+run_cli = typer.Typer(
+    name="run",
+    help="Run the Agent in the CLI",
+    invoke_without_command=True,
+)
+app.add_typer(run_cli, name="run")
 
 
-async def ainput(prompt: str = "") -> str:
+async def _ainput(prompt: str = "» ") -> str:
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, partial(input, prompt))
+    return await loop.run_in_executor(None, partial(typer.prompt, prompt, prompt_suffix=" "))
 
 
-async def run_agent(source: Optional[str], extra_urls: Optional[List[str]]) -> None:
-    config, prompt = _load_config(source)
-    hf_token = get_token()
+async def run_agent(
+    agent_path: Optional[str],
+    *,
+    extra_urls: Optional[List[str]],
+    repo_id: Optional[str],
+) -> None:
+    """
+    Tiny Agent loop.
+
+    Args:
+        agent_path (`str`, *optional*):
+            Path to a local folder containing an `agent.json` and optionally a custom `PROMPT.md` file or a built-in agent stored in a Hugging Face dataset.
+        extra_urls (`List[str]`, *optional*):
+            List of URLs to override MCP servers.
+        repo_id (`str`, *optional*):
+            Hugging Face dataset repo containing agents. Defaults to `"huggingface/tiny-agents"`.
+
+    """
+    if repo_id is None:
+        repo_id = DEFAULT_REPO_ID
+
+    config, prompt = _load_agent_config(agent_path, repo_id)
+    token = get_token()
 
     servers: List[Dict[str, Any]] = config.get("servers", [])
     if extra_urls:
-        servers.clear()
-        for url in extra_urls:
-            try:
-                servers.append(_url_to_server_config(url, hf_token))
-            except Exception as e:
-                sys.stderr.write(f'Error adding server "{url}": {e}\n')
+        servers = [_url_to_server_config(u, token) for u in extra_urls]
 
     abort_event = asyncio.Event()
-    _ctrl_c_count = 0
+    first_sigint = True
 
     def _sigint_handler() -> None:
-        nonlocal _ctrl_c_count
-        if _ctrl_c_count == 0 and not abort_event.is_set():
-            _ctrl_c_count += 1
+        nonlocal first_sigint
+        if first_sigint:
+            first_sigint = False
             abort_event.set()
-            print(f"\n{GRAY}Press Ctrl+C again to exit{RESET}")
+            print("[grey]Interrupted – press Ctrl+C again to quit[/grey]")
         else:
-            print("\nExiting...")
-            sys.exit(0)
+            raise KeyboardInterrupt
 
     asyncio.get_running_loop().add_signal_handler(signal.SIGINT, _sigint_handler)
 
     async with Agent(
         provider=config["provider"],
         model=config["model"],
-        api_key=hf_token,
+        api_key=token,
         servers=servers,
         prompt=prompt,
     ) as agent:
         await agent.load_tools()
-        print(f"{BLUE}Agent loaded with {len(agent.available_tools)} tools:")
-        print("\n".join(f"- {t.function.name}" for t in agent.available_tools))
-        print(RESET, end="")
+        print(f"[bold blue]Agent loaded with {len(agent.available_tools)} tools:[/bold blue]")
+        for t in agent.available_tools:
+            print(f"[blue] • {t.function.name}[/blue]")
 
         while True:
             try:
-                user_input = await ainput("» ")
-            except (EOFError, KeyboardInterrupt):
+                user_input = await _ainput()
+            except EOFError:
                 break
+            except KeyboardInterrupt:
+                raise
 
             abort_event.clear()
-            _ctrl_c_count = 0
+            first_sigint = True
 
             async for chunk in agent.run(user_input, abort_event=abort_event):
                 if hasattr(chunk, "choices"):
@@ -95,34 +102,44 @@ async def run_agent(source: Optional[str], extra_urls: Optional[List[str]]) -> N
                     if delta.content:
                         print(delta.content, end="", flush=True)
                     if delta.tool_calls:
-                        print(GRAY, end="")
                         for call in delta.tool_calls:
                             if call.id:
-                                print(f"<Tool {call.id}>")
+                                print(f"[grey]<Tool {call.id}>[/grey]", end="")
                             if call.function.name:
-                                print(call.function.name, end=" ")
+                                print(f"[grey]{call.function.name}[/grey]", end=" ")
                             if call.function.arguments:
-                                print(call.function.arguments, end="")
-                        print(RESET, end="")
+                                print(f"[grey]{call.function.arguments}[/grey]", end="")
                 else:
-                    print(f"\n\n{GREEN}Tool[{chunk.name}] {chunk.tool_call_id}\n{chunk.content}{RESET}\n")
-
+                    print(f"\n\n[green]Tool[{chunk.name}] {chunk.tool_call_id}\n{chunk.content}[/green]\n")
             print()
 
 
-def main(argv: Optional[List[str]] = None) -> None:
-    parser = argparse.ArgumentParser(prog="tiny-agents")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    run_parser = subparsers.add_parser("run", help="Run agent from folder or builtin name")
-    run_parser.add_argument("path", type=str, help="Path to folder, agent.json, or builtin name", nargs="?")
-    run_parser.add_argument("--url", action="append", help="Override MCP servers by URL")
-
-    args = parser.parse_args(argv)
-
-    if args.command == "run":
-        asyncio.run(run_agent(args.path, args.url))
+@run_cli.callback()
+def run(
+    path: Optional[str] = typer.Argument(
+        None,
+        help="Path to a local folder containing an agent.json file or a built-in agent stored in a Hugging Face dataset (default: https://huggingface.co/datasets/huggingface/tiny-agents)",
+    ),
+    repo_id: Optional[str] = typer.Option(
+        DEFAULT_REPO_ID,
+        "--repo-id",
+        "-r",
+        help="Hugging Face dataset repo containing agents",
+        show_default=True,
+    ),
+    url: List[str] = typer.Option(
+        None,
+        "--url",
+        "-u",
+        help="Override MCP servers by URL",
+        show_default=False,
+    ),
+):
+    try:
+        asyncio.run(run_agent(path, extra_urls=url, repo_id=repo_id))
+    except KeyboardInterrupt:
+        raise typer.Exit(code=130)
 
 
 if __name__ == "__main__":
-    main()
+    app()

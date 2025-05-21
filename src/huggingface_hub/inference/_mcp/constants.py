@@ -12,7 +12,7 @@ FILENAME_PROMPT = "PROMPT.md"
 
 DEFAULT_AGENT = {
     "model": "Qwen/Qwen2.5-72B-Instruct",
-    "provider": "nebius",
+    "provider": "together",
     "servers": [
         {
             "command": "npx",
@@ -69,3 +69,6 @@ ASK_QUESTION_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj( 
 )
 
 EXIT_LOOP_TOOLS: List[ChatCompletionInputTool] = [TASK_COMPLETE_TOOL, ASK_QUESTION_TOOL]
+
+
+DEFAULT_REPO_ID = "huggingface/tiny-agents"

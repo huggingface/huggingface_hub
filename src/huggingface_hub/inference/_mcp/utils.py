@@ -4,10 +4,11 @@ Utility functions for MCPClient and Tiny Agents.
 Formatting utilities taken from the JS SDK: https://github.com/huggingface/huggingface.js/blob/main/packages/mcp-client/src/ResultFormatter.ts.
 """
 
-import importlib.resources as importlib_resources
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
+from huggingface_hub import snapshot_download
 
 from .constants import DEFAULT_AGENT, FILENAME_CONFIG, FILENAME_PROMPT
 
@@ -81,47 +82,42 @@ def _get_base64_size(base64_str: str) -> int:
     return (len(base64_str) * 3) // 4 - padding
 
 
-def _load_builtin_agent_path(name: str) -> Optional[Path]:
-    try:
-        base = importlib_resources.files("huggingface_hub.inference._mcp.agents")
-    except (ModuleNotFoundError, AttributeError):
-        return None
-    candidate_traversable = base / name
-    candidate_path = Path(str(candidate_traversable))
-    return candidate_path if candidate_path.is_dir() else None
-
-
-def _load_config(source: Optional[str]) -> Tuple[Dict[str, Any], Optional[str]]:
+def _load_agent_config(agent_path: Optional[str], repo_id: str) -> Tuple[Dict[str, Any], Optional[str]]:
     """Load server config and prompt."""
-    if source is None:
-        return (
-            DEFAULT_AGENT,
-            None,
-        )
 
-    path = Path(source).expanduser()
+    def _read_dir(directory: Path) -> Tuple[Dict[str, Any], Optional[str]]:
+        cfg_file = directory / FILENAME_CONFIG
+        if not cfg_file.exists():
+            raise FileNotFoundError(cfg_file)
+
+        config: Dict[str, Any] = json.loads(cfg_file.read_text(encoding="utf-8"))
+        prompt_file = directory / FILENAME_PROMPT
+        prompt: Optional[str] = prompt_file.read_text(encoding="utf-8") if prompt_file.exists() else None
+        return config, prompt
+
+    if agent_path is None:
+        return DEFAULT_AGENT, None
+
+    path = Path(agent_path).expanduser()
 
     if path.is_file():
         return json.loads(path.read_text(encoding="utf-8")), None
 
     if path.is_dir():
-        config_json = (path / FILENAME_CONFIG).read_text(encoding="utf-8")
-        try:
-            prompt_md = (path / FILENAME_PROMPT).read_text(encoding="utf-8")
-        except FileNotFoundError:
-            prompt_md = None
-        return json.loads(config_json), prompt_md
+        return _read_dir(path)
 
-    builtin_dir = _load_builtin_agent_path(source)
-    if builtin_dir is not None:
-        config_json = (builtin_dir / FILENAME_CONFIG).read_text(encoding="utf-8")
-        try:
-            prompt_md = (builtin_dir / FILENAME_PROMPT).read_text(encoding="utf-8")
-        except FileNotFoundError:
-            prompt_md = None
-        return json.loads(config_json), prompt_md
-
-    raise FileNotFoundError(source)
+    # fetch from the Hub
+    try:
+        repo_dir = Path(
+            snapshot_download(
+                repo_id=repo_id,
+                allow_patterns=f"{agent_path}/*",
+                repo_type="dataset",
+            )
+        )
+        return _read_dir(repo_dir / agent_path)
+    except Exception as err:
+        raise FileNotFoundError(agent_path) from err
 
 
 def _url_to_server_config(url: str, hf_token: Optional[str]) -> Dict:
