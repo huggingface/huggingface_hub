@@ -310,7 +310,7 @@ def _add_oauth_routes(app: "fastapi.FastAPI", route_prefix: str) -> None:
             target_url = request.query_params.get("_target_url")
 
             # Build redirect URI with the same query params as before and bump nb_redirects count
-            query_params: dict[str, Union[int, str]] = {"_nb_redirects": nb_redirects + 1}
+            query_params: Dict[str, Union[int, str]] = {"_nb_redirects": nb_redirects + 1}
             if target_url:
                 query_params["_target_url"] = target_url
 

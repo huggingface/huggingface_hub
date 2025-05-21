@@ -1,7 +1,5 @@
 [tool.mypy]
 ignore_missing_imports = true
-no_implicit_optional = true
-scripts_are_modules = true
 
 [tool.pytest.ini_options]
 # Add the specified `OPTS` to the set of command line arguments as if they had
