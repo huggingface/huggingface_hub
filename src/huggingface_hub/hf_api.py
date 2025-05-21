@@ -4421,20 +4421,23 @@ class HfApi:
         new_additions = [addition for addition in additions if not addition._is_uploaded]
 
         # Check which new files are LFS
-        try:
-            _fetch_upload_modes(
-                additions=new_additions,
-                repo_type=repo_type,
-                repo_id=repo_id,
-                headers=headers,
-                revision=revision,
-                endpoint=self.endpoint,
-                create_pr=create_pr or False,
-                gitignore_content=gitignore_content,
-            )
-        except RepositoryNotFoundError as e:
-            e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
-            raise
+        # For some items, we might have already fetched the upload mode (in case of upload_large_folder)
+        additions_no_upload_mode = [addition for addition in new_additions if addition._upload_mode is None]
+        if len(additions_no_upload_mode) > 0:
+            try:
+                _fetch_upload_modes(
+                    additions=additions_no_upload_mode,
+                    repo_type=repo_type,
+                    repo_id=repo_id,
+                    headers=headers,
+                    revision=revision,
+                    endpoint=self.endpoint,
+                    create_pr=create_pr or False,
+                    gitignore_content=gitignore_content,
+                )
+            except RepositoryNotFoundError as e:
+                e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+                raise
 
         # Filter out regular files
         new_lfs_additions = [addition for addition in new_additions if addition._upload_mode == "lfs"]

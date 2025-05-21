@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 WAITING_TIME_IF_NO_TASKS = 10  # seconds
+MAX_NB_FILES_FETCH_UPLOAD_MODE = 100
 MAX_NB_REGULAR_FILES_PER_COMMIT = 75
 MAX_NB_LFS_FILES_PER_COMMIT = 150
 COMMIT_SIZE_SCALE: List[int] = [20, 50, 75, 100, 125, 200, 250, 400, 600, 1000]
@@ -412,11 +413,11 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
             logger.debug("Job: commit (>100 files ready)")
             return (WorkerJob.COMMIT, _get_items_to_commit(status.queue_commit))
 
-        # 3. Get upload mode if at least 10 files
-        elif status.queue_get_upload_mode.qsize() >= 10:
+        # 3. Get upload mode if at least 100 files
+        elif status.queue_get_upload_mode.qsize() >= MAX_NB_FILES_FETCH_UPLOAD_MODE:
             status.nb_workers_get_upload_mode += 1
-            logger.debug("Job: get upload mode (>10 files ready)")
-            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, status.target_chunk()))
+            logger.debug(f"Job: get upload mode (>{MAX_NB_FILES_FETCH_UPLOAD_MODE} files ready)")
+            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, MAX_NB_FILES_FETCH_UPLOAD_MODE))
 
         # 4. Preupload LFS file if at least 1 file and no worker is preuploading LFS
         elif status.queue_preupload_lfs.qsize() > 0 and status.nb_workers_preupload_lfs == 0:
@@ -434,7 +435,7 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
         elif status.queue_get_upload_mode.qsize() > 0 and status.nb_workers_get_upload_mode == 0:
             status.nb_workers_get_upload_mode += 1
             logger.debug("Job: get upload mode (no other worker getting upload mode)")
-            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, status.target_chunk()))
+            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, MAX_NB_FILES_FETCH_UPLOAD_MODE))
 
         # 7. Preupload LFS file if at least 1 file
         #    Skip if hf_transfer is enabled and there is already a worker preuploading LFS
@@ -455,7 +456,7 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
         elif status.queue_get_upload_mode.qsize() > 0:
             status.nb_workers_get_upload_mode += 1
             logger.debug("Job: get upload mode")
-            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, status.target_chunk()))
+            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, MAX_NB_FILES_FETCH_UPLOAD_MODE))
 
         # 10. Commit if at least 1 file and 1 min since last commit attempt
         elif (
@@ -528,6 +529,7 @@ def _get_upload_mode(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_t
         paths, metadata = item
         metadata.upload_mode = addition._upload_mode
         metadata.should_ignore = addition._should_ignore
+        metadata.remote_oid = addition._remote_oid
         metadata.save(paths)
 
 
@@ -580,6 +582,9 @@ def _build_hacky_operation(item: JOB_ITEM_T) -> HackyCommitOperationAdd:
     if metadata.sha256 is None:
         raise ValueError("sha256 must have been computed by now!")
     operation.upload_info = UploadInfo(sha256=bytes.fromhex(metadata.sha256), size=metadata.size, sample=sample)
+    operation._upload_mode = metadata.upload_mode
+    operation._should_ignore = metadata.should_ignore
+    operation._remote_oid = metadata.remote_oid
     return operation
 
 
