@@ -1,8 +1,7 @@
 import json
 import logging
-import os
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, AsyncIterable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Mapping, Optional, Union
 
 from typing_extensions import TypeAlias
 
@@ -20,6 +19,7 @@ from .utils import StdioServerConfig, format_result
 
 if TYPE_CHECKING:
     from mcp import ClientSession
+    from mcp.client.stdio import StdioServerParameters
 
 logger = logging.getLogger(__name__)
 
@@ -66,11 +66,15 @@ class MCPClient:
 
     async def add_mcp_server(
         self,
-        server: Union[StdioServerConfig, Dict],
-    ):
+        server: Union[
+            "StdioServerParameters",
+            StdioServerConfig,
+            Mapping[str, Any],
+        ],
+    ) -> None:
         """Connect to an MCP server
         Args:
-            server (Union[StdioServerConfig, Dict]):
+            server (Union[StdioServerConfig, StdioServerParameters, Mapping[str, Any]]):
                 The server configuration. should be a dict with a "type" key and a "config" key that contains a `StdioServerParameters` object.
 
         """
@@ -78,24 +82,32 @@ class MCPClient:
         from mcp import types as mcp_types
         from mcp.client.stdio import StdioServerParameters, stdio_client
 
-        def _merge_env(env: Optional[Dict[str, str]]) -> Dict[str, str]:
-            merged = dict(env or {})
-            merged.setdefault("PATH", os.getenv("PATH", ""))
-            return merged
+        server_params: StdioServerParameters
 
-        # TODO: Add SSE and HTTP server config
-        if server.get("type", "stdio") != "stdio":
-            raise ValueError(f"Unsupported server type: {server.get('type')}")
+        if isinstance(server, StdioServerParameters):
+            server_params = server
 
-        cfg = server.get("config", server)
+        elif isinstance(server, StdioServerConfig):
+            server_params = (
+                server.config
+                if isinstance(server.config, StdioServerParameters)
+                else StdioServerParameters(**server.config)
+            )
 
-        logger.info(f"Connecting to MCP server with command: {cfg['command']} {cfg.get('args', [])}")
-        server_params = StdioServerParameters(
-            command=cfg["command"],
-            args=cfg.get("args", []),
-            env=_merge_env(cfg.get("env")),
-            cwd=cfg.get("cwd"),
+        else:
+            if server.get("type", "stdio") != "stdio":  # type: ignore[attr-defined]
+                raise ValueError(f"Unsupported server type: {server.get('type')!r}")  # type: ignore[attr-defined]
+            cfg_obj = server.get("config")  # type: ignore[attr-defined]
+            if cfg_obj is None:
+                raise TypeError("Legacy dict form requires a 'config' key")
+            server_params = cfg_obj if isinstance(cfg_obj, StdioServerParameters) else StdioServerParameters(**cfg_obj)
+
+        logger.info(
+            "Connecting to MCP server with command: %s %s",
+            server_params.command,
+            server_params.args,
         )
+
         read, write = await self.exit_stack.enter_async_context(stdio_client(server_params))
 
         session = await self.exit_stack.enter_async_context(

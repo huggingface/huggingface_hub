@@ -17,101 +17,21 @@ Examples:
 
 import argparse
 import asyncio
-import importlib.resources as importlib_resources
-import json
 import os
 import signal
 import sys
 from functools import partial
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from colorama import Fore, Style
 from colorama import init as colorama_init
 
 from .tiny_agent import Agent
+from .utils import _load_config, _url_to_server_config
 
-
-FILENAME_CONFIG = "agent.json"
-FILENAME_PROMPT = "PROMPT.md"
-
-DEFAULT_AGENT = {
-    "model": "Qwen/Qwen2.5-72B-Instruct",
-    "provider": "nebius",
-    "servers": [
-        {
-            "type": "stdio",
-            "config": {
-                "command": "npx",
-                "args": [
-                    "-y",
-                    "@modelcontextprotocol/server-filesystem",
-                    str(Path.home() / ("Desktop" if sys.platform == "darwin" else "")),
-                ],
-            },
-        },
-        {
-            "type": "stdio",
-            "config": {
-                "command": "npx",
-                "args": ["@playwright/mcp@latest"],
-            },
-        },
-    ],
-}
 
 colorama_init()
 BLUE, GREEN, GRAY, RESET = Fore.BLUE, Fore.GREEN, Fore.LIGHTBLACK_EX, Style.RESET_ALL
-
-
-def _load_builtin_agent_path(name: str) -> Optional[Path]:
-    try:
-        base = importlib_resources.files("huggingface_hub.inference._mcp.agents")
-    except (ModuleNotFoundError, AttributeError):
-        return None
-    candidate = base / name
-    return candidate if candidate.is_dir() else None
-
-
-def _load_config(source: Optional[str]) -> Tuple[Dict[str, Any], Optional[str]]:
-    """Load configuration and prompt."""
-    if source is None:
-        return (
-            DEFAULT_AGENT,
-            None,
-        )
-
-    path = Path(source).expanduser()
-
-    if path.is_file():
-        return json.loads(path.read_text(encoding="utf-8")), None
-
-    if path.is_dir():
-        config_json = (path / FILENAME_CONFIG).read_text(encoding="utf-8")
-        try:
-            prompt_md = (path / FILENAME_PROMPT).read_text(encoding="utf-8")
-        except FileNotFoundError:
-            prompt_md = None
-        return json.loads(config_json), prompt_md
-
-    builtin_dir = _load_builtin_agent_path(source)
-    if builtin_dir is not None:
-        config_json = (builtin_dir / FILENAME_CONFIG).read_text(encoding="utf-8")
-        try:
-            prompt_md = (builtin_dir / FILENAME_PROMPT).read_text(encoding="utf-8")
-        except FileNotFoundError:
-            prompt_md = None
-        return json.loads(config_json), prompt_md
-
-    raise FileNotFoundError(source)
-
-
-def _url_to_server_config(url: str, hf_token: Optional[str]) -> Dict:
-    return {
-        "command": None,
-        "url": url,
-        "env": {"AUTHORIZATION": f"Bearer {hf_token}"} if hf_token else None,
-    }
 
 
 async def ainput(prompt: str = "") -> str:

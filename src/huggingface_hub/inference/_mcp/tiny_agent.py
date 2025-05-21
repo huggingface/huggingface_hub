@@ -5,6 +5,8 @@ from typing import AsyncGenerator, Dict, List, Optional, Sequence, Union
 
 from huggingface_hub import ChatCompletionInputMessage, ChatCompletionInputTool, ChatCompletionStreamOutput, MCPClient
 
+from .._providers import PROVIDER_OR_POLICY_T
+
 
 DEFAULT_SYSTEM_PROMPT = """
 You are an agent - please keep going until the user’s query is completely
@@ -57,7 +59,7 @@ class Agent(MCPClient):
         *,
         model: str,
         servers: Sequence[Dict],
-        provider: Optional[str] = None,
+        provider: Optional[PROVIDER_OR_POLICY_T] = None,
         api_key: Optional[str] = None,
         prompt: Optional[str] = None,
     ):

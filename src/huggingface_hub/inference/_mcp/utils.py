@@ -1,22 +1,55 @@
 """
-Utility functions for formatting results from mcp.CallToolResult.
+Utility functions for Tiny Agents.
 
-Taken from the JS SDK: https://github.com/huggingface/huggingface.js/blob/main/packages/mcp-client/src/ResultFormatter.ts.
+Formatting utilities taken from the JS SDK: https://github.com/huggingface/huggingface.js/blob/main/packages/mcp-client/src/ResultFormatter.ts.
 """
 
-from typing import TYPE_CHECKING, List
+import importlib.resources as importlib_resources
+import json
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, Optional, Tuple, Union
 
 
 if TYPE_CHECKING:
     from mcp import types as mcp_types
     from mcp.client.stdio import StdioServerParameters
 
-from typing import Literal, TypedDict
+
+FILENAME_CONFIG = "agent.json"
+FILENAME_PROMPT = "PROMPT.md"
+
+DEFAULT_AGENT = {
+    "model": "Qwen/Qwen2.5-72B-Instruct",
+    "provider": "nebius",
+    "servers": [
+        {
+            "type": "stdio",
+            "config": {
+                "command": "npx",
+                "args": [
+                    "-y",
+                    "@modelcontextprotocol/server-filesystem",
+                    str(Path.home() / ("Desktop" if sys.platform == "darwin" else "")),
+                ],
+            },
+        },
+        {
+            "type": "stdio",
+            "config": {
+                "command": "npx",
+                "args": ["@playwright/mcp@latest"],
+            },
+        },
+    ],
+}
 
 
-class StdioServerConfig(TypedDict):
-    type: Literal["stdio"]
-    config: "StdioServerParameters"
+@dataclass(frozen=True)
+class StdioServerConfig:
+    config: Union["StdioServerParameters", Mapping[str, Any]]
+    type: Literal["stdio"] = "stdio"
 
 
 # TODO: Add SSE and HTTP server config
@@ -86,3 +119,54 @@ def _get_base64_size(base64_str: str) -> int:
         padding = 1
 
     return (len(base64_str) * 3) // 4 - padding
+
+
+def _load_builtin_agent_path(name: str) -> Optional[Path]:
+    try:
+        base = importlib_resources.files("huggingface_hub.inference._mcp.agents")
+    except (ModuleNotFoundError, AttributeError):
+        return None
+    candidate_traversable = base / name
+    candidate_path = Path(str(candidate_traversable))
+    return candidate_path if candidate_path.is_dir() else None
+
+
+def _load_config(source: Optional[str]) -> Tuple[Dict[str, Any], Optional[str]]:
+    """Load server config and prompt."""
+    if source is None:
+        return (
+            DEFAULT_AGENT,
+            None,
+        )
+
+    path = Path(source).expanduser()
+
+    if path.is_file():
+        return json.loads(path.read_text(encoding="utf-8")), None
+
+    if path.is_dir():
+        config_json = (path / FILENAME_CONFIG).read_text(encoding="utf-8")
+        try:
+            prompt_md = (path / FILENAME_PROMPT).read_text(encoding="utf-8")
+        except FileNotFoundError:
+            prompt_md = None
+        return json.loads(config_json), prompt_md
+
+    builtin_dir = _load_builtin_agent_path(source)
+    if builtin_dir is not None:
+        config_json = (builtin_dir / FILENAME_CONFIG).read_text(encoding="utf-8")
+        try:
+            prompt_md = (builtin_dir / FILENAME_PROMPT).read_text(encoding="utf-8")
+        except FileNotFoundError:
+            prompt_md = None
+        return json.loads(config_json), prompt_md
+
+    raise FileNotFoundError(source)
+
+
+def _url_to_server_config(url: str, hf_token: Optional[str]) -> Dict:
+    return {
+        "command": None,
+        "url": url,
+        "env": {"AUTHORIZATION": f"Bearer {hf_token}"} if hf_token else None,
+    }
