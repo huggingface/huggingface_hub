@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncGenerator, Dict, List, Optional, Sequence, Union
+from typing import AsyncGenerator, Dict, Iterable, List, Optional, Union
 
 from huggingface_hub import ChatCompletionInputMessage, ChatCompletionStreamOutput, MCPClient
 
@@ -19,7 +19,7 @@ class Agent(MCPClient):
         self,
         *,
         model: str,
-        servers: Sequence[Dict],
+        servers: Iterable[Dict],
         provider: Optional[PROVIDER_OR_POLICY_T] = None,
         api_key: Optional[str] = None,
         prompt: Optional[str] = None,

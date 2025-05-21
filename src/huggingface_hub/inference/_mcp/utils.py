@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from huggingface_hub import snapshot_download
+from huggingface_hub.errors import EntryNotFoundError
 
 from .constants import DEFAULT_AGENT, DEFAULT_REPO_ID, FILENAME_CONFIG, FILENAME_PROMPT
 
@@ -88,7 +89,7 @@ def _load_agent_config(agent_path: Optional[str]) -> Tuple[Dict[str, Any], Optio
     def _read_dir(directory: Path) -> Tuple[Dict[str, Any], Optional[str]]:
         cfg_file = directory / FILENAME_CONFIG
         if not cfg_file.exists():
-            raise FileNotFoundError(cfg_file)
+            raise FileNotFoundError(f" Config file not found in {directory}! Please make sure it exists locally")
 
         config: Dict[str, Any] = json.loads(cfg_file.read_text(encoding="utf-8"))
         prompt_file = directory / FILENAME_PROMPT
@@ -117,12 +118,6 @@ def _load_agent_config(agent_path: Optional[str]) -> Tuple[Dict[str, Any], Optio
         )
         return _read_dir(repo_dir / agent_path)
     except Exception as err:
-        raise FileNotFoundError(agent_path) from err
-
-
-def _url_to_server_config(url: str, hf_token: Optional[str]) -> Dict:
-    return {
-        "command": None,
-        "url": url,
-        "env": {"AUTHORIZATION": f"Bearer {hf_token}"} if hf_token else None,
-    }
+        raise EntryNotFoundError(
+            f" Agent {agent_path} not found in huggingface/tiny-agents! Please make sure it exists in https://huggingface.co/datasets/huggingface/tiny-agents."
+        ) from err

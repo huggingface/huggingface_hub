@@ -6,8 +6,6 @@ from typing import Any, Dict, List, Optional
 import typer
 from rich import print
 
-from huggingface_hub.utils import get_token
-
 from .agent import Agent
 from .utils import _load_agent_config
 
@@ -42,7 +40,6 @@ async def run_agent(
 
     """
     config, prompt = _load_agent_config(agent_path)
-    token = get_token()
 
     servers: List[Dict[str, Any]] = config.get("servers", [])
 
@@ -63,7 +60,6 @@ async def run_agent(
     async with Agent(
         provider=config["provider"],
         model=config["model"],
-        api_key=token,
         servers=servers,
         prompt=prompt,
     ) as agent:
