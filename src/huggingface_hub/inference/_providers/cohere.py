@@ -28,6 +28,5 @@ class CohereConversationalTask(BaseConversationalTask):
                     "type": "json_object",
                     "schema": json_schema_details["schema"],
                 }
-                # Only remove response_format from parameters if we've handled it
-                parameters.pop("response_format", None)
+
         return payload

@@ -39,8 +39,6 @@ class NebiusConversationalTask(BaseConversationalTask):
             json_schema_details = response_format.get("json_schema")
             if isinstance(json_schema_details, dict) and "schema" in json_schema_details:
                 payload["guided_json"] = json_schema_details["schema"]  # type: ignore [index]
-                # Only remove response_format from parameters if we've handled it
-                parameters.pop("response_format", None)
         return payload
 
 

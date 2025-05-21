@@ -109,7 +109,6 @@ class HFInferenceConversational(HFInferenceTask):
                 "type": "json_object",
                 "value": response_format["json_schema"]["schema"],
             }
-            parameters.pop("response_format", None)
         return {**payload, "model": payload_model, "messages": inputs}
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
