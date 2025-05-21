@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # Type alias for tool names
 ToolName: TypeAlias = str
 
-ServerType: TypeAlias = Literal["stdio", "sse", "streamablehttp"]
+ServerType: TypeAlias = Literal["stdio", "sse", "http"]
 
 
 class StdioServerParameters_T(TypedDict):
@@ -96,12 +96,17 @@ class MCPClient:
     async def add_mcp_server(self, type: Literal["sse"], **params: Unpack[SSEServerParameters_T]): ...
 
     @overload
-    async def add_mcp_server(self, type: Literal["streamablehttp"], **params: Unpack[StreamableHTTPParameters_T]): ...
+    async def add_mcp_server(self, type: Literal["http"], **params: Unpack[StreamableHTTPParameters_T]): ...
 
     async def add_mcp_server(self, type: ServerType, **params: Any):
         """Connect to an MCP server
 
         Args:
+            type (`str`):
+                Type of the server to connect to. Can be one of:
+                - "stdio": Standard input/output server (local)
+                - "sse": Server-sent events (SSE) server
+                - "http": StreamableHTTP server
             **params: Server parameters that can be either:
                 - For stdio servers:
                     - command (str): The command to run the MCP server
@@ -147,7 +152,7 @@ class MCPClient:
                 if params.get(key) is not None:
                     client_kwargs[key] = params[key]
             read, write = await self.exit_stack.enter_async_context(sse_client(**client_kwargs))
-        elif type == "streamablehttp":
+        elif type == "http":
             # Handle StreamableHTTP server
             from mcp.client.streamable_http import streamablehttp_client
 
