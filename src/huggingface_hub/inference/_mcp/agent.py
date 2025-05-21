@@ -32,9 +32,7 @@ class Agent(MCPClient):
 
     async def load_tools(self) -> None:
         for cfg in self._servers_cfg:
-            await self.add_mcp_server(
-                **cfg["config"]
-            )  # TODO: no need to specify the config key when https://github.com/huggingface/huggingface_hub/pull/3099 will be merged
+            await self.add_mcp_server(cfg["type"], **cfg["config"])
 
     async def run(
         self,
