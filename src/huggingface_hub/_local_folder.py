@@ -56,13 +56,9 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from .utils import WeakFileLock
-
-
-if TYPE_CHECKING:
-    from ._commit_api import UploadMode
 
 
 logger = logging.getLogger(__name__)
@@ -152,7 +148,7 @@ class LocalUploadFileMetadata:
     timestamp: Optional[float] = None
     should_ignore: Optional[bool] = None
     sha256: Optional[str] = None
-    upload_mode: Optional["UploadMode"] = None
+    upload_mode: Optional[str] = None
     remote_oid: Optional[str] = None
     is_uploaded: bool = False
     is_committed: bool = False

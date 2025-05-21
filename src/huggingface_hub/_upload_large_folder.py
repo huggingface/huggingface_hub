@@ -582,7 +582,7 @@ def _build_hacky_operation(item: JOB_ITEM_T) -> HackyCommitOperationAdd:
     if metadata.sha256 is None:
         raise ValueError("sha256 must have been computed by now!")
     operation.upload_info = UploadInfo(sha256=bytes.fromhex(metadata.sha256), size=metadata.size, sample=sample)
-    operation._upload_mode = metadata.upload_mode
+    operation._upload_mode = metadata.upload_mode  # type: ignore[assignment]
     operation._should_ignore = metadata.should_ignore
     operation._remote_oid = metadata.remote_oid
     return operation
