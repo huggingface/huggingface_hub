@@ -1,7 +1,8 @@
 import json
 import logging
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Mapping, Optional, Union
+from pathlib import Path
+from typing import TYPE_CHECKING, AsyncIterable, Dict, List, Optional, Union
 
 from typing_extensions import TypeAlias
 
@@ -14,12 +15,11 @@ from .._generated.types import (
     ChatCompletionStreamOutputDeltaToolCall,
 )
 from .._providers import PROVIDER_OR_POLICY_T
-from .utils import StdioServerConfig, format_result
+from .utils import format_result
 
 
 if TYPE_CHECKING:
     from mcp import ClientSession
-    from mcp.client.stdio import StdioServerParameters
 
 logger = logging.getLogger(__name__)
 
@@ -66,50 +66,37 @@ class MCPClient:
 
     async def add_mcp_server(
         self,
-        server: Union[
-            "StdioServerParameters",
-            StdioServerConfig,
-            Mapping[str, Any],
-        ],
-    ) -> None:
+        *,
+        command: str,
+        args: Optional[List[str]] = None,
+        env: Optional[Dict[str, str]] = None,
+        cwd: Union[str, Path, None] = None,
+    ):
         """Connect to an MCP server
+
         Args:
-            server (Union[StdioServerConfig, StdioServerParameters, Mapping[str, Any]]):
-                The server configuration. should be a dict with a "type" key and a "config" key that contains a `StdioServerParameters` object.
-
+            command (str):
+                The command to run the MCP server.
+            args (List[str], optional):
+                Arguments for the command.
+            env (Dict[str, str], optional):
+                Environment variables for the command. Default is to inherit the parent environment.
+            cwd (Union[str, Path, None], optional):
+                Working directory for the command. Default to current directory.
         """
-        from mcp import ClientSession
+        from mcp import ClientSession, StdioServerParameters
         from mcp import types as mcp_types
-        from mcp.client.stdio import StdioServerParameters, stdio_client
+        from mcp.client.stdio import stdio_client
 
-        server_params: StdioServerParameters
-
-        if isinstance(server, StdioServerParameters):
-            server_params = server
-
-        elif isinstance(server, StdioServerConfig):
-            server_params = (
-                server.config
-                if isinstance(server.config, StdioServerParameters)
-                else StdioServerParameters(**server.config)
-            )
-
-        else:
-            if server.get("type", "stdio") != "stdio":  # type: ignore[attr-defined]
-                raise ValueError(f"Unsupported server type: {server.get('type')!r}")  # type: ignore[attr-defined]
-            cfg_obj = server.get("config")  # type: ignore[attr-defined]
-            if cfg_obj is None:
-                raise TypeError("Legacy dict form requires a 'config' key")
-            server_params = cfg_obj if isinstance(cfg_obj, StdioServerParameters) else StdioServerParameters(**cfg_obj)
-
-        logger.info(
-            "Connecting to MCP server with command: %s %s",
-            server_params.command,
-            server_params.args,
+        logger.info(f"Connecting to MCP server with command: {command} {args}")
+        server_params = StdioServerParameters(
+            command=command,
+            args=args if args is not None else [],
+            env=env,
+            cwd=cwd,
         )
 
         read, write = await self.exit_stack.enter_async_context(stdio_client(server_params))
-
         session = await self.exit_stack.enter_async_context(
             ClientSession(
                 read_stream=read,
@@ -121,15 +108,22 @@ class MCPClient:
             )
         )
 
+        logger.debug("Initializing session...")
         await session.initialize()
-        tools_result = await session.list_tools()
-        logger.debug("Connected to server with tools: %s", [tool.name for tool in tools_result.tools])
 
-        for tool in tools_result.tools:
+        # List available tools
+        response = await session.list_tools()
+        logger.debug("Connected to server with tools:", [tool.name for tool in response.tools])
+
+        for tool in response.tools:
             if tool.name in self.sessions:
                 logger.warning(f"Tool '{tool.name}' already defined by another server. Skipping.")
                 continue
+
+            # Map tool names to their server for later lookup
             self.sessions[tool.name] = session
+
+            # Add tool to the list of available tools (for use in chat completions)
             self.available_tools.append(
                 ChatCompletionInputTool.parse_obj_as_instance(
                     {

@@ -3,14 +3,12 @@
 	"provider": "nebius",
 	"servers": [
 		{
-			"type": "stdio",
-			"config": {
-				"command": "npx",
-				"args": [
+			"command": "npx",
+			"args": [
 					"-y",
 					"@playwright/mcp@latest"
 				]
 			}
-		}
+		
 	]
 }

@@ -71,7 +71,7 @@ class Agent(MCPClient):
 
     async def load_tools(self) -> None:
         for cfg in self._servers_cfg:
-            await self.add_mcp_server(cfg)
+            await self.add_mcp_server(**cfg)
 
     async def run(
         self,

@@ -7,14 +7,12 @@ Formatting utilities taken from the JS SDK: https://github.com/huggingface/huggi
 import importlib.resources as importlib_resources
 import json
 import sys
-from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 
 if TYPE_CHECKING:
     from mcp import types as mcp_types
-    from mcp.client.stdio import StdioServerParameters
 
 
 FILENAME_CONFIG = "agent.json"
@@ -25,35 +23,19 @@ DEFAULT_AGENT = {
     "provider": "nebius",
     "servers": [
         {
-            "type": "stdio",
-            "config": {
-                "command": "npx",
-                "args": [
-                    "-y",
-                    "@modelcontextprotocol/server-filesystem",
-                    str(Path.home() / ("Desktop" if sys.platform == "darwin" else "")),
-                ],
-            },
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                str(Path.home() / ("Desktop" if sys.platform == "darwin" else "")),
+            ],
         },
         {
-            "type": "stdio",
-            "config": {
-                "command": "npx",
-                "args": ["@playwright/mcp@latest"],
-            },
+            "command": "npx",
+            "args": ["@playwright/mcp@latest"],
         },
     ],
 }
-
-
-@dataclass(frozen=True)
-class StdioServerConfig:
-    config: Union["StdioServerParameters", Mapping[str, Any]]
-    type: Literal["stdio"] = "stdio"
-
-
-# TODO: Add SSE and HTTP server config
-# ServerConfigTypes = [StdioServerConfig, SSEServerConfig, HTTPServerConfig]
 
 
 def format_result(result: "mcp_types.CallToolResult") -> str:
