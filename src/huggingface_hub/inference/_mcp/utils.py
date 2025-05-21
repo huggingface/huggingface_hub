@@ -119,5 +119,5 @@ def _load_agent_config(agent_path: Optional[str]) -> Tuple[Dict[str, Any], Optio
         return _read_dir(repo_dir / agent_path)
     except Exception as err:
         raise EntryNotFoundError(
-            f" Agent {agent_path} not found in huggingface/tiny-agents! Please make sure it exists in https://huggingface.co/datasets/huggingface/tiny-agents."
+            f" Agent {agent_path} not found in tiny-agents/tiny-agents! Please make sure it exists in https://huggingface.co/datasets/tiny-agents/tiny-agents."
         ) from err

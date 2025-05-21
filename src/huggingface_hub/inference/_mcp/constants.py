@@ -15,16 +15,22 @@ DEFAULT_AGENT = {
     "provider": "nebius",
     "servers": [
         {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@modelcontextprotocol/server-filesystem",
-                str(Path.home() / ("Desktop" if sys.platform == "darwin" else "")),
-            ],
+            "type": "stdio",
+            "config": {
+                "command": "npx",
+                "args": [
+                    "-y",
+                    "@modelcontextprotocol/server-filesystem",
+                    str(Path.home() / ("Desktop" if sys.platform == "darwin" else "")),
+                ],
+            },
         },
         {
-            "command": "npx",
-            "args": ["@playwright/mcp@latest"],
+            "type": "stdio",
+            "config": {
+                "command": "npx",
+                "args": ["@playwright/mcp@latest"],
+            },
         },
     ],
 }
@@ -71,4 +77,4 @@ ASK_QUESTION_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj( 
 EXIT_LOOP_TOOLS: List[ChatCompletionInputTool] = [TASK_COMPLETE_TOOL, ASK_QUESTION_TOOL]
 
 
-DEFAULT_REPO_ID = "huggingface/tiny-agents"
+DEFAULT_REPO_ID = "tiny-agents/tiny-agents"
