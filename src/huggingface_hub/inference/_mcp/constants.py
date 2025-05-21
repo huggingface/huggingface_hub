@@ -2,13 +2,9 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, List
+from typing import List
 
 from huggingface_hub import ChatCompletionInputTool
-
-
-if TYPE_CHECKING:
-    pass
 
 
 FILENAME_CONFIG = "agent.json"
