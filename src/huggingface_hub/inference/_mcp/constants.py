@@ -12,7 +12,7 @@ FILENAME_PROMPT = "PROMPT.md"
 
 DEFAULT_AGENT = {
     "model": "Qwen/Qwen2.5-72B-Instruct",
-    "provider": "together",
+    "provider": "nebius",
     "servers": [
         {
             "command": "npx",
