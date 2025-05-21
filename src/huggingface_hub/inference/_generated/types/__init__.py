@@ -24,9 +24,13 @@ from .chat_completion import (
     ChatCompletionInputFunctionDefinition,
     ChatCompletionInputFunctionName,
     ChatCompletionInputGrammarType,
+    ChatCompletionInputJSONSchema,
     ChatCompletionInputMessage,
     ChatCompletionInputMessageChunk,
     ChatCompletionInputMessageChunkType,
+    ChatCompletionInputResponseFormatJSONObject,
+    ChatCompletionInputResponseFormatJSONSchema,
+    ChatCompletionInputResponseFormatText,
     ChatCompletionInputStreamOptions,
     ChatCompletionInputTool,
     ChatCompletionInputToolCall,
@@ -51,10 +55,6 @@ from .chat_completion import (
     ChatCompletionStreamOutputLogprobs,
     ChatCompletionStreamOutputTopLogprob,
     ChatCompletionStreamOutputUsage,
-    JSONSchema,
-    ResponseFormatJSONObject,
-    ResponseFormatJSONSchema,
-    ResponseFormatText,
 )
 from .depth_estimation import DepthEstimationInput, DepthEstimationOutput
 from .document_question_answering import (

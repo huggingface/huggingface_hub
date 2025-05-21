@@ -46,7 +46,7 @@ class ChatCompletionInputMessage(BaseInferenceType):
 
 
 @dataclass_with_extra
-class JSONSchema(BaseInferenceType):
+class ChatCompletionInputJSONSchema(BaseInferenceType):
     name: str
     """
     The name of the response format.
@@ -70,22 +70,26 @@ class JSONSchema(BaseInferenceType):
 
 
 @dataclass_with_extra
-class ResponseFormatText(BaseInferenceType):
+class ChatCompletionInputResponseFormatText(BaseInferenceType):
     type: Literal["text"]
 
 
 @dataclass_with_extra
-class ResponseFormatJSONSchema(BaseInferenceType):
+class ChatCompletionInputResponseFormatJSONSchema(BaseInferenceType):
     type: Literal["json_schema"]
-    json_schema: JSONSchema
+    json_schema: ChatCompletionInputJSONSchema
 
 
 @dataclass_with_extra
-class ResponseFormatJSONObject(BaseInferenceType):
+class ChatCompletionInputResponseFormatJSONObject(BaseInferenceType):
     type: Literal["json_object"]
 
 
-ChatCompletionInputGrammarType = Union[ResponseFormatText, ResponseFormatJSONSchema, ResponseFormatJSONObject]
+ChatCompletionInputGrammarType = Union[
+    ChatCompletionInputResponseFormatText,
+    ChatCompletionInputResponseFormatJSONSchema,
+    ChatCompletionInputResponseFormatJSONObject,
+]
 
 
 @dataclass_with_extra
