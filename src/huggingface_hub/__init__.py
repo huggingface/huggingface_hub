@@ -548,9 +548,13 @@ __all__ = [
     "ChatCompletionInputFunctionDefinition",
     "ChatCompletionInputFunctionName",
     "ChatCompletionInputGrammarType",
+    "ChatCompletionInputJSONSchema",
     "ChatCompletionInputMessage",
     "ChatCompletionInputMessageChunk",
     "ChatCompletionInputMessageChunkType",
+    "ChatCompletionInputResponseFormatJSONObject",
+    "ChatCompletionInputResponseFormatJSONSchema",
+    "ChatCompletionInputResponseFormatText",
     "ChatCompletionInputStreamOptions",
     "ChatCompletionInputTool",
     "ChatCompletionInputToolCall",
@@ -648,7 +652,6 @@ __all__ = [
     "InferenceEndpointTimeoutError",
     "InferenceEndpointType",
     "InferenceTimeoutError",
-    "JSONSchema",
     "KerasModelHubMixin",
     "MCPClient",
     "ModelCard",
@@ -675,9 +678,6 @@ __all__ = [
     "RepoCard",
     "RepoUrl",
     "Repository",
-    "ResponseFormatJSONObject",
-    "ResponseFormatJSONSchema",
-    "ResponseFormatText",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
     "SpaceCard",
@@ -1273,9 +1273,13 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionInputFunctionDefinition,  # noqa: F401
         ChatCompletionInputFunctionName,  # noqa: F401
         ChatCompletionInputGrammarType,  # noqa: F401
+        ChatCompletionInputJSONSchema,  # noqa: F401
         ChatCompletionInputMessage,  # noqa: F401
         ChatCompletionInputMessageChunk,  # noqa: F401
         ChatCompletionInputMessageChunkType,  # noqa: F401
+        ChatCompletionInputResponseFormatJSONObject,  # noqa: F401
+        ChatCompletionInputResponseFormatJSONSchema,  # noqa: F401
+        ChatCompletionInputResponseFormatText,  # noqa: F401
         ChatCompletionInputStreamOptions,  # noqa: F401
         ChatCompletionInputTool,  # noqa: F401
         ChatCompletionInputToolCall,  # noqa: F401
@@ -1328,7 +1332,6 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageToTextInput,  # noqa: F401
         ImageToTextOutput,  # noqa: F401
         ImageToTextParameters,  # noqa: F401
-        JSONSchema,  # noqa: F401
         ObjectDetectionBoundingBox,  # noqa: F401
         ObjectDetectionInput,  # noqa: F401
         ObjectDetectionOutputElement,  # noqa: F401
@@ -1338,9 +1341,6 @@ if TYPE_CHECKING:  # pragma: no cover
         QuestionAnsweringInputData,  # noqa: F401
         QuestionAnsweringOutputElement,  # noqa: F401
         QuestionAnsweringParameters,  # noqa: F401
-        ResponseFormatJSONObject,  # noqa: F401
-        ResponseFormatJSONSchema,  # noqa: F401
-        ResponseFormatText,  # noqa: F401
         SentenceSimilarityInput,  # noqa: F401
         SentenceSimilarityInputData,  # noqa: F401
         SummarizationInput,  # noqa: F401

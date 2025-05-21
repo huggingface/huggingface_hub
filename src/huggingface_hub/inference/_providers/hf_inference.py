@@ -103,12 +103,13 @@ class HFInferenceConversational(HFInferenceTask):
         if payload_model is None or payload_model.startswith(("http://", "https://")):
             payload_model = "dummy"
 
-        response_format = parameters.pop("response_format", None)
-        if response_format is not None and response_format["type"] == "json_schema":
+        response_format = parameters.get("response_format")
+        if isinstance(response_format, dict) and response_format.get("type") == "json_schema":
             payload["response_format"] = {
                 "type": "json_object",
                 "value": response_format["json_schema"]["schema"],
             }
+            parameters.pop("response_format", None)
         return {**payload, "model": payload_model, "messages": inputs}
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
