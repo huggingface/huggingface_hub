@@ -11,7 +11,7 @@ from .constants import DEFAULT_SYSTEM_PROMPT, EXIT_LOOP_TOOLS, MAX_NUM_TURNS
 
 class Agent(MCPClient):
     """
-    Python implementation of a Tiny Agent
+    Python implementation of a Simple Agent
     i.e. just a basic while loop on top of an Inference Client with MCP-powered tools
     """
 

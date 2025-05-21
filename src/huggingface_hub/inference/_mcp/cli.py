@@ -17,7 +17,6 @@ Examples:
 
 import argparse
 import asyncio
-import os
 import signal
 import sys
 from functools import partial
@@ -26,7 +25,9 @@ from typing import Any, Dict, List, Optional
 from colorama import Fore, Style
 from colorama import init as colorama_init
 
-from .tiny_agent import Agent
+from huggingface_hub.utils import get_token
+
+from .agent import Agent
 from .utils import _load_config, _url_to_server_config
 
 
@@ -41,7 +42,7 @@ async def ainput(prompt: str = "") -> str:
 
 async def run_agent(source: Optional[str], extra_urls: Optional[List[str]]) -> None:
     config, prompt = _load_config(source)
-    hf_token = os.getenv("HF_TOKEN")
+    hf_token = get_token()
 
     servers: List[Dict[str, Any]] = config.get("servers", [])
     if extra_urls:
