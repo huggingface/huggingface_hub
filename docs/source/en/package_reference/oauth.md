@@ -44,8 +44,11 @@ def greet_json(request: Request):
 ```
 
 <Tip>
-You might also be interested in [a practical example that demonstrates OAuth in action](https://huggingface.co/spaces/medoidai/GiveBackGPT/blob/main/src/main.py)
+    
+You might also be interested in [a practical example that demonstrates OAuth in action](https://huggingface.co/spaces/Wauplin/fastapi-oauth/blob/main/app.py).
+  
 </Tip>
+
 
 ### attach_huggingface_oauth
 

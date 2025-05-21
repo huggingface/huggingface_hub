@@ -3623,7 +3623,7 @@ class HfApi:
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
             resource_group_id (`str`, *optional*):
-                Resource group in which to create the repo. Resource groups is only available for organizations and
+                Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations and
                 allow to define which members of the organization can access the resource. The ID of a resource group
                 can be found in the URL of the resource's page on the Hub (e.g. `"66670e5163145ca562cb1988"`).
                 To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
@@ -7724,7 +7724,15 @@ class HfApi:
         """
         namespace = namespace or self._get_namespace(token=token)
 
-        image = {"custom": custom_image} if custom_image is not None else {"huggingface": {}}
+        if custom_image is not None:
+            image = (
+                custom_image
+                if next(iter(custom_image)) in constants.INFERENCE_ENDPOINT_IMAGE_KEYS
+                else {"custom": custom_image}
+            )
+        else:
+            image = {"huggingface": {}}
+
         payload: Dict = {
             "accountId": account_id,
             "compute": {

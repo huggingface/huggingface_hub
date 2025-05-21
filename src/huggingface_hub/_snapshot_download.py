@@ -7,7 +7,13 @@ from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
 from . import constants
-from .errors import GatedRepoError, LocalEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
+from .errors import (
+    GatedRepoError,
+    HfHubHTTPError,
+    LocalEntryNotFoundError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+)
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, ModelInfo, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
@@ -228,8 +234,10 @@ def snapshot_download(
                 "outgoing traffic has been disabled. To enable repo look-ups and downloads online, set "
                 "'HF_HUB_OFFLINE=0' as environment variable."
             ) from api_call_error
-        elif isinstance(api_call_error, RepositoryNotFoundError) or isinstance(api_call_error, GatedRepoError):
-            # Repo not found => let's raise the actual error
+        elif isinstance(api_call_error, (RepositoryNotFoundError, GatedRepoError)) or (
+            isinstance(api_call_error, HfHubHTTPError) and api_call_error.response.status_code == 401
+        ):
+            # Repo not found, gated, or specific authentication error => let's raise the actual error
             raise api_call_error
         else:
             # Otherwise: most likely a connection issue or Hub downtime => let's warn the user

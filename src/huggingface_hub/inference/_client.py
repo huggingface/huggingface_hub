@@ -66,6 +66,7 @@ from huggingface_hub.inference._generated.types import (
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
     ChatCompletionInputGrammarType,
+    ChatCompletionInputMessage,
     ChatCompletionInputStreamOptions,
     ChatCompletionInputTool,
     ChatCompletionInputToolChoiceClass,
@@ -100,7 +101,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
-from huggingface_hub.inference._providers import PROVIDER_T, get_provider_helper
+from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provider_helper
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
 from huggingface_hub.utils._auth import get_token
 from huggingface_hub.utils._deprecation import _deprecate_method
@@ -164,7 +165,7 @@ class InferenceClient:
         self,
         model: Optional[str] = None,
         *,
-        provider: Union[Literal["auto"], PROVIDER_T, None] = None,
+        provider: Optional[PROVIDER_OR_POLICY_T] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
@@ -446,7 +447,7 @@ class InferenceClient:
     @overload
     def chat_completion(  # type: ignore
         self,
-        messages: List[Dict],
+        messages: List[Union[Dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: Literal[False] = False,
@@ -472,7 +473,7 @@ class InferenceClient:
     @overload
     def chat_completion(  # type: ignore
         self,
-        messages: List[Dict],
+        messages: List[Union[Dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: Literal[True] = True,
@@ -498,7 +499,7 @@ class InferenceClient:
     @overload
     def chat_completion(
         self,
-        messages: List[Dict],
+        messages: List[Union[Dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: bool = False,
@@ -523,7 +524,7 @@ class InferenceClient:
 
     def chat_completion(
         self,
-        messages: List[Dict],
+        messages: List[Union[Dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: bool = False,

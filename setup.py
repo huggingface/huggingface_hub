@@ -64,6 +64,10 @@ extras["tensorflow-testing"] = [
 
 extras["hf_xet"] = ["hf-xet>=1.1.1,<2.0.0"]
 
+extras["mcp"] = [
+    "mcp>=1.8.0",
+] + extras["inference"]
+
 extras["testing"] = (
     extras["cli"]
     + extras["inference"]
@@ -102,7 +106,8 @@ extras["typing"] = [
 
 extras["quality"] = [
     "ruff>=0.9.0",
-    "mypy==1.5.1",
+    "mypy>=1.14.1,<1.15.0; python_version=='3.8'",
+    "mypy==1.15.0; python_version>='3.9'",
     "libcst==1.4.0",
 ]
 

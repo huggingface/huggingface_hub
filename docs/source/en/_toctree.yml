@@ -86,5 +86,7 @@
       title: Webhooks server
     - local: package_reference/serialization
       title: Serialization
+    - local: package_reference/dataclasses
+      title: Strict dataclasses
     - local: package_reference/oauth
       title: OAuth
