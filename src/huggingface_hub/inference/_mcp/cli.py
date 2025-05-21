@@ -9,8 +9,7 @@ from rich import print
 from huggingface_hub.utils import get_token
 
 from .agent import Agent
-from .constants import DEFAULT_REPO_ID
-from .utils import _load_agent_config, _url_to_server_config
+from .utils import _load_agent_config
 
 
 app = typer.Typer(
@@ -33,9 +32,6 @@ async def _ainput(prompt: str = "» ") -> str:
 
 async def run_agent(
     agent_path: Optional[str],
-    *,
-    extra_urls: Optional[List[str]],
-    repo_id: Optional[str],
 ) -> None:
     """
     Tiny Agent loop.
@@ -43,21 +39,12 @@ async def run_agent(
     Args:
         agent_path (`str`, *optional*):
             Path to a local folder containing an `agent.json` and optionally a custom `PROMPT.md` file or a built-in agent stored in a Hugging Face dataset.
-        extra_urls (`List[str]`, *optional*):
-            List of URLs to override MCP servers.
-        repo_id (`str`, *optional*):
-            Hugging Face dataset repo containing agents. Defaults to `"huggingface/tiny-agents"`.
 
     """
-    if repo_id is None:
-        repo_id = DEFAULT_REPO_ID
-
-    config, prompt = _load_agent_config(agent_path, repo_id)
+    config, prompt = _load_agent_config(agent_path)
     token = get_token()
 
     servers: List[Dict[str, Any]] = config.get("servers", [])
-    if extra_urls:
-        servers = [_url_to_server_config(u, token) for u in extra_urls]
 
     abort_event = asyncio.Event()
     first_sigint = True
@@ -120,23 +107,9 @@ def run(
         None,
         help="Path to a local folder containing an agent.json file or a built-in agent stored in a Hugging Face dataset (default: https://huggingface.co/datasets/huggingface/tiny-agents)",
     ),
-    repo_id: Optional[str] = typer.Option(
-        DEFAULT_REPO_ID,
-        "--repo-id",
-        "-r",
-        help="Hugging Face dataset repo containing agents",
-        show_default=True,
-    ),
-    url: List[str] = typer.Option(
-        None,
-        "--url",
-        "-u",
-        help="Override MCP servers by URL",
-        show_default=False,
-    ),
 ):
     try:
-        asyncio.run(run_agent(path, extra_urls=url, repo_id=repo_id))
+        asyncio.run(run_agent(path))
     except KeyboardInterrupt:
         raise typer.Exit(code=130)
 

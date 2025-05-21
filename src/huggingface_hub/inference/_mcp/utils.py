@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from huggingface_hub import snapshot_download
 
-from .constants import DEFAULT_AGENT, FILENAME_CONFIG, FILENAME_PROMPT
+from .constants import DEFAULT_AGENT, DEFAULT_REPO_ID, FILENAME_CONFIG, FILENAME_PROMPT
 
 
 if TYPE_CHECKING:
@@ -82,7 +82,7 @@ def _get_base64_size(base64_str: str) -> int:
     return (len(base64_str) * 3) // 4 - padding
 
 
-def _load_agent_config(agent_path: Optional[str], repo_id: str) -> Tuple[Dict[str, Any], Optional[str]]:
+def _load_agent_config(agent_path: Optional[str]) -> Tuple[Dict[str, Any], Optional[str]]:
     """Load server config and prompt."""
 
     def _read_dir(directory: Path) -> Tuple[Dict[str, Any], Optional[str]]:
@@ -110,7 +110,7 @@ def _load_agent_config(agent_path: Optional[str], repo_id: str) -> Tuple[Dict[st
     try:
         repo_dir = Path(
             snapshot_download(
-                repo_id=repo_id,
+                repo_id=DEFAULT_REPO_ID,
                 allow_patterns=f"{agent_path}/*",
                 repo_type="dataset",
             )
