@@ -3,50 +3,10 @@ from __future__ import annotations
 import asyncio
 from typing import AsyncGenerator, Dict, List, Optional, Sequence, Union
 
-from huggingface_hub import ChatCompletionInputMessage, ChatCompletionInputTool, ChatCompletionStreamOutput, MCPClient
+from huggingface_hub import ChatCompletionInputMessage, ChatCompletionStreamOutput, MCPClient
 
 from .._providers import PROVIDER_OR_POLICY_T
-
-
-DEFAULT_SYSTEM_PROMPT = """
-You are an agent - please keep going until the user’s query is completely
-resolved, before ending your turn and yielding back to the user. Only terminate
-your turn when you are sure that the problem is solved, or if you need more
-info from the user to solve the problem.
-If you are not sure about anything pertaining to the user’s request, use your
-tools to read files and gather the relevant information: do NOT guess or make
-up an answer.
-You MUST plan extensively before each function call, and reflect extensively
-on the outcomes of the previous function calls. DO NOT do this entire process
-by making function calls only, as this can impair your ability to solve the
-problem and think insightfully.
-""".strip()
-
-MAX_NUM_TURNS = 10
-
-TASK_COMPLETE_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(  # type: ignore[assignment]
-    {
-        "type": "function",
-        "function": {
-            "name": "task_complete",
-            "description": "Call this tool when the task given by the user is complete",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    }
-)
-
-ASK_QUESTION_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(  # type: ignore[assignment]
-    {
-        "type": "function",
-        "function": {
-            "name": "ask_question",
-            "description": "Ask the user for more info required to solve or clarify their problem.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    }
-)
-
-EXIT_LOOP_TOOLS: List[ChatCompletionInputTool] = [TASK_COMPLETE_TOOL, ASK_QUESTION_TOOL]
+from .constants import DEFAULT_SYSTEM_PROMPT, EXIT_LOOP_TOOLS, MAX_NUM_TURNS
 
 
 class Agent(MCPClient):

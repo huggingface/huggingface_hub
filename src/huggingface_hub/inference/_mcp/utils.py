@@ -6,36 +6,14 @@ Formatting utilities taken from the JS SDK: https://github.com/huggingface/huggi
 
 import importlib.resources as importlib_resources
 import json
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
+from .constants import DEFAULT_AGENT, FILENAME_CONFIG, FILENAME_PROMPT
 
 
 if TYPE_CHECKING:
     from mcp import types as mcp_types
-
-
-FILENAME_CONFIG = "agent.json"
-FILENAME_PROMPT = "PROMPT.md"
-
-DEFAULT_AGENT = {
-    "model": "Qwen/Qwen2.5-72B-Instruct",
-    "provider": "nebius",
-    "servers": [
-        {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@modelcontextprotocol/server-filesystem",
-                str(Path.home() / ("Desktop" if sys.platform == "darwin" else "")),
-            ],
-        },
-        {
-            "command": "npx",
-            "args": ["@playwright/mcp@latest"],
-        },
-    ],
-}
 
 
 def format_result(result: "mcp_types.CallToolResult") -> str:
