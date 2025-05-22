@@ -61,6 +61,16 @@ class MCPClient:
     This class is experimental and might be subject to breaking changes in the future without prior notice.
 
     </Tip>
+
+    Args:
+        model (`str`, `optional`):
+            The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g. `meta-llama/Meta-Llama-3-8B-Instruct`
+            or a URL to a deployed Inference Endpoint or other local or remote endpoint.
+        provider (`str`, *optional*):
+            Name of the provider to use for inference. Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
+            If model is a URL or `base_url` is passed, then `provider` is not used.
+        api_key (`str`, `optional`):
+            Token to use for authentication. Will default to the locally Hugging Face saved token if not provided. You can also use your own provider API key to interact directly with the provider's service.
     """
 
     def __init__(
@@ -107,23 +117,24 @@ class MCPClient:
                 - "stdio": Standard input/output server (local)
                 - "sse": Server-sent events (SSE) server
                 - "http": StreamableHTTP server
-            **params: Server parameters that can be either:
-                - For stdio servers:
-                    - command (str): The command to run the MCP server
-                    - args (List[str], optional): Arguments for the command
-                    - env (Dict[str, str], optional): Environment variables for the command
-                    - cwd (Union[str, Path, None], optional): Working directory for the command
-                - For SSE servers:
-                    - url (str): The URL of the SSE server
-                    - headers (Dict[str, Any], optional): Headers for the SSE connection
-                    - timeout (float, optional): Connection timeout
-                    - sse_read_timeout (float, optional): SSE read timeout
-                - For StreamableHTTP servers:
-                    - url (str): The URL of the StreamableHTTP server
-                    - headers (Dict[str, Any], optional): Headers for the StreamableHTTP connection
-                    - timeout (timedelta, optional): Connection timeout
-                    - sse_read_timeout (timedelta, optional): SSE read timeout
-                    - terminate_on_close (bool, optional): Whether to terminate on close
+            **params (`Dict[str, Any]`):
+                Server parameters that can be either:
+                    - For stdio servers:
+                        - command (str): The command to run the MCP server
+                        - args (List[str], optional): Arguments for the command
+                        - env (Dict[str, str], optional): Environment variables for the command
+                        - cwd (Union[str, Path, None], optional): Working directory for the command
+                    - For SSE servers:
+                        - url (str): The URL of the SSE server
+                        - headers (Dict[str, Any], optional): Headers for the SSE connection
+                        - timeout (float, optional): Connection timeout
+                        - sse_read_timeout (float, optional): SSE read timeout
+                    - For StreamableHTTP servers:
+                        - url (str): The URL of the StreamableHTTP server
+                        - headers (Dict[str, Any], optional): Headers for the StreamableHTTP connection
+                        - timeout (timedelta, optional): Connection timeout
+                        - sse_read_timeout (timedelta, optional): SSE read timeout
+                        - terminate_on_close (bool, optional): Whether to terminate on close
         """
         from mcp import ClientSession, StdioServerParameters
         from mcp import types as mcp_types
