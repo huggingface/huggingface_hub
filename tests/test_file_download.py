@@ -1226,7 +1226,7 @@ class TestExtraLargeFileDownloadPaths(unittest.TestCase):
         with SoftTemporaryDirectory() as cache_dir:
             with self.assertRaises(
                 ValueError,
-                msg="The file is too large to be downloaded using the regular download method. Use `hf_transfer` or `xet_get` instead. Try `pip install hf_transfer` or `pip install hf_xet`.",
+                msg="The file is too large to be downloaded using the regular download method. Use `hf-transfer` or `xet_get` instead. Try `pip install hf-transfer` or `pip install hf_xet`.",
             ):
                 hf_hub_download(
                     DUMMY_EXTRA_LARGE_FILE_MODEL_ID,
@@ -1236,11 +1236,11 @@ class TestExtraLargeFileDownloadPaths(unittest.TestCase):
                     etag_timeout=10,
                 )
 
-    # Test "large" file download with hf_transfer. Use a tiny file to keep the tests fast and avoid
+    # Test "large" file download with hf-transfer. Use a tiny file to keep the tests fast and avoid
     # internal gateway transfer quotas.
     @unittest.skipIf(
         not is_hf_transfer_available(),
-        "hf_transfer not installed, so skipping large file download with hf_transfer check.",
+        "hf-transfer not installed, so skipping large file download with hf-transfer check.",
     )
     @patch("huggingface_hub.file_download.constants.HF_HUB_ENABLE_HF_TRANSFER", True)
     @patch("huggingface_hub.file_download.constants.MAX_HTTP_DOWNLOAD_SIZE", 44)

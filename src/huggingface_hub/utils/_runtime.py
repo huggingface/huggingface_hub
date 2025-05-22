@@ -35,7 +35,7 @@ _CANDIDATES = {
     "fastcore": {"fastcore"},
     "gradio": {"gradio"},
     "graphviz": {"graphviz"},
-    "hf_transfer": {"hf_transfer"},
+    "hf-transfer": {"hf-transfer"},
     "hf_xet": {"hf_xet"},
     "jinja": {"Jinja2"},
     "keras": {"keras"},
@@ -143,13 +143,13 @@ def get_graphviz_version() -> str:
     return _get_version("graphviz")
 
 
-# hf_transfer
+# hf-transfer
 def is_hf_transfer_available() -> bool:
-    return is_package_available("hf_transfer")
+    return is_package_available("hf-transfer")
 
 
 def get_hf_transfer_version() -> str:
-    return _get_version("hf_transfer")
+    return _get_version("hf-transfer")
 
 
 # xet
@@ -365,7 +365,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["keras"] = get_keras_version()
     info["Pydot"] = get_pydot_version()
     info["Pillow"] = get_pillow_version()
-    info["hf_transfer"] = get_hf_transfer_version()
+    info["hf-transfer"] = get_hf_transfer_version()
     info["gradio"] = get_gradio_version()
     info["tensorboard"] = get_tensorboard_version()
     info["numpy"] = get_numpy_version()

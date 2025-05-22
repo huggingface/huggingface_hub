@@ -212,7 +212,7 @@ HF_HUB_DISABLE_EXPERIMENTAL_WARNING: bool = _is_true(os.environ.get("HF_HUB_DISA
 # Disable sending the cached token by default is all HTTP requests to the Hub
 HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN"))
 
-# Enable fast-download using external dependency "hf_transfer"
+# Enable fast-download using external dependency "hf-transfer"
 # See:
 # - https://pypi.org/project/hf-transfer/
 # - https://github.com/huggingface/hf_transfer (private)

@@ -445,7 +445,7 @@ def _upload_lfs_files(
             raise RuntimeError(f"Error while uploading '{operation.path_in_repo}' to the Hub.") from exc
 
     if constants.HF_HUB_ENABLE_HF_TRANSFER:
-        logger.debug(f"Uploading {len(filtered_actions)} LFS files to the Hub using `hf_transfer`.")
+        logger.debug(f"Uploading {len(filtered_actions)} LFS files to the Hub using `hf-transfer`.")
         for action in hf_tqdm(filtered_actions, name="huggingface_hub.lfs_upload"):
             _wrapped_lfs_upload(action)
     elif len(filtered_actions) == 1:

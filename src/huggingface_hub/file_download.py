@@ -386,19 +386,19 @@ def http_get(
     hf_transfer = None
     if constants.HF_HUB_ENABLE_HF_TRANSFER:
         if resume_size != 0:
-            warnings.warn("'hf_transfer' does not support `resume_size`: falling back to regular download method")
+            warnings.warn("'hf-transfer' does not support `resume_size`: falling back to regular download method")
         elif proxies is not None:
-            warnings.warn("'hf_transfer' does not support `proxies`: falling back to regular download method")
+            warnings.warn("'hf-transfer' does not support `proxies`: falling back to regular download method")
         elif has_custom_range_header:
-            warnings.warn("'hf_transfer' ignores custom 'Range' headers; falling back to regular download method")
+            warnings.warn("'hf-transfer' ignores custom 'Range' headers; falling back to regular download method")
         else:
             try:
                 import hf_transfer  # type: ignore[no-redef]
             except ImportError:
                 raise ValueError(
-                    "Fast download using 'hf_transfer' is enabled"
-                    " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
-                    " available in your environment. Try `pip install hf_transfer`."
+                    "Fast download using 'hf-transfer' is enabled"
+                    " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf-transfer' package is not"
+                    " available in your environment. Try `pip install hf-transfer`."
                 )
 
     initial_headers = headers
@@ -408,13 +408,13 @@ def http_get(
     elif expected_size and expected_size > constants.MAX_HTTP_DOWNLOAD_SIZE:
         # Any files over 50GB will not be available through basic http request.
         # Setting the range header to 0-0 will force the server to return the file size in the Content-Range header.
-        # Since hf_transfer splits the download into chunks, the process will succeed afterwards.
+        # Since hf-transfer splits the download into chunks, the process will succeed afterwards.
         if hf_transfer:
             headers["Range"] = "bytes=0-0"
         else:
             raise ValueError(
-                "The file is too large to be downloaded using the regular download method. Use `hf_transfer` or `hf_xet` instead."
-                " Try `pip install hf_transfer` or `pip install hf_xet`."
+                "The file is too large to be downloaded using the regular download method. Use `hf-transfer` or `hf_xet` instead."
+                " Try `pip install hf-transfer` or `pip install hf_xet`."
             )
 
     r = _request_wrapper(
@@ -460,9 +460,9 @@ def http_get(
             supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
             if not supports_callback:
                 warnings.warn(
-                    "You are using an outdated version of `hf_transfer`. "
+                    "You are using an outdated version of `hf-transfer`. "
                     "Consider upgrading to latest version to enable progress bars "
-                    "using `pip install -U hf_transfer`."
+                    "using `pip install -U hf-transfer`."
                 )
             try:
                 hf_transfer.download(
@@ -477,7 +477,7 @@ def http_get(
                 )
             except Exception as e:
                 raise RuntimeError(
-                    "An error occurred while downloading using `hf_transfer`. Consider"
+                    "An error occurred while downloading using `hf-transfer`. Consider"
                     " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
                 ) from e
             if not supports_callback:
@@ -1683,7 +1683,7 @@ def _download_to_tmp_and_move(
 
     if incomplete_path.exists() and (force_download or (constants.HF_HUB_ENABLE_HF_TRANSFER and not proxies)):
         # By default, we will try to resume the download if possible.
-        # However, if the user has set `force_download=True` or if `hf_transfer` is enabled, then we should
+        # However, if the user has set `force_download=True` or if `hf-transfer` is enabled, then we should
         # not resume the download => delete the incomplete file.
         message = f"Removing incomplete file '{incomplete_path}'"
         if force_download:

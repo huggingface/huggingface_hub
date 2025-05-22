@@ -327,7 +327,7 @@ def _upload_multi_part(operation: "CommitOperationAdd", header: Dict, chunk_size
     # 1. Get upload URLs for each part
     sorted_parts_urls = _get_sorted_parts_urls(header=header, upload_info=operation.upload_info, chunk_size=chunk_size)
 
-    # 2. Upload parts (either with hf_transfer or in pure Python)
+    # 2. Upload parts (either with hf-transfer or in pure Python)
     use_hf_transfer = constants.HF_HUB_ENABLE_HF_TRANSFER
     if (
         constants.HF_HUB_ENABLE_HF_TRANSFER
@@ -335,7 +335,7 @@ def _upload_multi_part(operation: "CommitOperationAdd", header: Dict, chunk_size
         and not isinstance(operation.path_or_fileobj, Path)
     ):
         warnings.warn(
-            "hf_transfer is enabled but does not support uploading from bytes or BinaryIO, falling back to regular"
+            "hf-transfer is enabled but does not support uploading from bytes or BinaryIO, falling back to regular"
             " upload"
         )
         use_hf_transfer = False
@@ -416,14 +416,14 @@ def _upload_parts_hf_transfer(
         from hf_transfer import multipart_upload
     except ImportError:
         raise ValueError(
-            "Fast uploading using 'hf_transfer' is enabled (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is"
-            " not available in your environment. Try `pip install hf_transfer`."
+            "Fast uploading using 'hf-transfer' is enabled (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf-transfer' package is"
+            " not available in your environment. Try `pip install hf-transfer`."
         )
 
     supports_callback = "callback" in inspect.signature(multipart_upload).parameters
     if not supports_callback:
         warnings.warn(
-            "You are using an outdated version of `hf_transfer`. Consider upgrading to latest version to enable progress bars using `pip install -U hf_transfer`."
+            "You are using an outdated version of `hf-transfer`. Consider upgrading to latest version to enable progress bars using `pip install -U hf-transfer`."
         )
 
     total = operation.upload_info.size
@@ -452,7 +452,7 @@ def _upload_parts_hf_transfer(
             )
         except Exception as e:
             raise RuntimeError(
-                "An error occurred while uploading using `hf_transfer`. Consider disabling HF_HUB_ENABLE_HF_TRANSFER for"
+                "An error occurred while uploading using `hf-transfer`. Consider disabling HF_HUB_ENABLE_HF_TRANSFER for"
                 " better error handling."
             ) from e
         if not supports_callback:

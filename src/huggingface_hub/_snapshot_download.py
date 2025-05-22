@@ -297,8 +297,8 @@ def snapshot_download(
         )
 
     if constants.HF_HUB_ENABLE_HF_TRANSFER:
-        # when using hf_transfer we don't want extra parallelism
-        # from the one hf_transfer provides
+        # when using hf-transfer we don't want extra parallelism
+        # from the one hf-transfer provides
         for file in filtered_repo_files:
             _inner_hf_hub_download(file)
     else:
