@@ -96,13 +96,20 @@ class HFInferenceConversational(HFInferenceTask):
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
+        payload = filter_none(parameters)
         mapped_model = provider_mapping_info.provider_id
         payload_model = parameters.get("model") or mapped_model
 
         if payload_model is None or payload_model.startswith(("http://", "https://")):
             payload_model = "dummy"
 
-        return {**filter_none(parameters), "model": payload_model, "messages": inputs}
+        response_format = parameters.get("response_format")
+        if isinstance(response_format, dict) and response_format.get("type") == "json_schema":
+            payload["response_format"] = {
+                "type": "json_object",
+                "value": response_format["json_schema"]["schema"],
+            }
+        return {**payload, "model": payload_model, "messages": inputs}
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
         base_url = (

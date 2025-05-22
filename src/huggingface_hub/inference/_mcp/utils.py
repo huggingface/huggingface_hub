@@ -1,10 +1,17 @@
 """
-Utility functions for formatting results from mcp.CallToolResult.
+Utility functions for MCPClient and Tiny Agents.
 
-Taken from the JS SDK: https://github.com/huggingface/huggingface.js/blob/main/packages/mcp-client/src/ResultFormatter.ts.
+Formatting utilities taken from the JS SDK: https://github.com/huggingface/huggingface.js/blob/main/packages/mcp-client/src/ResultFormatter.ts.
 """
 
-from typing import TYPE_CHECKING, List
+import json
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
+from huggingface_hub import snapshot_download
+from huggingface_hub.errors import EntryNotFoundError
+
+from .constants import DEFAULT_AGENT, DEFAULT_REPO_ID, FILENAME_CONFIG, FILENAME_PROMPT
 
 
 if TYPE_CHECKING:
@@ -74,3 +81,43 @@ def _get_base64_size(base64_str: str) -> int:
         padding = 1
 
     return (len(base64_str) * 3) // 4 - padding
+
+
+def _load_agent_config(agent_path: Optional[str]) -> Tuple[Dict[str, Any], Optional[str]]:
+    """Load server config and prompt."""
+
+    def _read_dir(directory: Path) -> Tuple[Dict[str, Any], Optional[str]]:
+        cfg_file = directory / FILENAME_CONFIG
+        if not cfg_file.exists():
+            raise FileNotFoundError(f" Config file not found in {directory}! Please make sure it exists locally")
+
+        config: Dict[str, Any] = json.loads(cfg_file.read_text(encoding="utf-8"))
+        prompt_file = directory / FILENAME_PROMPT
+        prompt: Optional[str] = prompt_file.read_text(encoding="utf-8") if prompt_file.exists() else None
+        return config, prompt
+
+    if agent_path is None:
+        return DEFAULT_AGENT, None
+
+    path = Path(agent_path).expanduser()
+
+    if path.is_file():
+        return json.loads(path.read_text(encoding="utf-8")), None
+
+    if path.is_dir():
+        return _read_dir(path)
+
+    # fetch from the Hub
+    try:
+        repo_dir = Path(
+            snapshot_download(
+                repo_id=DEFAULT_REPO_ID,
+                allow_patterns=f"{agent_path}/*",
+                repo_type="dataset",
+            )
+        )
+        return _read_dir(repo_dir / agent_path)
+    except Exception as err:
+        raise EntryNotFoundError(
+            f" Agent {agent_path} not found in tiny-agents/tiny-agents! Please make sure it exists in https://huggingface.co/datasets/tiny-agents/tiny-agents."
+        ) from err

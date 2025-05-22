@@ -42,8 +42,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 WAITING_TIME_IF_NO_TASKS = 10  # seconds
-MAX_NB_REGULAR_FILES_PER_COMMIT = 75
-MAX_NB_LFS_FILES_PER_COMMIT = 150
+MAX_NB_FILES_FETCH_UPLOAD_MODE = 100
 COMMIT_SIZE_SCALE: List[int] = [20, 50, 75, 100, 125, 200, 250, 400, 600, 1000]
 
 
@@ -404,19 +403,19 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
         ):
             status.nb_workers_commit += 1
             logger.debug("Job: commit (more than 5 minutes since last commit attempt)")
-            return (WorkerJob.COMMIT, _get_items_to_commit(status.queue_commit))
+            return (WorkerJob.COMMIT, _get_n(status.queue_commit, status.target_chunk()))
 
         # 2. Commit if at least 100 files are ready to commit
         elif status.nb_workers_commit == 0 and status.queue_commit.qsize() >= 150:
             status.nb_workers_commit += 1
             logger.debug("Job: commit (>100 files ready)")
-            return (WorkerJob.COMMIT, _get_items_to_commit(status.queue_commit))
+            return (WorkerJob.COMMIT, _get_n(status.queue_commit, status.target_chunk()))
 
-        # 3. Get upload mode if at least 10 files
-        elif status.queue_get_upload_mode.qsize() >= 10:
+        # 3. Get upload mode if at least 100 files
+        elif status.queue_get_upload_mode.qsize() >= MAX_NB_FILES_FETCH_UPLOAD_MODE:
             status.nb_workers_get_upload_mode += 1
-            logger.debug("Job: get upload mode (>10 files ready)")
-            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, status.target_chunk()))
+            logger.debug(f"Job: get upload mode (>{MAX_NB_FILES_FETCH_UPLOAD_MODE} files ready)")
+            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, MAX_NB_FILES_FETCH_UPLOAD_MODE))
 
         # 4. Preupload LFS file if at least 1 file and no worker is preuploading LFS
         elif status.queue_preupload_lfs.qsize() > 0 and status.nb_workers_preupload_lfs == 0:
@@ -434,7 +433,7 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
         elif status.queue_get_upload_mode.qsize() > 0 and status.nb_workers_get_upload_mode == 0:
             status.nb_workers_get_upload_mode += 1
             logger.debug("Job: get upload mode (no other worker getting upload mode)")
-            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, status.target_chunk()))
+            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, MAX_NB_FILES_FETCH_UPLOAD_MODE))
 
         # 7. Preupload LFS file if at least 1 file
         #    Skip if hf_transfer is enabled and there is already a worker preuploading LFS
@@ -455,7 +454,7 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
         elif status.queue_get_upload_mode.qsize() > 0:
             status.nb_workers_get_upload_mode += 1
             logger.debug("Job: get upload mode")
-            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, status.target_chunk()))
+            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, MAX_NB_FILES_FETCH_UPLOAD_MODE))
 
         # 10. Commit if at least 1 file and 1 min since last commit attempt
         elif (
@@ -466,7 +465,7 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
         ):
             status.nb_workers_commit += 1
             logger.debug("Job: commit (1 min since last commit attempt)")
-            return (WorkerJob.COMMIT, _get_items_to_commit(status.queue_commit))
+            return (WorkerJob.COMMIT, _get_n(status.queue_commit, status.target_chunk()))
 
         # 11. Commit if at least 1 file all other queues are empty and all workers are waiting
         #     e.g. when it's the last commit
@@ -482,7 +481,7 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
         ):
             status.nb_workers_commit += 1
             logger.debug("Job: commit")
-            return (WorkerJob.COMMIT, _get_items_to_commit(status.queue_commit))
+            return (WorkerJob.COMMIT, _get_n(status.queue_commit, status.target_chunk()))
 
         # 12. If all queues are empty, exit
         elif all(metadata.is_committed or metadata.should_ignore for _, metadata in status.items):
@@ -528,6 +527,7 @@ def _get_upload_mode(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_t
         paths, metadata = item
         metadata.upload_mode = addition._upload_mode
         metadata.should_ignore = addition._should_ignore
+        metadata.remote_oid = addition._remote_oid
         metadata.save(paths)
 
 
@@ -580,6 +580,9 @@ def _build_hacky_operation(item: JOB_ITEM_T) -> HackyCommitOperationAdd:
     if metadata.sha256 is None:
         raise ValueError("sha256 must have been computed by now!")
     operation.upload_info = UploadInfo(sha256=bytes.fromhex(metadata.sha256), size=metadata.size, sample=sample)
+    operation._upload_mode = metadata.upload_mode  # type: ignore[assignment]
+    operation._should_ignore = metadata.should_ignore
+    operation._remote_oid = metadata.remote_oid
     return operation
 
 
@@ -594,30 +597,6 @@ def _get_one(queue: "queue.Queue[JOB_ITEM_T]") -> List[JOB_ITEM_T]:
 
 def _get_n(queue: "queue.Queue[JOB_ITEM_T]", n: int) -> List[JOB_ITEM_T]:
     return [queue.get() for _ in range(min(queue.qsize(), n))]
-
-
-def _get_items_to_commit(queue: "queue.Queue[JOB_ITEM_T]") -> List[JOB_ITEM_T]:
-    """Special case for commit job: the number of items to commit depends on the type of files."""
-    # Can take at most 50 regular files and/or 100 LFS files in a single commit
-    items: List[JOB_ITEM_T] = []
-    nb_lfs, nb_regular = 0, 0
-    while True:
-        # If empty queue => commit everything
-        if queue.qsize() == 0:
-            return items
-
-        # If we have enough items => commit them
-        if nb_lfs >= MAX_NB_LFS_FILES_PER_COMMIT or nb_regular >= MAX_NB_REGULAR_FILES_PER_COMMIT:
-            return items
-
-        # Else, get a new item and increase counter
-        item = queue.get()
-        items.append(item)
-        _, metadata = item
-        if metadata.upload_mode == "lfs":
-            nb_lfs += 1
-        else:
-            nb_regular += 1
 
 
 def _print_overwrite(report: str) -> None:
