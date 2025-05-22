@@ -310,7 +310,8 @@ You might wonder why using [`InferenceClient`] instead of OpenAI's client? There
 
 ## Function Calling
 
-Function calling allows LLMs to interact with external tools, such as defined functions or APIs. This enables users to easily build applications tailored to specific use cases and real-world tasks. `InferenceClient` implements the same tool calling interface as the OpenAI Chat Completions API. Here is a simple example of tool calling using [Nebius](https://nebius.com/) as the inference provider:
+Function calling allows LLMs to interact with external tools, such as defined functions or APIs. This enables users to easily build applications tailored to specific use cases and real-world tasks. 
+`InferenceClient` implements the same tool calling interface as the OpenAI Chat Completions API. Here is a simple example of tool calling using [Nebius](https://nebius.com/) as the inference provider:
 
 ```python
 from huggingface_hub import InferenceClient
@@ -353,9 +354,15 @@ print(response.choices[0].message.tool_calls[0].function.arguments)
 
 ```
 
+<Tip>
+
+Please refer to the providers' documentation to verify which models are supported by them for Function/Tool Calling.
+
+</Tip>
+
 ## Structured Outputs & JSON Mode
 
-`InferenceClient` supports both JSON mode and Structured Outputs for controlling and validating the format of model responses. JSON mode ensures that the LLM's output is a syntactically valid JSON object. This is useful when you want the model to return machine-readable data but don't require strict adherence to a specific structure. Structured Outputs build on JSON mode by enforcing a predefined schema. This guarantees not only valid JSON but also that the output matches an expected structure, making it ideal for reliable downstream processing.
+InferenceClient supports JSON mode for syntactically valid JSON responses and Structured Outputs for schema-enforced responses. JSON mode provides machine-readable data without strict structure, while Structured Outputs guarantee both valid JSON and adherence to a predefined schema for reliable downstream processing.
 
 We follow the OpenAI API specs for both JSON mode and Structured Outputs. You can enable them via the `response_format` argument. Here is an example of Structured Outputs using [Cerebras](https://www.cerebras.ai/) as the inference provider: 
 
@@ -383,9 +390,8 @@ json_schema = {
     "strict": True,
 }
 
-client = InferenceClient(
-    provider="cerebras",
-)
+client = InferenceClient(provider="cerebras")
+
 
 completion = client.chat.completions.create(
     model="Qwen/Qwen3-32B",
@@ -403,7 +409,7 @@ print(completion.choices[0].message)
 ```
 <Tip>
 
-Please refer to the providers' documentation to verify which models are supported by them for Structured Outputs and Function Calling.
+Please refer to the providers' documentation to verify which models are supported by them for Structured Outputs and JSON Mode.
 
 </Tip>
 
