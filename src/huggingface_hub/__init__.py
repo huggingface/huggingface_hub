@@ -443,11 +443,11 @@ _SUBMOD_ATTRS = {
         "ZeroShotObjectDetectionOutputElement",
         "ZeroShotObjectDetectionParameters",
     ],
-    "inference._mcp.mcp_client": [
-        "MCPClient",
-    ],
     "inference._mcp.agent": [
         "Agent",
+    ],
+    "inference._mcp.mcp_client": [
+        "MCPClient",
     ],
     "inference_api": [
         "InferenceApi",

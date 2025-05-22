@@ -66,6 +66,8 @@
       title: Inference Client
     - local: package_reference/inference_endpoints
       title: Inference Endpoints
+    - local: package_reference/mcp
+      title: MCP Client
     - local: package_reference/hf_file_system
       title: HfFileSystem
     - local: package_reference/utilities
