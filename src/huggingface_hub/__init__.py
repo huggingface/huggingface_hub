@@ -301,10 +301,13 @@ _SUBMOD_ATTRS = {
         "ChatCompletionInputFunctionDefinition",
         "ChatCompletionInputFunctionName",
         "ChatCompletionInputGrammarType",
-        "ChatCompletionInputGrammarTypeType",
+        "ChatCompletionInputJSONSchema",
         "ChatCompletionInputMessage",
         "ChatCompletionInputMessageChunk",
         "ChatCompletionInputMessageChunkType",
+        "ChatCompletionInputResponseFormatJSONObject",
+        "ChatCompletionInputResponseFormatJSONSchema",
+        "ChatCompletionInputResponseFormatText",
         "ChatCompletionInputStreamOptions",
         "ChatCompletionInputTool",
         "ChatCompletionInputToolCall",
@@ -545,10 +548,13 @@ __all__ = [
     "ChatCompletionInputFunctionDefinition",
     "ChatCompletionInputFunctionName",
     "ChatCompletionInputGrammarType",
-    "ChatCompletionInputGrammarTypeType",
+    "ChatCompletionInputJSONSchema",
     "ChatCompletionInputMessage",
     "ChatCompletionInputMessageChunk",
     "ChatCompletionInputMessageChunkType",
+    "ChatCompletionInputResponseFormatJSONObject",
+    "ChatCompletionInputResponseFormatJSONSchema",
+    "ChatCompletionInputResponseFormatText",
     "ChatCompletionInputStreamOptions",
     "ChatCompletionInputTool",
     "ChatCompletionInputToolCall",
@@ -1267,10 +1273,13 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionInputFunctionDefinition,  # noqa: F401
         ChatCompletionInputFunctionName,  # noqa: F401
         ChatCompletionInputGrammarType,  # noqa: F401
-        ChatCompletionInputGrammarTypeType,  # noqa: F401
+        ChatCompletionInputJSONSchema,  # noqa: F401
         ChatCompletionInputMessage,  # noqa: F401
         ChatCompletionInputMessageChunk,  # noqa: F401
         ChatCompletionInputMessageChunkType,  # noqa: F401
+        ChatCompletionInputResponseFormatJSONObject,  # noqa: F401
+        ChatCompletionInputResponseFormatJSONSchema,  # noqa: F401
+        ChatCompletionInputResponseFormatText,  # noqa: F401
         ChatCompletionInputStreamOptions,  # noqa: F401
         ChatCompletionInputTool,  # noqa: F401
         ChatCompletionInputToolCall,  # noqa: F401
