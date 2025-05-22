@@ -446,6 +446,9 @@ _SUBMOD_ATTRS = {
     "inference._mcp.mcp_client": [
         "MCPClient",
     ],
+    "inference._mcp.agent": [
+        "Agent",
+    ],
     "inference_api": [
         "InferenceApi",
     ],
@@ -525,6 +528,7 @@ _SUBMOD_ATTRS = {
 # ```
 
 __all__ = [
+    "Agent",
     "AsyncInferenceClient",
     "AudioClassificationInput",
     "AudioClassificationOutputElement",
@@ -1415,6 +1419,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ZeroShotObjectDetectionOutputElement,  # noqa: F401
         ZeroShotObjectDetectionParameters,  # noqa: F401
     )
+    from .inference._mcp.agent import Agent  # noqa: F401
     from .inference._mcp.mcp_client import MCPClient  # noqa: F401
     from .inference_api import InferenceApi  # noqa: F401
     from .keras_mixin import (

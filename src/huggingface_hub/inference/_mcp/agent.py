@@ -11,8 +11,27 @@ from .constants import DEFAULT_SYSTEM_PROMPT, EXIT_LOOP_TOOLS, MAX_NUM_TURNS
 
 class Agent(MCPClient):
     """
-    Python implementation of a Simple Agent
-    i.e. just a basic while loop on top of an Inference Client with MCP-powered tools
+    Implementation of a Simple Agent, which is a simple while loop built right on top of an [`MCPClient`].
+
+    <Tip warning={true}>
+
+    This class is experimental and might be subject to breaking changes in the future without prior notice.
+
+    </Tip>
+
+    Args:
+        model (`str`):
+            The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g. `meta-llama/Meta-Llama-3-8B-Instruct`
+            or a URL to a deployed Inference Endpoint.
+        servers (`Iterable[Dict]`):
+            MCP servers to connect to. Each server is a dictionary containing a `type` key and a `config` key. The `type` key can be `"stdio"` or `"sse"`, and the `config` key is a dictionary of arguments for the server.
+        provider (`str`, *optional*):
+            Name of the provider to use for inference. Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
+            If model is a URL or `base_url` is passed, then `provider` is not used.
+        api_key (`str`, *optional*):
+            Token to use for authentication. Will default to the locally Hugging Face saved token if not provided. You can also use your own provider API key to interact directly with the provider's service.
+        prompt (`str`, *optional*):
+            The system prompt to use for the agent. Defaults to the default system prompt in `constants.py`.
     """
 
     def __init__(
@@ -40,6 +59,15 @@ class Agent(MCPClient):
         *,
         abort_event: Optional[asyncio.Event] = None,
     ) -> AsyncGenerator[Union[ChatCompletionStreamOutput, ChatCompletionInputMessage], None]:
+        """
+        Run the agent with the given user input.
+
+        Args:
+            user_input (`str`):
+                The user input to run the agent with.
+            abort_event (`asyncio.Event`, *optional*):
+                An event that can be used to abort the agent. If the event is set, the agent will stop running.
+        """
         self.messages.append({"role": "user", "content": user_input})
 
         num_turns: int = 0
