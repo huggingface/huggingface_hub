@@ -21,6 +21,7 @@ requirements:
     - typing-extensions
     - packaging
     - pyyaml
+    - hf-xet
   run:
     - python
     - pip
@@ -30,7 +31,7 @@ requirements:
     - typing-extensions
     - packaging
     - pyyaml
-
+    - hf-xet
 test:
   imports:
     - huggingface_hub
