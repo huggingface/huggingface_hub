@@ -65,7 +65,7 @@ class MCPClient:
     Args:
         model (`str`, `optional`):
             The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g. `meta-llama/Meta-Llama-3-8B-Instruct`
-            or a URL to a deployed Inference Endpoint.
+            or a URL to a deployed Inference Endpoint or other local or remote endpoint.
         provider (`str`, *optional*):
             Name of the provider to use for inference. Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
