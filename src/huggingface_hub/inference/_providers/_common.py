@@ -23,7 +23,6 @@ HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, InferenceProviderMapping]
     "cerebras": {},
     "cohere": {},
     "fal-ai": {},
-    "featherless-ai": {},
     "fireworks-ai": {},
     "hf-inference": {},
     "hyperbolic": {},
@@ -66,7 +65,7 @@ class TaskProviderHelper:
         api_key = self._prepare_api_key(api_key)
 
         # mapped model from HF model ID
-        provider_mapping_info = self._prepare_mapping_info(model, api_key=api_key)
+        provider_mapping_info = self._prepare_mapping_info(model)
 
         # default HF headers + user headers (to customize in subclasses)
         headers = self._prepare_headers(headers, api_key)
@@ -114,9 +113,7 @@ class TaskProviderHelper:
             )
         return api_key
 
-    def _prepare_mapping_info(
-        self, model: Optional[str], *, api_key: Optional[str] = None
-    ) -> InferenceProviderMapping:
+    def _prepare_mapping_info(self, model: Optional[str]) -> InferenceProviderMapping:
         """Return the mapped model ID to use for the request.
 
         Usually not overwritten in subclasses."""
@@ -127,7 +124,7 @@ class TaskProviderHelper:
         if HARDCODED_MODEL_INFERENCE_MAPPING.get(self.provider, {}).get(model):
             return HARDCODED_MODEL_INFERENCE_MAPPING[self.provider][model]
 
-        provider_mapping = _fetch_inference_provider_mapping(model, api_key).get(self.provider)
+        provider_mapping = _fetch_inference_provider_mapping(model).get(self.provider)
         if provider_mapping is None:
             raise ValueError(f"Model {model} is not supported by provider {self.provider}.")
 
@@ -239,13 +236,13 @@ class BaseTextGenerationTask(TaskProviderHelper):
 
 
 @lru_cache(maxsize=None)
-def _fetch_inference_provider_mapping(model: str, api_key: Optional[str]) -> Dict:
+def _fetch_inference_provider_mapping(model: str) -> Dict:
     """
     Fetch provider mappings for a model from the Hub.
     """
     from huggingface_hub.hf_api import HfApi
 
-    info = HfApi(token=api_key).model_info(model, expand=["inferenceProviderMapping"])
+    info = HfApi().model_info(model, expand=["inferenceProviderMapping"])
     provider_mapping = info.inference_provider_mapping
     if provider_mapping is None:
         raise ValueError(f"No provider mapping found for model {model}")
