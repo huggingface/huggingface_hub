@@ -503,7 +503,8 @@ pip install -U huggingface_hub[mcp]
 tiny-agents run julien-c/flux-schnell-generator
 
 ```
-When launched, the Agent will load, list its available Tools from connected MCP servers, and then await your prompt!
+
+When launched, the Agent will load, list the Tools it has discovered from its connected MCP servers, and then it's ready for your prompts!
 
 ## Advanced tips
 
