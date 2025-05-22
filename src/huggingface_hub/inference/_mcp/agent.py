@@ -22,7 +22,7 @@ class Agent(MCPClient):
     Args:
         model (`str`):
             The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g. `meta-llama/Meta-Llama-3-8B-Instruct`
-            or a URL to a deployed Inference Endpoint.
+            or a URL to a deployed Inference Endpoint or other local or remote endpoint.
         servers (`Iterable[Dict]`):
             MCP servers to connect to. Each server is a dictionary containing a `type` key and a `config` key. The `type` key can be `"stdio"` or `"sse"`, and the `config` key is a dictionary of arguments for the server.
         provider (`str`, *optional*):
