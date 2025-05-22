@@ -452,6 +452,9 @@ The [`MCPClient`] connects to MCP servers (either local `stdio` scripts or remot
 In the following example, we use [Qwen/Qwen2.5-72B-Instruct](https://huggingface.co/Qwen/Qwen2.5-72B-Instruct) model via [Nebius](https://nebius.com/) inference provider. We then add a remote MCP server, in this case, an SSE server which made the Flux image generation tool available to the LLM.
 
 ```python
+# install the latest `huggingface_hub` version with the `mcp` extra.
+# pip install -U huggingface_hub[mcp]
+
 import os
 
 from huggingface_hub import ChatCompletionInputMessage, ChatCompletionStreamOutput, MCPClient
