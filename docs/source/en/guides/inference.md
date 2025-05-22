@@ -443,7 +443,7 @@ strictly the same as the sync-only version.
 
 For more information about the `asyncio` module, please refer to the [official documentation](https://docs.python.org/3/library/asyncio.html).
 
-## MCP Client & Tiny Agent (experimental)
+## MCP Client (experimental)
 
 The `huggingface_hub` library now includes an experimental [`MCPClient`], designed to empower Large Language Models (LLMs) with the ability to interact with external Tools via the [Model Context Protocol](https://modelcontextprotocol.io) (MCP). This client extends an [`AsyncInferenceClient`] to seamlessly integrate Tool usage.
 
