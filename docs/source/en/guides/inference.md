@@ -493,7 +493,7 @@ if __name__ == "__main__":
 ```
 
 
-For even simpler development, We offer a higher-level [`Agent`] class. This 'Tiny Agent' simplifies creating conversational Agents by managing the chat loop and state, essentially acting as a wrapper around [`MCPClient`]. It's designed to be a simple while loop built right on top of an [`MCPClient`]. You can run these Agents directly from the command line:
+For even simpler development, we offer a higher-level [`Agent`] class. This 'Tiny Agent' simplifies creating conversational Agents by managing the chat loop and state, essentially acting as a wrapper around [`MCPClient`]. It's designed to be a simple while loop built right on top of an [`MCPClient`]. You can run these Agents directly from the command line:
 
 
 ```bash
