@@ -36,7 +36,7 @@ _CANDIDATES = {
     "gradio": {"gradio"},
     "graphviz": {"graphviz"},
     "hf-transfer": {"hf-transfer"},
-    "hf_xet": {"hf_xet"},
+    "hf-xet": {"hf-xet"},
     "jinja": {"Jinja2"},
     "keras": {"keras"},
     "numpy": {"numpy"},
@@ -154,15 +154,15 @@ def get_hf_transfer_version() -> str:
 
 # xet
 def is_xet_available() -> bool:
-    # since hf_xet is automatically used if available, allow explicit disabling via environment variable
+    # since hf-xet is automatically used if available, allow explicit disabling via environment variable
     if constants._is_true(os.environ.get("HF_HUB_DISABLE_XET")):  # type: ignore
         return False
 
-    return is_package_available("hf_xet")
+    return is_package_available("hf-xet")
 
 
 def get_xet_version() -> str:
-    return _get_version("hf_xet")
+    return _get_version("hf-xet")
 
 
 # keras
@@ -371,7 +371,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["numpy"] = get_numpy_version()
     info["pydantic"] = get_pydantic_version()
     info["aiohttp"] = get_aiohttp_version()
-    info["hf_xet"] = get_xet_version()
+    info["hf-xet"] = get_xet_version()
 
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT

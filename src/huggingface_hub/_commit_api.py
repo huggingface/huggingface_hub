@@ -529,7 +529,7 @@ def _upload_xet_files(
     """
     if len(additions) == 0:
         return
-    # at this point, we know that hf_xet is installed
+    # at this point, we know that hf-xet is installed
     from hf_xet import upload_bytes, upload_files
 
     try:

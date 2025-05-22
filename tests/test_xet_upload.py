@@ -65,7 +65,7 @@ def repo_url(api, repo_type: str = "model"):
     api.delete_repo(repo_id=repo_url.repo_id, repo_type=repo_type)
 
 
-@requires("hf_xet")
+@requires("hf-xet")
 class TestXetUpload:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
@@ -231,7 +231,7 @@ class TestXetUpload:
             assert Path(local_path).read_bytes() == Path(filepath).read_bytes()
 
 
-@requires("hf_xet")
+@requires("hf-xet")
 class TestXetLargeUpload:
     def test_upload_large_folder(self, api, tmp_path, repo_url: RepoUrl) -> None:
         N_FILES_PER_FOLDER = 4
@@ -280,7 +280,7 @@ class TestXetLargeUpload:
             assert regular_file.read_bytes() == f"content_regular_{i}_{j}".encode()
 
 
-@requires("hf_xet")
+@requires("hf-xet")
 class TestXetE2E(TestXetUpload):
     def test_hf_xet_with_token_refresher(self, api, tmp_path, repo_url):
         """

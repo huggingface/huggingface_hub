@@ -1226,7 +1226,7 @@ class TestExtraLargeFileDownloadPaths(unittest.TestCase):
         with SoftTemporaryDirectory() as cache_dir:
             with self.assertRaises(
                 ValueError,
-                msg="The file is too large to be downloaded using the regular download method. Use `hf-transfer` or `xet_get` instead. Try `pip install hf-transfer` or `pip install hf_xet`.",
+                msg="The file is too large to be downloaded using the regular download method. Use `hf-transfer` or `xet_get` instead. Try `pip install hf-transfer` or `pip install hf-xet`.",
             ):
                 hf_hub_download(
                     DUMMY_EXTRA_LARGE_FILE_MODEL_ID,

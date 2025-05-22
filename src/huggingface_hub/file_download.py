@@ -413,8 +413,8 @@ def http_get(
             headers["Range"] = "bytes=0-0"
         else:
             raise ValueError(
-                "The file is too large to be downloaded using the regular download method. Use `hf-transfer` or `hf_xet` instead."
-                " Try `pip install hf-transfer` or `pip install hf_xet`."
+                "The file is too large to be downloaded using the regular download method. Use `hf-transfer` or `hf-xet` instead."
+                " Try `pip install hf-transfer` or `pip install hf-xet`."
             )
 
     r = _request_wrapper(
@@ -585,8 +585,8 @@ def xet_get(
         from hf_xet import PyXetDownloadInfo, download_files  # type: ignore[no-redef]
     except ImportError:
         raise ValueError(
-            "To use optimized download using Xet storage, you need to install the hf_xet package. "
-            'Try `pip install "huggingface_hub[hf_xet]"` or `pip install hf_xet`.'
+            "To use optimized download using Xet storage, you need to install the hf-xet package. "
+            'Try `pip install "huggingface_hub[hf-xet]"` or `pip install hf-xet`.'
         )
 
     connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
@@ -1717,9 +1717,9 @@ def _download_to_tmp_and_move(
         else:
             if xet_file_data is not None:
                 logger.warning(
-                    "Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. "
+                    "Xet Storage is enabled for this repo, but the 'hf-xet' package is not installed. "
                     "Falling back to regular HTTP download. "
-                    "For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`"
+                    "For better performance, install the package with: `pip install huggingface_hub[hf-xet]` or `pip install hf-xet`"
                 )
 
             http_get(
