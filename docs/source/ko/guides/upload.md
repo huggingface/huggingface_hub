@@ -422,15 +422,15 @@ Hub에서 리포지토리를 구성하는 방법에 대한 모범 사례는 [리
 
 - **작게 시작하세요**: 업로드 스크립트를 테스트할 때는 소량의 데이터로 시작하는 것이 좋습니다. 소량의 데이터를 처리하는데 적은 시간이 들기 때문에 스크립트를 반복하는 것이 더 쉽습니다.
 - **실패를 예상하세요**: 대량의 데이터를 스트리밍하는 것은 어려운 일입니다. 어떤 일이 일어날지 알 수 없지만, 항상 컴퓨터, 연결, 서버 등 어떤 이유로든 한 번쯤은 실패할 수 있다는 점을 고려하는 것이 가장 좋습니다. 예를 들어, 많은 양의 파일을 업로드할 계획이라면 다음 파일을 업로드하기 전에 이미 업로드한 파일을 로컬에서 추적하는 것이 가장 좋습니다. 이미 커밋된 LFS 파일은 절대 두 번 다시 업로드되지 않지만 클라이언트 측에서 이를 확인하면 시간을 절약할 수 있습니다.
-- **`hf_transfer`를 사용하세요**: [`hf_transfer`](https://github.com/huggingface/hf_transfer)는 대역폭이 매우 높은 컴퓨터에서 업로드 속도를 높이기 위한 Rust 기반 라이브러리입니다. `hf_transfer`를 사용하려면:
+- **`hf-transfer`를 사용하세요**: [`hf-transfer`](https://github.com/huggingface/hf_transfer)는 대역폭이 매우 높은 컴퓨터에서 업로드 속도를 높이기 위한 Rust 기반 라이브러리입니다. `hf-transfer`를 사용하려면:
 
-    1. `huggingface_hub`를 설치할 때 `hf_transfer`를 추가로 지정합니다.
-       (예: `pip install huggingface_hub[hf_transfer]`).
+    1. `huggingface_hub`를 설치할 때 `hf-transfer`를 추가로 지정합니다.
+       (예: `pip install huggingface_hub[hf-transfer]`).
     2. 환경 변수로 `HF_HUB_ENABLE_HF_TRANSFER=1`을 설정합니다.
 
 <Tip warning={true}>
 
-`hf_transfer`는 고급 사용자 도구입니다!
+`hf-transfer`는 고급 사용자 도구입니다!
 테스트 및 프로덕션 준비가 완료되었지만, 고급 오류 처리나 프록시와 같은 사용자 친화적인 기능이 부족합니다.
 자세한 내용은 [이 섹션](https://huggingface.co/docs/huggingface_hub/hf_transfer)을 참조하세요.
 

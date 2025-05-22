@@ -167,16 +167,16 @@ Check out our [Repository limitations and recommendations](https://huggingface.c
 - **Start small**: We recommend starting with a small amount of data to test your upload script. It's easier to iterate on a script when failing takes only a little time.
 - **Expect failures**: Streaming large amounts of data is challenging. You don't know what can happen, but it's always best to consider that something will fail at least once -no matter if it's due to your machine, your connection, or our servers. For example, if you plan to upload a large number of files, it's best to keep track locally of which files you already uploaded before uploading the next batch. You are ensured that an LFS file that is already committed will never be re-uploaded twice but checking it client-side can still save some time. This is what [`upload_large_folder`] does for you.
 - **Use `hf_xet`**: this leverages the new storage backend for Hub, is written in Rust, and is being rolled out to users right now. In order to upload using `hf_xet` your repo must be enabled to use the Xet storage backend. It is being rolled out now, so join the [waitlist](https://huggingface.co/join/xet) to get onboarded soon!
-- **Use `hf_transfer`**: this is a Rust-based [library](https://github.com/huggingface/hf_transfer) meant to speed up uploads on machines with very high bandwidth (uploads LFS files). To use `hf_transfer`:
-    1. Specify the `hf_transfer` extra when installing `huggingface_hub`
-       (i.e., `pip install huggingface_hub[hf_transfer]`).
+- **Use `hf-transfer`**: this is a Rust-based [library](https://github.com/huggingface/hf_transfer) meant to speed up uploads on machines with very high bandwidth (uploads LFS files). To use `hf-transfer`:
+    1. Specify the `hf-transfer` extra when installing `huggingface_hub`
+       (i.e., `pip install huggingface_hub[hf-transfer]`).
     2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
 <Tip warning={true}>
 
-`hf_transfer` is a power user tool for uploading LFS files! It is tested and production-ready, but it is less future-proof and lacks user-friendly features like advanced error handling or proxies. For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
+`hf-transfer` is a power user tool for uploading LFS files! It is tested and production-ready, but it is less future-proof and lacks user-friendly features like advanced error handling or proxies. For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
 
-Note that `hf_xet` and `hf_transfer` tools are mutually exclusive. The former is used to upload files to Xet-enabled repos while the later uploads LFS files to regular repos.
+Note that `hf_xet` and `hf-transfer` tools are mutually exclusive. The former is used to upload files to Xet-enabled repos while the later uploads LFS files to regular repos.
 
 </Tip>
 

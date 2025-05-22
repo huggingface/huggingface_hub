@@ -171,26 +171,26 @@ Set to disable using `hf-xet`, even if it is available in your Python environmen
 
 ### HF_HUB_ENABLE_HF_TRANSFER
 
-Set to `True` for faster uploads and downloads from the Hub using `hf_transfer`.
+Set to `True` for faster uploads and downloads from the Hub using `hf-transfer`.
 
 By default, `huggingface_hub` uses the Python-based `requests.get` and `requests.post` functions.
 Although these are reliable and versatile,
 they may not be the most efficient choice for machines with high bandwidth.
-[`hf_transfer`](https://github.com/huggingface/hf_transfer) is a Rust-based package developed to
+[`hf-transfer`](https://github.com/huggingface/hf_transfer) is a Rust-based package developed to
 maximize the bandwidth used by dividing large files into smaller parts
 and transferring them simultaneously using multiple threads.
 This approach can potentially double the transfer speed.
-To use `hf_transfer`:
+To use `hf-transfer`:
 
-1. Specify the `hf_transfer` extra when installing `huggingface_hub`
-   (e.g. `pip install huggingface_hub[hf_transfer]`).
+1. Specify the `hf-transfer` extra when installing `huggingface_hub`
+   (e.g. `pip install huggingface_hub[hf-transfer]`).
 2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
-Please note that using `hf_transfer` comes with certain limitations. Since it is not purely Python-based, debugging errors may be challenging. Additionally, `hf_transfer` lacks several user-friendly features such as resumable downloads and proxies. These omissions are intentional to maintain the simplicity and speed of the Rust logic. Consequently, `hf_transfer` is not enabled by default in `huggingface_hub`.
+Please note that using `hf-transfer` comes with certain limitations. Since it is not purely Python-based, debugging errors may be challenging. Additionally, `hf-transfer` lacks several user-friendly features such as resumable downloads and proxies. These omissions are intentional to maintain the simplicity and speed of the Rust logic. Consequently, `hf-transfer` is not enabled by default in `huggingface_hub`.
 
 <Tip>
 
-`hf_xet` is an alternative to `hf_transfer`. It provides efficient file transfers through a chunk-based deduplication strategy, custom Xet storage (replacing Git LFS), and a seamless integration with `huggingface_hub`. 
+`hf_xet` is an alternative to `hf-transfer`. It provides efficient file transfers through a chunk-based deduplication strategy, custom Xet storage (replacing Git LFS), and a seamless integration with `huggingface_hub`.
 
 [Read more about the package](https://huggingface.co/docs/hub/storage-backends) and enable with `pip install "huggingface_hub[hf_xet]"`.
 

@@ -169,7 +169,7 @@ For more details about the CLI download command, please refer to the [CLI guide]
 There are two options to speed up downloads. Both involve installing a Python package written in Rust.
 
 * `hf_xet` is newer and uses the Xet storage backend for upload/download. It is available in production, but is in the process of being rolled out to all users, so join the [waitlist](https://huggingface.co/join/xet) to get onboarded soon!
-* `hf_transfer` is a power-tool to download and upload to our LFS storage backend (note: this is less future-proof than Xet). It is thoroughly tested and has been in production for a long time, but it has some limitations. 
+* `hf-transfer` is a power-tool to download and upload to our LFS storage backend (note: this is less future-proof than Xet). It is thoroughly tested and has been in production for a long time, but it has some limitations.
 
 ### hf_xet
 
@@ -188,20 +188,20 @@ Note: `hf_xet` will only be utilized when the files being downloaded are being s
 
 All other `huggingface_hub` APIs will continue to work without any modification. To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/storage-backends).
 
-### hf_transfer
+### hf-transfer
 
 If you are running on a machine with high bandwidth,
-you can increase your download speed with [`hf_transfer`](https://github.com/huggingface/hf_transfer),
+you can increase your download speed with [`hf-transfer`](https://github.com/huggingface/hf_transfer),
 a Rust-based library developed to speed up file transfers with the Hub.
 To enable it:
 
-1. Specify the `hf_transfer` extra when installing `huggingface_hub`
-   (e.g. `pip install huggingface_hub[hf_transfer]`).
+1. Specify the `hf-transfer` extra when installing `huggingface_hub`
+   (e.g. `pip install huggingface_hub[hf-transfer]`).
 2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
 <Tip warning={true}>
 
-`hf_transfer` is a power user tool!
+`hf-transfer` is a power user tool!
 It is tested and production-ready,
 but it lacks user-friendly features like advanced error handling or proxies.
 For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
