@@ -35,8 +35,8 @@ _CANDIDATES = {
     "fastcore": {"fastcore"},
     "gradio": {"gradio"},
     "graphviz": {"graphviz"},
-    "hf_transfer": {"hf_transfer"},
-    "hf_xet": {"hf_xet"},
+    "hf-transfer": {"hf-transfer"},
+    "hf-xet": {"hf-xet"},
     "jinja": {"Jinja2"},
     "keras": {"keras"},
     "numpy": {"numpy"},
@@ -143,26 +143,26 @@ def get_graphviz_version() -> str:
     return _get_version("graphviz")
 
 
-# hf_transfer
+# hf-transfer
 def is_hf_transfer_available() -> bool:
-    return is_package_available("hf_transfer")
+    return is_package_available("hf-transfer")
 
 
 def get_hf_transfer_version() -> str:
-    return _get_version("hf_transfer")
+    return _get_version("hf-transfer")
 
 
 # xet
 def is_xet_available() -> bool:
-    # since hf_xet is automatically used if available, allow explicit disabling via environment variable
+    # since hf-xet is automatically used if available, allow explicit disabling via environment variable
     if constants._is_true(os.environ.get("HF_HUB_DISABLE_XET")):  # type: ignore
         return False
 
-    return is_package_available("hf_xet")
+    return is_package_available("hf-xet")
 
 
 def get_xet_version() -> str:
-    return _get_version("hf_xet")
+    return _get_version("hf-xet")
 
 
 # keras
@@ -365,13 +365,13 @@ def dump_environment_info() -> Dict[str, Any]:
     info["keras"] = get_keras_version()
     info["Pydot"] = get_pydot_version()
     info["Pillow"] = get_pillow_version()
-    info["hf_transfer"] = get_hf_transfer_version()
+    info["hf-transfer"] = get_hf_transfer_version()
     info["gradio"] = get_gradio_version()
     info["tensorboard"] = get_tensorboard_version()
     info["numpy"] = get_numpy_version()
     info["pydantic"] = get_pydantic_version()
     info["aiohttp"] = get_aiohttp_version()
-    info["hf_xet"] = get_xet_version()
+    info["hf-xet"] = get_xet_version()
 
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT

@@ -584,7 +584,7 @@ Copy-and-paste the text below in your GitHub issue.
 - Graphviz: 0.20.1
 - Pydot: 1.4.2
 - Pillow: 9.2.0
-- hf_transfer: 0.1.3
+- hf-transfer: 0.1.3
 - gradio: 4.0.2
 - tensorboard: 2.6
 - numpy: 1.23.2

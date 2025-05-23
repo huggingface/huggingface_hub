@@ -5300,14 +5300,14 @@ class HfApi:
             4. Pre-upload LFS file if at least 1 file and no worker is pre-uploading.
             5. Hash file if at least 1 file and no worker is hashing.
             6. Get upload mode if at least 1 file and no worker is getting upload mode.
-            7. Pre-upload LFS file if at least 1 file (exception: if hf_transfer is enabled, only 1 worker can preupload LFS at a time).
+            7. Pre-upload LFS file if at least 1 file (exception: if hf-transfer is enabled, only 1 worker can preupload LFS at a time).
             8. Hash file if at least 1 file to hash.
             9. Get upload mode if at least 1 file to get upload mode.
             10. Commit if at least 1 file to commit and at least 1 min since last commit attempt.
             11. Commit if at least 1 file to commit and all other queues are empty.
 
         Special rules:
-            - If `hf_transfer` is enabled, only 1 LFS uploader at a time. Otherwise the CPU would be bloated by `hf_transfer`.
+            - If `hf-transfer` is enabled, only 1 LFS uploader at a time. Otherwise the CPU would be bloated by `hf-transfer`.
             - Only one worker can commit at a time.
             - If no tasks are available, the worker waits for 10 seconds before checking again.
         """

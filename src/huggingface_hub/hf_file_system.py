@@ -1004,7 +1004,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         """Read remote file.
 
         If `length` is not provided or is -1, the entire file is downloaded and read. On POSIX systems and if
-        `hf_transfer` is not enabled, the file is loaded in memory directly. Otherwise, the file is downloaded to a
+        `hf-transfer` is not enabled, the file is loaded in memory directly. Otherwise, the file is downloaded to a
         temporary file and read from there.
         """
         if self.mode == "rb" and (length is None or length == -1) and self.loc == 0:
