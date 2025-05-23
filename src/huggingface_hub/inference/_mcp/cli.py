@@ -134,8 +134,8 @@ def run(
         None,
         help=(
             "Path to a local folder containing an agent.json file or a built-in agent "
-            "stored in a Hugging Face dataset (default: "
-            "https://huggingface.co/datasets/tiny-agents/tiny-agents)"
+            "stored in the 'tiny-agents/tiny-agents' Hugging Face dataset "
+            "(https://huggingface.co/datasets/tiny-agents/tiny-agents)"
         ),
         show_default=False,
     ),
