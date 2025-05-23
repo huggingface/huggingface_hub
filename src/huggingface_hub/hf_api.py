@@ -1825,7 +1825,8 @@ class HfApi:
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         gated: Optional[bool] = None,
-        inference: Optional[Literal["cold", "frozen", "warm"]] = None,
+        inference: Optional[Literal["warm"]] = None,
+        inference_provider: Optional[Union[str, List[str], Literal["all"]]] = None,
         library: Optional[Union[str, List[str]]] = None,
         language: Optional[Union[str, List[str]]] = None,
         model_name: Optional[str] = None,
@@ -1859,10 +1860,14 @@ class HfApi:
                 A boolean to filter models on the Hub that are gated or not. By default, all models are returned.
                 If `gated=True` is passed, only gated models are returned.
                 If `gated=False` is passed, only non-gated models are returned.
-            inference (`Literal["cold", "frozen", "warm"]`, *optional*):
-                A string to filter models on the Hub by their state on the Inference API.
-                Warm models are available for immediate use. Cold models will be loaded on first inference call.
-                Frozen models are not available in Inference API.
+            inference (`Literal["warm"]`, *optional*):
+                Filter models on the Hub by their state on the Inference API.
+                Only warm models available for immediate use are accepted by this parameter.
+            inference_provider (`Union[str, List[str], Literal["all"]]`, *optional*):
+                A string, list of strings, or "all" to filter models on the Hub by their available inference providers.
+                If a string is provided, only models available on that provider will be returned.
+                If a list is provided, models available on any of those providers will be returned.
+                If "all" is provided, models available on any provider will be returned.
             library (`str` or `List`, *optional*):
                 A string or list of strings of foundational libraries models were
                 originally trained from, such as pytorch, tensorflow, or allennlp.
@@ -1992,6 +1997,8 @@ class HfApi:
             params["gated"] = gated
         if inference is not None:
             params["inference"] = inference
+        if inference_provider is not None:
+            params["inferenceProvider"] = inference_provider
         if pipeline_tag:
             params["pipeline_tag"] = pipeline_tag
         search_list = []
