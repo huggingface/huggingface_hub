@@ -137,6 +137,7 @@ def run(
             "stored in a Hugging Face dataset (default: "
             "https://huggingface.co/datasets/tiny-agents/tiny-agents)"
         ),
+        show_default=False,
     ),
 ):
     try:
