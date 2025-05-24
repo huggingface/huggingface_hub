@@ -24,13 +24,10 @@ from .chat_completion import (
     ChatCompletionInputFunctionDefinition,
     ChatCompletionInputFunctionName,
     ChatCompletionInputGrammarType,
-    ChatCompletionInputJSONSchema,
+    ChatCompletionInputGrammarTypeType,
     ChatCompletionInputMessage,
     ChatCompletionInputMessageChunk,
     ChatCompletionInputMessageChunkType,
-    ChatCompletionInputResponseFormatJSONObject,
-    ChatCompletionInputResponseFormatJSONSchema,
-    ChatCompletionInputResponseFormatText,
     ChatCompletionInputStreamOptions,
     ChatCompletionInputTool,
     ChatCompletionInputToolCall,
@@ -85,6 +82,7 @@ from .image_to_text import (
     ImageToTextOutput,
     ImageToTextParameters,
 )
+from .image_to_video import ImageToVideoInput, ImageToVideoOutput, ImageToVideoParameters, ImageToVideoTargetSize
 from .object_detection import (
     ObjectDetectionBoundingBox,
     ObjectDetectionInput,
