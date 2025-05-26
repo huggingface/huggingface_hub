@@ -63,8 +63,13 @@ async def run_agent(
         os._exit(130)
 
     try:
-        loop.add_signal_handler(signal.SIGINT, _sigint_handler)
-
+        sigint_registered_in_loop = False
+        try:
+            loop.add_signal_handler(signal.SIGINT, _sigint_handler)
+            sigint_registered_in_loop = True
+        except (AttributeError, NotImplementedError):
+            # Windows (or any loop that doesn't support it) : fall back to sync
+            signal.signal(signal.SIGINT, lambda *_: _sigint_handler())
         async with Agent(
             provider=config["provider"],
             model=config["model"],
@@ -122,9 +127,12 @@ async def run_agent(
                     first_sigint = True  # Allow graceful interrupt for the next command
 
     finally:
-        if loop and not loop.is_closed():
-            loop.remove_signal_handler(signal.SIGINT)
-        elif original_sigint_handler:
+        if sigint_registered_in_loop:
+            try:
+                loop.remove_signal_handler(signal.SIGINT)
+            except (AttributeError, NotImplementedError):
+                pass
+        else:
             signal.signal(signal.SIGINT, original_sigint_handler)
 
 
