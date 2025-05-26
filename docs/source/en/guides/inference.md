@@ -443,6 +443,69 @@ strictly the same as the sync-only version.
 
 For more information about the `asyncio` module, please refer to the [official documentation](https://docs.python.org/3/library/asyncio.html).
 
+## MCP Client
+
+The `huggingface_hub` library now includes an experimental [`MCPClient`], designed to empower Large Language Models (LLMs) with the ability to interact with external Tools via the [Model Context Protocol](https://modelcontextprotocol.io) (MCP). This client extends an [`AsyncInferenceClient`] to seamlessly integrate Tool usage.
+
+The [`MCPClient`] connects to MCP servers (either local `stdio` scripts or remote `http`/`sse` services) that expose tools. It feeds these tools to an LLM (via [`AsyncInferenceClient`]). If the LLM decides to use a tool, [`MCPClient`] manages the execution request to the MCP server and relays the Tool's output back to the LLM, often streaming results in real-time.
+
+In the following example, we use [Qwen/Qwen2.5-72B-Instruct](https://huggingface.co/Qwen/Qwen2.5-72B-Instruct) model via [Nebius](https://nebius.com/) inference provider. We then add a remote MCP server, in this case, an SSE server which made the Flux image generation tool available to the LLM.
+
+```python
+import os
+
+from huggingface_hub import ChatCompletionInputMessage, ChatCompletionStreamOutput, MCPClient
+
+
+async def main():
+    async with MCPClient(
+        provider="nebius",
+        model="Qwen/Qwen2.5-72B-Instruct",
+        api_key=os.environ["HF_TOKEN"],
+    ) as client:
+        await client.add_mcp_server(type="sse", url="https://evalstate-flux1-schnell.hf.space/gradio_api/mcp/sse")
+
+        messages = [
+            {
+                "role": "user",
+                "content": "Generate a picture of a cat on the moon",
+            }
+        ]
+
+        async for chunk in client.process_single_turn_with_tools(messages):
+            # Log messages
+            if isinstance(chunk, ChatCompletionStreamOutput):
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    print(delta.content, end="")
+
+            # Or tool calls
+            elif isinstance(chunk, ChatCompletionInputMessage):
+                print(
+                    f"\nCalled tool '{chunk.name}'. Result: '{chunk.content if len(chunk.content) < 1000 else chunk.content[:1000] + '...'}'"
+                )
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    asyncio.run(main())
+```
+
+
+For even simpler development, we offer a higher-level [`Agent`] class. This 'Tiny Agent' simplifies creating conversational Agents by managing the chat loop and state, essentially acting as a wrapper around [`MCPClient`]. It's designed to be a simple while loop built right on top of an [`MCPClient`]. You can run these Agents directly from the command line:
+
+
+```bash
+# install latest version of huggingface_hub with the mcp extra
+pip install -U huggingface_hub[mcp]
+# Run an agent that uses the Flux image generation tool
+tiny-agents run julien-c/flux-schnell-generator
+
+```
+
+When launched, the Agent will load, list the Tools it has discovered from its connected MCP servers, and then it's ready for your prompts!
+
 ## Advanced tips
 
 In the above section, we saw the main aspects of [`InferenceClient`]. Let's dive into some more advanced tips.
