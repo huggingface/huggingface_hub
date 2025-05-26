@@ -27,7 +27,8 @@ jobs:
             "Repository only",
             "Everything else",
             "Inference only",
-            "Xet only"
+            "Xet only",
+            "Tiny Agents only"
           ]
         include:
           - python-version: "3.13" # LFS not ran on 3.8
@@ -95,6 +96,10 @@ jobs:
               uv pip install "huggingface_hub[tensorflow-testing] @ ."
               ;;
 
+            "Tiny Agents only")
+              uv pip install "huggingface_hub[mcp] @ ."
+              ;;
+
           esac
 
           # If not "Xet only", we want to test upload/download with regular LFS workflow
@@ -158,6 +163,12 @@ jobs:
               eval $PYTEST
             ;;
 
+            "Tiny Agents only")
+              PYTEST="$PYTEST ../tests -k 'test_agent' -n 4"
+              echo $PYTEST
+              eval $PYTEST
+            ;;
+
           esac
 
       # Upload code coverage
@@ -179,7 +190,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.8", "3.11"]
-        test_name: ["Everything else", "Xet only"]
+        test_name: ["Everything else", "Xet only", "Tiny Agents only"]
 
     steps:
       - uses: actions/checkout@v2
@@ -201,6 +212,11 @@ jobs:
           uv pip install "huggingface_hub[testing] @ ."
           if ("${{ matrix.test_name }}" -eq "Xet only") {
             uv pip install hf_xet
+          }
+          fi
+
+          if ("${{ matrix.test_name }}" -eq "Tiny Agents only") {
+            uv pip install "huggingface_hub[mcp] @ ."
           }
 
       # Run tests
@@ -226,6 +242,9 @@ jobs:
             }
             "Everything else" {
               python $PYTEST_ARGS -k "not test_xet"
+            }
+            "Tiny Agents only" {
+              python $PYTEST_ARGS -k "test_agent"
             }
           }
 
