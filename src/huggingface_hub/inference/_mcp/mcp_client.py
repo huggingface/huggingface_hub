@@ -87,7 +87,7 @@ class MCPClient:
         self.sessions: Dict[ToolName, "ClientSession"] = {}
         self.exit_stack = AsyncExitStack()
         self.available_tools: List[ChatCompletionInputTool] = []
-        # To be able to send the model in the payload if `base_url`` is provided
+        # To be able to send the model in the payload if `base_url` is provided
         self.payload_model = model
         self.client = AsyncInferenceClient(
             model=None if base_url is not None else model,
