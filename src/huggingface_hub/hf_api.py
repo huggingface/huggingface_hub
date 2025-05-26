@@ -1210,8 +1210,6 @@ class CollectionItem:
         self.position: int = position
         self.note: str = note["text"] if note is not None else None
 
-        self.__dict__.update(**kwargs)
-
 
 @dataclass
 class Collection:
