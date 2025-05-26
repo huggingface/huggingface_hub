@@ -213,7 +213,6 @@ jobs:
           if ("${{ matrix.test_name }}" -eq "Xet only") {
             uv pip install hf_xet
           }
-          fi
 
           if ("${{ matrix.test_name }}" -eq "Tiny Agents only") {
             uv pip install "huggingface_hub[mcp] @ ."
