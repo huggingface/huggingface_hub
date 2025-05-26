@@ -68,7 +68,7 @@ async def run_agent(
             loop.add_signal_handler(signal.SIGINT, _sigint_handler)
             sigint_registered_in_loop = True
         except (AttributeError, NotImplementedError):
-            # Windows (or any loop that doesn't support it): fall back to sync
+            # Windows (or any loop that doesn't support it) : fall back to sync
             signal.signal(signal.SIGINT, lambda *_: _sigint_handler())
         async with Agent(
             provider=config["provider"],
