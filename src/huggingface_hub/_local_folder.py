@@ -173,6 +173,7 @@ class LocalUploadFileMetadata:
 
                 if self.upload_mode is not None:
                     f.write(self.upload_mode)
+                f.write("\n")
 
                 if self.remote_oid is not None:
                     f.write(self.remote_oid)
