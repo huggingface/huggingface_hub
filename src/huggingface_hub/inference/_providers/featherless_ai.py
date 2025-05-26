@@ -18,7 +18,7 @@ class FeatherlessTextGenerationTask(BaseTextGenerationTask):
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
         params = filter_none(parameters.copy())
-        params["max_tokens"] = params.pop("max_new_tokens")
+        params["max_tokens"] = params.pop("max_new_tokens", None)
 
         return {"prompt": inputs, **params, "model": provider_mapping_info.provider_id}
 
