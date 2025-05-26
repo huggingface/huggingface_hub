@@ -235,4 +235,3 @@ jobs:
         with:
           files: ./coverage.xml
           verbose: true
-          
