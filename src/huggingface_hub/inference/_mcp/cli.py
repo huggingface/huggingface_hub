@@ -42,6 +42,7 @@ async def run_agent(
     servers: List[Dict[str, Any]] = config.get("servers", [])
 
     abort_event = asyncio.Event()
+    exit_event = asyncio.Event()
     first_sigint = True
 
     loop = asyncio.get_running_loop()
@@ -56,8 +57,7 @@ async def run_agent(
             return
 
         print("\n[red]Exiting...[/red]", flush=True)
-
-        os._exit(130)
+        exit_event.set()
 
     try:
         sigint_registered_in_loop = False
@@ -67,6 +67,7 @@ async def run_agent(
         except (AttributeError, NotImplementedError):
             # Windows (or any loop that doesn't support it) : fall back to sync
             signal.signal(signal.SIGINT, lambda *_: _sigint_handler())
+
         async with Agent(
             provider=config.get("provider"),
             model=config.get("model"),
@@ -82,8 +83,12 @@ async def run_agent(
             while True:
                 abort_event.clear()
 
+                # Check if we should exit
+                if exit_event.is_set():
+                    break
+
                 try:
-                    user_input = await _async_prompt()
+                    user_input = await _async_prompt(exit_event=exit_event)
                     first_sigint = True
                 except EOFError:
                     print("\n[red]EOF received, exiting.[/red]", flush=True)
@@ -98,6 +103,8 @@ async def run_agent(
                 try:
                     async for chunk in agent.run(user_input, abort_event=abort_event):
                         if abort_event.is_set() and not first_sigint:
+                            break
+                        if exit_event.is_set():
                             break
 
                         if hasattr(chunk, "choices"):
