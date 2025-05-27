@@ -20,7 +20,7 @@ class Agent(MCPClient):
     </Tip>
 
     Args:
-        model (`str`):
+        model (`str`, *optional*):
             The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g. `meta-llama/Meta-Llama-3-8B-Instruct`
             or a URL to a deployed Inference Endpoint or other local or remote endpoint.
         servers (`Iterable[Dict]`):
@@ -28,6 +28,8 @@ class Agent(MCPClient):
         provider (`str`, *optional*):
             Name of the provider to use for inference. Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
+        base_url (`str`, *optional*):
+            The base URL to run inference. Defaults to None.
         api_key (`str`, *optional*):
             Token to use for authentication. Will default to the locally Hugging Face saved token if not provided. You can also use your own provider API key to interact directly with the provider's service.
         prompt (`str`, *optional*):
@@ -37,13 +39,14 @@ class Agent(MCPClient):
     def __init__(
         self,
         *,
-        model: str,
+        model: Optional[str] = None,
         servers: Iterable[Dict],
         provider: Optional[PROVIDER_OR_POLICY_T] = None,
+        base_url: Optional[str] = None,
         api_key: Optional[str] = None,
         prompt: Optional[str] = None,
     ):
-        super().__init__(model=model, provider=provider, api_key=api_key)
+        super().__init__(model=model, provider=provider, base_url=base_url, api_key=api_key)
         self._servers_cfg = list(servers)
         self.messages: List[Union[Dict, ChatCompletionInputMessage]] = [
             {"role": "system", "content": prompt or DEFAULT_SYSTEM_PROMPT}
