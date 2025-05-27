@@ -1,6 +1,7 @@
 import asyncio
 import os
 import signal
+import traceback
 from functools import partial
 from typing import Any, Dict, List, Optional
 
@@ -63,11 +64,17 @@ async def run_agent(
         os._exit(130)
 
     try:
-        loop.add_signal_handler(signal.SIGINT, _sigint_handler)
-
+        sigint_registered_in_loop = False
+        try:
+            loop.add_signal_handler(signal.SIGINT, _sigint_handler)
+            sigint_registered_in_loop = True
+        except (AttributeError, NotImplementedError):
+            # Windows (or any loop that doesn't support it) : fall back to sync
+            signal.signal(signal.SIGINT, lambda *_: _sigint_handler())
         async with Agent(
-            provider=config["provider"],
-            model=config["model"],
+            provider=config.get("provider"),
+            model=config.get("model"),
+            base_url=config.get("endpointUrl"),
             servers=servers,
             prompt=prompt,
         ) as agent:
@@ -118,13 +125,22 @@ async def run_agent(
                     print()
 
                 except Exception as e:
-                    print(f"\n[bold red]Error during agent run: {e}[/bold red]", flush=True)
+                    tb_str = traceback.format_exc()
+                    print(f"\n[bold red]Error during agent run: {e}\n{tb_str}[/bold red]", flush=True)
                     first_sigint = True  # Allow graceful interrupt for the next command
 
+    except Exception as e:
+        tb_str = traceback.format_exc()
+        print(f"\n[bold red]An unexpected error occurred: {e}\n{tb_str}[/bold red]", flush=True)
+        raise e
+
     finally:
-        if loop and not loop.is_closed():
-            loop.remove_signal_handler(signal.SIGINT)
-        elif original_sigint_handler:
+        if sigint_registered_in_loop:
+            try:
+                loop.remove_signal_handler(signal.SIGINT)
+            except (AttributeError, NotImplementedError):
+                pass
+        else:
             signal.signal(signal.SIGINT, original_sigint_handler)
 
 
