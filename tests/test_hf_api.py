@@ -4130,6 +4130,13 @@ class CollectionAPITest(HfApiCommonTest):
         self._api.delete_repo(dataset_id, repo_type="dataset")
         self._api.delete_collection(collection.slug)
 
+    @with_production_testing
+    def test_collection_items_with_collections(self) -> None:
+        collection = HfApi().get_collection("celinah/inference-providers-function-calling-6826023e8ae9b24b3039ee5f")
+        assert len(collection.items) > 1
+        assert collection.items[0].item_type == "collection"
+        assert collection.items[0].item_id.startswith("celinah/")
+
 
 class AccessRequestAPITest(HfApiCommonTest):
     def setUp(self) -> None:

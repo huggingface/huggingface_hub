@@ -135,7 +135,7 @@ from .utils.endpoint_helpers import _is_emission_within_threshold
 
 
 R = TypeVar("R")  # Return type
-CollectionItemType_T = Literal["model", "dataset", "space", "paper"]
+CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -1169,16 +1169,16 @@ class SpaceInfo:
 @dataclass
 class CollectionItem:
     """
-    Contains information about an item of a Collection (model, dataset, Space or paper).
+    Contains information about an item of a Collection (model, dataset, Space, paper or collection).
 
     Attributes:
         item_object_id (`str`):
             Unique ID of the item in the collection.
         item_id (`str`):
-            ID of the underlying object on the Hub. Can be either a repo_id or a paper id
-            e.g. `"jbilcke-hf/ai-comic-factory"`, `"2307.09288"`.
+            ID of the underlying object on the Hub. Can be either a repo_id, a paper id or a collection slug.
+            e.g. `"jbilcke-hf/ai-comic-factory"`, `"2307.09288"`, `"celinah/cerebras-function-calling-682607169c35fbfa98b30b9a"`.
         item_type (`str`):
-            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"` or `"paper"`.
+            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"` or `"collection"`.
         position (`int`):
             Position of the item in the collection.
         note (`str`, *optional*):
@@ -1192,10 +1192,20 @@ class CollectionItem:
     note: Optional[str] = None
 
     def __init__(
-        self, _id: str, id: str, type: CollectionItemType_T, position: int, note: Optional[Dict] = None, **kwargs
+        self,
+        _id: str,
+        id: str,
+        type: CollectionItemType_T,
+        position: int,
+        note: Optional[Dict] = None,
+        **kwargs,
     ) -> None:
         self.item_object_id: str = _id  # id in database
         self.item_id: str = id  # repo_id or paper id
+        # if the item is a collection, override item_id with the slug
+        slug = kwargs.get("slug")
+        if slug is not None:
+            self.item_id = slug  # collection slug
         self.item_type: CollectionItemType_T = type
         self.position: int = position
         self.note: str = note["text"] if note is not None else None
