@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Union
+from typing import Dict, Iterable, List, Literal, Optional, Union
 
 import requests
 from tqdm.auto import tqdm as base_tqdm
@@ -258,8 +258,8 @@ def snapshot_download(
 
     # Corner case: on very large repos, the siblings list in `repo_info` might not contain all files.
     # In that case, we need to use the `list_repo_tree` method to prevent caching issues.
-    repo_files = [f.rfilename for f in repo_info.siblings]
-    has_many_files = len(repo_files) > VERY_LARGE_REPO_THRESHOLD
+    repo_files: Iterable[str] = [f.rfilename for f in repo_info.siblings]
+    has_many_files = len(repo_info.siblings) > VERY_LARGE_REPO_THRESHOLD
     if has_many_files:
         logger.info("The repo has more than 50,000 files. Using `list_repo_tree` to ensure all files are listed.")
         repo_files = (
@@ -268,7 +268,7 @@ def snapshot_download(
             if isinstance(f, RepoFile)
         )
 
-    filtered_repo_files = filter_repo_objects(
+    filtered_repo_files: Iterable[str] = filter_repo_objects(
         items=repo_files,
         allow_patterns=allow_patterns,
         ignore_patterns=ignore_patterns,

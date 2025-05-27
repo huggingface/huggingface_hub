@@ -246,7 +246,7 @@ def save_torch_state_dict(
             shared_tensors_to_discard=shared_tensors_to_discard,
         )
     else:
-        from torch import save as save_file_fn  # type: ignore[assignment]
+        from torch import save as save_file_fn  # type: ignore[assignment, no-redef]
 
         logger.warning(
             "You are using unsafe serialization. Due to security reasons, it is recommended not to load "
