@@ -1,13 +1,12 @@
 import asyncio
-import os
 import signal
 import traceback
-from functools import partial
 from typing import Any, Dict, List, Optional
 
 import typer
 from rich import print
 
+from ._cli_hacks import _async_prompt, _patch_anyio_open_process
 from .agent import Agent
 from .utils import _load_agent_config
 
@@ -25,11 +24,6 @@ run_cli = typer.Typer(
 app.add_typer(run_cli, name="run")
 
 
-async def _ainput(prompt: str = "» ") -> str:
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, partial(typer.prompt, prompt, prompt_suffix=" "))
-
-
 async def run_agent(
     agent_path: Optional[str],
 ) -> None:
@@ -41,6 +35,8 @@ async def run_agent(
             Path to a local folder containing an `agent.json` and optionally a custom `PROMPT.md` file or a built-in agent stored in a Hugging Face dataset.
 
     """
+    _patch_anyio_open_process()  # Hacky way to prevent stdio connections to be stopped by Ctrl+C
+
     config, prompt = _load_agent_config(agent_path)
 
     servers: List[Dict[str, Any]] = config.get("servers", [])
@@ -87,7 +83,7 @@ async def run_agent(
                 abort_event.clear()
 
                 try:
-                    user_input = await _ainput()
+                    user_input = await _async_prompt()
                     first_sigint = True
                 except EOFError:
                     print("\n[red]EOF received, exiting.[/red]", flush=True)
