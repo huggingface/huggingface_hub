@@ -88,6 +88,8 @@ class MCPClient:
         self.exit_stack = AsyncExitStack()
         self.available_tools: List[ChatCompletionInputTool] = []
         # To be able to send the model in the payload if `base_url` is provided
+        if model is None and base_url is None:
+            raise ValueError("At least one of `model` or `base_url` should be set in `MCPClient`.")
         self.payload_model = model
         self.client = AsyncInferenceClient(
             model=None if base_url is not None else model,
