@@ -69,6 +69,8 @@ class MCPClient:
         provider (`str`, *optional*):
             Name of the provider to use for inference. Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
+        base_url (`str`, *optional*):
+            The base URL to run inference. Defaults to None.
         api_key (`str`, `optional`):
             Token to use for authentication. Will default to the locally Hugging Face saved token if not provided. You can also use your own provider API key to interact directly with the provider's service.
     """
@@ -76,17 +78,25 @@ class MCPClient:
     def __init__(
         self,
         *,
-        model: str,
+        model: Optional[str] = None,
         provider: Optional[PROVIDER_OR_POLICY_T] = None,
+        base_url: Optional[str] = None,
         api_key: Optional[str] = None,
     ):
         # Initialize MCP sessions as a dictionary of ClientSession objects
         self.sessions: Dict[ToolName, "ClientSession"] = {}
         self.exit_stack = AsyncExitStack()
         self.available_tools: List[ChatCompletionInputTool] = []
-
-        # Initialize the AsyncInferenceClient
-        self.client = AsyncInferenceClient(model=model, provider=provider, api_key=api_key)
+        # To be able to send the model in the payload if `base_url` is provided
+        if model is None and base_url is None:
+            raise ValueError("At least one of `model` or `base_url` should be set in `MCPClient`.")
+        self.payload_model = model
+        self.client = AsyncInferenceClient(
+            model=None if base_url is not None else model,
+            provider=provider,
+            api_key=api_key,
+            base_url=base_url,
+        )
 
     async def __aenter__(self):
         """Enter the context manager"""
@@ -244,6 +254,7 @@ class MCPClient:
 
         # Create the streaming request
         response = await self.client.chat.completions.create(
+            model=self.payload_model,
             messages=messages,
             tools=tools,
             tool_choice="auto",
