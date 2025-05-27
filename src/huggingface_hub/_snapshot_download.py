@@ -145,20 +145,22 @@ def snapshot_download(
 
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
+    api = HfApi(
+        library_name=library_name,
+        library_version=library_version,
+        user_agent=user_agent,
+        endpoint=endpoint,
+        headers=headers,
+        token=token,
+    )
+
     repo_info: Union[ModelInfo, DatasetInfo, SpaceInfo, None] = None
     api_call_error: Optional[Exception] = None
     if not local_files_only:
         # try/except logic to handle different errors => taken from `hf_hub_download`
         try:
             # if we have internet connection we want to list files to download
-            api = HfApi(
-                library_name=library_name,
-                library_version=library_version,
-                user_agent=user_agent,
-                endpoint=endpoint,
-                headers=headers,
-            )
-            repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
+            repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
@@ -251,9 +253,17 @@ def snapshot_download(
     # => let's download the files!
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
     assert repo_info.siblings is not None, "Repo info returned from server must have a siblings list."
+
+    # Corner case: on very large repos, the siblings list in `repo_info` might not contain all files.
+    # In that case, we need to use the `list_repo_files` method to prevent caching issues.
+    repo_files = [f.rfilename for f in repo_info.siblings]
+    if len(repo_files) > 50000:
+        logger.info("The repo has more than 50,000 files. Using `list_repo_files` to fetch all files.")
+        repo_files = api.list_repo_files(repo_id=repo_id, repo_type=repo_type, revision=revision)
+
     filtered_repo_files = list(
         filter_repo_objects(
-            items=[f.rfilename for f in repo_info.siblings],
+            items=repo_files,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
         )
