@@ -15,12 +15,14 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
-from .hf_api import DatasetInfo, HfApi, ModelInfo, SpaceInfo
+from .hf_api import DatasetInfo, HfApi, ModelInfo, RepoFile, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
 from .utils import tqdm as hf_tqdm
 
 
 logger = logging.get_logger(__name__)
+
+VERY_LARGE_REPO_THRESHOLD = 50000  # After this limit, we don't consider `repo_info.siblings` to be reliable enough
 
 
 @validate_hf_hub_args
@@ -255,19 +257,29 @@ def snapshot_download(
     assert repo_info.siblings is not None, "Repo info returned from server must have a siblings list."
 
     # Corner case: on very large repos, the siblings list in `repo_info` might not contain all files.
-    # In that case, we need to use the `list_repo_files` method to prevent caching issues.
+    # In that case, we need to use the `list_repo_tree` method to prevent caching issues.
     repo_files = [f.rfilename for f in repo_info.siblings]
-    if len(repo_files) > 50000:
-        logger.info("The repo has more than 50,000 files. Using `list_repo_files` to fetch all files.")
-        repo_files = api.list_repo_files(repo_id=repo_id, repo_type=repo_type, revision=revision)
-
-    filtered_repo_files = list(
-        filter_repo_objects(
-            items=repo_files,
-            allow_patterns=allow_patterns,
-            ignore_patterns=ignore_patterns,
+    has_many_files = len(repo_files) > VERY_LARGE_REPO_THRESHOLD
+    if has_many_files:
+        logger.info("The repo has more than 50,000 files. Using `list_repo_tree` to ensure all files are listed.")
+        repo_files = (
+            f.rfilename
+            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=revision, repo_type=repo_type)
+            if isinstance(f, RepoFile)
         )
+
+    filtered_repo_files = filter_repo_objects(
+        items=repo_files,
+        allow_patterns=allow_patterns,
+        ignore_patterns=ignore_patterns,
     )
+
+    if not has_many_files:
+        filtered_repo_files = list(filtered_repo_files)
+        tqdm_desc = f"Fetching {len(filtered_repo_files)} files"
+    else:
+        tqdm_desc = "Fetching ... files"
+
     commit_hash = repo_info.sha
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
     # if passed revision is not identical to commit_hash
@@ -315,7 +327,7 @@ def snapshot_download(
         thread_map(
             _inner_hf_hub_download,
             filtered_repo_files,
-            desc=f"Fetching {len(filtered_repo_files)} files",
+            desc=tqdm_desc,
             max_workers=max_workers,
             # User can use its own tqdm class or the default one from `huggingface_hub.utils`
             tqdm_class=tqdm_class or hf_tqdm,
