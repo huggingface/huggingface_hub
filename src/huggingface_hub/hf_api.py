@@ -1844,6 +1844,7 @@ class HfApi:
         full: Optional[bool] = None,
         cardData: bool = False,
         fetch_config: bool = False,
+        security_status: bool = False,
         token: Union[bool, str, None] = None,
     ) -> Iterable[ModelInfo]:
         """
@@ -1899,8 +1900,8 @@ class HfApi:
                 to `None` fetches all models.
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
-                This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
+                This parameter cannot be used if `full`, `cardData`, `fetch_config` or `security_status` are passed.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"resourceGroup"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"usedStorage"`, `"widgetData"`, `"xetEnabled"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -1912,6 +1913,9 @@ class HfApi:
             fetch_config (`bool`, *optional*):
                 Whether to fetch the model configs as well. This is not included
                 in `full` due to its size.
+            security_status (`bool`, *optional*):
+                Whether to retrieve the security status for each model.
+                The security status will be returned in the `security_repo_status` field.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -1953,8 +1957,8 @@ class HfApi:
         >>> api.list_models(search="bert", author="google")
         ```
         """
-        if expand and (full or cardData or fetch_config):
-            raise ValueError("`expand` cannot be used if `full`, `cardData` or `fetch_config` are passed.")
+        if expand and (full or cardData or fetch_config or security_status):
+            raise ValueError("`expand` cannot be used if `full`, `cardData`, `fetch_config` or `security_status` are passed.")
 
         if emissions_thresholds is not None and cardData is None:
             raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
@@ -2023,6 +2027,8 @@ class HfApi:
             params["config"] = True
         if cardData:
             params["cardData"] = True
+        if security_status:
+            params["securityStatus"] = True
         if expand:
             params["expand"] = expand
 

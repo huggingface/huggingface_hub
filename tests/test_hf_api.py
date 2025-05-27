@@ -1884,6 +1884,16 @@ class HfApiPublicProductionTest(unittest.TestCase):
     def test_list_models_without_config(self):
         for model in self._api.list_models(filter=("adapter-transformers", "bert"), fetch_config=False, limit=20):
             self.assertIsNone(model.config)
+            
+    def test_list_models_with_security_status(self):
+        for model in self._api.list_models(filter="bert", security_status=True, limit=5):
+            # The security_repo_status field should be present when security_status=True
+            self.assertIsNotNone(model.security_repo_status)
+            
+    def test_list_models_without_security_status(self):
+        for model in self._api.list_models(filter="bert", security_status=False, limit=5):
+            # The security_repo_status field should be None when security_status=False
+            self.assertIsNone(model.security_repo_status)
 
     def test_list_models_expand_author(self):
         # Only the selected field is returned
@@ -1917,6 +1927,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
             next(self._api.list_models(expand=["author"], fetch_config=True))
         with self.assertRaises(ValueError):
             next(self._api.list_models(expand=["author"], cardData=True))
+        with self.assertRaises(ValueError):
+            next(self._api.list_models(expand=["author"], security_status=True))
 
     def test_list_models_gated_only(self):
         for model in self._api.list_models(expand=["gated"], gated=True, limit=5):
