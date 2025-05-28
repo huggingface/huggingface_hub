@@ -15,6 +15,10 @@ def _patch_anyio_open_process():
     import subprocess
 
     import anyio
+    
+    if getattr(anyio, "_tiny_agents_patched", False):
+        return
+    anyio._tiny_agents_patched = True
 
     original_open_process = anyio.open_process
 
