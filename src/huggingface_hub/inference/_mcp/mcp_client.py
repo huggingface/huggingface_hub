@@ -287,8 +287,7 @@ class MCPClient:
                     # Aggregate chunks into tool calls
                     if tool_call.index not in final_tool_calls:
                         if (
-                            tool_call.function.arguments is None
-                            or tool_call.function.arguments == "{}"
+                            tool_call.function.arguments is None or tool_call.function.arguments == "{}"
                         ):  # Corner case (depends on provider)
                             tool_call.function.arguments = ""
                         final_tool_calls[tool_call.index] = tool_call
