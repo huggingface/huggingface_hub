@@ -1,7 +1,6 @@
 import asyncio
 import sys
 from functools import partial
-from typing import Optional
 
 import typer
 
@@ -46,7 +45,7 @@ def _patch_anyio_open_process():
         anyio.open_process = open_process_in_new_group
 
 
-async def _async_prompt(prompt: str = "» ", exit_event: Optional[asyncio.Event] = None) -> str:
+async def _async_prompt(exit_event: asyncio.Event, prompt: str = "» ") -> str:
     """
     Asynchronous prompt function that reads input from stdin without blocking.
 
