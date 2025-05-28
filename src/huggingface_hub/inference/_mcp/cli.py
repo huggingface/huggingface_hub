@@ -76,7 +76,7 @@ async def run_agent(
                 "[bold blue]Some initial inputs are required by the agent. "
                 "Please provide a value or leave empty to load from env.[/bold blue]"
             )
-            for input_item in config.get("inputs", []):
+            for input_item in inputs:
                 input_id = input_item["id"]
                 description = input_item["description"]
                 env_special_value = "${input:" + input_id + "}"  # Special value to indicate env variable injection
