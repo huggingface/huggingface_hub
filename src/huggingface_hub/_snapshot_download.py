@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
-from typing import Dict, Iterable, List, Literal, Optional, Union, Type
-
+from typing import Dict, Iterable, List, Literal, Optional, Type, Union
 
 import requests
 from tqdm.auto import tqdm as base_tqdm
