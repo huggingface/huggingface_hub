@@ -1,4 +1,5 @@
 import asyncio
+import os
 import signal
 import traceback
 from typing import Any, Dict, List, Optional
@@ -68,6 +69,50 @@ async def run_agent(
             # Windows (or any loop that doesn't support it) : fall back to sync
             signal.signal(signal.SIGINT, lambda *_: _sigint_handler())
 
+        # Handle env variable injection if required
+        required_env_variables = {
+            key: os.environ.get(key)
+            for server in servers
+            for key, value in server.get("config", {}).get("env", {}).items()
+            if value is None
+        }
+        if len(required_env_variables) > 0:
+            print("The following environment variables are required by the MCP tool(s):")
+            for key, value in required_env_variables.items():
+                if value is None:
+                    print(f"[yellow] • {key}[/yellow]")
+                else:
+                    print(f"[green] • {key}[/green]")
+            print("Can I forward the variables from your environment? (Y/n)", end=" ")
+
+            while True:
+                user_input = await _async_prompt(exit_event=exit_event)
+                if exit_event.is_set():
+                    return
+                if user_input.lower() in ["", "y", "yes"]:
+                    print("[green]Environment variables will be forwarded to MCP tool(s).[/green]", flush=True)
+                    for server in servers:
+                        env = server.get("config", {}).get("env", {})
+                        for key, value in env.items():
+                            if value is None:
+                                env_value = required_env_variables[key]
+                                if env_value is None:
+                                    print(
+                                        f"[yellow]Variable {key} not set locally. Setting it to None which can lead to unexpected behaviors.[/yellow]"
+                                    )
+                                env[key] = required_env_variables[key]
+
+                    break
+                elif user_input.lower() in ["n", "no"]:
+                    print(
+                        "[yellow]Continuing without forwarding environment variables to MCP tool(s).[/yellow]",
+                        flush=True,
+                    )
+                    break
+                else:
+                    print("[red]Invalid input. Please enter 'y' or 'n'.[/red]", end=" ", flush=True)
+
+        # Main agent loop
         async with Agent(
             provider=config.get("provider"),
             model=config.get("model"),
@@ -85,7 +130,7 @@ async def run_agent(
 
                 # Check if we should exit
                 if exit_event.is_set():
-                    break
+                    return
 
                 try:
                     user_input = await _async_prompt(exit_event=exit_event)
@@ -105,7 +150,7 @@ async def run_agent(
                         if abort_event.is_set() and not first_sigint:
                             break
                         if exit_event.is_set():
-                            break
+                            return
 
                         if hasattr(chunk, "choices"):
                             delta = chunk.choices[0].delta
