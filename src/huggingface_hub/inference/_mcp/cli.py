@@ -1,4 +1,5 @@
 import asyncio
+import os
 import signal
 import traceback
 from typing import Any, Dict, List, Optional
@@ -39,6 +40,7 @@ async def run_agent(
 
     config, prompt = _load_agent_config(agent_path)
 
+    inputs: List[Dict[str, Any]] = config.get("inputs", [])
     servers: List[Dict[str, Any]] = config.get("servers", [])
 
     abort_event = asyncio.Event()
@@ -68,6 +70,60 @@ async def run_agent(
             # Windows (or any loop that doesn't support it) : fall back to sync
             signal.signal(signal.SIGINT, lambda *_: _sigint_handler())
 
+        # Handle inputs (i.e. env variables injection)
+        if len(inputs) > 0:
+            print(
+                "[bold blue]Some initial inputs are required by the agent. "
+                "Please provide a value or leave empty to load from env.[/bold blue]"
+            )
+            for input_item in inputs:
+                input_id = input_item["id"]
+                description = input_item["description"]
+                env_special_value = "${input:" + input_id + "}"  # Special value to indicate env variable injection
+
+                # Check env variables that will use this input
+                input_vars = list(
+                    {
+                        key
+                        for server in servers
+                        for key, value in server.get("config", {}).get("env", {}).items()
+                        if value == env_special_value
+                    }
+                )
+
+                if not input_vars:
+                    print(f"[yellow]Input {input_id} defined in config but not used by any server.[/yellow]")
+                    continue
+
+                # Prompt user for input
+                print(
+                    f"[blue] • {input_id}[/blue]: {description}. (default: load from {', '.join(input_vars)}).",
+                    end=" ",
+                )
+                user_input = (await _async_prompt(exit_event=exit_event)).strip()
+                if exit_event.is_set():
+                    return
+
+                # Inject user input (or env variable) into servers' env
+                for server in servers:
+                    env = server.get("config", {}).get("env", {})
+                    for key, value in env.items():
+                        if value == env_special_value:
+                            if user_input:
+                                env[key] = user_input
+                            else:
+                                value_from_env = os.getenv(key, "")
+                                env[key] = value_from_env
+                                if value_from_env:
+                                    print(f"[green]Value successfully loaded from '{key}'[/green]")
+                                else:
+                                    print(
+                                        f"[yellow]No value found for '{key}' in environment variables. Continuing.[/yellow]"
+                                    )
+
+            print()
+
+        # Main agent loop
         async with Agent(
             provider=config.get("provider"),
             model=config.get("model"),
@@ -85,7 +141,7 @@ async def run_agent(
 
                 # Check if we should exit
                 if exit_event.is_set():
-                    break
+                    return
 
                 try:
                     user_input = await _async_prompt(exit_event=exit_event)
@@ -105,7 +161,7 @@ async def run_agent(
                         if abort_event.is_set() and not first_sigint:
                             break
                         if exit_event.is_set():
-                            break
+                            return
 
                         if hasattr(chunk, "choices"):
                             delta = chunk.choices[0].delta
