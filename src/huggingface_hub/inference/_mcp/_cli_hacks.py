@@ -78,7 +78,8 @@ async def _async_prompt(prompt: str = "» ", exit_event: Optional[asyncio.Event]
             [future, exit_event.wait()],
             return_when=asyncio.FIRST_COMPLETED,
         )
-        # Decide which one triggered
+
+        # Check which one has been triggered
         if exit_event.is_set():
             future.cancel()
             return ""
