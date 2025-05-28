@@ -109,6 +109,11 @@ class MCPClient:
         await self.client.__aexit__(exc_type, exc_val, exc_tb)
         await self.cleanup()
 
+    async def cleanup(self):
+        """Clean up resources"""
+        await self.client.close()
+        await self.exit_stack.aclose()
+
     @overload
     async def add_mcp_server(self, type: Literal["stdio"], **params: Unpack[StdioServerParameters_T]): ...
 
@@ -329,7 +334,3 @@ class MCPClient:
             tool_message_as_obj = ChatCompletionInputMessage.parse_obj_as_instance(tool_message)
             messages.append(tool_message_as_obj)
             yield tool_message_as_obj
-
-    async def cleanup(self):
-        """Clean up resources"""
-        await self.exit_stack.aclose()
