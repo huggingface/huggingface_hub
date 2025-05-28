@@ -30,7 +30,7 @@ def _patch_anyio_open_process():
             Wrapper for open_process to handle Windows-specific process creation flags.
             """
             # Ensure we pass the creation flags for Windows
-            kwargs.setdefault("creation_flags", subprocess.CREATE_NEW_PROCESS_GROUP)
+            kwargs.setdefault("creationflags", subprocess.CREATE_NEW_PROCESS_GROUP)
             return await original_open_process(*args, **kwargs)
 
         anyio.open_process = open_process_in_new_group
