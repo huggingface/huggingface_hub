@@ -15,7 +15,7 @@ def _patch_anyio_open_process():
     import subprocess
 
     import anyio
-    
+
     if getattr(anyio, "_tiny_agents_patched", False):
         return
     anyio._tiny_agents_patched = True
@@ -75,13 +75,13 @@ async def _async_prompt(prompt: str = "» ", exit_event: Optional[asyncio.Event]
         # Wait for user input or exit event
         # Wait until either the user hits enter or exit_event is set
         await asyncio.wait(
-                [future, exit_event.wait()],
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-         # Decide which one triggered
-         if exit_event.is_set():
-                future.cancel()
-                return ""
+            [future, exit_event.wait()],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        # Decide which one triggered
+        if exit_event.is_set():
+            future.cancel()
+            return ""
 
         line = await future
         return line.strip()
