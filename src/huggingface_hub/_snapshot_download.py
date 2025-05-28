@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Dict, Iterable, List, Literal, Optional, Union
+from typing import Dict, Iterable, List, Literal, Optional, Type, Union
 
 import requests
 from tqdm.auto import tqdm as base_tqdm
@@ -44,7 +44,7 @@ def snapshot_download(
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
     max_workers: int = 8,
-    tqdm_class: Optional[base_tqdm] = None,
+    tqdm_class: Optional[Type[base_tqdm]] = None,
     headers: Optional[Dict[str, str]] = None,
     endpoint: Optional[str] = None,
     # Deprecated args
