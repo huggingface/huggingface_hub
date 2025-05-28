@@ -38,6 +38,7 @@ from typing import (
     Literal,
     Optional,
     Tuple,
+    Type,
     TypeVar,
     Union,
     overload,
@@ -5533,7 +5534,7 @@ class HfApi:
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         max_workers: int = 8,
-        tqdm_class: Optional[base_tqdm] = None,
+        tqdm_class: Optional[Type[base_tqdm]] = None,
         # Deprecated args
         local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
         resume_download: Optional[bool] = None,
