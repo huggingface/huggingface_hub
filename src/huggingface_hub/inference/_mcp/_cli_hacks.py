@@ -69,11 +69,15 @@ async def _async_prompt(prompt: str = "» ", exit_event: Optional[asyncio.Event]
         loop.add_reader(sys.stdin, on_input)  # not supported on Windows
 
         # Wait for user input or exit event
-        while not future.done():
-            if exit_event and exit_event.is_set():
-                future.set_result("")
+        # Wait until either the user hits enter or exit_event is set
+        await asyncio.wait(
+                [future, exit_event.wait()],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+         # Decide which one triggered
+         if exit_event.is_set():
+                future.cancel()
                 return ""
-            await asyncio.sleep(1)
 
         line = await future
         return line.strip()
