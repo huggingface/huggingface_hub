@@ -40,6 +40,7 @@ async def run_agent(
 
     config, prompt = _load_agent_config(agent_path)
 
+    inputs: List[Dict[str, Any]] = config.get("inputs", [])
     servers: List[Dict[str, Any]] = config.get("servers", [])
 
     abort_event = asyncio.Event()
@@ -69,48 +70,58 @@ async def run_agent(
             # Windows (or any loop that doesn't support it) : fall back to sync
             signal.signal(signal.SIGINT, lambda *_: _sigint_handler())
 
-        # Handle env variable injection if required
-        required_env_variables = {
-            key: os.environ.get(key)
-            for server in servers
-            for key, value in server.get("config", {}).get("env", {}).items()
-            if value is None
-        }
-        if len(required_env_variables) > 0:
-            print("The following environment variables are required by the MCP tool(s):")
-            for key, value in required_env_variables.items():
-                if value is None:
-                    print(f"[yellow] • {key}[/yellow]")
-                else:
-                    print(f"[green] • {key}[/green]")
-            print("Can I forward the variables from your environment? (Y/n)", end=" ")
+        # Handle inputs (i.e. env variables injection)
+        if len(inputs) > 0:
+            print(
+                "[bold blue]Some initial inputs are required by the agent. "
+                "Please provide a value or leave empty to load from env.[/bold blue]"
+            )
+            for input_item in config.get("inputs", []):
+                input_id = input_item["id"]
+                description = input_item["description"]
+                env_special_value = "${input:" + input_id + "}"  # Special value to indicate env variable injection
 
-            while True:
-                user_input = await _async_prompt(exit_event=exit_event)
+                # Check env variables that will use this input
+                input_vars = list(
+                    {
+                        key
+                        for server in servers
+                        for key, value in server.get("config", {}).get("env", {}).items()
+                        if value == env_special_value
+                    }
+                )
+
+                if not input_vars:
+                    print(f"[yellow]Input {input_id} defined in config but not used by any server.[/yellow]")
+                    continue
+
+                # Prompt user for input
+                print(
+                    f"[blue] • {input_id}[/blue]: {description}. (default: load from {', '.join(input_vars)}).",
+                    end=" ",
+                )
+                user_input = (await _async_prompt(exit_event=exit_event)).strip()
                 if exit_event.is_set():
                     return
-                if user_input.lower() in ["", "y", "yes"]:
-                    print("[green]Environment variables will be forwarded to MCP tool(s).[/green]", flush=True)
-                    for server in servers:
-                        env = server.get("config", {}).get("env", {})
-                        for key, value in env.items():
-                            if value is None:
-                                env_value = required_env_variables[key]
-                                if env_value is None:
-                                    print(
-                                        f"[yellow]Variable {key} not set locally. Setting it to None which can lead to unexpected behaviors.[/yellow]"
-                                    )
-                                env[key] = required_env_variables[key]
 
-                    break
-                elif user_input.lower() in ["n", "no"]:
-                    print(
-                        "[yellow]Continuing without forwarding environment variables to MCP tool(s).[/yellow]",
-                        flush=True,
-                    )
-                    break
-                else:
-                    print("[red]Invalid input. Please enter 'y' or 'n'.[/red]", end=" ", flush=True)
+                # Inject user input (or env variable) into servers' env
+                for server in servers:
+                    env = server.get("config", {}).get("env", {})
+                    for key, value in env.items():
+                        if value == env_special_value:
+                            if user_input:
+                                env[key] = user_input
+                            else:
+                                value_from_env = os.getenv(key, "")
+                                env[key] = value_from_env
+                                if value_from_env:
+                                    print(f"[green]Value successfully loaded from '{key}'[/green]")
+                                else:
+                                    print(
+                                        f"[yellow]No value found for '{key}' in environment variables. Continuing.[/yellow]"
+                                    )
+
+            print()
 
         # Main agent loop
         async with Agent(
