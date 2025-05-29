@@ -27,7 +27,7 @@ from .testing_utils import (
 )
 
 
-@requires("hf_xet")
+@requires("hf-xet")
 @with_production_testing
 class TestXetFileDownload:
     @contextmanager
@@ -211,7 +211,7 @@ class TestXetFileDownload:
             mock_xet_get.assert_called_once()
 
     def test_fallback_to_http_when_xet_not_available(self, tmp_path):
-        """Test that http_get is used when hf_xet is not available."""
+        """Test that http_get is used when hf-xet is not available."""
         with self._patch_xet_file_metadata(with_xet_data=True):
             with self._patch_get_refresh_xet_connection_info():
                 # Mock is_xet_available to return False
@@ -234,7 +234,7 @@ class TestXetFileDownload:
                     mocks["xet_get"].assert_not_called()
 
     def test_use_xet_when_available(self, tmp_path):
-        """Test that xet_get is used when hf_xet is available."""
+        """Test that xet_get is used when hf-xet is available."""
         with self._patch_xet_file_metadata(with_xet_data=True):
             with self._patch_get_refresh_xet_connection_info():
                 with patch.multiple(
@@ -256,7 +256,7 @@ class TestXetFileDownload:
                     mocks["http_get"].assert_not_called()
 
 
-@requires("hf_xet")
+@requires("hf-xet")
 @with_production_testing
 class TestXetSnapshotDownload:
     def test_download_model(self, tmp_path):

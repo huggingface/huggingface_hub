@@ -218,7 +218,7 @@ class UploadCommand(BaseHuggingfaceCLICommand):
 
         if not is_xet_available() and not HF_HUB_ENABLE_HF_TRANSFER:
             logger.info(
-                "Consider using `hf_transfer` for faster uploads. This solution comes with some limitations. See"
+                "Consider using `hf-transfer` for faster uploads. This solution comes with some limitations. See"
                 " https://huggingface.co/docs/huggingface_hub/hf_transfer for more details."
             )
 

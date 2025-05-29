@@ -436,7 +436,7 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
             return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, MAX_NB_FILES_FETCH_UPLOAD_MODE))
 
         # 7. Preupload LFS file if at least 1 file
-        #    Skip if hf_transfer is enabled and there is already a worker preuploading LFS
+        #    Skip if hf-transfer is enabled and there is already a worker preuploading LFS
         elif status.queue_preupload_lfs.qsize() > 0 and (
             status.nb_workers_preupload_lfs == 0 or not constants.HF_HUB_ENABLE_HF_TRANSFER
         ):
