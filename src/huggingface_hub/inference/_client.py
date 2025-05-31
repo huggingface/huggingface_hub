@@ -1502,7 +1502,7 @@ class InferenceClient:
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="question-answering", model=model_id)
         request_parameters = provider_helper.prepare_request(
-            inputs=None,
+            inputs={"question": question, "context": context},
             parameters={
                 "align_to_words": align_to_words,
                 "doc_stride": doc_stride,
