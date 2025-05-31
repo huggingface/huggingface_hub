@@ -207,36 +207,36 @@ For more details, refer to the [Inference Providers pricing documentation](https
 
 [`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models, on any provider. It has a simple API that supports the most common tasks. Here is a table showing which providers support which tasks:
 
-| Task                                                | Black Forest Labs | Cerebras | Cohere | fal-ai | Fireworks AI | HF Inference | Hyperbolic | Nebius AI Studio | Novita AI | Replicate | Sambanova | Together |
-| --------------------------------------------------- | ----------------- | -------- | ------ | ------ | ------------ | ------------ | ---------- | ---------------- | --------- | --------- | --------- | -------- |
-| [`~InferenceClient.audio_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.audio_to_audio`]                 | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.automatic_speech_recognition`]   | ❌                 | ❌        | ❌      | ✅      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.chat_completion`]                | ❌                 | ✅        | ✅      | ❌      | ✅            | ✅            | ✅          | ✅                | ✅         | ❌         | ✅         | ✅        |
-| [`~InferenceClient.document_question_answering`]    | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.feature_extraction`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ✅                | ❌         | ❌         | ✅         | ❌        |
-| [`~InferenceClient.fill_mask`]                      | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.image_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.image_segmentation`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.image_to_image`]                 | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.image_to_text`]                  | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.object_detection`]               | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.question_answering`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.sentence_similarity`]            | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.summarization`]                  | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.table_question_answering`]       | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.text_classification`]            | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.text_generation`]                | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ✅          | ✅                | ✅         | ❌         | ❌         | ✅        |
-| [`~InferenceClient.text_to_image`]                  | ✅                 | ❌        | ❌      | ✅      | ❌            | ✅            | ✅          | ✅                | ❌         | ✅         | ❌         | ✅        |
-| [`~InferenceClient.text_to_speech`]                 | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ✅         | ❌         | ❌        |
-| [`~InferenceClient.text_to_video`]                  | ❌                 | ❌        | ❌      | ✅      | ❌            | ❌            | ❌          | ❌                | ❌         | ✅         | ❌         | ❌        |
-| [`~InferenceClient.tabular_classification`]         | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.tabular_regression`]             | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.token_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.translation`]                    | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.visual_question_answering`]      | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.zero_shot_image_classification`] | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
-| [`~InferenceClient.zero_shot_classification`]       | ❌                 | ❌        | ❌      | ❌      | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| Task                                                | Black Forest Labs | Cerebras | Cohere | fal-ai | Featherless AI | Fireworks AI | HF Inference | Hyperbolic | Nebius AI Studio | Novita AI | Replicate | Sambanova | Together |
+| --------------------------------------------------- | ----------------- | -------- | ------ | ------ | -------------- | ------------ | ------------ | ---------- | ---------------- | --------- | --------- | --------- | -------- |
+| [`~InferenceClient.audio_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.audio_to_audio`]                 | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.automatic_speech_recognition`]   | ❌                 | ❌        | ❌      | ✅      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.chat_completion`]                | ❌                 | ✅        | ✅      | ❌      | ✅             | ✅            | ✅            | ✅          | ✅                | ✅         | ❌         | ✅         | ✅        |
+| [`~InferenceClient.document_question_answering`]    | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.feature_extraction`]             | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ✅                | ❌         | ❌         | ✅         | ❌        |
+| [`~InferenceClient.fill_mask`]                      | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.image_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.image_segmentation`]             | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.image_to_image`]                 | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.image_to_text`]                  | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.object_detection`]               | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.question_answering`]             | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.sentence_similarity`]            | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.summarization`]                  | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.table_question_answering`]       | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.text_classification`]            | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.text_generation`]                | ❌                 | ❌        | ❌      | ❌      | ✅             | ❌            | ✅            | ✅          | ✅                | ✅         | ❌         | ❌         | ✅        |
+| [`~InferenceClient.text_to_image`]                  | ✅                 | ❌        | ❌      | ✅      | ❌             | ❌            | ✅            | ✅          | ✅                | ❌         | ✅         | ❌         | ✅        |
+| [`~InferenceClient.text_to_speech`]                 | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ✅         | ❌         | ❌        |
+| [`~InferenceClient.text_to_video`]                  | ❌                 | ❌        | ❌      | ✅      | ❌             | ❌            | ❌            | ❌          | ❌                | ❌         | ✅         | ❌         | ❌        |
+| [`~InferenceClient.tabular_classification`]         | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.tabular_regression`]             | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.token_classification`]           | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.translation`]                    | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.visual_question_answering`]      | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.zero_shot_image_classification`] | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
+| [`~InferenceClient.zero_shot_classification`]       | ❌                 | ❌        | ❌      | ❌      | ❌             | ❌            | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
 
 <Tip>
 
@@ -308,6 +308,110 @@ You might wonder why using [`InferenceClient`] instead of OpenAI's client? There
 
 </Tip>
 
+## Function Calling
+
+Function calling allows LLMs to interact with external tools, such as defined functions or APIs. This enables users to easily build applications tailored to specific use cases and real-world tasks. 
+`InferenceClient` implements the same tool calling interface as the OpenAI Chat Completions API. Here is a simple example of tool calling using [Nebius](https://nebius.com/) as the inference provider:
+
+```python
+from huggingface_hub import InferenceClient
+
+tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get current temperature for a given location.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "City and country e.g. Paris, France"
+                        }
+                    },
+                    "required": ["location"],
+                },
+            }
+        }
+]
+
+client = InferenceClient(provider="nebius")
+
+response = client.chat.completions.create(
+    model="Qwen/Qwen2.5-72B-Instruct",
+    messages=[
+    {
+        "role": "user",
+        "content": "What's the weather like the next 3 days in London, UK?"
+    }
+    ],
+    tools=tools,
+    tool_choice="auto",
+)
+
+print(response.choices[0].message.tool_calls[0].function.arguments)
+
+```
+
+<Tip>
+
+Please refer to the providers' documentation to verify which models are supported by them for Function/Tool Calling.
+
+</Tip>
+
+## Structured Outputs & JSON Mode
+
+InferenceClient supports JSON mode for syntactically valid JSON responses and Structured Outputs for schema-enforced responses. JSON mode provides machine-readable data without strict structure, while Structured Outputs guarantee both valid JSON and adherence to a predefined schema for reliable downstream processing.
+
+We follow the OpenAI API specs for both JSON mode and Structured Outputs. You can enable them via the `response_format` argument. Here is an example of Structured Outputs using [Cerebras](https://www.cerebras.ai/) as the inference provider: 
+
+```python
+from huggingface_hub import InferenceClient
+
+json_schema = {
+    "name": "book",
+    "schema": {
+        "properties": {
+            "name": {
+                "title": "Name",
+                "type": "string",
+            },
+            "authors": {
+                "items": {"type": "string"},
+                "title": "Authors",
+                "type": "array",
+            },
+        },
+        "required": ["name", "authors"],
+        "title": "Book",
+        "type": "object",
+    },
+    "strict": True,
+}
+
+client = InferenceClient(provider="cerebras")
+
+
+completion = client.chat.completions.create(
+    model="Qwen/Qwen3-32B",
+    messages=[
+        {"role": "system", "content": "Extract the books information."},
+        {"role": "user", "content": "I recently read 'The Great Gatsby' by F. Scott Fitzgerald."},
+    ],
+    response_format={
+        "type": "json_schema",
+        "json_schema": json_schema,
+    },
+)
+
+print(completion.choices[0].message)
+```
+<Tip>
+
+Please refer to the providers' documentation to verify which models are supported by them for Structured Outputs and JSON Mode.
+
+</Tip>
 
 ## Async client
 
@@ -338,6 +442,69 @@ strictly the same as the sync-only version.
 ```
 
 For more information about the `asyncio` module, please refer to the [official documentation](https://docs.python.org/3/library/asyncio.html).
+
+## MCP Client
+
+The `huggingface_hub` library now includes an experimental [`MCPClient`], designed to empower Large Language Models (LLMs) with the ability to interact with external Tools via the [Model Context Protocol](https://modelcontextprotocol.io) (MCP). This client extends an [`AsyncInferenceClient`] to seamlessly integrate Tool usage.
+
+The [`MCPClient`] connects to MCP servers (either local `stdio` scripts or remote `http`/`sse` services) that expose tools. It feeds these tools to an LLM (via [`AsyncInferenceClient`]). If the LLM decides to use a tool, [`MCPClient`] manages the execution request to the MCP server and relays the Tool's output back to the LLM, often streaming results in real-time.
+
+In the following example, we use [Qwen/Qwen2.5-72B-Instruct](https://huggingface.co/Qwen/Qwen2.5-72B-Instruct) model via [Nebius](https://nebius.com/) inference provider. We then add a remote MCP server, in this case, an SSE server which made the Flux image generation tool available to the LLM.
+
+```python
+import os
+
+from huggingface_hub import ChatCompletionInputMessage, ChatCompletionStreamOutput, MCPClient
+
+
+async def main():
+    async with MCPClient(
+        provider="nebius",
+        model="Qwen/Qwen2.5-72B-Instruct",
+        api_key=os.environ["HF_TOKEN"],
+    ) as client:
+        await client.add_mcp_server(type="sse", url="https://evalstate-flux1-schnell.hf.space/gradio_api/mcp/sse")
+
+        messages = [
+            {
+                "role": "user",
+                "content": "Generate a picture of a cat on the moon",
+            }
+        ]
+
+        async for chunk in client.process_single_turn_with_tools(messages):
+            # Log messages
+            if isinstance(chunk, ChatCompletionStreamOutput):
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    print(delta.content, end="")
+
+            # Or tool calls
+            elif isinstance(chunk, ChatCompletionInputMessage):
+                print(
+                    f"\nCalled tool '{chunk.name}'. Result: '{chunk.content if len(chunk.content) < 1000 else chunk.content[:1000] + '...'}'"
+                )
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    asyncio.run(main())
+```
+
+
+For even simpler development, we offer a higher-level [`Agent`] class. This 'Tiny Agent' simplifies creating conversational Agents by managing the chat loop and state, essentially acting as a wrapper around [`MCPClient`]. It's designed to be a simple while loop built right on top of an [`MCPClient`]. You can run these Agents directly from the command line:
+
+
+```bash
+# install latest version of huggingface_hub with the mcp extra
+pip install -U huggingface_hub[mcp]
+# Run an agent that uses the Flux image generation tool
+tiny-agents run julien-c/flux-schnell-generator
+
+```
+
+When launched, the Agent will load, list the Tools it has discovered from its connected MCP servers, and then it's ready for your prompts!
 
 ## Advanced tips
 

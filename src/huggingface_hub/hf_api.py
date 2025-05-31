@@ -38,6 +38,7 @@ from typing import (
     Literal,
     Optional,
     Tuple,
+    Type,
     TypeVar,
     Union,
     overload,
@@ -135,7 +136,7 @@ from .utils.endpoint_helpers import _is_emission_within_threshold
 
 
 R = TypeVar("R")  # Return type
-CollectionItemType_T = Literal["model", "dataset", "space", "paper"]
+CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -1169,16 +1170,16 @@ class SpaceInfo:
 @dataclass
 class CollectionItem:
     """
-    Contains information about an item of a Collection (model, dataset, Space or paper).
+    Contains information about an item of a Collection (model, dataset, Space, paper or collection).
 
     Attributes:
         item_object_id (`str`):
             Unique ID of the item in the collection.
         item_id (`str`):
-            ID of the underlying object on the Hub. Can be either a repo_id or a paper id
-            e.g. `"jbilcke-hf/ai-comic-factory"`, `"2307.09288"`.
+            ID of the underlying object on the Hub. Can be either a repo_id, a paper id or a collection slug.
+            e.g. `"jbilcke-hf/ai-comic-factory"`, `"2307.09288"`, `"celinah/cerebras-function-calling-682607169c35fbfa98b30b9a"`.
         item_type (`str`):
-            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"` or `"paper"`.
+            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"` or `"collection"`.
         position (`int`):
             Position of the item in the collection.
         note (`str`, *optional*):
@@ -1192,10 +1193,20 @@ class CollectionItem:
     note: Optional[str] = None
 
     def __init__(
-        self, _id: str, id: str, type: CollectionItemType_T, position: int, note: Optional[Dict] = None, **kwargs
+        self,
+        _id: str,
+        id: str,
+        type: CollectionItemType_T,
+        position: int,
+        note: Optional[Dict] = None,
+        **kwargs,
     ) -> None:
         self.item_object_id: str = _id  # id in database
         self.item_id: str = id  # repo_id or paper id
+        # if the item is a collection, override item_id with the slug
+        slug = kwargs.get("slug")
+        if slug is not None:
+            self.item_id = slug  # collection slug
         self.item_type: CollectionItemType_T = type
         self.position: int = position
         self.note: str = note["text"] if note is not None else None
@@ -4421,20 +4432,23 @@ class HfApi:
         new_additions = [addition for addition in additions if not addition._is_uploaded]
 
         # Check which new files are LFS
-        try:
-            _fetch_upload_modes(
-                additions=new_additions,
-                repo_type=repo_type,
-                repo_id=repo_id,
-                headers=headers,
-                revision=revision,
-                endpoint=self.endpoint,
-                create_pr=create_pr or False,
-                gitignore_content=gitignore_content,
-            )
-        except RepositoryNotFoundError as e:
-            e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
-            raise
+        # For some items, we might have already fetched the upload mode (in case of upload_large_folder)
+        additions_no_upload_mode = [addition for addition in new_additions if addition._upload_mode is None]
+        if len(additions_no_upload_mode) > 0:
+            try:
+                _fetch_upload_modes(
+                    additions=additions_no_upload_mode,
+                    repo_type=repo_type,
+                    repo_id=repo_id,
+                    headers=headers,
+                    revision=revision,
+                    endpoint=self.endpoint,
+                    create_pr=create_pr or False,
+                    gitignore_content=gitignore_content,
+                )
+            except RepositoryNotFoundError as e:
+                e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+                raise
 
         # Filter out regular files
         new_lfs_additions = [addition for addition in new_additions if addition._upload_mode == "lfs"]
@@ -4479,7 +4493,7 @@ class HfApi:
             isinstance(addition.path_or_fileobj, io.BufferedIOBase) for addition in new_lfs_additions_to_upload
         )
         if xet_enabled and not has_buffered_io_data and is_xet_available():
-            logger.info("Uploading files using Xet Storage..")
+            logger.debug("Uploading files using Xet Storage..")
             _upload_xet_files(**upload_kwargs, create_pr=create_pr)  # type: ignore [arg-type]
         else:
             if xet_enabled and is_xet_available():
@@ -5520,7 +5534,7 @@ class HfApi:
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         max_workers: int = 8,
-        tqdm_class: Optional[base_tqdm] = None,
+        tqdm_class: Optional[Type[base_tqdm]] = None,
         # Deprecated args
         local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
         resume_download: Optional[bool] = None,
