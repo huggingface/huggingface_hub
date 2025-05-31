@@ -606,14 +606,9 @@ def _upload_xet_files(
                     repo_type,
                 )
     
-        if progress is not None:
-            progress.close(True)
-
-    except:
+    finally:
         if progress is not None:
             progress.close(False)
-        raise
-
     
     return
 
