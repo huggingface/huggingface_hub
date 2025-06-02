@@ -1512,7 +1512,6 @@ class InferenceClient:
                 "max_seq_len": max_seq_len,
                 "top_k": top_k,
             },
-            extra_payload={"question": question, "context": context},
             headers=self.headers,
             model=model_id,
             api_key=self.token,
