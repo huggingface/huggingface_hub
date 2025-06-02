@@ -20,7 +20,7 @@ class ProgressReporter:
                               "unit_divisor" : 1024, 
                               "nrows" : n_lines + 3,
                               "miniters" : 1,
-                              "bar_format" : "{l_bar}{bar}| {n_fmt:>4}/{total_fmt:>4}{postfix:>10}"
+                              "bar_format" : "{l_bar}{bar}| {n_fmt:>5}B / {total_fmt:>5}B{postfix:>12}"
                               }
 
         # Overall progress bars
@@ -127,9 +127,9 @@ class ProgressReporter:
                 bar.refresh()
         
         # Update overall bars
-        def postfix(self, speed = None): 
-            s = tqdm.format_sizeof(speed, divisor=1024) if speed else "??? "
-            return f"{s}B/s".rjust(10, " ")
+        def postfix(speed): 
+            s = tqdm.format_sizeof(speed, divisor=1024) if speed is not None else "???"
+            return f"{s}B/s  ".rjust(10, " ")
 
         self.data_processing_bar.total = total_update.total_bytes
         self.data_processing_bar.set_description(self.format_desc(f"Processing Files ({len(self.completed_items)} / {len(self.known_items)})", False), refresh=False)
@@ -141,7 +141,7 @@ class ProgressReporter:
         self.upload_bar.update(total_update.total_transfer_bytes_completion_increment)
         
 
-    def close(self):
+    def close(self, _success):
         self.data_processing_bar.close()
         self.upload_bar.close()
         for bar in self.current_bars: 
