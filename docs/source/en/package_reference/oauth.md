@@ -46,7 +46,7 @@ def greet_json(request: Request):
 <Tip>
     
 You might also be interested in [a practical example that demonstrates OAuth in action](https://huggingface.co/spaces/Wauplin/fastapi-oauth/blob/main/app.py).
-For a different take, [this example](https://huggingface.co/spaces/medoidai/GiveBackGPT/blob/main/src/main.py) showcases a full-scale open-source project implemented using Hugging Face OAuth.
+For a different take, [this example](https://huggingface.co/spaces/medoidai/GiveBackGPT/blob/main/src/main.py) showcases a full-scale open-source project implemented using Hugging Face OAuth hosted in [Hugging Face Space](https://huggingface.co/spaces/medoidai/GiveBackGPT).
 
 </Tip>
 
