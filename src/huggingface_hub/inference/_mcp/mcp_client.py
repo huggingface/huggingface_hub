@@ -272,9 +272,6 @@ class MCPClient:
 
         # Read from stream
         async for chunk in response:
-            # Yield each chunk to caller
-            yield chunk
-
             num_of_chunks += 1
             delta = chunk.choices[0].delta if chunk.choices and len(chunk.choices) > 0 else None
             if not delta:
@@ -303,6 +300,9 @@ class MCPClient:
             # Optionally exit early if no tools in first chunks
             if exit_if_first_chunk_no_tool and num_of_chunks <= 2 and len(final_tool_calls) == 0:
                 return
+
+            # Yield each chunk to caller
+            yield chunk
 
         if message["content"]:
             messages.append(message)
