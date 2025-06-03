@@ -272,7 +272,6 @@ class MCPClient:
 
         # Read from stream
         async for chunk in response:
-
             num_of_chunks += 1
             delta = chunk.choices[0].delta if chunk.choices and len(chunk.choices) > 0 else None
             if not delta:
