@@ -60,6 +60,7 @@ from huggingface_hub.hf_api import (
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
     InferenceEndpoint,
+    InferenceProviderMapping,
     ModelInfo,
     RepoSibling,
     RepoUrl,
@@ -2510,6 +2511,38 @@ class HfApiPublicProductionTest(unittest.TestCase):
             self._api.parse_safetensors_file_metadata(
                 "HuggingFaceH4/zephyr-7b-beta", "pytorch_model-00001-of-00008.bin"
             )
+
+    def test_inference_provider_mapping_model_info(self):
+        model = self._api.model_info("deepseek-ai/DeepSeek-R1-0528", expand="inferenceProviderMapping")
+        mapping = model.inference_provider_mapping
+        assert isinstance(mapping, list)
+        assert len(mapping) > 0
+        for item in mapping:
+            assert isinstance(item, InferenceProviderMapping)
+            assert item.provider is not None
+            assert item.hf_model_id == "deepseek-ai/DeepSeek-R1-0528"
+            assert item.provider_id is not None
+
+    def test_inference_provider_mapping_list_models(self):
+        models = list(self._api.list_models(author="deepseek-ai", expand="inferenceProviderMapping", limit=1))
+        assert len(models) > 0
+        mapping = models[0].inference_provider_mapping
+        assert isinstance(mapping, list)
+        assert len(mapping) > 0
+        for item in mapping:
+            assert isinstance(item, InferenceProviderMapping)
+            assert item.provider is not None
+            assert item.hf_model_id is not None
+            assert item.provider_id is not None
+
+    def test_filter_models_by_inference_provider(self):
+        models = list(
+            self._api.list_models(inference_provider="hf-inference", expand=["inferenceProviderMapping"], limit=10)
+        )
+        assert len(models) > 0
+        for model in models:
+            assert model.inference_provider_mapping is not None
+            assert any(mapping.provider == "hf-inference" for mapping in model.inference_provider_mapping)
 
 
 class HfApiPrivateTest(HfApiCommonTest):

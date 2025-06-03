@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
@@ -8,6 +8,7 @@ from huggingface_hub.utils import build_hf_headers, get_token, logging
 
 
 logger = logging.get_logger(__name__)
+
 
 # Dev purposes only.
 # If you want to try to run inference for a new model locally before it's registered on huggingface.co
@@ -124,7 +125,12 @@ class TaskProviderHelper:
         if HARDCODED_MODEL_INFERENCE_MAPPING.get(self.provider, {}).get(model):
             return HARDCODED_MODEL_INFERENCE_MAPPING[self.provider][model]
 
-        provider_mapping = _fetch_inference_provider_mapping(model).get(self.provider)
+        provider_mapping = None
+        for mapping in _fetch_inference_provider_mapping(model):
+            if mapping.provider == self.provider:
+                provider_mapping = mapping
+                break
+
         if provider_mapping is None:
             raise ValueError(f"Model {model} is not supported by provider {self.provider}.")
 
@@ -236,7 +242,7 @@ class BaseTextGenerationTask(TaskProviderHelper):
 
 
 @lru_cache(maxsize=None)
-def _fetch_inference_provider_mapping(model: str) -> Dict:
+def _fetch_inference_provider_mapping(model: str) -> List["InferenceProviderMapping"]:
     """
     Fetch provider mappings for a model from the Hub.
     """
