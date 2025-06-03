@@ -85,14 +85,15 @@ class TestBasicTaskProviderHelper:
         # Test task mismatch
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value={
-                "provider-name": mocker.Mock(
+            return_value=[
+                mocker.Mock(
                     task="other-task",
+                    provider="provider-name",
                     providerId="mapped-id",
                     hf_model_id="test-model",
                     status="live",
                 )
-            },
+            ],
         )
         with pytest.raises(ValueError, match="Model test-model is not supported for task.*"):
             helper._prepare_mapping_info("test-model")
@@ -100,11 +101,15 @@ class TestBasicTaskProviderHelper:
         # Test staging model
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value={
-                "provider-name": mocker.Mock(
-                    task="task-name", hf_model_id="test-model", provider_id="mapped-id", status="staging"
+            return_value=[
+                mocker.Mock(
+                    provider="provider-name",
+                    task="task-name",
+                    hf_model_id="test-model",
+                    provider_id="mapped-id",
+                    status="staging",
                 )
-            },
+            ],
         )
         assert helper._prepare_mapping_info("test-model").provider_id == "mapped-id"
 
@@ -116,11 +121,15 @@ class TestBasicTaskProviderHelper:
         caplog.clear()
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value={
-                "provider-name": mocker.Mock(
-                    task="task-name", hf_model_id="test-model", provider_id="mapped-id", status="live"
+            return_value=[
+                mocker.Mock(
+                    provider="provider-name",
+                    task="task-name",
+                    hf_model_id="test-model",
+                    provider_id="mapped-id",
+                    status="live",
                 )
-            },
+            ],
         )
         assert helper._prepare_mapping_info("test-model").provider_id == "mapped-id"
         assert helper._prepare_mapping_info("test-model").hf_model_id == "test-model"
@@ -131,8 +140,9 @@ class TestBasicTaskProviderHelper:
         # Test with loras
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value={
-                "provider-name": mocker.Mock(
+            return_value=[
+                mocker.Mock(
+                    provider="provider-name",
                     task="task-name",
                     hf_model_id="test-model",
                     provider_id="mapped-id",
@@ -140,7 +150,7 @@ class TestBasicTaskProviderHelper:
                     adapter_weights_path="lora-weights-path",
                     adapter="lora",
                 )
-            },
+            ],
         )
 
         assert helper._prepare_mapping_info("test-model").adapter_weights_path == "lora-weights-path"
@@ -258,6 +268,7 @@ class TestCohereConversationalTask:
             [{"role": "user", "content": "Hello!"}],
             {},
             InferenceProviderMapping(
+                provider="cohere",
                 hf_model_id="CohereForAI/command-r7b-12-2024",
                 providerId="CohereForAI/command-r7b-12-2024",
                 task="conversational",
@@ -307,6 +318,7 @@ class TestFalAIProvider:
             "a beautiful cat",
             {"width": 512, "height": 512},
             InferenceProviderMapping(
+                provider="fal-ai",
                 hf_model_id="username/repo_name",
                 providerId="username/repo_name",
                 task="text-to-image",
@@ -411,6 +423,7 @@ class TestFireworksAIConversationalTask:
             [{"role": "user", "content": "Hello!"}],
             {},
             InferenceProviderMapping(
+                provider="fireworks-ai",
                 hf_model_id="meta-llama/Llama-3.1-8B-Instruct",
                 providerId="meta-llama/Llama-3.1-8B-Instruct",
                 task="conversational",
@@ -468,6 +481,7 @@ class TestHFInferenceProvider:
     def test_prepare_payload_as_dict(self):
         helper = HFInferenceTask("text-classification")
         mapping_info = InferenceProviderMapping(
+            provider="hf-inference",
             hf_model_id="username/repo_name",
             providerId="username/repo_name",
             task="text-classification",
@@ -492,6 +506,7 @@ class TestHFInferenceProvider:
     def test_prepare_payload_as_bytes(self):
         helper = HFInferenceBinaryInputTask("image-classification")
         mapping_info = InferenceProviderMapping(
+            provider="hf-inference",
             hf_model_id="username/repo_name",
             providerId="username/repo_name",
             task="image-classification",
@@ -616,6 +631,7 @@ class TestHFInferenceProvider:
         helper = HFInferenceConversational()
         messages = [{"role": "user", "content": "Hello!"}]
         provider_mapping_info = InferenceProviderMapping(
+            provider="hf-inference",
             hf_model_id=mapped_model,
             providerId=mapped_model,
             task="conversational",
@@ -753,6 +769,7 @@ class TestHyperbolicProvider:
             [{"role": "user", "content": "Hello!"}],
             {"temperature": 0.7},
             InferenceProviderMapping(
+                provider="hyperbolic",
                 hf_model_id="meta-llama/Llama-3.2-3B-Instruct",
                 providerId="meta-llama/Llama-3.2-3B-Instruct",
                 task="conversational",
@@ -778,6 +795,7 @@ class TestHyperbolicProvider:
                 "seed": 42,
             },
             InferenceProviderMapping(
+                provider="hyperbolic",
                 hf_model_id="stabilityai/sdxl-turbo",
                 providerId="stabilityai/sdxl",
                 task="text-to-image",
@@ -813,6 +831,7 @@ class TestNebiusProvider:
             "a beautiful cat",
             {"num_inference_steps": 10, "width": 512, "height": 512, "guidance_scale": 7.5},
             InferenceProviderMapping(
+                provider="black-forest-labs/flux-schnell",
                 hf_model_id="black-forest-labs/flux-schnell",
                 providerId="black-forest-labs/flux-schnell",
                 task="text-to-image",
@@ -839,6 +858,7 @@ class TestNebiusProvider:
             "Hello world",
             {"param-that-will-be-ignored": True},
             InferenceProviderMapping(
+                provider="nebius",
                 hf_model_id="username/repo_name",
                 providerId="provider-id",
                 task="feature-extraction",
@@ -885,6 +905,7 @@ class TestNscaleProvider:
                 "height": 512,
             },
             InferenceProviderMapping(
+                provider="nscale",
                 hf_model_id="stabilityai/stable-diffusion-xl-base-1.0",
                 providerId="stabilityai/stable-diffusion-xl-base-1.0",
                 task="text-to-image",
@@ -909,6 +930,7 @@ class TestNscaleProvider:
                 "num_inference_steps": 50,
             },
             InferenceProviderMapping(
+                provider="nscale",
                 hf_model_id="stabilityai/stable-diffusion-xl-base-1.0",
                 providerId="stabilityai/stable-diffusion-xl-base-1.0",
                 task="text-to-image",
@@ -960,6 +982,7 @@ class TestReplicateProvider:
             "a beautiful cat",
             {"num_inference_steps": 20},
             InferenceProviderMapping(
+                provider="replicate",
                 hf_model_id="black-forest-labs/FLUX.1-schnell",
                 providerId="black-forest-labs/FLUX.1-schnell",
                 task="text-to-image",
@@ -973,6 +996,7 @@ class TestReplicateProvider:
             "a beautiful cat",
             {"num_inference_steps": 20},
             InferenceProviderMapping(
+                provider="replicate",
                 hf_model_id="black-forest-labs/FLUX.1-schnell",
                 providerId="black-forest-labs/FLUX.1-schnell:1944af04d098ef",
                 task="text-to-image",
@@ -990,6 +1014,7 @@ class TestReplicateProvider:
             "Hello world",
             {},
             InferenceProviderMapping(
+                provider="replicate",
                 hf_model_id="hexgrad/Kokoro-82M",
                 providerId="hexgrad/Kokoro-82M:f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
                 task="text-to-speech",
@@ -1028,6 +1053,7 @@ class TestSambanovaProvider:
             "Hello world",
             {"truncate": True},
             InferenceProviderMapping(
+                provider="sambanova",
                 hf_model_id="username/repo_name",
                 providerId="provider-id",
                 task="feature-extraction",
@@ -1055,6 +1081,7 @@ class TestTogetherProvider:
             "a beautiful cat",
             {"num_inference_steps": 10, "guidance_scale": 1, "width": 512, "height": 512},
             InferenceProviderMapping(
+                provider="together",
                 hf_model_id="black-forest-labs/FLUX.1-schnell",
                 providerId="black-forest-labs/FLUX.1-schnell",
                 task="text-to-image",
@@ -1092,6 +1119,7 @@ class TestBaseConversationalTask:
             inputs=messages,
             parameters=parameters,
             provider_mapping_info=InferenceProviderMapping(
+                provider="test-provider",
                 hf_model_id="test-model",
                 providerId="test-provider-id",
                 task="conversational",
@@ -1122,6 +1150,7 @@ class TestBaseTextGenerationTask:
             inputs=prompt,
             parameters=parameters,
             provider_mapping_info=InferenceProviderMapping(
+                provider="test-provider",
                 hf_model_id="test-model",
                 providerId="test-provider-id",
                 task="text-generation",
@@ -1199,10 +1228,10 @@ def test_get_provider_helper_auto(mocker):
 
     mocker.patch(
         "huggingface_hub.inference._providers._fetch_inference_provider_mapping",
-        return_value={
-            "provider-a": mocker.Mock(),
-            "provider-b": mocker.Mock(),
-        },
+        return_value=[
+            mocker.Mock(provider="provider-a"),
+            mocker.Mock(provider="provider-b"),
+        ],
     )
     helper = get_provider_helper(provider="auto", task="test-task", model="test-model")
 

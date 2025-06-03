@@ -28,6 +28,7 @@ from functools import wraps
 from itertools import islice
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Any,
     BinaryIO,
     Callable,
@@ -104,7 +105,6 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
-from .inference._providers import PROVIDER_T
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
@@ -135,6 +135,9 @@ from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
 
+
+if TYPE_CHECKING:
+    from .inference._providers import PROVIDER_T
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
@@ -710,14 +713,15 @@ class RepoFolder:
 
 @dataclass
 class InferenceProviderMapping:
-    provider: str
-    hf_model_id: str
-    provider_id: str
+    provider: "PROVIDER_T"  # Provider name
+    hf_model_id: str  # ID of the model on the Hugging Face Hub
+    provider_id: str  # ID of the model on the provider's side
     status: Literal["live", "staging"]
     task: str
 
     adapter: Optional[str] = None
     adapter_weights_path: Optional[str] = None
+    type: Optional[Literal["single-model", "tag-filter"]] = None
 
     def __init__(self, **kwargs):
         self.provider = kwargs.pop("provider")
@@ -725,8 +729,10 @@ class InferenceProviderMapping:
         self.provider_id = kwargs.pop("providerId")
         self.status = kwargs.pop("status")
         self.task = kwargs.pop("task")
+
         self.adapter = kwargs.pop("adapter", None)
         self.adapter_weights_path = kwargs.pop("adapterWeightsPath", None)
+        self.type = kwargs.pop("type", None)
         self.__dict__.update(**kwargs)
 
 
@@ -853,14 +859,25 @@ class ModelInfo:
         self.gguf = kwargs.pop("gguf", None)
 
         self.inference = kwargs.pop("inference", None)
-        self.inference_provider_mapping = kwargs.pop("inferenceProviderMapping", None)
-        if self.inference_provider_mapping:
-            self.inference_provider_mapping = {
-                provider: InferenceProviderMapping(
-                    **{**value, "hf_model_id": self.id}
-                )  # little hack to simplify Inference Providers logic
-                for provider, value in self.inference_provider_mapping.items()
-            }
+
+        # little hack to simplify Inference Providers logic and make it backward and forward compatible
+        # right now, API returns a dict on model_info and a list on list_models. Let's harmonize to list.
+        mapping = kwargs.pop("inferenceProviderMapping", None)
+        if isinstance(mapping, list):
+            self.inference_provider_mapping = [
+                InferenceProviderMapping(**{**value, "hf_model_id": self.id}) for value in mapping
+            ]
+        elif isinstance(mapping, dict):
+            self.inference_provider_mapping = [
+                InferenceProviderMapping(**{**value, "hf_model_id": self.id, "provider": provider})
+                for provider, value in mapping.items()
+            ]
+        elif mapping is None:
+            self.inference_provider_mapping = None
+        else:
+            raise ValueError(
+                f"Unexpected type for `inferenceProviderMapping`. Expecting `dict` or `list`. Got {mapping}."
+            )
 
         self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
@@ -1838,7 +1855,7 @@ class HfApi:
         author: Optional[str] = None,
         gated: Optional[bool] = None,
         inference: Optional[Literal["warm"]] = None,
-        inference_provider: Optional[Union[Literal["all"], PROVIDER_T, List[PROVIDER_T]]] = None,
+        inference_provider: Optional[Union[Literal["all"], "PROVIDER_T", List["PROVIDER_T"]]] = None,
         library: Optional[Union[str, List[str]]] = None,
         language: Optional[Union[str, List[str]]] = None,
         model_name: Optional[str] = None,
@@ -1936,7 +1953,7 @@ class HfApi:
         Returns:
             `Iterable[ModelInfo]`: an iterable of [`huggingface_hub.hf_api.ModelInfo`] objects.
 
-        Example usage with the `filter` argument:
+        Example:
 
         ```python
         >>> from huggingface_hub import HfApi
@@ -1946,29 +1963,21 @@ class HfApi:
         # List all models
         >>> api.list_models()
 
-        # List only the text classification models
+        # List text classification models
         >>> api.list_models(filter="text-classification")
 
-        # List only models from the AllenNLP library
-        >>> api.list_models(filter="allennlp")
-        ```
+        # List models from the KerasHub library
+        >>> api.list_models(filter="keras-hub")
 
-        Example usage with the `search` argument:
+        # List models served by Cohere
+        >>> api.list_models(inference_provider="cohere")
 
-        ```python
-        >>> from huggingface_hub import HfApi
-
-        >>> api = HfApi()
-
-        # List all models with "bert" in their name
+        # List models with "bert" in their name
         >>> api.list_models(search="bert")
 
-        # List all models with "bert" in their name made by google
+        # List models with "bert" in their name and pushed by google
         >>> api.list_models(search="bert", author="google")
         ```
-
-        # List all models served by Cohere
-        >>> api.list_models(inference_provider="cohere")
         """
         if expand and (full or cardData or fetch_config):
             raise ValueError("`expand` cannot be used if `full`, `cardData` or `fetch_config` are passed.")

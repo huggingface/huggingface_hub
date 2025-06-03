@@ -183,7 +183,7 @@ def get_provider_helper(
         if model is None:
             raise ValueError("Specifying a model is required when provider is 'auto'")
         provider_mapping = _fetch_inference_provider_mapping(model)
-        provider = next(iter(provider_mapping))
+        provider = next(iter(provider_mapping)).provider
 
     provider_tasks = PROVIDERS.get(provider)  # type: ignore
     if provider_tasks is None:
