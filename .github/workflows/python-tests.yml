@@ -102,6 +102,7 @@ jobs:
           if [[ "${{ matrix.test_name }}" != "Xet only" ]]; then
             uv pip uninstall hf_xet
           fi
+
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work

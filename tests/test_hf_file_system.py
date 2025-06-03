@@ -175,11 +175,13 @@ class HfFileSystemTests(unittest.TestCase):
             self.assertIsInstance(f, io.TextIOWrapper)
             self.assertIsInstance(f.buffer, HfFileSystemFile)
             self.assertEqual(f.read(), "dummy text data")
+            self.assertEqual(f.read(), "")
 
     def test_stream_file(self):
         with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:
             self.assertIsInstance(f, HfFileSystemStreamFile)
             self.assertEqual(f.read(), b"dummy binary data")
+            self.assertEqual(f.read(), b"")
 
     def test_stream_file_retry(self):
         with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:

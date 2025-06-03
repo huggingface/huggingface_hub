@@ -530,7 +530,7 @@ def _upload_xet_files(
     if len(additions) == 0:
         return
     # at this point, we know that hf_xet is installed
-    from hf_xet import upload_files
+    from hf_xet import upload_bytes, upload_files
 
     try:
         xet_connection_info = fetch_xet_connection_info_from_repo_info(
@@ -571,8 +571,10 @@ def _upload_xet_files(
     num_chunks_num_digits = int(math.log10(num_chunks)) + 1
     for i, chunk in enumerate(chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES)):
         _chunk = [op for op in chunk]
-        paths = [str(op.path_or_fileobj) for op in _chunk]
-        expected_size = sum([os.path.getsize(path) for path in paths])
+
+        bytes_ops = [op for op in _chunk if isinstance(op.path_or_fileobj, bytes)]
+        paths_ops = [op for op in _chunk if isinstance(op.path_or_fileobj, (str, Path))]
+        expected_size = sum(op.upload_info.size for op in bytes_ops + paths_ops)
 
         if num_chunks > 1:
             description = f"Uploading Batch [{str(i + 1).zfill(num_chunks_num_digits)}/{num_chunks}]..."
@@ -592,7 +594,24 @@ def _upload_xet_files(
             def update_progress(increment: int):
                 progress.update(increment)
 
-            upload_files(paths, xet_endpoint, access_token_info, token_refresher, update_progress, repo_type)
+            if len(paths_ops) > 0:
+                upload_files(
+                    [str(op.path_or_fileobj) for op in paths_ops],
+                    xet_endpoint,
+                    access_token_info,
+                    token_refresher,
+                    update_progress,
+                    repo_type,
+                )
+            if len(bytes_ops) > 0:
+                upload_bytes(
+                    [op.path_or_fileobj for op in bytes_ops],
+                    xet_endpoint,
+                    access_token_info,
+                    token_refresher,
+                    update_progress,
+                    repo_type,
+                )
     return
 
 

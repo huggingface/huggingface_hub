@@ -38,6 +38,7 @@ from typing import (
     Literal,
     Optional,
     Tuple,
+    Type,
     TypeVar,
     Union,
     overload,
@@ -136,7 +137,7 @@ from .utils.endpoint_helpers import _is_emission_within_threshold
 
 
 R = TypeVar("R")  # Return type
-CollectionItemType_T = Literal["model", "dataset", "space", "paper"]
+CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -710,15 +711,22 @@ class RepoFolder:
 @dataclass
 class InferenceProviderMapping:
     provider: str
+    hf_model_id: str
     provider_id: str
     status: Literal["live", "staging"]
     task: str
 
+    adapter: Optional[str] = None
+    adapter_weights_path: Optional[str] = None
+
     def __init__(self, **kwargs):
         self.provider = kwargs.pop("provider")
+        self.hf_model_id = kwargs.pop("hf_model_id")
         self.provider_id = kwargs.pop("providerId")
         self.status = kwargs.pop("status")
         self.task = kwargs.pop("task")
+        self.adapter = kwargs.pop("adapter", None)
+        self.adapter_weights_path = kwargs.pop("adapterWeightsPath", None)
         self.__dict__.update(**kwargs)
 
 
@@ -847,9 +855,12 @@ class ModelInfo:
         self.inference = kwargs.pop("inference", None)
         self.inference_provider_mapping = kwargs.pop("inferenceProviderMapping", None)
         if self.inference_provider_mapping:
-            self.inference_provider_mapping = [
-                InferenceProviderMapping(**value) for value in self.inference_provider_mapping
-            ]
+            self.inference_provider_mapping = {
+                provider: InferenceProviderMapping(
+                    **{**value, "hf_model_id": self.id}
+                )  # little hack to simplify Inference Providers logic
+                for provider, value in self.inference_provider_mapping.items()
+            }
 
         self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
@@ -1160,16 +1171,16 @@ class SpaceInfo:
 @dataclass
 class CollectionItem:
     """
-    Contains information about an item of a Collection (model, dataset, Space or paper).
+    Contains information about an item of a Collection (model, dataset, Space, paper or collection).
 
     Attributes:
         item_object_id (`str`):
             Unique ID of the item in the collection.
         item_id (`str`):
-            ID of the underlying object on the Hub. Can be either a repo_id or a paper id
-            e.g. `"jbilcke-hf/ai-comic-factory"`, `"2307.09288"`.
+            ID of the underlying object on the Hub. Can be either a repo_id, a paper id or a collection slug.
+            e.g. `"jbilcke-hf/ai-comic-factory"`, `"2307.09288"`, `"celinah/cerebras-function-calling-682607169c35fbfa98b30b9a"`.
         item_type (`str`):
-            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"` or `"paper"`.
+            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"` or `"collection"`.
         position (`int`):
             Position of the item in the collection.
         note (`str`, *optional*):
@@ -1183,10 +1194,20 @@ class CollectionItem:
     note: Optional[str] = None
 
     def __init__(
-        self, _id: str, id: str, type: CollectionItemType_T, position: int, note: Optional[Dict] = None, **kwargs
+        self,
+        _id: str,
+        id: str,
+        type: CollectionItemType_T,
+        position: int,
+        note: Optional[Dict] = None,
+        **kwargs,
     ) -> None:
         self.item_object_id: str = _id  # id in database
         self.item_id: str = id  # repo_id or paper id
+        # if the item is a collection, override item_id with the slug
+        slug = kwargs.get("slug")
+        if slug is not None:
+            self.item_id = slug  # collection slug
         self.item_type: CollectionItemType_T = type
         self.position: int = position
         self.note: str = note["text"] if note is not None else None
@@ -3621,7 +3642,7 @@ class HfApi:
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
             resource_group_id (`str`, *optional*):
-                Resource group in which to create the repo. Resource groups is only available for organizations and
+                Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations and
                 allow to define which members of the organization can access the resource. The ID of a resource group
                 can be found in the URL of the resource's page on the Hub (e.g. `"66670e5163145ca562cb1988"`).
                 To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
@@ -4419,20 +4440,23 @@ class HfApi:
         new_additions = [addition for addition in additions if not addition._is_uploaded]
 
         # Check which new files are LFS
-        try:
-            _fetch_upload_modes(
-                additions=new_additions,
-                repo_type=repo_type,
-                repo_id=repo_id,
-                headers=headers,
-                revision=revision,
-                endpoint=self.endpoint,
-                create_pr=create_pr or False,
-                gitignore_content=gitignore_content,
-            )
-        except RepositoryNotFoundError as e:
-            e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
-            raise
+        # For some items, we might have already fetched the upload mode (in case of upload_large_folder)
+        additions_no_upload_mode = [addition for addition in new_additions if addition._upload_mode is None]
+        if len(additions_no_upload_mode) > 0:
+            try:
+                _fetch_upload_modes(
+                    additions=additions_no_upload_mode,
+                    repo_type=repo_type,
+                    repo_id=repo_id,
+                    headers=headers,
+                    revision=revision,
+                    endpoint=self.endpoint,
+                    create_pr=create_pr or False,
+                    gitignore_content=gitignore_content,
+                )
+            except RepositoryNotFoundError as e:
+                e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+                raise
 
         # Filter out regular files
         new_lfs_additions = [addition for addition in new_additions if addition._upload_mode == "lfs"]
@@ -4473,18 +4497,17 @@ class HfApi:
             expand="xetEnabled",
             token=token,
         ).xet_enabled
-        has_binary_data = any(
-            isinstance(addition.path_or_fileobj, (bytes, io.BufferedIOBase))
-            for addition in new_lfs_additions_to_upload
+        has_buffered_io_data = any(
+            isinstance(addition.path_or_fileobj, io.BufferedIOBase) for addition in new_lfs_additions_to_upload
         )
-        if xet_enabled and not has_binary_data and is_xet_available():
-            logger.info("Uploading files using Xet Storage..")
+        if xet_enabled and not has_buffered_io_data and is_xet_available():
+            logger.debug("Uploading files using Xet Storage..")
             _upload_xet_files(**upload_kwargs, create_pr=create_pr)  # type: ignore [arg-type]
         else:
             if xet_enabled and is_xet_available():
-                if has_binary_data:
+                if has_buffered_io_data:
                     logger.warning(
-                        "Uploading files as bytes or binary IO objects is not supported by Xet Storage. "
+                        "Uploading files as a binary IO buffer is not supported by Xet Storage. "
                         "Falling back to HTTP upload."
                     )
             _upload_lfs_files(**upload_kwargs, num_threads=num_threads)  # type: ignore [arg-type]
@@ -5519,7 +5542,7 @@ class HfApi:
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         max_workers: int = 8,
-        tqdm_class: Optional[base_tqdm] = None,
+        tqdm_class: Optional[Type[base_tqdm]] = None,
         # Deprecated args
         local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
         resume_download: Optional[bool] = None,
@@ -7565,14 +7588,19 @@ class HfApi:
         region: str,
         vendor: str,
         account_id: Optional[str] = None,
-        min_replica: int = 0,
+        min_replica: int = 1,
         max_replica: int = 1,
-        scale_to_zero_timeout: int = 15,
+        scale_to_zero_timeout: Optional[int] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
+        env: Optional[Dict[str, str]] = None,
         secrets: Optional[Dict[str, str]] = None,
         type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
+        domain: Optional[str] = None,
+        path: Optional[str] = None,
+        cache_http_responses: Optional[bool] = None,
+        tags: Optional[List[str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
@@ -7598,11 +7626,13 @@ class HfApi:
             account_id (`str`, *optional*):
                 The account ID used to link a VPC to a private Inference Endpoint (if applicable).
             min_replica (`int`, *optional*):
-                The minimum number of replicas (instances) to keep running for the Inference Endpoint. Defaults to 0.
+                The minimum number of replicas (instances) to keep running for the Inference Endpoint. To enable
+                scaling to zero, set this value to 0 and adjust `scale_to_zero_timeout` accordingly. Defaults to 1.
             max_replica (`int`, *optional*):
                 The maximum number of replicas (instances) to scale to for the Inference Endpoint. Defaults to 1.
             scale_to_zero_timeout (`int`, *optional*):
-                The duration in minutes before an inactive endpoint is scaled to zero. Defaults to 15.
+                The duration in minutes before an inactive endpoint is scaled to zero, or no scaling to zero if
+                set to None and `min_replica` is not 0. Defaults to None.
             revision (`str`, *optional*):
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
@@ -7610,10 +7640,20 @@ class HfApi:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+            env (`Dict[str, str]`, *optional*):
+                Non-secret environment variables to inject in the container environment.
             secrets (`Dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
             type ([`InferenceEndpointType]`, *optional*):
                 The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
+            domain (`str`, *optional*):
+                The custom domain for the Inference Endpoint deployment, if setup the inference endpoint will be available at this domain (e.g. `"my-new-domain.cool-website.woof"`).
+            path (`str`, *optional*):
+                The custom path to the deployed model, should start with a `/` (e.g. `"/models/google-bert/bert-base-uncased"`).
+            cache_http_responses (`bool`, *optional*):
+                Whether to cache HTTP responses from the Inference Endpoint. Defaults to `False`.
+            tags (`List[str]`, *optional*):
+                A list of tags to associate with the Inference Endpoint.
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.
             token (Union[bool, str, None], optional):
@@ -7664,24 +7704,57 @@ class HfApi:
             ...     type="protected",
             ...     instance_size="x1",
             ...     instance_type="nvidia-a10g",
+            ...     env={
+            ...           "MAX_BATCH_PREFILL_TOKENS": "2048",
+            ...           "MAX_INPUT_LENGTH": "1024",
+            ...           "MAX_TOTAL_TOKENS": "1512",
+            ...           "MODEL_ID": "/repository"
+            ...         },
             ...     custom_image={
             ...         "health_route": "/health",
-            ...         "env": {
-            ...             "MAX_BATCH_PREFILL_TOKENS": "2048",
-            ...             "MAX_INPUT_LENGTH": "1024",
-            ...             "MAX_TOTAL_TOKENS": "1512",
-            ...             "MODEL_ID": "/repository"
-            ...         },
             ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
             ...     },
             ...    secrets={"MY_SECRET_KEY": "secret_value"},
+            ...    tags=["dev", "text-generation"],
             ... )
-
             ```
+
+            ```python
+            # Start an Inference Endpoint running ProsusAI/finbert while scaling to zero in 15 minutes
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> endpoint = api.create_inference_endpoint(
+            ...     "finbert-classifier",
+            ...     repository="ProsusAI/finbert",
+            ...     framework="pytorch",
+            ...     task="text-classification",
+            ...     min_replica=0,
+            ...     scale_to_zero_timeout=15,
+            ...     accelerator="cpu",
+            ...     vendor="aws",
+            ...     region="us-east-1",
+            ...     type="protected",
+            ...     instance_size="x2",
+            ...     instance_type="intel-icl",
+            ... )
+            >>> endpoint.wait(timeout=300)
+            # Run inference on the endpoint
+            >>> endpoint.client.text_generation(...)
+            TextClassificationOutputElement(label='positive', score=0.8983615040779114)
+            ```
+
         """
         namespace = namespace or self._get_namespace(token=token)
 
-        image = {"custom": custom_image} if custom_image is not None else {"huggingface": {}}
+        if custom_image is not None:
+            image = (
+                custom_image
+                if next(iter(custom_image)) in constants.INFERENCE_ENDPOINT_IMAGE_KEYS
+                else {"custom": custom_image}
+            )
+        else:
+            image = {"huggingface": {}}
+
         payload: Dict = {
             "accountId": account_id,
             "compute": {
@@ -7708,8 +7781,21 @@ class HfApi:
             },
             "type": type,
         }
+        if env:
+            payload["model"]["env"] = env
         if secrets:
             payload["model"]["secrets"] = secrets
+        if domain is not None or path is not None:
+            payload["route"] = {}
+            if domain is not None:
+                payload["route"]["domain"] = domain
+            if path is not None:
+                payload["route"]["path"] = path
+        if cache_http_responses is not None:
+            payload["cacheHttpResponses"] = cache_http_responses
+        if tags is not None:
+            payload["tags"] = tags
+
         response = get_session().post(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
             headers=self._build_hf_headers(token=token),
@@ -7871,15 +7957,21 @@ class HfApi:
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
+        env: Optional[Dict[str, str]] = None,
         secrets: Optional[Dict[str, str]] = None,
+        # Route update
+        domain: Optional[str] = None,
+        path: Optional[str] = None,
         # Other
+        cache_http_responses: Optional[bool] = None,
+        tags: Optional[List[str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
         """Update an Inference Endpoint.
 
-        This method allows the update of either the compute configuration, the deployed model, or both. All arguments are
-        optional but at least one must be provided.
+        This method allows the update of either the compute configuration, the deployed model, the route, or any combination.
+        All arguments are optional but at least one must be provided.
 
         For convenience, you can also update an Inference Endpoint using [`InferenceEndpoint.update`].
 
@@ -7911,8 +8003,21 @@ class HfApi:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+            env (`Dict[str, str]`, *optional*):
+                Non-secret environment variables to inject in the container environment
             secrets (`Dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
+
+            domain (`str`, *optional*):
+                The custom domain for the Inference Endpoint deployment, if setup the inference endpoint will be available at this domain (e.g. `"my-new-domain.cool-website.woof"`).
+            path (`str`, *optional*):
+                The custom path to the deployed model, should start with a `/` (e.g. `"/models/google-bert/bert-base-uncased"`).
+
+            cache_http_responses (`bool`, *optional*):
+                Whether to cache HTTP responses from the Inference Endpoint.
+            tags (`List[str]`, *optional*):
+                A list of tags to associate with the Inference Endpoint.
+
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be updated. Defaults to the current user's namespace.
             token (Union[bool, str, None], optional):
@@ -7950,8 +8055,18 @@ class HfApi:
             payload["model"]["task"] = task
         if custom_image is not None:
             payload["model"]["image"] = {"custom": custom_image}
+        if env is not None:
+            payload["model"]["env"] = env
         if secrets is not None:
             payload["model"]["secrets"] = secrets
+        if domain is not None:
+            payload["route"]["domain"] = domain
+        if path is not None:
+            payload["route"]["path"] = path
+        if cache_http_responses is not None:
+            payload["cacheHttpResponses"] = cache_http_responses
+        if tags is not None:
+            payload["tags"] = tags
 
         response = get_session().put(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",

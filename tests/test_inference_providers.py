@@ -6,7 +6,9 @@ from unittest.mock import patch
 import pytest
 from pytest import LogCaptureFixture
 
+from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters
+from huggingface_hub.inference._providers import PROVIDERS, get_provider_helper
 from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
     BaseTextGenerationTask,
@@ -22,27 +24,24 @@ from huggingface_hub.inference._providers.fal_ai import (
     FalAITextToSpeechTask,
     FalAITextToVideoTask,
 )
+from huggingface_hub.inference._providers.featherless_ai import (
+    FeatherlessConversationalTask,
+    FeatherlessTextGenerationTask,
+)
 from huggingface_hub.inference._providers.fireworks_ai import FireworksAIConversationalTask
 from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceBinaryInputTask,
     HFInferenceConversational,
     HFInferenceTask,
 )
-from huggingface_hub.inference._providers.hyperbolic import (
-    HyperbolicTextGenerationTask,
-    HyperbolicTextToImageTask,
-)
-from huggingface_hub.inference._providers.nebius import NebiusTextToImageTask
-from huggingface_hub.inference._providers.novita import (
-    NovitaConversationalTask,
-    NovitaTextGenerationTask,
-)
+from huggingface_hub.inference._providers.hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
+from huggingface_hub.inference._providers.nebius import NebiusFeatureExtractionTask, NebiusTextToImageTask
+from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
+from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
 from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
-from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask
-from huggingface_hub.inference._providers.together import (
-    TogetherTextToImageTask,
-)
+from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
+from huggingface_hub.inference._providers.together import TogetherTextToImageTask
 
 from .testing_utils import assert_in_logs
 
@@ -65,13 +64,13 @@ class TestBasicTaskProviderHelper:
             with pytest.raises(ValueError, match="You must provide an api_key.*"):
                 helper._prepare_api_key(None)
 
-    def test_prepare_mapped_model(self, mocker, caplog: LogCaptureFixture):
+    def test_prepare_mapping_info(self, mocker, caplog: LogCaptureFixture):
         helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
         caplog.set_level(logging.INFO)
 
         # Test missing model
         with pytest.raises(ValueError, match="Please provide an HF model ID.*"):
-            helper._prepare_mapped_model(None)
+            helper._prepare_mapping_info(None)
 
         # Test unsupported model
         mocker.patch(
@@ -81,26 +80,34 @@ class TestBasicTaskProviderHelper:
             ],
         )
         with pytest.raises(ValueError, match="Model test-model is not supported.*"):
-            helper._prepare_mapped_model("test-model")
+            helper._prepare_mapping_info("test-model")
 
         # Test task mismatch
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value=[
-                mocker.Mock(provider="provider-name", task="other-task", provider_id="mapped-id", status="active")
-            ],
+            return_value={
+                "provider-name": mocker.Mock(
+                    task="other-task",
+                    providerId="mapped-id",
+                    hf_model_id="test-model",
+                    status="live",
+                )
+            },
         )
         with pytest.raises(ValueError, match="Model test-model is not supported for task.*"):
-            helper._prepare_mapped_model("test-model")
+            helper._prepare_mapping_info("test-model")
 
         # Test staging model
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value=[
-                mocker.Mock(provider="provider-name", task="task-name", provider_id="mapped-id", status="staging")
-            ],
+            return_value={
+                "provider-name": mocker.Mock(
+                    task="task-name", hf_model_id="test-model", provider_id="mapped-id", status="staging"
+                )
+            },
         )
-        assert helper._prepare_mapped_model("test-model") == "mapped-id"
+        assert helper._prepare_mapping_info("test-model").provider_id == "mapped-id"
+
         assert_in_logs(
             caplog, "Model test-model is in staging mode for provider provider-name. Meant for test purposes only."
         )
@@ -109,12 +116,38 @@ class TestBasicTaskProviderHelper:
         caplog.clear()
         mocker.patch(
             "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-            return_value=[
-                mocker.Mock(provider="provider-name", task="task-name", provider_id="mapped-id", status="live")
-            ],
+            return_value={
+                "provider-name": mocker.Mock(
+                    task="task-name", hf_model_id="test-model", provider_id="mapped-id", status="live"
+                )
+            },
         )
-        assert helper._prepare_mapped_model("test-model") == "mapped-id"
+        assert helper._prepare_mapping_info("test-model").provider_id == "mapped-id"
+        assert helper._prepare_mapping_info("test-model").hf_model_id == "test-model"
+        assert helper._prepare_mapping_info("test-model").task == "task-name"
+        assert helper._prepare_mapping_info("test-model").status == "live"
         assert len(caplog.records) == 0
+
+        # Test with loras
+        mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+            return_value={
+                "provider-name": mocker.Mock(
+                    task="task-name",
+                    hf_model_id="test-model",
+                    provider_id="mapped-id",
+                    status="live",
+                    adapter_weights_path="lora-weights-path",
+                    adapter="lora",
+                )
+            },
+        )
+
+        assert helper._prepare_mapping_info("test-model").adapter_weights_path == "lora-weights-path"
+        assert helper._prepare_mapping_info("test-model").provider_id == "mapped-id"
+        assert helper._prepare_mapping_info("test-model").hf_model_id == "test-model"
+        assert helper._prepare_mapping_info("test-model").task == "task-name"
+        assert helper._prepare_mapping_info("test-model").status == "live"
 
     def test_prepare_headers(self):
         helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")
@@ -222,7 +255,14 @@ class TestCohereConversationalTask:
     def test_prepare_payload_as_dict(self):
         helper = CohereConversationalTask()
         payload = helper._prepare_payload_as_dict(
-            [{"role": "user", "content": "Hello!"}], {}, "CohereForAI/command-r7b-12-2024"
+            [{"role": "user", "content": "Hello!"}],
+            {},
+            InferenceProviderMapping(
+                hf_model_id="CohereForAI/command-r7b-12-2024",
+                providerId="CohereForAI/command-r7b-12-2024",
+                task="conversational",
+                status="live",
+            ),
         )
         assert payload == {
             "messages": [{"role": "user", "content": "Hello!"}],
@@ -264,7 +304,14 @@ class TestFalAIProvider:
     def test_text_to_image_payload(self):
         helper = FalAITextToImageTask()
         payload = helper._prepare_payload_as_dict(
-            "a beautiful cat", {"width": 512, "height": 512}, "username/repo_name"
+            "a beautiful cat",
+            {"width": 512, "height": 512},
+            InferenceProviderMapping(
+                hf_model_id="username/repo_name",
+                providerId="username/repo_name",
+                task="text-to-image",
+                status="live",
+            ),
         )
         assert payload == {
             "prompt": "a beautiful cat",
@@ -281,7 +328,7 @@ class TestFalAIProvider:
     def test_text_to_speech_payload(self):
         helper = FalAITextToSpeechTask()
         payload = helper._prepare_payload_as_dict("Hello world", {}, "username/repo_name")
-        assert payload == {"lyrics": "Hello world"}
+        assert payload == {"text": "Hello world"}
 
     def test_text_to_speech_response(self, mocker):
         helper = FalAITextToSpeechTask()
@@ -343,6 +390,15 @@ class TestFalAIProvider:
         assert response == b"video_content"
 
 
+class TestFeatherlessAIProvider:
+    def test_prepare_route_chat_completionurl(self):
+        helper = FeatherlessConversationalTask()
+        assert helper._prepare_url("rc_xxxx", "ownner/model_id") == "https://api.featherless.ai/v1/chat/completions"
+
+        helper = FeatherlessTextGenerationTask()
+        assert helper._prepare_url("rc_xxxx", "ownner/model_id") == "https://api.featherless.ai/v1/completions"
+
+
 class TestFireworksAIConversationalTask:
     def test_prepare_url(self):
         helper = FireworksAIConversationalTask()
@@ -352,7 +408,14 @@ class TestFireworksAIConversationalTask:
     def test_prepare_payload_as_dict(self):
         helper = FireworksAIConversationalTask()
         payload = helper._prepare_payload_as_dict(
-            [{"role": "user", "content": "Hello!"}], {}, "meta-llama/Llama-3.1-8B-Instruct"
+            [{"role": "user", "content": "Hello!"}],
+            {},
+            InferenceProviderMapping(
+                hf_model_id="meta-llama/Llama-3.1-8B-Instruct",
+                providerId="meta-llama/Llama-3.1-8B-Instruct",
+                task="conversational",
+                status="live",
+            ),
         )
         assert payload == {
             "messages": [{"role": "user", "content": "Hello!"}],
@@ -361,7 +424,7 @@ class TestFireworksAIConversationalTask:
 
 
 class TestHFInferenceProvider:
-    def test_prepare_mapped_model(self, mocker):
+    def test_prepare_mapping_info(self, mocker):
         helper = HFInferenceTask("text-classification")
         mocker.patch(
             "huggingface_hub.inference._providers.hf_inference._check_supported_task",
@@ -371,13 +434,13 @@ class TestHFInferenceProvider:
             "huggingface_hub.inference._providers.hf_inference._fetch_recommended_models",
             return_value={"text-classification": "username/repo_name"},
         )
-        assert helper._prepare_mapped_model("username/repo_name") == "username/repo_name"
-        assert helper._prepare_mapped_model(None) == "username/repo_name"
-        assert helper._prepare_mapped_model("https://any-url.com") == "https://any-url.com"
+        assert helper._prepare_mapping_info("username/repo_name").provider_id == "username/repo_name"
+        assert helper._prepare_mapping_info(None).provider_id == "username/repo_name"
+        assert helper._prepare_mapping_info("https://any-url.com").provider_id == "https://any-url.com"
 
-    def test_prepare_mapped_model_unknown_task(self):
+    def test_prepare_mapping_info_unknown_task(self):
         with pytest.raises(ValueError, match="Task unknown-task has no recommended model for HF Inference."):
-            HFInferenceTask("unknown-task")._prepare_mapped_model(None)
+            HFInferenceTask("unknown-task")._prepare_mapping_info(None)
 
     def test_prepare_url(self):
         helper = HFInferenceTask("text-classification")
@@ -388,27 +451,57 @@ class TestHFInferenceProvider:
 
         assert helper._prepare_url("hf_test_token", "https://any-url.com") == "https://any-url.com"
 
+    def test_prepare_url_feature_extraction(self):
+        helper = HFInferenceTask("feature-extraction")
+        assert (
+            helper._prepare_url("hf_test_token", "username/repo_name")
+            == "https://router.huggingface.co/hf-inference/models/username/repo_name/pipeline/feature-extraction"
+        )
+
+    def test_prepare_url_sentence_similarity(self):
+        helper = HFInferenceTask("sentence-similarity")
+        assert (
+            helper._prepare_url("hf_test_token", "username/repo_name")
+            == "https://router.huggingface.co/hf-inference/models/username/repo_name/pipeline/sentence-similarity"
+        )
+
     def test_prepare_payload_as_dict(self):
         helper = HFInferenceTask("text-classification")
+        mapping_info = InferenceProviderMapping(
+            hf_model_id="username/repo_name",
+            providerId="username/repo_name",
+            task="text-classification",
+            status="live",
+        )
         assert helper._prepare_payload_as_dict(
             "dummy text input",
             parameters={"a": 1, "b": None},
-            mapped_model="username/repo_name",
+            provider_mapping_info=mapping_info,
         ) == {
             "inputs": "dummy text input",
             "parameters": {"a": 1},
         }
 
         with pytest.raises(ValueError, match="Unexpected binary input for task text-classification."):
-            helper._prepare_payload_as_dict(b"dummy binary data", {}, "username/repo_name")
+            helper._prepare_payload_as_dict(
+                b"dummy binary data",
+                {},
+                mapping_info,
+            )
 
     def test_prepare_payload_as_bytes(self):
         helper = HFInferenceBinaryInputTask("image-classification")
+        mapping_info = InferenceProviderMapping(
+            hf_model_id="username/repo_name",
+            providerId="username/repo_name",
+            task="image-classification",
+            status="live",
+        )
         assert (
             helper._prepare_payload_as_bytes(
                 b"dummy binary input",
                 parameters={},
-                mapped_model="username/repo_name",
+                provider_mapping_info=mapping_info,
                 extra_payload=None,
             )
             == b"dummy binary input"
@@ -418,7 +511,7 @@ class TestHFInferenceProvider:
             helper._prepare_payload_as_bytes(
                 b"dummy binary input",
                 parameters={"a": 1, "b": None},
-                mapped_model="username/repo_name",
+                provider_mapping_info=mapping_info,
                 extra_payload={"extra": "payload"},
             )
             == b'{"inputs": "ZHVtbXkgYmluYXJ5IGlucHV0", "parameters": {"a": 1}, "extra": "payload"}'
@@ -522,11 +615,16 @@ class TestHFInferenceProvider:
     def test_prepare_payload_as_dict_conversational(self, mapped_model, parameters, expected_model):
         helper = HFInferenceConversational()
         messages = [{"role": "user", "content": "Hello!"}]
-
+        provider_mapping_info = InferenceProviderMapping(
+            hf_model_id=mapped_model,
+            providerId=mapped_model,
+            task="conversational",
+            status="live",
+        )
         payload = helper._prepare_payload_as_dict(
             inputs=messages,
             parameters=parameters,
-            mapped_model=mapped_model,
+            provider_mapping_info=provider_mapping_info,
         )
 
         assert payload["model"] == expected_model
@@ -652,7 +750,14 @@ class TestHyperbolicProvider:
         """Test payload preparation for conversational task."""
         helper = HyperbolicTextGenerationTask("conversational")
         payload = helper._prepare_payload_as_dict(
-            [{"role": "user", "content": "Hello!"}], {"temperature": 0.7}, "meta-llama/Llama-3.2-3B-Instruct"
+            [{"role": "user", "content": "Hello!"}],
+            {"temperature": 0.7},
+            InferenceProviderMapping(
+                hf_model_id="meta-llama/Llama-3.2-3B-Instruct",
+                providerId="meta-llama/Llama-3.2-3B-Instruct",
+                task="conversational",
+                status="live",
+            ),
         )
         assert payload == {
             "messages": [{"role": "user", "content": "Hello!"}],
@@ -672,7 +777,12 @@ class TestHyperbolicProvider:
                 "height": 512,
                 "seed": 42,
             },
-            "stabilityai/sdxl",
+            InferenceProviderMapping(
+                hf_model_id="stabilityai/sdxl-turbo",
+                providerId="stabilityai/sdxl",
+                task="text-to-image",
+                status="live",
+            ),
         )
         assert payload == {
             "prompt": "a beautiful cat",
@@ -702,7 +812,12 @@ class TestNebiusProvider:
         payload = helper._prepare_payload_as_dict(
             "a beautiful cat",
             {"num_inference_steps": 10, "width": 512, "height": 512, "guidance_scale": 7.5},
-            "black-forest-labs/flux-schnell",
+            InferenceProviderMapping(
+                hf_model_id="black-forest-labs/flux-schnell",
+                providerId="black-forest-labs/flux-schnell",
+                task="text-to-image",
+                status="live",
+            ),
         )
         assert payload == {
             "prompt": "a beautiful cat",
@@ -718,6 +833,27 @@ class TestNebiusProvider:
         response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
         assert response == b"image_bytes"
 
+    def test_prepare_payload_as_dict_feature_extraction(self):
+        helper = NebiusFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello world",
+            {"param-that-will-be-ignored": True},
+            InferenceProviderMapping(
+                hf_model_id="username/repo_name",
+                providerId="provider-id",
+                task="feature-extraction",
+                status="live",
+            ),
+        )
+        assert payload == {"input": "Hello world", "model": "provider-id"}
+
+    def test_prepare_url_feature_extraction(self):
+        helper = NebiusFeatureExtractionTask()
+        assert (
+            helper._prepare_url("hf_token", "username/repo_name")
+            == "https://router.huggingface.co/nebius/v1/embeddings"
+        )
+
 
 class TestNovitaProvider:
     def test_prepare_url_text_generation(self):
@@ -729,6 +865,67 @@ class TestNovitaProvider:
         helper = NovitaConversationalTask()
         url = helper._prepare_url("novita_token", "username/repo_name")
         assert url == "https://api.novita.ai/v3/openai/chat/completions"
+
+
+class TestNscaleProvider:
+    def test_prepare_route_text_to_image(self):
+        helper = NscaleTextToImageTask()
+        assert helper._prepare_route("model_name", "api_key") == "/v1/images/generations"
+
+    def test_prepare_route_chat_completion(self):
+        helper = NscaleConversationalTask()
+        assert helper._prepare_route("model_name", "api_key") == "/v1/chat/completions"
+
+    def test_prepare_payload_with_size_conversion(self):
+        helper = NscaleTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful landscape",
+            {
+                "width": 512,
+                "height": 512,
+            },
+            InferenceProviderMapping(
+                hf_model_id="stabilityai/stable-diffusion-xl-base-1.0",
+                providerId="stabilityai/stable-diffusion-xl-base-1.0",
+                task="text-to-image",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "prompt": "a beautiful landscape",
+            "size": "512x512",
+            "response_format": "b64_json",
+            "model": "stabilityai/stable-diffusion-xl-base-1.0",
+        }
+
+    def test_prepare_payload_as_dict(self):
+        helper = NscaleTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful landscape",
+            {
+                "width": 1024,
+                "height": 768,
+                "cfg_scale": 7.5,
+                "num_inference_steps": 50,
+            },
+            InferenceProviderMapping(
+                hf_model_id="stabilityai/stable-diffusion-xl-base-1.0",
+                providerId="stabilityai/stable-diffusion-xl-base-1.0",
+                task="text-to-image",
+                status="live",
+            ),
+        )
+        assert "width" not in payload
+        assert "height" not in payload
+        assert "num_inference_steps" not in payload
+        assert "cfg_scale" not in payload
+        assert payload["size"] == "1024x768"
+        assert payload["model"] == "stabilityai/stable-diffusion-xl-base-1.0"
+
+    def test_text_to_image_get_response(self):
+        helper = NscaleTextToImageTask()
+        response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
+        assert response == b"image_bytes"
 
 
 class TestOpenAIProvider:
@@ -760,13 +957,27 @@ class TestReplicateProvider:
 
         # No model version
         payload = helper._prepare_payload_as_dict(
-            "a beautiful cat", {"num_inference_steps": 20}, "black-forest-labs/FLUX.1-schnell"
+            "a beautiful cat",
+            {"num_inference_steps": 20},
+            InferenceProviderMapping(
+                hf_model_id="black-forest-labs/FLUX.1-schnell",
+                providerId="black-forest-labs/FLUX.1-schnell",
+                task="text-to-image",
+                status="live",
+            ),
         )
         assert payload == {"input": {"prompt": "a beautiful cat", "num_inference_steps": 20}}
 
         # Model with specific version
         payload = helper._prepare_payload_as_dict(
-            "a beautiful cat", {"num_inference_steps": 20}, "black-forest-labs/FLUX.1-schnell:1944af04d098ef"
+            "a beautiful cat",
+            {"num_inference_steps": 20},
+            InferenceProviderMapping(
+                hf_model_id="black-forest-labs/FLUX.1-schnell",
+                providerId="black-forest-labs/FLUX.1-schnell:1944af04d098ef",
+                task="text-to-image",
+                status="live",
+            ),
         )
         assert payload == {
             "input": {"prompt": "a beautiful cat", "num_inference_steps": 20},
@@ -776,7 +987,14 @@ class TestReplicateProvider:
     def test_text_to_speech_payload(self):
         helper = ReplicateTextToSpeechTask()
         payload = helper._prepare_payload_as_dict(
-            "Hello world", {}, "hexgrad/Kokoro-82M:f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13"
+            "Hello world",
+            {},
+            InferenceProviderMapping(
+                hf_model_id="hexgrad/Kokoro-82M",
+                providerId="hexgrad/Kokoro-82M:f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
+                task="text-to-speech",
+                status="live",
+            ),
         )
         assert payload == {
             "input": {"text": "Hello world"},
@@ -797,11 +1015,32 @@ class TestReplicateProvider:
 
 
 class TestSambanovaProvider:
-    def test_prepare_url(self):
+    def test_prepare_url_conversational(self):
         helper = SambanovaConversationalTask()
         assert (
             helper._prepare_url("sambanova_token", "username/repo_name")
             == "https://api.sambanova.ai/v1/chat/completions"
+        )
+
+    def test_prepare_payload_as_dict_feature_extraction(self):
+        helper = SambanovaFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello world",
+            {"truncate": True},
+            InferenceProviderMapping(
+                hf_model_id="username/repo_name",
+                providerId="provider-id",
+                task="feature-extraction",
+                status="live",
+            ),
+        )
+        assert payload == {"input": "Hello world", "model": "provider-id", "truncate": True}
+
+    def test_prepare_url_feature_extraction(self):
+        helper = SambanovaFeatureExtractionTask()
+        assert (
+            helper._prepare_url("hf_token", "username/repo_name")
+            == "https://router.huggingface.co/sambanova/v1/embeddings"
         )
 
 
@@ -815,7 +1054,12 @@ class TestTogetherProvider:
         payload = helper._prepare_payload_as_dict(
             "a beautiful cat",
             {"num_inference_steps": 10, "guidance_scale": 1, "width": 512, "height": 512},
-            "black-forest-labs/FLUX.1-schnell",
+            InferenceProviderMapping(
+                hf_model_id="black-forest-labs/FLUX.1-schnell",
+                providerId="black-forest-labs/FLUX.1-schnell",
+                task="text-to-image",
+                status="live",
+            ),
         )
         assert payload == {
             "prompt": "a beautiful cat",
@@ -847,14 +1091,19 @@ class TestBaseConversationalTask:
         payload = helper._prepare_payload_as_dict(
             inputs=messages,
             parameters=parameters,
-            mapped_model="test-model",
+            provider_mapping_info=InferenceProviderMapping(
+                hf_model_id="test-model",
+                providerId="test-provider-id",
+                task="conversational",
+                status="live",
+            ),
         )
 
         assert payload == {
             "messages": messages,
             "temperature": 0.7,
             "max_tokens": 100,
-            "model": "test-model",
+            "model": "test-provider-id",
         }
 
 
@@ -872,14 +1121,19 @@ class TestBaseTextGenerationTask:
         payload = helper._prepare_payload_as_dict(
             inputs=prompt,
             parameters=parameters,
-            mapped_model="test-model",
+            provider_mapping_info=InferenceProviderMapping(
+                hf_model_id="test-model",
+                providerId="test-provider-id",
+                task="text-generation",
+                status="live",
+            ),
         )
 
         assert payload == {
             "prompt": prompt,
             "temperature": 0.7,
             "max_tokens": 100,
-            "model": "test-model",
+            "model": "test-provider-id",
         }
 
 
@@ -933,3 +1187,27 @@ def test_recursive_merge(dict1: Dict, dict2: Dict, expected: Dict):
     # does not mutate the inputs
     assert dict1 == initial_dict1
     assert dict2 == initial_dict2
+
+
+def test_get_provider_helper_auto(mocker):
+    """Test the 'auto' provider selection logic."""
+
+    mock_provider_a_helper = mocker.Mock(spec=TaskProviderHelper)
+    mock_provider_b_helper = mocker.Mock(spec=TaskProviderHelper)
+    PROVIDERS["provider-a"] = {"test-task": mock_provider_a_helper}
+    PROVIDERS["provider-b"] = {"test-task": mock_provider_b_helper}
+
+    mocker.patch(
+        "huggingface_hub.inference._providers._fetch_inference_provider_mapping",
+        return_value={
+            "provider-a": mocker.Mock(),
+            "provider-b": mocker.Mock(),
+        },
+    )
+    helper = get_provider_helper(provider="auto", task="test-task", model="test-model")
+
+    # The helper should be the one from provider-a
+    assert helper is mock_provider_a_helper
+
+    PROVIDERS.pop("provider-a", None)
+    PROVIDERS.pop("provider-b", None)

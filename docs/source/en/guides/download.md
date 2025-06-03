@@ -181,7 +181,7 @@ chunk-based deduplication for faster downloads and uploads. `hf_xet` integrates 
 To enable it, specify the `hf_xet` package when installing `huggingface_hub`:
 
 ```bash
-pip install -U huggingface_hub[hf_xet]
+pip install -U "huggingface_hub[hf_xet]"
 ```
 
 Note: `hf_xet` will only be utilized when the files being downloaded are being stored with Xet Storage.

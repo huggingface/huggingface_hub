@@ -149,6 +149,7 @@ class LocalUploadFileMetadata:
     should_ignore: Optional[bool] = None
     sha256: Optional[str] = None
     upload_mode: Optional[str] = None
+    remote_oid: Optional[str] = None
     is_uploaded: bool = False
     is_committed: bool = False
 
@@ -172,6 +173,10 @@ class LocalUploadFileMetadata:
 
                 if self.upload_mode is not None:
                     f.write(self.upload_mode)
+                f.write("\n")
+
+                if self.remote_oid is not None:
+                    f.write(self.remote_oid)
                 f.write("\n")
 
                 f.write(str(int(self.is_uploaded)) + "\n")
@@ -346,6 +351,9 @@ def read_upload_metadata(local_dir: Path, filename: str) -> LocalUploadFileMetad
                     if upload_mode not in (None, "regular", "lfs"):
                         raise ValueError(f"Invalid upload mode in metadata {paths.path_in_repo}: {upload_mode}")
 
+                    _remote_oid = f.readline().strip()
+                    remote_oid = None if _remote_oid == "" else _remote_oid
+
                     is_uploaded = bool(int(f.readline().strip()))
                     is_committed = bool(int(f.readline().strip()))
 
@@ -355,6 +363,7 @@ def read_upload_metadata(local_dir: Path, filename: str) -> LocalUploadFileMetad
                         should_ignore=should_ignore,
                         sha256=sha256,
                         upload_mode=upload_mode,
+                        remote_oid=remote_oid,
                         is_uploaded=is_uploaded,
                         is_committed=is_committed,
                     )
