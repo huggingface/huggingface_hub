@@ -125,14 +125,12 @@ class TaskProviderHelper:
         if HARDCODED_MODEL_INFERENCE_MAPPING.get(self.provider, {}).get(model):
             return HARDCODED_MODEL_INFERENCE_MAPPING[self.provider][model]
 
-        provider_mapping = next(
-            (
-                provider_mapping
-                for provider_mapping in _fetch_inference_provider_mapping(model)
-                if provider_mapping.provider == self.provider
-            ),
-            None,
-        )
+        provider_mapping = None
+        for mapping in _fetch_inference_provider_mapping(model):
+            if mapping.provider == self.provider:
+                provider_mapping = mapping
+                break
+
         if provider_mapping is None:
             raise ValueError(f"Model {model} is not supported by provider {self.provider}.")
 
