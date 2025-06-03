@@ -3260,7 +3260,7 @@ class AsyncInferenceClient:
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
     @_deprecate_method(
-        version="0.33.0",
+        version="0.35.0",
         message=(
             "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
             " Use `HfApi.list_models(..., inference_provider='...')` to list warm models per provider."
@@ -3496,7 +3496,7 @@ class AsyncInferenceClient:
             return response.status == 200
 
     @_deprecate_method(
-        version="0.33.0",
+        version="0.35.0",
         message=(
             "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
             " Use `HfApi.model_info` to get the model status both with HF Inference API and external providers."
