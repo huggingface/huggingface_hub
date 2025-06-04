@@ -2,7 +2,7 @@ import asyncio
 import os
 import signal
 import traceback
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 import typer
 from rich import print
@@ -84,17 +84,15 @@ async def run_agent(
                 # Check env variables that will use this input
                 input_vars = set()
                 for server in servers:
-                    if server["type"] == "stdio" and "config" in server and "env" in server.get("config", {}):
-                        env = server["config"]["env"]
-                        for key, value in env.items():
-                            if value == env_special_value:
-                                input_vars.add(key)
-
-                    elif server["type"] in ("http", "sse") and "config" in server and "options" in server["config"]:
-                        headers = server["config"]["options"].get("requestInit", {}).get("headers", {})
-                        for key, value in headers.items():
-                            if isinstance(value, str) and value == env_special_value:
-                                input_vars.add(key)
+                    # Check stdio's "env" and http/sse's "headers" mappings
+                    env_or_headers = (
+                        server["config"].get("env", {})
+                        if server["type"] == "stdio"
+                        else server["config"].get("options", {}).get("requestInit", {}).get("headers", {})
+                    )
+                    for key, value in env_or_headers.items():
+                        if env_special_value in value:
+                            input_vars.add(key)
 
                 if not input_vars:
                     print(f"[yellow]Input {input_id} defined in config but not used by any server.[/yellow]")
@@ -111,32 +109,33 @@ async def run_agent(
 
                 # Inject user input (or env variable) into stdio's env or http/sse's headers
                 for server in servers:
-                    for mapping in (
-                        server.get("config", {}).get("env", {}),
-                        server.get("config", {}).get("options", {}).get("requestInit", {}).get("headers", {}),
-                    ):
-                        for key, value in env.items():
-                            if value == env_special_value:
-                                if user_input:
-                                    mapping[key] = mapping[key].replace(env_special_value, user_input)
+                    env_or_headers = (
+                        server["config"].get("env", {})
+                        if server["type"] == "stdio"
+                        else server["config"].get("options", {}).get("requestInit", {}).get("headers", {})
+                    )
+                    for key, value in env_or_headers.items():
+                        if value == env_special_value:
+                            if user_input:
+                                env_or_headers[key] = env_or_headers[key].replace(env_special_value, user_input)
+                            else:
+                                value_from_env = os.getenv(key, "")
+                                env_or_headers[key] = env_or_headers[key].replace(env_special_value, value_from_env)
+                                if value_from_env:
+                                    print(f"[green]Value successfully loaded from '{key}'[/green]")
                                 else:
-                                    value_from_env = os.getenv(key, "")
-                                    mapping[key] = mapping[key].replace(env_special_value, value_from_env)
-                                    if value_from_env:
-                                        print(f"[green]Value successfully loaded from '{key}'[/green]")
-                                    else:
-                                        print(
-                                            f"[yellow]No value found for '{key}' in environment variables. Continuing.[/yellow]"
-                                        )
+                                    print(
+                                        f"[yellow]No value found for '{key}' in environment variables. Continuing.[/yellow]"
+                                    )
 
             print()
 
         # Main agent loop
         async with Agent(
-            provider=config.get("provider"),
+            provider=config.get("provider"),  # type: ignore[arg-type]
             model=config.get("model"),
-            base_url=config.get("endpointUrl"),
-            servers=servers,
+            base_url=config.get("endpointUrl"),  # type: ignore[arg-type]
+            servers=servers,  # type: ignore[arg-type]
             prompt=prompt,
         ) as agent:
             await agent.load_tools()
