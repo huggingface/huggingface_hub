@@ -115,7 +115,7 @@ async def run_agent(
                         else server["config"].get("options", {}).get("requestInit", {}).get("headers", {})
                     )
                     for key, value in env_or_headers.items():
-                        if value == env_special_value:
+                        if env_special_value in value:
                             if user_input:
                                 env_or_headers[key] = env_or_headers[key].replace(env_special_value, user_input)
                             else:
