@@ -144,6 +144,11 @@ class TaskProviderHelper:
             logger.warning(
                 f"Model {model} is in staging mode for provider {self.provider}. Meant for test purposes only."
             )
+        if provider_mapping.status == "error":
+            logger.warning(
+                f"Our latest automated health check on model '{model}' for provider '{self.provider}' did not complete successfully.  "
+                "Inference call might fail."
+            )
         return provider_mapping
 
     def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
