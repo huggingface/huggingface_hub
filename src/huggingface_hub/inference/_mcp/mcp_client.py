@@ -3,21 +3,19 @@ import logging
 from contextlib import AsyncExitStack
 from datetime import timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Union, overload
+from typing import (TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal,
+                    Optional, Union, overload)
 
 from typing_extensions import NotRequired, TypeAlias, TypedDict, Unpack
 
 from ...utils._runtime import get_hf_hub_version
 from .._generated._async_client import AsyncInferenceClient
-from .._generated.types import (
-    ChatCompletionInputMessage,
-    ChatCompletionInputTool,
-    ChatCompletionStreamOutput,
-    ChatCompletionStreamOutputDeltaToolCall,
-)
+from .._generated.types import (ChatCompletionInputMessage,
+                                ChatCompletionInputTool,
+                                ChatCompletionStreamOutput,
+                                ChatCompletionStreamOutputDeltaToolCall)
 from .._providers import PROVIDER_OR_POLICY_T
 from .utils import format_result
-
 
 if TYPE_CHECKING:
     from mcp import ClientSession
@@ -286,16 +284,19 @@ class MCPClient:
             # Process tool calls
             if delta.tool_calls:
                 for tool_call in delta.tool_calls:
+                    idx = tool_call.index
                     # Aggregate chunks into tool calls
-                    if tool_call.index not in final_tool_calls:
-                        if (
-                            tool_call.function.arguments is None or tool_call.function.arguments == "{}"
-                        ):  # Corner case (depends on provider)
-                            tool_call.function.arguments = ""
-                        final_tool_calls[tool_call.index] = tool_call
+                    if idx not in final_tool_calls:
+                        final_tool_calls[idx] = tool_call
+                        if final_tool_calls[idx].function.arguments is None:
+                            final_tool_calls[idx].function.arguments = ""
+                        continue
 
-                    elif tool_call.function.arguments:
-                        final_tool_calls[tool_call.index].function.arguments += tool_call.function.arguments
+                    if final_tool_calls[idx].function.arguments is None:
+                        final_tool_calls[idx].function.arguments = ""
+                        
+                    if tool_call.function.arguments:
+                        final_tool_calls[idx].function.arguments += tool_call.function.arguments
 
             # Optionally exit early if no tools in first chunks
             if exit_if_first_chunk_no_tool and num_of_chunks <= 2 and len(final_tool_calls) == 0:
