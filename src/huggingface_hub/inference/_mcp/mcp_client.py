@@ -3,19 +3,21 @@ import logging
 from contextlib import AsyncExitStack
 from datetime import timedelta
 from pathlib import Path
-from typing import (TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal,
-                    Optional, Union, overload)
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Union, overload
 
 from typing_extensions import NotRequired, TypeAlias, TypedDict, Unpack
 
 from ...utils._runtime import get_hf_hub_version
 from .._generated._async_client import AsyncInferenceClient
-from .._generated.types import (ChatCompletionInputMessage,
-                                ChatCompletionInputTool,
-                                ChatCompletionStreamOutput,
-                                ChatCompletionStreamOutputDeltaToolCall)
+from .._generated.types import (
+    ChatCompletionInputMessage,
+    ChatCompletionInputTool,
+    ChatCompletionStreamOutput,
+    ChatCompletionStreamOutputDeltaToolCall,
+)
 from .._providers import PROVIDER_OR_POLICY_T
 from .utils import format_result
+
 
 if TYPE_CHECKING:
     from mcp import ClientSession
@@ -285,16 +287,16 @@ class MCPClient:
             if delta.tool_calls:
                 for tool_call in delta.tool_calls:
                     idx = tool_call.index
-                    # Aggregate chunks into tool calls
+                    # first chunk for this tool call
                     if idx not in final_tool_calls:
                         final_tool_calls[idx] = tool_call
                         if final_tool_calls[idx].function.arguments is None:
                             final_tool_calls[idx].function.arguments = ""
                         continue
-
+                    # safety before concatenating text to .function.arguments
                     if final_tool_calls[idx].function.arguments is None:
                         final_tool_calls[idx].function.arguments = ""
-                        
+
                     if tool_call.function.arguments:
                         final_tool_calls[idx].function.arguments += tool_call.function.arguments
 
