@@ -716,7 +716,7 @@ class InferenceProviderMapping:
     provider: "PROVIDER_T"  # Provider name
     hf_model_id: str  # ID of the model on the Hugging Face Hub
     provider_id: str  # ID of the model on the provider's side
-    status: Literal["live", "staging"]
+    status: Literal["error", "live", "staging"]
     task: str
 
     adapter: Optional[str] = None
