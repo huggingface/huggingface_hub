@@ -40,8 +40,8 @@ async def run_agent(
 
     config, prompt = _load_agent_config(agent_path)
 
-    inputs: List[Dict[str, Any]] = config.get("inputs", [])
-    servers: List[Dict[str, Any]] = config.get("servers", [])
+    inputs = config.get("inputs", [])
+    servers = config.get("servers", [])
 
     abort_event = asyncio.Event()
     exit_event = asyncio.Event()
@@ -82,14 +82,19 @@ async def run_agent(
                 env_special_value = "${input:" + input_id + "}"  # Special value to indicate env variable injection
 
                 # Check env variables that will use this input
-                input_vars = list(
-                    {
-                        key
-                        for server in servers
-                        for key, value in server.get("config", {}).get("env", {}).items()
-                        if value == env_special_value
-                    }
-                )
+                input_vars = set()
+                for server in servers:
+                    if server["type"] == "stdio" and "config" in server and "env" in server.get("config", {}):
+                        env = server["config"]["env"]
+                        for key, value in env.items():
+                            if value == env_special_value:
+                                input_vars.add(key)
+
+                    elif server["type"] in ("http", "sse") and "config" in server and "options" in server["config"]:
+                        headers = server["config"]["options"].get("requestInit", {}).get("headers", {})
+                        for key, value in headers.items():
+                            if isinstance(value, str) and value == env_special_value:
+                                input_vars.add(key)
 
                 if not input_vars:
                     print(f"[yellow]Input {input_id} defined in config but not used by any server.[/yellow]")
@@ -97,29 +102,32 @@ async def run_agent(
 
                 # Prompt user for input
                 print(
-                    f"[blue] • {input_id}[/blue]: {description}. (default: load from {', '.join(input_vars)}).",
+                    f"[blue] • {input_id}[/blue]: {description}. (default: load from {', '.join(sorted(input_vars))}).",
                     end=" ",
                 )
                 user_input = (await _async_prompt(exit_event=exit_event)).strip()
                 if exit_event.is_set():
                     return
 
-                # Inject user input (or env variable) into servers' env
+                # Inject user input (or env variable) into stdio's env or http/sse's headers
                 for server in servers:
-                    env = server.get("config", {}).get("env", {})
-                    for key, value in env.items():
-                        if value == env_special_value:
-                            if user_input:
-                                env[key] = user_input
-                            else:
-                                value_from_env = os.getenv(key, "")
-                                env[key] = value_from_env
-                                if value_from_env:
-                                    print(f"[green]Value successfully loaded from '{key}'[/green]")
+                    for mapping in (
+                        server.get("config", {}).get("env", {}),
+                        server.get("config", {}).get("options", {}).get("requestInit", {}).get("headers", {}),
+                    ):
+                        for key, value in env.items():
+                            if value == env_special_value:
+                                if user_input:
+                                    mapping[key] = mapping[key].replace(env_special_value, user_input)
                                 else:
-                                    print(
-                                        f"[yellow]No value found for '{key}' in environment variables. Continuing.[/yellow]"
-                                    )
+                                    value_from_env = os.getenv(key, "")
+                                    mapping[key] = mapping[key].replace(env_special_value, value_from_env)
+                                    if value_from_env:
+                                        print(f"[green]Value successfully loaded from '{key}'[/green]")
+                                    else:
+                                        print(
+                                            f"[yellow]No value found for '{key}' in environment variables. Continuing.[/yellow]"
+                                        )
 
             print()
 

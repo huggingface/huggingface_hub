@@ -12,6 +12,7 @@ from huggingface_hub import snapshot_download
 from huggingface_hub.errors import EntryNotFoundError
 
 from .constants import DEFAULT_AGENT, DEFAULT_REPO_ID, FILENAME_CONFIG, FILENAME_PROMPT
+from .types import AgentConfig
 
 
 if TYPE_CHECKING:
@@ -83,7 +84,7 @@ def _get_base64_size(base64_str: str) -> int:
     return (len(base64_str) * 3) // 4 - padding
 
 
-def _load_agent_config(agent_path: Optional[str]) -> Tuple[Dict[str, Any], Optional[str]]:
+def _load_agent_config(agent_path: Optional[str]) -> Tuple[AgentConfig, Optional[str]]:
     """Load server config and prompt."""
 
     def _read_dir(directory: Path) -> Tuple[Dict[str, Any], Optional[str]]:
