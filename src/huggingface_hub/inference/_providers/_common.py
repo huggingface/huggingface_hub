@@ -146,8 +146,8 @@ class TaskProviderHelper:
             )
         if provider_mapping.status == "error":
             logger.warning(
-                f"Inference with Model {model} through Provider {self.provider} might fail. "
-                "This is related to the model's status on the Provider's side."
+                f"Our latest automated health check on model '{model}' for provider '{self.provider}' did not complete successfully.  "
+                "Inference call might fail."
             )
         return provider_mapping
 
