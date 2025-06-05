@@ -6,12 +6,13 @@ Formatting utilities taken from the JS SDK: https://github.com/huggingface/huggi
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from huggingface_hub import snapshot_download
 from huggingface_hub.errors import EntryNotFoundError
 
 from .constants import DEFAULT_AGENT, DEFAULT_REPO_ID, FILENAME_CONFIG, FILENAME_PROMPT
+from .types import AgentConfig
 
 
 if TYPE_CHECKING:
@@ -83,21 +84,21 @@ def _get_base64_size(base64_str: str) -> int:
     return (len(base64_str) * 3) // 4 - padding
 
 
-def _load_agent_config(agent_path: Optional[str]) -> Tuple[Dict[str, Any], Optional[str]]:
+def _load_agent_config(agent_path: Optional[str]) -> Tuple[AgentConfig, Optional[str]]:
     """Load server config and prompt."""
 
-    def _read_dir(directory: Path) -> Tuple[Dict[str, Any], Optional[str]]:
+    def _read_dir(directory: Path) -> Tuple[AgentConfig, Optional[str]]:
         cfg_file = directory / FILENAME_CONFIG
         if not cfg_file.exists():
             raise FileNotFoundError(f" Config file not found in {directory}! Please make sure it exists locally")
 
-        config: Dict[str, Any] = json.loads(cfg_file.read_text(encoding="utf-8"))
+        config: AgentConfig = json.loads(cfg_file.read_text(encoding="utf-8"))
         prompt_file = directory / FILENAME_PROMPT
         prompt: Optional[str] = prompt_file.read_text(encoding="utf-8") if prompt_file.exists() else None
         return config, prompt
 
     if agent_path is None:
-        return DEFAULT_AGENT, None
+        return DEFAULT_AGENT, None  # type: ignore[return-value]
 
     path = Path(agent_path).expanduser()
 
