@@ -32,49 +32,49 @@
 
 ---
 
-**Documentation**: <a href="https://hf.co/docs/huggingface_hub" target="_blank">https://hf.co/docs/huggingface_hub</a>
+**Документация:**: <a href="https://hf.co/docs/huggingface_hub" target="_blank">https://hf.co/docs/huggingface_hub</a>
 
-**Source Code**: <a href="https://github.com/huggingface/huggingface_hub" target="_blank">https://github.com/huggingface/huggingface_hub</a>
+**Исходный код**: <a href="https://github.com/huggingface/huggingface_hub" target="_blank">https://github.com/huggingface/huggingface_hub</a>
 
 ---
 
-## Welcome to the huggingface_hub library
+## Добро пожаловать в библиотеку huggingface_hub
 
-The `huggingface_hub` library allows you to interact with the [Hugging Face Hub](https://huggingface.co/), a platform democratizing open-source Machine Learning for creators and collaborators. Discover pre-trained models and datasets for your projects or play with the thousands of machine learning apps hosted on the Hub. You can also create and share your own models, datasets and demos with the community. The `huggingface_hub` library provides a simple way to do all these things with Python.
+Библиотека `huggingface_hub` — это способ удобно взаимодействовать с [Hugging Face Hub](https://huggingface.co/)платформой, которая делает машинное обучение доступным каждому. Здесь можно находить предобученные модели и датасеты, запускать тысячи ML-приложений прямо из браузера или делиться своими наработками с сообществом. Всё это — прямо из Python!
 
-## Key features
+## Основные возможности
 
-- [Download files](https://huggingface.co/docs/huggingface_hub/en/guides/download) from the Hub.
-- [Upload files](https://huggingface.co/docs/huggingface_hub/en/guides/upload) to the Hub.
-- [Manage your repositories](https://huggingface.co/docs/huggingface_hub/en/guides/repository).
-- [Run Inference](https://huggingface.co/docs/huggingface_hub/en/guides/inference) on deployed models.
-- [Search](https://huggingface.co/docs/huggingface_hub/en/guides/search) for models, datasets and Spaces.
-- [Share Model Cards](https://huggingface.co/docs/huggingface_hub/en/guides/model-cards) to document your models.
-- [Engage with the community](https://huggingface.co/docs/huggingface_hub/en/guides/community) through PRs and comments.
+- [Скачивание файлов](https://huggingface.co/docs/huggingface_hub/en/guides/download) из хаба.
+- [Загрузка своих файлов](https://huggingface.co/docs/huggingface_hub/en/guides/upload) из хаба.
+- [Управление своими репозиториями](https://huggingface.co/docs/huggingface_hub/en/guides/repository).
+- [Запуск инференса](https://huggingface.co/docs/huggingface_hub/en/guides/inference) на размещённых моделях.
+- [Поиск](https://huggingface.co/docs/huggingface_hub/en/guides/search) моделей, датасетов и Spaces
+- [Публикация Model Cards](https://huggingface.co/docs/huggingface_hub/en/guides/model-cards) — описаний своих моделей.
+- [Участие в жизни сообщества:](https://huggingface.co/docs/huggingface_hub/en/guides/community) пулл-реквесты, комментарии и т.д.
 
-## Installation
+## Установка
 
-Install the `huggingface_hub` package with [pip](https://pypi.org/project/huggingface-hub/):
+Установить `huggingface_hub` можно через [pip](https://pypi.org/project/huggingface-hub/):
 
 ```bash
 pip install huggingface_hub
 ```
 
-If you prefer, you can also install it with [conda](https://huggingface.co/docs/huggingface_hub/en/installation#install-with-conda).
+Если удобнее — можно поставить через [conda](https://huggingface.co/docs/huggingface_hub/en/installation#install-with-conda).
 
-In order to keep the package minimal by default, `huggingface_hub` comes with optional dependencies useful for some use cases. For example, if you want have a complete experience for Inference, run:
+По умолчанию пакет минимален, но для определённых задач можно поставить дополнительные зависимости. Например, чтобы полностью использовать возможности инференса:
 
 ```bash
 pip install huggingface_hub[inference]
 ```
 
-To learn more installation and optional dependencies, check out the [installation guide](https://huggingface.co/docs/huggingface_hub/en/installation).
+Подробнее об установке и зависимостях — в [installation guide](https://huggingface.co/docs/huggingface_hub/en/installation).
 
-## Quick start
+## Быстрый старт
 
-### Download files
+### Скачиваем файлы
 
-Download a single file
+Скачать один файл:
 
 ```py
 from huggingface_hub import hf_hub_download
@@ -82,7 +82,7 @@ from huggingface_hub import hf_hub_download
 hf_hub_download(repo_id="tiiuae/falcon-7b-instruct", filename="config.json")
 ```
 
-Or an entire repository
+Или сразу весь репозиторий:
 
 ```py
 from huggingface_hub import snapshot_download
@@ -90,11 +90,11 @@ from huggingface_hub import snapshot_download
 snapshot_download("stabilityai/stable-diffusion-2-1")
 ```
 
-Files will be downloaded in a local cache folder. More details in [this guide](https://huggingface.co/docs/huggingface_hub/en/guides/manage-cache).
+Файлы будут кэшироваться локально. Подробнее об этом — [this guide](https://huggingface.co/docs/huggingface_hub/en/guides/manage-cache).
 
-### Login
+### Вход в аккаунт
 
-The Hugging Face Hub uses tokens to authenticate applications (see [docs](https://huggingface.co/docs/hub/security-tokens)). To log in your machine, run the following CLI:
+Для работы с хабом используется токен (см. [docs](https://huggingface.co/docs/hub/security-tokens)). Чтобы залогиниться в терминале:
 
 ```bash
 huggingface-cli login
@@ -102,7 +102,7 @@ huggingface-cli login
 huggingface-cli login --token $HUGGINGFACE_TOKEN
 ```
 
-### Create a repository
+### Создаём репозиторий
 
 ```py
 from huggingface_hub import create_repo
@@ -110,9 +110,9 @@ from huggingface_hub import create_repo
 create_repo(repo_id="super-cool-model")
 ```
 
-### Upload files
+### Загружаем файлы
 
-Upload a single file
+Загружаем один файл:
 
 ```py
 from huggingface_hub import upload_file
@@ -124,7 +124,7 @@ upload_file(
 )
 ```
 
-Or an entire folder
+Или целую папку:
 
 ```py
 from huggingface_hub import upload_folder
@@ -136,27 +136,26 @@ upload_folder(
 )
 ```
 
-For details in the [upload guide](https://huggingface.co/docs/huggingface_hub/en/guides/upload).
+Больше про это — [ в руководстве по загрузке](https://huggingface.co/docs/huggingface_hub/en/guides/upload).
 
-## Integrating to the Hub.
+## Интеграция с Hugging Face Hub
 
-We're partnering with cool open source ML libraries to provide free model hosting and versioning. You can find the existing integrations [here](https://huggingface.co/docs/hub/libraries).
+Hugging Face сотрудничает с разными библиотеками с открытым исходным кодом, чтобы обеспечить бесплатный хостинг и версионирование моделей. Список уже поддерживаемых интеграций —  [здесь](https://huggingface.co/docs/hub/libraries).
 
-The advantages are:
+Что дают такие интеграции:
 
-- Free model or dataset hosting for libraries and their users.
-- Built-in file versioning, even with very large files, thanks to a git-based approach.
-- Serverless inference API for all models publicly available.
-- In-browser widgets to play with the uploaded models.
-- Anyone can upload a new model for your library, they just need to add the corresponding tag for the model to be discoverable.
-- Fast downloads! We use Cloudfront (a CDN) to geo-replicate downloads so they're blazing fast from anywhere on the globe.
-- Usage stats and more features to come.
+- Бесплатный хостинг моделей и датасетов — для библиотек и их пользователей.
+- Версионирование файлов (включая большие) с помощью Git.
+- Серверлесс-инференс для любых публичных моделей.
+- Веб-виджеты для запуска моделей прямо в браузере.
+- Кто угодно может загрузить новую модель для твоей библиотеки — достаточно просто добавить нужный тег, чтобы модель была видна и находилась в поиске.
+- Скачивание происходит молниеносно! Мы используем Cloudfront (это CDN), который распределяет файлы по разным регионам, так что загрузка быстрая из любой точки мира.
+- Статистика использования и другие фишки.
 
-If you would like to integrate your library, feel free to open an issue to begin the discussion. We wrote a [step-by-step guide](https://huggingface.co/docs/hub/adding-a-library) with ❤️ showing how to do this integration.
+Хочешь интегрировать свою библиотеку? Просто создай issue — и обсудим! Есть даже [гайд по интеграции](https://huggingface.co/docs/hub/adding-a-library) — написан с любовью ❤️
 
-## Contributions (feature requests, bugs, etc.) are super welcome 💙💚💛💜🧡❤️
+## Мы рады любым контрибуциям 💙💚💛💜🧡❤️
 
-Everyone is welcome to contribute, and we value everybody's contribution. Code is not the only way to help the community.
-Answering questions, helping others, reaching out and improving the documentations are immensely valuable to the community.
-We wrote a [contribution guide](https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md) to summarize
-how to get started to contribute to this repository.
+Любой человек может внести вклад — и это очень ценно. Помощь — это не только код.
+Можно отвечать на вопросы, помогать другим, улучшать документацию — всё это важно для комьюнити.
+Вот [гайд по контрибуции](https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md) , если хочешь присоединиться.
