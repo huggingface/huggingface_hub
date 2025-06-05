@@ -14,11 +14,12 @@
 # limitations under the License.
 """Check presence of installed packages at runtime."""
 
-import importlib.metadata
 import os
 import platform
 import sys
 import warnings
+from importlib import import_module, metadata
+from types import ModuleType
 from typing import Any, Dict
 
 from .. import __version__, constants
@@ -65,9 +66,9 @@ for candidate_name, package_names in _CANDIDATES.items():
     _package_versions[candidate_name] = "N/A"
     for name in package_names:
         try:
-            _package_versions[candidate_name] = importlib.metadata.version(name)
+            _package_versions[candidate_name] = metadata.version(name)
             break
-        except importlib.metadata.PackageNotFoundError:
+        except metadata.PackageNotFoundError:
             pass
 
 
@@ -158,7 +159,26 @@ def is_xet_available() -> bool:
     if constants._is_true(os.environ.get("HF_HUB_DISABLE_XET")):  # type: ignore
         return False
 
-    return is_package_available("hf_xet")
+    if not is_package_available("hf_xet"):
+        return False
+
+    try:
+        module: ModuleType = import_module("hf_xet")
+        for symbol in ("PyXetDownloadInfo", "download_files"):
+            if not hasattr(module, symbol):
+                warnings.warn(
+                    f"hf_xet is installed but does not contain the expected symbol '{symbol}'. "
+                    "Please check your installation has hf_xet >= 1.1.0. `huggingface_hub` will default to not using hf_xet."
+                )
+                return False
+    except ModuleNotFoundError:
+        # This should not happen as we already checked that the package is available.
+        warnings.warn(
+            "hf_xet is installed but cannot be imported. Please check your installation. `huggingface_hub` will default to not using hf_xet."
+        )
+        return False
+
+    return True
 
 
 def get_xet_version() -> str:
