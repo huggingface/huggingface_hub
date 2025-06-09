@@ -1737,9 +1737,8 @@ class AsyncInferenceClient:
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="table-question-answering", model=model_id)
         request_parameters = provider_helper.prepare_request(
-            inputs=None,
+            inputs={"query": query, "table": table},
             parameters={"model": model, "padding": padding, "sequential": sequential, "truncation": truncation},
-            extra_payload={"query": query, "table": table},
             headers=self.headers,
             model=model_id,
             api_key=self.token,
