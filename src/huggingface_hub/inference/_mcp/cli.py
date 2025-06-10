@@ -2,7 +2,7 @@ import asyncio
 import os
 import signal
 import traceback
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 import typer
 from rich import print
@@ -40,8 +40,8 @@ async def run_agent(
 
     config, prompt = _load_agent_config(agent_path)
 
-    inputs: List[Dict[str, Any]] = config.get("inputs", [])
-    servers: List[Dict[str, Any]] = config.get("servers", [])
+    inputs = config.get("inputs", [])
+    servers = config.get("servers", [])
 
     abort_event = asyncio.Event()
     exit_event = asyncio.Event()
@@ -82,14 +82,17 @@ async def run_agent(
                 env_special_value = "${input:" + input_id + "}"  # Special value to indicate env variable injection
 
                 # Check env variables that will use this input
-                input_vars = list(
-                    {
-                        key
-                        for server in servers
-                        for key, value in server.get("config", {}).get("env", {}).items()
-                        if value == env_special_value
-                    }
-                )
+                input_vars = set()
+                for server in servers:
+                    # Check stdio's "env" and http/sse's "headers" mappings
+                    env_or_headers = (
+                        server["config"].get("env", {})
+                        if server["type"] == "stdio"
+                        else server["config"].get("options", {}).get("requestInit", {}).get("headers", {})
+                    )
+                    for key, value in env_or_headers.items():
+                        if env_special_value in value:
+                            input_vars.add(key)
 
                 if not input_vars:
                     print(f"[yellow]Input {input_id} defined in config but not used by any server.[/yellow]")
@@ -97,23 +100,27 @@ async def run_agent(
 
                 # Prompt user for input
                 print(
-                    f"[blue] • {input_id}[/blue]: {description}. (default: load from {', '.join(input_vars)}).",
+                    f"[blue] • {input_id}[/blue]: {description}. (default: load from {', '.join(sorted(input_vars))}).",
                     end=" ",
                 )
                 user_input = (await _async_prompt(exit_event=exit_event)).strip()
                 if exit_event.is_set():
                     return
 
-                # Inject user input (or env variable) into servers' env
+                # Inject user input (or env variable) into stdio's env or http/sse's headers
                 for server in servers:
-                    env = server.get("config", {}).get("env", {})
-                    for key, value in env.items():
-                        if value == env_special_value:
+                    env_or_headers = (
+                        server["config"].get("env", {})
+                        if server["type"] == "stdio"
+                        else server["config"].get("options", {}).get("requestInit", {}).get("headers", {})
+                    )
+                    for key, value in env_or_headers.items():
+                        if env_special_value in value:
                             if user_input:
-                                env[key] = user_input
+                                env_or_headers[key] = env_or_headers[key].replace(env_special_value, user_input)
                             else:
                                 value_from_env = os.getenv(key, "")
-                                env[key] = value_from_env
+                                env_or_headers[key] = env_or_headers[key].replace(env_special_value, value_from_env)
                                 if value_from_env:
                                     print(f"[green]Value successfully loaded from '{key}'[/green]")
                                 else:
@@ -125,10 +132,10 @@ async def run_agent(
 
         # Main agent loop
         async with Agent(
-            provider=config.get("provider"),
+            provider=config.get("provider"),  # type: ignore[arg-type]
             model=config.get("model"),
-            base_url=config.get("endpointUrl"),
-            servers=servers,
+            base_url=config.get("endpointUrl"),  # type: ignore[arg-type]
+            servers=servers,  # type: ignore[arg-type]
             prompt=prompt,
         ) as agent:
             await agent.load_tools()
