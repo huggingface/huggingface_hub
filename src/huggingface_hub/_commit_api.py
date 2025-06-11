@@ -532,7 +532,7 @@ def _upload_xet_files(
 
     # at this point, we know that hf_xet is installed
     from hf_xet import upload_bytes, upload_files
-    from .utils._xet_progress_reporting import XetProgressTracker
+    from .utils._xet_progress_reporting import XetProgressReporter
 
     try:
         xet_connection_info = fetch_xet_connection_info_from_repo_info(
@@ -573,7 +573,7 @@ def _upload_xet_files(
     num_chunks_num_digits = int(math.log10(num_chunks)) + 1
 
     if not are_progress_bars_disabled():
-        progress = XetProgressTracker()
+        progress = XetProgressReporter()
         progress_callback = progress.update_progress
     else:
         progress, progress_callback = None, None

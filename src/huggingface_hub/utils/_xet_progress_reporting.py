@@ -1,15 +1,12 @@
 from typing import List
 
-try:
-    from hf_xet import PyItemProgressUpdate, PyTotalProgressUpdate
-except ImportError as e:
-    raise ImportError(f"The current version of hf_xet does not yet support detailed upload progress; please upgrade ({e})")
+from hf_xet import PyItemProgressUpdate, PyTotalProgressUpdate
 
 from .tqdm import tqdm
 from collections import OrderedDict
 from typing import List
 
-class ProgressReporter:
+class XetProgressReporter:
     def __init__(self, n_lines: int = 10, description_width : int = 40):
         self.n_lines = n_lines
         self.description_width = description_width
@@ -91,11 +88,12 @@ class ProgressReporter:
                 in_final_bar_mode = False
 
             if bar is None:
-                self.current_bars[bar_idx] = tqdm(desc = self.format_desc(name, True), 
-                                position = 2 + bar_idx, # Set to the position past the initial bars.
-                                total = item.total_bytes, 
-                                initial = item.bytes_completed, 
-                                **self.tqdm_settings)
+                self.current_bars[bar_idx] = tqdm(
+                    desc = self.format_desc(name, True), 
+                    position = 2 + bar_idx, # Set to the position past the initial bars.
+                    total = item.total_bytes, 
+                    initial = item.bytes_completed, 
+                    **self.tqdm_settings)
 
             elif in_final_bar_mode:
                 bar.n += item.bytes_completed
@@ -142,9 +140,3 @@ class ProgressReporter:
         for bar in self.current_bars: 
             if bar:
                 bar.close()
-
-
-XetProgressTracker = ProgressReporter
-__all__ = [
-    "XetProgressTracker",
-]
