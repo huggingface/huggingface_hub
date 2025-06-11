@@ -23,11 +23,11 @@ class XetProgressReporter:
 
         # Overall progress bars
         self.data_processing_bar = tqdm(
-            total=0, desc=self.format_desc("Completed (0 / 0) files", False), position=0, **self.tqdm_settings
+            total=0, desc=self.format_desc("Processing Files (0 / 0)", False), position=0, **self.tqdm_settings
         )
 
         self.upload_bar = tqdm(
-            total=0, desc=self.format_desc("< New data upload >", False), position=1, **self.tqdm_settings
+            total=0, desc=self.format_desc("New Data Upload", False), position=1, **self.tqdm_settings
         )
 
         self.known_items = set()
@@ -46,8 +46,8 @@ class XetProgressReporter:
         width = self.description_width - len(padding)
 
         if len(name) > width:
-            truncated = f"...{name[-(width - 3) :]}"
-            return f"{padding}{truncated}"
+            name = f"...{name[-(width - 3) :]}"
+        
         return f"{padding}{name.ljust(width)}"
 
     def update_progress(self, total_update: PyTotalProgressUpdate, item_updates: List[PyItemProgressUpdate]):
