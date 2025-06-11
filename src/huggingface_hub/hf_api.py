@@ -28,6 +28,7 @@ from functools import wraps
 from itertools import islice
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Any,
     BinaryIO,
     Callable,
@@ -134,6 +135,9 @@ from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
 
+
+if TYPE_CHECKING:
+    from .inference._providers import PROVIDER_T
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
@@ -709,21 +713,26 @@ class RepoFolder:
 
 @dataclass
 class InferenceProviderMapping:
-    hf_model_id: str
-    status: Literal["live", "staging"]
-    provider_id: str
+    provider: "PROVIDER_T"  # Provider name
+    hf_model_id: str  # ID of the model on the Hugging Face Hub
+    provider_id: str  # ID of the model on the provider's side
+    status: Literal["error", "live", "staging"]
     task: str
 
     adapter: Optional[str] = None
     adapter_weights_path: Optional[str] = None
+    type: Optional[Literal["single-model", "tag-filter"]] = None
 
     def __init__(self, **kwargs):
+        self.provider = kwargs.pop("provider")
         self.hf_model_id = kwargs.pop("hf_model_id")
-        self.status = kwargs.pop("status")
         self.provider_id = kwargs.pop("providerId")
+        self.status = kwargs.pop("status")
         self.task = kwargs.pop("task")
+
         self.adapter = kwargs.pop("adapter", None)
         self.adapter_weights_path = kwargs.pop("adapterWeightsPath", None)
+        self.type = kwargs.pop("type", None)
         self.__dict__.update(**kwargs)
 
 
@@ -765,12 +774,10 @@ class ModelInfo:
             If so, whether there is manual or automatic approval.
         gguf (`Dict`, *optional*):
             GGUF information of the model.
-        inference (`Literal["cold", "frozen", "warm"]`, *optional*):
-            Status of the model on the inference API.
-            Warm models are available for immediate use. Cold models will be loaded on first inference call.
-            Frozen models are not available in Inference API.
-        inference_provider_mapping (`Dict`, *optional*):
-            Model's inference provider mapping.
+        inference (`Literal["warm"]`, *optional*):
+            Status of the model on Inference Providers. Warm if the model is served by at least one provider.
+        inference_provider_mapping (`List[InferenceProviderMapping]`, *optional*):
+            A list of [`InferenceProviderMapping`] ordered after the user's provider order.
         likes (`int`):
             Number of likes of the model.
         library_name (`str`, *optional*):
@@ -815,8 +822,8 @@ class ModelInfo:
     downloads_all_time: Optional[int]
     gated: Optional[Literal["auto", "manual", False]]
     gguf: Optional[Dict]
-    inference: Optional[Literal["warm", "cold", "frozen"]]
-    inference_provider_mapping: Optional[Dict[str, InferenceProviderMapping]]
+    inference: Optional[Literal["warm"]]
+    inference_provider_mapping: Optional[List[InferenceProviderMapping]]
     likes: Optional[int]
     library_name: Optional[str]
     tags: Optional[List[str]]
@@ -852,14 +859,25 @@ class ModelInfo:
         self.gguf = kwargs.pop("gguf", None)
 
         self.inference = kwargs.pop("inference", None)
-        self.inference_provider_mapping = kwargs.pop("inferenceProviderMapping", None)
-        if self.inference_provider_mapping:
-            self.inference_provider_mapping = {
-                provider: InferenceProviderMapping(
-                    **{**value, "hf_model_id": self.id}
-                )  # little hack to simplify Inference Providers logic
-                for provider, value in self.inference_provider_mapping.items()
-            }
+
+        # little hack to simplify Inference Providers logic and make it backward and forward compatible
+        # right now, API returns a dict on model_info and a list on list_models. Let's harmonize to list.
+        mapping = kwargs.pop("inferenceProviderMapping", None)
+        if isinstance(mapping, list):
+            self.inference_provider_mapping = [
+                InferenceProviderMapping(**{**value, "hf_model_id": self.id}) for value in mapping
+            ]
+        elif isinstance(mapping, dict):
+            self.inference_provider_mapping = [
+                InferenceProviderMapping(**{**value, "hf_model_id": self.id, "provider": provider})
+                for provider, value in mapping.items()
+            ]
+        elif mapping is None:
+            self.inference_provider_mapping = None
+        else:
+            raise ValueError(
+                f"Unexpected type for `inferenceProviderMapping`. Expecting `dict` or `list`. Got {mapping}."
+            )
 
         self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
@@ -1836,7 +1854,8 @@ class HfApi:
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         gated: Optional[bool] = None,
-        inference: Optional[Literal["cold", "frozen", "warm"]] = None,
+        inference: Optional[Literal["warm"]] = None,
+        inference_provider: Optional[Union[Literal["all"], "PROVIDER_T", List["PROVIDER_T"]]] = None,
         library: Optional[Union[str, List[str]]] = None,
         language: Optional[Union[str, List[str]]] = None,
         model_name: Optional[str] = None,
@@ -1870,10 +1889,11 @@ class HfApi:
                 A boolean to filter models on the Hub that are gated or not. By default, all models are returned.
                 If `gated=True` is passed, only gated models are returned.
                 If `gated=False` is passed, only non-gated models are returned.
-            inference (`Literal["cold", "frozen", "warm"]`, *optional*):
-                A string to filter models on the Hub by their state on the Inference API.
-                Warm models are available for immediate use. Cold models will be loaded on first inference call.
-                Frozen models are not available in Inference API.
+            inference (`Literal["warm"]`, *optional*):
+                If "warm", filter models on the Hub currently served by at least one provider.
+            inference_provider (`Literal["all"]` or `str`, *optional*):
+                A string to filter models on the Hub that are served by a specific provider.
+                Pass `"all"` to get all models served by at least one provider.
             library (`str` or `List`, *optional*):
                 A string or list of strings of foundational libraries models were
                 originally trained from, such as pytorch, tensorflow, or allennlp.
@@ -1933,7 +1953,7 @@ class HfApi:
         Returns:
             `Iterable[ModelInfo]`: an iterable of [`huggingface_hub.hf_api.ModelInfo`] objects.
 
-        Example usage with the `filter` argument:
+        Example:
 
         ```python
         >>> from huggingface_hub import HfApi
@@ -1943,24 +1963,19 @@ class HfApi:
         # List all models
         >>> api.list_models()
 
-        # List only the text classification models
+        # List text classification models
         >>> api.list_models(filter="text-classification")
 
-        # List only models from the AllenNLP library
-        >>> api.list_models(filter="allennlp")
-        ```
+        # List models from the KerasHub library
+        >>> api.list_models(filter="keras-hub")
 
-        Example usage with the `search` argument:
+        # List models served by Cohere
+        >>> api.list_models(inference_provider="cohere")
 
-        ```python
-        >>> from huggingface_hub import HfApi
-
-        >>> api = HfApi()
-
-        # List all models with "bert" in their name
+        # List models with "bert" in their name
         >>> api.list_models(search="bert")
 
-        # List all models with "bert" in their name made by google
+        # List models with "bert" in their name and pushed by google
         >>> api.list_models(search="bert", author="google")
         ```
         """
@@ -2003,6 +2018,8 @@ class HfApi:
             params["gated"] = gated
         if inference is not None:
             params["inference"] = inference
+        if inference_provider is not None:
+            params["inference_provider"] = inference_provider
         if pipeline_tag:
             params["pipeline_tag"] = pipeline_tag
         search_list = []

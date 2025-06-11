@@ -1502,7 +1502,7 @@ class InferenceClient:
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="question-answering", model=model_id)
         request_parameters = provider_helper.prepare_request(
-            inputs=None,
+            inputs={"question": question, "context": context},
             parameters={
                 "align_to_words": align_to_words,
                 "doc_stride": doc_stride,
@@ -1512,7 +1512,6 @@ class InferenceClient:
                 "max_seq_len": max_seq_len,
                 "top_k": top_k,
             },
-            extra_payload={"question": question, "context": context},
             headers=self.headers,
             model=model_id,
             api_key=self.token,
@@ -1686,9 +1685,8 @@ class InferenceClient:
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="table-question-answering", model=model_id)
         request_parameters = provider_helper.prepare_request(
-            inputs=None,
+            inputs={"query": query, "table": table},
             parameters={"model": model, "padding": padding, "sequential": sequential, "truncation": truncation},
-            extra_payload={"query": query, "table": table},
             headers=self.headers,
             model=model_id,
             api_key=self.token,
@@ -3197,7 +3195,7 @@ class InferenceClient:
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
     @_deprecate_method(
-        version="0.33.0",
+        version="0.35.0",
         message=(
             "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
             " Use `HfApi.list_models(..., inference_provider='...')` to list warm models per provider."
@@ -3387,7 +3385,7 @@ class InferenceClient:
         return response.status_code == 200
 
     @_deprecate_method(
-        version="0.33.0",
+        version="0.35.0",
         message=(
             "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
             " Use `HfApi.model_info` to get the model status both with HF Inference API and external providers."
