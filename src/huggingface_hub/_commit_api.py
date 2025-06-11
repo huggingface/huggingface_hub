@@ -573,7 +573,7 @@ def _upload_xet_files(
     num_chunks_num_digits = int(math.log10(num_chunks)) + 1
 
     if not are_progress_bars_disabled():
-        progress = XetProgressTracker(10)
+        progress = XetProgressTracker()
         progress_callback = progress.update_progress
     else:
         progress, progress_callback = None, None
