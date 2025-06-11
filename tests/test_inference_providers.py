@@ -29,6 +29,7 @@ from huggingface_hub.inference._providers.featherless_ai import (
     FeatherlessTextGenerationTask,
 )
 from huggingface_hub.inference._providers.fireworks_ai import FireworksAIConversationalTask
+from huggingface_hub.inference._providers.groq import GroqConversationalTask
 from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceBinaryInputTask,
     HFInferenceConversational,
@@ -434,6 +435,13 @@ class TestFireworksAIConversationalTask:
             "messages": [{"role": "user", "content": "Hello!"}],
             "model": "meta-llama/Llama-3.1-8B-Instruct",
         }
+
+
+class TestGroqProvider:
+    def test_prepare_route(self):
+        """Test route preparation for Groq conversational task."""
+        helper = GroqConversationalTask()
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/openai/v1/chat/completions"
 
 
 class TestHFInferenceProvider:

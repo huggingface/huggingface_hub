@@ -25,6 +25,7 @@ HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, InferenceProviderMapping]
     "cohere": {},
     "fal-ai": {},
     "fireworks-ai": {},
+    "groq": {},
     "hf-inference": {},
     "hyperbolic": {},
     "nebius": {},
