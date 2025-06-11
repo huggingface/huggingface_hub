@@ -73,8 +73,9 @@ async def _async_prompt(exit_event: asyncio.Event, prompt: str = "» ") -> str:
 
         # Wait for user input or exit event
         # Wait until either the user hits enter or exit_event is set
+        exit_task = asyncio.create_task(exit_event.wait())
         await asyncio.wait(
-            [future, exit_event.wait()],
+            [future, exit_task],
             return_when=asyncio.FIRST_COMPLETED,
         )
 
