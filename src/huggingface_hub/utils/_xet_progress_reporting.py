@@ -17,7 +17,7 @@ class ProgressReporter:
         self.tqdm_settings = {"unit" : "B", 
                               "unit_scale" : True, 
                               "leave" : True, 
-                              "unit_divisor" : 1024, 
+                              "unit_divisor" : 1000, 
                               "nrows" : n_lines + 3,
                               "miniters" : 1,
                               "bar_format" : "{l_bar}{bar}| {n_fmt:>5}B / {total_fmt:>5}B{postfix:>12}"
@@ -46,17 +46,13 @@ class ProgressReporter:
         if name is longer than width characters, prints ... at the start and then the last width-3 characters of the name, otherwise 
         the whole name right justified into 20 characters.  Also adds some padding.
         """
-        if indent:
-            w = self.description_width - 2
-            pad = "  "
-        else:
-            w = self.description_width
-            pad = ""
-            
-        if len(name) > w:
-            return pad + "..." + name[-(w - 3):]
-        else:
-            return pad + name.ljust(w, " ")
+        padding = "  " if indent else ""
+        width = self.description_width - len(padding)        
+    
+        if len(name) > width:
+            truncated = f"...{name[-(width - 3):]}"
+            return f"{padding}{truncated}"
+        return f"{padding}{name.ljust(width)}"
 
 
     def update_progress(self, total_update: PyTotalProgressUpdate, item_updates: List[PyItemProgressUpdate]):
@@ -95,8 +91,7 @@ class ProgressReporter:
                 in_final_bar_mode = False
 
             if bar is None:
-                self.current_bars[bar_idx] = bar = \
-                    tqdm(desc = self.format_desc(name, True), 
+                self.current_bars[bar_idx] = tqdm(desc = self.format_desc(name, True), 
                                 position = 2 + bar_idx, # Set to the position past the initial bars.
                                 total = item.total_bytes, 
                                 initial = item.bytes_completed, 
@@ -128,7 +123,7 @@ class ProgressReporter:
         
         # Update overall bars
         def postfix(speed): 
-            s = tqdm.format_sizeof(speed, divisor=1024) if speed is not None else "???"
+            s = tqdm.format_sizeof(speed) if speed is not None else "???"
             return f"{s}B/s  ".rjust(10, " ")
 
         self.data_processing_bar.total = total_update.total_bytes
