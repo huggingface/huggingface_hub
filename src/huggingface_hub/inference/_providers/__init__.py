@@ -17,6 +17,7 @@ from .fal_ai import (
     FalAITextToVideoTask,
 )
 from .fireworks_ai import FireworksAIConversationalTask
+from .groq import GroqConversationalTask
 from .hf_inference import (
     HFInferenceBinaryInputTask,
     HFInferenceConversational,
@@ -48,6 +49,7 @@ PROVIDER_T = Literal[
     "fal-ai",
     "featherless-ai",
     "fireworks-ai",
+    "groq",
     "hf-inference",
     "hyperbolic",
     "nebius",
@@ -83,6 +85,9 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     },
     "fireworks-ai": {
         "conversational": FireworksAIConversationalTask(),
+    },
+    "groq": {
+        "conversational": GroqConversationalTask(),
     },
     "hf-inference": {
         "text-to-image": HFInferenceTask("text-to-image"),
