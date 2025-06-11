@@ -30,12 +30,12 @@ class XetProgressReporter:
             total=0, desc=self.format_desc("New Data Upload", False), position=1, **self.tqdm_settings
         )
 
-        self.known_items = set()
-        self.completed_items = set()
+        self.known_items : set[str] = set()
+        self.completed_items : set[str] = set()
 
         # Item bars (scrolling view)
-        self.item_state = OrderedDict()
-        self.current_bars = [None] * self.n_lines
+        self.item_state : OrderedDict[str, PyItemProgressUpdate] = OrderedDict()
+        self.current_bars : List[tqdm | None] = [None] * self.n_lines
 
     def format_desc(self, name: str, indent: bool) -> str:
         """
