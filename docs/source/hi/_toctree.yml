@@ -6,3 +6,7 @@
       title: जल्दी शुरू
     - local: installation
       title: इंस्टालेशन
+- title: "संकल्पना मार्गदर्शिकाएँ"
+  sections:
+    - local: concepts/git_vs_http
+      title: "संकल्पनाएँ/गिट_बनाम_एचटीटीपी"
