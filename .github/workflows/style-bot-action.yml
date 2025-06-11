@@ -28,7 +28,14 @@ on:
         bot_token:
           required: true
           description: "GitHub token with permissions to comment and push to PR"
-  
+      outputs:
+        new_commit_sha:
+          description: "The new commit sha if any"
+          value: ${{ jobs.run-style-bot.outputs.new_commit_sha }}
+        pr_number:
+          description: "The PR number"
+          value: ${{ jobs.run-style-bot.outputs.pr_number }}
+
 jobs:
   check-permissions:
     if: >
@@ -60,6 +67,9 @@ jobs:
     needs: check-permissions
     if: needs.check-permissions.outputs.is_authorized == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.pr_info.outputs.prNumber }}
+      new_commit_sha: ${{ steps.commit_and_push.outputs.new_commit_sha }}
     steps:
       - name: Extract PR details
         id: pr_info
@@ -90,7 +100,7 @@ jobs:
         
       - name: Check out PR branch
         uses: actions/checkout@v3
-        env: 
+        env:
           HEADREPOFULLNAME: ${{ steps.pr_info.outputs.headRepoFullName }}
           HEADREF: ${{ steps.pr_info.outputs.headRef }}
         with:
@@ -169,7 +179,7 @@ jobs:
 
       - name: Commit and push changes
         id: commit_and_push
-        env: 
+        env:
           HEADREPOFULLNAME: ${{ steps.pr_info.outputs.headRepoFullName }}
           HEADREF: ${{ steps.pr_info.outputs.headRef }}
           PRNUMBER: ${{ steps.pr_info.outputs.prNumber }}
@@ -187,6 +197,7 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then
             git add .
             git commit -m "Apply style fixes"
+            echo "new_commit_sha=$(git log -n 1 --format=format:%H)" >> $GITHUB_OUTPUT
             # Push to the original contributor's forked branch
             git push origin HEAD:$HEADREF
             echo "changes_pushed=true" >> $GITHUB_OUTPUT
