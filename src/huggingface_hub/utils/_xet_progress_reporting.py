@@ -46,17 +46,13 @@ class ProgressReporter:
         if name is longer than width characters, prints ... at the start and then the last width-3 characters of the name, otherwise 
         the whole name right justified into 20 characters.  Also adds some padding.
         """
-        if indent:
-            w = self.description_width - 2
-            pad = "  "
-        else:
-            w = self.description_width
-            pad = ""
-            
-        if len(name) > w:
-            return pad + "..." + name[-(w - 3):]
-        else:
-            return pad + name.ljust(w, " ")
+        padding = "  " if indent else ""
+        width = self.description_width - len(padding)        
+    
+        if len(name) > width:
+            truncated = f"...{name[-(width - 3):]}"
+            return f"{padding}{truncated}"
+        return f"{padding}{name.ljust(width)}"
 
 
     def update_progress(self, total_update: PyTotalProgressUpdate, item_updates: List[PyItemProgressUpdate]):
