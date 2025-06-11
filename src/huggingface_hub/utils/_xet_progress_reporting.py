@@ -124,7 +124,7 @@ class ProgressReporter:
         
         # Update overall bars
         def postfix(speed): 
-            s = tqdm.format_sizeof(speed, divisor=1024) if speed is not None else "???"
+            s = tqdm.format_sizeof(speed) if speed is not None else "???"
             return f"{s}B/s  ".rjust(10, " ")
 
         self.data_processing_bar.total = total_update.total_bytes
