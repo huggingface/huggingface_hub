@@ -91,8 +91,7 @@ class ProgressReporter:
                 in_final_bar_mode = False
 
             if bar is None:
-                self.current_bars[bar_idx] = bar = \
-                    tqdm(desc = self.format_desc(name, True), 
+                self.current_bars[bar_idx] = tqdm(desc = self.format_desc(name, True), 
                                 position = 2 + bar_idx, # Set to the position past the initial bars.
                                 total = item.total_bytes, 
                                 initial = item.bytes_completed, 
