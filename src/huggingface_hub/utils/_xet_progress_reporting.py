@@ -47,7 +47,7 @@ class XetProgressReporter:
 
         if len(name) > width:
             name = f"...{name[-(width - 3) :]}"
-        
+
         return f"{padding}{name.ljust(width)}"
 
     def update_progress(self, total_update: PyTotalProgressUpdate, item_updates: List[PyItemProgressUpdate]):
