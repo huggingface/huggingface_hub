@@ -17,7 +17,7 @@ class ProgressReporter:
         self.tqdm_settings = {"unit" : "B", 
                               "unit_scale" : True, 
                               "leave" : True, 
-                              "unit_divisor" : 1024, 
+                              "unit_divisor" : 1000, 
                               "nrows" : n_lines + 3,
                               "miniters" : 1,
                               "bar_format" : "{l_bar}{bar}| {n_fmt:>5}B / {total_fmt:>5}B{postfix:>12}"
