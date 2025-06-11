@@ -35,7 +35,7 @@ class XetProgressReporter:
 
         # Item bars (scrolling view)
         self.item_state: OrderedDict[str, PyItemProgressUpdate] = OrderedDict()
-        self.current_bars: List[tqdm | None] = [None] * self.n_lines
+        self.current_bars: List = [None] * self.n_lines
 
     def format_desc(self, name: str, indent: bool) -> str:
         """
