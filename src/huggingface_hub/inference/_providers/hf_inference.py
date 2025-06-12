@@ -59,7 +59,7 @@ class HFInferenceTask(TaskProviderHelper):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
         if isinstance(inputs, Path):
             raise ValueError(f"Unexpected path input for task {self.task} (got {inputs})")
-        return {"inputs": inputs, "parameters": filter_none(parameters)}
+        return {"inputs": inputs, **filter_none(parameters)}
 
 
 class HFInferenceBinaryInputTask(HFInferenceTask):
