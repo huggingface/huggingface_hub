@@ -257,6 +257,15 @@ class MCPClient:
         if exit_loop_tools is not None:
             tools = [*exit_loop_tools, *self.available_tools]
 
+        print("Number of messages: ", len(messages))
+        for message in messages:
+            print("Role:", message["role"])
+            if message["role"] == "system":
+                print("Content: ", message["content"][:50])
+            else:
+                print("Content: ", message["content"])
+            print("--------------------------------")
+
         # Create the streaming request
         response = await self.client.chat.completions.create(
             model=self.payload_model,
@@ -304,7 +313,20 @@ class MCPClient:
             # Yield each chunk to caller
             yield chunk
 
-        if message["content"]:
+        # Add the assistant message with tool calls (if any) to messages
+        if message["content"] or final_tool_calls:
+            # Convert final_tool_calls to the format expected by OpenAI
+            if final_tool_calls:
+                message["tool_calls"] = []
+                for tool_call in final_tool_calls.values():
+                    message["tool_calls"].append({
+                        "id": tool_call.id,
+                        "type": "function",
+                        "function": {
+                            "name": tool_call.function.name,
+                            "arguments": tool_call.function.arguments or "{}"
+                        }
+                    })
             messages.append(message)
 
         # Process tool calls one by one
