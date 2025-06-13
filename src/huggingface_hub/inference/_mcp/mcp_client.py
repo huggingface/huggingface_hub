@@ -319,14 +319,16 @@ class MCPClient:
             if final_tool_calls:
                 message["tool_calls"] = []
                 for tool_call in final_tool_calls.values():
-                    message["tool_calls"].append({
-                        "id": tool_call.id,
-                        "type": "function",
-                        "function": {
-                            "name": tool_call.function.name,
-                            "arguments": tool_call.function.arguments or "{}"
+                    message["tool_calls"].append(
+                        {
+                            "id": tool_call.id,
+                            "type": "function",
+                            "function": {
+                                "name": tool_call.function.name,
+                                "arguments": tool_call.function.arguments or "{}",
+                            },
                         }
-                    })
+                    )
             messages.append(message)
 
         # Process tool calls one by one
