@@ -257,15 +257,6 @@ class MCPClient:
         if exit_loop_tools is not None:
             tools = [*exit_loop_tools, *self.available_tools]
 
-        print("Number of messages: ", len(messages))
-        for message in messages:
-            print("Role:", message["role"])
-            if message["role"] == "system":
-                print("Content: ", message["content"][:50])
-            else:
-                print("Content: ", message["content"])
-            print("--------------------------------")
-
         # Create the streaming request
         response = await self.client.chat.completions.create(
             model=self.payload_model,
