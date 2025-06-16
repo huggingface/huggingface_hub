@@ -246,7 +246,7 @@ def save_torch_state_dict(
             shared_tensors_to_discard=shared_tensors_to_discard,
         )
     else:
-        from torch import save as save_file_fn  # type: ignore[assignment]
+        from torch import save as save_file_fn  # type: ignore[assignment, no-redef]
 
         logger.warning(
             "You are using unsafe serialization. Due to security reasons, it is recommended not to load "
@@ -707,6 +707,15 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
     """
 
     try:
+        from torch.distributed.tensor import DTensor
+
+        if isinstance(tensor, DTensor):
+            local_tensor = tensor.to_local()
+            return local_tensor.storage().data_ptr()
+    except ImportError:
+        pass
+
+    try:
         # for torch 2.1 and above we can also handle tensor subclasses
         from torch.utils._python_dispatch import is_traceable_wrapper_subclass
 
@@ -753,6 +762,15 @@ def get_torch_storage_size(tensor: "torch.Tensor") -> int:
     """
     Taken from https://github.com/huggingface/safetensors/blob/08db34094e9e59e2f9218f2df133b7b4aaff5a99/bindings/python/py_src/safetensors/torch.py#L31C1-L41C59
     """
+    try:
+        from torch.distributed.tensor import DTensor
+
+        if isinstance(tensor, DTensor):
+            # this returns the size of the FULL tensor in bytes
+            return tensor.nbytes
+    except ImportError:
+        pass
+
     try:
         # for torch 2.1 and above we can also handle tensor subclasses
         from torch.utils._python_dispatch import is_traceable_wrapper_subclass

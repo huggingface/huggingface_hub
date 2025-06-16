@@ -36,6 +36,7 @@ DEFAULT_DOWNLOAD_TIMEOUT = 10
 DEFAULT_REQUEST_TIMEOUT = 10
 DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024
 HF_TRANSFER_CONCURRENCY = 100
+MAX_HTTP_DOWNLOAD_SIZE = 50 * 1000 * 1000 * 1000  # 50 GB
 
 # Constants for serialization
 
@@ -80,6 +81,17 @@ INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-infere
 # See https://huggingface.co/docs/inference-endpoints/index
 INFERENCE_ENDPOINTS_ENDPOINT = "https://api.endpoints.huggingface.cloud/v2"
 INFERENCE_CATALOG_ENDPOINT = "https://endpoints.huggingface.co/api/catalog"
+
+# See https://api.endpoints.huggingface.cloud/#post-/v2/endpoint/-namespace-
+INFERENCE_ENDPOINT_IMAGE_KEYS = [
+    "custom",
+    "huggingface",
+    "huggingfaceNeuron",
+    "llamacpp",
+    "tei",
+    "tgi",
+    "tgiNeuron",
+]
 
 # Proxy for third-party providers
 INFERENCE_PROXY_TEMPLATE = "https://router.huggingface.co/{provider}"
@@ -259,9 +271,17 @@ ALL_INFERENCE_API_FRAMEWORKS = MAIN_INFERENCE_API_FRAMEWORKS + [
     "timm",
 ]
 
+# If OAuth didn't work after 2 redirects, there's likely a third-party cookie issue in the Space iframe view.
+# In this case, we redirect the user to the non-iframe view.
+OAUTH_MAX_REDIRECTS = 2
+
+# OAuth-related environment variables injected by the Space
+OAUTH_CLIENT_ID = os.environ.get("OAUTH_CLIENT_ID")
+OAUTH_CLIENT_SECRET = os.environ.get("OAUTH_CLIENT_SECRET")
+OAUTH_SCOPES = os.environ.get("OAUTH_SCOPES")
+OPENID_PROVIDER_URL = os.environ.get("OPENID_PROVIDER_URL")
+
 # Xet constants
-
-
 HUGGINGFACE_HEADER_X_XET_ENDPOINT = "X-Xet-Cas-Url"
 HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN = "X-Xet-Access-Token"
 HUGGINGFACE_HEADER_X_XET_EXPIRATION = "X-Xet-Token-Expiration"

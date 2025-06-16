@@ -1,20 +1,28 @@
 import os
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Union
+from typing import Dict, Iterable, List, Literal, Optional, Type, Union
 
 import requests
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
 from . import constants
-from .errors import GatedRepoError, LocalEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
+from .errors import (
+    GatedRepoError,
+    HfHubHTTPError,
+    LocalEntryNotFoundError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+)
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
-from .hf_api import DatasetInfo, HfApi, ModelInfo, SpaceInfo
+from .hf_api import DatasetInfo, HfApi, ModelInfo, RepoFile, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
 from .utils import tqdm as hf_tqdm
 
 
 logger = logging.get_logger(__name__)
+
+VERY_LARGE_REPO_THRESHOLD = 50000  # After this limit, we don't consider `repo_info.siblings` to be reliable enough
 
 
 @validate_hf_hub_args
@@ -36,7 +44,7 @@ def snapshot_download(
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
     max_workers: int = 8,
-    tqdm_class: Optional[base_tqdm] = None,
+    tqdm_class: Optional[Type[base_tqdm]] = None,
     headers: Optional[Dict[str, str]] = None,
     endpoint: Optional[str] = None,
     # Deprecated args
@@ -139,20 +147,22 @@ def snapshot_download(
 
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
+    api = HfApi(
+        library_name=library_name,
+        library_version=library_version,
+        user_agent=user_agent,
+        endpoint=endpoint,
+        headers=headers,
+        token=token,
+    )
+
     repo_info: Union[ModelInfo, DatasetInfo, SpaceInfo, None] = None
     api_call_error: Optional[Exception] = None
     if not local_files_only:
         # try/except logic to handle different errors => taken from `hf_hub_download`
         try:
             # if we have internet connection we want to list files to download
-            api = HfApi(
-                library_name=library_name,
-                library_version=library_version,
-                user_agent=user_agent,
-                endpoint=endpoint,
-                headers=headers,
-            )
-            repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
+            repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
@@ -200,12 +210,13 @@ def snapshot_download(
                     commit_hash = f.read()
 
         # Try to locate snapshot folder for this commit hash
-        if commit_hash is not None:
+        if commit_hash is not None and local_dir is None:
             snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
             if os.path.exists(snapshot_folder):
                 # Snapshot folder exists => let's return it
                 # (but we can't check if all the files are actually there)
                 return snapshot_folder
+
         # If local_dir is not None, return it if it exists and is not empty
         if local_dir is not None:
             local_dir = Path(local_dir)
@@ -227,8 +238,10 @@ def snapshot_download(
                 "outgoing traffic has been disabled. To enable repo look-ups and downloads online, set "
                 "'HF_HUB_OFFLINE=0' as environment variable."
             ) from api_call_error
-        elif isinstance(api_call_error, RepositoryNotFoundError) or isinstance(api_call_error, GatedRepoError):
-            # Repo not found => let's raise the actual error
+        elif isinstance(api_call_error, (RepositoryNotFoundError, GatedRepoError)) or (
+            isinstance(api_call_error, HfHubHTTPError) and api_call_error.response.status_code == 401
+        ):
+            # Repo not found, gated, or specific authentication error => let's raise the actual error
             raise api_call_error
         else:
             # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
@@ -242,13 +255,31 @@ def snapshot_download(
     # => let's download the files!
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
     assert repo_info.siblings is not None, "Repo info returned from server must have a siblings list."
-    filtered_repo_files = list(
-        filter_repo_objects(
-            items=[f.rfilename for f in repo_info.siblings],
-            allow_patterns=allow_patterns,
-            ignore_patterns=ignore_patterns,
+
+    # Corner case: on very large repos, the siblings list in `repo_info` might not contain all files.
+    # In that case, we need to use the `list_repo_tree` method to prevent caching issues.
+    repo_files: Iterable[str] = [f.rfilename for f in repo_info.siblings]
+    has_many_files = len(repo_info.siblings) > VERY_LARGE_REPO_THRESHOLD
+    if has_many_files:
+        logger.info("The repo has more than 50,000 files. Using `list_repo_tree` to ensure all files are listed.")
+        repo_files = (
+            f.rfilename
+            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=revision, repo_type=repo_type)
+            if isinstance(f, RepoFile)
         )
+
+    filtered_repo_files: Iterable[str] = filter_repo_objects(
+        items=repo_files,
+        allow_patterns=allow_patterns,
+        ignore_patterns=ignore_patterns,
     )
+
+    if not has_many_files:
+        filtered_repo_files = list(filtered_repo_files)
+        tqdm_desc = f"Fetching {len(filtered_repo_files)} files"
+    else:
+        tqdm_desc = "Fetching ... files"
+
     commit_hash = repo_info.sha
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
     # if passed revision is not identical to commit_hash
@@ -296,7 +327,7 @@ def snapshot_download(
         thread_map(
             _inner_hf_hub_download,
             filtered_repo_files,
-            desc=f"Fetching {len(filtered_repo_files)} files",
+            desc=tqdm_desc,
             max_workers=max_workers,
             # User can use its own tqdm class or the default one from `huggingface_hub.utils`
             tqdm_class=tqdm_class or hf_tqdm,

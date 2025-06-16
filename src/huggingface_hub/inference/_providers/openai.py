@@ -1,5 +1,6 @@
 from typing import Optional
 
+from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._providers._common import BaseConversationalTask
 
 
@@ -16,7 +17,9 @@ class OpenAIConversationalTask(BaseConversationalTask):
             )
         return api_key
 
-    def _prepare_mapped_model(self, model: Optional[str]) -> str:
+    def _prepare_mapping_info(self, model: Optional[str]) -> InferenceProviderMapping:
         if model is None:
             raise ValueError("Please provide an OpenAI model ID, e.g. `gpt-4o` or `o1`.")
-        return model
+        return InferenceProviderMapping(
+            provider="openai", providerId=model, task="conversational", status="live", hf_model_id=model
+        )

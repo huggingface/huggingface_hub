@@ -66,6 +66,8 @@
       title: Inference Client
     - local: package_reference/inference_endpoints
       title: Inference Endpoints
+    - local: package_reference/mcp
+      title: MCP Client
     - local: package_reference/hf_file_system
       title: HfFileSystem
     - local: package_reference/utilities
@@ -86,3 +88,7 @@
       title: Webhooks server
     - local: package_reference/serialization
       title: Serialization
+    - local: package_reference/dataclasses
+      title: Strict dataclasses
+    - local: package_reference/oauth
+      title: OAuth

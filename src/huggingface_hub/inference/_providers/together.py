@@ -2,6 +2,7 @@ import base64
 from abc import ABC
 from typing import Any, Dict, Optional, Union
 
+from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
@@ -50,12 +51,30 @@ class TogetherConversationalTask(BaseConversationalTask):
     def __init__(self):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
 
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
+        payload = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)
+        response_format = parameters.get("response_format")
+        if isinstance(response_format, dict) and response_format.get("type") == "json_schema":
+            json_schema_details = response_format.get("json_schema")
+            if isinstance(json_schema_details, dict) and "schema" in json_schema_details:
+                payload["response_format"] = {  # type: ignore [index]
+                    "type": "json_object",
+                    "schema": json_schema_details["schema"],
+                }
+
+        return payload
+
 
 class TogetherTextToImageTask(TogetherTask):
     def __init__(self):
         super().__init__("text-to-image")
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
+        mapped_model = provider_mapping_info.provider_id
         parameters = filter_none(parameters)
         if "num_inference_steps" in parameters:
             parameters["steps"] = parameters.pop("num_inference_steps")

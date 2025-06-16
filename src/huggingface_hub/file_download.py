@@ -44,7 +44,6 @@ from .utils import (
     get_graphviz_version,  # noqa: F401 # for backward compatibility
     get_jinja_version,  # noqa: F401 # for backward compatibility
     get_pydot_version,  # noqa: F401 # for backward compatibility
-    get_session,
     get_tf_version,  # noqa: F401 # for backward compatibility
     get_torch_version,  # noqa: F401 # for backward compatibility
     hf_raise_for_status,
@@ -62,7 +61,7 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._http import _adjust_range_header
+from .utils._http import _adjust_range_header, http_backoff
 from .utils._runtime import _PY_VERSION, is_xet_available  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
@@ -268,6 +267,8 @@ def _request_wrapper(
     """Wrapper around requests methods to follow relative redirects if `follow_relative_redirects=True` even when
     `allow_redirection=False`.
 
+    A backoff mechanism retries the HTTP call on 429, 503 and 504 errors.
+
     Args:
         method (`str`):
             HTTP method, such as 'GET' or 'HEAD'.
@@ -305,9 +306,38 @@ def _request_wrapper(
         return response
 
     # Perform request and return if status_code is not in the retry list.
-    response = get_session().request(method=method, url=url, **params)
+    response = http_backoff(method=method, url=url, **params, retry_on_exceptions=(), retry_on_status_codes=(429,))
     hf_raise_for_status(response)
     return response
+
+
+def _get_file_length_from_http_response(response: requests.Response) -> Optional[int]:
+    """
+    Get the length of the file from the HTTP response headers.
+
+    This function extracts the file size from the HTTP response headers, either from the
+    `Content-Range` or `Content-Length` header, if available (in that order).
+        The HTTP response object containing the headers.
+        `int` or `None`: The length of the file in bytes if the information is available,
+        otherwise `None`.
+
+    Args:
+        response (`requests.Response`):
+            The HTTP response object.
+
+    Returns:
+        `int` or `None`: The length of the file in bytes, or None if not available.
+    """
+
+    content_range = response.headers.get("Content-Range")
+    if content_range is not None:
+        return int(content_range.rsplit("/")[-1])
+
+    content_length = response.headers.get("Content-Length")
+    if content_length is not None:
+        return int(content_length)
+
+    return None
 
 
 def http_get(
@@ -352,12 +382,15 @@ def http_get(
         # If the file is already fully downloaded, we don't need to download it again.
         return
 
+    has_custom_range_header = headers is not None and any(h.lower() == "range" for h in headers)
     hf_transfer = None
     if constants.HF_HUB_ENABLE_HF_TRANSFER:
         if resume_size != 0:
             warnings.warn("'hf_transfer' does not support `resume_size`: falling back to regular download method")
         elif proxies is not None:
             warnings.warn("'hf_transfer' does not support `proxies`: falling back to regular download method")
+        elif has_custom_range_header:
+            warnings.warn("'hf_transfer' ignores custom 'Range' headers; falling back to regular download method")
         else:
             try:
                 import hf_transfer  # type: ignore[no-redef]
@@ -372,12 +405,24 @@ def http_get(
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
         headers["Range"] = _adjust_range_header(headers.get("Range"), resume_size)
+    elif expected_size and expected_size > constants.MAX_HTTP_DOWNLOAD_SIZE:
+        # Any files over 50GB will not be available through basic http request.
+        # Setting the range header to 0-0 will force the server to return the file size in the Content-Range header.
+        # Since hf_transfer splits the download into chunks, the process will succeed afterwards.
+        if hf_transfer:
+            headers["Range"] = "bytes=0-0"
+        else:
+            raise ValueError(
+                "The file is too large to be downloaded using the regular download method. Use `hf_transfer` or `hf_xet` instead."
+                " Try `pip install hf_transfer` or `pip install hf_xet`."
+            )
 
     r = _request_wrapper(
         method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT
     )
+
     hf_raise_for_status(r)
-    content_length = r.headers.get("Content-Length")
+    content_length = _get_file_length_from_http_response(r)
 
     # NOTE: 'total' is the total number of bytes to download, not the number of bytes in the file.
     #       If the file is compressed, the number of bytes in the saved file will be higher than 'total'.
@@ -425,7 +470,7 @@ def http_get(
                     filename=temp_file.name,
                     max_files=constants.HF_TRANSFER_CONCURRENCY,
                     chunk_size=constants.DOWNLOAD_CHUNK_SIZE,
-                    headers=headers,
+                    headers=initial_headers,
                     parallel_failures=3,
                     max_retries=5,
                     **({"callback": progress.update} if supports_callback else {}),
@@ -537,11 +582,11 @@ def xet_get(
 
     """
     try:
-        from hf_xet import PyPointerFile, download_files  # type: ignore[no-redef]
+        from hf_xet import PyXetDownloadInfo, download_files  # type: ignore[no-redef]
     except ImportError:
         raise ValueError(
             "To use optimized download using Xet storage, you need to install the hf_xet package. "
-            "Try `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`."
+            'Try `pip install "huggingface_hub[hf_xet]"` or `pip install hf_xet`.'
         )
 
     connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
@@ -552,8 +597,10 @@ def xet_get(
             raise ValueError("Failed to refresh token using xet metadata.")
         return connection_info.access_token, connection_info.expiration_unix_epoch
 
-    pointer_files = [
-        PyPointerFile(path=str(incomplete_path.absolute()), hash=xet_file_data.file_hash, filesize=expected_size)
+    xet_download_info = [
+        PyXetDownloadInfo(
+            destination_path=str(incomplete_path.absolute()), hash=xet_file_data.file_hash, file_size=expected_size
+        )
     ]
 
     if not displayed_filename:
@@ -578,7 +625,7 @@ def xet_get(
             progress.update(progress_bytes)
 
         download_files(
-            pointer_files,
+            xet_download_info,
             endpoint=connection_info.endpoint,
             token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
             token_refresher=token_refresher,
@@ -1083,16 +1130,6 @@ def _hf_hub_download_to_cache_dir(
     # In that case store a ref.
     _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
 
-    # If file already exists, return it (except if force_download=True)
-    if not force_download:
-        if os.path.exists(pointer_path):
-            return pointer_path
-
-        if os.path.exists(blob_path):
-            # we have the blob already, but not the pointer
-            _create_symlink(blob_path, pointer_path, new_blob=False)
-            return pointer_path
-
     # Prevent parallel downloads of the same file with a lock.
     # etag could be duplicated across repos,
     lock_path = os.path.join(locks_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type), f"{etag}.lock")
@@ -1105,9 +1142,21 @@ def _hf_hub_download_to_cache_dir(
     if os.name == "nt" and len(os.path.abspath(blob_path)) > 255:
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
+    Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
+
+    # pointer already exists -> immediate return
+    if not force_download and os.path.exists(pointer_path):
+        return pointer_path
+
+    # Blob exists but pointer must be (safely) created -> take the lock
+    if not force_download and os.path.exists(blob_path):
+        with WeakFileLock(lock_path):
+            if not os.path.exists(pointer_path):
+                _create_symlink(blob_path, pointer_path, new_blob=False)
+            return pointer_path
+
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
-    Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
     with WeakFileLock(lock_path):
         _download_to_tmp_and_move(
             incomplete_path=Path(blob_path + ".incomplete"),
@@ -1657,7 +1706,7 @@ def _download_to_tmp_and_move(
             _check_disk_space(expected_size, destination_path.parent)
 
         if xet_file_data is not None and is_xet_available():
-            logger.info("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
+            logger.debug("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
             xet_get(
                 incomplete_path=incomplete_path,
                 xet_file_data=xet_file_data,
@@ -1672,6 +1721,7 @@ def _download_to_tmp_and_move(
                     "Falling back to regular HTTP download. "
                     "For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`"
                 )
+
             http_get(
                 url_to_download,
                 f,

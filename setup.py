@@ -14,6 +14,7 @@ def get_version() -> str:
 install_requires = [
     "filelock",
     "fsspec>=2023.5.0",
+    "hf-xet>=1.1.2,<2.0.0; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='arm64' or platform_machine=='aarch64'",
     "packaging>=20.9",
     "pyyaml>=5.1",
     "requests",
@@ -29,6 +30,13 @@ extras["cli"] = [
 
 extras["inference"] = [
     "aiohttp",  # for AsyncInferenceClient
+]
+
+extras["oauth"] = [
+    "authlib>=1.3.2",  # minimum version to include https://github.com/lepture/authlib/pull/644
+    "fastapi",
+    "httpx",  # required for authlib but not included in its dependencies
+    "itsdangerous",  # required for starlette SessionMiddleware
 ]
 
 extras["torch"] = [
@@ -55,11 +63,17 @@ extras["tensorflow-testing"] = [
     "keras<3.0",
 ]
 
-extras["hf_xet"] = ["hf_xet>=0.1.4"]
+extras["hf_xet"] = ["hf-xet>=1.1.2,<2.0.0"]
+
+extras["mcp"] = [
+    "mcp>=1.8.0",
+    "typer",
+] + extras["inference"]
 
 extras["testing"] = (
     extras["cli"]
     + extras["inference"]
+    + extras["oauth"]
     + [
         "jedi",
         "Jinja2",
@@ -94,7 +108,8 @@ extras["typing"] = [
 
 extras["quality"] = [
     "ruff>=0.9.0",
-    "mypy==1.5.1",
+    "mypy>=1.14.1,<1.15.0; python_version=='3.8'",
+    "mypy==1.15.0; python_version>='3.9'",
     "libcst==1.4.0",
 ]
 
@@ -117,7 +132,10 @@ setup(
     packages=find_packages("src"),
     extras_require=extras,
     entry_points={
-        "console_scripts": ["huggingface-cli=huggingface_hub.commands.huggingface_cli:main"],
+        "console_scripts": [
+            "huggingface-cli=huggingface_hub.commands.huggingface_cli:main",
+            "tiny-agents=huggingface_hub.inference._mcp.cli:app",
+        ],
         "fsspec.specs": "hf=huggingface_hub.HfFileSystem",
     },
     python_requires=">=3.8.0",

@@ -45,7 +45,6 @@ import os
 import sys
 from typing import TYPE_CHECKING
 
-
 __version__ = "0.30.0"
 
 # Alphabetical order of definitions is ensured in tests
@@ -69,6 +68,13 @@ _SUBMOD_ATTRS = {
         "login",
         "logout",
         "notebook_login",
+    ],
+    "_oauth": [
+        "OAuthInfo",
+        "OAuthOrgInfo",
+        "OAuthUserInfo",
+        "attach_huggingface_oauth",
+        "parse_huggingface_oauth",
     ],
     "_snapshot_download": [
         "snapshot_download",
@@ -294,10 +300,13 @@ _SUBMOD_ATTRS = {
         "ChatCompletionInputFunctionDefinition",
         "ChatCompletionInputFunctionName",
         "ChatCompletionInputGrammarType",
-        "ChatCompletionInputGrammarTypeType",
+        "ChatCompletionInputJSONSchema",
         "ChatCompletionInputMessage",
         "ChatCompletionInputMessageChunk",
         "ChatCompletionInputMessageChunkType",
+        "ChatCompletionInputResponseFormatJSONObject",
+        "ChatCompletionInputResponseFormatJSONSchema",
+        "ChatCompletionInputResponseFormatText",
         "ChatCompletionInputStreamOptions",
         "ChatCompletionInputTool",
         "ChatCompletionInputToolCall",
@@ -433,6 +442,12 @@ _SUBMOD_ATTRS = {
         "ZeroShotObjectDetectionOutputElement",
         "ZeroShotObjectDetectionParameters",
     ],
+    "inference._mcp.agent": [
+        "Agent",
+    ],
+    "inference._mcp.mcp_client": [
+        "MCPClient",
+    ],
     "inference_api": [
         "InferenceApi",
     ],
@@ -512,6 +527,7 @@ _SUBMOD_ATTRS = {
 # ```
 
 __all__ = [
+    "Agent",
     "AsyncInferenceClient",
     "AudioClassificationInput",
     "AudioClassificationOutputElement",
@@ -535,10 +551,13 @@ __all__ = [
     "ChatCompletionInputFunctionDefinition",
     "ChatCompletionInputFunctionName",
     "ChatCompletionInputGrammarType",
-    "ChatCompletionInputGrammarTypeType",
+    "ChatCompletionInputJSONSchema",
     "ChatCompletionInputMessage",
     "ChatCompletionInputMessageChunk",
     "ChatCompletionInputMessageChunkType",
+    "ChatCompletionInputResponseFormatJSONObject",
+    "ChatCompletionInputResponseFormatJSONSchema",
+    "ChatCompletionInputResponseFormatText",
     "ChatCompletionInputStreamOptions",
     "ChatCompletionInputTool",
     "ChatCompletionInputToolCall",
@@ -637,10 +656,14 @@ __all__ = [
     "InferenceEndpointType",
     "InferenceTimeoutError",
     "KerasModelHubMixin",
+    "MCPClient",
     "ModelCard",
     "ModelCardData",
     "ModelHubMixin",
     "ModelInfo",
+    "OAuthInfo",
+    "OAuthOrgInfo",
+    "OAuthUserInfo",
     "ObjectDetectionBoundingBox",
     "ObjectDetectionInput",
     "ObjectDetectionOutputElement",
@@ -762,6 +785,7 @@ __all__ = [
     "add_collection_item",
     "add_space_secret",
     "add_space_variable",
+    "attach_huggingface_oauth",
     "auth_check",
     "auth_list",
     "auth_switch",
@@ -862,6 +886,7 @@ __all__ = [
     "move_repo",
     "notebook_login",
     "paper_info",
+    "parse_huggingface_oauth",
     "parse_safetensors_file_metadata",
     "pause_inference_endpoint",
     "pause_space",
@@ -1025,6 +1050,13 @@ if TYPE_CHECKING:  # pragma: no cover
         login,  # noqa: F401
         logout,  # noqa: F401
         notebook_login,  # noqa: F401
+    )
+    from ._oauth import (
+        OAuthInfo,  # noqa: F401
+        OAuthOrgInfo,  # noqa: F401
+        OAuthUserInfo,  # noqa: F401
+        attach_huggingface_oauth,  # noqa: F401
+        parse_huggingface_oauth,  # noqa: F401
     )
     from ._snapshot_download import snapshot_download  # noqa: F401
     from ._space_api import (
@@ -1244,10 +1276,13 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionInputFunctionDefinition,  # noqa: F401
         ChatCompletionInputFunctionName,  # noqa: F401
         ChatCompletionInputGrammarType,  # noqa: F401
-        ChatCompletionInputGrammarTypeType,  # noqa: F401
+        ChatCompletionInputJSONSchema,  # noqa: F401
         ChatCompletionInputMessage,  # noqa: F401
         ChatCompletionInputMessageChunk,  # noqa: F401
         ChatCompletionInputMessageChunkType,  # noqa: F401
+        ChatCompletionInputResponseFormatJSONObject,  # noqa: F401
+        ChatCompletionInputResponseFormatJSONSchema,  # noqa: F401
+        ChatCompletionInputResponseFormatText,  # noqa: F401
         ChatCompletionInputStreamOptions,  # noqa: F401
         ChatCompletionInputTool,  # noqa: F401
         ChatCompletionInputToolCall,  # noqa: F401
@@ -1383,6 +1418,8 @@ if TYPE_CHECKING:  # pragma: no cover
         ZeroShotObjectDetectionOutputElement,  # noqa: F401
         ZeroShotObjectDetectionParameters,  # noqa: F401
     )
+    from .inference._mcp.agent import Agent  # noqa: F401
+    from .inference._mcp.mcp_client import MCPClient  # noqa: F401
     from .inference_api import InferenceApi  # noqa: F401
     from .keras_mixin import (
         KerasModelHubMixin,  # noqa: F401

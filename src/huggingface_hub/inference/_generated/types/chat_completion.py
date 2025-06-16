@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -25,8 +25,8 @@ class ChatCompletionInputMessageChunk(BaseInferenceType):
 
 @dataclass_with_extra
 class ChatCompletionInputFunctionDefinition(BaseInferenceType):
-    arguments: Any
     name: str
+    parameters: Any
     description: Optional[str] = None
 
 
@@ -45,17 +45,51 @@ class ChatCompletionInputMessage(BaseInferenceType):
     tool_calls: Optional[List[ChatCompletionInputToolCall]] = None
 
 
-ChatCompletionInputGrammarTypeType = Literal["json", "regex"]
+@dataclass_with_extra
+class ChatCompletionInputJSONSchema(BaseInferenceType):
+    name: str
+    """
+    The name of the response format.
+    """
+    description: Optional[str] = None
+    """
+    A description of what the response format is for, used by the model to determine
+    how to respond in the format.
+    """
+    schema: Optional[Dict[str, object]] = None
+    """
+    The schema for the response format, described as a JSON Schema object. Learn how
+    to build JSON schemas [here](https://json-schema.org/).
+    """
+    strict: Optional[bool] = None
+    """
+    Whether to enable strict schema adherence when generating the output. If set to
+    true, the model will always follow the exact schema defined in the `schema`
+    field.
+    """
 
 
 @dataclass_with_extra
-class ChatCompletionInputGrammarType(BaseInferenceType):
-    type: "ChatCompletionInputGrammarTypeType"
-    value: Any
-    """A string that represents a [JSON Schema](https://json-schema.org/).
-    JSON Schema is a declarative language that allows to annotate JSON documents
-    with types and descriptions.
-    """
+class ChatCompletionInputResponseFormatText(BaseInferenceType):
+    type: Literal["text"]
+
+
+@dataclass_with_extra
+class ChatCompletionInputResponseFormatJSONSchema(BaseInferenceType):
+    type: Literal["json_schema"]
+    json_schema: ChatCompletionInputJSONSchema
+
+
+@dataclass_with_extra
+class ChatCompletionInputResponseFormatJSONObject(BaseInferenceType):
+    type: Literal["json_object"]
+
+
+ChatCompletionInputGrammarType = Union[
+    ChatCompletionInputResponseFormatText,
+    ChatCompletionInputResponseFormatJSONSchema,
+    ChatCompletionInputResponseFormatJSONObject,
+]
 
 
 @dataclass_with_extra
@@ -189,7 +223,7 @@ class ChatCompletionOutputLogprobs(BaseInferenceType):
 
 @dataclass_with_extra
 class ChatCompletionOutputFunctionDefinition(BaseInferenceType):
-    arguments: Any
+    arguments: str
     name: str
     description: Optional[str] = None
 
