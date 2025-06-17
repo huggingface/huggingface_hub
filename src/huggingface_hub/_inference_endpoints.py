@@ -100,6 +100,7 @@ class InferenceEndpoint:
     namespace: str
     repository: str = field(init=False)
     status: InferenceEndpointStatus = field(init=False)
+    health_url: str = field(init=False)
     url: Optional[str] = field(init=False)
 
     # Other fields
