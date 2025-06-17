@@ -221,6 +221,9 @@ class InferenceEndpoint:
                     f"Inference Endpoint {self.name} failed to update. Please check the logs for more information."
                 )
             if self.status == InferenceEndpointStatus.RUNNING and self.url is not None:
+                # Update additional utility variables compute from the raw payload
+                self._health_url = f"{self.url.rstrip('/')}/{self.health_route.lstrip('/')}"
+
                 # Verify the endpoint is actually reachable
                 response = get_session().get(self._health_url, headers=self._api._build_hf_headers(token=self._token))
                 if response.status_code == 200:
@@ -243,9 +246,6 @@ class InferenceEndpoint:
         obj = self._api.get_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)  # type: ignore [arg-type]
         self.raw = obj.raw
         self._populate_from_raw()
-
-        # Update additional utility variables compute from the raw payload
-        self._health_url = f"{self.url.rstrip('/')}/{self.health_route.lstrip('/')}"
         return self
 
     def update(
