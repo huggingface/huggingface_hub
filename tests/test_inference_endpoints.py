@@ -162,7 +162,7 @@ def test_from_raw_initialization():
     assert endpoint.revision == "11c5a3d5811f50298f278a704980280950aedb10"
     assert endpoint.task == "text-generation"
     assert endpoint.type == "protected"
-    assert endpoint.health_url == "/health"
+    assert endpoint.health_route == "/health"
 
     # Datetime parsed correctly
     assert endpoint.created_at == datetime(2023, 10, 26, 12, 41, 53, 263078, tzinfo=timezone.utc)
@@ -202,7 +202,7 @@ def test_get_client_ready():
     # Endpoint is ready
     assert endpoint.status == "running"
     assert endpoint.url == "https://vksrvs8pc1xnifhq.us-east-1.aws.endpoints.huggingface.cloud"
-    assert endpoint.health_url == "/health"
+    assert endpoint.health_route == "/health"
 
     # => Client available
     client = endpoint.client
@@ -224,7 +224,7 @@ def test_fetch(mock_get: Mock):
 
     assert endpoint.status == "running"
     assert endpoint.url == "https://vksrvs8pc1xnifhq.us-east-1.aws.endpoints.huggingface.cloud"
-    assert endpoint.health_url == "/health"
+    assert endpoint.health_route == "/health"
 
 
 @patch("huggingface_hub._inference_endpoints.get_session")

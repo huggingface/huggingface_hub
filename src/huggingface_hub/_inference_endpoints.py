@@ -100,7 +100,7 @@ class InferenceEndpoint:
     namespace: str
     repository: str = field(init=False)
     status: InferenceEndpointStatus = field(init=False)
-    health_url: str = field(init=False)
+    health_route: str = field(init=False)
     url: Optional[str] = field(init=False)
 
     # Other fields
@@ -117,6 +117,7 @@ class InferenceEndpoint:
     # Internal fields
     _token: Union[str, bool, None] = field(repr=False, compare=False)
     _api: "HfApi" = field(repr=False, compare=False)
+    _health_url: str = field(repr=False, init=False, compare=False)
 
     @classmethod
     def from_raw(
@@ -221,7 +222,7 @@ class InferenceEndpoint:
                 )
             if self.status == InferenceEndpointStatus.RUNNING and self.url is not None:
                 # Verify the endpoint is actually reachable
-                response = get_session().get(self.health_url, headers=self._api._build_hf_headers(token=self._token))
+                response = get_session().get(self._health_url, headers=self._api._build_hf_headers(token=self._token))
                 if response.status_code == 200:
                     logger.info("Inference Endpoint is ready to be used.")
                     return self
@@ -242,6 +243,9 @@ class InferenceEndpoint:
         obj = self._api.get_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)  # type: ignore [arg-type]
         self.raw = obj.raw
         self._populate_from_raw()
+
+        # Update additional utility variables compute from the raw payload
+        self._health_url = f"{self.url.rstrip('/')}/{self.health_route.lstrip('/')}"
         return self
 
     def update(
@@ -401,7 +405,7 @@ class InferenceEndpoint:
         self.repository = self.raw["model"]["repository"]
         self.status = self.raw["status"]["state"]
         self.url = self.raw["status"].get("url")
-        self.health_url = self.raw["healthRoute"]
+        self.health_route = self.raw["healthRoute"]
 
         # Other fields
         self.framework = self.raw["model"]["framework"]
