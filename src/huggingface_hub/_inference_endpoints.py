@@ -220,7 +220,7 @@ class InferenceEndpoint:
                 )
             if self.status == InferenceEndpointStatus.RUNNING and self.url is not None:
                 # Verify the endpoint is actually reachable
-                response = get_session().get(self.url, headers=self._api._build_hf_headers(token=self._token))
+                response = get_session().get(f"{self.url}/health", headers=self._api._build_hf_headers(token=self._token))
                 if response.status_code == 200:
                     logger.info("Inference Endpoint is ready to be used.")
                     return self
