@@ -88,7 +88,7 @@ async def run_agent(
                     env_or_headers = (
                         server["config"].get("env", {})
                         if server["type"] == "stdio"
-                        else server["config"].get("options", {}).get("requestInit", {}).get("headers", {})
+                        else server["config"].get("headers", {})
                     )
                     for key, value in env_or_headers.items():
                         if env_special_value in value:
@@ -99,8 +99,9 @@ async def run_agent(
                     continue
 
                 # Prompt user for input
+                env_variable_key = input_id.replace(" ", "_").replace("-", "_").upper()
                 print(
-                    f"[blue] • {input_id}[/blue]: {description}. (default: load from {', '.join(sorted(input_vars))}).",
+                    f"[blue] • {input_id}[/blue]: {description}. (default: load from {env_variable_key}).",
                     end=" ",
                 )
                 user_input = (await _async_prompt(exit_event=exit_event)).strip()
@@ -112,20 +113,20 @@ async def run_agent(
                     env_or_headers = (
                         server["config"].get("env", {})
                         if server["type"] == "stdio"
-                        else server["config"].get("options", {}).get("requestInit", {}).get("headers", {})
+                        else server["config"].get("headers", {})
                     )
                     for key, value in env_or_headers.items():
                         if env_special_value in value:
                             if user_input:
                                 env_or_headers[key] = env_or_headers[key].replace(env_special_value, user_input)
                             else:
-                                value_from_env = os.getenv(key, "")
+                                value_from_env = os.getenv(env_variable_key, "")
                                 env_or_headers[key] = env_or_headers[key].replace(env_special_value, value_from_env)
                                 if value_from_env:
-                                    print(f"[green]Value successfully loaded from '{key}'[/green]")
+                                    print(f"[green]Value successfully loaded from '{env_variable_key}'[/green]")
                                 else:
                                     print(
-                                        f"[yellow]No value found for '{key}' in environment variables. Continuing.[/yellow]"
+                                        f"[yellow]No value found for '{env_variable_key}' in environment variables. Continuing.[/yellow]"
                                     )
 
             print()
