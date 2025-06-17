@@ -224,7 +224,7 @@ def test_fetch(mock_get: Mock):
 
     assert endpoint.status == "running"
     assert endpoint.url == "https://vksrvs8pc1xnifhq.us-east-1.aws.endpoints.huggingface.cloud"
-    assert endpoint.health_route == "/health"
+    assert endpoint.health_url == "/health"
 
 
 @patch("huggingface_hub._inference_endpoints.get_session")
