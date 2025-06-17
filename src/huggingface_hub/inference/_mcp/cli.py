@@ -99,7 +99,7 @@ async def run_agent(
                     continue
 
                 # Prompt user for input
-                env_variable_key = input_id.replace(" ", "_").replace("-", "_").upper()
+                env_variable_key = input_id.replace("-", "_").upper()
                 print(
                     f"[blue] • {input_id}[/blue]: {description}. (default: load from {env_variable_key}).",
                     end=" ",
