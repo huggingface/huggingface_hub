@@ -59,7 +59,7 @@ class HFInferenceTask(TaskProviderHelper):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
         if isinstance(inputs, Path):
             raise ValueError(f"Unexpected path input for task {self.task} (got {inputs})")
-        return {"inputs": inputs, **filter_none(parameters)}
+        return {"inputs": inputs, "parameters": filter_none(parameters)}
 
 
 class HFInferenceBinaryInputTask(HFInferenceTask):
@@ -193,6 +193,18 @@ def _check_supported_task(model: str, task: str) -> None:
 class HFInferenceFeatureExtractionTask(HFInferenceTask):
     def __init__(self):
         super().__init__("feature-extraction")
+
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
+        if isinstance(inputs, bytes):
+            raise ValueError(f"Unexpected binary input for task {self.task}.")
+        if isinstance(inputs, Path):
+            raise ValueError(f"Unexpected path input for task {self.task} (got {inputs})")
+
+        # Parameters are sent at root-level for feature-extraction task
+        # See specs: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/src/tasks/feature-extraction/spec/input.json
+        return {"inputs": inputs, **filter_none(parameters)}
 
     def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
         if isinstance(response, bytes):
