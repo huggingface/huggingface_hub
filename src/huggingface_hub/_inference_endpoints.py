@@ -117,7 +117,6 @@ class InferenceEndpoint:
     # Internal fields
     _token: Union[str, bool, None] = field(repr=False, compare=False)
     _api: "HfApi" = field(repr=False, compare=False)
-    _health_url: str = field(repr=False, init=False, compare=False)
 
     @classmethod
     def from_raw(
@@ -222,10 +221,10 @@ class InferenceEndpoint:
                 )
             if self.status == InferenceEndpointStatus.RUNNING and self.url is not None:
                 # Update additional utility variables compute from the raw payload
-                self._health_url = f"{self.url.rstrip('/')}/{self.health_route.lstrip('/')}"
 
                 # Verify the endpoint is actually reachable
-                response = get_session().get(self._health_url, headers=self._api._build_hf_headers(token=self._token))
+                _health_url = f"{self.url.rstrip('/')}/{self.health_route.lstrip('/')}"
+                response = get_session().get(_health_url, headers=self._api._build_hf_headers(token=self._token))
                 if response.status_code == 200:
                     logger.info("Inference Endpoint is ready to be used.")
                     return self
