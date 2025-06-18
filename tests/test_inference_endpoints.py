@@ -252,6 +252,11 @@ def test_wait_until_running(mock_get: Mock, mock_session: Mock):
     assert endpoint.status == "running"
     assert len(mock_get.call_args_list) == 6
 
+    # Ensure the health route has been called
+    assert mock_session.return_value.get.call_count == 2
+    for call in mock_session.return_value.get.call_args_list:
+        assert call[0][0] == "https://vksrvs8pc1xnifhq.us-east-1.aws.endpoints.huggingface.cloud/health"
+
 
 @patch("huggingface_hub.hf_api.HfApi.get_inference_endpoint")
 def test_wait_timeout(mock_get: Mock):
