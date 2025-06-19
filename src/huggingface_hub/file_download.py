@@ -1407,6 +1407,7 @@ def get_hf_file_metadata(
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
     headers: Optional[Dict[str, str]] = None,
+    endpoint: Optional[str] = None,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -1432,11 +1433,22 @@ def get_hf_file_metadata(
             The user-agent info in the form of a dictionary or a string.
         headers (`dict`, *optional*):
             Additional headers to be sent with the request.
+        endpoint (`str`, *optional*):
+            The endpoint to use for HuggingFace Hub.
 
     Returns:
         A [`HfFileMetadata`] object containing metadata such as location, etag, size and
         commit_hash.
     """
+
+    def _replace_hf_endpoint(url: str) -> str:
+        if not endpoint:
+            return url
+        if url.startswith(constants.HUGGINGFACE_CO_URL_HOME):
+            relative_url = url[len(constants.HUGGINGFACE_CO_URL_HOME):]
+            return endpoint.rstrip("/") + "/" + relative_url.lstrip("/")
+        return url
+
     hf_headers = build_hf_headers(
         token=token,
         library_name=library_name,
@@ -1458,6 +1470,15 @@ def get_hf_file_metadata(
     )
     hf_raise_for_status(r)
 
+    xet_raw = parse_xet_file_data_from_response(r)
+
+    xet_file_data = None
+    if xet_raw is not None:
+        xet_file_data = XetFileData(
+            file_hash=xet_raw.file_hash,
+            refresh_route=_replace_hf_endpoint(xet_raw.refresh_route),
+        )
+
     # Return
     return HfFileMetadata(
         commit_hash=r.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT),
@@ -1471,7 +1492,7 @@ def get_hf_file_metadata(
         size=_int_or_none(
             r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
         ),
-        xet_file_data=parse_xet_file_data_from_response(r),  # type: ignore
+        xet_file_data=xet_file_data,  # type: ignore
     )
 
 
@@ -1531,7 +1552,7 @@ def _get_metadata_or_catch_error(
         try:
             try:
                 metadata = get_hf_file_metadata(
-                    url=url, proxies=proxies, timeout=etag_timeout, headers=headers, token=token
+                    url=url, proxies=proxies, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
                 )
             except EntryNotFoundError as http_error:
                 if storage_folder is not None and relative_filename is not None:
