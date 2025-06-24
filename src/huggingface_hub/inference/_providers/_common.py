@@ -37,7 +37,11 @@ HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, InferenceProviderMapping]
 
 
 def filter_none(d: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in d.items() if v is not None}
+    return {
+        k: v_filtered
+        for k, v in d.items()
+        if (v_filtered := filter_none(v) if isinstance(v, dict) else v) is not None and v_filtered != {}
+    }
 
 
 class TaskProviderHelper:

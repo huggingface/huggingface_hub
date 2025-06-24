@@ -13,6 +13,7 @@ from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
     BaseTextGenerationTask,
     TaskProviderHelper,
+    filter_none,
     recursive_merge,
 )
 from huggingface_hub.inference._providers.black_forest_labs import BlackForestLabsTextToImageTask
@@ -1234,6 +1235,28 @@ def test_recursive_merge(dict1: Dict, dict2: Dict, expected: Dict):
     # does not mutate the inputs
     assert dict1 == initial_dict1
     assert dict2 == initial_dict2
+
+
+@pytest.mark.parametrize(
+    "data, expected",
+    [
+        ({}, {}),  # empty dictionary remains empty
+        ({"a": 1, "b": None, "c": 3}, {"a": 1, "c": 3}),  # remove None at root level
+        ({"a": None, "b": {"x": None, "y": 2}}, {"b": {"y": 2}}),  # remove nested None
+        ({"a": {"b": {"c": None}}}, {}),  # remove empty nested dict
+        (
+            {"a": "", "b": {"x": {"y": None}, "z": 0}, "c": []},  # do not remove 0, [] and "" values
+            {"a": "", "b": {"z": 0}, "c": []},
+        ),
+        (
+            {"a": [0, 1, None]},  # do not remove None in lists
+            {"a": [0, 1, None]},
+        ),
+    ],
+)
+def test_filter_none(data: Dict, expected: Dict):
+    """Test that filter_none removes None values from nested dictionaries."""
+    assert filter_none(data) == expected
 
 
 def test_get_provider_helper_auto(mocker):
