@@ -1,7 +1,7 @@
 import base64
 import logging
 from typing import Dict
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pytest import LogCaptureFixture
@@ -33,6 +33,7 @@ from huggingface_hub.inference._providers.groq import GroqConversationalTask
 from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceBinaryInputTask,
     HFInferenceConversational,
+    HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
 from huggingface_hub.inference._providers.hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
@@ -653,6 +654,15 @@ class TestHFInferenceProvider:
 
         assert payload["model"] == expected_model
         assert payload["messages"] == messages
+
+    def test_prepare_payload_feature_extraction(self):
+        helper = HFInferenceFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict(
+            inputs="This is a test sentence.",
+            parameters={"truncate": True},
+            provider_mapping_info=MagicMock(),
+        )
+        assert payload == {"inputs": "This is a test sentence.", "truncate": True}  # not under "parameters"
 
     @pytest.mark.parametrize(
         "pipeline_tag,tags,task,should_raise",
