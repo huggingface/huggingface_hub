@@ -132,6 +132,22 @@ jobs:
             echo "--- Checking out contributor branch ($HEADREF) ---"
             git checkout $HEADREF
 
+      - name: Comment on PR with workflow run link
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const prNumber = parseInt(process.env.prNumber, 10);
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `Style fix is beginning .... [View the workflow run here](${runUrl}).`
+            });
+        env:
+          prNumber: ${{ steps.pr_info.outputs.prNumber }}
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -195,8 +211,16 @@ jobs:
             echo "changes_pushed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Comment on PR with workflow run link
-        if: steps.commit_and_push.outputs.changes_pushed == 'true'
+      - name: Prepare final comment message
+        id: prepare_final_comment
+        run: |
+          if [ "${{ steps.commit_and_push.outputs.changes_pushed }}" = 'true' ]; then
+            echo "final_comment='Style bot fixed some files and pushed the changes.'" >> $GITHUB_OUTPUT
+          else
+            echo "final_comment='Style fix runs successfully without any file modified.'" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR
         uses: actions/github-script@v6
         with:
           script: |
@@ -207,7 +231,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
-              body: `Style fixes have been applied. [View the workflow run here](${runUrl}).`
+              body: `${{ steps.prepare_final_comment.outputs.final_comment }}`
             });
         env:
           prNumber: ${{ steps.pr_info.outputs.prNumber }}
