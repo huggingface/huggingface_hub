@@ -168,7 +168,7 @@ For more details about the CLI download command, please refer to the [CLI guide]
 
 There are two options to speed up downloads. Both involve installing a Python package written in Rust.
 
-* `hf_xet` is newer and uses the Xet storage backend for upload/download. It is available in production, but is in the process of being rolled out to all users, so join the [waitlist](https://huggingface.co/join/xet) to get onboarded soon!
+* `hf_xet` is newer and uses the Xet storage backend for upload/download. Xet storage is the [default for all new Hub users and organizations](https://huggingface.co/changelog/xet-default-for-new-users), and is in the process of being rolled out to all users. If you don't have access, join the [waitlist](https://huggingface.co/join/xet) to make Xet the default for all your repositories!
 * `hf_transfer` is a power-tool to download and upload to our LFS storage backend (note: this is less future-proof than Xet). It is thoroughly tested and has been in production for a long time, but it has some limitations. 
 
 ### hf_xet
@@ -178,11 +178,13 @@ chunk-based deduplication for faster downloads and uploads. `hf_xet` integrates 
 
 `hf_xet` uses the Xet storage system, which breaks files down into immutable chunks, storing collections of these chunks (called blocks or xorbs) remotely and retrieving them to reassemble the file when requested. When downloading, after confirming the user is authorized to access the files, `hf_xet` will query the Xet content-addressable service (CAS) with the LFS SHA256 hash for this file to receive the reconstruction metadata (ranges within xorbs) to assemble these files, along with presigned URLs to download the xorbs directly. Then `hf_xet` will efficiently download the xorb ranges necessary and will write out the files on disk. `hf_xet` uses a local disk cache to only download chunks once, learn more in the [Chunk-based caching(Xet)](./manage-cache#chunk-based-caching-xet) section.
 
-To enable it, specify the `hf_xet` package when installing `huggingface_hub`:
+To enable it, simply install the latest version of `huggingface_hub`:
 
 ```bash
-pip install -U "huggingface_hub[hf_xet]"
+pip install -U "huggingface_hub"
 ```
+
+As of `huggingface_hub` 0.32.0, this will also install `hf_xet`.
 
 Note: `hf_xet` will only be utilized when the files being downloaded are being stored with Xet Storage.
 

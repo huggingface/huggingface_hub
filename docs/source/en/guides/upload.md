@@ -191,17 +191,19 @@ Take advantage of faster uploads through `hf_xet`, the Python binding to the [`x
 
 <Tip warning={true}>
 
-Xet storage is being rolled out to Hugging Face Hub users at this time, so xet uploads may need to be enabled for your repo for `hf_xet` to actually upload to the Xet backend. Join the [waitlist](https://huggingface.co/join/xet) to get onboarded soon! Also, `hf_xet` today only works with files on the file system, so cannot be used with file-like objects (byte-arrays, buffers).
+As of May 23rd, 2025, Xet-enabled repositories [are the default for all new Hugging Face Hub users and organizations](https://huggingface.co/changelog/xet-default-for-new-users). If your user or organization was created before then, you may need Xet enabled on your repo for `hf_xet` to actually upload to the Xet backend. Join the [waitlist](https://huggingface.co/join/xet) to make Xet the default for all your repositories. Also, note that while `hf_xet` works with in-memory bytes or bytearray data, support for BinaryIO streams is still pending.
 
 </Tip>
 
 `hf_xet` uses the Xet storage system, which breaks files down into immutable chunks, storing collections of these chunks (called blocks or xorbs) remotely and retrieving them to reassemble the file when requested. When uploading, after confirming the user is authorized to write to this repo, `hf_xet` will scan the files, breaking them down into their chunks and collecting those chunks into xorbs (and deduplicating across known chunks), and then will be upload these xorbs to the Xet content-addressable service (CAS), which will verify the integrity of the xorbs, register the xorb metadata along with the LFS SHA256 hash (to support lookup/download), and write the xorbs to remote storage.
 
-To enable it, specify the `hf_xet` extra when installing `huggingface_hub`:
+To enable it, simply install the latest version of `huggingface_hub`:
 
 ```bash
-pip install -U "huggingface_hub[hf_xet]"
+pip install -U "huggingface_hub"
 ```
+
+As of `huggingface_hub` 0.32.0, this will also install `hf_xet`. 
 
 All other `huggingface_hub` APIs will continue to work without any modification. To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/storage-backends).
 
