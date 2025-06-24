@@ -191,7 +191,7 @@ Take advantage of faster uploads through `hf_xet`, the Python binding to the [`x
 
 <Tip warning={true}>
 
-As of May 23rd, 2025, Xet-enabled repositories [are the default for all new Hugging Face Hub users and organizations](https://huggingface.co/changelog/xet-default-for-new-users). If your user or organization was created before then, you may need Xet enabled on your repo for `hf_xet` to actually upload to the Xet backend. Join the [waitlist](https://huggingface.co/join/xet) to make Xet the default for all your repositories. Also, note that while `hf_xet` works with in-memory bytes or bytearray data support for BinaryIO streams is still pending.
+As of May 23rd, 2025, Xet-enabled repositories [are the default for all new Hugging Face Hub users and organizations](https://huggingface.co/changelog/xet-default-for-new-users). If your user or organization was created before then, you may need Xet enabled on your repo for `hf_xet` to actually upload to the Xet backend. Join the [waitlist](https://huggingface.co/join/xet) to make Xet the default for all your repositories. Also, note that while `hf_xet` works with in-memory bytes or bytearray data, support for BinaryIO streams is still pending.
 
 </Tip>
 
