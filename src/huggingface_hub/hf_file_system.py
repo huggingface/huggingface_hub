@@ -59,13 +59,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     """
     Access a remote Hugging Face Hub repository as if were a local file system.
 
-    <Tip warning={true}>
+    [`HfFileSystem`] provides fsspec compatibility, which is useful for libraries that require it (e.g., reading
+    Hugging Face datasets directly with `pandas`).
 
-        [`HfFileSystem`] provides fsspec compatibility, which is useful for libraries that require it (e.g., reading
-        Hugging Face datasets directly with `pandas`). However, it introduces additional overhead due to this compatibility
-        layer. For better performance and reliability, it's recommended to use `HfApi` methods when possible.
-
-    </Tip>
+    It is a thin wrapper over `HfApi` which provides the lower level features of the Hub. Therefore it is recommended
+    to use `HfApi` methods when possible if you look for more fine-grained operations.
 
     Args:
         token (`str` or `bool`, *optional*):
