@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, overload
 
 from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
@@ -37,7 +37,13 @@ HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, InferenceProviderMapping]
 }
 
 
-def filter_none(obj: Union[Dict[str, Any], List[Any]]) -> Dict[str, Any]:
+@overload
+def filter_none(obj: Dict[str, Any]) -> Dict[str, Any]: ...
+@overload
+def filter_none(obj: List[Any]) -> List[Any]: ...
+
+
+def filter_none(obj: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, Any], List[Any]]:
     if isinstance(obj, dict):
         cleaned: Dict[str, Any] = {}
         for k, v in obj.items():
@@ -52,13 +58,7 @@ def filter_none(obj: Union[Dict[str, Any], List[Any]]) -> Dict[str, Any]:
         return cleaned
 
     if isinstance(obj, list):
-        cleaned_list: List[Any] = []
-        for v in obj:
-            if isinstance(v, (dict, list)):
-                v = filter_none(v)
-
-            cleaned_list.append(v)
-        return cleaned_list  # type: ignore [return-value]
+        return [filter_none(v) if isinstance(v, (dict, list)) else v for v in obj]
 
     raise ValueError(f"Expected dict or list, got {type(obj)}")
 
