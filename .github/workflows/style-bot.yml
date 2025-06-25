@@ -15,4 +15,4 @@ jobs:
       python_quality_dependencies: "[quality]"
       style_command_type: "style_only"
     secrets:
-      bot_token: ${{ secrets.GITHUB_TOKEN }}
+      bot_token: ${{ secrets.HF_STYLE_BOT_ACTION }}

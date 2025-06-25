@@ -4521,6 +4521,7 @@ class HfApiInferenceCatalogTest(HfApiCommonTest):
                 },
                 "name": "llama-3-2-3b-instruct-eey",
                 "provider": {"region": "us-east-1", "vendor": "aws"},
+                "healthRoute": "/health",
                 "status": {
                     "createdAt": "2025-03-07T15:30:13.949Z",
                     "createdBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
@@ -4650,6 +4651,7 @@ def test_create_inference_endpoint_custom_image_payload(
         },
         "name": "llama-3-2-3b-instruct-eey",
         "provider": {"region": "us-east-1", "vendor": "aws"},
+        "healthRoute": "/health",
         "status": {
             "createdAt": "2025-03-07T15:30:13.949Z",
             "createdBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
