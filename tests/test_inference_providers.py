@@ -1153,6 +1153,98 @@ class TestBaseConversationalTask:
             "model": "test-provider-id",
         }
 
+    @pytest.mark.parametrize(
+        "raw_messages, expected_messages",
+        [
+            (
+                [
+                    {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": None,
+                    }
+                ],
+                [
+                    {
+                        "role": "assistant",
+                        "content": "",
+                    }
+                ],
+            ),
+            (
+                [
+                    {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_current_weather",
+                                    "arguments": '{"location": "San Francisco, CA", "unit": "celsius"}',
+                                },
+                            },
+                        ],
+                    },
+                    {
+                        "role": "tool",
+                        "content": "pong",
+                        "tool_call_id": "abc123",
+                        "name": "dummy_tool",
+                        "tool_calls": None,
+                    },
+                ],
+                [
+                    {
+                        "role": "assistant",
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_current_weather",
+                                    "arguments": '{"location": "San Francisco, CA", "unit": "celsius"}',
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "role": "tool",
+                        "content": "pong",
+                        "tool_call_id": "abc123",
+                        "name": "dummy_tool",
+                    },
+                ],
+            ),
+        ],
+    )
+    def test_prepare_payload_filters_messages(self, raw_messages, expected_messages):
+        helper = BaseConversationalTask(provider="test-provider", base_url="https://api.test.com")
+
+        parameters = {
+            "temperature": 0.2,
+            "max_tokens": None,
+            "top_p": None,
+        }
+
+        payload = helper._prepare_payload_as_dict(
+            inputs=raw_messages,
+            parameters=parameters,
+            provider_mapping_info=InferenceProviderMapping(
+                provider="test-provider",
+                hf_model_id="test-model",
+                providerId="test-provider-id",
+                task="conversational",
+                status="live",
+            ),
+        )
+
+        assert payload["messages"] == expected_messages
+        assert payload["temperature"] == 0.2
+        assert "max_tokens" not in payload
+        assert "top_p" not in payload
+
 
 class TestBaseTextGenerationTask:
     def test_prepare_route(self):
@@ -1252,6 +1344,14 @@ def test_recursive_merge(dict1: Dict, dict2: Dict, expected: Dict):
             {"a": [0, 1, None]},  # do not remove None in lists
             {"a": [0, 1, None]},
         ),
+        # dicts inside list are cleaned, list level None kept
+        ({"a": [{"x": None, "y": 1}, None]}, {"a": [{"y": 1}, None]}),
+        # remove every None that is the value of a dict key
+        (
+            [None, {"x": None, "y": 5}, [None, 6]],
+            [None, {"y": 5}, [None, 6]],
+        ),
+        ({"a": [None, {"x": None}]}, {"a": [None]}),
     ],
 )
 def test_filter_none(data: Dict, expected: Dict):
