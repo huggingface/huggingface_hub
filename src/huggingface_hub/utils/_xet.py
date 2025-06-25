@@ -55,7 +55,8 @@ def parse_xet_file_data_from_response(
     except KeyError:
         return None
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-    refresh_route = refresh_route.replace(constants.HUGGINGFACE_CO_URL_HOME.rstrip("/"), endpoint.rstrip("/"))
+    if refresh_route.startswith(constants.HUGGINGFACE_CO_URL_HOME):
+        refresh_route = refresh_route.replace(constants.HUGGINGFACE_CO_URL_HOME.rstrip("/"), endpoint.rstrip("/"))
     return XetFileData(
         file_hash=file_hash,
         refresh_route=refresh_route,
