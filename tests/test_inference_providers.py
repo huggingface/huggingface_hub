@@ -1351,7 +1351,7 @@ def test_recursive_merge(dict1: Dict, dict2: Dict, expected: Dict):
             [None, {"x": None, "y": 5}, [None, 6]],
             [None, {"y": 5}, [None, 6]],
         ),
-        ({"a": [None, {"x": None}]}, {"a": [None]}),
+        ({"a": [None, {"x": None}]}, {"a": [None, {}]}),
     ],
 )
 def test_filter_none(data: Dict, expected: Dict):

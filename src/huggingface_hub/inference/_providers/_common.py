@@ -56,8 +56,6 @@ def filter_none(obj: Union[Dict[str, Any], List[Any]]) -> Dict[str, Any]:
         for v in obj:
             if isinstance(v, (dict, list)):
                 v = filter_none(v)
-                if isinstance(v, dict) and not v:
-                    continue
 
             cleaned_list.append(v)
         return cleaned_list  # type: ignore [return-value]
