@@ -85,11 +85,7 @@ async def run_agent(
                 input_vars = set()
                 for server in servers:
                     # Check stdio's "env" and http/sse's "headers" mappings
-                    env_or_headers = (
-                        server["config"].get("env", {})
-                        if server["type"] == "stdio"
-                        else server["config"].get("headers", {})
-                    )
+                    env_or_headers = server.get("env", {}) if server["type"] == "stdio" else server.get("headers", {})
                     for key, value in env_or_headers.items():
                         if env_special_value in value:
                             input_vars.add(key)
@@ -110,11 +106,7 @@ async def run_agent(
 
                 # Inject user input (or env variable) into stdio's env or http/sse's headers
                 for server in servers:
-                    env_or_headers = (
-                        server["config"].get("env", {})
-                        if server["type"] == "stdio"
-                        else server["config"].get("headers", {})
-                    )
+                    env_or_headers = server.get("env", {}) if server["type"] == "stdio" else server.get("headers", {})
                     for key, value in env_or_headers.items():
                         if env_special_value in value:
                             if user_input:
