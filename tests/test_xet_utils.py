@@ -51,6 +51,34 @@ def test_parse_invalid_headers_file_info() -> None:
     assert parse_xet_file_data_from_response(mock_response) is None
 
 
+@pytest.mark.parametrize(
+    "refresh_route, expected_refresh_route",
+    [
+        (
+            "/api/refresh",
+            "/api/refresh",
+        ),
+        (
+            "https://huggingface.co/api/refresh",
+            "https://xet.example.com/api/refresh",
+        ),
+    ],
+)
+def test_parse_header_file_info_with_endpoint(refresh_route: str, expected_refresh_route: str) -> None:
+    mock_response = MagicMock()
+    mock_response.headers = {
+        "X-Xet-Hash": "sha256:abcdef",
+        "X-Xet-Refresh-Route": refresh_route,
+    }
+    mock_response.links = {}
+
+    file_data = parse_xet_file_data_from_response(mock_response, endpoint="https://xet.example.com")
+
+    assert file_data is not None
+    assert file_data.refresh_route == expected_refresh_route
+    assert file_data.file_hash == "sha256:abcdef"
+
+
 def test_parse_valid_headers_connection_info() -> None:
     headers = {
         "X-Xet-Cas-Url": "https://xet.example.com",
