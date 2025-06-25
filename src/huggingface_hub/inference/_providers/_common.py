@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters
+from huggingface_hub.inference._generated.types.chat_completion import ChatCompletionInputMessage
 from huggingface_hub.utils import build_hf_headers, get_token, logging
 
 
@@ -228,8 +229,12 @@ class BaseConversationalTask(TaskProviderHelper):
         return "/v1/chat/completions"
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self,
+        inputs: List[Union[Dict, ChatCompletionInputMessage]],
+        parameters: Dict,
+        provider_mapping_info: InferenceProviderMapping,
     ) -> Optional[Dict]:
+        inputs = [filter_none(message) for message in inputs]
         return {"messages": inputs, **filter_none(parameters), "model": provider_mapping_info.provider_id}
 
 
