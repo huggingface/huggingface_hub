@@ -7,6 +7,7 @@ from huggingface_hub import ChatCompletionInputMessage, ChatCompletionStreamOutp
 
 from .._providers import PROVIDER_OR_POLICY_T
 from .constants import DEFAULT_SYSTEM_PROMPT, EXIT_LOOP_TOOLS, MAX_NUM_TURNS
+from .types import ServerConfig
 
 
 class Agent(MCPClient):
@@ -40,7 +41,7 @@ class Agent(MCPClient):
         self,
         *,
         model: Optional[str] = None,
-        servers: Iterable[Dict],
+        servers: Iterable[ServerConfig],
         provider: Optional[PROVIDER_OR_POLICY_T] = None,
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
@@ -54,7 +55,7 @@ class Agent(MCPClient):
 
     async def load_tools(self) -> None:
         for cfg in self._servers_cfg:
-            await self.add_mcp_server(cfg["type"], **cfg["config"])
+            await self.add_mcp_server(**cfg)
 
     async def run(
         self,
