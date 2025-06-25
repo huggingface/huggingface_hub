@@ -1,9 +1,10 @@
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, overload
 
 from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters
+from huggingface_hub.inference._generated.types.chat_completion import ChatCompletionInputMessage
 from huggingface_hub.utils import build_hf_headers, get_token, logging
 
 
@@ -36,8 +37,30 @@ HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, InferenceProviderMapping]
 }
 
 
-def filter_none(d: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in d.items() if v is not None}
+@overload
+def filter_none(obj: Dict[str, Any]) -> Dict[str, Any]: ...
+@overload
+def filter_none(obj: List[Any]) -> List[Any]: ...
+
+
+def filter_none(obj: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, Any], List[Any]]:
+    if isinstance(obj, dict):
+        cleaned: Dict[str, Any] = {}
+        for k, v in obj.items():
+            if v is None:
+                continue
+            if isinstance(v, (dict, list)):
+                v = filter_none(v)
+                # remove empty nested dicts
+                if isinstance(v, dict) and not v:
+                    continue
+            cleaned[k] = v
+        return cleaned
+
+    if isinstance(obj, list):
+        return [filter_none(v) if isinstance(v, (dict, list)) else v for v in obj]
+
+    raise ValueError(f"Expected dict or list, got {type(obj)}")
 
 
 class TaskProviderHelper:
@@ -224,9 +247,12 @@ class BaseConversationalTask(TaskProviderHelper):
         return "/v1/chat/completions"
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self,
+        inputs: List[Union[Dict, ChatCompletionInputMessage]],
+        parameters: Dict,
+        provider_mapping_info: InferenceProviderMapping,
     ) -> Optional[Dict]:
-        return {"messages": inputs, **filter_none(parameters), "model": provider_mapping_info.provider_id}
+        return filter_none({"messages": inputs, **parameters, "model": provider_mapping_info.provider_id})
 
 
 class BaseTextGenerationTask(TaskProviderHelper):

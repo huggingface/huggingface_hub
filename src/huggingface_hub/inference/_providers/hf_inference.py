@@ -75,7 +75,7 @@ class HFInferenceBinaryInputTask(HFInferenceTask):
         provider_mapping_info: InferenceProviderMapping,
         extra_payload: Optional[Dict],
     ) -> Optional[bytes]:
-        parameters = filter_none({k: v for k, v in parameters.items() if v is not None})
+        parameters = filter_none(parameters)
         extra_payload = extra_payload or {}
         has_parameters = len(parameters) > 0 or len(extra_payload) > 0
 
