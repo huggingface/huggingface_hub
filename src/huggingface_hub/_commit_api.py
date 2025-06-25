@@ -4,7 +4,6 @@ Type definitions and utilities for the `create_commit` API
 
 import base64
 import io
-import math
 import os
 import warnings
 from collections import defaultdict
@@ -23,6 +22,7 @@ from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
     FORBIDDEN_FOLDERS,
     XetTokenType,
+    are_progress_bars_disabled,
     chunk_iterable,
     fetch_xet_connection_info_from_repo_info,
     get_session,
@@ -33,7 +33,6 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils.tqdm import _get_progress_bar_context
 
 
 if TYPE_CHECKING:
@@ -529,8 +528,11 @@ def _upload_xet_files(
     """
     if len(additions) == 0:
         return
+
     # at this point, we know that hf_xet is installed
     from hf_xet import upload_bytes, upload_files
+
+    from .utils._xet_progress_reporting import XetProgressReporter
 
     try:
         xet_connection_info = fetch_xet_connection_info_from_repo_info(
@@ -567,32 +569,18 @@ def _upload_xet_files(
             raise XetRefreshTokenError("Failed to refresh xet token")
         return new_xet_connection.access_token, new_xet_connection.expiration_unix_epoch
 
-    num_chunks = math.ceil(len(additions) / UPLOAD_BATCH_MAX_NUM_FILES)
-    num_chunks_num_digits = int(math.log10(num_chunks)) + 1
-    for i, chunk in enumerate(chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES)):
-        _chunk = [op for op in chunk]
+    if not are_progress_bars_disabled():
+        progress = XetProgressReporter()
+        progress_callback = progress.update_progress
+    else:
+        progress, progress_callback = None, None
 
-        bytes_ops = [op for op in _chunk if isinstance(op.path_or_fileobj, bytes)]
-        paths_ops = [op for op in _chunk if isinstance(op.path_or_fileobj, (str, Path))]
-        expected_size = sum(op.upload_info.size for op in bytes_ops + paths_ops)
+    try:
+        for i, chunk in enumerate(chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES)):
+            _chunk = [op for op in chunk]
 
-        if num_chunks > 1:
-            description = f"Uploading Batch [{str(i + 1).zfill(num_chunks_num_digits)}/{num_chunks}]..."
-        else:
-            description = "Uploading..."
-        progress_cm = _get_progress_bar_context(
-            desc=description,
-            total=expected_size,
-            initial=0,
-            unit="B",
-            unit_scale=True,
-            name="huggingface_hub.xet_put",
-            log_level=logger.getEffectiveLevel(),
-        )
-        with progress_cm as progress:
-
-            def update_progress(increment: int):
-                progress.update(increment)
+            bytes_ops = [op for op in _chunk if isinstance(op.path_or_fileobj, bytes)]
+            paths_ops = [op for op in _chunk if isinstance(op.path_or_fileobj, (str, Path))]
 
             if len(paths_ops) > 0:
                 upload_files(
@@ -600,7 +588,7 @@ def _upload_xet_files(
                     xet_endpoint,
                     access_token_info,
                     token_refresher,
-                    update_progress,
+                    progress_callback,
                     repo_type,
                 )
             if len(bytes_ops) > 0:
@@ -609,9 +597,14 @@ def _upload_xet_files(
                     xet_endpoint,
                     access_token_info,
                     token_refresher,
-                    update_progress,
+                    progress_callback,
                     repo_type,
                 )
+
+    finally:
+        if progress is not None:
+            progress.close(False)
+
     return
 
 

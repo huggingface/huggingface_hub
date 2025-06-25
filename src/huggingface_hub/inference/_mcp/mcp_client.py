@@ -266,7 +266,7 @@ class MCPClient:
             stream=True,
         )
 
-        message = {"role": "unknown", "content": ""}
+        message: Dict[str, Any] = {"role": "unknown", "content": ""}
         final_tool_calls: Dict[int, ChatCompletionStreamOutputDeltaToolCall] = {}
         num_of_chunks = 0
 
@@ -304,7 +304,26 @@ class MCPClient:
             # Yield each chunk to caller
             yield chunk
 
-        if message["content"]:
+        # Add the assistant message with tool calls (if any) to messages
+        if message["content"] or final_tool_calls:
+            # if the role is unknown, set it to assistant
+            if message.get("role") == "unknown":
+                message["role"] = "assistant"
+            # Convert final_tool_calls to the format expected by OpenAI
+            if final_tool_calls:
+                tool_calls_list: List[Dict[str, Any]] = []
+                for tc in final_tool_calls.values():
+                    tool_calls_list.append(
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments or "{}",
+                            },
+                        }
+                    )
+                message["tool_calls"] = tool_calls_list
             messages.append(message)
 
         # Process tool calls one by one
