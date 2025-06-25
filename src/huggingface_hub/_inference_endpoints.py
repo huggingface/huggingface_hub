@@ -100,6 +100,7 @@ class InferenceEndpoint:
     namespace: str
     repository: str = field(init=False)
     status: InferenceEndpointStatus = field(init=False)
+    health_route: str = field(init=False)
     url: Optional[str] = field(init=False)
 
     # Other fields
@@ -220,7 +221,8 @@ class InferenceEndpoint:
                 )
             if self.status == InferenceEndpointStatus.RUNNING and self.url is not None:
                 # Verify the endpoint is actually reachable
-                response = get_session().get(self.url, headers=self._api._build_hf_headers(token=self._token))
+                _health_url = f"{self.url.rstrip('/')}/{self.health_route.lstrip('/')}"
+                response = get_session().get(_health_url, headers=self._api._build_hf_headers(token=self._token))
                 if response.status_code == 200:
                     logger.info("Inference Endpoint is ready to be used.")
                     return self
@@ -400,6 +402,7 @@ class InferenceEndpoint:
         self.repository = self.raw["model"]["repository"]
         self.status = self.raw["status"]["state"]
         self.url = self.raw["status"].get("url")
+        self.health_route = self.raw["healthRoute"]
 
         # Other fields
         self.framework = self.raw["model"]["framework"]
