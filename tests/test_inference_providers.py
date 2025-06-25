@@ -13,6 +13,7 @@ from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
     BaseTextGenerationTask,
     TaskProviderHelper,
+    filter_none,
     recursive_merge,
 )
 from huggingface_hub.inference._providers.black_forest_labs import BlackForestLabsTextToImageTask
@@ -1152,6 +1153,98 @@ class TestBaseConversationalTask:
             "model": "test-provider-id",
         }
 
+    @pytest.mark.parametrize(
+        "raw_messages, expected_messages",
+        [
+            (
+                [
+                    {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": None,
+                    }
+                ],
+                [
+                    {
+                        "role": "assistant",
+                        "content": "",
+                    }
+                ],
+            ),
+            (
+                [
+                    {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_current_weather",
+                                    "arguments": '{"location": "San Francisco, CA", "unit": "celsius"}',
+                                },
+                            },
+                        ],
+                    },
+                    {
+                        "role": "tool",
+                        "content": "pong",
+                        "tool_call_id": "abc123",
+                        "name": "dummy_tool",
+                        "tool_calls": None,
+                    },
+                ],
+                [
+                    {
+                        "role": "assistant",
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_current_weather",
+                                    "arguments": '{"location": "San Francisco, CA", "unit": "celsius"}',
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "role": "tool",
+                        "content": "pong",
+                        "tool_call_id": "abc123",
+                        "name": "dummy_tool",
+                    },
+                ],
+            ),
+        ],
+    )
+    def test_prepare_payload_filters_messages(self, raw_messages, expected_messages):
+        helper = BaseConversationalTask(provider="test-provider", base_url="https://api.test.com")
+
+        parameters = {
+            "temperature": 0.2,
+            "max_tokens": None,
+            "top_p": None,
+        }
+
+        payload = helper._prepare_payload_as_dict(
+            inputs=raw_messages,
+            parameters=parameters,
+            provider_mapping_info=InferenceProviderMapping(
+                provider="test-provider",
+                hf_model_id="test-model",
+                providerId="test-provider-id",
+                task="conversational",
+                status="live",
+            ),
+        )
+
+        assert payload["messages"] == expected_messages
+        assert payload["temperature"] == 0.2
+        assert "max_tokens" not in payload
+        assert "top_p" not in payload
+
 
 class TestBaseTextGenerationTask:
     def test_prepare_route(self):
@@ -1234,6 +1327,36 @@ def test_recursive_merge(dict1: Dict, dict2: Dict, expected: Dict):
     # does not mutate the inputs
     assert dict1 == initial_dict1
     assert dict2 == initial_dict2
+
+
+@pytest.mark.parametrize(
+    "data, expected",
+    [
+        ({}, {}),  # empty dictionary remains empty
+        ({"a": 1, "b": None, "c": 3}, {"a": 1, "c": 3}),  # remove None at root level
+        ({"a": None, "b": {"x": None, "y": 2}}, {"b": {"y": 2}}),  # remove nested None
+        ({"a": {"b": {"c": None}}}, {}),  # remove empty nested dict
+        (
+            {"a": "", "b": {"x": {"y": None}, "z": 0}, "c": []},  # do not remove 0, [] and "" values
+            {"a": "", "b": {"z": 0}, "c": []},
+        ),
+        (
+            {"a": [0, 1, None]},  # do not remove None in lists
+            {"a": [0, 1, None]},
+        ),
+        # dicts inside list are cleaned, list level None kept
+        ({"a": [{"x": None, "y": 1}, None]}, {"a": [{"y": 1}, None]}),
+        # remove every None that is the value of a dict key
+        (
+            [None, {"x": None, "y": 5}, [None, 6]],
+            [None, {"y": 5}, [None, 6]],
+        ),
+        ({"a": [None, {"x": None}]}, {"a": [None, {}]}),
+    ],
+)
+def test_filter_none(data: Dict, expected: Dict):
+    """Test that filter_none removes None values from nested dictionaries."""
+    assert filter_none(data) == expected
 
 
 def test_get_provider_helper_auto(mocker):
