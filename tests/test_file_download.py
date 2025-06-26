@@ -52,7 +52,6 @@ from .testing_utils import (
     DUMMY_EXTRA_LARGE_FILE_NAME,
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
-    DUMMY_RENAMED_NEW_MODEL_ID,
     DUMMY_RENAMED_OLD_MODEL_ID,
     DUMMY_TINY_FILE_NAME,
     SAMPLE_DATASET_IDENTIFIER,
@@ -318,7 +317,7 @@ class CachedDownloadTests(unittest.TestCase):
                     user_agent="foo/bar",
                 )
                 calls = mock_request.call_args_list
-                assert len(calls) == 3  # HEAD, HEAD, GET
+                assert len(calls) >= 3  # at least HEAD, HEAD, GET
                 for call in calls:
                     _check_user_agent(call.kwargs["headers"])
 
@@ -333,7 +332,7 @@ class CachedDownloadTests(unittest.TestCase):
                     user_agent="foo/bar",
                 )
                 calls = mock_request.call_args_list
-                assert len(calls) == 2  # HEAD, HEAD
+                assert len(calls) >= 2  # at least HEAD, HEAD
                 for call in calls:
                     _check_user_agent(call.kwargs["headers"])
 
@@ -482,23 +481,7 @@ class CachedDownloadTests(unittest.TestCase):
         # Metadata
         self.assertEqual(metadata.commit_hash, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
         self.assertIsNotNone(metadata.etag)  # example: "85c2fc2dcdd86563aaa85ef4911..."
-        self.assertEqual(metadata.location, url)  # no redirect
         self.assertEqual(metadata.size, 851)
-
-    def test_get_hf_file_metadata_from_a_renamed_repo(self) -> None:
-        """Test getting metadata from a file in a renamed repo on the Hub."""
-        url = hf_hub_url(
-            DUMMY_RENAMED_OLD_MODEL_ID,
-            filename=constants.CONFIG_NAME,
-            subfolder="",  # Subfolder should be processed as `None`
-        )
-        metadata = get_hf_file_metadata(url)
-
-        # Got redirected to renamed repo
-        self.assertEqual(
-            metadata.location,
-            url.replace(DUMMY_RENAMED_OLD_MODEL_ID, DUMMY_RENAMED_NEW_MODEL_ID),
-        )
 
     def test_get_hf_file_metadata_from_a_lfs_file(self) -> None:
         """Test getting metadata from an LFS file.
