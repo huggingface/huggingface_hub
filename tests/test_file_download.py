@@ -317,7 +317,7 @@ class CachedDownloadTests(unittest.TestCase):
                     user_agent="foo/bar",
                 )
                 calls = mock_request.call_args_list
-                assert len(calls) >= 3  # at leastHEAD, HEAD, GET
+                assert len(calls) >= 3  # at least HEAD, HEAD, GET
                 for call in calls:
                     _check_user_agent(call.kwargs["headers"])
 
