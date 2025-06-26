@@ -5392,6 +5392,7 @@ class HfApi:
             library_name=self.library_name,
             library_version=self.library_version,
             user_agent=self.user_agent,
+            endpoint=self.endpoint,
         )
 
     @validate_hf_hub_args

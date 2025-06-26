@@ -1407,6 +1407,7 @@ def get_hf_file_metadata(
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
     headers: Optional[Dict[str, str]] = None,
+    endpoint: Optional[str] = None,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -1432,6 +1433,8 @@ def get_hf_file_metadata(
             The user-agent info in the form of a dictionary or a string.
         headers (`dict`, *optional*):
             Additional headers to be sent with the request.
+        endpoint (`str`, *optional*):
+            Endpoint of the Hub. Defaults to <https://huggingface.co>.
 
     Returns:
         A [`HfFileMetadata`] object containing metadata such as location, etag, size and
@@ -1471,7 +1474,7 @@ def get_hf_file_metadata(
         size=_int_or_none(
             r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
         ),
-        xet_file_data=parse_xet_file_data_from_response(r),  # type: ignore
+        xet_file_data=parse_xet_file_data_from_response(r, endpoint=endpoint),  # type: ignore
     )
 
 
@@ -1531,7 +1534,7 @@ def _get_metadata_or_catch_error(
         try:
             try:
                 metadata = get_hf_file_metadata(
-                    url=url, proxies=proxies, timeout=etag_timeout, headers=headers, token=token
+                    url=url, proxies=proxies, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
                 )
             except EntryNotFoundError as http_error:
                 if storage_folder is not None and relative_filename is not None:
