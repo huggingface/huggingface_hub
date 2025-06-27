@@ -46,50 +46,30 @@ class ChatCompletionInputMessage(BaseInferenceType):
 
 
 @dataclass_with_extra
-class ChatCompletionInputJSONSchema(BaseInferenceType):
+class ChatCompletionInputJSONSchemaConfig(BaseInferenceType):
     name: str
-    """
-    The name of the response format.
-    """
+    """The name of the response format."""
     description: Optional[str] = None
+    """A description of what the response format is for, used by the model to determine how to
+    respond in the format.
     """
-    A description of what the response format is for, used by the model to determine
-    how to respond in the format.
-    """
-    schema: Optional[Dict[str, object]] = None
-    """
-    The schema for the response format, described as a JSON Schema object. Learn how
-    to build JSON schemas [here](https://json-schema.org/).
+    schema: Optional[Dict[str, Any]] = None
+    """The schema for the response format, described as a JSON Schema object. Learn how to build
+    JSON schemas [here](https://json-schema.org/).
     """
     strict: Optional[bool] = None
-    """
-    Whether to enable strict schema adherence when generating the output. If set to
-    true, the model will always follow the exact schema defined in the `schema`
-    field.
+    """Whether to enable strict schema adherence when generating the output. If set to true, the
+    model will always follow the exact schema defined in the `schema` field.
     """
 
 
-@dataclass_with_extra
-class ChatCompletionInputResponseFormatText(BaseInferenceType):
-    type: Literal["text"]
+ChatCompletionInputGrammarTypeType = Literal["text", "json_schema", "json_object"]
 
 
 @dataclass_with_extra
-class ChatCompletionInputResponseFormatJSONSchema(BaseInferenceType):
-    type: Literal["json_schema"]
-    json_schema: ChatCompletionInputJSONSchema
-
-
-@dataclass_with_extra
-class ChatCompletionInputResponseFormatJSONObject(BaseInferenceType):
-    type: Literal["json_object"]
-
-
-ChatCompletionInputGrammarType = Union[
-    ChatCompletionInputResponseFormatText,
-    ChatCompletionInputResponseFormatJSONSchema,
-    ChatCompletionInputResponseFormatJSONObject,
-]
+class ChatCompletionInputGrammarType(BaseInferenceType):
+    type: "ChatCompletionInputGrammarTypeType"
+    json_schema: Optional[ChatCompletionInputJSONSchemaConfig] = None
 
 
 @dataclass_with_extra
