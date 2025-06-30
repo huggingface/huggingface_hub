@@ -1,7 +1,8 @@
 import base64
 import time
 from abc import ABC
-from typing import Any, Dict, Optional, Union
+from pathlib import Path
+from typing import Any, BinaryIO, Dict, Optional, Union
 from urllib.parse import urlparse
 
 from huggingface_hub import constants
@@ -193,11 +194,18 @@ class FalAIImageToImageTask(FalAIQueueTask):
         if isinstance(inputs, str) and inputs.startswith(("http://", "https://")):
             image_url = inputs
         else:
-            if isinstance(inputs, str):
+            image_bytes: bytes
+            if isinstance(inputs, (str, Path)):
                 with open(inputs, "rb") as f:
-                    inputs = f.read()
+                    image_bytes = f.read()
+            elif isinstance(inputs, bytes):
+                image_bytes = inputs
+            elif isinstance(inputs, BinaryIO):
+                image_bytes = inputs.read()
+            else:
+                raise TypeError(f"Unsupported input type for image: {type(inputs)}")
 
-            image_b64 = base64.b64encode(inputs).decode()
+            image_b64 = base64.b64encode(image_bytes).decode()
             content_type = "image/png"
             image_url = f"data:{content_type};base64,{image_b64}"
         payload: Dict[str, Any] = {
