@@ -1384,6 +1384,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
+        response = provider_helper.get_response(response, request_parameters)
         return _bytes_to_image(response)
 
     async def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> ImageToTextOutput:

@@ -42,7 +42,11 @@ from huggingface_hub.inference._providers.nebius import NebiusFeatureExtractionT
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
-from huggingface_hub.inference._providers.replicate import ReplicateTask, ReplicateTextToSpeechTask
+from huggingface_hub.inference._providers.replicate import (
+    ReplicateImageToImageTask,
+    ReplicateTask,
+    ReplicateTextToSpeechTask,
+)
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from huggingface_hub.inference._providers.together import TogetherTextToImageTask
 
@@ -1056,6 +1060,58 @@ class TestReplicateProvider:
         response = helper.get_response({"output": "https://example.com/image.jpg"})
         mock.return_value.get.assert_called_once_with("https://example.com/image.jpg")
         assert response == mock.return_value.get.return_value.content
+
+    def test_image_to_image_payload(self):
+        helper = ReplicateImageToImageTask()
+        dummy_image = b"dummy image data"
+        encoded_image = base64.b64encode(dummy_image).decode("utf-8")
+        image_uri = f"data:image/jpeg;base64,{encoded_image}"
+
+        # No model version
+        payload = helper._prepare_payload_as_dict(
+            dummy_image,
+            {"num_inference_steps": 20},
+            InferenceProviderMapping(
+                provider="replicate",
+                hf_model_id="google/gemini-pro-vision",
+                providerId="google/gemini-pro-vision",
+                task="image-to-image",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "input": {"input_image": image_uri, "num_inference_steps": 20},
+        }
+
+        payload = helper._prepare_payload_as_dict(
+            dummy_image,
+            {"num_inference_steps": 20},
+            InferenceProviderMapping(
+                provider="replicate",
+                hf_model_id="google/gemini-pro-vision",
+                providerId="google/gemini-pro-vision:123456",
+                task="image-to-image",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "input": {"input_image": image_uri, "num_inference_steps": 20},
+            "version": "123456",
+        }
+
+        # Test with wrong input type
+        with pytest.raises(TypeError, match="Expected `bytes` for an image-to-image task"):
+            helper._prepare_payload_as_dict(
+                "this is not bytes",
+                {},
+                InferenceProviderMapping(
+                    provider="replicate",
+                    hf_model_id="google/gemini-pro-vision",
+                    providerId="google/gemini-pro-vision:123456",
+                    task="image-to-image",
+                    status="live",
+                ),
+            )
 
 
 class TestSambanovaProvider:

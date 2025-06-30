@@ -70,3 +70,27 @@ class ReplicateTextToSpeechTask(ReplicateTask):
         payload: Dict = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)  # type: ignore[assignment]
         payload["input"]["text"] = payload["input"].pop("prompt")  # rename "prompt" to "text" for TTS
         return payload
+
+
+class ReplicateImageToImageTask(ReplicateTask):
+    def __init__(self):
+        super().__init__("image-to-image")
+
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
+        import base64
+
+        if not isinstance(inputs, bytes):
+            raise TypeError(f"Expected `bytes` for an image-to-image task, but got `{type(inputs)}`.")
+
+        encoded_image = base64.b64encode(inputs).decode("utf-8")
+        image_uri = f"data:image/jpeg;base64,{encoded_image}"
+
+        payload: Dict[str, Any] = {"input": {"input_image": image_uri, **filter_none(parameters)}}
+
+        mapped_model = provider_mapping_info.provider_id
+        if ":" in mapped_model:
+            version = mapped_model.split(":", 1)[1]
+            payload["version"] = version
+        return payload
