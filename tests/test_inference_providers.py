@@ -1099,20 +1099,6 @@ class TestReplicateProvider:
             "version": "123456",
         }
 
-        # Test with wrong input type
-        with pytest.raises(TypeError, match="Expected `bytes` for an image-to-image task"):
-            helper._prepare_payload_as_dict(
-                "this is not bytes",
-                {},
-                InferenceProviderMapping(
-                    provider="replicate",
-                    hf_model_id="google/gemini-pro-vision",
-                    providerId="google/gemini-pro-vision:123456",
-                    task="image-to-image",
-                    status="live",
-                ),
-            )
-
 
 class TestSambanovaProvider:
     def test_prepare_url_conversational(self):

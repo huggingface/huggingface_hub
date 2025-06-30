@@ -1,4 +1,6 @@
-from typing import Any, Dict, Optional, Union
+import base64
+from pathlib import Path
+from typing import Any, BinaryIO, Dict, Optional, Union
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
@@ -79,15 +81,24 @@ class ReplicateImageToImageTask(ReplicateTask):
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
-        import base64
+        if isinstance(inputs, str) and inputs.startswith(("http://", "https://")):
+            image_url = inputs
+        else:
+            image_bytes: bytes
+            if isinstance(inputs, (str, Path)):
+                with open(inputs, "rb") as f:
+                    image_bytes = f.read()
+            elif isinstance(inputs, bytes):
+                image_bytes = inputs
+            elif isinstance(inputs, BinaryIO):
+                image_bytes = inputs.read()
+            else:
+                raise TypeError(f"Unsupported input type for image: {type(inputs)}")
 
-        if not isinstance(inputs, bytes):
-            raise TypeError(f"Expected `bytes` for an image-to-image task, but got `{type(inputs)}`.")
+            encoded_image = base64.b64encode(image_bytes).decode("utf-8")
+            image_url = f"data:image/jpeg;base64,{encoded_image}"
 
-        encoded_image = base64.b64encode(inputs).decode("utf-8")
-        image_uri = f"data:image/jpeg;base64,{encoded_image}"
-
-        payload: Dict[str, Any] = {"input": {"input_image": image_uri, **filter_none(parameters)}}
+        payload: Dict[str, Any] = {"input": {"input_image": image_url, **filter_none(parameters)}}
 
         mapped_model = provider_mapping_info.provider_id
         if ":" in mapped_model:
