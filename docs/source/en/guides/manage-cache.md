@@ -247,9 +247,19 @@ All shards have an expiration date of 3-4 weeks from when they are downloaded. S
 
 ### `staging`
 
-When an upload terminates before the new content has been committed to the repository, you will need to resume the upload. However, it is possible that some chunks were successfully uploaded before the upload was interrupted. 
+When an upload terminates before the new content has been committed to the repository, you will need to resume the upload. However, it is possible that some chunks were successfully uploaded before the upload was interrupted. So that you do not have to restart from the beginning, the `staging` directory stores metadata for successfully uploaded chunks. The `staging` directory has several internal workspaces:
 
-So that you do not have to restart from the beginning, the `staging` directory stores shards that contain the hashes of any successfully uploaded chunks. Upon resuming the upload session, each file is processed and the shards in this directory are consulted. Any chunk hashes that were successfully uploaded are skipped, and content that was yet to be seen is uploaded. Upon successful upload, these content from these shards is merged into the `shard-cache`. 
+<CACHE_DIR>
+├─ xet
+│  ├─ staging
+│  │  ├─ shard-session
+│  │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
+│  │  │  ├─ xorb-metadata
+│  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
+
+As a files are processed into chunks and the chunks are successfully uploaded, their metadata is stored in `shard-session/xorb-metadata`. Upon resuming the upload session, each file is processed and the shards in this directory are consulted. Any chunks that were successfully uploaded are skipped, and content that was yet to be seen is uploaded (and its metadata saved). 
+
+Meanwhile, `shard-session` stores file and chunk information for processed files. On successful completion of an upload, the content from these shards is moved to the `shard-cache`.
 
 ### Limits and Limitations
 
@@ -276,8 +286,9 @@ Example full `xet`cache directory tree:
 │  │  ├─ e8535155b1b11ebd894c908e91a1e14e3461dddd1392695ddc90ae54a548d8b2.mdb
 │  ├─ staging
 │  │  ├─ shard-session
+│  │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
 │  │  │  ├─ xorb-metadata
-│  │  │  │  ├─ 2859bfce437d85a5c9062784a391dc4b123ab6428011f1ce3f2dd4159070d5c5.mdb
+│  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
 ```
 
 To learn more about Xet Storage, see this [section](https://huggingface.co/docs/hub/storage-backends).
