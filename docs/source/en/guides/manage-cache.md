@@ -176,17 +176,28 @@ by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
 
 To provide more efficient file transfers, `hf_xet` adds a `xet` directory to the existing `huggingface_hub` cache, creating additional caching layer to enable chunk-based deduplication. This cache holds chunks, which are immutable byte ranges from files (up to 64KB) that are created using content-defined chunking. For more information on the Xet Storage system, see this [section](https://huggingface.co/docs/hub/storage-backends).
 
-The `xet` directory, located at `~/.cache/huggingface/xet` by default, contains two caches, utilized for uploads and downloads with the following structure
+The `xet` directory, located at `~/.cache/huggingface/xet` by default, contains two caches, utilized for uploads and downloads. It has the following structure:
 
 ```bash
 <CACHE_DIR>
-├─ chunk_cache
-├─ shard_cache
+├─ xet
+│  ├─ environment_identifier
+│  │  ├─ chunk_cache
+│  │  ├─ shard_cache
+│  │  ├─ staging
 ```
+
+The `environment_identifier` directory is encoded string (it may appear on your machine as `https___cas_serv-tGqkUaZf_CBPHQ6h` or something similar), that is used during development allowing for local, dev, and production versions of the cache to existing alongside each other simultaneously. It also supports content being cached in different storage regions where there are different concerns around data privacy and deletion. You may see multiple such entries inside the `xet` directory, but their internal structure will be the same across each. 
+
+Each of the directories inside the environment-specific directory serves the following purpose:
+* The `chunk-cache` directory contains cached data chunks that are used to speed up downloads.
+* The `shard-cache` directory contains cached shards that are utilized on the upload path; both are documented below. 
+* The `staging` directory exists to support resumable uploads.
+
+These are documented below.
 
 The `xet` cache, like the rest of `hf_xet` is fully integrated with `huggingface_hub`.  If you use the existing APIs for interacting with cached assets, there is no need to update your workflow. The `xet` cache is built as an optimization layer on top of the existing `hf_xet` chunk-based deduplication and `huggingface_hub` cache system. 
 
-The `chunk-cache` directory contains cached data chunks that are used to speed up downloads while the `shard-cache` directory contains cached shards that are utilized on the upload path. 
 
 ### `chunk_cache`
 
@@ -234,11 +245,17 @@ Shards provide a mapping between files and chunks. During uploads, each file is 
 
 All shards have an expiration date of 3-4 weeks from when they are downloaded. Shards that are expired are not loaded during upload and are deleted one week after expiration. 
 
+### `staging`
+
+When an upload terminates before the new content has been committed to the repository, you will need to resume the upload. However, it is possible that some chunks were successfully uploaded before the upload was interrupted. 
+
+So that you do not have to restart from the beginning, the `staging` directory stores shards that contain the hashes of any successfully uploaded chunks. Upon resuming the upload session, each file is processed and the shards in this directory are consulted. Any chunk hashes that were successfully uploaded are skipped, and content that was yet to be seen is uploaded. Upon successful upload, these content from these shards is merged into the `shard-cache`. 
+
 ### Limits and Limitations
 
-The `chunk_cache` is limited to 10GB in size while the `shard_cache` is technically without limits (in practice, the size and use of shards are such that limiting the cache is unnecessary). 
+The `chunk_cache` is limited to 10GiB in size while the `shard_cache` has a soft limit of 4GiB.  By design, both caches are without high-level APIs, although the size they occupy can be configured through the `HF_XET_CHUNK_CACHE_SIZE_BYTES` and `HF_XET_SHARD_CACHE_SIZE_LIMIT` environment variables. 
 
-By design, both caches are without high-level APIs. These caches are used primarily to facilitate the reconstruction (download) or upload of a file. To interact with the assets themselves, it’s recommended that you use the [`huggingface_hub` cache system APIs](https://huggingface.co/docs/huggingface_hub/guides/manage-cache).
+These caches are used primarily to facilitate the reconstruction (download) or upload of a file. To interact with the assets themselves, it’s recommended that you use the [`huggingface_hub` cache system APIs](https://huggingface.co/docs/huggingface_hub/guides/manage-cache).
 
 If you need to reclaim the space utilized by either cache or need to debug any potential cache-related issues, simply remove the `xet` cache entirely by running `rm -rf ~/<cache_dir>/xet` where `<cache_dir>` is the location of your Hugging Face cache, typically `~/.cache/huggingface` 
 
@@ -257,6 +274,10 @@ Example full `xet`cache directory tree:
 │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
 │  │  ├─ ceeeb7ea4cf6c0a8d395a2cf9c08871211fbbd17b9b5dc1005811845307e6b8f.mdb
 │  │  ├─ e8535155b1b11ebd894c908e91a1e14e3461dddd1392695ddc90ae54a548d8b2.mdb
+│  ├─ staging
+│  │  ├─ shard-session
+│  │  │  ├─ xorb-metadata
+│  │  │  │  ├─ 2859bfce437d85a5c9062784a391dc4b123ab6428011f1ce3f2dd4159070d5c5.mdb
 ```
 
 To learn more about Xet Storage, see this [section](https://huggingface.co/docs/hub/storage-backends).

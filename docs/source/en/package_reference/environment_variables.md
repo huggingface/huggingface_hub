@@ -93,9 +93,15 @@ Integer value to define the number of seconds to wait for server response when d
 
 ### HF_XET_CHUNK_CACHE_SIZE_BYTES
 
-To set the size of the Xet cache locally. Increasing this will give more space for caching terms/chunks fetched from S3. A larger cache can better take advantage of deduplication across repos & files. If your network speed is much greater than your local disk speed (ex 10Gbps vs SSD or worse) then consider disabling the Xet cache for increased performance. To disable the Xet cache, set `HF_XET_CHUNK_CACHE_SIZE_BYTES=0`.
+To set the size of the Xet chunk cache locally. Increasing this will give more space for caching terms/chunks fetched from S3. A larger cache can better take advantage of deduplication across repos & files. If your network speed is much greater than your local disk speed (ex 10Gbps vs SSD or worse) then consider disabling the Xet cache for increased performance. To disable the Xet cache, set `HF_XET_CHUNK_CACHE_SIZE_BYTES=0`.
 
 Defaults to `10737418240` (10GiB).
+
+### HF_XET_SHARD_CACHE_SIZE_LIMIT
+
+To set the size of the Xet shard cache locally. Increasing this will improve upload effeciency as chunk hashes referenced in shard files in the cache will not be uploaded multiple times. Note that the default soft limit is likely sufficient for most workloads. 
+
+Defaults to `4294967296` (4GiB).
 
 ### HF_XET_NUM_CONCURRENT_RANGE_GETS
 
