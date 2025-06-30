@@ -99,7 +99,7 @@ Defaults to `10737418240` (10GiB).
 
 ### HF_XET_SHARD_CACHE_SIZE_LIMIT
 
-To set the size of the Xet shard cache locally. Increasing this will improve upload effeciency as chunk hashes referenced in shard files in the cache will not be uploaded multiple times. Note that the default soft limit is likely sufficient for most workloads. 
+To set the size of the Xet shard cache locally. Increasing this will improve upload effeciency as chunks referenced in cached shard files are not re-uploaded. Note that the default soft limit is likely sufficient for most workloads. 
 
 Defaults to `4294967296` (4GiB).
 

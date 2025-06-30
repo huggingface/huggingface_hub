@@ -174,7 +174,7 @@ by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
 
 ## Chunk-based caching (Xet)
 
-To provide more efficient file transfers, `hf_xet` adds a `xet` directory to the existing `huggingface_hub` cache, creating additional caching layer to enable chunk-based deduplication. This cache holds chunks, which are immutable byte ranges from files (up to 64KB) that are created using content-defined chunking. For more information on the Xet Storage system, see this [section](https://huggingface.co/docs/hub/storage-backends).
+To provide more efficient file transfers, `hf_xet` adds a `xet` directory to the existing `huggingface_hub` cache, creating additional caching layer to enable chunk-based deduplication. This cache holds chunks (immutable byte ranges of files ~64KB in size) and shards (a data structure that maps files to chunks). For more information on the Xet Storage system, see this [section](https://huggingface.co/docs/hub/storage-backends).
 
 The `xet` directory, located at `~/.cache/huggingface/xet` by default, contains two caches, utilized for uploads and downloads. It has the following structure:
 
@@ -187,7 +187,7 @@ The `xet` directory, located at `~/.cache/huggingface/xet` by default, contains 
 │  │  ├─ staging
 ```
 
-The `environment_identifier` directory is encoded string (it may appear on your machine as `https___cas_serv-tGqkUaZf_CBPHQ6h` or something similar), that is used during development allowing for local, dev, and production versions of the cache to existing alongside each other simultaneously. It also supports content being cached in different storage regions where there are different concerns around data privacy and deletion. You may see multiple such entries inside the `xet` directory, but their internal structure will be the same across each. 
+The `environment_identifier` directory is encoded string (it may appear on your machine as `https___cas_serv-tGqkUaZf_CBPHQ6h`). This is used during development allowing for local, dev, and production versions of the cache to existing alongside each other simultaneously. It is also used when downloading from repositories that reside in different [storage regions](https://huggingface.co/docs/hub/storage-regions). You may see multiple such entries in the `xet` directory, but the internal structure is the same across each. 
 
 Each of the directories inside the environment-specific directory serves the following purpose:
 * The `chunk-cache` directory contains cached data chunks that are used to speed up downloads.
@@ -257,7 +257,7 @@ When an upload terminates before the new content has been committed to the repos
 │  │  │  ├─ xorb-metadata
 │  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
 
-As a files are processed into chunks and the chunks are successfully uploaded, their metadata is stored in `shard-session/xorb-metadata`. Upon resuming the upload session, each file is processed and the shards in this directory are consulted. Any chunks that were successfully uploaded are skipped, and content that was yet to be seen is uploaded (and its metadata saved). 
+As files are processed and chunks successfully uploaded, their metadata is stored in `shard-session/xorb-metadata`. Upon resuming an upload session, each file is processed again and the shards in this directory are consulted. Any content that was successfully uploaded is skipped, and content that is yet to be seen is uploaded (and its metadata saved). 
 
 Meanwhile, `shard-session` stores file and chunk information for processed files. On successful completion of an upload, the content from these shards is moved to the `shard-cache`.
 
