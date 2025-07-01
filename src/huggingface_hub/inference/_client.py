@@ -1862,19 +1862,19 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        details: Literal[False] = ...,
-        stream: Literal[False] = ...,
+        details: Optional[bool] = None,
+        stream: Optional[bool] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,  # Manual default value
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -1892,19 +1892,19 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        details: Literal[True] = ...,
-        stream: Literal[False] = ...,
+        details: Optional[bool] = None,
+        stream: Optional[bool] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,  # Manual default value
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -1922,19 +1922,19 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        details: Literal[False] = ...,
-        stream: Literal[True] = ...,
+        details: Optional[bool] = None,
+        stream: Optional[bool] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,  # Manual default value
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -1952,19 +1952,19 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        details: Literal[True] = ...,
-        stream: Literal[True] = ...,
+        details: Optional[bool] = None,
+        stream: Optional[bool] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -1982,19 +1982,19 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        details: Literal[True] = ...,
-        stream: bool = ...,
+        details: Optional[bool] = None,
+        stream: Optional[bool] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -2011,19 +2011,19 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        details: bool = False,
-        stream: bool = False,
+        details: Optional[bool] = None,
+        stream: Optional[bool] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -2251,7 +2251,7 @@ class InferenceClient:
             "repetition_penalty": repetition_penalty,
             "return_full_text": return_full_text,
             "seed": seed,
-            "stop": stop if stop is not None else [],
+            "stop": stop,
             "temperature": temperature,
             "top_k": top_k,
             "top_n_tokens": top_n_tokens,
