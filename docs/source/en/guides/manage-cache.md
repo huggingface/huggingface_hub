@@ -187,16 +187,16 @@ The `xet` directory, located at `~/.cache/huggingface/xet` by default, contains 
 │  │  ├─ staging
 ```
 
-The `environment_identifier` directory is encoded string (it may appear on your machine as `https___cas_serv-tGqkUaZf_CBPHQ6h`). This is used during development allowing for local, dev, and production versions of the cache to existing alongside each other simultaneously. It is also used when downloading from repositories that reside in different [storage regions](https://huggingface.co/docs/hub/storage-regions). You may see multiple such entries in the `xet` directory, but the internal structure is the same across each. 
+The `environment_identifier` directory is encoded string (it may appear on your machine as `https___cas_serv-tGqkUaZf_CBPHQ6h`). This is used during development allowing for local and production versions of the cache to exist alongside each other simultaneously. It is also used when downloading from repositories that reside in different [storage regions](https://huggingface.co/docs/hub/storage-regions). You may see multiple such entries in the `xet` directory, each corresponding to a different environment, but their internal structure is the same. 
 
-Each of the directories inside the environment-specific directory serves the following purpose:
-* The `chunk-cache` directory contains cached data chunks that are used to speed up downloads.
-* The `shard-cache` directory contains cached shards that are utilized on the upload path; both are documented below. 
-* The `staging` directory exists to support resumable uploads.
+The internal directories serve the following purposes:
+* `chunk-cache` contains cached data chunks that are used to speed up downloads.
+* `shard-cache` contains cached shards that are utilized on the upload path. 
+* `staging` is a workspace designed to support resumable uploads.
 
 These are documented below.
 
-The `xet` cache, like the rest of `hf_xet` is fully integrated with `huggingface_hub`.  If you use the existing APIs for interacting with cached assets, there is no need to update your workflow. The `xet` cache is built as an optimization layer on top of the existing `hf_xet` chunk-based deduplication and `huggingface_hub` cache system. 
+Note that the `xet` caching system, like the rest of `hf_xet` is fully integrated with `huggingface_hub`.  If you use the existing APIs for interacting with cached assets, there is no need to update your workflow. The `xet` caches are built as an optimization layer on top of the existing `hf_xet` chunk-based deduplication and `huggingface_hub` cache system. 
 
 
 ### `chunk_cache`
@@ -247,7 +247,9 @@ All shards have an expiration date of 3-4 weeks from when they are downloaded. S
 
 ### `staging`
 
-When an upload terminates before the new content has been committed to the repository, you will need to resume the upload. However, it is possible that some chunks were successfully uploaded before the upload was interrupted. So that you do not have to restart from the beginning, the `staging` directory stores metadata for successfully uploaded chunks. The `staging` directory has several internal workspaces:
+When an upload terminates before the new content has been committed to the repository, you will need to resume the file transfer. However, it is possible that some chunks were successfully uploaded prior to the interruption. 
+
+So that you do not have to restart from the beginning, the `staging` directory acts as a workspace during uploads, storing metadata for successfully uploaded chunks. The `staging` directory has the following shape:
 
 <CACHE_DIR>
 ├─ xet
@@ -257,9 +259,9 @@ When an upload terminates before the new content has been committed to the repos
 │  │  │  ├─ xorb-metadata
 │  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
 
-As files are processed and chunks successfully uploaded, their metadata is stored in `shard-session/xorb-metadata`. Upon resuming an upload session, each file is processed again and the shards in this directory are consulted. Any content that was successfully uploaded is skipped, and content that is yet to be seen is uploaded (and its metadata saved). 
+As files are processed and chunks successfully uploaded, their metadata is stored in `xorb-metadata` as a shard. Upon resuming an upload session, each file is processed again and the shards in this directory are consulted. Any content that was successfully uploaded is skipped, and any new content is uploaded (and its metadata saved). 
 
-Meanwhile, `shard-session` stores file and chunk information for processed files. On successful completion of an upload, the content from these shards is moved to the `shard-cache`.
+Meanwhile, `shard-session` stores file and chunk information for processed files. On successful completion of an upload, the content from these shards is moved to the more persistent `shard-cache`.
 
 ### Limits and Limitations
 
