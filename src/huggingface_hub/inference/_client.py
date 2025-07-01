@@ -1858,12 +1858,12 @@ class InferenceClient:
         return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
-    def text_generation(  # type: ignore
+    def text_generation(
         self,
         prompt: str,
         *,
-        details: Optional[bool] = None,
-        stream: Optional[bool] = None,
+        details: Literal[True],
+        stream: Literal[True],
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
@@ -1874,7 +1874,7 @@ class InferenceClient:
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = None,  # Manual default value
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -1885,15 +1885,15 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> str: ...
+    ) -> Iterable[TextGenerationStreamOutput]: ...
 
     @overload
-    def text_generation(  # type: ignore
+    def text_generation(
         self,
         prompt: str,
         *,
-        details: Optional[bool] = None,
-        stream: Optional[bool] = None,
+        details: Literal[True],
+        stream: Union[Literal[False], None] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
@@ -1918,12 +1918,12 @@ class InferenceClient:
     ) -> TextGenerationOutput: ...
 
     @overload
-    def text_generation(  # type: ignore
+    def text_generation(
         self,
         prompt: str,
         *,
-        details: Optional[bool] = None,
-        stream: Optional[bool] = None,
+        details: Union[Literal[False], None] = None,
+        stream: Literal[True],
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
@@ -1948,12 +1948,12 @@ class InferenceClient:
     ) -> Iterable[str]: ...
 
     @overload
-    def text_generation(  # type: ignore
+    def text_generation(
         self,
         prompt: str,
         *,
-        details: Optional[bool] = None,
-        stream: Optional[bool] = None,
+        details: Union[Literal[False], None] = None,
+        stream: Union[Literal[False], None] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
@@ -1964,7 +1964,7 @@ class InferenceClient:
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = None,
+        return_full_text: Optional[bool] = None,  # Manual default value
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -1975,7 +1975,7 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> Iterable[TextGenerationStreamOutput]: ...
+    ) -> str: ...
 
     @overload
     def text_generation(
@@ -2005,7 +2005,7 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> Union[TextGenerationOutput, Iterable[TextGenerationStreamOutput]]: ...
+    ) -> Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]: ...
 
     def text_generation(
         self,
@@ -2101,7 +2101,7 @@ class InferenceClient:
             typical_p (`float`, *optional`):
                 Typical Decoding mass
                 See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666) for more information
-            watermark (`bool`, *optional`):
+            watermark (`bool`, *optional*):
                 Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
 
         Returns:
@@ -2305,7 +2305,7 @@ class InferenceClient:
 
         # Handle errors separately for more precise error messages
         try:
-            bytes_output = self._inner_post(request_parameters, stream=stream)
+            bytes_output = self._inner_post(request_parameters, stream=stream or False)
         except HTTPError as e:
             match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
             if isinstance(e, BadRequestError) and match:

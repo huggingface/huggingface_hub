@@ -1913,12 +1913,12 @@ class AsyncInferenceClient:
         return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
-    async def text_generation(  # type: ignore
+    async def text_generation(
         self,
         prompt: str,
         *,
-        details: Optional[bool] = None,
-        stream: Optional[bool] = None,
+        details: Literal[True],
+        stream: Literal[True],
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
@@ -1929,7 +1929,7 @@ class AsyncInferenceClient:
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = None,  # Manual default value
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -1940,15 +1940,15 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> str: ...
+    ) -> AsyncIterable[TextGenerationStreamOutput]: ...
 
     @overload
-    async def text_generation(  # type: ignore
+    async def text_generation(
         self,
         prompt: str,
         *,
-        details: Optional[bool] = None,
-        stream: Optional[bool] = None,
+        details: Literal[True],
+        stream: Union[Literal[False], None] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
@@ -1973,12 +1973,12 @@ class AsyncInferenceClient:
     ) -> TextGenerationOutput: ...
 
     @overload
-    async def text_generation(  # type: ignore
+    async def text_generation(
         self,
         prompt: str,
         *,
-        details: Optional[bool] = None,
-        stream: Optional[bool] = None,
+        details: Union[Literal[False], None] = None,
+        stream: Literal[True],
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
@@ -2003,12 +2003,12 @@ class AsyncInferenceClient:
     ) -> AsyncIterable[str]: ...
 
     @overload
-    async def text_generation(  # type: ignore
+    async def text_generation(
         self,
         prompt: str,
         *,
-        details: Optional[bool] = None,
-        stream: Optional[bool] = None,
+        details: Union[Literal[False], None] = None,
+        stream: Union[Literal[False], None] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
@@ -2019,7 +2019,7 @@ class AsyncInferenceClient:
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = None,
+        return_full_text: Optional[bool] = None,  # Manual default value
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -2030,7 +2030,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> AsyncIterable[TextGenerationStreamOutput]: ...
+    ) -> str: ...
 
     @overload
     async def text_generation(
@@ -2060,7 +2060,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> Union[TextGenerationOutput, AsyncIterable[TextGenerationStreamOutput]]: ...
+    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]: ...
 
     async def text_generation(
         self,
@@ -2156,7 +2156,7 @@ class AsyncInferenceClient:
             typical_p (`float`, *optional`):
                 Typical Decoding mass
                 See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666) for more information
-            watermark (`bool`, *optional`):
+            watermark (`bool`, *optional*):
                 Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
 
         Returns:
@@ -2361,7 +2361,7 @@ class AsyncInferenceClient:
 
         # Handle errors separately for more precise error messages
         try:
-            bytes_output = await self._inner_post(request_parameters, stream=stream)
+            bytes_output = await self._inner_post(request_parameters, stream=stream or False)
         except _import_aiohttp().ClientResponseError as e:
             match = MODEL_KWARGS_NOT_USED_REGEX.search(e.response_error_payload["error"])
             if e.status == 400 and match:
