@@ -1948,7 +1948,7 @@ class AsyncInferenceClient:
         prompt: str,
         *,
         details: Literal[True],
-        stream: Union[Literal[False], None] = None,
+        stream: Optional[Literal[False]] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
@@ -1959,7 +1959,7 @@ class AsyncInferenceClient:
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = None,  # Manual default value
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -1977,7 +1977,7 @@ class AsyncInferenceClient:
         self,
         prompt: str,
         *,
-        details: Union[Literal[False], None] = None,
+        details: Optional[Literal[False]] = None,
         stream: Literal[True],
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
@@ -2007,8 +2007,8 @@ class AsyncInferenceClient:
         self,
         prompt: str,
         *,
-        details: Union[Literal[False], None] = None,
-        stream: Union[Literal[False], None] = None,
+        details: Optional[Literal[False]] = None,
+        stream: Optional[Literal[False]] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
@@ -2019,7 +2019,7 @@ class AsyncInferenceClient:
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = None,  # Manual default value
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
