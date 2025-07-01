@@ -265,7 +265,7 @@ Meanwhile, `shard-session` stores file and chunk information for processed files
 
 ### Limits and Limitations
 
-The `chunk_cache` is limited to 10GiB in size while the `shard_cache` has a soft limit of 4GiB.  By design, both caches are without high-level APIs, although the size they occupy can be configured through the `HF_XET_CHUNK_CACHE_SIZE_BYTES` and `HF_XET_SHARD_CACHE_SIZE_LIMIT` environment variables. 
+The `chunk_cache` is limited to 10GiB in size while the `shard_cache` has a soft limit of 4GiB.  By design, both caches are without high-level APIs, although their size is configurable through the `HF_XET_CHUNK_CACHE_SIZE_BYTES` and `HF_XET_SHARD_CACHE_SIZE_LIMIT` environment variables. 
 
 These caches are used primarily to facilitate the reconstruction (download) or upload of a file. To interact with the assets themselves, it’s recommended that you use the [`huggingface_hub` cache system APIs](https://huggingface.co/docs/huggingface_hub/guides/manage-cache).
 
