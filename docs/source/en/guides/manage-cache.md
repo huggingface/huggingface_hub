@@ -187,7 +187,7 @@ The `xet` directory, located at `~/.cache/huggingface/xet` by default, contains 
 │  │  ├─ staging
 ```
 
-The `environment_identifier` directory is encoded string (it may appear on your machine as `https___cas_serv-tGqkUaZf_CBPHQ6h`). This is used during development allowing for local and production versions of the cache to exist alongside each other simultaneously. It is also used when downloading from repositories that reside in different [storage regions](https://huggingface.co/docs/hub/storage-regions). You may see multiple such entries in the `xet` directory, each corresponding to a different environment, but their internal structure is the same. 
+The `environment_identifier` directory is an encoded string (it may appear on your machine as `https___cas_serv-tGqkUaZf_CBPHQ6h`). This is used during development allowing for local and production versions of the cache to exist alongside each other simultaneously. It is also used when downloading from repositories that reside in different [storage regions](https://huggingface.co/docs/hub/storage-regions). You may see multiple such entries in the `xet` directory, each corresponding to a different environment, but their internal structure is the same. 
 
 The internal directories serve the following purposes:
 * `chunk-cache` contains cached data chunks that are used to speed up downloads.
@@ -265,7 +265,7 @@ Meanwhile, `shard-session` stores file and chunk information for processed files
 
 ### Limits and Limitations
 
-The `chunk_cache` is limited to 10GiB in size while the `shard_cache` has a soft limit of 4GiB.  By design, both caches are without high-level APIs, although their size is configurable through the `HF_XET_CHUNK_CACHE_SIZE_BYTES` and `HF_XET_SHARD_CACHE_SIZE_LIMIT` environment variables. 
+The `chunk_cache` is limited to 10GB in size while the `shard_cache` has a soft limit of 4GB.  By design, both caches are without high-level APIs, although their size is configurable through the `HF_XET_CHUNK_CACHE_SIZE_BYTES` and `HF_XET_SHARD_CACHE_SIZE_LIMIT` environment variables. 
 
 These caches are used primarily to facilitate the reconstruction (download) or upload of a file. To interact with the assets themselves, it’s recommended that you use the [`huggingface_hub` cache system APIs](https://huggingface.co/docs/huggingface_hub/guides/manage-cache).
 
