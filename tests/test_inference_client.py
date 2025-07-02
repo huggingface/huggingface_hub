@@ -47,7 +47,11 @@ from huggingface_hub import (
 )
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
 from huggingface_hub.inference._client import _open_as_binary
-from huggingface_hub.inference._common import _stream_chat_completion_response, _stream_text_generation_response
+from huggingface_hub.inference._common import (
+    _as_url,
+    _stream_chat_completion_response,
+    _stream_text_generation_response,
+)
 from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.inference._providers.hf_inference import _build_chat_completion_url
 
@@ -1163,3 +1167,28 @@ def test_chat_completion_url_resolution(
         assert request_params.url == expected_request_url
         assert request_params.json is not None
         assert request_params.json.get("model") == expected_payload_model
+
+
+@pytest.mark.parametrize(
+    "content_input, default_mime_type, expected, is_exact_match",
+    [
+        ("https://my-url.com/cat.gif", "image/jpeg", "https://my-url.com/cat.gif", True),
+        ("assets/image.png", "image/jpeg", "data:image/png;base64,", False),
+        (Path("assets/image.png"), "image/jpeg", "data:image/png;base64,", False),
+        ("assets/image.foo", "image/jpeg", "data:image/jpeg;base64,", False),
+        (b"some image bytes", "image/jpeg", "data:image/jpeg;base64,c29tZSBpbWFnZSBieXRlcw==", True),
+        (io.BytesIO(b"some image bytes"), "image/jpeg", "data:image/jpeg;base64,c29tZSBpbWFnZSBieXRlcw==", True),
+    ],
+)
+def test_as_url(content_input, default_mime_type, expected, is_exact_match, tmp_path: Path):
+    if isinstance(content_input, (str, Path)) and not str(content_input).startswith("http"):
+        file_path = tmp_path / content_input
+        file_path.parent.mkdir(exist_ok=True, parents=True)
+        file_path.touch()
+        content_input = file_path
+
+    result = _as_url(content_input, default_mime_type)
+    if is_exact_match:
+        assert result == expected
+    else:
+        assert result.startswith(expected)

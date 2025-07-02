@@ -1914,113 +1914,23 @@ class AsyncInferenceClient:
         return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
-    async def text_generation(  # type: ignore
+    async def text_generation(
         self,
         prompt: str,
         *,
-        details: Literal[False] = ...,
-        stream: Literal[False] = ...,
+        details: Literal[True],
+        stream: Literal[True],
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
-        seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
-    ) -> str: ...
-
-    @overload
-    async def text_generation(  # type: ignore
-        self,
-        prompt: str,
-        *,
-        details: Literal[True] = ...,
-        stream: Literal[False] = ...,
-        model: Optional[str] = None,
-        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
-        seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
-    ) -> TextGenerationOutput: ...
-
-    @overload
-    async def text_generation(  # type: ignore
-        self,
-        prompt: str,
-        *,
-        details: Literal[False] = ...,
-        stream: Literal[True] = ...,
-        model: Optional[str] = None,
-        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
-        seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
-    ) -> AsyncIterable[str]: ...
-
-    @overload
-    async def text_generation(  # type: ignore
-        self,
-        prompt: str,
-        *,
-        details: Literal[True] = ...,
-        stream: Literal[True] = ...,
-        model: Optional[str] = None,
-        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -2038,19 +1948,19 @@ class AsyncInferenceClient:
         self,
         prompt: str,
         *,
-        details: Literal[True] = ...,
-        stream: bool = ...,
+        details: Literal[True],
+        stream: Optional[Literal[False]] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -2061,25 +1971,115 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> Union[TextGenerationOutput, AsyncIterable[TextGenerationStreamOutput]]: ...
+    ) -> TextGenerationOutput: ...
 
+    @overload
     async def text_generation(
         self,
         prompt: str,
         *,
-        details: bool = False,
-        stream: bool = False,
+        details: Optional[Literal[False]] = None,
+        stream: Literal[True],
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,  # Manual default value
+        seed: Optional[int] = None,
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: Optional[bool] = None,
+    ) -> AsyncIterable[str]: ...
+
+    @overload
+    async def text_generation(
+        self,
+        prompt: str,
+        *,
+        details: Optional[Literal[False]] = None,
+        stream: Optional[Literal[False]] = None,
+        model: Optional[str] = None,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
+        best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = None,
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: Optional[bool] = None,
+        seed: Optional[int] = None,
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: Optional[bool] = None,
+    ) -> str: ...
+
+    @overload
+    async def text_generation(
+        self,
+        prompt: str,
+        *,
+        details: Optional[bool] = None,
+        stream: Optional[bool] = None,
+        model: Optional[str] = None,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
+        best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = None,
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: Optional[bool] = None,
+        seed: Optional[int] = None,
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: Optional[bool] = None,
+    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]: ...
+
+    async def text_generation(
+        self,
+        prompt: str,
+        *,
+        details: Optional[bool] = None,
+        stream: Optional[bool] = None,
+        model: Optional[str] = None,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
+        best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = None,
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -2157,7 +2157,7 @@ class AsyncInferenceClient:
             typical_p (`float`, *optional`):
                 Typical Decoding mass
                 See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666) for more information
-            watermark (`bool`, *optional`):
+            watermark (`bool`, *optional*):
                 Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
 
         Returns:
@@ -2308,7 +2308,7 @@ class AsyncInferenceClient:
             "repetition_penalty": repetition_penalty,
             "return_full_text": return_full_text,
             "seed": seed,
-            "stop": stop if stop is not None else [],
+            "stop": stop,
             "temperature": temperature,
             "top_k": top_k,
             "top_n_tokens": top_n_tokens,
@@ -2362,7 +2362,7 @@ class AsyncInferenceClient:
 
         # Handle errors separately for more precise error messages
         try:
-            bytes_output = await self._inner_post(request_parameters, stream=stream)
+            bytes_output = await self._inner_post(request_parameters, stream=stream or False)
         except _import_aiohttp().ClientResponseError as e:
             match = MODEL_KWARGS_NOT_USED_REGEX.search(e.response_error_payload["error"])
             if e.status == 400 and match:
