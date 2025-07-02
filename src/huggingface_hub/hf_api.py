@@ -1059,7 +1059,6 @@ class SpaceInfo:
     """
     Contains information about a Space on the Hub. This object is returned by [`space_info`] and [`list_spaces`]. 
 
-
     <Tip>
 
     Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
