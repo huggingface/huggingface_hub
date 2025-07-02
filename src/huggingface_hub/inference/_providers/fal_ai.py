@@ -1,13 +1,12 @@
 import base64
 import time
 from abc import ABC
-from pathlib import Path
-from typing import Any, BinaryIO, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 from urllib.parse import urlparse
 
 from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
-from huggingface_hub.inference._common import RequestParameters, _as_dict
+from huggingface_hub.inference._common import RequestParameters, _as_dict, _as_url
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
 from huggingface_hub.utils import get_session, hf_raise_for_status
 from huggingface_hub.utils.logging import get_logger
@@ -191,23 +190,7 @@ class FalAIImageToImageTask(FalAIQueueTask):
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
-        if isinstance(inputs, str) and inputs.startswith(("http://", "https://")):
-            image_url = inputs
-        else:
-            image_bytes: bytes
-            if isinstance(inputs, (str, Path)):
-                with open(inputs, "rb") as f:
-                    image_bytes = f.read()
-            elif isinstance(inputs, bytes):
-                image_bytes = inputs
-            elif isinstance(inputs, BinaryIO):
-                image_bytes = inputs.read()
-            else:
-                raise TypeError(f"Unsupported input type for image: {type(inputs)}")
-
-            image_b64 = base64.b64encode(image_bytes).decode()
-            content_type = "image/png"
-            image_url = f"data:{content_type};base64,{image_b64}"
+        image_url = _as_url(inputs, default_mime_type="image/jpeg")
         payload: Dict[str, Any] = {
             "image_url": image_url,
             **filter_none(parameters),

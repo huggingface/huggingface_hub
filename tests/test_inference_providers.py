@@ -425,7 +425,7 @@ class TestFalAIProvider:
             b"dummy_image_data", {"prompt": "replace the cat with a dog"}, mapping_info
         )
         assert payload == {
-            "image_url": f"data:image/png;base64,{base64.b64encode(b'dummy_image_data').decode()}",
+            "image_url": f"data:image/jpeg;base64,{base64.b64encode(b'dummy_image_data').decode()}",
             "prompt": "replace the cat with a dog",
         }
 
