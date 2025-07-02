@@ -203,7 +203,7 @@ def _as_url(content: ContentT, default_mime_type: str) -> str:
         return content
 
     mime_type = (
-        mimetypes.guess_type(content, strict=True)[0]
+        mimetypes.guess_type(content, strict=False)[0]
         if isinstance(content, (str, Path))
         else None
     ) or default_mime_type
