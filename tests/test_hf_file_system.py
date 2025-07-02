@@ -66,13 +66,13 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertEqual(root_dir["type"], "directory")
         self.assertEqual(root_dir["size"], 0)
         self.assertTrue(root_dir["name"].endswith(self.repo_id))
-        self.assertIsNotNone(root_dir["last_commit"])
+        self.assertIsNone(root_dir["last_commit"])
 
         data_dir = self.hffs.info(self.hf_path + "/data")
         self.assertEqual(data_dir["type"], "directory")
         self.assertEqual(data_dir["size"], 0)
         self.assertTrue(data_dir["name"].endswith("/data"))
-        self.assertIsNotNone(data_dir["last_commit"])
+        self.assertIsNone(data_dir["last_commit"])
         self.assertIsNotNone(data_dir["tree_id"])
 
         text_data_file = self.hffs.info(self.text_file)
@@ -80,7 +80,7 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertGreater(text_data_file["size"], 0)  # not empty
         self.assertTrue(text_data_file["name"].endswith("/data/text_data.txt"))
         self.assertIsNone(text_data_file["lfs"])
-        self.assertIsNotNone(text_data_file["last_commit"])
+        self.assertIsNone(text_data_file["last_commit"])
         self.assertIsNotNone(text_data_file["blob_id"])
         self.assertIn("security", text_data_file)  # the staging endpoint does not run security checks
 
