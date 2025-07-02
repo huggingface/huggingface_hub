@@ -946,6 +946,12 @@ class DatasetInfo:
     In general, the more specific the query, the more information is returned. On the contrary, when listing datasets
     using [`list_datasets`] only a subset of the attributes are returned.
 
+    The DatasetInfo for a dataset on the hub can be easily obtained with:
+    ```py
+    >>> from huggingface_hub import dataset_info
+    >>> dataset_info("HuggingFaceM4/Docmatix").card_data["dataset_info"]
+    [{'config_name': 'images', 'features': [{'name': 'images', 'sequence': 'image'}, ...
+    ```
     </Tip>
 
     Attributes:
