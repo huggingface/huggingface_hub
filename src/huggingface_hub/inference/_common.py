@@ -61,7 +61,7 @@ if TYPE_CHECKING:
 UrlT = str
 PathT = Union[str, Path]
 BinaryT = Union[bytes, BinaryIO]
-ContentT = Union[BinaryT, PathT, UrlT]
+ContentT = Union[BinaryT, PathT, UrlT, "Image"]
 
 # Use to set a Accept: image/png header
 TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
@@ -164,7 +164,6 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
 
     Do nothing if `content` is None,
 
-    TODO: handle a PIL.Image as input
     TODO: handle base64 as input
     """
     # If content is a string => must be either a URL or a path
@@ -185,6 +184,12 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
         logger.debug(f"Opening content from {content}")
         with content.open("rb") as f:
             yield f
+    elif hasattr(content, "save"):  # PIL Image
+        logger.debug("Converting PIL Image to bytes")
+        buffer = io.BytesIO()
+        content.save(buffer, format="PNG")
+        buffer.seek(0)
+        yield buffer
     else:
         # Otherwise: already a file-like object or None
         yield content
