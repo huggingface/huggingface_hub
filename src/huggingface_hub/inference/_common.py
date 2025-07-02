@@ -202,10 +202,11 @@ def _as_url(content: ContentT, default_mime_type: str) -> str:
     if isinstance(content, str) and (content.startswith("https://") or content.startswith("http://")):
         return content
 
-    mime_type: Optional[str] = None
-    if isinstance(content, (str, Path)):
-        mime_type, _ = mimetypes.guess_type(str(content))
-    final_mime_type = mime_type or default_mime_type
+    mime_type = (
+        mimetypes.guess_type(content, strict=True)[0]
+        if isinstance(content, (str, Path))
+        else None
+    ) or default_mime_type
     encoded_data = _b64_encode(content)
     return f"data:{final_mime_type};base64,{encoded_data}"
 
