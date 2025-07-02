@@ -18,6 +18,7 @@ import base64
 import io
 import json
 import logging
+import mimetypes
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -195,6 +196,17 @@ def _b64_encode(content: ContentT) -> str:
     with _open_as_binary(content) as data:
         data_as_bytes = data if isinstance(data, bytes) else data.read()
         return base64.b64encode(data_as_bytes).decode()
+
+
+def _as_url(content: ContentT, default_mime_type: str) -> str:
+    if isinstance(content, str) and (content.startswith("https://") or content.startswith("http://")):
+        return content
+
+    mime_type = (
+        mimetypes.guess_type(content, strict=False)[0] if isinstance(content, (str, Path)) else None
+    ) or default_mime_type
+    encoded_data = _b64_encode(content)
+    return f"data:{mime_type};base64,{encoded_data}"
 
 
 def _b64_to_image(encoded_image: str) -> "Image":
