@@ -739,7 +739,7 @@ class InferenceProviderMapping:
 @dataclass
 class ModelInfo:
     """
-    Contains information about a model on the Hub.
+    Contains information about a model on the Hub. This object is returned by [`model_info`] and [`list_models`]. 
 
     <Tip>
 
@@ -938,14 +938,14 @@ class ModelInfo:
 @dataclass
 class DatasetInfo:
     """
-    Contains information about a dataset on the Hub.
+    Contains information about a dataset on the Hub. This object is returned by [`dataset_info`] and [`list_datasets`]. 
 
     <Tip>
 
     Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
-    This object is returned by [`dataset_info`] and [`list_datasets`]. 
     In general, the more specific the query,the more information is returned. On the contrary, when listing datasets
     using [`list_datasets`] only a subset of the attributes are returned.
+    
     </Tip>
 
     Attributes:
@@ -1057,7 +1057,8 @@ class DatasetInfo:
 @dataclass
 class SpaceInfo:
     """
-    Contains information about a Space on the Hub.
+    Contains information about a Space on the Hub. This object is returned by [`space_info`] and [`list_spaces`]. 
+
 
     <Tip>
 
