@@ -943,9 +943,9 @@ class DatasetInfo:
     <Tip>
 
     Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
-    In general, the more specific the query,the more information is returned. On the contrary, when listing datasets
+    In general, the more specific the query, the more information is returned. On the contrary, when listing datasets
     using [`list_datasets`] only a subset of the attributes are returned.
-    
+
     </Tip>
 
     Attributes:
