@@ -14,8 +14,7 @@ do all these things with Python.
 Read the [quick start guide](quick-start) to get up and running with the
 `huggingface_hub` library. You will learn how to download files from the Hub, create a
 repository, and upload files to the Hub. Keep reading to learn more about how to manage
-your repositories on the 🤗 Hub, how to interact in discussions or even how to access
-the Inference API.
+your repositories on the 🤗 Hub, how to interact in discussions or even how to run inference.
 
 <div class="mt-10">
   <div class="w-full flex flex-col space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-y-4 md:gap-x-5">

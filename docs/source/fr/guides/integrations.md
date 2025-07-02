@@ -10,12 +10,11 @@ Des [dizaines de librairies](https://huggingface.co/docs/hub/models-libraries) s
 Il existe quatre façons principales d'intégrer une bibliothèque au Hub :
 1. **Push to Hub**  implémente une méthode pour upload un modèle sur le Hub. Cela inclut les paramètres du modèle, sa fiche descriptive (appelée [Model Card](https://huggingface.co/docs/huggingface_hub/how-to-model-cards)) et toute autre information pertinente liée au modèle (par exemple, les logs d'entraînement). Cette méthode est souvent appelée `push_to_hub()`.
 2. **Download from Hub** implémente une méthode pour charger un modèle depuis le Hub. La méthode doit télécharger la configuration et les poids du modèle puis instancier celui-ci. Cette méthode est souvent appelée `from_pretrained` ou `load_from_hub()`.
-3. **Inference API** utilise nos serveurs pour faire de l'inférence gratuitement sur des modèles supportés par votre librairie.
-4. **Widgets** affiche un widget sur la page d'accueil de votre modèle dans le Hub. Les widgets permettent aux utilisateurs de rapidement tester un modèle depuis le navigateur.
+3. **Widgets** affiche un widget sur la page d'accueil de votre modèle dans le Hub. Les widgets permettent aux utilisateurs de rapidement tester un modèle depuis le navigateur.
 
 Dans ce guide, nous nous concentrerons sur les deux premiers sujets. Nous présenterons les deux approches principales que vous pouvez utiliser pour intégrer une librairie, avec leurs avantages et leurs inconvénients. Tout est résumé à la fin du guide pour vous aider à choisir entre les deux. Veuillez garder à l'esprit que ce ne sont que des conseils, et vous êtes libres de les adapter à votre cas d'usage.
 
-Si l'Inference API et les Widgets vous intéressent, vous pouvez suivre [ce guide](https://huggingface.co/docs/hub/models-adding-libraries#set-up-the-inference-api). Dans les deux cas, vous pouvez nous contacter si vous intégrez une librairie au Hub et que vous voulez être listé [dans la documentation officielle](https://huggingface.co/docs/hub/models-libraries).
+Si les Widgets vous intéressent, vous pouvez suivre [ce guide](https://huggingface.co/docs/hub/models-adding-libraries#set-up-the-inference-api). Dans les deux cas, vous pouvez nous contacter si vous intégrez une librairie au Hub et que vous voulez être listé [dans la documentation officielle](https://huggingface.co/docs/hub/models-libraries).
 
 ## Une approche flexible: les helpers
 
