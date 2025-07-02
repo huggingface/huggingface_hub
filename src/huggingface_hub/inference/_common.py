@@ -203,12 +203,10 @@ def _as_url(content: ContentT, default_mime_type: str) -> str:
         return content
 
     mime_type = (
-        mimetypes.guess_type(content, strict=False)[0]
-        if isinstance(content, (str, Path))
-        else None
+        mimetypes.guess_type(content, strict=False)[0] if isinstance(content, (str, Path)) else None
     ) or default_mime_type
     encoded_data = _b64_encode(content)
-    return f"data:{final_mime_type};base64,{encoded_data}"
+    return f"data:{mime_type};base64,{encoded_data}"
 
 
 def _b64_to_image(encoded_image: str) -> "Image":
