@@ -197,4 +197,4 @@ Hub, we recommend reading our [how-to guides](./guides/overview) to:
 - [Download](./guides/download) files from the Hub.
 - [Upload](./guides/upload) files to the Hub.
 - [Search the Hub](./guides/search) for your desired model or dataset.
-- [Run Inference](./guides/inference) for fast inference.
+- [Run Inference](./guides/inference) across multiple services for models hosted on the Hugging Face Hub.
