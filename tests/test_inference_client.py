@@ -1040,6 +1040,10 @@ LOCAL_TGI_URL = "http://0.0.0.0:8080"
             f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
         ),
         (
+            f"{INFERENCE_ENDPOINT_URL}/chat/completions?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/chat/completions?api-version=1",
+        ),
+        (
             f"{INFERENCE_ENDPOINT_URL}?api-version=1",
             f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
         ),
