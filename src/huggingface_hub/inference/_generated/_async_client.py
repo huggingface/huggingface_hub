@@ -1447,8 +1447,8 @@ class AsyncInferenceClient:
         </Tip>
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The image to detect objects on. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The image to detect objects on. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for object detection. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for object detection (DETR) will be used.
@@ -3035,8 +3035,8 @@ class AsyncInferenceClient:
         Answering open-ended questions based on an image.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image for the context. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image for the context. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             question (`str`):
                 Question to be answered.
             model (`str`, *optional*):
@@ -3205,8 +3205,8 @@ class AsyncInferenceClient:
         Provide input image and text labels to predict text labels for the image.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image to caption. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             candidate_labels (`List[str]`):
                 The candidate labels for this image
             labels (`List[str]`, *optional*):

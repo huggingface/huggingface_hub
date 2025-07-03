@@ -176,15 +176,16 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
     # If content is a PIL Image => convert to bytes
     if is_pillow_available():
         from PIL import Image
+
         if isinstance(content, Image.Image):
             logger.debug("Converting PIL Image to bytes")
             buffer = io.BytesIO()
             # Default to JPEG format for compatibility
-            format = getattr(content, 'format', None) or 'JPEG'
+            format = getattr(content, "format", None) or "JPEG"
             content.save(buffer, format=format)
             yield buffer.getvalue()
             return
-    
+
     # If content is a string => must be either a URL or a path
     if isinstance(content, str):
         if content.startswith("https://") or content.startswith("http://"):
@@ -225,14 +226,15 @@ def _as_url(content: ContentT, default_mime_type: str) -> str:
         mime_type = mimetypes.guess_type(content, strict=False)[0]
     elif is_pillow_available():
         from PIL import Image
+
         if isinstance(content, Image.Image):
             # Determine MIME type from PIL Image format
-            format = getattr(content, 'format', None)
+            format = getattr(content, "format", None)
             if format:
                 mime_type = f"image/{format.lower()}"
             else:
                 mime_type = "image/jpeg"  # Default fallback
-    
+
     mime_type = mime_type or default_mime_type
     encoded_data = _b64_encode(content)
     return f"data:{mime_type};base64,{encoded_data}"
