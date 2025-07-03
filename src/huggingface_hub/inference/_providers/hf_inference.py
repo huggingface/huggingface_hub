@@ -133,7 +133,6 @@ def _build_chat_completion_url(model_url: str) -> str:
     if path.endswith("/chat/completions"):
         return model_url
 
-
     # Append /chat/completions if not already present
     if path.endswith("/v1"):
         new_path = path + "/chat/completions"
