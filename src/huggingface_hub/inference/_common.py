@@ -194,7 +194,7 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
         if isinstance(content, Image.Image):
             logger.debug("Converting PIL Image to bytes")
             buffer = io.BytesIO()
-            content.save(buffer, format="PNG")
+            content.save(buffer, format=content.format or "PNG")
             yield buffer.getvalue()
             return
 
@@ -221,9 +221,8 @@ def _as_url(content: ContentT, default_mime_type: str) -> str:
         from PIL import Image
 
         if isinstance(content, Image.Image):
-            # Determine MIME type from PIL Image format
-            format = getattr(content, "format", None)
-            mime_type = f"image/{format.lower()}" if format is not None else "image/jpeg"
+            # Determine MIME type from PIL Image format, in sync with `_open_as_binary`
+            mime_type = f"image/{(content.format or 'PNG').lower()}"
 
     mime_type = mime_type or default_mime_type
     encoded_data = _b64_encode(content)
