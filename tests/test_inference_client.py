@@ -1034,6 +1034,23 @@ LOCAL_TGI_URL = "http://0.0.0.0:8080"
             f"{LOCAL_TGI_URL}/v1",
             f"{LOCAL_TGI_URL}/v1/chat/completions",
         ),
+        # With query parameters
+        (
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+        ),
+        (
+            f"{INFERENCE_ENDPOINT_URL}?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+        ),
+        (
+            f"{INFERENCE_ENDPOINT_URL}/v1?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+        ),
+        (
+            f"{INFERENCE_ENDPOINT_URL}/?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+        ),
     ],
 )
 def test_resolve_chat_completion_url(model_url: str, expected_url: str):
