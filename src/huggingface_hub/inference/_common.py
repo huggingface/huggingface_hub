@@ -200,7 +200,7 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
 
 
     # Otherwise: already a file-like object or None
-    yield content
+    yield content  # type: ignore
 
 
 def _b64_encode(content: ContentT) -> str:
