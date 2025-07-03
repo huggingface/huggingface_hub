@@ -198,7 +198,6 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
             yield buffer.getvalue()
             return
 
-
     # Otherwise: already a file-like object or None
     yield content  # type: ignore
 
