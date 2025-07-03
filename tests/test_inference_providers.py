@@ -21,6 +21,7 @@ from huggingface_hub.inference._providers.cohere import CohereConversationalTask
 from huggingface_hub.inference._providers.fal_ai import (
     _POLLING_INTERVAL,
     FalAIAutomaticSpeechRecognitionTask,
+    FalAIImageToImageTask,
     FalAITextToImageTask,
     FalAITextToSpeechTask,
     FalAITextToVideoTask,
@@ -407,6 +408,73 @@ class TestFalAIProvider:
         )
         mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
         assert response == b"video_content"
+
+    def test_image_to_image_payload(self):
+        helper = FalAIImageToImageTask()
+        mapping_info = InferenceProviderMapping(
+            provider="fal-ai",
+            hf_model_id="stabilityai/sdxl-refiner-1.0",
+            providerId="fal-ai/sdxl-refiner",
+            task="image-to-image",
+            status="live",
+        )
+        payload = helper._prepare_payload_as_dict("https://example.com/image.png", {"prompt": "a cat"}, mapping_info)
+        assert payload == {"image_url": "https://example.com/image.png", "prompt": "a cat"}
+
+        payload = helper._prepare_payload_as_dict(
+            b"dummy_image_data", {"prompt": "replace the cat with a dog"}, mapping_info
+        )
+        assert payload == {
+            "image_url": f"data:image/jpeg;base64,{base64.b64encode(b'dummy_image_data').decode()}",
+            "prompt": "replace the cat with a dog",
+        }
+
+    def test_image_to_image_response(self, mocker):
+        helper = FalAIImageToImageTask()
+        mock_session = mocker.patch("huggingface_hub.inference._providers.fal_ai.get_session")
+        mock_sleep = mocker.patch("huggingface_hub.inference._providers.fal_ai.time.sleep")
+        mock_session.return_value.get.side_effect = [
+            # First call: status
+            mocker.Mock(json=lambda: {"status": "COMPLETED"}, headers={"Content-Type": "application/json"}),
+            # Second call: get result
+            mocker.Mock(json=lambda: {"images": [{"url": "image_url"}]}, headers={"Content-Type": "application/json"}),
+            # Third call: get image content
+            mocker.Mock(content=b"image_content"),
+        ]
+        api_key = helper._prepare_api_key("hf_token")
+        headers = helper._prepare_headers({}, api_key)
+        url = helper._prepare_url(api_key, "username/repo_name")
+
+        request_params = RequestParameters(
+            url=url,
+            headers=headers,
+            task="image-to-image",
+            model="username/repo_name",
+            data=None,
+            json=None,
+        )
+        response = helper.get_response(
+            b'{"request_id": "test_request_id", "status": "PROCESSING", "response_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id", "status_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id/status"}',
+            request_params,
+        )
+
+        # Verify the correct URLs were called
+        assert mock_session.return_value.get.call_count == 3
+        mock_session.return_value.get.assert_has_calls(
+            [
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id/status?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+                mocker.call("image_url"),
+            ]
+        )
+        mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
+        assert response == b"image_content"
 
 
 class TestFeatherlessAIProvider:
