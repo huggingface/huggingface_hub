@@ -127,23 +127,22 @@ class HFInferenceConversational(HFInferenceTask):
 
 def _build_chat_completion_url(model_url: str) -> str:
     parsed = urlparse(model_url)
-    path = parsed.path
+    path = parsed.path.rstrip("/")
 
     # If the path already ends with /chat/completions, we're done!
     if path.endswith("/chat/completions"):
         return model_url
 
-    path_stripped = path.rstrip("/")
 
     # Append /chat/completions if not already present
-    if path_stripped.endswith("/v1"):
-        new_path = path_stripped + "/chat/completions"
+    if path.endswith("/v1"):
+        new_path = path + "/chat/completions"
     # If path was empty or just "/", set the full path
-    elif not path_stripped:
+    elif not path:
         new_path = "/v1/chat/completions"
     # Append /v1/chat/completions if not already present
     else:
-        new_path = path_stripped + "/v1/chat/completions"
+        new_path = path + "/v1/chat/completions"
 
     # Reconstruct the URL with the new path and original query parameters.
     return urlunparse(parsed._replace(path=new_path))
