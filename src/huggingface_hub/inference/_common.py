@@ -198,13 +198,6 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
             yield buffer.getvalue()
             return
 
-    # Check if content is a PIL Image but PIL is not available
-    if TYPE_CHECKING:
-        # For type checking purposes, assert that content is not an Image at this point
-        assert not hasattr(content, "save"), "Image objects should be handled above"
-    elif hasattr(content, "save") and hasattr(content, "format"):
-        # Likely a PIL Image but PIL not available - this is an error condition
-        raise ImportError("PIL Image detected but Pillow is not available. Please install Pillow.")
 
     # Otherwise: already a file-like object or None
     yield content
