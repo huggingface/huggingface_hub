@@ -135,13 +135,13 @@ def _build_chat_completion_url(model_url: str) -> str:
 
     path_stripped = path.rstrip("/")
 
-    # If the path ends with /v1, just append /chat/completions.
+    # Append /chat/completions if not already present
     if path_stripped.endswith("/v1"):
         new_path = path_stripped + "/chat/completions"
     # If path was empty or just "/", set the full path
     elif not path_stripped:
         new_path = "/v1/chat/completions"
-    # Append the full /v1/chat/completions.
+    # Append /v1/chat/completions if not already present
     else:
         new_path = path_stripped + "/v1/chat/completions"
 
