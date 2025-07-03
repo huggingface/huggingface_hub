@@ -62,13 +62,7 @@ if TYPE_CHECKING:
 UrlT = str
 PathT = Union[str, Path]
 BinaryT = Union[bytes, BinaryIO]
-
-if TYPE_CHECKING:
-    # Include PIL Image in ContentT type for type checking
-    ContentT = Union[BinaryT, PathT, UrlT, "Image"]
-else:
-    # Runtime type that doesn't include PIL Image to avoid import issues
-    ContentT = Union[BinaryT, PathT, UrlT]
+ContentT = Union[BinaryT, PathT, UrlT, "Image"]
 
 # Use to set a Accept: image/png header
 TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
@@ -169,23 +163,10 @@ def _open_as_binary(
 def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT], None, None]:
     """Open `content` as a binary file, either from a URL, a local path, raw bytes, or a PIL Image.
 
-    Do nothing if `content` is None,
+    Do nothing if `content` is None.
 
     TODO: handle base64 as input
     """
-    # If content is a PIL Image => convert to bytes
-    if is_pillow_available():
-        from PIL import Image
-
-        if isinstance(content, Image.Image):
-            logger.debug("Converting PIL Image to bytes")
-            buffer = io.BytesIO()
-            # Default to JPEG format for compatibility
-            format = getattr(content, "format", None) or "JPEG"
-            content.save(buffer, format=format)
-            yield buffer.getvalue()
-            return
-
     # If content is a string => must be either a URL or a path
     if isinstance(content, str):
         if content.startswith("https://") or content.startswith("http://"):
@@ -204,9 +185,29 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
         logger.debug(f"Opening content from {content}")
         with content.open("rb") as f:
             yield f
-    else:
-        # Otherwise: already a file-like object or None
-        yield content
+        return
+
+    # If content is a PIL Image => convert to bytes
+    if is_pillow_available():
+        from PIL import Image
+
+        if isinstance(content, Image.Image):
+            logger.debug("Converting PIL Image to bytes")
+            buffer = io.BytesIO()
+            content.save(buffer, format="PNG")
+            yield buffer.getvalue()
+            return
+
+    # Check if content is a PIL Image but PIL is not available
+    if TYPE_CHECKING:
+        # For type checking purposes, assert that content is not an Image at this point
+        assert not hasattr(content, "save"), "Image objects should be handled above"
+    elif hasattr(content, "save") and hasattr(content, "format"):
+        # Likely a PIL Image but PIL not available - this is an error condition
+        raise ImportError("PIL Image detected but Pillow is not available. Please install Pillow.")
+
+    # Otherwise: already a file-like object or None
+    yield content
 
 
 def _b64_encode(content: ContentT) -> str:
@@ -230,10 +231,7 @@ def _as_url(content: ContentT, default_mime_type: str) -> str:
         if isinstance(content, Image.Image):
             # Determine MIME type from PIL Image format
             format = getattr(content, "format", None)
-            if format:
-                mime_type = f"image/{format.lower()}"
-            else:
-                mime_type = "image/jpeg"  # Default fallback
+            mime_type = f"image/{format.lower()}" if format is not None else "image/jpeg"
 
     mime_type = mime_type or default_mime_type
     encoded_data = _b64_encode(content)
