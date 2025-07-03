@@ -118,9 +118,7 @@ class AsyncInferenceClient:
             or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is
             automatically selected for the task.
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
-            arguments are mutually exclusive. If using `base_url` for chat completion, the `/chat/completions` suffix
-            path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
-            documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
+            arguments are mutually exclusive. If a URL is passed as `model` or `base_url` for chat completion, the `(/v1)/chat/completions` suffix path will be appended to the URL.
         provider (`str`, *optional*):
             Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"openai"`, `"replicate"`, "sambanova"` or `"together"`.
             Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
