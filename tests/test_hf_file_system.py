@@ -140,7 +140,7 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertTrue(
             files[keys[0]]["name"].endswith("/.gitattributes") and files[keys[1]]["name"].endswith("/data")
         )
-        self.assertIsNotNone(files[keys[0]]["last_commit"])
+        self.assertIsNone(files[keys[0]]["last_commit"])
 
     def test_url(self):
         self.assertEqual(
@@ -351,7 +351,9 @@ class HfFileSystemTests(unittest.TestCase):
         files = self.hffs.ls(self.hf_path, detail=True)
         self.assertEqual(len(files), 2)
         self.assertTrue(files[0]["name"].endswith("/data") and files[1]["name"].endswith("/.gitattributes"))
-        self.assertIsNone(self.hffs.dircache[self.hf_path][0]["last_commit"])  # no expand_info -> no last_commit in cache
+        self.assertIsNone(
+            self.hffs.dircache[self.hf_path][0]["last_commit"]
+        )  # no expand_info -> no last_commit in cache
 
         files = self.hffs.ls(self.hf_path, detail=True, expand_info=True)
         self.assertEqual(len(files), 2)
