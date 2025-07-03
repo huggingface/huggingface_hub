@@ -277,13 +277,13 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertEqual(files[0]["type"], "directory")
         self.assertEqual(files[0]["size"], 0)
         self.assertTrue(files[0]["name"].endswith("/data"))
-        self.assertIsNotNone(files[0]["last_commit"])
+        self.assertIsNone(files[0]["last_commit"])
         self.assertIsNotNone(files[0]["tree_id"])
 
         self.assertEqual(files[1]["type"], "file")
         self.assertGreater(files[1]["size"], 0)  # not empty
         self.assertTrue(files[1]["name"].endswith("/.gitattributes"))
-        self.assertIsNotNone(files[1]["last_commit"])
+        self.assertIsNone(files[1]["last_commit"])
         self.assertIsNotNone(files[1]["blob_id"])
         self.assertIn("security", files[1])  # the staging endpoint does not run security checks
 
@@ -298,7 +298,7 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertIn("sha256", files[0]["lfs"])
         self.assertIn("size", files[0]["lfs"])
         self.assertIn("pointer_size", files[0]["lfs"])
-        self.assertIsNotNone(files[0]["last_commit"])
+        self.assertIsNone(files[0]["last_commit"])
         self.assertIsNotNone(files[0]["blob_id"])
         self.assertIn("security", files[0])  # the staging endpoint does not run security checks
 
@@ -306,7 +306,7 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertGreater(files[1]["size"], 0)  # not empty
         self.assertTrue(files[1]["name"].endswith("/data/text_data.txt"))
         self.assertIsNone(files[1]["lfs"])
-        self.assertIsNotNone(files[1]["last_commit"])
+        self.assertIsNone(files[1]["last_commit"])
         self.assertIsNotNone(files[1]["blob_id"])
         self.assertIn("security", files[1])  # the staging endpoint does not run security checks
 
@@ -318,7 +318,7 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertGreater(files[0]["size"], 0)  # not empty
         self.assertTrue(files[0]["name"].endswith("/data/text_data.txt"))
         self.assertIsNone(files[0]["lfs"])
-        self.assertIsNotNone(files[0]["last_commit"])
+        self.assertIsNone(files[0]["last_commit"])
         self.assertIsNotNone(files[0]["blob_id"])
         self.assertIn("security", files[0])  # the staging endpoint does not run security checks
 
@@ -349,6 +349,11 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertIsNone(self.hffs.dircache[self.hf_path][0]["last_commit"])  # no detail -> no last_commit in cache
 
         files = self.hffs.ls(self.hf_path, detail=True)
+        self.assertEqual(len(files), 2)
+        self.assertTrue(files[0]["name"].endswith("/data") and files[1]["name"].endswith("/.gitattributes"))
+        self.assertIsNone(self.hffs.dircache[self.hf_path][0]["last_commit"])  # no expand_info -> no last_commit in cache
+
+        files = self.hffs.ls(self.hf_path, detail=True, expand_info=True)
         self.assertEqual(len(files), 2)
         self.assertTrue(files[0]["name"].endswith("/data") and files[1]["name"].endswith("/.gitattributes"))
         self.assertIsNotNone(self.hffs.dircache[self.hf_path][0]["last_commit"])

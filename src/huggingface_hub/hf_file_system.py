@@ -647,7 +647,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         Returns:
             `datetime`: Last commit date of the file.
         """
-        info = self.info(path, **kwargs)
+        info = self.info(path, expand_info=True, **kwargs)
         return info["last_commit"]["date"]
 
     def info(self, path: str, refresh: bool = False, revision: Optional[str] = None, **kwargs) -> Dict[str, Any]:
@@ -685,6 +685,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 "name": path,
                 "size": 0,
                 "type": "directory",
+                "last_commit": None,
             }
             if expand_info:
                 last_commit = self._api.list_repo_commits(
