@@ -367,7 +367,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         """
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
-        kwargs = {"expand_info": detail, **kwargs}
         try:
             out = self._ls_tree(path, refresh=refresh, revision=revision, **kwargs)
         except EntryNotFoundError:
@@ -386,7 +385,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         recursive: bool = False,
         refresh: bool = False,
         revision: Optional[str] = None,
-        expand_info: bool = True,
+        expand_info: bool = False,
     ):
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
@@ -497,8 +496,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         Returns:
             `Iterator[Tuple[str, List[str], List[str]]]`: An iterator of (path, list of directory names, list of file names) tuples.
         """
-        # Set expand_info=False by default to get a x10 speed boost
-        kwargs = {"expand_info": kwargs.get("detail", False), **kwargs}
         path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
         yield from super().walk(path, *args, **kwargs)
 
@@ -515,8 +512,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         Returns:
             `List[str]`: List of paths matching the pattern.
         """
-        # Set expand_info=False by default to get a x10 speed boost
-        kwargs = {"expand_info": kwargs.get("detail", False), **kwargs}
         path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
         return super().glob(path, **kwargs)
 
@@ -558,7 +553,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             )
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
-        kwargs = {"expand_info": detail, **kwargs}
         try:
             out = self._ls_tree(path, recursive=True, refresh=refresh, revision=resolved_path.revision, **kwargs)
         except EntryNotFoundError:
@@ -653,7 +647,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         Returns:
             `datetime`: Last commit date of the file.
         """
-        info = self.info(path, **kwargs)
+        info = self.info(path, **{**kwargs, "expand_info": True})
         return info["last_commit"]["date"]
 
     def info(self, path: str, refresh: bool = False, revision: Optional[str] = None, **kwargs) -> Dict[str, Any]:
@@ -683,7 +677,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         expand_info = kwargs.get(
-            "expand_info", True
+            "expand_info", False
         )  # don't expose it as a parameter in the public API to follow the spec
         if not resolved_path.path_in_repo:
             # Path is the root directory
@@ -691,6 +685,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 "name": path,
                 "size": 0,
                 "type": "directory",
+                "last_commit": None,
             }
             if expand_info:
                 last_commit = self._api.list_repo_commits(
@@ -708,7 +703,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             parent_path = self._parent(path)
             if not expand_info and parent_path not in self.dircache:
                 # Fill the cache with cheap call
-                self.ls(parent_path, expand_info=False)
+                self.ls(parent_path)
             if parent_path in self.dircache:
                 # Check if the path is in the cache
                 out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
@@ -779,7 +774,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             if kwargs.get("refresh", False):
                 self.invalidate_cache(path)
 
-            self.info(path, **{**kwargs, "expand_info": False})
+            self.info(path, **kwargs)
             return True
         except:  # noqa: E722
             return False
@@ -798,7 +793,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             `bool`: True if path is a directory, False otherwise.
         """
         try:
-            return self.info(path, expand_info=False)["type"] == "directory"
+            return self.info(path)["type"] == "directory"
         except OSError:
             return False
 
@@ -816,7 +811,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             `bool`: True if path is a file, False otherwise.
         """
         try:
-            return self.info(path, expand_info=False)["type"] == "file"
+            return self.info(path)["type"] == "file"
         except:  # noqa: E722
             return False
 
@@ -942,9 +937,6 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
             raise
-        # avoid an unnecessary .info() call with expensive expand_info=True to instantiate .details
-        if kwargs.get("mode", "rb") == "rb":
-            self.details = fs.info(self.resolved_path.unresolve(), expand_info=False)
         super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
         self.fs: HfFileSystem
 
