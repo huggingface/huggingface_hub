@@ -56,7 +56,7 @@ from huggingface_hub.inference._common import (
 from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.inference._providers.hf_inference import _build_chat_completion_url
 
-from .testing_utils import expect_deprecation, requires, with_production_testing
+from .testing_utils import expect_deprecation, with_production_testing
 
 
 # Avoid calling APIs in VCRed tests
