@@ -1154,8 +1154,8 @@ class InferenceClient:
         Perform image classification on the given image using the specified model.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The image to classify. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The image to classify. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for image classification. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
@@ -1212,8 +1212,8 @@ class InferenceClient:
         </Tip>
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The image to segment. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The image to segment. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for image segmentation. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for image segmentation will be used.
@@ -1284,8 +1284,8 @@ class InferenceClient:
         </Tip>
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image for translation. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image for translation. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             prompt (`str`, *optional*):
                 The text prompt to guide the image generation.
             negative_prompt (`str`, *optional*):
@@ -1347,8 +1347,8 @@ class InferenceClient:
         (OCR), Pix2Struct, etc). Please have a look to the model card to learn more about a model's specificities.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image to caption. It can be raw bytes, an image file, or a URL to an online image..
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
@@ -1398,8 +1398,8 @@ class InferenceClient:
         </Tip>
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The image to detect objects on. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The image to detect objects on. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for object detection. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for object detection (DETR) will be used.
@@ -2973,8 +2973,8 @@ class InferenceClient:
         Answering open-ended questions based on an image.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image for the context. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image for the context. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             question (`str`):
                 Question to be answered.
             model (`str`, *optional*):
@@ -3140,8 +3140,8 @@ class InferenceClient:
         Provide input image and text labels to predict text labels for the image.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image to caption. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             candidate_labels (`List[str]`):
                 The candidate labels for this image
             labels (`List[str]`, *optional*):

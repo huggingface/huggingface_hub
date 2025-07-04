@@ -62,7 +62,7 @@ if TYPE_CHECKING:
 UrlT = str
 PathT = Union[str, Path]
 BinaryT = Union[bytes, BinaryIO]
-ContentT = Union[BinaryT, PathT, UrlT]
+ContentT = Union[BinaryT, PathT, UrlT, "Image"]
 
 # Use to set a Accept: image/png header
 TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
@@ -161,11 +161,10 @@ def _open_as_binary(
 
 @contextmanager  # type: ignore
 def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT], None, None]:
-    """Open `content` as a binary file, either from a URL, a local path, or raw bytes.
+    """Open `content` as a binary file, either from a URL, a local path, raw bytes, or a PIL Image.
 
-    Do nothing if `content` is None,
+    Do nothing if `content` is None.
 
-    TODO: handle a PIL.Image as input
     TODO: handle base64 as input
     """
     # If content is a string => must be either a URL or a path
@@ -186,9 +185,21 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
         logger.debug(f"Opening content from {content}")
         with content.open("rb") as f:
             yield f
-    else:
-        # Otherwise: already a file-like object or None
-        yield content
+        return
+
+    # If content is a PIL Image => convert to bytes
+    if is_pillow_available():
+        from PIL import Image
+
+        if isinstance(content, Image.Image):
+            logger.debug("Converting PIL Image to bytes")
+            buffer = io.BytesIO()
+            content.save(buffer, format=content.format or "PNG")
+            yield buffer.getvalue()
+            return
+
+    # Otherwise: already a file-like object or None
+    yield content  # type: ignore
 
 
 def _b64_encode(content: ContentT) -> str:
@@ -202,9 +213,18 @@ def _as_url(content: ContentT, default_mime_type: str) -> str:
     if isinstance(content, str) and (content.startswith("https://") or content.startswith("http://")):
         return content
 
-    mime_type = (
-        mimetypes.guess_type(content, strict=False)[0] if isinstance(content, (str, Path)) else None
-    ) or default_mime_type
+    # Handle MIME type detection for different content types
+    mime_type = None
+    if isinstance(content, (str, Path)):
+        mime_type = mimetypes.guess_type(content, strict=False)[0]
+    elif is_pillow_available():
+        from PIL import Image
+
+        if isinstance(content, Image.Image):
+            # Determine MIME type from PIL Image format, in sync with `_open_as_binary`
+            mime_type = f"image/{(content.format or 'PNG').lower()}"
+
+    mime_type = mime_type or default_mime_type
     encoded_data = _b64_encode(content)
     return f"data:{mime_type};base64,{encoded_data}"
 
