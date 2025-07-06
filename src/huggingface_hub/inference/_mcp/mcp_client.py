@@ -154,6 +154,9 @@ class MCPClient:
         from mcp import ClientSession, StdioServerParameters
         from mcp import types as mcp_types
 
+        # Handle nested config
+        params = params['config'] if 'config' in params else params
+
         # Determine server type and create appropriate parameters
         if type == "stdio":
             # Handle stdio server
