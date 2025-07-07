@@ -16,21 +16,17 @@ DEFAULT_AGENT = {
     "servers": [
         {
             "type": "stdio",
-            "config": {
-                "command": "npx",
-                "args": [
-                    "-y",
-                    "@modelcontextprotocol/server-filesystem",
-                    str(Path.home() / ("Desktop" if sys.platform == "darwin" else "")),
-                ],
-            },
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                str(Path.home() / ("Desktop" if sys.platform == "darwin" else "")),
+            ],
         },
         {
             "type": "stdio",
-            "config": {
-                "command": "npx",
-                "args": ["@playwright/mcp@latest"],
-            },
+            "command": "npx",
+            "args": ["@playwright/mcp@latest"],
         },
     ],
 }
