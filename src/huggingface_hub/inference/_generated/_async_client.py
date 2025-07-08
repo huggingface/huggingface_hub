@@ -118,9 +118,7 @@ class AsyncInferenceClient:
             or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is
             automatically selected for the task.
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
-            arguments are mutually exclusive. If using `base_url` for chat completion, the `/chat/completions` suffix
-            path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
-            documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
+            arguments are mutually exclusive. If a URL is passed as `model` or `base_url` for chat completion, the `(/v1)/chat/completions` suffix path will be appended to the URL.
         provider (`str`, *optional*):
             Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"openai"`, `"replicate"`, "sambanova"` or `"together"`.
             Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
@@ -1199,8 +1197,8 @@ class AsyncInferenceClient:
         Perform image classification on the given image using the specified model.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The image to classify. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The image to classify. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for image classification. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
@@ -1258,8 +1256,8 @@ class AsyncInferenceClient:
         </Tip>
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The image to segment. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The image to segment. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for image segmentation. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for image segmentation will be used.
@@ -1331,8 +1329,8 @@ class AsyncInferenceClient:
         </Tip>
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image for translation. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image for translation. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             prompt (`str`, *optional*):
                 The text prompt to guide the image generation.
             negative_prompt (`str`, *optional*):
@@ -1384,6 +1382,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
+        response = provider_helper.get_response(response, request_parameters)
         return _bytes_to_image(response)
 
     async def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> ImageToTextOutput:
@@ -1394,8 +1393,8 @@ class AsyncInferenceClient:
         (OCR), Pix2Struct, etc). Please have a look to the model card to learn more about a model's specificities.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image to caption. It can be raw bytes, an image file, or a URL to an online image..
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
@@ -1446,8 +1445,8 @@ class AsyncInferenceClient:
         </Tip>
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The image to detect objects on. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The image to detect objects on. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for object detection. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for object detection (DETR) will be used.
@@ -1913,113 +1912,23 @@ class AsyncInferenceClient:
         return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
-    async def text_generation(  # type: ignore
+    async def text_generation(
         self,
         prompt: str,
         *,
-        details: Literal[False] = ...,
-        stream: Literal[False] = ...,
+        details: Literal[True],
+        stream: Literal[True],
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
-        seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
-    ) -> str: ...
-
-    @overload
-    async def text_generation(  # type: ignore
-        self,
-        prompt: str,
-        *,
-        details: Literal[True] = ...,
-        stream: Literal[False] = ...,
-        model: Optional[str] = None,
-        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
-        seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
-    ) -> TextGenerationOutput: ...
-
-    @overload
-    async def text_generation(  # type: ignore
-        self,
-        prompt: str,
-        *,
-        details: Literal[False] = ...,
-        stream: Literal[True] = ...,
-        model: Optional[str] = None,
-        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
-        seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
-    ) -> AsyncIterable[str]: ...
-
-    @overload
-    async def text_generation(  # type: ignore
-        self,
-        prompt: str,
-        *,
-        details: Literal[True] = ...,
-        stream: Literal[True] = ...,
-        model: Optional[str] = None,
-        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -2037,19 +1946,19 @@ class AsyncInferenceClient:
         self,
         prompt: str,
         *,
-        details: Literal[True] = ...,
-        stream: bool = ...,
+        details: Literal[True],
+        stream: Optional[Literal[False]] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -2060,25 +1969,115 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> Union[TextGenerationOutput, AsyncIterable[TextGenerationStreamOutput]]: ...
+    ) -> TextGenerationOutput: ...
 
+    @overload
     async def text_generation(
         self,
         prompt: str,
         *,
-        details: bool = False,
-        stream: bool = False,
+        details: Optional[Literal[False]] = None,
+        stream: Literal[True],
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,  # Manual default value
+        seed: Optional[int] = None,
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: Optional[bool] = None,
+    ) -> AsyncIterable[str]: ...
+
+    @overload
+    async def text_generation(
+        self,
+        prompt: str,
+        *,
+        details: Optional[Literal[False]] = None,
+        stream: Optional[Literal[False]] = None,
+        model: Optional[str] = None,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
+        best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = None,
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: Optional[bool] = None,
+        seed: Optional[int] = None,
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: Optional[bool] = None,
+    ) -> str: ...
+
+    @overload
+    async def text_generation(
+        self,
+        prompt: str,
+        *,
+        details: Optional[bool] = None,
+        stream: Optional[bool] = None,
+        model: Optional[str] = None,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
+        best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = None,
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: Optional[bool] = None,
+        seed: Optional[int] = None,
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: Optional[bool] = None,
+    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]: ...
+
+    async def text_generation(
+        self,
+        prompt: str,
+        *,
+        details: Optional[bool] = None,
+        stream: Optional[bool] = None,
+        model: Optional[str] = None,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
+        best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = None,
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
@@ -2156,7 +2155,7 @@ class AsyncInferenceClient:
             typical_p (`float`, *optional`):
                 Typical Decoding mass
                 See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666) for more information
-            watermark (`bool`, *optional`):
+            watermark (`bool`, *optional*):
                 Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
 
         Returns:
@@ -2307,7 +2306,7 @@ class AsyncInferenceClient:
             "repetition_penalty": repetition_penalty,
             "return_full_text": return_full_text,
             "seed": seed,
-            "stop": stop if stop is not None else [],
+            "stop": stop,
             "temperature": temperature,
             "top_k": top_k,
             "top_n_tokens": top_n_tokens,
@@ -2361,7 +2360,7 @@ class AsyncInferenceClient:
 
         # Handle errors separately for more precise error messages
         try:
-            bytes_output = await self._inner_post(request_parameters, stream=stream)
+            bytes_output = await self._inner_post(request_parameters, stream=stream or False)
         except _import_aiohttp().ClientResponseError as e:
             match = MODEL_KWARGS_NOT_USED_REGEX.search(e.response_error_payload["error"])
             if e.status == 400 and match:
@@ -3034,8 +3033,8 @@ class AsyncInferenceClient:
         Answering open-ended questions based on an image.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image for the context. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image for the context. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             question (`str`):
                 Question to be answered.
             model (`str`, *optional*):
@@ -3204,8 +3203,8 @@ class AsyncInferenceClient:
         Provide input image and text labels to predict text labels for the image.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image to caption. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             candidate_labels (`List[str]`):
                 The candidate labels for this image
             labels (`List[str]`, *optional*):

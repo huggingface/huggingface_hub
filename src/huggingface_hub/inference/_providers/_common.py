@@ -102,7 +102,7 @@ class TaskProviderHelper:
         # prepare payload (to customize in subclasses)
         payload = self._prepare_payload_as_dict(inputs, parameters, provider_mapping_info=provider_mapping_info)
         if payload is not None:
-            payload = recursive_merge(payload, extra_payload or {})
+            payload = recursive_merge(payload, filter_none(extra_payload or {}))
 
         # body data (to customize in subclasses)
         data = self._prepare_payload_as_bytes(inputs, parameters, provider_mapping_info, extra_payload)
@@ -271,7 +271,7 @@ class BaseTextGenerationTask(TaskProviderHelper):
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
-        return {"prompt": inputs, **filter_none(parameters), "model": provider_mapping_info.provider_id}
+        return filter_none({"prompt": inputs, **parameters, "model": provider_mapping_info.provider_id})
 
 
 @lru_cache(maxsize=None)

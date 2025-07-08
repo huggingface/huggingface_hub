@@ -15,8 +15,7 @@ There are four main ways to integrate a library with the Hub:
    or data necessary to run the model (for example, training logs). This method is often called `push_to_hub()`.
 2. **Download from Hub:** implement a method to load a model from the Hub. The method should download the model
    configuration/weights and load the model. This method is often called `from_pretrained` or `load_from_hub()`.
-3. **Inference API:** use our servers to run inference on models supported by your library for free.
-4. **Widgets:** display a widget on the landing page of your models on the Hub. It allows users to quickly try a model
+3. **Widgets:** display a widget on the landing page of your models on the Hub. It allows users to quickly try a model
    from the browser.
 
 In this guide, we will focus on the first two topics. We will present the two main approaches you can use to integrate

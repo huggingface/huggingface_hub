@@ -11,8 +11,7 @@ Es gibt vier Hauptwege, eine Bibliothek mit dem Hub zu integrieren:
    Dies beinhaltet das Modellgewicht sowie [die Modellkarte](https://huggingface.co/docs/huggingface_hub/how-to-model-cards) und alle anderen relevanten Informationen oder Daten, die für den Betrieb des Modells erforderlich sind (zum Beispiel Trainingsprotokolle). Diese Methode wird oft `push_to_hub()` genannt.
 2. **Download from Hub**: Implementieren Sie eine Methode, um ein Modell vom Hub zu laden.
    Die Methode sollte die Modellkonfiguration/-gewichte herunterladen und das Modell laden. Diese Methode wird oft `from_pretrained` oder `load_from_hub()` genannt.
-3. **Inference API**: Nutzen Sie unsere Server, um Inferenz auf von Ihrer Bibliothek unterstützten Modellen kostenlos auszuführen.
-4. **Widgets**: Zeigen Sie ein Widget auf der Landing Page Ihrer Modelle auf dem Hub an.
+3. **Widgets**: Zeigen Sie ein Widget auf der Landing Page Ihrer Modelle auf dem Hub an.
    Dies ermöglicht es Benutzern, ein Modell schnell aus dem Browser heraus auszuprobieren.
 
 In diesem Leitfaden konzentrieren wir uns auf die ersten beiden Themen. Wir werden die beiden Hauptansätze vorstellen, die Sie zur Integration einer Bibliothek verwenden können, mit ihren Vor- und Nachteilen. Am Ende des Leitfadens ist alles zusammengefasst, um Ihnen bei der Auswahl zwischen den beiden zu helfen. Bitte beachten Sie, dass dies nur Richtlinien sind, die Sie an Ihre Anforderungen anpassen können.

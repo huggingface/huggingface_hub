@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
 import io
 import json
 import os
@@ -47,7 +48,11 @@ from huggingface_hub import (
 )
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
 from huggingface_hub.inference._client import _open_as_binary
-from huggingface_hub.inference._common import _stream_chat_completion_response, _stream_text_generation_response
+from huggingface_hub.inference._common import (
+    _as_url,
+    _stream_chat_completion_response,
+    _stream_text_generation_response,
+)
 from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.inference._providers.hf_inference import _build_chat_completion_url
 
@@ -799,6 +804,15 @@ class TestOpenAsBinary:
         with _open_as_binary(content_bytes) as content:
             assert content == content_bytes
 
+    def test_open_as_binary_from_pil_image(self) -> None:
+        pil_image = Image.open(self.image_file)
+        with _open_as_binary(pil_image) as content:
+            assert isinstance(content, bytes)
+
+            buffer = io.BytesIO()
+            pil_image.save(buffer, format=pil_image.format or "PNG")
+            assert content == buffer.getvalue()
+
 
 class TestHeadersAndCookies(TestBase):
     def test_headers_and_cookies(self) -> None:
@@ -1030,6 +1044,27 @@ LOCAL_TGI_URL = "http://0.0.0.0:8080"
             f"{LOCAL_TGI_URL}/v1",
             f"{LOCAL_TGI_URL}/v1/chat/completions",
         ),
+        # With query parameters
+        (
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+        ),
+        (
+            f"{INFERENCE_ENDPOINT_URL}/chat/completions?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/chat/completions?api-version=1",
+        ),
+        (
+            f"{INFERENCE_ENDPOINT_URL}?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+        ),
+        (
+            f"{INFERENCE_ENDPOINT_URL}/v1?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+        ),
+        (
+            f"{INFERENCE_ENDPOINT_URL}/?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+        ),
     ],
 )
 def test_resolve_chat_completion_url(model_url: str, expected_url: str):
@@ -1163,3 +1198,46 @@ def test_chat_completion_url_resolution(
         assert request_params.url == expected_request_url
         assert request_params.json is not None
         assert request_params.json.get("model") == expected_payload_model
+
+
+@pytest.mark.parametrize(
+    "content_input, default_mime_type, expected, is_exact_match",
+    [
+        ("https://my-url.com/cat.gif", "image/jpeg", "https://my-url.com/cat.gif", True),
+        ("assets/image.png", "image/jpeg", "data:image/png;base64,", False),
+        (Path("assets/image.png"), "image/jpeg", "data:image/png;base64,", False),
+        ("assets/image.foo", "image/jpeg", "data:image/jpeg;base64,", False),
+        (b"some image bytes", "image/jpeg", "data:image/jpeg;base64,c29tZSBpbWFnZSBieXRlcw==", True),
+        (io.BytesIO(b"some image bytes"), "image/jpeg", "data:image/jpeg;base64,c29tZSBpbWFnZSBieXRlcw==", True),
+    ],
+)
+def test_as_url(content_input, default_mime_type, expected, is_exact_match, tmp_path: Path):
+    if isinstance(content_input, (str, Path)) and not str(content_input).startswith("http"):
+        file_path = tmp_path / content_input
+        file_path.parent.mkdir(exist_ok=True, parents=True)
+        file_path.touch()
+        content_input = file_path
+
+    result = _as_url(content_input, default_mime_type)
+    if is_exact_match:
+        assert result == expected
+    else:
+        assert result.startswith(expected)
+
+
+def test_as_url_with_pil_image(image_file: str):
+    """Test `_as_url` helper with a PIL Image."""
+    pil_image = Image.open(image_file)
+
+    pil_image.format = "PNG"
+    png_url = _as_url(pil_image, default_mime_type="image/jpeg")
+    assert png_url.startswith("data:image/png;base64,")
+
+    pil_image.format = None
+    png_url = _as_url(pil_image, default_mime_type="image/jpeg")
+    assert png_url.startswith("data:image/png;base64,")
+
+    buffer = io.BytesIO()
+    pil_image.save(buffer, format="PNG")
+    b64_encoded = base64.b64encode(buffer.getvalue()).decode()
+    assert png_url == f"data:image/png;base64,{b64_encoded}"

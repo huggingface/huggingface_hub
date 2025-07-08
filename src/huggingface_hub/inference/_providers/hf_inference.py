@@ -2,6 +2,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
+from urllib.parse import urlparse, urlunparse
 
 from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
@@ -59,7 +60,7 @@ class HFInferenceTask(TaskProviderHelper):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
         if isinstance(inputs, Path):
             raise ValueError(f"Unexpected path input for task {self.task} (got {inputs})")
-        return {"inputs": inputs, "parameters": filter_none(parameters)}
+        return filter_none({"inputs": inputs, "parameters": parameters})
 
 
 class HFInferenceBinaryInputTask(HFInferenceTask):
@@ -125,18 +126,25 @@ class HFInferenceConversational(HFInferenceTask):
 
 
 def _build_chat_completion_url(model_url: str) -> str:
-    # Strip trailing /
-    model_url = model_url.rstrip("/")
+    parsed = urlparse(model_url)
+    path = parsed.path.rstrip("/")
+
+    # If the path already ends with /chat/completions, we're done!
+    if path.endswith("/chat/completions"):
+        return model_url
 
     # Append /chat/completions if not already present
-    if model_url.endswith("/v1"):
-        model_url += "/chat/completions"
-
+    if path.endswith("/v1"):
+        new_path = path + "/chat/completions"
+    # If path was empty or just "/", set the full path
+    elif not path:
+        new_path = "/v1/chat/completions"
     # Append /v1/chat/completions if not already present
-    if not model_url.endswith("/chat/completions"):
-        model_url += "/v1/chat/completions"
+    else:
+        new_path = path + "/v1/chat/completions"
 
-    return model_url
+    # Reconstruct the URL with the new path and original query parameters.
+    return urlunparse(parsed._replace(path=new_path))
 
 
 @lru_cache(maxsize=1)
