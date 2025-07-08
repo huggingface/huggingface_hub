@@ -154,15 +154,11 @@ def get_hf_transfer_version() -> str:
 
 # xet
 def is_xet_available() -> bool:
-    if is_xet_disabled():
+    # since hf_xet is automatically used if available, allow explicit disabling via environment variable
+    if constants._is_true(os.environ.get("HF_HUB_DISABLE_XET")):  # type: ignore
         return False
 
     return is_package_available("hf_xet")
-
-
-def is_xet_disabled() -> bool:
-    # since hf_xet is automatically used if available, allow explicit disabling via environment variable
-    return constants._is_true(os.environ.get("HF_HUB_DISABLE_XET"))  # type: ignore
 
 
 def get_xet_version() -> str:

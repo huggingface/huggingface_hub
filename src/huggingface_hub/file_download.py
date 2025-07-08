@@ -62,7 +62,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils._http import _adjust_range_header, http_backoff
-from .utils._runtime import _PY_VERSION, is_xet_available, is_xet_disabled  # noqa: F401 # for backward compatibility
+from .utils._runtime import _PY_VERSION, is_xet_available  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
@@ -1718,7 +1718,7 @@ def _download_to_tmp_and_move(
                 displayed_filename=filename,
             )
         else:
-            if xet_file_data is not None and not is_xet_disabled():
+            if xet_file_data is not None and not constants._is_true(os.environ.get("HF_HUB_DISABLE_XET")):
                 logger.warning(
                     "Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. "
                     "Falling back to regular HTTP download. "
