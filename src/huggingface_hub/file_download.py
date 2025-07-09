@@ -1718,7 +1718,7 @@ def _download_to_tmp_and_move(
                 displayed_filename=filename,
             )
         else:
-            if xet_file_data is not None:
+            if xet_file_data is not None and not constants.HF_HUB_DISABLE_XET:
                 logger.warning(
                     "Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. "
                     "Falling back to regular HTTP download. "
