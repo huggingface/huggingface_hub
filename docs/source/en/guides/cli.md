@@ -607,7 +607,7 @@ Copy-and-paste the text below in your GitHub issue.
 
 ## huggingface-cli jobs
 
-Experimental. Run compute jobs on Hugging Face infrastructure with a familiar Docker-like interface.
+Run compute jobs on Hugging Face infrastructure with a familiar Docker-like interface.
 
 `huggingface-cli jobs` is a command-line tool that lets you run anything on Hugging Face's infrastructure (including GPUs and TPUs!) with simple commands. Think `docker run`, but for running code on A100s.
 
