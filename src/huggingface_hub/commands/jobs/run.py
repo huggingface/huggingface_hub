@@ -2,7 +2,7 @@ import io
 import json
 import time
 from argparse import Namespace, _SubParsersAction
-from typing import Optional
+from typing import Optional, Union
 
 import requests
 from dotenv import dotenv_values
@@ -60,12 +60,12 @@ class RunCommand(BaseHuggingfaceCLICommand):
 
     def __init__(self, args: Namespace) -> None:
         self.docker_image: str = args.dockerImage
-        self.environment: dict[str, str] = {}
+        self.environment: dict[str, Optional[str]] = {}
         for env_value in args.env or []:
             self.environment.update(dotenv_values(stream=io.StringIO(env_value)))
         if args.env_file:
             self.environment.update(dotenv_values(args.env_file))
-        self.secrets: dict[str, str] = {}
+        self.secrets: dict[str, Optional[str]] = {}
         for secret in args.secret or []:
             self.secrets.update(dotenv_values(stream=io.StringIO(secret)))
         if args.secret_env_file:
@@ -78,7 +78,7 @@ class RunCommand(BaseHuggingfaceCLICommand):
 
     def run(self) -> None:
         # prepare paypload to send to HF Jobs API
-        input_json = {
+        input_json: dict[str, Optional[Union[str, float, list[str], dict[str, Optional[str]]]]] = {
             "command": self.command,
             "arguments": [],
             "environment": self.environment,

@@ -21,6 +21,6 @@ def tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
     lines.append(row_format.format(*headers))
     lines.append(row_format.format(*["-" * w for w in col_widths]))
     for row in rows:
-        row = [x[: col_width - 3] + "..." if len(str(x)) > col_width else x for x, col_width in zip(row, col_widths)]
-        lines.append(row_format.format(*row))
+        row_format_args = [str(x)[: col_width - 3] + "..." if len(str(x)) > col_width else str(x) for x, col_width in zip(row, col_widths)]
+        lines.append(row_format.format(*row_format_args))
     return "\n".join(lines)
