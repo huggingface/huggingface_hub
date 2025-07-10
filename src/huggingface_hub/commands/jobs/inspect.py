@@ -26,7 +26,7 @@ class InspectCommand(BaseHuggingfaceCLICommand):
 
     def run(self) -> None:
         username = whoami(self.token)["name"]
-        headers = build_hf_headers(token=self.token, library_name="hfjobs")
+        headers = build_hf_headers(token=self.token)
         inspections = [
             requests.get(
                 f"https://huggingface.co/api/jobs/{username}/{job}",

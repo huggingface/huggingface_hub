@@ -25,7 +25,7 @@ class CancelCommand(BaseHuggingfaceCLICommand):
 
     def run(self) -> None:
         username = whoami(self.token)["name"]
-        headers = build_hf_headers(token=self.token, library_name="hfjobs")
+        headers = build_hf_headers(token=self.token)
         requests.post(
             f"https://huggingface.co/api/jobs/{username}/{self.job_id}/cancel",
             headers=headers,

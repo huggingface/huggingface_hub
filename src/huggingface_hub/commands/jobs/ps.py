@@ -65,7 +65,7 @@ class PsCommand(BaseHuggingfaceCLICommand):
             # Get current username
             username = whoami(self.token)["name"]
             # Build headers for API request
-            headers = build_hf_headers(token=self.token, library_name="hfjobs")
+            headers = build_hf_headers(token=self.token)
             # Fetch jobs data
             response = requests.get(
                 f"https://huggingface.co/api/jobs/{username}",

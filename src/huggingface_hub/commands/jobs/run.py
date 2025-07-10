@@ -103,7 +103,7 @@ class RunCommand(BaseHuggingfaceCLICommand):
         else:
             input_json["dockerImage"] = self.docker_image
         username = whoami(self.token)["name"]
-        headers = build_hf_headers(token=self.token, library_name="hfjobs")
+        headers = build_hf_headers(token=self.token)
         resp = requests.post(
             f"https://huggingface.co/api/jobs/{username}",
             json=input_json,

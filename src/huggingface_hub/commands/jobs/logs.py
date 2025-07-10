@@ -29,7 +29,7 @@ class LogsCommand(BaseHuggingfaceCLICommand):
 
     def run(self) -> None:
         username = whoami(self.token)["name"]
-        headers = build_hf_headers(token=self.token, library_name="hfjobs")
+        headers = build_hf_headers(token=self.token)
         requests.get(
             f"https://huggingface.co/api/jobs/{username}/{self.job_id}",
             headers=headers,
