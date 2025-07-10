@@ -20,6 +20,7 @@ install_requires = [
     "requests",
     "tqdm>=4.42.1",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
+    "dotenv",
 ]
 
 extras = {}
