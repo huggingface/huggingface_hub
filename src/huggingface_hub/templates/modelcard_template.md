@@ -7,6 +7,11 @@
 # Model Card for {{ model_id | default("Model ID", true) }}
 
 <!-- Provide a quick summary of what the model is/does. -->
+What can SwiftGenie do?
+🧞 Generate SwiftUI views and logic from a single sentence
+📂 Save the code into an organized project folder
+🧠 Use GPT-4 to build functional app components
+💬 Prompt you interactively via the terminal
 
 {{ model_summary | default("", true) }}
 
@@ -15,6 +20,11 @@
 ### Model Description
 
 <!-- Provide a longer summary of what this model is. -->
+Build SwiftUI apps with nothing but a sentence — powered by GPT-4.
+
+Ever had a killer app idea, but opening Xcode felt like staring into the sun? 🧠⚡️
+
+Meet SwiftGenie — a command-line sidekick that takes your idea and conjures up a SwiftUI app scaffold in seconds. Built with Node.js, OpenAI’s GPT-4, and a little VibeCode magic, it's designed for indie devs, startup dreamers, and code-tinkerers who just want to build cool stuff fast.
 
 {{ model_description | default("", true) }}
 
@@ -29,6 +39,7 @@
 ### Model Sources [optional]
 
 <!-- Provide the basic links for the model. -->
+https://github.com/Mattjhagen/SwiftGenieApps
 
 - **Repository:** {{ repo | default("[More Information Needed]", true)}}
 - **Paper [optional]:** {{ paper | default("[More Information Needed]", true)}}
@@ -38,6 +49,17 @@
 
 <!-- Address questions around how the model is intended to be used, including the foreseeable users of the model and those affected by the model. -->
 
+Why I built this
+I kept seeing friends and founders with amazing ideas struggle to get that first screen coded. The startup friction was killing the momentum. So I built a way to make app building feel as easy as dreaming out loud.
+
+SwiftGenie is here to bridge the gap between imagination and execution.
+
+🌍 Open Source & Ready
+Want to peek behind the curtain? You can find the source on GitHub and even contribute:
+
+👉 github.com/Mattjhagen/swiftgenie
+
+Made with faith and caffeine by Matty Hagen —
 ### Direct Use
 
 <!-- This section is for the model use without fine-tuning or plugging into a larger ecosystem/app. -->
