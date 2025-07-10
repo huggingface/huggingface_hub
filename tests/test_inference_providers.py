@@ -39,6 +39,7 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceTask,
 )
 from huggingface_hub.inference._providers.hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
+from huggingface_hub.inference._providers.hyperfusion import HyperfusionConversationalTask
 from huggingface_hub.inference._providers.nebius import NebiusFeatureExtractionTask, NebiusTextToImageTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
@@ -910,6 +911,10 @@ class TestHyperbolicProvider:
         response = helper.get_response({"images": [{"image": base64.b64encode(dummy_image).decode()}]})
         assert response == dummy_image
 
+class TestHyperfusionProvider:
+    def test_prepare_url(self):
+        helper = HyperfusionConversationalTask()
+        assert helper._prepare_url("sk-XXXXXX", "llm-en") == "https://api.hyperfusion.io/v1/chat/completions"
 
 class TestNebiusProvider:
     def test_prepare_route_text_to_image(self):
