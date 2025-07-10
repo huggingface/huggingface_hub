@@ -54,9 +54,7 @@ class PsCommand(BaseHuggingfaceCLICommand):
                 key, value = f.split("=", 1)
                 self.filters[key.lower()] = value
             else:
-                print(
-                    f"Warning: Ignoring invalid filter format '{f}'. Use key=value format."
-                )
+                print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
 
     def run(self) -> None:
         """
@@ -152,9 +150,7 @@ class PsCommand(BaseHuggingfaceCLICommand):
             if "*" in pattern or "?" in pattern:
                 # Convert glob pattern to regex
                 regex_pattern = pattern.replace("*", ".*").replace("?", ".")
-                if not re.search(
-                    f"^{regex_pattern}$", job_properties[key], re.IGNORECASE
-                ):
+                if not re.search(f"^{regex_pattern}$", job_properties[key], re.IGNORECASE):
                     return False
             # Simple substring matching
             elif pattern.lower() not in job_properties[key].lower():
@@ -169,9 +165,7 @@ class PsCommand(BaseHuggingfaceCLICommand):
             template = self.format
             for row in rows:
                 line = template
-                for i, field in enumerate(
-                    ["id", "image", "command", "created", "status"]
-                ):
+                for i, field in enumerate(["id", "image", "command", "created", "status"]):
                     placeholder = f"{{{{.{field}}}}}"
                     if placeholder in line:
                         line = line.replace(placeholder, str(row[i]))

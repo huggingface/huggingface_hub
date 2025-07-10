@@ -12,16 +12,11 @@ from .. import BaseHuggingfaceCLICommand
 
 
 class LogsCommand(BaseHuggingfaceCLICommand):
-
     @staticmethod
     def register_subcommand(parser: _SubParsersAction) -> None:
         run_parser = parser.add_parser("logs", help="Fetch the logs of a Job")
-        run_parser.add_argument(
-            "job_id", type=str, help="Job ID"
-        )
-        run_parser.add_argument(
-            "-t", "--timestamps", action="store_true", help="Show timestamps"
-        )
+        run_parser.add_argument("job_id", type=str, help="Job ID")
+        run_parser.add_argument("-t", "--timestamps", action="store_true", help="Show timestamps")
         run_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
         )
@@ -62,7 +57,7 @@ class LogsCommand(BaseHuggingfaceCLICommand):
                 for line in resp.iter_lines(chunk_size=1):
                     line = line.decode("utf-8")
                     if line and line.startswith("data: {"):
-                        data = json.loads(line[len("data: "):])
+                        data = json.loads(line[len("data: ") :])
                         # timestamp = data["timestamp"]
                         if not data["data"].startswith("===== Job started"):
                             logging_started = True

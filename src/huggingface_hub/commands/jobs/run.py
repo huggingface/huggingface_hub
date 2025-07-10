@@ -25,25 +25,14 @@ def _parse_timeout(timeout: Optional[str]) -> Optional[int]:
 
 
 class RunCommand(BaseHuggingfaceCLICommand):
-
     @staticmethod
     def register_subcommand(parser: _SubParsersAction) -> None:
         run_parser = parser.add_parser("run", help="Run a Job")
-        run_parser.add_argument(
-            "dockerImage", type=str, help="The Docker image to use."
-        )
-        run_parser.add_argument(
-            "-e", "--env", action="append", help="Set environment variables."
-        )
-        run_parser.add_argument(
-            "-s", "--secret", action="append", help="Set secret environment variables."
-        )
-        run_parser.add_argument(
-            "--env-file", type=str, help="Read in a file of environment variables."
-        )
-        run_parser.add_argument(
-            "--secret-env-file", type=str, help="Read in a file of secret environment variables."
-        )
+        run_parser.add_argument("dockerImage", type=str, help="The Docker image to use.")
+        run_parser.add_argument("-e", "--env", action="append", help="Set environment variables.")
+        run_parser.add_argument("-s", "--secret", action="append", help="Set secret environment variables.")
+        run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
+        run_parser.add_argument("--secret-env-file", type=str, help="Read in a file of secret environment variables.")
         run_parser.add_argument(
             "--flavor",
             type=str,
@@ -155,7 +144,7 @@ class RunCommand(BaseHuggingfaceCLICommand):
                 for line in resp.iter_lines(chunk_size=1):
                     line = line.decode("utf-8")
                     if line and line.startswith("data: {"):
-                        data = json.loads(line[len("data: "):])
+                        data = json.loads(line[len("data: ") :])
                         # timestamp = data["timestamp"]
                         if not data["data"].startswith("===== Job started"):
                             logging_started = True

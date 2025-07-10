@@ -11,16 +11,13 @@ from .. import BaseHuggingfaceCLICommand
 
 
 class InspectCommand(BaseHuggingfaceCLICommand):
-
     @staticmethod
     def register_subcommand(parser: _SubParsersAction) -> None:
         run_parser = parser.add_parser("inspect", help="Display detailed information on one or more Jobs")
         run_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
         )
-        run_parser.add_argument(
-            "jobs", nargs="...", help="The jobs to inspect"
-        )
+        run_parser.add_argument("jobs", nargs="...", help="The jobs to inspect")
         run_parser.set_defaults(func=InspectCommand)
 
     def __init__(self, args: Namespace) -> None:
