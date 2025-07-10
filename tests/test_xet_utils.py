@@ -288,5 +288,6 @@ def test_env_var_hf_hub_disable_xet() -> None:
     from huggingface_hub.utils._runtime import is_xet_available
 
     monkeypatch = MonkeyPatch()
-    monkeypatch.setenv("HF_HUB_DISABLE_XET", "1")
+    monkeypatch.setattr("huggingface_hub.constants.HF_HUB_DISABLE_XET", True)
+
     assert not is_xet_available()
