@@ -604,3 +604,124 @@ Copy-and-paste the text below in your GitHub issue.
 - HF_HUB_ETAG_TIMEOUT: 10
 - HF_HUB_DOWNLOAD_TIMEOUT: 10
 ```
+
+## huggingface-cli jobs
+
+Experimental. Run compute jobs on Hugging Face infrastructure with a familiar Docker-like interface.
+
+`huggingface-cli jobs` is a command-line tool that lets you run anything on Hugging Face's infrastructure (including GPUs and TPUs!) with simple commands. Think `docker run`, but for running code on A100s.
+
+```bash
+# Directly run Python code
+>>> huggingface-cli jobs run python:3.12 python -c "print('Hello from the cloud!')"
+
+# Use GPUs without any setup
+>>> huggingface-cli jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
+... python -c "import torch; print(torch.cuda.get_device_name())"
+
+# Run from Hugging Face Spaces
+>>> huggingface-cli jobs run hf.co/spaces/lhoestq/duckdb duckdb -c "select 'hello world'"
+```
+
+### ✨ Key Features
+
+- 🐳 **Docker-like CLI**: Familiar commands (`run`, `ps`, `logs`, `inspect`) to run and manage jobs
+- 🔥 **Any Hardware**: From CPUs to A100 GPUs and TPU pods - switch with a simple flag
+- 📦 **Run Anything**: Use Docker images, HF Spaces, or your custom containers
+- 🔐 **Simple Auth**: Just use your HF token
+- 📊 **Live Monitoring**: Stream logs in real-time, just like running locally
+- 💰 **Pay-as-you-go**: Only pay for the seconds you use
+
+### Prerequisites
+
+- A Hugging Face account (currently in testing for HF staff)
+- Authenticate with the Hugging Gace Hub (e.g. `huggingface-cli login`)
+
+
+### Quick Start
+
+#### 1. Run your first job
+
+```bash
+# Run a simple Python script
+>>> huggingface-cli jobs run python:3.12 python -c "print('Hello from HF compute!')"
+```
+
+This command runs the job and shows the logs. You can pass `--detach` to run the Job in the background and only print the Job ID.
+
+#### 2. Check job status
+
+```bash
+# List your running jobs
+>>> huggingface-cli jobs ps
+
+# Inspect the status of a job
+>>> huggingface-cli jobs inspect <job_id>
+
+# View logs from a job
+>>> huggingface-cli jobs logs <job_id>
+
+# Cancel a job
+>>> huggingface-cli jobs cancel <job_id>
+```
+
+#### 3. Run on GPU
+
+You can also run jobs on GPUs or TPUs with the `--flavor` option. For example, to run a PyTorch job on an A10G GPU:
+
+```bash
+# Use an A10G GPU to check PyTorch CUDA
+>>> huggingface-cli jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
+... python -c "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"
+```
+
+Running this will show the following output!
+
+```bash
+This code ran with the following GPU: NVIDIA A10G
+```
+
+That's it! You're now running code on Hugging Face's infrastructure. For more detailed information checkout the [Quickstart Guide](docs/quickstart.md).
+
+### Common Use Cases
+
+- **Model Training**: Fine-tune or train models on GPUs (T4, A10G, A100) without managing infrastructure
+- **Synthetic Data Generation**: Generate large-scale datasets using LLMs on powerful hardware
+- **Data Processing**: Process massive datasets with high-CPU configurations for parallel workloads
+- **Batch Inference**: Run offline inference on thousands of samples using optimized GPU setups
+- **Experiments & Benchmarks**: Run ML experiments on consistent hardware for reproducible results
+- **Development & Debugging**: Test GPU code without local CUDA setup
+
+### Pass Environment variables and Secrets
+
+You can pass environment variables to your job using 
+
+```bash
+# Pass environment variables
+>>> huggingface-cli jobs run -e FOO=foo -e BAR=bar python:3.12 python -c "import os; print(os.environ['FOO'], os.environ['BAR'])"
+```
+
+```bash
+# Pass an environment from a local .env file
+>>> huggingface-cli jobs run --env-file .env python:3.12 python -c "import os; print(os.environ['FOO'], os.environ['BAR'])"
+```
+
+```bash
+# Pass secrets - they will be encrypted server side
+>>> huggingface-cli jobs run -s MY_SECRET=psswrd python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
+```
+
+```bash
+# Pass secrets from a local .secrets.env file - they will be encrypted server side
+>>> huggingface-cli jobs run --secret-env-file .secrets.env python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
+```
+
+### Hardware
+
+Available `--flavor` options:
+
+- CPU: `cpu-basic`, `cpu-upgrade`
+- GPU: `t4-small`, `t4-medium`, `l4x1`, `l4x4`, `a10g-small`, `a10g-large`, `a10g-largex2`, `a10g-largex4`,`a100-large`
+- TPU: `v5e-1x1`, `v5e-2x2`, `v5e-2x4`
+
+(updated in 03/25 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
