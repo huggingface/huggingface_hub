@@ -26,6 +26,7 @@ from huggingface_hub.commands.jobs.inspect import InspectCommand
 from huggingface_hub.commands.jobs.logs import LogsCommand
 from huggingface_hub.commands.jobs.ps import PsCommand
 from huggingface_hub.commands.jobs.run import RunCommand
+from huggingface_hub.commands.jobs.uv import UvCommand
 from huggingface_hub.utils import logging
 
 
@@ -44,3 +45,4 @@ class JobsCommands(BaseHuggingfaceCLICommand):
         PsCommand.register_subcommand(jobs_subparsers)
         RunCommand.register_subcommand(jobs_subparsers)
         CancelCommand.register_subcommand(jobs_subparsers)
+        UvCommand.register_subcommand(jobs_subparsers)

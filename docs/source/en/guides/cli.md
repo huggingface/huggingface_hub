@@ -621,6 +621,9 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 
 # Run from Hugging Face Spaces
 >>> huggingface-cli jobs run hf.co/spaces/lhoestq/duckdb duckdb -c "select 'hello world'"
+
+# Run a Python script with `uv` (experimental)
+>>> huggingface-cli jobs uv run my_script.py
 ```
 
 ### ✨ Key Features
@@ -636,7 +639,6 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 
 - A Hugging Face account (currently in testing for HF staff)
 - Authenticate with the Hugging Gace Hub (e.g. `huggingface-cli login`)
-
 
 ### Quick Start
 
@@ -725,3 +727,26 @@ Available `--flavor` options:
 - TPU: `v5e-1x1`, `v5e-2x2`, `v5e-2x4`
 
 (updated in 03/25 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
+
+### UV Scripts (Experimental)
+
+Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
+
+```bash
+# Run a UV script (creates temporary repo)
+>>> huggingface-cli jobs uv run my_script.py
+
+# Run with persistent repo
+>>> huggingface-cli jobs uv run my_script.py --repo my-uv-scripts
+
+# Run with GPU
+>>> huggingface-cli jobs uv run ml_training.py --flavor gpu-t4-small
+
+# Pass arguments to script
+>>> huggingface-cli jobs uv run process.py input.csv output.parquet --repo data-scripts
+
+# Run a script directly from a URL
+>>> huggingface-cli jobs uv run https://huggingface.co/datasets/username/scripts/resolve/main/example.py
+```
+
+UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
