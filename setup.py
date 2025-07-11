@@ -134,6 +134,7 @@ setup(
     entry_points={
         "console_scripts": [
             "huggingface-cli=huggingface_hub.commands.huggingface_cli:main",
+            "huggingface=huggingface_hub.commands.huggingface_cli:main",
             "tiny-agents=huggingface_hub.inference._mcp.cli:app",
         ],
         "fsspec.specs": "hf=huggingface_hub.HfFileSystem",
