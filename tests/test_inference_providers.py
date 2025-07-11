@@ -49,6 +49,7 @@ from huggingface_hub.inference._providers.replicate import (
     ReplicateTextToSpeechTask,
 )
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
+from huggingface_hub.inference._providers.swarmind import SwarmindConversationalTask, SwarmindTextGenerationTask
 from huggingface_hub.inference._providers.together import TogetherTextToImageTask
 
 from .testing_utils import assert_in_logs
@@ -1198,6 +1199,16 @@ class TestSambanovaProvider:
             == "https://router.huggingface.co/sambanova/v1/embeddings"
         )
 
+class TestSwarmindProvider:
+    def test_prepare_url_text_generation(self):
+        helper = SwarmindTextGenerationTask()
+        url = helper._prepare_url("swarmind_token", "username/repo_name")
+        assert url == "https://api.swarmind.ai/lai/private/v1/chat/completions"
+
+    def test_prepare_url_conversational(self):
+        helper = SwarmindConversationalTask()
+        url = helper._prepare_url("swarmind_token", "username/repo_name")
+        assert url == "https://api.swarmind.ai/lai/private/v1/chat/completions"
 
 class TestTogetherProvider:
     def test_prepare_route_text_to_image(self):
