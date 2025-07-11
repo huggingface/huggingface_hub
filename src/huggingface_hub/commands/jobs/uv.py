@@ -31,12 +31,12 @@ class UvCommand(BaseHuggingfaceCLICommand):
             help="Run a UV script (local file or URL) on HF infrastructure",
         )
         run_parser.add_argument("script", help="UV script to run (local file or URL)")
-        run_parser.add_argument("script_args", nargs="*", help="Arguments for the script", default=[])
+        run_parser.add_argument("script_args", nargs="...", help="Arguments for the script", default=[])
         run_parser.add_argument(
             "--repo",
             help="Repository name for the script (creates ephemeral if not specified)",
         )
-        run_parser.add_argument("--flavor", default="cpu-basic", help="Hardware flavor (default: cpu-basic)")
+        run_parser.add_argument("--flavor", type=str, default="cpu-basic", help="Hardware flavor (default: cpu-basic)")
         run_parser.add_argument("-e", "--env", action="append", help="Environment variables")
         run_parser.add_argument("-s", "--secret", action="append", help="Secret environment variables")
         run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
@@ -45,9 +45,14 @@ class UvCommand(BaseHuggingfaceCLICommand):
             type=str,
             help="Read in a file of secret environment variables.",
         )
-        run_parser.add_argument("--timeout", help="Max duration (e.g., 30s, 5m, 1h)")
+        run_parser.add_argument("--timeout", type=str, help="Max duration (e.g., 30s, 5m, 1h)")
         run_parser.add_argument("-d", "--detach", action="store_true", help="Run in background")
-        run_parser.add_argument("--token", help="HF token")
+        run_parser.add_argument("--token", type=str, help="HF token")
+        # UV options
+        run_parser.add_argument("--with", action="append", help="Run with the given packages installed", dest="with_")
+        run_parser.add_argument(
+            "-p", "--python", type=str, help="The Python interpreter to use for the run environment"
+        )
         run_parser.set_defaults(func=UvCommand)
 
     def __init__(self, args):
@@ -123,7 +128,12 @@ class UvCommand(BaseHuggingfaceCLICommand):
         docker_image = "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"
 
         # Build command
-        command = ["uv", "run", script_url] + args.script_args
+        uv_args = []
+        for with_arg in args.with_:
+            uv_args += ["--with", with_arg]
+        if args.python:
+            uv_args += ["--python", args.python]
+        command = ["uv", "run"] + uv_args + [script_url] + args.script_args
 
         # Create RunCommand args
         run_args = Namespace(
