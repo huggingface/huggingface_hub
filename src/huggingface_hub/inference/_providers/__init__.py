@@ -37,6 +37,7 @@ from .nscale import NscaleConversationalTask, NscaleTextToImageTask
 from .openai import OpenAIConversationalTask
 from .replicate import ReplicateImageToImageTask, ReplicateTask, ReplicateTextToImageTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
+from .swarmind import SwarmindConversationalTask, SwarmindTextGenerationTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
 
 
@@ -151,6 +152,10 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     "sambanova": {
         "conversational": SambanovaConversationalTask(),
         "feature-extraction": SambanovaFeatureExtractionTask(),
+    },
+    "swarmind": {
+        "conversational": SwarmindConversationalTask(),
+        "text-generation": SwarmindTextGenerationTask(),
     },
     "together": {
         "text-to-image": TogetherTextToImageTask(),
