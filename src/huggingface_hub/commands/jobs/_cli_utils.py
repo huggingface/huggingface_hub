@@ -1,8 +1,8 @@
 import os
-from typing import Union
+from typing import List, Union
 
 
-def tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
+def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
     """
     Inspired by:
 
