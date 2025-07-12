@@ -53,6 +53,7 @@ TASK_COMPLETE_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(
         "type": "function",
         "function": {
             "name": "task_complete",
+            "parameters": [],
             "description": "Call this tool when the task given by the user is complete",
         },
     }
@@ -63,6 +64,7 @@ ASK_QUESTION_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj( 
         "type": "function",
         "function": {
             "name": "ask_question",
+            "parameters": [],
             "description": "Ask the user for more info required to solve or clarify their problem.",
         },
     }
