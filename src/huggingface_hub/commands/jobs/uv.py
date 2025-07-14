@@ -91,7 +91,7 @@ class UvCommand(BaseHuggingfaceCLICommand):
                     print(f"Using existing repository: {repo_id}")
             except RepositoryNotFoundError:
                 print(f"Creating repository: {repo_id}")
-                create_repo(repo_id, repo_type="dataset", exist_ok=True)
+                create_repo(repo_id, repo_type="dataset", private=True, exist_ok=True)
 
             # Upload script
             print(f"Uploading {script_path.name}...")
