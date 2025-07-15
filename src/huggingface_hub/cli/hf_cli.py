@@ -19,6 +19,9 @@ from huggingface_hub.cli.cache import CacheCommand
 from huggingface_hub.cli.files import FilesCommand
 from huggingface_hub.cli.repo import RepoCommand
 from huggingface_hub.cli.utils import UtilsCommand
+from huggingface_hub.commands.lfs import LfsCommands
+from huggingface_hub.commands.repo_files import RepoFilesCommand
+from huggingface_hub.commands.upload_large_folder import UploadLargeFolderCommand
 
 
 def main():
@@ -31,6 +34,11 @@ def main():
     FilesCommand.register_subcommand(commands_parser)
     CacheCommand.register_subcommand(commands_parser)
     UtilsCommand.register_subcommand(commands_parser)
+
+    # Legacy commands for backward compatibility
+    LfsCommands.register_subcommand(commands_parser)
+    RepoFilesCommand.register_subcommand(commands_parser)
+    UploadLargeFolderCommand.register_subcommand(commands_parser)
 
     # Let's go
     args = parser.parse_args()

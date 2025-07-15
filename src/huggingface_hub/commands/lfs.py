@@ -24,6 +24,7 @@ from argparse import _SubParsersAction
 from typing import Dict, List, Optional
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
+from huggingface_hub.commands._cli_utils import show_deprecation_warning
 from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 from ..utils import get_session, hf_raise_for_status, logging
@@ -72,6 +73,7 @@ class LfsEnableCommand:
         self.args = args
 
     def run(self):
+        show_deprecation_warning("huggingface-cli lfs-enable-largefiles", "hf lfs-enable-largefiles")
         local_path = os.path.abspath(self.args.path)
         if not os.path.isdir(local_path):
             print("This does not look like a valid git repo.")

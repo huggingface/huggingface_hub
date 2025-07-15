@@ -39,6 +39,7 @@ from typing import List, Optional
 
 from huggingface_hub import logging
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
+from huggingface_hub.commands._cli_utils import show_deprecation_warning
 from huggingface_hub.hf_api import HfApi
 
 
@@ -59,6 +60,7 @@ class DeleteFilesSubCommand:
         self.token: Optional[str] = args.token
 
     def run(self) -> None:
+        show_deprecation_warning("huggingface-cli repo-files", "hf files delete")
         logging.set_verbosity_info()
         url = self.api.delete_files(
             delete_patterns=self.patterns,

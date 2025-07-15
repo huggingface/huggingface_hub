@@ -41,7 +41,7 @@ from huggingface_hub.constants import (
 from huggingface_hub.hf_api import HfApi
 
 from ..errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
-from ._cli_utils import ANSI
+from ._cli_utils import ANSI, show_deprecation_warning
 
 
 class TagCommands(BaseHuggingfaceCLICommand):
@@ -92,6 +92,7 @@ class TagCommand:
 
 class TagCreateCommand(TagCommand):
     def run(self):
+        show_deprecation_warning("huggingface-cli tag create", "hf repo tag create")
         print(f"You are about to create tag {ANSI.bold(self.args.tag)} on {self.repo_type} {ANSI.bold(self.repo_id)}")
 
         try:
@@ -119,6 +120,7 @@ class TagCreateCommand(TagCommand):
 
 class TagListCommand(TagCommand):
     def run(self):
+        show_deprecation_warning("huggingface-cli tag list", "hf repo tag list")
         try:
             refs = self.api.list_repo_refs(
                 repo_id=self.repo_id,
@@ -141,6 +143,7 @@ class TagListCommand(TagCommand):
 
 class TagDeleteCommand(TagCommand):
     def run(self):
+        show_deprecation_warning("huggingface-cli tag delete", "hf repo tag delete")
         print(f"You are about to delete tag {ANSI.bold(self.args.tag)} on {self.repo_type} {ANSI.bold(self.repo_id)}")
 
         if not self.args.yes:
