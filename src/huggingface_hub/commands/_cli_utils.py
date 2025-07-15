@@ -17,6 +17,11 @@ import os
 from typing import List, Union
 
 
+def show_deprecation_warning(old_command: str, new_command: str):
+    """Show a yellow warning about deprecated CLI command."""
+    print(ANSI.yellow(f"⚠️  Warning: '{old_command}' is deprecated. Use '{new_command}' instead."))
+
+
 class ANSI:
     """
     Helper for en.wikipedia.org/wiki/ANSI_escape_code

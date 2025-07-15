@@ -55,6 +55,7 @@ from typing import List, Optional
 from huggingface_hub import logging
 from huggingface_hub._commit_scheduler import CommitScheduler
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
+from huggingface_hub.commands._cli_utils import show_deprecation_warning
 from huggingface_hub.constants import HF_HUB_ENABLE_HF_TRANSFER
 from huggingface_hub.errors import RevisionNotFoundError
 from huggingface_hub.hf_api import HfApi
@@ -196,6 +197,7 @@ class UploadCommand(BaseHuggingfaceCLICommand):
             self.path_in_repo = args.path_in_repo
 
     def run(self) -> None:
+        show_deprecation_warning("huggingface-cli upload", "hf files upload")
         if self.quiet:
             disable_progress_bars()
             with warnings.catch_warnings():
