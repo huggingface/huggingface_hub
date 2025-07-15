@@ -645,7 +645,7 @@ class TestHFInferenceProvider:
         assert request.task == "text-classification"
         assert request.model == "username/repo_name"
         assert request.headers["authorization"] == "Bearer hf_test_token"
-        assert request.json == {"inputs": "this is a dummy input"}
+        assert request.json == {"inputs": "this is a dummy input", "parameters": {}}
 
     def test_prepare_request_conversational(self, mocker):
         mocker.patch(
