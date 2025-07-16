@@ -1,5 +1,7 @@
 from typing import Dict, List, Literal, TypedDict, Union
 
+from typing_extensions import NotRequired
+
 
 class InputConfig(TypedDict, total=False):
     id: str
@@ -35,5 +37,6 @@ ServerConfig = Union[StdioServerConfig, HTTPServerConfig, SSEServerConfig]
 class AgentConfig(TypedDict):
     model: str
     provider: str
+    apiKey: NotRequired[str]
     inputs: List[InputConfig]
     servers: List[ServerConfig]

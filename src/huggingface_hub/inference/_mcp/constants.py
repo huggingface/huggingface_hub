@@ -56,12 +56,7 @@ TASK_COMPLETE_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(
             "description": "Call this tool when the task given by the user is complete",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "trigger": {
-                        "type": "boolean",
-                        "description": "Set to true to trigger this function",
-                    }
-                },
+                "properties": {},
             },
         },
     }
@@ -75,12 +70,7 @@ ASK_QUESTION_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj( 
             "description": "Ask the user for more info required to solve or clarify their problem.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "trigger": {
-                        "type": "boolean",
-                        "description": "Set to true to trigger this function",
-                    }
-                },
+                "properties": {},
             },
         },
     }

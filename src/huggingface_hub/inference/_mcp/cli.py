@@ -71,6 +71,8 @@ async def run_agent(
             signal.signal(signal.SIGINT, lambda *_: _sigint_handler())
 
         # Handle inputs (i.e. env variables injection)
+        resolved_inputs: dict[str, str] = {}
+
         if len(inputs) > 0:
             print(
                 "[bold blue]Some initial inputs are required by the agent. "
@@ -79,19 +81,26 @@ async def run_agent(
             for input_item in inputs:
                 input_id = input_item["id"]
                 description = input_item["description"]
-                env_special_value = "${input:" + input_id + "}"  # Special value to indicate env variable injection
+                env_special_value = f"${{input:{input_id}}}"
 
-                # Check env variables that will use this input
-                input_vars = set()
+                # Check if the input is used by any server or as an apiKey
+                input_usages = set()
                 for server in servers:
                     # Check stdio's "env" and http/sse's "headers" mappings
                     env_or_headers = server.get("env", {}) if server["type"] == "stdio" else server.get("headers", {})
                     for key, value in env_or_headers.items():
                         if env_special_value in value:
-                            input_vars.add(key)
+                            input_usages.add(key)
 
-                if not input_vars:
-                    print(f"[yellow]Input {input_id} defined in config but not used by any server.[/yellow]")
+                raw_api_key = config.get("apiKey")
+                if isinstance(raw_api_key, str) and env_special_value in raw_api_key:
+                    input_usages.add("apiKey")
+
+                if not input_usages:
+                    print(
+                        f"[yellow]Input '{input_id}' defined in config but not used by any server or as an API key."
+                        " Skipping.[/yellow]"
+                    )
                     continue
 
                 # Prompt user for input
@@ -104,30 +113,39 @@ async def run_agent(
                 if exit_event.is_set():
                     return
 
-                # Inject user input (or env variable) into stdio's env or http/sse's headers
+                # Fallback to environment variable when user left blank
+                final_value = user_input
+                if not final_value:
+                    final_value = os.getenv(env_variable_key, "")
+                    if final_value:
+                        print(f"[green]Value successfully loaded from '{env_variable_key}'[/green]")
+                    else:
+                        print(
+                            f"[yellow]No value found for '{env_variable_key}' in environment variables. Continuing.[/yellow]"
+                        )
+                resolved_inputs[input_id] = final_value
+
+                # Inject resolved value (can be empty) into stdio's env or http/sse's headers
                 for server in servers:
                     env_or_headers = server.get("env", {}) if server["type"] == "stdio" else server.get("headers", {})
                     for key, value in env_or_headers.items():
                         if env_special_value in value:
-                            if user_input:
-                                env_or_headers[key] = env_or_headers[key].replace(env_special_value, user_input)
-                            else:
-                                value_from_env = os.getenv(env_variable_key, "")
-                                env_or_headers[key] = env_or_headers[key].replace(env_special_value, value_from_env)
-                                if value_from_env:
-                                    print(f"[green]Value successfully loaded from '{env_variable_key}'[/green]")
-                                else:
-                                    print(
-                                        f"[yellow]No value found for '{env_variable_key}' in environment variables. Continuing.[/yellow]"
-                                    )
+                            env_or_headers[key] = env_or_headers[key].replace(env_special_value, final_value)
 
             print()
 
+        raw_api_key = config.get("apiKey")
+        if isinstance(raw_api_key, str):
+            substituted_api_key = raw_api_key
+            for input_id, val in resolved_inputs.items():
+                substituted_api_key = substituted_api_key.replace(f"${{input:{input_id}}}", val)
+            config["apiKey"] = substituted_api_key
         # Main agent loop
         async with Agent(
             provider=config.get("provider"),  # type: ignore[arg-type]
             model=config.get("model"),
             base_url=config.get("endpointUrl"),  # type: ignore[arg-type]
+            api_key=config.get("apiKey"),
             servers=servers,  # type: ignore[arg-type]
             prompt=prompt,
         ) as agent:
