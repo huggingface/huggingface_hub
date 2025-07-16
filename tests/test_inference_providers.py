@@ -1445,7 +1445,7 @@ def test_recursive_merge(dict1: Dict, dict2: Dict, expected: Dict):
         ({}, {}),  # empty dictionary remains empty
         ({"a": 1, "b": None, "c": 3}, {"a": 1, "c": 3}),  # remove None at root level
         ({"a": None, "b": {"x": None, "y": 2}}, {"b": {"y": 2}}),  # remove nested None
-        ({"a": {"b": {"c": None}}}, {"a": {"b": {}}}),  # remove empty nested dict
+        ({"a": {"b": {"c": None}}}, {"a": {"b": {}}}),  # keep empty nested dict
         (
             {"a": "", "b": {"x": {"y": None}, "z": 0}, "c": []},  # do not remove 0, [] and "" values
             {"a": "", "b": {"x": {}, "z": 0}, "c": []},
