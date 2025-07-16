@@ -362,7 +362,7 @@ class InspectCommand(BaseHuggingfaceCLICommand):
 class CancelCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction) -> None:
-        run_parser = parser.add_parser("jobs cancel", help="Cancel a Job")
+        run_parser = parser.add_parser("cancel", help="Cancel a Job")
         run_parser.add_argument("job_id", type=str, help="Job ID")
         run_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
