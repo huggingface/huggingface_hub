@@ -52,9 +52,6 @@ def filter_none(obj: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, Any], 
                 continue
             if isinstance(v, (dict, list)):
                 v = filter_none(v)
-                # remove empty nested dicts
-                if isinstance(v, dict) and not v:
-                    continue
             cleaned[k] = v
         return cleaned
 
