@@ -10003,7 +10003,7 @@ class HfApi:
 
         """
         # prepare payload to send to HF Jobs API
-        input_json: Dict[str, Optional[Union[str, float, list[str], Dict[str, Optional[str]]]]] = {
+        input_json: Dict[str, Optional[Union[str, float, List[str], Dict[str, Optional[str]]]]] = {
             "command": command,
             "arguments": [],
             "environment": env or {},

@@ -90,7 +90,7 @@ class RunCommand(BaseHuggingfaceCLICommand):
 
     def __init__(self, args: Namespace) -> None:
         self.image: str = args.image
-        self.command: list[str] = args.command
+        self.command: List[str] = args.command
         self.env: dict[str, Optional[str]] = {}
         for env_value in args.env or []:
             self.env.update(dotenv_values(stream=io.StringIO(env_value)))
@@ -351,7 +351,7 @@ class InspectCommand(BaseHuggingfaceCLICommand):
 
     def __init__(self, args: Namespace) -> None:
         self.token: Optional[str] = args.token or None
-        self.job_ids: list[str] = args.job_ids
+        self.job_ids: List[str] = args.job_ids
 
     def run(self) -> None:
         api = HfApi(token=self.token)
