@@ -83,7 +83,27 @@ async def run_agent(
                 description = input_item["description"]
                 env_special_value = f"${{input:{input_id}}}"
 
-                # Prompt user for input even if not referenced by any server – may be used for high-level config (e.g. apiKey)
+                # Check if the input is used by any server or as an apiKey
+                input_usages = set()
+                for server in servers:
+                    # Check stdio's "env" and http/sse's "headers" mappings
+                    env_or_headers = server.get("env", {}) if server["type"] == "stdio" else server.get("headers", {})
+                    for key, value in env_or_headers.items():
+                        if env_special_value in value:
+                            input_usages.add(key)
+
+                raw_api_key = config.get("apiKey")
+                if isinstance(raw_api_key, str) and env_special_value in raw_api_key:
+                    input_usages.add("apiKey")
+
+                if not input_usages:
+                    print(
+                        f"[yellow]Input '{input_id}' defined in config but not used by any server or as an API key."
+                        " Skipping.[/yellow]"
+                    )
+                    continue
+
+                # Prompt user for input
                 env_variable_key = input_id.replace("-", "_").upper()
                 print(
                     f"[blue] • {input_id}[/blue]: {description}. (default: load from {env_variable_key}).",
