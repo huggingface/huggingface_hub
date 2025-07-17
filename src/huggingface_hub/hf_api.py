@@ -14,7 +14,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-import hashlib
 import inspect
 import io
 import json
@@ -10276,131 +10275,8 @@ class HfApi:
             >>> run_uv_job(script, dependencies=["trl"], flavor="a10g-small")
             ```
         """
-
-        if script.startswith("http://") or script.startswith("https://"):
-            # Direct URL execution - no upload needed
-            script_url = script
-        else:
-            # Local file - upload to HF
-            script_path = Path(script)
-
-            def _determine_repository():
-                """Determine which repository to use for the script."""
-                # Use provided repo
-                if _repo:
-                    repo_id = _repo
-                    if "/" not in repo_id:
-                        username = self.whoami(token=token)["name"]
-                        repo_id = f"{username}/{repo_id}"
-                    return repo_id
-
-                # Create ephemeral repo
-                username = self.whoami(token=token)["name"]
-                timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-
-                # Simple hash for uniqueness
-                script_hash = hashlib.md5(Path(script).read_bytes()).hexdigest()[:8]
-
-                return f"{username}/huggingface-cli-jobs-uv-run-{timestamp}-{script_hash}"
-
-            def _create_minimal_readme(repo_id, script_name, is_ephemeral):
-                """Create minimal README content."""
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-
-                if is_ephemeral:
-                    # Ephemeral repository README
-                    return dedent(
-                        f"""---
-                        tags:
-                        - huggingface-cli-jobs-uv-script
-                        - ephemeral
-                        ---
-
-                        # UV Script: {script_name}
-
-                        Executed via `huggingface-cli jobs uv run` on {timestamp}
-
-                        ## Run this script
-
-                        ```bash
-                        huggingface-cli jobs run ghcr.io/astral-sh/uv:python3.12-bookworm-slim \\
-                        uv run https://huggingface.co/datasets/{repo_id}/resolve/main/{script_name}
-                        ```
-
-                        ---
-                        *Created with [huggingface-cli jobs](https://github.com/huggingface/huggingface-cli jobs)*
-                        """
-                    )
-                # Named repository README
-                repo_name = repo_id.split("/")[-1]
-                return dedent(
-                    f"""---
-                    tags:
-                    - huggingface-cli-jobs-uv-script
-                    viewer: false
-                    ---
-
-                    # {repo_name}
-
-                    UV scripts repository
-
-                    ## Scripts
-                    - `{script_name}` - Added {timestamp}
-
-                    ## Run
-
-                    ```bash
-                    huggingface-cli jobs uv run {script_name} --repo {repo_name}
-                    ```
-
-                    ---
-                    *Created with [huggingface-cli jobs](https://github.com/huggingface/huggingface-cli jobs)*
-                    """
-                )
-
-            # Determine repository
-            repo_id = _determine_repository()
-            is_ephemeral = _repo is None
-
-            # Create repo if needed
-            try:
-                api.repo_info(repo_id, repo_type="dataset")
-                if not is_ephemeral:
-                    logger.info(f"Using existing repository: {repo_id}")
-            except RepositoryNotFoundError:
-                logger.info(f"Creating repository: {repo_id}")
-                create_repo(repo_id, repo_type="dataset", private=True, exist_ok=True)
-
-            # Upload script
-            logger.info(f"Uploading {script_path.name}...")
-            with open(script_path, "r") as f:
-                script_content = f.read()
-
-            filename = script_path.name
-
-            api.upload_file(
-                path_or_fileobj=script_content.encode(),
-                path_in_repo=filename,
-                repo_id=repo_id,
-                repo_type="dataset",
-            )
-
-            script_url = f"https://huggingface.co/datasets/{repo_id}/resolve/main/{filename}"
-            repo_url = f"https://huggingface.co/datasets/{repo_id}"
-
-            logger.info(f"✓ Script uploaded to: {repo_url}/blob/main/{filename}")
-
-            # Create and upload minimal README
-            readme_content = _create_minimal_readme(repo_id, filename, is_ephemeral)
-            api.upload_file(
-                path_or_fileobj=readme_content.encode(),
-                path_in_repo="README.md",
-                repo_id=repo_id,
-                repo_type="dataset",
-            )
-
-            if is_ephemeral:
-                logger.info(f"✓ Temporary repository created: {repo_id}")
+        env = env or {}
+        secrets = secrets or {}
 
         # Prepare docker image (always use Python 3.12)
         image = "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"
@@ -10413,7 +10289,104 @@ class HfApi:
         if python:
             uv_args += ["--python", python]
         script_args = script_args or []
-        command = ["uv", "run"] + uv_args + [script_url] + script_args
+
+        if script.startswith("http://") or script.startswith("https://"):
+            # Direct URL execution - no upload needed
+            command = ["uv", "run"] + uv_args + [script] + script_args
+        else:
+            # Local file - upload to HF
+            script_path = Path(script)
+            filename = script_path.name
+
+            # Parse repo
+            if _repo:
+                repo_id = _repo
+                if "/" not in repo_id:
+                    username = self.whoami(token=token)["name"]
+                    repo_id = f"{username}/{repo_id}"
+                repo_id = _repo
+            else:
+                username = self.whoami(token=token)["name"]
+                repo_id = f"{username}/huggingface-cli-jobs-uv-run-scripts"
+
+            # Create repo if needed
+            try:
+                api.repo_info(repo_id, repo_type="dataset")
+                logger.debug(f"Using existing repository: {repo_id}")
+            except RepositoryNotFoundError:
+                logger.info(f"Creating repository: {repo_id}")
+                create_repo(repo_id, repo_type="dataset", private=True, exist_ok=True)
+
+            # Upload script
+            logger.info(f"Uploading {script_path.name} to {repo_id}...")
+            with open(script_path, "r") as f:
+                script_content = f.read()
+
+            api.upload_file(
+                path_or_fileobj=script_content.encode(),
+                path_in_repo=filename,
+                repo_id=repo_id,
+                repo_type="dataset",
+            )
+
+            script_url = f"https://huggingface.co/datasets/{repo_id}/resolve/main/{filename}"
+            repo_url = f"https://huggingface.co/datasets/{repo_id}"
+
+            logger.debug(f"✓ Script uploaded to: {repo_url}/blob/main/{filename}")
+
+            # Create and upload minimal README
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+            readme_content = dedent(
+                f"""
+                ---
+                tags:
+                - huggingface-cli-jobs-uv-script
+                - ephemeral
+                viewer: false
+                ---
+
+                # UV Script: {filename}
+
+                Executed via `huggingface-cli jobs uv run` on {timestamp}
+
+                ## Run this script
+
+                ```bash
+                huggingface-cli jobs uv run {filename}
+                ```
+
+                ---
+                *Created with [huggingface-cli jobs](https://github.com/huggingface/huggingface-cli jobs)*
+                """
+            )
+            api.upload_file(
+                path_or_fileobj=readme_content.encode(),
+                path_in_repo="README.md",
+                repo_id=repo_id,
+                repo_type="dataset",
+            )
+
+            secrets["UV_SCRIPT_HF_TOKEN"] = token or self.token or get_token()
+            secrets["UV_SCRIPT_URL"] = script_url
+
+            pre_command = (
+                dedent(
+                    """
+                    import urllib.request
+                    import os
+                    from pathlib import Path
+                    o = urllib.request.build_opener()
+                    o.addheaders = [("Authorization", "Bearer " + os.environ["UV_SCRIPT_HF_TOKEN"])]
+                    Path("/tmp/script.py").write_bytes(o.open(os.environ["UV_SCRIPT_URL"]).read())
+                    """
+                )
+                .strip()
+                .replace('"', r"\"")
+                .split("\n")
+            )
+            pre_command = ["python", "-c", '"' + "; ".join(pre_command) + '"']
+            command = ["uv", "run"] + uv_args + ["/tmp/script.py"] + script_args
+            command = ["bash", "-c", " ".join(pre_command) + " && " + " ".join(command)]
 
         # Create RunCommand args
         return self.run_job(
