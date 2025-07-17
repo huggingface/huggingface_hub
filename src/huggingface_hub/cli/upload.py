@@ -16,34 +16,34 @@
 
 Usage:
     # Upload file (implicit)
-    huggingface-cli upload my-cool-model ./my-cool-model.safetensors
+    hf upload my-cool-model ./my-cool-model.safetensors
 
     # Upload file (explicit)
-    huggingface-cli upload my-cool-model ./my-cool-model.safetensors  model.safetensors
+    hf upload my-cool-model ./my-cool-model.safetensors  model.safetensors
 
     # Upload directory (implicit). If `my-cool-model/` is a directory it will be uploaded, otherwise an exception is raised.
-    huggingface-cli upload my-cool-model
+    hf upload my-cool-model
 
     # Upload directory (explicit)
-    huggingface-cli upload my-cool-model ./models/my-cool-model .
+    hf upload my-cool-model ./models/my-cool-model .
 
     # Upload filtered directory (example: tensorboard logs except for the last run)
-    huggingface-cli upload my-cool-model ./model/training /logs --include "*.tfevents.*" --exclude "*20230905*"
+    hf upload my-cool-model ./model/training /logs --include "*.tfevents.*" --exclude "*20230905*"
 
     # Upload with wildcard
-    huggingface-cli upload my-cool-model "./model/training/*.safetensors"
+    hf upload my-cool-model "./model/training/*.safetensors"
 
     # Upload private dataset
-    huggingface-cli upload Wauplin/my-cool-dataset ./data . --repo-type=dataset --private
+    hf upload Wauplin/my-cool-dataset ./data . --repo-type=dataset --private
 
     # Upload with token
-    huggingface-cli upload Wauplin/my-cool-model --token=hf_****
+    hf upload Wauplin/my-cool-model --token=hf_****
 
     # Sync local Space with Hub (upload new files, delete removed files)
-    huggingface-cli upload Wauplin/space-example --repo-type=space --exclude="/logs/*" --delete="*" --commit-message="Sync local Space with Hub"
+    hf upload Wauplin/space-example --repo-type=space --exclude="/logs/*" --delete="*" --commit-message="Sync local Space with Hub"
 
     # Schedule commits every 30 minutes
-    huggingface-cli upload Wauplin/my-cool-model --every=30
+    hf upload Wauplin/my-cool-model --every=30
 """
 
 import os
@@ -61,8 +61,6 @@ from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 from huggingface_hub.utils._runtime import is_xet_available
 
-from ._cli_utils import show_deprecation_warning
-
 
 logger = logging.get_logger(__name__)
 
@@ -70,7 +68,9 @@ logger = logging.get_logger(__name__)
 class UploadCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        upload_parser = parser.add_parser("upload", help="Upload a file or a folder to a repo on the Hub")
+        upload_parser = parser.add_parser(
+            "upload", help="Upload a file or a folder to the Hub. Recommended for single-commit uploads."
+        )
         upload_parser.add_argument(
             "repo_id", type=str, help="The ID of the repo to upload to (e.g. `username/repo-name`)."
         )
@@ -151,7 +151,7 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         self.commit_message: Optional[str] = args.commit_message
         self.commit_description: Optional[str] = args.commit_description
         self.create_pr: bool = args.create_pr
-        self.api: HfApi = HfApi(token=args.token, library_name="huggingface-cli")
+        self.api: HfApi = HfApi(token=args.token, library_name="hf")
         self.quiet: bool = args.quiet  # disable warnings and progress bars
 
         # Check `--every` is valid
@@ -198,8 +198,6 @@ class UploadCommand(BaseHuggingfaceCLICommand):
             self.path_in_repo = args.path_in_repo
 
     def run(self) -> None:
-        show_deprecation_warning("huggingface-cli upload", "hf upload")
-
         if self.quiet:
             disable_progress_bars()
             with warnings.catch_warnings():
@@ -276,7 +274,7 @@ class UploadCommand(BaseHuggingfaceCLICommand):
             private=self.private,
             space_sdk="gradio" if self.repo_type == "space" else None,
             # ^ We don't want it to fail when uploading to a Space => let's set Gradio by default.
-            # ^ I'd rather not add CLI args to set it explicitly as we already have `huggingface-cli repo create` for that.
+            # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repo create` for that.
         ).repo_id
 
         # Check if branch already exists and if not, create it

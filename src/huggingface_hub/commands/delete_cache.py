@@ -64,7 +64,7 @@ from typing import Any, Callable, Iterable, List, Literal, Optional, Union
 
 from ..utils import CachedRepoInfo, CachedRevisionInfo, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
-from ._cli_utils import ANSI
+from ._cli_utils import ANSI, show_deprecation_warning
 
 
 try:
@@ -144,6 +144,8 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
 
     def run(self):
         """Run `delete-cache` command with or without TUI."""
+        show_deprecation_warning("huggingface-cli delete-cache", "hf cache delete")
+
         # Scan cache directory
         hf_cache_info = scan_cache_dir(self.cache_dir)
 

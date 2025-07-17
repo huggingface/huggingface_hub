@@ -21,6 +21,7 @@ from argparse import _SubParsersAction
 
 from ..utils import dump_environment_info
 from . import BaseHuggingfaceCLICommand
+from ._cli_utils import show_deprecation_warning
 
 
 class EnvironmentCommand(BaseHuggingfaceCLICommand):
@@ -33,4 +34,6 @@ class EnvironmentCommand(BaseHuggingfaceCLICommand):
         env_parser.set_defaults(func=EnvironmentCommand)
 
     def run(self) -> None:
+        show_deprecation_warning("huggingface-cli env", "hf env")
+
         dump_environment_info()
