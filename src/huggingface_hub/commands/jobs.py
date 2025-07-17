@@ -61,7 +61,7 @@ class RunCommand(BaseHuggingfaceCLICommand):
         run_parser.add_argument("-e", "--env", action="append", help="Set environment variables.")
         run_parser.add_argument("-s", "--secrets", action="append", help="Set secret environment variables.")
         run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
-        run_parser.add_argument("--secret-env-file", type=str, help="Read in a file of secret environment variables.")
+        run_parser.add_argument("--secrets-file", type=str, help="Read in a file of secret environment variables.")
         run_parser.add_argument(
             "--flavor",
             type=str,
@@ -96,8 +96,8 @@ class RunCommand(BaseHuggingfaceCLICommand):
         for env_value in args.env or []:
             self.env.update(load_dotenv(env_value))
         self.secrets: dict[str, Optional[str]] = {}
-        if args.secret_env_file:
-            self.secrets.update(load_dotenv(Path(args.secret_env_file).read_text()))
+        if args.secrets_file:
+            self.secrets.update(load_dotenv(Path(args.secrets_file).read_text()))
         for secret in args.secrets or []:
             self.secrets.update(load_dotenv(secret))
         self.flavor: str = args.flavor
@@ -401,7 +401,7 @@ class UvCommand(BaseHuggingfaceCLICommand):
         run_parser.add_argument("-s", "--secrets", action="append", help="Secret environment variables")
         run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
         run_parser.add_argument(
-            "--secret-env-file",
+            "--secrets-file",
             type=str,
             help="Read in a file of secret environment variables.",
         )
@@ -427,8 +427,8 @@ class UvCommand(BaseHuggingfaceCLICommand):
         for env_value in args.env or []:
             self.env.update(load_dotenv(env_value))
         self.secrets: dict[str, Optional[str]] = {}
-        if args.secret_env_file:
-            self.secrets.update(load_dotenv(Path(args.secret_env_file).read_text()))
+        if args.secrets_file:
+            self.secrets.update(load_dotenv(Path(args.secrets_file).read_text()))
         for secret in args.secrets or []:
             self.secrets.update(load_dotenv(secret))
         self.flavor: Optional[str] = args.flavor
