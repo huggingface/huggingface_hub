@@ -635,11 +635,6 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 - 📊 **Live Monitoring**: Stream logs in real-time, just like running locally
 - 💰 **Pay-as-you-go**: Only pay for the seconds you use
 
-### Prerequisites
-
-- A Hugging Face account (currently in testing for HF staff)
-- Authenticate with the Hugging Gace Hub (e.g. `huggingface-cli login`)
-
 ### Quick Start
 
 #### 1. Run your first job

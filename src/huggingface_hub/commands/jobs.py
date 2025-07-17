@@ -18,20 +18,19 @@ Usage:
     huggingface-cli jobs run image command
 """
 
-import io
 import json
 import os
 import re
 from argparse import Namespace, _SubParsersAction
 from dataclasses import asdict
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from pathlib import Path
+from typing import Dict, List, Optional, Union
 
 import requests
-from dotenv import dotenv_values
 
 from huggingface_hub import HfApi
 from huggingface_hub.utils import logging
+from huggingface_hub.utils._dotenv import load_dotenv
 
 from . import BaseHuggingfaceCLICommand
 
@@ -60,7 +59,7 @@ class RunCommand(BaseHuggingfaceCLICommand):
         run_parser = parser.add_parser("run", help="Run a Job")
         run_parser.add_argument("image", type=str, help="The Docker image to use.")
         run_parser.add_argument("-e", "--env", action="append", help="Set environment variables.")
-        run_parser.add_argument("-s", "--secret", action="append", help="Set secret environment variables.")
+        run_parser.add_argument("-s", "--secrets", action="append", help="Set secret environment variables.")
         run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
         run_parser.add_argument("--secret-env-file", type=str, help="Read in a file of secret environment variables.")
         run_parser.add_argument(
@@ -92,15 +91,15 @@ class RunCommand(BaseHuggingfaceCLICommand):
         self.image: str = args.image
         self.command: List[str] = args.command
         self.env: dict[str, Optional[str]] = {}
-        for env_value in args.env or []:
-            self.env.update(dotenv_values(stream=io.StringIO(env_value)))
         if args.env_file:
-            self.env.update(dotenv_values(args.env_file))
+            self.env.update(load_dotenv(Path(args.env_file).read_text()))
+        for env_value in args.env or []:
+            self.env.update(load_dotenv(env_value))
         self.secrets: dict[str, Optional[str]] = {}
-        for secret in args.secret or []:
-            self.secrets.update(dotenv_values(stream=io.StringIO(secret)))
         if args.secret_env_file:
-            self.secrets.update(dotenv_values(args.secret_env_file))
+            self.secrets.update(load_dotenv(Path(args.secret_env_file).read_text()))
+        for secret in args.secrets or []:
+            self.secrets.update(load_dotenv(secret))
         self.flavor: str = args.flavor
         self.timeout: Optional[str] = args.timeout
         self.detach: bool = args.detach
@@ -334,11 +333,6 @@ class PsCommand(BaseHuggingfaceCLICommand):
             )
 
 
-class JSONEncoder(json.JSONEncoder):
-    def default(self, o: Any) -> Any:
-        return str(o) if isinstance(o, datetime) else super().default(o)
-
-
 class InspectCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction) -> None:
@@ -356,7 +350,7 @@ class InspectCommand(BaseHuggingfaceCLICommand):
     def run(self) -> None:
         api = HfApi(token=self.token)
         jobs = [api.inspect_job(job_id) for job_id in self.job_ids]
-        print(JSONEncoder(indent=4).encode([asdict(job) for job in jobs]))
+        print(json.dumps([asdict(job) for job in jobs], indent=4, default=str))
 
 
 class CancelCommand(BaseHuggingfaceCLICommand):
@@ -404,7 +398,7 @@ class UvCommand(BaseHuggingfaceCLICommand):
         )
         run_parser.add_argument("--flavor", type=str, default="cpu-basic", help="Hardware flavor (default: cpu-basic)")
         run_parser.add_argument("-e", "--env", action="append", help="Environment variables")
-        run_parser.add_argument("-s", "--secret", action="append", help="Secret environment variables")
+        run_parser.add_argument("-s", "--secrets", action="append", help="Secret environment variables")
         run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
         run_parser.add_argument(
             "--secret-env-file",
@@ -428,15 +422,15 @@ class UvCommand(BaseHuggingfaceCLICommand):
         self.dependencies = args.with_
         self.python = args.python
         self.env: dict[str, Optional[str]] = {}
-        for env_value in args.env or []:
-            self.env.update(dotenv_values(stream=io.StringIO(env_value)))
         if args.env_file:
-            self.env.update(dotenv_values(args.env_file))
+            self.env.update(load_dotenv(Path(args.env_file).read_text()))
+        for env_value in args.env or []:
+            self.env.update(load_dotenv(env_value))
         self.secrets: dict[str, Optional[str]] = {}
-        for secret in args.secret or []:
-            self.secrets.update(dotenv_values(stream=io.StringIO(secret)))
         if args.secret_env_file:
-            self.secrets.update(dotenv_values(args.secret_env_file))
+            self.secrets.update(load_dotenv(Path(args.secret_env_file).read_text()))
+        for secret in args.secrets or []:
+            self.secrets.update(load_dotenv(secret))
         self.flavor: Optional[str] = args.flavor
         self.timeout: Optional[str] = args.timeout
         self.detach: bool = args.detach

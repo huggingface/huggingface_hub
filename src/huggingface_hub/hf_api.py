@@ -10307,7 +10307,7 @@ class HfApi:
                 repo_id = _repo
             else:
                 username = self.whoami(token=token)["name"]
-                repo_id = f"{username}/huggingface-cli-jobs-uv-run-scripts"
+                repo_id = f"{username}/hf-cli-jobs-uv-run-scripts"
 
             # Create repo if needed
             try:
@@ -10340,7 +10340,7 @@ class HfApi:
                 f"""
                 ---
                 tags:
-                - huggingface-cli-jobs-uv-script
+                - hf-cli-jobs-uv-script
                 - ephemeral
                 viewer: false
                 ---

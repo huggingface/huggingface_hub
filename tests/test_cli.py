@@ -860,8 +860,8 @@ class TestJobsCommand(unittest.TestCase):
         commands_parser = self.parser.add_subparsers()
         JobsCommands.register_subcommand(commands_parser)
 
-    @patch("requests.post", return_value=DummyResponse({"id": "my-job-id"}))
-    @patch("huggingface_hub.commands.jobs.run.whoami", return_value={"name": "my-username"})
+    @patch("requests.Session.post", return_value=DummyResponse({"id": "my-job-id"}))
+    @patch("huggingface_hub.hf_api.HfApi.whoami", return_value={"name": "my-username"})
     def test_run(self, whoami: Mock, requests_post: Mock) -> None:
         input_args = ["jobs", "run", "--detach", "ubuntu", "echo", "hello"]
         cmd = RunCommand(self.parser.parse_args(input_args))
