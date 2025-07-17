@@ -96,7 +96,7 @@ def upload_large_folder_internal(
     logger.info(f"Repo created: {repo_url}")
     repo_id = repo_url.repo_id
     # 2.1 Check if xet is enabled to set batch file upload size
-    xet_enabled = (
+    is_xet_enabled = (
         is_xet_available()
         and api.repo_info(
             repo_id=repo_id,
@@ -105,7 +105,7 @@ def upload_large_folder_internal(
             expand="xetEnabled",
         ).xet_enabled
     )
-    target_upload_batch_size = TARGET_NB_FILES_XET_UPLOAD_BATCH_SIZE if xet_enabled else 1
+    target_upload_batch_size = TARGET_NB_FILES_XET_UPLOAD_BATCH_SIZE if is_xet_enabled else 1
 
     # 3. List files to upload
     filtered_paths_list = filter_repo_objects(
