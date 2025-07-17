@@ -15,19 +15,19 @@
 
 Usage:
     # login and save token locally.
-    huggingface-cli login --token=hf_*** --add-to-git-credential
+    hf auth login --token=hf_*** --add-to-git-credential
 
     # switch between tokens
-    huggingface-cli auth switch
+    hf auth switch
 
     # list all tokens
-    huggingface-cli auth list
+    hf auth list
 
-    # logout from a specific token, if no token-name is provided, all tokens will be deleted from your machine.
-    huggingface-cli logout --token-name=your_token_name
+    # logout from all tokens
+    hf auth logout
 
-    # find out which huggingface.co account you are logged in as
-    huggingface-cli whoami
+    # check which account you are logged in as
+    hf auth whoami
 """
 
 from argparse import _SubParsersAction
@@ -41,7 +41,7 @@ from huggingface_hub.hf_api import HfApi
 
 from .._login import auth_list, auth_switch, login, logout
 from ..utils import get_stored_tokens, get_token, logging
-from ._cli_utils import ANSI, show_deprecation_warning
+from ._cli_utils import ANSI
 
 
 logger = logging.get_logger(__name__)
@@ -55,10 +55,17 @@ except ImportError:
     _inquirer_py_available = False
 
 
-class UserCommands(BaseHuggingfaceCLICommand):
+class AuthCommands(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        login_parser = parser.add_parser("login", help="Log in using a token from huggingface.co/settings/tokens")
+        # Create the main 'auth' command
+        auth_parser = parser.add_parser("auth", help="Manage authentication (login, logout, etc.).")
+        auth_subparsers = auth_parser.add_subparsers(help="Authentication subcommands")
+
+        # Add 'login' as a subcommand of 'auth'
+        login_parser = auth_subparsers.add_parser(
+            "login", help="Log in using a token from huggingface.co/settings/tokens"
+        )
         login_parser.add_argument(
             "--token",
             type=str,
@@ -69,20 +76,24 @@ class UserCommands(BaseHuggingfaceCLICommand):
             action="store_true",
             help="Optional: Save token to git credential helper.",
         )
-        login_parser.set_defaults(func=lambda args: LoginCommand(args))
-        whoami_parser = parser.add_parser("whoami", help="Find out which huggingface.co account you are logged in as.")
-        whoami_parser.set_defaults(func=lambda args: WhoamiCommand(args))
+        login_parser.set_defaults(func=lambda args: AuthLogin(args))
 
-        logout_parser = parser.add_parser("logout", help="Log out")
+        # Add 'logout' as a subcommand of 'auth'
+        logout_parser = auth_subparsers.add_parser("logout", help="Log out")
         logout_parser.add_argument(
             "--token-name",
             type=str,
             help="Optional: Name of the access token to log out from.",
         )
-        logout_parser.set_defaults(func=lambda args: LogoutCommand(args))
+        logout_parser.set_defaults(func=lambda args: AuthLogout(args))
 
-        auth_parser = parser.add_parser("auth", help="Other authentication related commands")
-        auth_subparsers = auth_parser.add_subparsers(help="Authentication subcommands")
+        # Add 'whoami' as a subcommand of 'auth'
+        whoami_parser = auth_subparsers.add_parser(
+            "whoami", help="Find out which huggingface.co account you are logged in as."
+        )
+        whoami_parser.set_defaults(func=lambda args: AuthWhoami(args))
+
+        # Existing subcommands
         auth_switch_parser = auth_subparsers.add_parser("switch", help="Switch between access tokens")
         auth_switch_parser.add_argument(
             "--token-name",
@@ -94,21 +105,20 @@ class UserCommands(BaseHuggingfaceCLICommand):
             action="store_true",
             help="Optional: Save token to git credential helper.",
         )
-        auth_switch_parser.set_defaults(func=lambda args: AuthSwitchCommand(args))
+        auth_switch_parser.set_defaults(func=lambda args: AuthSwitch(args))
+
         auth_list_parser = auth_subparsers.add_parser("list", help="List all stored access tokens")
-        auth_list_parser.set_defaults(func=lambda args: AuthListCommand(args))
+        auth_list_parser.set_defaults(func=lambda args: AuthList(args))
 
 
-class BaseUserCommand:
+class BaseAuthCommand:
     def __init__(self, args):
         self.args = args
         self._api = HfApi()
 
 
-class LoginCommand(BaseUserCommand):
+class AuthLogin(BaseAuthCommand):
     def run(self):
-        show_deprecation_warning("huggingface-cli login", "hf auth login")
-
         logging.set_verbosity_info()
         login(
             token=self.args.token,
@@ -116,18 +126,14 @@ class LoginCommand(BaseUserCommand):
         )
 
 
-class LogoutCommand(BaseUserCommand):
+class AuthLogout(BaseAuthCommand):
     def run(self):
-        show_deprecation_warning("huggingface-cli logout", "hf auth logout")
-
         logging.set_verbosity_info()
         logout(token_name=self.args.token_name)
 
 
-class AuthSwitchCommand(BaseUserCommand):
+class AuthSwitch(BaseAuthCommand):
     def run(self):
-        show_deprecation_warning("huggingface-cli auth switch", "hf auth switch")
-
         logging.set_verbosity_info()
         token_name = self.args.token_name
         if token_name is None:
@@ -177,18 +183,14 @@ class AuthSwitchCommand(BaseUserCommand):
             return None
 
 
-class AuthListCommand(BaseUserCommand):
+class AuthList(BaseAuthCommand):
     def run(self):
-        show_deprecation_warning("huggingface-cli auth list", "hf auth list")
-
         logging.set_verbosity_info()
         auth_list()
 
 
-class WhoamiCommand(BaseUserCommand):
+class AuthWhoami(BaseAuthCommand):
     def run(self):
-        show_deprecation_warning("huggingface-cli whoami", "hf auth whoami")
-
         token = get_token()
         if token is None:
             print("Not logged in")

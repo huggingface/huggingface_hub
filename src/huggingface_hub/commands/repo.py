@@ -31,6 +31,8 @@ from huggingface_hub.constants import SPACES_SDK_TYPES
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import logging
 
+from ._cli_utils import show_deprecation_warning
+
 
 logger = logging.get_logger(__name__)
 
@@ -128,6 +130,8 @@ class RepoCreateCommand:
         self._api = HfApi()
 
     def run(self):
+        show_deprecation_warning("huggingface-cli repo", "hf repo")
+
         if self.organization is not None:
             if "/" in self.repo_id:
                 print(ANSI.red("You cannot pass both --organization and a repo_id with a namespace."))

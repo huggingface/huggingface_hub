@@ -41,7 +41,7 @@ from huggingface_hub.constants import (
 from huggingface_hub.hf_api import HfApi
 
 from ..errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
-from ._cli_utils import ANSI
+from ._cli_utils import ANSI, show_deprecation_warning
 
 
 class TagCommands(BaseHuggingfaceCLICommand):
@@ -71,6 +71,8 @@ class TagCommands(BaseHuggingfaceCLICommand):
 
 
 def handle_commands(args: Namespace):
+    show_deprecation_warning("huggingface-cli tag", "hf repo tag")
+
     if args.list:
         return TagListCommand(args)
     elif args.delete:

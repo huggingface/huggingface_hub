@@ -23,7 +23,7 @@ from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import disable_progress_bars
 
-from ._cli_utils import ANSI, show_deprecation_warning
+from ._cli_utils import ANSI
 
 
 logger = logging.get_logger(__name__)
@@ -32,7 +32,10 @@ logger = logging.get_logger(__name__)
 class UploadLargeFolderCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        subparser = parser.add_parser("upload-large-folder", help="Upload a large folder to a repo on the Hub")
+        subparser = parser.add_parser(
+            "upload-large-folder",
+            help="Upload a large folder to the Hub. Recommended for resumable uploads.",
+        )
         subparser.add_argument(
             "repo_id", type=str, help="The ID of the repo to upload to (e.g. `username/repo-name`)."
         )
@@ -76,7 +79,7 @@ class UploadLargeFolderCommand(BaseHuggingfaceCLICommand):
         self.include: Optional[List[str]] = args.include
         self.exclude: Optional[List[str]] = args.exclude
 
-        self.api: HfApi = HfApi(token=args.token, library_name="huggingface-cli")
+        self.api: HfApi = HfApi(token=args.token, library_name="hf")
 
         self.num_workers: Optional[int] = args.num_workers
         self.no_report: bool = args.no_report
@@ -86,13 +89,11 @@ class UploadLargeFolderCommand(BaseHuggingfaceCLICommand):
             raise ValueError("Large upload is only supported for folders.")
 
     def run(self) -> None:
-        show_deprecation_warning("huggingface-cli upload-large-folder", "hf upload-large-folder")
-
         logging.set_verbosity_info()
 
         print(
             ANSI.yellow(
-                "You are about to upload a large folder to the Hub using `huggingface-cli upload-large-folder`. "
+                "You are about to upload a large folder to the Hub using `hf upload-large-folder`. "
                 "This is a new feature so feedback is very welcome!\n"
                 "\n"
                 "A few things to keep in mind:\n"
@@ -110,7 +111,7 @@ class UploadLargeFolderCommand(BaseHuggingfaceCLICommand):
                 "If the process output is too verbose, you can disable the progress bars with `--no-bars`. "
                 "You can also entirely disable the status report with `--no-report`.\n"
                 "\n"
-                "For more details, run `huggingface-cli upload-large-folder --help` or check the documentation at "
+                "For more details, run `hf upload-large-folder --help` or check the documentation at "
                 "https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-large-folder."
             )
         )

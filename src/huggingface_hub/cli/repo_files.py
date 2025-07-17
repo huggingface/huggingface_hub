@@ -16,22 +16,22 @@
 
 Usage:
     # delete all
-    huggingface-cli repo-files <repo_id> delete "*"
+    hf repo-files delete <repo_id> "*"
 
     # delete single file
-    huggingface-cli repo-files <repo_id> delete file.txt
+    hf repo-files delete <repo_id> file.txt
 
     # delete single folder
-    huggingface-cli repo-files <repo_id> delete folder/
+    hf repo-files delete <repo_id> folder/
 
     # delete multiple
-    huggingface-cli repo-files <repo_id> delete file.txt folder/ file2.txt
+    hf repo-files delete <repo_id> file.txt folder/ file2.txt
 
     # delete multiple patterns
-    huggingface-cli repo-files <repo_id> delete file.txt "*.json" "folder/*.parquet"
+    hf repo-files delete <repo_id> file.txt "*.json" "folder/*.parquet"
 
     # delete from different revision / repo-type
-    huggingface-cli repo-files <repo_id> delete file.txt --revision=refs/pr/1 --repo-type=dataset
+    hf repo-files delete <repo_id> file.txt --revision=refs/pr/1 --repo-type=dataset
 """
 
 from argparse import _SubParsersAction
@@ -40,8 +40,6 @@ from typing import List, Optional
 from huggingface_hub import logging
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.hf_api import HfApi
-
-from ._cli_utils import show_deprecation_warning
 
 
 logger = logging.get_logger(__name__)
@@ -53,7 +51,7 @@ class DeleteFilesSubCommand:
         self.repo_id: str = args.repo_id
         self.repo_type: Optional[str] = args.repo_type
         self.revision: Optional[str] = args.revision
-        self.api: HfApi = HfApi(token=args.token, library_name="huggingface-cli")
+        self.api: HfApi = HfApi(token=args.token, library_name="hf")
         self.patterns: List[str] = args.patterns
         self.commit_message: Optional[str] = args.commit_message
         self.commit_description: Optional[str] = args.commit_description
@@ -61,8 +59,6 @@ class DeleteFilesSubCommand:
         self.token: Optional[str] = args.token
 
     def run(self) -> None:
-        show_deprecation_warning("huggingface-cli repo-files", "hf repo-files")
-
         logging.set_verbosity_info()
         url = self.api.delete_files(
             delete_patterns=self.patterns,
@@ -80,10 +76,7 @@ class DeleteFilesSubCommand:
 class RepoFilesCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        repo_files_parser = parser.add_parser("repo-files", help="Manage files in a repo on the Hub")
-        repo_files_parser.add_argument(
-            "repo_id", type=str, help="The ID of the repo to manage (e.g. `username/repo-name`)."
-        )
+        repo_files_parser = parser.add_parser("repo-files", help="Manage files in a repo on the Hub.")
         repo_files_subparsers = repo_files_parser.add_subparsers(
             help="Action to execute against the files.",
             required=True,
@@ -93,6 +86,9 @@ class RepoFilesCommand(BaseHuggingfaceCLICommand):
             help="Delete files from a repo on the Hub",
         )
         delete_subparser.set_defaults(func=lambda args: DeleteFilesSubCommand(args))
+        delete_subparser.add_argument(
+            "repo_id", type=str, help="The ID of the repo to manage (e.g. `username/repo-name`)."
+        )
         delete_subparser.add_argument(
             "patterns",
             nargs="+",
@@ -123,7 +119,7 @@ class RepoFilesCommand(BaseHuggingfaceCLICommand):
         delete_subparser.add_argument(
             "--create-pr", action="store_true", help="Whether to create a new Pull Request for these changes."
         )
-        repo_files_parser.add_argument(
+        delete_subparser.add_argument(
             "--token",
             type=str,
             help="A User Access Token generated from https://huggingface.co/settings/tokens",

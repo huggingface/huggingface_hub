@@ -11,18 +11,32 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains command to print information about the version.
+"""Contains commands to print information about the environment and version.
 
 Usage:
-    huggingface-cli version
+    hf env
+    hf version
 """
 
 from argparse import _SubParsersAction
 
 from huggingface_hub import __version__
 
+from ..utils import dump_environment_info
 from . import BaseHuggingfaceCLICommand
-from ._cli_utils import show_deprecation_warning
+
+
+class EnvironmentCommand(BaseHuggingfaceCLICommand):
+    def __init__(self, args):
+        self.args = args
+
+    @staticmethod
+    def register_subcommand(parser: _SubParsersAction):
+        env_parser = parser.add_parser("env", help="Print information about the environment.")
+        env_parser.set_defaults(func=EnvironmentCommand)
+
+    def run(self) -> None:
+        dump_environment_info()
 
 
 class VersionCommand(BaseHuggingfaceCLICommand):
@@ -31,10 +45,8 @@ class VersionCommand(BaseHuggingfaceCLICommand):
 
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        version_parser = parser.add_parser("version", help="Print information about the huggingface-cli version.")
+        version_parser = parser.add_parser("version", help="Print information about the hf version.")
         version_parser.set_defaults(func=VersionCommand)
 
     def run(self) -> None:
-        show_deprecation_warning("huggingface-cli version", "hf version")
-
         print(f"huggingface_hub version: {__version__}")
