@@ -181,7 +181,7 @@ JOB_ITEM_T = Tuple[LocalUploadFilePaths, LocalUploadFileMetadata]
 class LargeUploadStatus:
     """Contains information, queues and tasks for a large upload process."""
 
-    def __init__(self, items: List[JOB_ITEM_T], upload_batch_size: int):
+    def __init__(self, items: List[JOB_ITEM_T], upload_batch_size: int = 1):
         self.items = items
         self.queue_sha256: "queue.Queue[JOB_ITEM_T]" = queue.Queue()
         self.queue_get_upload_mode: "queue.Queue[JOB_ITEM_T]" = queue.Queue()

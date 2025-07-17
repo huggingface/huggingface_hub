@@ -6,7 +6,7 @@ from huggingface_hub._upload_large_folder import COMMIT_SIZE_SCALE, LargeUploadS
 
 @pytest.fixture
 def status():
-    return LargeUploadStatus(items=[], upload_batch_size=1)
+    return LargeUploadStatus(items=[])
 
 
 def test_target_chunk_default(status):
