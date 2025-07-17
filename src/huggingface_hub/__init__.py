@@ -165,6 +165,7 @@ _SUBMOD_ATTRS = {
         "add_space_variable",
         "auth_check",
         "cancel_access_request",
+        "cancel_job",
         "change_discussion_status",
         "comment_discussion",
         "create_branch",
@@ -194,6 +195,7 @@ _SUBMOD_ATTRS = {
         "duplicate_space",
         "edit_discussion_comment",
         "enable_webhook",
+        "fetch_job_logs",
         "file_exists",
         "get_collection",
         "get_dataset_tags",
@@ -210,11 +212,13 @@ _SUBMOD_ATTRS = {
         "get_user_overview",
         "get_webhook",
         "grant_access",
+        "inspect_job",
         "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
         "list_inference_catalog",
         "list_inference_endpoints",
+        "list_jobs",
         "list_lfs_files",
         "list_liked_repos",
         "list_models",
@@ -251,6 +255,7 @@ _SUBMOD_ATTRS = {
         "resume_inference_endpoint",
         "revision_exists",
         "run_as_future",
+        "run_job",
         "scale_to_zero_inference_endpoint",
         "set_space_sleep_time",
         "space_info",
@@ -792,6 +797,7 @@ __all__ = [
     "auth_switch",
     "cached_assets_path",
     "cancel_access_request",
+    "cancel_job",
     "change_discussion_status",
     "comment_discussion",
     "configure_http_backend",
@@ -825,6 +831,7 @@ __all__ = [
     "enable_webhook",
     "export_entries_as_dduf",
     "export_folder_as_dduf",
+    "fetch_job_logs",
     "file_exists",
     "from_pretrained_fastai",
     "from_pretrained_keras",
@@ -851,12 +858,14 @@ __all__ = [
     "grant_access",
     "hf_hub_download",
     "hf_hub_url",
+    "inspect_job",
     "interpreter_login",
     "list_accepted_access_requests",
     "list_collections",
     "list_datasets",
     "list_inference_catalog",
     "list_inference_endpoints",
+    "list_jobs",
     "list_lfs_files",
     "list_liked_repos",
     "list_models",
@@ -907,6 +916,7 @@ __all__ = [
     "resume_inference_endpoint",
     "revision_exists",
     "run_as_future",
+    "run_job",
     "save_pretrained_keras",
     "save_torch_model",
     "save_torch_state_dict",
@@ -1143,6 +1153,7 @@ if TYPE_CHECKING:  # pragma: no cover
         add_space_variable,  # noqa: F401
         auth_check,  # noqa: F401
         cancel_access_request,  # noqa: F401
+        cancel_job,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
         create_branch,  # noqa: F401
@@ -1172,6 +1183,7 @@ if TYPE_CHECKING:  # pragma: no cover
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
         enable_webhook,  # noqa: F401
+        fetch_job_logs,  # noqa: F401
         file_exists,  # noqa: F401
         get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401
@@ -1188,11 +1200,13 @@ if TYPE_CHECKING:  # pragma: no cover
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
+        inspect_job,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
+        list_jobs,  # noqa: F401
         list_lfs_files,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_models,  # noqa: F401
@@ -1229,6 +1243,7 @@ if TYPE_CHECKING:  # pragma: no cover
         resume_inference_endpoint,  # noqa: F401
         revision_exists,  # noqa: F401
         run_as_future,  # noqa: F401
+        run_job,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
         space_info,  # noqa: F401
