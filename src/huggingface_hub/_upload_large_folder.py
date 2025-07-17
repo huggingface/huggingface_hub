@@ -36,6 +36,7 @@ from .utils._cache_manager import _format_size
 from .utils._runtime import is_xet_available
 from .utils.sha import sha_fileobj
 
+
 if TYPE_CHECKING:
     from .hf_api import HfApi
 
@@ -96,9 +97,13 @@ def upload_large_folder_internal(
     repo_id = repo_url.repo_id
     # 2.1 Check if xet is enabled to set batch file upload size
     xet_enabled = (
-            is_xet_available() and api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision,
-                                                 expand="xetEnabled",
-                                                 ).xet_enabled
+        is_xet_available()
+        and api.repo_info(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            expand="xetEnabled",
+        ).xet_enabled
     )
     target_upload_batch_size = TARGET_NB_FILES_XET_UPLOAD_BATCH_SIZE if xet_enabled else 1
 
@@ -406,10 +411,10 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
     with status.lock:
         # 1. Commit if more than 5 minutes since last commit attempt (and at least 1 file)
         if (
-                status.nb_workers_commit == 0
-                and status.queue_commit.qsize() > 0
-                and status.last_commit_attempt is not None
-                and time.time() - status.last_commit_attempt > 5 * 60
+            status.nb_workers_commit == 0
+            and status.queue_commit.qsize() > 0
+            and status.last_commit_attempt is not None
+            and time.time() - status.last_commit_attempt > 5 * 60
         ):
             status.nb_workers_commit += 1
             logger.debug("Job: commit (more than 5 minutes since last commit attempt)")
@@ -429,13 +434,11 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
 
         # 4. Preupload LFS file if at least `status.nb_files_upload_batch_size` files and no worker is preuploading LFS
         elif (
-                status.queue_preupload_lfs.qsize() >= status.nb_files_upload_batch_size
-                and status.nb_workers_preupload_lfs == 0
+            status.queue_preupload_lfs.qsize() >= status.nb_files_upload_batch_size
+            and status.nb_workers_preupload_lfs == 0
         ):
             status.nb_workers_preupload_lfs += 1
             logger.debug("Job: preupload LFS (no other worker preuploading LFS)")
-            logger.info(
-                f"case 1 (no other worker) uploading {min(status.queue_preupload_lfs.qsize(), status.nb_files_upload_batch_size)} LFS file")
             return (WorkerJob.PREUPLOAD_LFS, _get_n(status.queue_preupload_lfs, status.nb_files_upload_batch_size))
 
         # 5. Compute sha256 if at least 1 file and no worker is computing sha256
@@ -453,12 +456,10 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
         # 7. Preupload LFS file if at least `status.nb_files_upload_batch_size` files
         #    Skip if hf_transfer is enabled and there is already a worker preuploading LFS
         elif status.queue_preupload_lfs.qsize() >= status.nb_files_upload_batch_size and (
-                status.nb_workers_preupload_lfs == 0 or not constants.HF_HUB_ENABLE_HF_TRANSFER
+            status.nb_workers_preupload_lfs == 0 or not constants.HF_HUB_ENABLE_HF_TRANSFER
         ):
             status.nb_workers_preupload_lfs += 1
             logger.debug("Job: preupload LFS")
-            logger.info(
-                f"case 2 uploading {min(status.queue_preupload_lfs.qsize(), status.nb_files_upload_batch_size)} LFS file when nb_files_upload_batch_size is {status.nb_files_upload_batch_size}")
             return (WorkerJob.PREUPLOAD_LFS, _get_n(status.queue_preupload_lfs, status.nb_files_upload_batch_size))
 
         # 8. Compute sha256 if at least 1 file
@@ -477,15 +478,14 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
         elif status.queue_preupload_lfs.qsize() > 0:
             status.nb_workers_preupload_lfs += 1
             logger.debug("Job: preupload LFS")
-            logger.info("uploading 1 LFS file")
             return (WorkerJob.PREUPLOAD_LFS, _get_n(status.queue_preupload_lfs, status.nb_files_upload_batch_size))
 
         # 11. Commit if at least 1 file and 1 min since last commit attempt
         elif (
-                status.nb_workers_commit == 0
-                and status.queue_commit.qsize() > 0
-                and status.last_commit_attempt is not None
-                and time.time() - status.last_commit_attempt > 1 * 60
+            status.nb_workers_commit == 0
+            and status.queue_commit.qsize() > 0
+            and status.last_commit_attempt is not None
+            and time.time() - status.last_commit_attempt > 1 * 60
         ):
             status.nb_workers_commit += 1
             logger.debug("Job: commit (1 min since last commit attempt)")
@@ -494,14 +494,14 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
         # 12. Commit if at least 1 file all other queues are empty and all workers are waiting
         #     e.g. when it's the last commit
         elif (
-                status.nb_workers_commit == 0
-                and status.queue_commit.qsize() > 0
-                and status.queue_sha256.qsize() == 0
-                and status.queue_get_upload_mode.qsize() == 0
-                and status.queue_preupload_lfs.qsize() == 0
-                and status.nb_workers_sha256 == 0
-                and status.nb_workers_get_upload_mode == 0
-                and status.nb_workers_preupload_lfs == 0
+            status.nb_workers_commit == 0
+            and status.queue_commit.qsize() > 0
+            and status.queue_sha256.qsize() == 0
+            and status.queue_get_upload_mode.qsize() == 0
+            and status.queue_preupload_lfs.qsize() == 0
+            and status.nb_workers_sha256 == 0
+            and status.nb_workers_get_upload_mode == 0
+            and status.nb_workers_preupload_lfs == 0
         ):
             status.nb_workers_commit += 1
             logger.debug("Job: commit")
