@@ -279,6 +279,37 @@ class TestXetLargeUpload:
             regular_file = local_dir / f"subfolder_{i}/file_regular_{i}_{j}.txt"
             assert regular_file.read_bytes() == f"content_regular_{i}_{j}".encode()
 
+    def test_upload_large_folder_batch_size_greater_than_one(self, api, tmp_path, repo_url: RepoUrl) -> None:
+        from hf_xet import upload_files as real_upload_files
+
+        N_FILES = 500
+        repo_id = repo_url.repo_id
+
+        folder = Path(tmp_path) / "large_folder"
+        folder.mkdir()
+        for i in range(N_FILES):
+            (folder / f"file_xet_{i}.bin").write_bytes(f"content_lfs_{i}".encode())
+
+        # capture the number of files passed in per call to hf_xet.upload_files
+        # to ensure that the batch size is respected.
+        num_files_per_call = []
+        def spy_upload_files(*args, **kwargs):
+            num_files = len(args[0])
+            num_files_per_call.append(num_files)
+            return real_upload_files(*args, **kwargs)
+
+        with assert_upload_mode("xet"):
+            with patch("hf_xet.upload_files", side_effect=spy_upload_files):
+                api.upload_large_folder(repo_id=repo_id, repo_type="model", folder_path=folder, num_workers=4)
+
+        # the batch size is set to 256 however due to speed of hashing and get_upload_mode calls it's not always guaranteed
+        # that the files will be uploaded in batches of 256. They may be uploaded in smaller batches if no other jobs
+        # are available to run; even as small as 1 file per call.
+        #
+        # However, it would be unlikely that all files are uploaded in batches of 1 if batching was correctly implemented.
+        # So we assert that not all files were uploaded in batches of 1, although it is possible even with batching.
+
+        assert not all([n == 1 for n in num_files_per_call])
 
 @requires("hf_xet")
 class TestXetE2E(TestXetUpload):

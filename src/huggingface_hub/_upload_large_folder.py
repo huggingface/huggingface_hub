@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 WAITING_TIME_IF_NO_TASKS = 10  # seconds
 MAX_NB_FILES_FETCH_UPLOAD_MODE = 100
 COMMIT_SIZE_SCALE: List[int] = [20, 50, 75, 100, 125, 200, 250, 400, 600, 1000]
-TARGET_NB_FILES_XET_UPLOAD_BATCH_SIZE = 256  # target nbfiles per upload batch for XET-enabled repos
+TARGET_NB_FILES_XET_UPLOAD_BATCH_SIZE = 256  # target nb files per upload batch for XET-enabled repos
 
 
 def upload_large_folder_internal(
