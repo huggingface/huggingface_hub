@@ -52,6 +52,10 @@ jobs:
       # Copy Python types to huggingface_hub
       - run: cp -r ./huggingface.js/packages/tasks/.python_generated/* ./huggingface_hub/src/huggingface_hub/inference/_generated/types
 
+      # Do not auto-generate chat completion types (now manually maintained)
+      - run: git checkout ./src/huggingface_hub/inference/_generated/types/chat_completion.py
+        working-directory: ./huggingface_hub
+
       # Post-process
       - run: make inference_update
         working-directory: ./huggingface_hub
