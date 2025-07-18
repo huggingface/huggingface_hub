@@ -310,7 +310,7 @@ class TestXetLargeUpload:
         # However, it would be unlikely that all files are uploaded in batches of 1 if batching was correctly implemented.
         # So we assert that not all files were uploaded in batches of 1, although it is possible even with batching.
 
-        assert not all([n == 1 for n in num_files_per_call])
+        assert any(n > 1 for n in num_files_per_call)
 
 
 @requires("hf_xet")
