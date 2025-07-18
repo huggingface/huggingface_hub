@@ -293,6 +293,7 @@ class TestXetLargeUpload:
         # capture the number of files passed in per call to hf_xet.upload_files
         # to ensure that the batch size is respected.
         num_files_per_call = []
+
         def spy_upload_files(*args, **kwargs):
             num_files = len(args[0])
             num_files_per_call.append(num_files)
@@ -310,6 +311,7 @@ class TestXetLargeUpload:
         # So we assert that not all files were uploaded in batches of 1, although it is possible even with batching.
 
         assert not all([n == 1 for n in num_files_per_call])
+
 
 @requires("hf_xet")
 class TestXetE2E(TestXetUpload):
