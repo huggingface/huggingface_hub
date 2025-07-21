@@ -10112,7 +10112,7 @@ class HfApi:
             except KeyboardInterrupt:
                 break
             except requests.exceptions.ConnectionError as err:
-                is_timeout = err.__context__ and isinstance(err.__context__.__cause__, TimeoutError)
+                is_timeout = err.__context__ and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
                 if logging_started or not is_timeout:
                     raise
             if logging_finished or job_finished:
@@ -10297,21 +10297,19 @@ class HfApi:
             # Local file - upload to HF
             script_path = Path(script)
             filename = script_path.name
-
+            username = self.whoami(token=token)["name"]
             # Parse repo
             if _repo:
                 repo_id = _repo
                 if "/" not in repo_id:
-                    username = self.whoami(token=token)["name"]
                     repo_id = f"{username}/{repo_id}"
                 repo_id = _repo
             else:
-                username = self.whoami(token=token)["name"]
                 repo_id = f"{username}/hf-cli-jobs-uv-run-scripts"
 
             # Create repo if needed
             try:
-                api.repo_info(repo_id, repo_type="dataset")
+                self.repo_info(repo_id, repo_type="dataset")
                 logger.debug(f"Using existing repository: {repo_id}")
             except RepositoryNotFoundError:
                 logger.info(f"Creating repository: {repo_id}")
@@ -10322,7 +10320,7 @@ class HfApi:
             with open(script_path, "r") as f:
                 script_content = f.read()
 
-            api.upload_file(
+            self.upload_file(
                 path_or_fileobj=script_content.encode(),
                 path_in_repo=filename,
                 repo_id=repo_id,
@@ -10359,7 +10357,7 @@ class HfApi:
                 *Created with [huggingface-cli jobs](https://github.com/huggingface/huggingface-cli jobs)*
                 """
             )
-            api.upload_file(
+            self.upload_file(
                 path_or_fileobj=readme_content.encode(),
                 path_in_repo="README.md",
                 repo_id=repo_id,

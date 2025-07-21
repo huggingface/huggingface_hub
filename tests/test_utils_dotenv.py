@@ -1,3 +1,4 @@
+# AI-generated module (ChatGPT)
 from huggingface_hub.utils._dotenv import load_dotenv
 
 
