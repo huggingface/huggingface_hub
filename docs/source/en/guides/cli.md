@@ -709,8 +709,8 @@ You can pass environment variables to your job using
 ```
 
 ```bash
-# Pass secrets from a local .secrets.env file - they will be encrypted server side
->>> huggingface-cli jobs run --secret-env-file .secrets.env python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
+# Pass secrets from a local .env.secrets file - they will be encrypted server side
+>>> huggingface-cli jobs run --secrets-file .env.secrets python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
 ```
 
 ### Hardware
