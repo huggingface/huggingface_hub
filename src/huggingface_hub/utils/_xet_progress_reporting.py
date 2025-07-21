@@ -11,7 +11,7 @@ class XetProgressReporter:
     
     If per_file_progress is True, then per-file progress is shown in a scrolling list.  Otherwise, 
     only the summary bars showing file processing progress and data upload are shown.  By default, 
-    the summary version is shown in notebooks and the detailed file progress is shown in consoles.
+    the summary version is shown in notebooks and guis and the detailed file progress is shown in consoles.
     """
 
     def __init__(self, n_lines: int = 10, description_width: int = 30, per_file_progress = None):
@@ -19,7 +19,7 @@ class XetProgressReporter:
         self.description_width = description_width
 
         if per_file_progress is None:
-            self.per_file_progress = not tqdm.in_notebook() 
+            self.per_file_progress = tqdm.in_console() 
         else: 
             self.per_file_progress = per_file_progress
 
