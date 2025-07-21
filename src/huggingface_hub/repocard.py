@@ -276,7 +276,7 @@ class RepoCard:
 
         with SoftTemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir) / constants.REPOCARD_NAME
-            tmp_path.write_text(str(self))
+            tmp_path.write_text(str(self), encoding="utf-8")
             url = upload_file(
                 path_or_fileobj=str(tmp_path),
                 path_in_repo=constants.REPOCARD_NAME,
