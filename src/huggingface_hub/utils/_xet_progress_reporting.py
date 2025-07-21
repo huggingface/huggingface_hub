@@ -5,18 +5,30 @@ from hf_xet import PyItemProgressUpdate, PyTotalProgressUpdate
 
 from .tqdm import tqdm
 
-
 class XetProgressReporter:
-    def __init__(self, n_lines: int = 10, description_width: int = 40):
+    """
+    Reports on progress for Xet uploads.
+    
+    If per_file_progress is True, then per-file progress is shown in a scrolling list.  Otherwise, 
+    only the summary bars showing file processing progress and data upload are shown.  By default, 
+    the summary version is shown in notebooks and the detailed file progress is shown in consoles.
+    """
+
+    def __init__(self, n_lines: int = 10, description_width: int = 30, per_file_progress = None):
         self.n_lines = n_lines
         self.description_width = description_width
+
+        if per_file_progress is None:
+            self.per_file_progress = not tqdm.in_notebook() 
+        else: 
+            self.per_file_progress = per_file_progress
 
         self.tqdm_settings = {
             "unit": "B",
             "unit_scale": True,
             "leave": True,
             "unit_divisor": 1000,
-            "nrows": n_lines + 3,
+            "nrows": n_lines + 3 if self.per_file_progress else 3,
             "miniters": 1,
             "bar_format": "{l_bar}{bar}| {n_fmt:>5}B / {total_fmt:>5}B{postfix:>12}",
         }
@@ -40,8 +52,13 @@ class XetProgressReporter:
     def format_desc(self, name: str, indent: bool) -> str:
         """
         if name is longer than width characters, prints ... at the start and then the last width-3 characters of the name, otherwise
-        the whole name right justified into 20 characters.  Also adds some padding.
+        the whole name right justified into description_width characters.  Also adds some padding.
         """
+
+        if not self.per_file_progress:
+            # Here we just use the defaults. 
+            return name
+
         padding = "  " if indent else ""
         width = self.description_width - len(padding)
 
@@ -51,6 +68,7 @@ class XetProgressReporter:
         return f"{padding}{name.ljust(width)}"
 
     def update_progress(self, total_update: PyTotalProgressUpdate, item_updates: List[PyItemProgressUpdate]):
+
         # Update all the per-item values.
         for item in item_updates:
             item_name = item.item_name
@@ -73,6 +91,10 @@ class XetProgressReporter:
             if item.bytes_completed == item.total_bytes:
                 self.completed_items.add(name)
                 new_completed.append(name)
+
+            # If we're only showing summary information, then don't update the individual bars
+            if not self.per_file_progress:
+                continue
 
             # If we've run out of bars to use, then collapse the last ones together.
             if bar_idx >= len(self.current_bars):
@@ -111,10 +133,11 @@ class XetProgressReporter:
 
             del self.item_state[name]
 
-        # Now manually refresh each of the bars
-        for bar in self.current_bars:
-            if bar:
-                bar.refresh()
+        if self.per_file_progress:
+            # Now manually refresh each of the bars
+            for bar in self.current_bars:
+                if bar:
+                    bar.refresh()
 
         # Update overall bars
         def postfix(speed):
@@ -136,6 +159,8 @@ class XetProgressReporter:
     def close(self, _success):
         self.data_processing_bar.close()
         self.upload_bar.close()
-        for bar in self.current_bars:
-            if bar:
-                bar.close()
+
+        if self.per_file_progress:
+            for bar in self.current_bars:
+                if bar:
+                    bar.close()

@@ -89,6 +89,7 @@ from pathlib import Path
 from typing import ContextManager, Dict, Iterator, Optional, Union
 
 from tqdm.auto import tqdm as old_tqdm
+from tqdm.notebook import tqdm as _notebook_tqdm
 
 from ..constants import HF_HUB_DISABLE_PROGRESS_BARS
 
@@ -231,6 +232,12 @@ class tqdm(old_tqdm):
         except AttributeError:
             if attr != "_lock":
                 raise
+
+    @classmethod
+    def in_notebook(cls) -> bool: 
+        """Returns true if running in a notebook environment and false if running in a console."""
+
+        return _notebook_tqdm in cls.mro()
 
 
 @contextmanager
