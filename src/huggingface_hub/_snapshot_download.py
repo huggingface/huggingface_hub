@@ -257,7 +257,7 @@ def snapshot_download(
 
     # Corner case: on very large repos, the siblings list in `repo_info` might not contain all files.
     # In that case, we need to use the `list_repo_tree` method to prevent caching issues.
-    repo_files: Iterable[str] = [f.rfilename for f in repo_info.siblings]
+    repo_files: Iterable[str] = [f.rfilename for f in repo_info.siblings] if repo_info.siblings is not None else []
     unreliable_nb_files = (
         repo_info.siblings is None
         or len(repo_info.siblings) == 0
