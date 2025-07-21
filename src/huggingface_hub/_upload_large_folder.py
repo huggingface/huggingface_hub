@@ -46,7 +46,6 @@ WAITING_TIME_IF_NO_TASKS = 10  # seconds
 MAX_NB_FILES_FETCH_UPLOAD_MODE = 100
 COMMIT_SIZE_SCALE: List[int] = [20, 50, 75, 100, 125, 200, 250, 400, 600, 1000]
 
-UPLOAD_BATCH_DATA_SIZE_MIN = 64 * 1000 * 1000  # Minimum batch size for commit operations, 64 MB
 UPLOAD_BATCH_SIZE_XET = 256  # Max 256 files per upload batch for XET-enabled repos
 UPLOAD_BATCH_SIZE_LFS = 1  # Otherwise, batches of 1 for regular LFS upload
 
@@ -436,14 +435,10 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
             return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, MAX_NB_FILES_FETCH_UPLOAD_MODE))
 
         # 4. Preupload LFS file if at least `status.upload_batch_size` files and no worker is preuploading LFS
-        elif status.nb_workers_preupload_lfs == 0 and (
-            preupload_lfs_jobs := _get_n_or_exceeding_size(
-                status.queue_preupload_lfs, status.upload_batch_size, UPLOAD_BATCH_DATA_SIZE_MIN
-            )
-        ):
+        elif status.queue_preupload_lfs.qsize() >= status.upload_batch_size and status.nb_workers_preupload_lfs == 0:
             status.nb_workers_preupload_lfs += 1
             logger.debug("Job: preupload LFS (no other worker preuploading LFS)")
-            return (WorkerJob.PREUPLOAD_LFS, preupload_lfs_jobs)
+            return (WorkerJob.PREUPLOAD_LFS, _get_n(status.queue_preupload_lfs, status.upload_batch_size))
 
         # 5. Compute sha256 if at least 1 file and no worker is computing sha256
         elif status.queue_sha256.qsize() > 0 and status.nb_workers_sha256 == 0:
@@ -457,16 +452,14 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
             logger.debug("Job: get upload mode (no other worker getting upload mode)")
             return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, MAX_NB_FILES_FETCH_UPLOAD_MODE))
 
-        # 7. Skip if hf_transfer is enabled and there is already a worker preuploading LFS
-        #    Preupload LFS file if at least `status.upload_batch_size` files
-        elif (status.nb_workers_preupload_lfs == 0 or not constants.HF_HUB_ENABLE_HF_TRANSFER) and (
-            preupload_lfs_jobs := _get_n_or_exceeding_size(
-                status.queue_preupload_lfs, status.upload_batch_size, UPLOAD_BATCH_DATA_SIZE_MIN
-            )
+        # 7. Preupload LFS file if at least `status.upload_batch_size` files
+        #    Skip if hf_transfer is enabled and there is already a worker preuploading LFS
+        elif status.queue_preupload_lfs.qsize() >= status.upload_batch_size and (
+            status.nb_workers_preupload_lfs == 0 or not constants.HF_HUB_ENABLE_HF_TRANSFER
         ):
             status.nb_workers_preupload_lfs += 1
             logger.debug("Job: preupload LFS")
-            return (WorkerJob.PREUPLOAD_LFS, preupload_lfs_jobs)
+            return (WorkerJob.PREUPLOAD_LFS, _get_n(status.queue_preupload_lfs, status.upload_batch_size))
 
         # 8. Compute sha256 if at least 1 file
         elif status.queue_sha256.qsize() > 0:
@@ -627,24 +620,6 @@ def _get_one(queue: "queue.Queue[JOB_ITEM_T]") -> List[JOB_ITEM_T]:
 
 def _get_n(queue: "queue.Queue[JOB_ITEM_T]", n: int) -> List[JOB_ITEM_T]:
     return [queue.get() for _ in range(min(queue.qsize(), n))]
-
-
-def _get_n_or_exceeding_size(queue: "queue.Queue[JOB_ITEM_T]", n: int, min_total_size: int) -> List[JOB_ITEM_T]:
-    """
-    Get up to `n` items from the queue.
-    only return less than `n` if the total size of all items is greater than or equal to `min_total_size`.
-    """
-    items = [queue.get() for _ in range(min(queue.qsize(), n))]
-    if len(items) == n:
-        return items
-    total_size = sum(metadata.size for _path, metadata in items)
-    if total_size >= min_total_size:
-        return items
-
-    # put items back in the queue if there are less than `n` items and their total size is less than `min_total_size`
-    for item in items:
-        queue.put(item)
-    return []
 
 
 def _print_overwrite(report: str) -> None:
