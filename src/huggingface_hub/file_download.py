@@ -1136,10 +1136,18 @@ def _hf_hub_download_to_cache_dir(
 
     # Some Windows versions do not allow for paths longer than 255 characters.
     # In this case, we must specify it as an extended path by using the "\\?\" prefix.
-    if os.name == "nt" and len(os.path.abspath(lock_path)) > 255 and not os.path.abspath(lock_path).startswith("\\\\?\\"):
+    if (
+        os.name == "nt"
+        and len(os.path.abspath(lock_path)) > 255
+        and not os.path.abspath(lock_path).startswith("\\\\?\\")
+    ):
         lock_path = "\\\\?\\" + os.path.abspath(lock_path)
 
-    if os.name == "nt" and len(os.path.abspath(blob_path)) > 255 and not os.path.abspath(blob_path).startswith("\\\\?\\"):
+    if (
+        os.name == "nt"
+        and len(os.path.abspath(blob_path)) > 255
+        and not os.path.abspath(blob_path).startswith("\\\\?\\")
+    ):
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
