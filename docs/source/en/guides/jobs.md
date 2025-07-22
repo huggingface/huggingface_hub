@@ -78,7 +78,7 @@ https://huggingface.co/jobs/lhoestq/687f911eaea852de79c4a50a
 687f911eaea852de79c4a50a
 ```
 
-Jobs run in the background. The next section guides you through [`inspect_job`] to know a jobs' status and [`fetch_job_logs`] to the view the logs.
+Jobs run in the background. The next section guides you through [`inspect_job`] to know a jobs' status and [`fetch_job_logs`] to view the logs.
 
 ## Check Job status
 
@@ -90,7 +90,7 @@ Jobs run in the background. The next section guides you through [`inspect_job`] 
 JobInfo(id='687f911eaea852de79c4a50a', created_at=datetime.datetime(2025, 7, 22, 13, 24, 46, 909000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', status=JobStatus(stage='COMPLETED', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687f911eaea852de79c4a50a')
 
 # List your running jobs
->>> running_jobs = [job for job in jobs if job.status.stage == "RUNNING"]
+>>> running_jobs = [job for job in list_jobs() if job.status.stage == "RUNNING"]
 
 # Inspect the status of a job
 >>> from huggingface_hub import inspect_job
@@ -139,7 +139,7 @@ Run jobs on GPUs or TPUs with the `flavor` argument. For example, to run a PyTor
 >>> run_job(
 ...     image="pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel",
 ...     command=["python", "-c", "import torch; print(f'This code ran with the following GPU: {torch.cuda.get_device_name()}')"],
-...     flavor="a10g-small"
+...     flavor="a10g-small",
 ... )
 ```
 
@@ -170,7 +170,7 @@ Available `flavor` options:
 
 (updated in 07/2025 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
 
-That's it! You're now running code on Hugging Face's infrastructure. For more detailed information checkout the [Quickstart Guide](docs/quickstart.md).
+That's it! You're now running code on Hugging Face's infrastructure.
 
 ## Pass Environment variables and Secrets
 
@@ -209,6 +209,9 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 
 # Run with GPU
 >>> run_uv_job("ml_training.py", flavor="gpu-t4-small")
+
+# Run with dependencies
+>>> run_uv_job("inference.py", dependencies=["transformers", "torch"])
 
 # Run a script directly from a URL
 >>> run_uv_job("https://huggingface.co/datasets/username/scripts/resolve/main/example.py")
