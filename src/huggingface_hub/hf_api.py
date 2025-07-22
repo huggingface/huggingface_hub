@@ -9952,6 +9952,7 @@ class HfApi:
         secrets: Optional[Dict[str, Any]] = None,
         flavor: str = "cpu-basic",
         timeout: Optional[Union[int, float, str]] = None,
+        namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> JobInfo:
         """
@@ -9978,6 +9979,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job will be created. Defaults to the current user's namespace.
 
             token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
@@ -10031,9 +10035,10 @@ class HfApi:
                 break
         else:
             input_json["dockerImage"] = image
-        username = self.whoami(token=token)["name"]
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
         response = get_session().post(
-            f"https://huggingface.co/api/jobs/{username}",
+            f"https://huggingface.co/api/jobs/{namespace}",
             json=input_json,
             headers=self._build_hf_headers(token=token),
         )
@@ -10045,6 +10050,7 @@ class HfApi:
         self,
         *,
         job_id: str,
+        namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[str]:
         """
@@ -10053,6 +10059,9 @@ class HfApi:
         Args:
             job_id (`str`):
                 ID of the Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
 
             token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
@@ -10069,7 +10078,8 @@ class HfApi:
             Hello from HF compute!
             ```
         """
-        username = self.whoami(token=token)["name"]
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
         logging_finished = logging_started = False
         job_finished = False
         # - We need to retry because sometimes the /logs doesn't return logs when the job just started.
@@ -10090,7 +10100,7 @@ class HfApi:
             sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
             try:
                 resp = get_session().get(
-                    f"https://huggingface.co/api/jobs/{username}/{job_id}/logs",
+                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}/logs",
                     headers=self._build_hf_headers(token=token),
                     stream=True,
                     timeout=120,
@@ -10120,7 +10130,7 @@ class HfApi:
             job_status = (
                 get_session()
                 .get(
-                    f"https://huggingface.co/api/jobs/{username}/{job_id}",
+                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}",
                     headers=self._build_hf_headers(token=token),
                 )
                 .json()
@@ -10132,20 +10142,28 @@ class HfApi:
         self,
         *,
         timeout: Optional[int] = None,
+        namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> List[JobInfo]:
         """
         List compute Jobs on Hugging Face infrastructure.
 
         Args:
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+            namespace (`str`, *optional*):
+                The namespace from where it lists the jobs. Defaults to the current user's namespace.
+
             token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
         """
-        username = whoami(token=token)["name"]
+        if namespace is None:
+            namespace = whoami(token=token)["name"]
         response = get_session().get(
-            f"{self.endpoint}/api/jobs/{username}",
+            f"{self.endpoint}/api/jobs/{namespace}",
             headers=self._build_hf_headers(token=token),
             timeout=timeout,
         )
@@ -10156,6 +10174,7 @@ class HfApi:
         self,
         *,
         job_id: str,
+        namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> JobInfo:
         """
@@ -10164,6 +10183,9 @@ class HfApi:
         Args:
             job_id (`str`):
                 ID of the Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
 
             token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
@@ -10190,9 +10212,10 @@ class HfApi:
             )
             ```
         """
-        username = self.whoami(token=token)["name"]
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
         response = get_session().get(
-            f"{self.endpoint}/api/jobs/{username}/{job_id}",
+            f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
             headers=self._build_hf_headers(token=token),
         )
         response.raise_for_status()
@@ -10202,6 +10225,7 @@ class HfApi:
         self,
         *,
         job_id: str,
+        namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> None:
         """
@@ -10211,14 +10235,18 @@ class HfApi:
             job_id (`str`):
                 ID of the Job.
 
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
+
             token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
         """
-        username = self.whoami(token=token)["name"]
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
         get_session().post(
-            f"{self.endpoint}/api/jobs/{username}/{job_id}/cancel",
+            f"{self.endpoint}/api/jobs/{namespace}/{job_id}/cancel",
             headers=self._build_hf_headers(token=token),
         ).raise_for_status()
 
@@ -10226,6 +10254,7 @@ class HfApi:
     def run_uv_job(
         self,
         script: str,
+        *,
         script_args: Optional[List[str]] = None,
         dependencies: Optional[List[str]] = None,
         python: Optional[str] = None,
@@ -10233,6 +10262,7 @@ class HfApi:
         secrets: Optional[Dict[str, Any]] = None,
         flavor: str = "cpu-basic",
         timeout: Optional[Union[int, float, str]] = None,
+        namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
         _repo: Optional[str] = None,
     ) -> JobInfo:
@@ -10265,6 +10295,9 @@ class HfApi:
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
+            namespace (`str`, *optional*):
+                The namespace where the Job will be created. Defaults to the current user's namespace.
+
             token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
@@ -10293,6 +10326,9 @@ class HfApi:
             uv_args += ["--python", python]
         script_args = script_args or []
 
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+
         if script.startswith("http://") or script.startswith("https://"):
             # Direct URL execution - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
@@ -10300,15 +10336,14 @@ class HfApi:
             # Local file - upload to HF
             script_path = Path(script)
             filename = script_path.name
-            username = self.whoami(token=token)["name"]
             # Parse repo
             if _repo:
                 repo_id = _repo
                 if "/" not in repo_id:
-                    repo_id = f"{username}/{repo_id}"
+                    repo_id = f"{namespace}/{repo_id}"
                 repo_id = _repo
             else:
-                repo_id = f"{username}/hf-cli-jobs-uv-run-scripts"
+                repo_id = f"{namespace}/hf-cli-jobs-uv-run-scripts"
 
             # Create repo if needed
             try:
@@ -10397,6 +10432,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            namespace=namespace,
             token=token,
         )
 
@@ -10563,3 +10599,4 @@ fetch_job_logs = api.fetch_job_logs
 list_jobs = api.list_jobs
 inspect_job = api.inspect_job
 cancel_job = api.cancel_job
+run_uv_job = api.run_uv_job

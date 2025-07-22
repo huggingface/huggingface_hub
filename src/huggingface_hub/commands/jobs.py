@@ -80,6 +80,11 @@ class RunCommand(BaseHuggingfaceCLICommand):
             help="Run the Job in the background and print the Job ID.",
         )
         run_parser.add_argument(
+            "--namespace",
+            type=str,
+            help="The namespace where the Job will be created. Defaults to the current user's namespace.",
+        )
+        run_parser.add_argument(
             "--token",
             type=str,
             help="A User Access Token generated from https://huggingface.co/settings/tokens",
@@ -103,6 +108,7 @@ class RunCommand(BaseHuggingfaceCLICommand):
         self.flavor: str = args.flavor
         self.timeout: Optional[str] = args.timeout
         self.detach: bool = args.detach
+        self.namespace: Optional[str] = args.namespace
         self.token: Optional[str] = args.token
 
     def run(self) -> None:
@@ -114,6 +120,7 @@ class RunCommand(BaseHuggingfaceCLICommand):
             secrets=self.secrets,
             flavor=self.flavor,
             timeout=self.timeout,
+            namespace=self.namespace,
         )
         # Always print the job ID to the user
         print(f"Job started with ID: {job.id}")
@@ -133,17 +140,23 @@ class LogsCommand(BaseHuggingfaceCLICommand):
         run_parser = parser.add_parser("logs", help="Fetch the logs of a Job")
         run_parser.add_argument("job_id", type=str, help="Job ID")
         run_parser.add_argument(
+            "--namespace",
+            type=str,
+            help="The namespace where the job is running. Defaults to the current user's namespace.",
+        )
+        run_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
         )
         run_parser.set_defaults(func=LogsCommand)
 
     def __init__(self, args: Namespace) -> None:
         self.job_id: str = args.job_id
+        self.namespace: Optional[str] = args.namespace
         self.token: Optional[str] = args.token
 
     def run(self) -> None:
         api = HfApi(token=self.token)
-        for log in api.fetch_job_logs(job_id=self.job_id):
+        for log in api.fetch_job_logs(job_id=self.job_id, namespace=self.namespace):
             print(log)
 
 
@@ -185,6 +198,11 @@ class PsCommand(BaseHuggingfaceCLICommand):
             help="Show all Jobs (default shows just running)",
         )
         run_parser.add_argument(
+            "--namespace",
+            type=str,
+            help="The namespace from where it lists the jobs. Defaults to the current user's namespace.",
+        )
+        run_parser.add_argument(
             "--token",
             type=str,
             help="A User Access Token generated from https://huggingface.co/settings/tokens",
@@ -207,7 +225,8 @@ class PsCommand(BaseHuggingfaceCLICommand):
 
     def __init__(self, args: Namespace) -> None:
         self.all: bool = args.all
-        self.token: Optional[str] = args.token or None
+        self.namespace: Optional[str] = args.namespace
+        self.token: Optional[str] = args.token
         self.format: Optional[str] = args.format
         self.filters: Dict[str, str] = {}
 
@@ -228,7 +247,7 @@ class PsCommand(BaseHuggingfaceCLICommand):
             api = HfApi(token=self.token)
 
             # Fetch jobs data
-            jobs = api.list_jobs()
+            jobs = api.list_jobs(namespace=self.namespace)
 
             # Define table headers
             table_headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
@@ -337,18 +356,24 @@ class InspectCommand(BaseHuggingfaceCLICommand):
     def register_subcommand(parser: _SubParsersAction) -> None:
         run_parser = parser.add_parser("inspect", help="Display detailed information on one or more Jobs")
         run_parser.add_argument(
+            "--namespace",
+            type=str,
+            help="The namespace where the job is running. Defaults to the current user's namespace.",
+        )
+        run_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
         )
         run_parser.add_argument("job_ids", nargs="...", help="The jobs to inspect")
         run_parser.set_defaults(func=InspectCommand)
 
     def __init__(self, args: Namespace) -> None:
-        self.token: Optional[str] = args.token or None
+        self.namespace: Optional[str] = args.namespace
+        self.token: Optional[str] = args.token
         self.job_ids: List[str] = args.job_ids
 
     def run(self) -> None:
         api = HfApi(token=self.token)
-        jobs = [api.inspect_job(job_id) for job_id in self.job_ids]
+        jobs = [api.inspect_job(job_id=job_id, namespace=self.namespace) for job_id in self.job_ids]
         print(json.dumps([asdict(job) for job in jobs], indent=4, default=str))
 
 
@@ -358,17 +383,23 @@ class CancelCommand(BaseHuggingfaceCLICommand):
         run_parser = parser.add_parser("cancel", help="Cancel a Job")
         run_parser.add_argument("job_id", type=str, help="Job ID")
         run_parser.add_argument(
+            "--namespace",
+            type=str,
+            help="The namespace where the job is running. Defaults to the current user's namespace.",
+        )
+        run_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
         )
         run_parser.set_defaults(func=CancelCommand)
 
     def __init__(self, args: Namespace) -> None:
         self.job_id: str = args.job_id
-        self.token: Optional[str] = args.token or None
+        self.namespace = args.namespace
+        self.token: Optional[str] = args.token
 
     def run(self) -> None:
         api = HfApi(token=self.token)
-        api.cancel_job(self.job_id)
+        api.cancel_job(job_id=self.job_id, namespace=self.namespace)
 
 
 class UvCommand(BaseHuggingfaceCLICommand):
@@ -406,6 +437,11 @@ class UvCommand(BaseHuggingfaceCLICommand):
         )
         run_parser.add_argument("--timeout", type=str, help="Max duration (e.g., 30s, 5m, 1h)")
         run_parser.add_argument("-d", "--detach", action="store_true", help="Run in background")
+        run_parser.add_argument(
+            "--namespace",
+            type=str,
+            help="The namespace where the Job will be created. Defaults to the current user's namespace.",
+        )
         run_parser.add_argument("--token", type=str, help="HF token")
         # UV options
         run_parser.add_argument("--with", action="append", help="Run with the given packages installed", dest="with_")
@@ -433,6 +469,7 @@ class UvCommand(BaseHuggingfaceCLICommand):
         self.flavor: Optional[str] = args.flavor
         self.timeout: Optional[str] = args.timeout
         self.detach: bool = args.detach
+        self.namespace: Optional[str] = args.namespace
         self.token: Optional[str] = args.token
         self._repo = args.repo
 
@@ -440,7 +477,7 @@ class UvCommand(BaseHuggingfaceCLICommand):
         """Execute UV command."""
         logging.set_verbosity(logging.INFO)
         api = HfApi(token=self.token)
-        job_url = api.run_uv_job(
+        job = api.run_uv_job(
             script=self.script,
             script_args=self.script_args,
             dependencies=self.dependencies,
@@ -449,16 +486,17 @@ class UvCommand(BaseHuggingfaceCLICommand):
             secrets=self.secrets,
             flavor=self.flavor,
             timeout=self.timeout,
+            namespace=self.namespace,
             _repo=self._repo,
         )
 
         # Always print the job ID to the user
-        print(f"Job started with ID: {job_url.job_id}")
-        print(f"View at: {job_url}")
+        print(f"Job started with ID: {job.id}")
+        print(f"View at: {job.url}")
 
         if self.detach:
             return
 
         # Now let's stream the logs
-        for log in api.fetch_job_logs(job_id=job_url.job_id):
+        for log in api.fetch_job_logs(job_id=job.id):
             print(log)

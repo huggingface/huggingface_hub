@@ -619,6 +619,9 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 >>> huggingface-cli jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
 ... python -c "import torch; print(torch.cuda.get_device_name())"
 
+# Run in an organization account
+>>> huggingface-cli jobs run --namespace my-org-name python:3.12 python -c "print('Running in an org account')"
+
 # Run from Hugging Face Spaces
 >>> huggingface-cli jobs run hf.co/spaces/lhoestq/duckdb duckdb -c "select 'hello world'"
 
