@@ -107,7 +107,7 @@ class RunCommand(BaseHuggingfaceCLICommand):
 
     def run(self) -> None:
         api = HfApi(token=self.token)
-        job_url = api.run_job(
+        job = api.run_job(
             image=self.image,
             command=self.command,
             env=self.env,
@@ -117,14 +117,14 @@ class RunCommand(BaseHuggingfaceCLICommand):
             token=self.token,
         )
         # Always print the job ID to the user
-        print(f"Job started with ID: {job_url.job_id}")
-        print(f"View at: {job_url}")
+        print(f"Job started with ID: {job.id}")
+        print(f"View at: {job.url}")
 
         if self.detach:
             return
 
         # Now let's stream the logs
-        for log in api.fetch_job_logs(job_id=job_url.job_id):
+        for log in api.fetch_job_logs(job_id=job.id):
             print(log)
 
 

@@ -67,7 +67,7 @@ from ._commit_api import (
     _warn_on_overwriting_operations,
 )
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
-from ._jobs_api import JobInfo, JobUrl
+from ._jobs_api import JobInfo
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
@@ -9952,7 +9952,7 @@ class HfApi:
         flavor: str = "cpu-basic",
         timeout: Optional[Union[int, float, str]] = None,
         token: Union[bool, str, None] = None,
-    ) -> JobUrl:
+    ) -> JobInfo:
         """
         Run compute Jobs on Hugging Face infrastructure.
 
@@ -10038,9 +10038,7 @@ class HfApi:
         )
         hf_raise_for_status(response)
         job_info = response.json()
-        job_id = job_info["id"]
-        job_url = f"{self.endpoint}/jobs/{username}/{job_id}"
-        return JobUrl(job_url, endpoint=self.endpoint)
+        return JobInfo(**job_info, endpoint=self.endpoint)
 
     def fetch_job_logs(
         self,
@@ -10149,7 +10147,7 @@ class HfApi:
             timeout=timeout,
         )
         response.raise_for_status()
-        return [JobInfo(**job_info) for job_info in response.json()]
+        return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
 
     def inspect_job(
         self,
@@ -10194,7 +10192,7 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         response.raise_for_status()
-        return JobInfo(**response.json())
+        return JobInfo(**response.json(), endpoint=self.endpoint)
 
     def cancel_job(
         self,
@@ -10232,7 +10230,7 @@ class HfApi:
         timeout: Optional[Union[int, float, str]] = None,
         token: Union[bool, str, None] = None,
         _repo: Optional[str] = None,
-    ) -> JobUrl:
+    ) -> JobInfo:
         """
         Run a UV script Job on Hugging Face infrastructure.
 
