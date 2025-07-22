@@ -92,4 +92,4 @@ class JobInfo:
 
         # Inferred fields
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)
-        self.url = f"{self.endpoint}/jobs/{self.owner.id}/{self.id}"
+        self.url = f"{self.endpoint}/jobs/{self.owner.name}/{self.id}"
