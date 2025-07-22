@@ -91,7 +91,7 @@ class LocalDownloadFilePaths:
         # Some Windows versions do not allow for paths longer than 255 characters.
         # In this case, we must specify it as an extended path by using the "\\?\" prefix.
         if len(resolved_path) > 255 and not resolved_path.startswith("\\\\?\\"):
-            path = Path("\\\\?\\"+resolved_path)
+            path = Path("\\\\?\\" + resolved_path)
         return path
 
 
