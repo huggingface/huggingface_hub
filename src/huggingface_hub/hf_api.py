@@ -10403,7 +10403,7 @@ class HfApi:
             )
 
             secrets["UV_SCRIPT_HF_TOKEN"] = token or self.token or get_token()
-            secrets["UV_SCRIPT_URL"] = script_url
+            env["UV_SCRIPT_URL"] = script_url
 
             pre_command = (
                 dedent(
