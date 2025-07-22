@@ -9945,6 +9945,7 @@ class HfApi:
 
     def run_job(
         self,
+        *,
         image: str,
         command: List[str],
         env: Optional[Dict[str, Any]] = None,
@@ -9972,7 +9973,7 @@ class HfApi:
                 Defines the secret environment variables for the Job.
 
             flavor (`str`, defaults to `"cpu-basic"`):
-                "Flavor for the hardware, as in Hugging Face Spaces.
+                Flavor for the hardware, as in Hugging Face Spaces.
 
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
@@ -9993,7 +9994,7 @@ class HfApi:
 
             Run a GPU Job:
 
-            ```
+            ```python
             >>> from huggingface_hub import run_job
             >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
             >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
@@ -10002,7 +10003,7 @@ class HfApi:
 
         """
         # prepare payload to send to HF Jobs API
-        input_json: Dict[str, Optional[Union[str, float, List[str], Dict[str, Optional[str]]]]] = {
+        input_json: Dict[str, Any] = {
             "command": command,
             "arguments": [],
             "environment": env or {},
@@ -10042,6 +10043,7 @@ class HfApi:
 
     def fetch_job_logs(
         self,
+        *,
         job_id: str,
         token: Union[bool, str, None] = None,
     ) -> Iterable[str]:
@@ -10128,6 +10130,7 @@ class HfApi:
 
     def list_jobs(
         self,
+        *,
         timeout: Optional[int] = None,
         token: Union[bool, str, None] = None,
     ) -> List[JobInfo]:
@@ -10151,6 +10154,7 @@ class HfApi:
 
     def inspect_job(
         self,
+        *,
         job_id: str,
         token: Union[bool, str, None] = None,
     ) -> JobInfo:
@@ -10196,6 +10200,7 @@ class HfApi:
 
     def cancel_job(
         self,
+        *,
         job_id: str,
         token: Union[bool, str, None] = None,
     ) -> None:

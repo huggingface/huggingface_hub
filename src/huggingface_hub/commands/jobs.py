@@ -114,7 +114,6 @@ class RunCommand(BaseHuggingfaceCLICommand):
             secrets=self.secrets,
             flavor=self.flavor,
             timeout=self.timeout,
-            token=self.token,
         )
         # Always print the job ID to the user
         print(f"Job started with ID: {job.id}")

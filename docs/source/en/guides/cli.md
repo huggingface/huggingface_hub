@@ -678,7 +678,7 @@ Running this will show the following output!
 This code ran with the following GPU: NVIDIA A10G
 ```
 
-That's it! You're now running code on Hugging Face's infrastructure. For more detailed information checkout the [Quickstart Guide](docs/quickstart.md).
+That's it! You're now running code on Hugging Face's infrastructure.
 
 ### Common Use Cases
 
@@ -721,7 +721,7 @@ Available `--flavor` options:
 - GPU: `t4-small`, `t4-medium`, `l4x1`, `l4x4`, `a10g-small`, `a10g-large`, `a10g-largex2`, `a10g-largex4`,`a100-large`
 - TPU: `v5e-1x1`, `v5e-2x2`, `v5e-2x4`
 
-(updated in 03/25 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
+(updated in 07/2025 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
 
 ### UV Scripts (Experimental)
 
