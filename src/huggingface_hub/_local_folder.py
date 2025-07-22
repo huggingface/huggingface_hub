@@ -86,7 +86,13 @@ class LocalDownloadFilePaths:
 
     def incomplete_path(self, etag: str) -> Path:
         """Return the path where a file will be temporarily downloaded before being moved to `file_path`."""
-        return self.metadata_path.parent / f"{_short_hash(self.metadata_path.name)}.{etag}.incomplete"
+        path = self.metadata_path.parent / f"{_short_hash(self.metadata_path.name)}.{etag}.incomplete"
+        resolved_path = str(path.resolve())
+        # Some Windows versions do not allow for paths longer than 255 characters.
+        # In this case, we must specify it as an extended path by using the "\\?\" prefix.
+        if len(resolved_path) > 255 and not resolved_path.startswith("\\\\?\\"):
+            path = Path("\\\\?\\" + resolved_path)
+        return path
 
 
 @dataclass(frozen=True)
