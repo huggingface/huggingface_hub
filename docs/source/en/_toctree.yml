@@ -40,6 +40,8 @@
       title: Integrate a library
     - local: guides/webhooks
       title: Webhooks
+    - local: guides/jobs
+      title: Jobs
 - title: 'Conceptual guides'
   sections:
     - local: concepts/git_vs_http
