@@ -5,22 +5,23 @@ from hf_xet import PyItemProgressUpdate, PyTotalProgressUpdate
 
 from .tqdm import tqdm
 
+
 class XetProgressReporter:
     """
     Reports on progress for Xet uploads.
-    
-    If per_file_progress is True, then per-file progress is shown in a scrolling list.  Otherwise, 
-    only the summary bars showing file processing progress and data upload are shown.  By default, 
+
+    If per_file_progress is True, then per-file progress is shown in a scrolling list.  Otherwise,
+    only the summary bars showing file processing progress and data upload are shown.  By default,
     the summary version is shown in notebooks and guis and the detailed file progress is shown in consoles.
     """
 
-    def __init__(self, n_lines: int = 10, description_width: int = 30, per_file_progress = None):
+    def __init__(self, n_lines: int = 10, description_width: int = 30, per_file_progress=None):
         self.n_lines = n_lines
         self.description_width = description_width
 
         if per_file_progress is None:
-            self.per_file_progress = tqdm.in_console() 
-        else: 
+            self.per_file_progress = tqdm.in_console()
+        else:
             self.per_file_progress = per_file_progress
 
         self.tqdm_settings = {
@@ -56,7 +57,7 @@ class XetProgressReporter:
         """
 
         if not self.per_file_progress:
-            # Here we just use the defaults. 
+            # Here we just use the defaults.
             return name
 
         padding = "  " if indent else ""
@@ -68,7 +69,6 @@ class XetProgressReporter:
         return f"{padding}{name.ljust(width)}"
 
     def update_progress(self, total_update: PyTotalProgressUpdate, item_updates: List[PyItemProgressUpdate]):
-
         # Update all the per-item values.
         for item in item_updates:
             item_name = item.item_name

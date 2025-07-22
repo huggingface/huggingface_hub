@@ -234,11 +234,11 @@ class tqdm(old_tqdm):
                 raise
 
     @classmethod
-    def in_console(cls) -> bool: 
+    def in_console(cls) -> bool:
         """Returns true if running in a standard console environment and false if running in a notebook or gui."""
 
-        # Returns true if the current display method is the one in the standard tqdm class, or false if it's been 
-        # overwritten by the gui, notebook, keras, etc. subclassing it. 
+        # Returns true if the current display method is the one in the standard tqdm class, or false if it's been
+        # overwritten by the gui, notebook, keras, etc. subclassing it.
         return cls.display is std_tqdm.display
 
 
