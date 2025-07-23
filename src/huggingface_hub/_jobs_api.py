@@ -60,6 +60,56 @@ class JobOwner:
 
 @dataclass
 class JobInfo:
+    """
+    Contains information about a Job.
+
+    Args:
+        id (`str`):
+            Job ID.
+        created_at (`datetime` or `None`):
+            When the Job was created.
+        docker_image (`str` or `None`):
+            The Docker image from Docker Hub used for the Job.
+            Can be None if space_id is present instead.
+        space_id (`str` or `None`):
+            The Docker image from Hugging Face Spaces used for the Job.
+            Can be None if docker_image is present instead.
+        command (`List[str]` or `None`):
+            Command of the Job, e.g. `["python", "-c", "print('hello world')"]`
+        arguments (`List[str]` or `None`):
+            Arguments passed to the command
+        environment (`Dict[str]` or `None`):
+            Environment variables of the Job as a dictionary.
+        secrets (`Dict[str]` or `None`):
+            Secret environment variables of the Job (encrypted).
+        flavor (`str` or `None`):
+            Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+            E.g. `"cpu-basic"`.
+        status: (`JobStatus` or `None`):
+            Status of the Job, e.g. `JobStatus(stage="RUNNING", message=None)`
+            See [`JobStage`] for possible stage values.
+        status: (`JobOwner` or `None`):
+            Owner of the Job, e.g. `JobOwner(id="5e9ecfc04957053f60648a3e", name="lhoestq")`
+
+    Example:
+
+    ```python
+    >>> from huggingface_hub import run_job
+    >>> job = run_job(
+    ...     image="python:3.12",
+    ...     command=["python", "-c", "print('Hello from the cloud!')"]
+    ... )
+    >>> job
+    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', status=JobStatus(stage='RUNNING', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
+    >>> job.id
+    '687fb701029421ae5549d998'
+    >>> job.url
+    'https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998'
+    >>> job.status.stage
+    'RUNNING'
+    ```
+    """
+
     id: str
     created_at: Optional[datetime]
     docker_image: Optional[str]
