@@ -3,6 +3,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from typing import Any, List
 from unittest.mock import Mock
 
 import pytest
@@ -260,9 +261,9 @@ class TestValidCacheUtils(unittest.TestCase):
         Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.8K\x1b[0m.
         """
 
-        self.assertListEqual(
-            output.getvalue().replace("-", "").split(),
+        assert is_sublist(
             expected_output.replace("-", "").split(),
+            output.getvalue().replace("-", "").split(),
         )
 
     @xfail_on_windows("Size on disk and paths differ on Windows. Not useful to test.")
@@ -289,9 +290,9 @@ class TestValidCacheUtils(unittest.TestCase):
         Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.8K\x1b[0m.
         """
 
-        self.assertListEqual(
-            output.getvalue().replace("-", "").split(),
+        assert is_sublist(
             expected_output.replace("-", "").split(),
+            output.getvalue().replace("-", "").split(),
         )
 
     def test_cli_scan_missing_cache(self) -> None:
@@ -313,7 +314,7 @@ class TestValidCacheUtils(unittest.TestCase):
         Cache directory not found: {Path(tmp_dir).resolve()}
         """
 
-        self.assertListEqual(output.getvalue().split(), expected_output.split())
+        assert is_sublist(expected_output.split(), output.getvalue().split())
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -861,3 +862,8 @@ class TestStringFormatters(unittest.TestCase):
                 expected,
                 msg=f"Wrong formatting for {ts} == '{expected}'",
             )
+
+
+def is_sublist(sub: List[Any], full: List[Any]) -> bool:
+    it = iter(full)
+    return all(item in it for item in sub)

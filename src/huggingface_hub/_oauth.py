@@ -415,7 +415,7 @@ def _get_mocked_oauth_info() -> Dict:
     if token is None:
         raise ValueError(
             "Your machine must be logged in to HF to debug an OAuth app locally. Please"
-            " run `huggingface-cli login` or set `HF_TOKEN` as environment variable "
+            " run `hf auth login` or set `HF_TOKEN` as environment variable "
             "with one of your access token. You can generate a new token in your "
             "settings page (https://huggingface.co/settings/tokens)."
         )

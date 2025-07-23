@@ -97,9 +97,9 @@ snapshot_download("stabilityai/stable-diffusion-2-1")
 Hugging Face Hub 使用令牌对应用进行身份验证(请参阅[文档](https://huggingface.co/docs/hub/security-tokens)). 要登录您的机器，请运行以下命令行：
 
 ```bash
-huggingface-cli login
+hf auth login
 # or using an environment variable
-huggingface-cli login --token $HUGGINGFACE_TOKEN
+hf auth login --token $HUGGINGFACE_TOKEN
 ```
 
 ### 创建一个存储库
