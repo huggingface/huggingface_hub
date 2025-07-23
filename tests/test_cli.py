@@ -401,7 +401,6 @@ class TestDownloadCommand(unittest.TestCase):
         assert args.cache_dir is None
         assert args.local_dir is None
         assert args.force_download is False
-        assert args.resume_download is False
         assert args.token is None
         assert args.quiet is False
         assert args.func == DownloadCommand
@@ -425,7 +424,6 @@ class TestDownloadCommand(unittest.TestCase):
                 "--force-download",
                 "--cache-dir",
                 "/tmp",
-                "--resume-download",
                 "--token",
                 "my-token",
                 "--quiet",
@@ -443,7 +441,6 @@ class TestDownloadCommand(unittest.TestCase):
         assert args.force_download is True
         assert args.cache_dir == "/tmp"
         assert args.local_dir == "."
-        assert args.resume_download is True
         assert args.token == "my-token"
         assert args.quiet is True
         assert args.max_workers == 4
@@ -460,10 +457,8 @@ class TestDownloadCommand(unittest.TestCase):
             include=None,
             exclude=None,
             force_download=False,
-            resume_download=False,
             cache_dir=None,
             local_dir=".",
-            local_dir_use_symlinks=None,
             quiet=False,
             max_workers=8,
         )
@@ -479,7 +474,6 @@ class TestDownloadCommand(unittest.TestCase):
             revision="refs/pr/1",
             filename="README.md",
             cache_dir=None,
-            resume_download=None,
             force_download=False,
             token="hf_****",
             local_dir=".",
@@ -497,10 +491,8 @@ class TestDownloadCommand(unittest.TestCase):
             include=None,
             exclude=None,
             force_download=True,
-            resume_download=True,
             cache_dir=None,
             local_dir="/path/to/dir",
-            local_dir_use_symlinks=None,
             quiet=False,
             max_workers=8,
         )
@@ -513,7 +505,6 @@ class TestDownloadCommand(unittest.TestCase):
             revision=None,
             allow_patterns=["README.md", "config.json"],
             ignore_patterns=None,
-            resume_download=True,
             force_download=True,
             cache_dir=None,
             token="hf_****",
@@ -533,11 +524,9 @@ class TestDownloadCommand(unittest.TestCase):
             include=["*.json"],
             exclude=["data/*"],
             force_download=True,
-            resume_download=True,
             cache_dir=None,
             quiet=False,
             local_dir=None,
-            local_dir_use_symlinks=None,
             max_workers=8,
         )
         DownloadCommand(args).run()
@@ -549,7 +538,6 @@ class TestDownloadCommand(unittest.TestCase):
             revision=None,
             allow_patterns=["*.json"],
             ignore_patterns=["data/*"],
-            resume_download=True,
             force_download=True,
             cache_dir=None,
             local_dir=None,
@@ -573,7 +561,6 @@ class TestDownloadCommand(unittest.TestCase):
             cache_dir=None,
             quiet=False,
             local_dir=None,
-            local_dir_use_symlinks=None,
             max_workers=8,
         )
 
@@ -587,7 +574,6 @@ class TestDownloadCommand(unittest.TestCase):
             revision=None,
             allow_patterns=["README.md", "config.json"],  # `filenames` has priority over the patterns
             ignore_patterns=None,  # cleaned up
-            resume_download=True,
             force_download=True,
             cache_dir=None,
             token=None,
