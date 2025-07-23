@@ -330,8 +330,8 @@ def _get_file_length_from_http_response(response: requests.Response) -> Optional
     # contain the length of the compressed body, not the uncompressed file size.
     # And at the start of transmission there's no way to know the uncompressed file size for gzip,
     # thus we return None in that case.
-    content_encoding = response.headers.get("Content-Encoding")
-    if (content_encoding is not None) and ("identity" not in content_encoding.lower()):
+    content_encoding = response.headers.get("Content-Encoding", "identity").lower()
+    if content_encoding != "identity":
         # gzip/br/deflate/zstd etc
         return None
 

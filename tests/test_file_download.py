@@ -1227,7 +1227,7 @@ class TestExtraLargeFileDownloadPaths(unittest.TestCase):
         "hf_transfer not installed, so skipping large file download with hf_transfer check.",
     )
     @patch("huggingface_hub.file_download.constants.HF_HUB_ENABLE_HF_TRANSFER", True)
-    @patch("huggingface_hub.file_download.constants.HF_HUB_DISABLE_XET", False)
+    @patch("huggingface_hub.file_download.constants.HF_HUB_DISABLE_XET", True)
     @patch("huggingface_hub.file_download.constants.MAX_HTTP_DOWNLOAD_SIZE", 44)
     @patch("huggingface_hub.file_download.constants.DOWNLOAD_CHUNK_SIZE", 2)  # make sure hf_download is used
     def test_large_file_download_with_hf_transfer(self):
