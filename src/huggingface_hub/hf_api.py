@@ -10258,6 +10258,7 @@ class HfApi:
         script_args: Optional[List[str]] = None,
         dependencies: Optional[List[str]] = None,
         python: Optional[str] = None,
+        image: Optional[str] = None,
         env: Optional[Dict[str, Any]] = None,
         secrets: Optional[Dict[str, Any]] = None,
         flavor: str = "cpu-basic",
@@ -10281,6 +10282,9 @@ class HfApi:
 
             python (`str`, *optional*)
                 Use a specific Python version. Default is 3.12.
+
+            image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"):
+                Use a custom Docker image with `uv` installed.
 
             env (`Dict[str, Any]`, *optional*):
                 Defines the environment variables for the Job.
@@ -10311,11 +10315,9 @@ class HfApi:
             >>> run_uv_job(script, dependencies=["trl"], flavor="a10g-small")
             ```
         """
+        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"
         env = env or {}
         secrets = secrets or {}
-
-        # Prepare docker image (always use Python 3.12)
-        image = "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"
 
         # Build command
         uv_args = []
