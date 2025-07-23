@@ -19,6 +19,7 @@ import io
 import json
 import re
 import struct
+import time
 import warnings
 from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -27,6 +28,7 @@ from datetime import datetime
 from functools import wraps
 from itertools import islice
 from pathlib import Path
+from textwrap import dedent
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -65,6 +67,7 @@ from ._commit_api import (
     _warn_on_overwriting_operations,
 )
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
+from ._jobs_api import JobInfo
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
@@ -9940,6 +9943,506 @@ class HfApi:
         r = get_session().get(path, headers=headers)
         hf_raise_for_status(r)
 
+    def run_job(
+        self,
+        *,
+        image: str,
+        command: List[str],
+        env: Optional[Dict[str, Any]] = None,
+        secrets: Optional[Dict[str, Any]] = None,
+        flavor: Optional[SpaceHardware] = None,
+        timeout: Optional[Union[int, float, str]] = None,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> JobInfo:
+        """
+        Run compute Jobs on Hugging Face infrastructure.
+
+        Args:
+            image (`str`):
+                The Docker image to use.
+                Examples: `"ubuntu"`, `"python:3.12"`, `"pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"`.
+                Example with an image from a Space: `"hf.co/spaces/lhoestq/duckdb"`.
+
+            command (`List[str]`):
+                The command to run. Example: `["echo", "hello"]`.
+
+            env (`Dict[str, Any]`, *optional*):
+                Defines the environment variables for the Job.
+
+            secrets (`Dict[str, Any]`, *optional*):
+                Defines the secret environment variables for the Job.
+
+            flavor (`str`, *optional*):
+                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Defaults to `"cpu-basic"`.
+
+            timeout (`Union[int, float, str]`, *optional*):
+                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Example: `300` or `"5m"` for 5 minutes.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job will be created. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+            Run your first Job:
+
+            ```python
+            >>> from huggingface_hub import run_job
+            >>> run_job("python:3.12", ["python", "-c" ,"print('Hello from HF compute!')"])
+            ```
+
+            Run a GPU Job:
+
+            ```python
+            >>> from huggingface_hub import run_job
+            >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
+            >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
+            >>> run_job(image, command, flavor="a10g-small")
+            ```
+
+        """
+        if flavor is None:
+            flavor = SpaceHardware.CPU_BASIC
+
+        # prepare payload to send to HF Jobs API
+        input_json: Dict[str, Any] = {
+            "command": command,
+            "arguments": [],
+            "environment": env or {},
+            "flavor": flavor,
+        }
+        # secrets are optional
+        if secrets:
+            input_json["secrets"] = secrets
+        # timeout is optional
+        if timeout:
+            time_units_factors = {"s": 1, "m": 60, "h": 3600, "d": 3600 * 24}
+            if isinstance(timeout, str) and timeout[-1] in time_units_factors:
+                input_json["timeoutSeconds"] = int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
+            else:
+                input_json["timeoutSeconds"] = int(timeout)
+        # input is either from docker hub or from HF spaces
+        for prefix in (
+            "https://huggingface.co/spaces/",
+            "https://hf.co/spaces/",
+            "huggingface.co/spaces/",
+            "hf.co/spaces/",
+        ):
+            if image.startswith(prefix):
+                input_json["spaceId"] = image[len(prefix) :]
+                break
+        else:
+            input_json["dockerImage"] = image
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().post(
+            f"https://huggingface.co/api/jobs/{namespace}",
+            json=input_json,
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        job_info = response.json()
+        return JobInfo(**job_info, endpoint=self.endpoint)
+
+    def fetch_job_logs(
+        self,
+        *,
+        job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[str]:
+        """
+        Fetch all the logs from a compute Job on Hugging Face infrastructure.
+
+        Args:
+            job_id (`str`):
+                ID of the Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import fetch_job_logs, run_job
+            >>> job = run_job("python:3.12", ["python", "-c" ,"print('Hello from HF compute!')"])
+            >>> for log in fetch_job_logs(job.job_id):
+            ...     print(log)
+            Hello from HF compute!
+            ```
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        logging_finished = logging_started = False
+        job_finished = False
+        # - We need to retry because sometimes the /logs doesn't return logs when the job just started.
+        #   (for example it can return only two lines: one for "Job started" and one empty line)
+        # - Timeouts can happen in case of build errors
+        # - ChunkedEncodingError can happen in case of stopped logging in the middle of streaming
+        # - Infinite empty log stream can happen in case of build error
+        #   (the logs stream is infinite and empty except for the Job started message)
+        # - there is a ": keep-alive" every 30 seconds
+
+        # We don't use http_backoff since we need to check ourselves if ConnectionError.__context__ is a TimeoutError
+        max_retries = 5
+        min_wait_time = 1
+        max_wait_time = 10
+        sleep_time = 0
+        for _ in range(max_retries):
+            time.sleep(sleep_time)
+            sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+            try:
+                resp = get_session().get(
+                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}/logs",
+                    headers=self._build_hf_headers(token=token),
+                    stream=True,
+                    timeout=120,
+                )
+                log = None
+                for line in resp.iter_lines(chunk_size=1):
+                    line = line.decode("utf-8")
+                    if line and line.startswith("data: {"):
+                        data = json.loads(line[len("data: ") :])
+                        # timestamp = data["timestamp"]
+                        if not data["data"].startswith("===== Job started"):
+                            logging_started = True
+                            log = data["data"]
+                            yield log
+                logging_finished = logging_started
+            except requests.exceptions.ChunkedEncodingError:
+                # Response ended prematurely
+                break
+            except KeyboardInterrupt:
+                break
+            except requests.exceptions.ConnectionError as err:
+                is_timeout = err.__context__ and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
+                if logging_started or not is_timeout:
+                    raise
+            if logging_finished or job_finished:
+                break
+            job_status = (
+                get_session()
+                .get(
+                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}",
+                    headers=self._build_hf_headers(token=token),
+                )
+                .json()
+            )
+            if "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING"):
+                job_finished = True
+
+    def list_jobs(
+        self,
+        *,
+        timeout: Optional[int] = None,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> List[JobInfo]:
+        """
+        List compute Jobs on Hugging Face infrastructure.
+
+        Args:
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+            namespace (`str`, *optional*):
+                The namespace from where it lists the jobs. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+        """
+        if namespace is None:
+            namespace = whoami(token=token)["name"]
+        response = get_session().get(
+            f"{self.endpoint}/api/jobs/{namespace}",
+            headers=self._build_hf_headers(token=token),
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
+
+    def inspect_job(
+        self,
+        *,
+        job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> JobInfo:
+        """
+        Inspect a compute Job on Hugging Face infrastructure.
+
+        Args:
+            job_id (`str`):
+                ID of the Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import inspect_job, run_job
+            >>> job = run_job("python:3.12", ["python", "-c" ,"print('Hello from HF compute!')"])
+            >>> inspect_job(job.job_id)
+            JobInfo(
+                id='68780d00bbe36d38803f645f',
+                created_at=datetime.datetime(2025, 7, 16, 20, 35, 12, 808000, tzinfo=datetime.timezone.utc),
+                docker_image='python:3.12',
+                space_id=None,
+                command=['python', '-c', "print('Hello from HF compute!')"],
+                arguments=[],
+                environment={},
+                secrets={},
+                flavor='cpu-basic',
+                status=JobStatus(stage='RUNNING', message=None)
+            )
+            ```
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().get(
+            f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        response.raise_for_status()
+        return JobInfo(**response.json(), endpoint=self.endpoint)
+
+    def cancel_job(
+        self,
+        *,
+        job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        """
+        Cancel a compute Job on Hugging Face infrastructure.
+
+        Args:
+            job_id (`str`):
+                ID of the Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        get_session().post(
+            f"{self.endpoint}/api/jobs/{namespace}/{job_id}/cancel",
+            headers=self._build_hf_headers(token=token),
+        ).raise_for_status()
+
+    @experimental
+    def run_uv_job(
+        self,
+        script: str,
+        *,
+        script_args: Optional[List[str]] = None,
+        dependencies: Optional[List[str]] = None,
+        python: Optional[str] = None,
+        image: Optional[str] = None,
+        env: Optional[Dict[str, Any]] = None,
+        secrets: Optional[Dict[str, Any]] = None,
+        flavor: Optional[SpaceHardware] = None,
+        timeout: Optional[Union[int, float, str]] = None,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+        _repo: Optional[str] = None,
+    ) -> JobInfo:
+        """
+        Run a UV script Job on Hugging Face infrastructure.
+
+        Args:
+            script (`str`):
+                Path or URL of the UV script.
+
+            script_args (`List[str]`, *optional*)
+                Arguments to pass to the script.
+
+            dependencies (`List[str]`, *optional*)
+                Dependencies to use to run the UV script.
+
+            python (`str`, *optional*)
+                Use a specific Python version. Default is 3.12.
+
+            image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"):
+                Use a custom Docker image with `uv` installed.
+
+            env (`Dict[str, Any]`, *optional*):
+                Defines the environment variables for the Job.
+
+            secrets (`Dict[str, Any]`, *optional*):
+                Defines the secret environment variables for the Job.
+
+            flavor (`str`, *optional*):
+                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Defaults to `"cpu-basic"`.
+
+            timeout (`Union[int, float, str]`, *optional*):
+                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Example: `300` or `"5m"` for 5 minutes.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job will be created. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import run_uv_job
+            >>> script = "https://raw.githubusercontent.com/huggingface/trl/refs/heads/main/trl/scripts/sft.py"
+            >>> run_uv_job(script, dependencies=["trl"], flavor="a10g-small")
+            ```
+        """
+        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"
+        env = env or {}
+        secrets = secrets or {}
+
+        # Build command
+        uv_args = []
+        if dependencies:
+            for dependency in dependencies:
+                uv_args += ["--with", dependency]
+        if python:
+            uv_args += ["--python", python]
+        script_args = script_args or []
+
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+
+        if script.startswith("http://") or script.startswith("https://"):
+            # Direct URL execution - no upload needed
+            command = ["uv", "run"] + uv_args + [script] + script_args
+        else:
+            # Local file - upload to HF
+            script_path = Path(script)
+            filename = script_path.name
+            # Parse repo
+            if _repo:
+                repo_id = _repo
+                if "/" not in repo_id:
+                    repo_id = f"{namespace}/{repo_id}"
+                repo_id = _repo
+            else:
+                repo_id = f"{namespace}/hf-cli-jobs-uv-run-scripts"
+
+            # Create repo if needed
+            try:
+                self.repo_info(repo_id, repo_type="dataset")
+                logger.debug(f"Using existing repository: {repo_id}")
+            except RepositoryNotFoundError:
+                logger.info(f"Creating repository: {repo_id}")
+                create_repo(repo_id, repo_type="dataset", private=True, exist_ok=True)
+
+            # Upload script
+            logger.info(f"Uploading {script_path.name} to {repo_id}...")
+            with open(script_path, "r") as f:
+                script_content = f.read()
+
+            self.upload_file(
+                path_or_fileobj=script_content.encode(),
+                path_in_repo=filename,
+                repo_id=repo_id,
+                repo_type="dataset",
+            )
+
+            script_url = f"https://huggingface.co/datasets/{repo_id}/resolve/main/{filename}"
+            repo_url = f"https://huggingface.co/datasets/{repo_id}"
+
+            logger.debug(f"✓ Script uploaded to: {repo_url}/blob/main/{filename}")
+
+            # Create and upload minimal README
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+            readme_content = dedent(
+                f"""
+                ---
+                tags:
+                - hf-cli-jobs-uv-script
+                - ephemeral
+                viewer: false
+                ---
+
+                # UV Script: {filename}
+
+                Executed via `huggingface-cli jobs uv run` on {timestamp}
+
+                ## Run this script
+
+                ```bash
+                huggingface-cli jobs uv run {filename}
+                ```
+
+                ---
+                *Created with [huggingface-cli jobs](https://github.com/huggingface/huggingface-cli jobs)*
+                """
+            )
+            self.upload_file(
+                path_or_fileobj=readme_content.encode(),
+                path_in_repo="README.md",
+                repo_id=repo_id,
+                repo_type="dataset",
+            )
+
+            secrets["UV_SCRIPT_HF_TOKEN"] = token or self.token or get_token()
+            env["UV_SCRIPT_URL"] = script_url
+
+            pre_command = (
+                dedent(
+                    """
+                    import urllib.request
+                    import os
+                    from pathlib import Path
+                    o = urllib.request.build_opener()
+                    o.addheaders = [("Authorization", "Bearer " + os.environ["UV_SCRIPT_HF_TOKEN"])]
+                    Path("/tmp/script.py").write_bytes(o.open(os.environ["UV_SCRIPT_URL"]).read())
+                    """
+                )
+                .strip()
+                .replace('"', r"\"")
+                .split("\n")
+            )
+            pre_command = ["python", "-c", '"' + "; ".join(pre_command) + '"']
+            command = ["uv", "run"] + uv_args + ["/tmp/script.py"] + script_args
+            command = ["bash", "-c", " ".join(pre_command) + " && " + " ".join(command)]
+
+        # Create RunCommand args
+        return self.run_job(
+            image=image,
+            command=command,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+            namespace=namespace,
+            token=token,
+        )
+
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
     """Safely parse revision number from a PR url.
@@ -10096,3 +10599,11 @@ get_user_overview = api.get_user_overview
 list_organization_members = api.list_organization_members
 list_user_followers = api.list_user_followers
 list_user_following = api.list_user_following
+
+# Jobs API
+run_job = api.run_job
+fetch_job_logs = api.fetch_job_logs
+list_jobs = api.list_jobs
+inspect_job = api.inspect_job
+cancel_job = api.cancel_job
+run_uv_job = api.run_uv_job

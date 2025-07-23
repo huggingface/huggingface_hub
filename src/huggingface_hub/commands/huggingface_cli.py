@@ -18,6 +18,7 @@ from huggingface_hub.commands._cli_utils import show_deprecation_warning
 from huggingface_hub.commands.delete_cache import DeleteCacheCommand
 from huggingface_hub.commands.download import DownloadCommand
 from huggingface_hub.commands.env import EnvironmentCommand
+from huggingface_hub.commands.jobs import JobsCommands
 from huggingface_hub.commands.lfs import LfsCommands
 from huggingface_hub.commands.repo import RepoCommands
 from huggingface_hub.commands.repo_files import RepoFilesCommand
@@ -45,6 +46,7 @@ def main():
     DeleteCacheCommand.register_subcommand(commands_parser)
     TagCommands.register_subcommand(commands_parser)
     VersionCommand.register_subcommand(commands_parser)
+    JobsCommands.register_subcommand(commands_parser)
 
     # Experimental
     UploadLargeFolderCommand.register_subcommand(commands_parser)
