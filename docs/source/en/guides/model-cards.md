@@ -183,7 +183,7 @@ print(card)
 
 ## Share Model Cards
 
-If you're authenticated with the Hugging Face Hub (either by using `huggingface-cli login` or [`login`]), you can push cards to the Hub by simply calling [`ModelCard.push_to_hub`]. Let's take a look at how to do that...
+If you're authenticated with the Hugging Face Hub (either by using `hf auth login` or [`login`]), you can push cards to the Hub by simply calling [`ModelCard.push_to_hub`]. Let's take a look at how to do that...
 
 First, we'll create a new repo called 'hf-hub-modelcards-pr-test' under the authenticated user's namespace:
 

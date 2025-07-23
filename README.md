@@ -97,9 +97,9 @@ Files will be downloaded in a local cache folder. More details in [this guide](h
 The Hugging Face Hub uses tokens to authenticate applications (see [docs](https://huggingface.co/docs/hub/security-tokens)). To log in your machine, run the following CLI:
 
 ```bash
-huggingface-cli login
+hf auth login
 # or using an environment variable
-huggingface-cli login --token $HUGGINGFACE_TOKEN
+hf auth login --token $HUGGINGFACE_TOKEN
 ```
 
 ### Create a repository

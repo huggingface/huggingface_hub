@@ -238,12 +238,12 @@ Derzeit werden zwischengespeicherte Dateien nie aus Ihrem lokalen Verzeichnis ge
 Wenn Sie eine neue Revision eines Zweiges herunterladen, werden vorherige Dateien aufbewahrt,
 falls Sie sie wieder benötigen. Daher kann es nützlich sein, Ihr Cache-Verzeichnis zu scannen,
 um zu erfahren, welche Repos und Revisionen den meisten Speicherplatz beanspruchen.
-`huggingface_hub` bietet einen Helfer dafür, der über `huggingface-cli` oder in einem Python-Skript verwendet werden kann.
+`huggingface_hub` bietet einen Helfer dafür, der über `hf` oder in einem Python-Skript verwendet werden kann.
 
 ### Cache vom Terminal aus scannen
 
-Die einfachste Möglichkeit, Ihr HF-Cache-System zu scannen, besteht darin, den Befehl `scan-cache`
-aus dem `huggingface-cli`-Tool zu verwenden. Dieser Befehl scannt den Cache und gibt einen Bericht
+Die einfachste Möglichkeit, Ihr HF-Cache-System zu scannen, besteht darin, den Befehl `cache scan`
+aus dem `hf`-Tool zu verwenden. Dieser Befehl scannt den Cache und gibt einen Bericht
 mit Informationen wie Repo-ID, Repo-Typ, Speicherverbrauch, Referenzen und vollständigen lokalen Pfad aus.
 
 Im folgenden Ausschnitt wird ein Scan-Bericht in einem Ordner angezeigt, in dem 4 Modelle und 2 Datensätze
@@ -251,7 +251,7 @@ gecached sind.
 
 
 ```text
-➜ huggingface-cli scan-cache
+➜ hf cache scan
 REPO ID                     REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED LAST_MODIFIED REFS                LOCAL PATH
 --------------------------- --------- ------------ -------- ------------- ------------- ------------------- -------------------------------------------------------------------------
 glue                        dataset         116.3K       15 4 days ago    4 days ago    2.4.0, main, 1.17.0 /home/wauplin/.cache/huggingface/hub/datasets--glue
@@ -274,7 +274,7 @@ Zum Beispiel hat hier `bert-base-cased` 2 Revisionen von 1,4G und 1,5G,
 aber der gesamte Festplattenspeicher beträgt nur 1,9G.
 
 ```text
-➜ huggingface-cli scan-cache -v
+➜ hf cache scan -v
 REPO ID                     REPO TYPE REVISION                                 SIZE ON DISK NB FILES LAST_MODIFIED REFS        LOCAL PATH
 --------------------------- --------- ---------------------------------------- ------------ -------- ------------- ----------- ----------------------------------------------------------------------------------------------------------------------------
 glue                        dataset   9338f7b671827df886678df2bdd7cc7b4f36dffd        97.7K       14 4 days ago    main, 2.4.0 /home/wauplin/.cache/huggingface/hub/datasets--glue/snapshots/9338f7b671827df886678df2bdd7cc7b4f36dffd
@@ -300,7 +300,7 @@ um die Einträge zu filtern. Hier ein Beispiel, um nur Revisionen vom Modell "t5
 auf einem Unix-basierten Gerät zu filtern.
 
 ```text
-➜ eval "huggingface-cli scan-cache -v" | grep "t5-small"
+➜ eval "hf cache scan -v" | grep "t5-small"
 t5-small                    model     98ffebbb27340ec1b1abd7c45da12c253ee1882a       726.2M        6 1 week ago    refs/pr/1   /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/98ffebbb27340ec1b1abd7c45da12c253ee1882a
 t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617       485.8M        6 4 weeks ago               /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d0a119eedb3718e34c648e594394474cf95e0617
 t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
@@ -374,7 +374,7 @@ HFCacheInfo(
 
 Das Durchsuchen Ihres Caches ist interessant, aber was Sie normalerweise als Nächstes tun möchten, ist
 einige Teile zu löschen, um etwas Speicherplatz auf Ihrem Laufwerk freizugeben. Dies ist möglich mit dem
-`delete-cache` CLI-Befehl. Man kann auch programmatisch den
+`cache delete` CLI-Befehl. Man kann auch programmatisch den
 [`~HFCacheInfo.delete_revisions`] Helfer vom [`HFCacheInfo`] Objekt verwenden, das beim
 Durchsuchen des Caches zurückgegeben wird.
 
@@ -413,7 +413,7 @@ Fehler ausgelöst. Die Löschung wird für andere Pfade im
 ### Cache vom Terminal aus leeren
 
 Der einfachste Weg, einige Revisionen aus Ihrem HF-Cache-System zu löschen, ist die Verwendung des
-`delete-cache` Befehls vom `huggingface-cli` Tool. Der Befehl hat zwei Modi. Standardmäßig wird dem Benutzer
+`cache delete` Befehls vom `hf` Tool. Der Befehl hat zwei Modi. Standardmäßig wird dem Benutzer
 eine TUI (Terminal User Interface) angezeigt, um auszuwählen, welche Revisionen gelöscht werden sollen. Diese TUI
 befindet sich derzeit in der Beta-Phase, da sie nicht auf allen Plattformen getestet wurde. Wenn die TUI auf Ihrem
 Gerät nicht funktioniert, können Sie sie mit dem Flag `--disable-tui` deaktivieren.
@@ -430,7 +430,7 @@ pip install huggingface_hub["cli"]
 Führen Sie dann den Befehl aus:
 
 ```
-huggingface-cli delete-cache
+hf cache delete
 ```
 
 Sie sollten jetzt eine Liste von Revisionen sehen, die Sie auswählen/abwählen können:
@@ -455,7 +455,7 @@ letzte Bestätigungsnachricht angezeigt. Drücken Sie erneut `<Enter>`, und die 
 abbrechen möchten, geben Sie `n` ein.
 
 ```txt
-✗ huggingface-cli delete-cache --dir ~/.cache/huggingface/hub
+✗ hf cache delete --dir ~/.cache/huggingface/hub
 ? Select revisions to delete: 2 revision(s) selected.
 ? 2 revisions selected counting for 3.1G. Confirm deletion ? Yes
 Start deletion.
@@ -480,7 +480,7 @@ wie viel Speicherplatz mit der aktualisierten Revisionsliste freigegeben würde.
 Sie können die Datei weiter bearbeiten oder mit `"y"` bestätigen.
 
 ```sh
-huggingface-cli delete-cache --disable-tui
+hf cache delete --disable-tui
 ```
 
 Beispiel für eine Befehlsdatei:
@@ -488,7 +488,7 @@ Beispiel für eine Befehlsdatei:
 ```txt
 # INSTRUCTIONS
 # ------------
-# This is a temporary file created by running `huggingface-cli delete-cache` with the
+# This is a temporary file created by running `hf cache delete` with the
 # `--disable-tui` option. It contains a set of revisions that can be deleted from your
 # local cache directory.
 #

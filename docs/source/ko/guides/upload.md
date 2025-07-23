@@ -82,16 +82,16 @@ Hub에 파일을 업로드 하려면 허깅페이스 계정으로 로그인해�
 
 ## CLI에서 업로드[[upload-from-the-cli]]
 
-터미널에서 `huggingface-cli upload` 명령어를 사용하여 Hub에 파일을 직접 업로드할 수 있습니다. 내부적으로는 위에서 설명한 것과 동일한 [`upload_file`] 와 [`upload_folder`] 함수를 사용합니다.
+터미널에서 `hf upload` 명령어를 사용하여 Hub에 파일을 직접 업로드할 수 있습니다. 내부적으로는 위에서 설명한 것과 동일한 [`upload_file`] 와 [`upload_folder`] 함수를 사용합니다.
 
 다음과 같이 단일 파일 또는 전체 폴더를 업로드할 수 있습니다:
 
 ```bash
-# 사용례:  huggingface-cli upload [repo_id] [local_path] [path_in_repo]
->>> huggingface-cli upload Wauplin/my-cool-model ./models/model.safetensors model.safetensors
+# 사용례:  hf upload [repo_id] [local_path] [path_in_repo]
+>>> hf upload Wauplin/my-cool-model ./models/model.safetensors model.safetensors
 https://huggingface.co/Wauplin/my-cool-model/blob/main/model.safetensors
 
->>> huggingface-cli upload Wauplin/my-cool-model ./models .
+>>> hf upload Wauplin/my-cool-model ./models .
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
@@ -100,7 +100,7 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 같은 이름의 폴더나 파일을 찾지 못한다면 사용자에게 `local_path`를 명시하도록 요청하는 예외 처리가 발생합니다.
 어떤 경우든 `path_in_repo`가 설정되어 있지 않으면 파일이 리포지토리의 루트 디렉터리에 업로드됩니다.
 
-CLI 업로드 명령어에 대한 자세한 내용은 [CLI 가이드](./cli#huggingface-cli-upload)를 참조하세요.
+CLI 업로드 명령어에 대한 자세한 내용은 [CLI 가이드](./cli#hf-upload)를 참조하세요.
 
 ## 고급 기능[[advanced-features]]
 
@@ -451,7 +451,7 @@ Hub에서 리포지토리를 구성하는 방법에 대한 모범 사례는 [리
 Git LFS는 10MB보다 큰 파일을 자동으로 처리합니다. 하지만 매우 큰 파일(5GB 이상)의 경우, Git LFS용 사용자 지정 전송 에이전트를 설치해야 합니다:
 
 ```bash
-huggingface-cli lfs-enable-largefiles
+hf lfs-enable-largefiles
 ```
 
 매우 큰 파일이 있는 각 리포지토리에 대해 이 옵션을 설치해야 합니다.

@@ -81,20 +81,6 @@ class RepoCommands(BaseHuggingfaceCLICommand):
             type=str,
             help="Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.",
         )
-        repo_create_parser.add_argument(
-            "--type",
-            type=str,
-            help="[Deprecated]: use --repo-type instead.",
-        )
-        repo_create_parser.add_argument(
-            "-y",
-            "--yes",
-            action="store_true",
-            help="[Deprecated] no effect.",
-        )
-        repo_create_parser.add_argument(
-            "--organization", type=str, help="[Deprecated] Pass the organization namespace directly in the repo_id."
-        )
         repo_create_parser.set_defaults(func=lambda args: RepoCreateCommand(args))
 
         # TAG SUBCOMMANDS
