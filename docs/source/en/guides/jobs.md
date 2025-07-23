@@ -63,8 +63,8 @@ Use [huggingface-cli jobs](./cli#huggingface-cli-jobs) to run jobs in the comman
 
 </Tip>
 
-[`run_job`] returns the `JobInfo` which has the URL of the Job on Hugging Face, where you can see the Job status and the logs.
-Save the Job ID from `JobInfo` to manage the job:
+[`run_job`] returns the [`JobInfo`] which has the URL of the Job on Hugging Face, where you can see the Job status and the logs.
+Save the Job ID from [`JobInfo`] to manage the job:
 
 ```python
 >>> from huggingface_hub import run_job
