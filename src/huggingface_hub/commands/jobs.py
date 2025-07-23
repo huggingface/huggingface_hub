@@ -28,7 +28,7 @@ from typing import Dict, List, Optional, Union
 
 import requests
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, SpaceHardware
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._dotenv import load_dotenv
 
@@ -65,8 +65,7 @@ class RunCommand(BaseHuggingfaceCLICommand):
         run_parser.add_argument(
             "--flavor",
             type=str,
-            help="Flavor for the hardware, as in HF Spaces.",
-            default="cpu-basic",
+            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SpaceHardware)}.",
         )
         run_parser.add_argument(
             "--timeout",
@@ -105,7 +104,7 @@ class RunCommand(BaseHuggingfaceCLICommand):
             self.secrets.update(load_dotenv(Path(args.secrets_file).read_text()))
         for secret in args.secrets or []:
             self.secrets.update(load_dotenv(secret))
-        self.flavor: str = args.flavor
+        self.flavor: Optional[SpaceHardware] = args.flavor
         self.timeout: Optional[str] = args.timeout
         self.detach: bool = args.detach
         self.namespace: Optional[str] = args.namespace
@@ -426,7 +425,11 @@ class UvCommand(BaseHuggingfaceCLICommand):
             "--repo",
             help="Repository name for the script (creates ephemeral if not specified)",
         )
-        run_parser.add_argument("--flavor", type=str, default="cpu-basic", help="Hardware flavor (default: cpu-basic)")
+        run_parser.add_argument(
+            "--flavor",
+            type=str,
+            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SpaceHardware)}.",
+        )
         run_parser.add_argument("-e", "--env", action="append", help="Environment variables")
         run_parser.add_argument("-s", "--secrets", action="append", help="Secret environment variables")
         run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
@@ -466,7 +469,7 @@ class UvCommand(BaseHuggingfaceCLICommand):
             self.secrets.update(load_dotenv(Path(args.secrets_file).read_text()))
         for secret in args.secrets or []:
             self.secrets.update(load_dotenv(secret))
-        self.flavor: Optional[str] = args.flavor
+        self.flavor: Optional[SpaceHardware] = args.flavor
         self.timeout: Optional[str] = args.timeout
         self.detach: bool = args.detach
         self.namespace: Optional[str] = args.namespace

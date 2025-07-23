@@ -9950,7 +9950,7 @@ class HfApi:
         command: List[str],
         env: Optional[Dict[str, Any]] = None,
         secrets: Optional[Dict[str, Any]] = None,
-        flavor: str = "cpu-basic",
+        flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
@@ -9973,8 +9973,9 @@ class HfApi:
             secrets (`Dict[str, Any]`, *optional*):
                 Defines the secret environment variables for the Job.
 
-            flavor (`str`, defaults to `"cpu-basic"`):
-                Flavor for the hardware, as in Hugging Face Spaces.
+            flavor (`str`, *optional*):
+                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
@@ -10006,6 +10007,9 @@ class HfApi:
             ```
 
         """
+        if flavor is None:
+            flavor = SpaceHardware.CPU_BASIC
+
         # prepare payload to send to HF Jobs API
         input_json: Dict[str, Any] = {
             "command": command,
@@ -10260,7 +10264,7 @@ class HfApi:
         python: Optional[str] = None,
         env: Optional[Dict[str, Any]] = None,
         secrets: Optional[Dict[str, Any]] = None,
-        flavor: str = "cpu-basic",
+        flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
@@ -10288,8 +10292,9 @@ class HfApi:
             secrets (`Dict[str, Any]`, *optional*):
                 Defines the secret environment variables for the Job.
 
-            flavor (`str`, defaults to `"cpu-basic"`):
-                "Flavor for the hardware, as in Hugging Face Spaces.
+            flavor (`str`, *optional*):
+                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
