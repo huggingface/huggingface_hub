@@ -144,43 +144,15 @@ class RepoCommands(BaseHuggingfaceCLICommand):
 class RepoCreateCommand:
     def __init__(self, args: argparse.Namespace):
         self.repo_id: str = args.repo_id
-        self.repo_type: Optional[str] = args.repo_type or args.type
+        self.repo_type: Optional[str] = args.repo_type
         self.space_sdk: Optional[str] = args.space_sdk
-        self.organization: Optional[str] = args.organization
-        self.yes: bool = args.yes
         self.private: bool = args.private
         self.token: Optional[str] = args.token
         self.exist_ok: bool = args.exist_ok
         self.resource_group_id: Optional[str] = args.resource_group_id
-
-        if args.type is not None:
-            print(
-                ANSI.yellow(
-                    "The --type argument is deprecated and will be removed in a future version. Use --repo-type instead."
-                )
-            )
-        if self.organization is not None:
-            print(
-                ANSI.yellow(
-                    "The --organization argument is deprecated and will be removed in a future version. Pass the organization namespace directly in the repo_id."
-                )
-            )
-        if self.yes:
-            print(
-                ANSI.yellow(
-                    "The --yes argument is deprecated and will be removed in a future version. It does not have any effect."
-                )
-            )
-
         self._api = HfApi()
 
     def run(self):
-        if self.organization is not None:
-            if "/" in self.repo_id:
-                print(ANSI.red("You cannot pass both --organization and a repo_id with a namespace."))
-                exit(1)
-            self.repo_id = f"{self.organization}/{self.repo_id}"
-
         repo_url = self._api.create_repo(
             repo_id=self.repo_id,
             repo_type=self.repo_type,
