@@ -9,10 +9,10 @@ from unittest.mock import Mock, patch
 
 from huggingface_hub.cli.cache import CacheCommand
 from huggingface_hub.cli.download import DownloadCommand
+from huggingface_hub.cli.jobs import JobsCommands, RunCommand
 from huggingface_hub.cli.repo import RepoCommands
 from huggingface_hub.cli.repo_files import DeleteFilesSubCommand, RepoFilesCommand
 from huggingface_hub.cli.upload import UploadCommand
-from huggingface_hub.commands.jobs import JobsCommands, RunCommand
 from huggingface_hub.errors import RevisionNotFoundError
 from huggingface_hub.utils import SoftTemporaryDirectory, capture_output
 
@@ -844,7 +844,7 @@ class TestJobsCommand(unittest.TestCase):
         """
         Set up CLI as in `src/huggingface_hub/commands/huggingface_cli.py`.
         """
-        self.parser = ArgumentParser("huggingface-cli", usage="huggingface-cli <command> [<args>]")
+        self.parser = ArgumentParser("hf", usage="hf <command> [<args>]")
         commands_parser = self.parser.add_subparsers()
         JobsCommands.register_subcommand(commands_parser)
 

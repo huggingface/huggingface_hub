@@ -59,7 +59,7 @@ This feature is pay-as-you-go: you only pay for the seconds you use.
 
 <Tip>
 
-Use [huggingface-cli jobs](./cli#huggingface-cli-jobs) to run jobs in the command line.
+Use [hf jobs](./cli#hf-jobs) to run jobs in the command line.
 
 </Tip>
 

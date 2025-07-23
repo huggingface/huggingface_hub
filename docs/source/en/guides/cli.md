@@ -603,28 +603,28 @@ Copy-and-paste the text below in your GitHub issue.
 - HF_HUB_DOWNLOAD_TIMEOUT: 10
 ```
 
-## huggingface-cli jobs
+## hf jobs
 
 Run compute jobs on Hugging Face infrastructure with a familiar Docker-like interface.
 
-`huggingface-cli jobs` is a command-line tool that lets you run anything on Hugging Face's infrastructure (including GPUs and TPUs!) with simple commands. Think `docker run`, but for running code on A100s.
+`hf jobs` is a command-line tool that lets you run anything on Hugging Face's infrastructure (including GPUs and TPUs!) with simple commands. Think `docker run`, but for running code on A100s.
 
 ```bash
 # Directly run Python code
->>> huggingface-cli jobs run python:3.12 python -c "print('Hello from the cloud!')"
+>>> hf jobs run python:3.12 python -c "print('Hello from the cloud!')"
 
 # Use GPUs without any setup
->>> huggingface-cli jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
+>>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
 ... python -c "import torch; print(torch.cuda.get_device_name())"
 
 # Run in an organization account
->>> huggingface-cli jobs run --namespace my-org-name python:3.12 python -c "print('Running in an org account')"
+>>> hf jobs run --namespace my-org-name python:3.12 python -c "print('Running in an org account')"
 
 # Run from Hugging Face Spaces
->>> huggingface-cli jobs run hf.co/spaces/lhoestq/duckdb duckdb -c "select 'hello world'"
+>>> hf jobs run hf.co/spaces/lhoestq/duckdb duckdb -c "select 'hello world'"
 
 # Run a Python script with `uv` (experimental)
->>> huggingface-cli jobs uv run my_script.py
+>>> hf jobs uv run my_script.py
 ```
 
 ### ✨ Key Features
@@ -642,7 +642,7 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 
 ```bash
 # Run a simple Python script
->>> huggingface-cli jobs run python:3.12 python -c "print('Hello from HF compute!')"
+>>> hf jobs run python:3.12 python -c "print('Hello from HF compute!')"
 ```
 
 This command runs the job and shows the logs. You can pass `--detach` to run the Job in the background and only print the Job ID.
@@ -651,16 +651,16 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 
 ```bash
 # List your running jobs
->>> huggingface-cli jobs ps
+>>> hf jobs ps
 
 # Inspect the status of a job
->>> huggingface-cli jobs inspect <job_id>
+>>> hf jobs inspect <job_id>
 
 # View logs from a job
->>> huggingface-cli jobs logs <job_id>
+>>> hf jobs logs <job_id>
 
 # Cancel a job
->>> huggingface-cli jobs cancel <job_id>
+>>> hf jobs cancel <job_id>
 ```
 
 #### 3. Run on GPU
@@ -669,7 +669,7 @@ You can also run jobs on GPUs or TPUs with the `--flavor` option. For example, t
 
 ```bash
 # Use an A10G GPU to check PyTorch CUDA
->>> huggingface-cli jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
+>>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
 ... python -c "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"
 ```
 
@@ -696,22 +696,22 @@ You can pass environment variables to your job using
 
 ```bash
 # Pass environment variables
->>> huggingface-cli jobs run -e FOO=foo -e BAR=bar python:3.12 python -c "import os; print(os.environ['FOO'], os.environ['BAR'])"
+>>> hf jobs run -e FOO=foo -e BAR=bar python:3.12 python -c "import os; print(os.environ['FOO'], os.environ['BAR'])"
 ```
 
 ```bash
 # Pass an environment from a local .env file
->>> huggingface-cli jobs run --env-file .env python:3.12 python -c "import os; print(os.environ['FOO'], os.environ['BAR'])"
+>>> hf jobs run --env-file .env python:3.12 python -c "import os; print(os.environ['FOO'], os.environ['BAR'])"
 ```
 
 ```bash
 # Pass secrets - they will be encrypted server side
->>> huggingface-cli jobs run -s MY_SECRET=psswrd python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
+>>> hf jobs run -s MY_SECRET=psswrd python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
 ```
 
 ```bash
 # Pass secrets from a local .env.secrets file - they will be encrypted server side
->>> huggingface-cli jobs run --secrets-file .env.secrets python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
+>>> hf jobs run --secrets-file .env.secrets python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
 ```
 
 ### Hardware
@@ -730,19 +730,19 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 
 ```bash
 # Run a UV script (creates temporary repo)
->>> huggingface-cli jobs uv run my_script.py
+>>> hf jobs uv run my_script.py
 
 # Run with persistent repo
->>> huggingface-cli jobs uv run my_script.py --repo my-uv-scripts
+>>> hf jobs uv run my_script.py --repo my-uv-scripts
 
 # Run with GPU
->>> huggingface-cli jobs uv run ml_training.py --flavor gpu-t4-small
+>>> hf jobs uv run ml_training.py --flavor gpu-t4-small
 
 # Pass arguments to script
->>> huggingface-cli jobs uv run process.py input.csv output.parquet --repo data-scripts
+>>> hf jobs uv run process.py input.csv output.parquet --repo data-scripts
 
 # Run a script directly from a URL
->>> huggingface-cli jobs uv run https://huggingface.co/datasets/username/scripts/resolve/main/example.py
+>>> hf jobs uv run https://huggingface.co/datasets/username/scripts/resolve/main/example.py
 ```
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
