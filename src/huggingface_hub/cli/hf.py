@@ -17,6 +17,7 @@ from argparse import ArgumentParser
 from huggingface_hub.cli.auth import AuthCommands
 from huggingface_hub.cli.cache import CacheCommand
 from huggingface_hub.cli.download import DownloadCommand
+from huggingface_hub.cli.jobs import JobsCommands
 from huggingface_hub.cli.lfs import LfsCommands
 from huggingface_hub.cli.repo import RepoCommands
 from huggingface_hub.cli.repo_files import RepoFilesCommand
@@ -33,6 +34,7 @@ def main():
     AuthCommands.register_subcommand(commands_parser)
     CacheCommand.register_subcommand(commands_parser)
     DownloadCommand.register_subcommand(commands_parser)
+    JobsCommands.register_subcommand(commands_parser)
     RepoCommands.register_subcommand(commands_parser)
     RepoFilesCommand.register_subcommand(commands_parser)
     UploadCommand.register_subcommand(commands_parser)

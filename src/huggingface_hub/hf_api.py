@@ -10390,16 +10390,16 @@ class HfApi:
 
                 # UV Script: {filename}
 
-                Executed via `huggingface-cli jobs uv run` on {timestamp}
+                Executed via `hf jobs uv run` on {timestamp}
 
                 ## Run this script
 
                 ```bash
-                huggingface-cli jobs uv run {filename}
+                hf jobs uv run {filename}
                 ```
 
                 ---
-                *Created with [huggingface-cli jobs](https://github.com/huggingface/huggingface-cli jobs)*
+                *Created with [hf jobs](https://huggingface.co/docs/huggingface_hub/main/en/guides/jobs)*
                 """
             )
             self.upload_file(

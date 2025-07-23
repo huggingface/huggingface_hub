@@ -15,7 +15,19 @@
 
 Usage:
     # run a job
-    huggingface-cli jobs run image command
+    hf jobs run <image> <command>
+
+    # List running or completed jobs
+    hf jobs ps [-a] [-f key=value] [--format TEMPLATE]
+
+    # Stream logs from a job
+    hf jobs logs <job-id>
+
+    # Inspect detailed information about a job
+    hf jobs inspect <job-id>
+
+    # Cancel a running job
+    hf jobs cancel <job-id>
 """
 
 import json
@@ -43,7 +55,7 @@ SUGGESTED_FLAVORS = [item.value for item in SpaceHardware if item.value != "zero
 class JobsCommands(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        jobs_parser = parser.add_parser("jobs", help="Commands to interact with your huggingface.co jobs.")
+        jobs_parser = parser.add_parser("jobs", help="Run and manage Jobs on the Hub.")
         jobs_subparsers = jobs_parser.add_subparsers(help="huggingface.co jobs related commands")
 
         # Register commands
