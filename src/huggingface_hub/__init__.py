@@ -62,6 +62,12 @@ _SUBMOD_ATTRS = {
         "InferenceEndpointTimeoutError",
         "InferenceEndpointType",
     ],
+    "_jobs_api": [
+        "JobInfo",
+        "JobOwner",
+        "JobStage",
+        "JobStatus",
+    ],
     "_login": [
         "auth_list",
         "auth_switch",
@@ -662,6 +668,10 @@ __all__ = [
     "InferenceEndpointTimeoutError",
     "InferenceEndpointType",
     "InferenceTimeoutError",
+    "JobInfo",
+    "JobOwner",
+    "JobStage",
+    "JobStatus",
     "KerasModelHubMixin",
     "MCPClient",
     "ModelCard",
@@ -1055,6 +1065,12 @@ if TYPE_CHECKING:  # pragma: no cover
         InferenceEndpointStatus,  # noqa: F401
         InferenceEndpointTimeoutError,  # noqa: F401
         InferenceEndpointType,  # noqa: F401
+    )
+    from ._jobs_api import (
+        JobInfo,  # noqa: F401
+        JobOwner,  # noqa: F401
+        JobStage,  # noqa: F401
+        JobStatus,  # noqa: F401
     )
     from ._login import (
         auth_list,  # noqa: F401
