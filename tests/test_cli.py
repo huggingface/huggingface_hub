@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 from huggingface_hub.commands.delete_cache import DeleteCacheCommand
 from huggingface_hub.commands.download import DownloadCommand
+from huggingface_hub.commands.jobs import JobsCommands, RunCommand
 from huggingface_hub.commands.repo_files import DeleteFilesSubCommand, RepoFilesCommand
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.commands.tag import TagCommands
@@ -837,3 +838,46 @@ class TestRepoFilesCommand(unittest.TestCase):
                     assert kwargs == delete_files_args
 
                 delete_files_mock.reset_mock()
+
+
+class DummyResponse:
+    def __init__(self, json):
+        self._json = json
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self._json
+
+
+class TestJobsCommand(unittest.TestCase):
+    def setUp(self) -> None:
+        """
+        Set up CLI as in `src/huggingface_hub/commands/huggingface_cli.py`.
+        """
+        self.parser = ArgumentParser("huggingface-cli", usage="huggingface-cli <command> [<args>]")
+        commands_parser = self.parser.add_subparsers()
+        JobsCommands.register_subcommand(commands_parser)
+
+    @patch(
+        "requests.Session.post",
+        return_value=DummyResponse(
+            {"id": "my-job-id", "owner": {"id": "userid", "name": "my-username"}, "status": {"stage": "RUNNING"}}
+        ),
+    )
+    @patch("huggingface_hub.hf_api.HfApi.whoami", return_value={"name": "my-username"})
+    def test_run(self, whoami: Mock, requests_post: Mock) -> None:
+        input_args = ["jobs", "run", "--detach", "ubuntu", "echo", "hello"]
+        cmd = RunCommand(self.parser.parse_args(input_args))
+        cmd.run()
+        assert requests_post.call_count == 1
+        args, kwargs = requests_post.call_args_list[0]
+        assert args == ("https://huggingface.co/api/jobs/my-username",)
+        assert kwargs["json"] == {
+            "command": ["echo", "hello"],
+            "arguments": [],
+            "environment": {},
+            "flavor": "cpu-basic",
+            "dockerImage": "ubuntu",
+        }
