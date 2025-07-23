@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2023-present, the HuggingFace Inc. team.
+# Copyright 202-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,25 +15,25 @@
 """Contains command to download files from the Hub with the CLI.
 
 Usage:
-    huggingface-cli download --help
+    hf download --help
 
     # Download file
-    huggingface-cli download gpt2 config.json
+    hf download gpt2 config.json
 
     # Download entire repo
-    huggingface-cli download fffiloni/zeroscope --repo-type=space --revision=refs/pr/78
+    hf download fffiloni/zeroscope --repo-type=space --revision=refs/pr/78
 
     # Download repo with filters
-    huggingface-cli download gpt2 --include="*.safetensors"
+    hf download gpt2 --include="*.safetensors"
 
     # Download with token
-    huggingface-cli download Wauplin/private-model --token=hf_***
+    hf download Wauplin/private-model --token=hf_***
 
     # Download quietly (no progress bar, no warnings, only the returned path)
-    huggingface-cli download gpt2 config.json --quiet
+    hf download gpt2 config.json --quiet
 
     # Download to local dir
-    huggingface-cli download gpt2 --local-dir=./models/gpt2
+    hf download gpt2 --local-dir=./models/gpt2
 """
 
 import warnings
@@ -45,8 +45,6 @@ from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
-
-from ._cli_utils import show_deprecation_warning
 
 
 logger = logging.get_logger(__name__)
@@ -92,19 +90,9 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             ),
         )
         download_parser.add_argument(
-            "--local-dir-use-symlinks",
-            choices=["auto", "True", "False"],
-            help=("Deprecated and ignored. Downloading to a local directory does not use symlinks anymore."),
-        )
-        download_parser.add_argument(
             "--force-download",
             action="store_true",
             help="If True, the files will be downloaded even if they are already cached.",
-        )
-        download_parser.add_argument(
-            "--resume-download",
-            action="store_true",
-            help="Deprecated and ignored. Downloading a file to local dir always attempts to resume previously interrupted downloads (unless hf-transfer is enabled).",
         )
         download_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
@@ -133,19 +121,10 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         self.cache_dir: Optional[str] = args.cache_dir
         self.local_dir: Optional[str] = args.local_dir
         self.force_download: bool = args.force_download
-        self.resume_download: Optional[bool] = args.resume_download or None
         self.quiet: bool = args.quiet
         self.max_workers: int = args.max_workers
 
-        if args.local_dir_use_symlinks is not None:
-            warnings.warn(
-                "Ignoring --local-dir-use-symlinks. Downloading to a local directory does not use symlinks anymore.",
-                FutureWarning,
-            )
-
     def run(self) -> None:
-        show_deprecation_warning("huggingface-cli download", "hf download")
-
         if self.quiet:
             disable_progress_bars()
             with warnings.catch_warnings():
@@ -173,11 +152,10 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
                 revision=self.revision,
                 filename=self.filenames[0],
                 cache_dir=self.cache_dir,
-                resume_download=self.resume_download,
                 force_download=self.force_download,
                 token=self.token,
                 local_dir=self.local_dir,
-                library_name="huggingface-cli",
+                library_name="hf",
             )
 
         # Otherwise: use `snapshot_download` to ensure all files comes from same revision
@@ -194,11 +172,10 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             revision=self.revision,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
-            resume_download=self.resume_download,
             force_download=self.force_download,
             cache_dir=self.cache_dir,
             token=self.token,
             local_dir=self.local_dir,
-            library_name="huggingface-cli",
+            library_name="hf",
             max_workers=self.max_workers,
         )

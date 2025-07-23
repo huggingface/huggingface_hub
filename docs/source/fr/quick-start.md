@@ -66,9 +66,9 @@ Une fois que vous avez votre token d'authentification, lancez la commande suivan
 dans votre terminal:
 
 ```bash
-huggingface-cli login
+hf auth login
 # ou en utilisant une varible d'environnement:
-huggingface-cli login --token $HUGGINGFACE_TOKEN
+hf auth login --token $HUGGINGFACE_TOKEN
 ```
 
 Sinon, vous pouvez vous connecter en utilisant [`login`] dans un notebook ou
@@ -87,7 +87,7 @@ codebase/notebook.
 
 Vous ne pouvez être connecté qu'à un seul compte à la fois. Si vous connectez votre machine à un autre compte,
 vous serez déconnecté du premier compte. Vérifiez toujours le compte que vous utilisez avec la commande
-`huggingface-cli whoami`. Si vous voulez gérer plusieurs compte dans le même script, vous pouvez passer votre
+`hf auth whoami`. Si vous voulez gérer plusieurs compte dans le même script, vous pouvez passer votre
 token à chaque appel de méthode. C'est aussi utile si vous ne voulez pas sauvegarder de token sur votre machine.
 
 <Tip warning={true}>

@@ -185,16 +185,16 @@ something_path = assets_path / "something.json" # 자산 폴더에서 원하는 
 
 ## 캐시 스캔하기[[scan-your-cache]]
 
-현재 캐시된 파일은 로컬 디렉토리에서 삭제되지 않습니다. 브랜치의 새로운 수정 버전을 다운로드할 때 이전 파일은 다시 필요할 경우를 대비하여 보관됩니다. 따라서 디스크 공간을 많이 차지하는 리포지토리와 수정 버전을 파악하기 위해 캐시 디렉토리를 스캔하는 것이 유용할 수 있습니다. `huggingface_hub`은 이를 수행할 수 있는 헬퍼를 제공하며, `huggingface-cli`를 통해 또는 Python 스크립트에서 사용할 수 있습니다.
+현재 캐시된 파일은 로컬 디렉토리에서 삭제되지 않습니다. 브랜치의 새로운 수정 버전을 다운로드할 때 이전 파일은 다시 필요할 경우를 대비하여 보관됩니다. 따라서 디스크 공간을 많이 차지하는 리포지토리와 수정 버전을 파악하기 위해 캐시 디렉토리를 스캔하는 것이 유용할 수 있습니다. `huggingface_hub`은 이를 수행할 수 있는 헬퍼를 제공하며, `hf`를 통해 또는 Python 스크립트에서 사용할 수 있습니다.
 
 ### 터미널에서 캐시 스캔하기[[scan-cache-from-the-terminal]]
 
-HF 캐시 시스템을 스캔하는 가장 쉬운 방법은 `huggingface-cli` 도구의 `scan-cache` 명령을 사용하는 것입니다. 이 명령은 캐시를 스캔하고 리포지토리 ID, 리포지토리 유형, 디스크 사용량, 참조 및 전체 로컬 경로와 같은 정보가 포함된 보고서를 출력합니다.
+HF 캐시 시스템을 스캔하는 가장 쉬운 방법은 `hf` 도구의 `cache scan` 명령을 사용하는 것입니다. 이 명령은 캐시를 스캔하고 리포지토리 ID, 리포지토리 유형, 디스크 사용량, 참조 및 전체 로컬 경로와 같은 정보가 포함된 보고서를 출력합니다.
 
 아래 코드 조각은 4개의 모델과 2개의 데이터셋이 캐시된 폴더에서의 스캔 보고서를 보여줍니다.
 
 ```text
-➜ huggingface-cli scan-cache
+➜ hf cache scan
 REPO ID                     REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED LAST_MODIFIED REFS                LOCAL PATH
 --------------------------- --------- ------------ -------- ------------- ------------- ------------------- -------------------------------------------------------------------------
 glue                        dataset         116.3K       15 4 days ago    4 days ago    2.4.0, main, 1.17.0 /home/wauplin/.cache/huggingface/hub/datasets--glue
@@ -210,7 +210,7 @@ Got 1 warning(s) while scanning. Use -vvv to print details.
 더 자세한 보고서를 얻으려면 `--verbose` 옵션을 사용하세요. 각 리포지토리에 대해 다운로드된 모든 수정 버전의 목록을 얻게 됩니다. 위에서 설명한대로, 2개의 수정 버전 사이에 변경되지 않는 파일들은 심볼릭 링크를 통해 공유됩니다. 이는 디스크 상의 리포지토리 크기가 각 수정 버전의 크기의 합보다 작을 것으로 예상됨을 의미합니다. 예를 들어, 여기서 `bert-base-cased`는 1.4G와 1.5G의 두 가지 수정 버전이 있지만 총 디스크 사용량은 단 1.9G입니다.
 
 ```text
-➜ huggingface-cli scan-cache -v
+➜ hf cache scan -v
 REPO ID                     REPO TYPE REVISION                                 SIZE ON DISK NB FILES LAST_MODIFIED REFS        LOCAL PATH
 --------------------------- --------- ---------------------------------------- ------------ -------- ------------- ----------- ----------------------------------------------------------------------------------------------------------------------------
 glue                        dataset   9338f7b671827df886678df2bdd7cc7b4f36dffd        97.7K       14 4 days ago    main, 2.4.0 /home/wauplin/.cache/huggingface/hub/datasets--glue/snapshots/9338f7b671827df886678df2bdd7cc7b4f36dffd
@@ -234,7 +234,7 @@ Got 1 warning(s) while scanning. Use -vvv to print details.
 출력이 테이블 형식으로 되어 있기 때문에 `grep`과 유사한 도구를 사용하여 항목을 필터링할 수 있습니다. 여기에는 Unix 기반 머신에서 "t5-small" 모델의 수정 버전만 필터링하는 예제가 있습니다.
 
 ```text
-➜ eval "huggingface-cli scan-cache -v" | grep "t5-small"
+➜ eval "hf cache scan -v" | grep "t5-small"
 t5-small                    model     98ffebbb27340ec1b1abd7c45da12c253ee1882a       726.2M        6 1 week ago    refs/pr/1   /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/98ffebbb27340ec1b1abd7c45da12c253ee1882a
 t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617       485.8M        6 4 weeks ago               /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d0a119eedb3718e34c648e594394474cf95e0617
 t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
@@ -329,7 +329,7 @@ HFCacheInfo(
 
 ### 터미널에서 캐시 정리하기[[clean-cache-from-the-terminal]]
 
-HF 캐시 시스템에서 일부 수정 버전을 삭제하는 가장 쉬운 방법은 `huggingface-cli` 도구의 `delete-cache` 명령을 사용하는 것입니다. 이 명령에는 두 가지 모드가 있습니다. 기본적으로 사용자에게 삭제할 수정 버전을 선택하도록 TUI(터미널 사용자 인터페이스)가 표시됩니다. 이 TUI는 현재 베타 버전으로, 모든 플랫폼에서 테스트되지 않았습니다. 만약 TUI가 작동하지 않는다면 `--disable-tui` 플래그를 사용하여 비활성화할 수 있습니다.
+HF 캐시 시스템에서 일부 수정 버전을 삭제하는 가장 쉬운 방법은 `hf` 도구의 `cache delete` 명령을 사용하는 것입니다. 이 명령에는 두 가지 모드가 있습니다. 기본적으로 사용자에게 삭제할 수정 버전을 선택하도록 TUI(터미널 사용자 인터페이스)가 표시됩니다. 이 TUI는 현재 베타 버전으로, 모든 플랫폼에서 테스트되지 않았습니다. 만약 TUI가 작동하지 않는다면 `--disable-tui` 플래그를 사용하여 비활성화할 수 있습니다.
 
 #### TUI 사용하기[[using-the-tui]]
 
@@ -342,7 +342,7 @@ pip install huggingface_hub["cli"]
 그러고 명령어를 실행합니다:
 
 ```
-huggingface-cli delete-cache
+hf cache delete
 ```
 이제 선택/해제할 수 있는 수정 버전 목록이 표시됩니다:
 
@@ -359,7 +359,7 @@ huggingface-cli delete-cache
 삭제할 수정 버전을 선택하고 `enter` 를 누르면 마지막 확인 메시지가 표시됩니다. 다시 `enter` 를 누르면 삭제됩니다. 취소하려면 `n` 을 입력하세요.
 
 ```txt
-✗ huggingface-cli delete-cache --dir ~/.cache/huggingface/hub
+✗ hf cache delete --dir ~/.cache/huggingface/hub
 ? Select revisions to delete: 2 revision(s) selected.
 ? 2 revisions selected counting for 3.1G. Confirm deletion ? Yes
 Start deletion.
@@ -375,7 +375,7 @@ Done. Deleted 1 repo(s) and 0 revision(s) for a total of 3.1G.
 이 파일에는 헤더에 필요한 모든 사용방법이 포함되어 있습니다. 텍스트 편집기에서 이 파일을 열어 `#`으로 주석 처리/해제하면 수정 버전을 쉽게 선택/해제 할 수 있습니다. 검토를 완료하고 파일 편집이 완료되었다면 터미널로 돌아가 `<enter>`를 눌러 파일을 저장하세요. 기본적으로 업데이트된 수정 버전 목록으로 확보될 공간의 양을 계산합니다. 파일을 계속 편집할 수도 있고, `"y"`를 눌러 변경 사항을 확정할 수 있습니다.
 
 ```sh
-huggingface-cli delete-cache --disable-tui
+hf cache delete --disable-tui
 ```
 
 Example of command file:
@@ -383,7 +383,7 @@ Example of command file:
 ```txt
 # INSTRUCTIONS
 # ------------
-# This is a temporary file created by running `huggingface-cli delete-cache` with the
+# This is a temporary file created by running `hf cache delete` with the
 # `--disable-tui` option. It contains a set of revisions that can be deleted from your
 # local cache directory.
 #

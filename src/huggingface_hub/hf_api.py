@@ -1784,10 +1784,10 @@ class HfApi:
             elif effective_token == _get_token_from_environment():
                 error_message += (
                     " The token from HF_TOKEN environment variable is invalid. "
-                    "Note that HF_TOKEN takes precedence over `huggingface-cli login`."
+                    "Note that HF_TOKEN takes precedence over `hf auth login`."
                 )
             elif effective_token == _get_token_from_file():
-                error_message += " The token stored is invalid. Please run `huggingface-cli login` to update it."
+                error_message += " The token stored is invalid. Please run `hf auth login` to update it."
             raise HTTPError(error_message, request=e.request, response=e.response) from e
         return r.json()
 
@@ -9646,7 +9646,7 @@ class HfApi:
             log(
                 "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
                 "the folder is too large. For such cases, it is recommended to upload in smaller batches or to use "
-                "`HfApi().upload_large_folder(...)`/`huggingface-cli upload-large-folder` instead. For more details, "
+                "`HfApi().upload_large_folder(...)`/`hf upload-large-folder` instead. For more details, "
                 "check out https://huggingface.co/docs/huggingface_hub/main/en/guides/upload#upload-a-large-folder."
             )
 

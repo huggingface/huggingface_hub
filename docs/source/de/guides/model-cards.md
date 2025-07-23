@@ -188,7 +188,7 @@ print(card)
 
 ## Model Cards teilen
 
-Wenn Sie mit dem Hugging Face Hub authentifiziert sind (entweder durch Verwendung von `huggingface-cli login` oder [`login`]), können Sie Karten zum Hub hinzufügen, indem Sie einfach [`ModelCard.push_to_hub`] aufrufen. Schauen wir uns an, wie das funktioniert...
+Wenn Sie mit dem Hugging Face Hub authentifiziert sind (entweder durch Verwendung von `hf auth login` oder [`login`]), können Sie Karten zum Hub hinzufügen, indem Sie einfach [`ModelCard.push_to_hub`] aufrufen. Schauen wir uns an, wie das funktioniert...
 
 Zuerst erstellen wir ein neues Repo namens 'hf-hub-modelcards-pr-test' im Namensraum des authentifizierten Benutzers:
 
