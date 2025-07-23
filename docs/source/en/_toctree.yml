@@ -94,3 +94,5 @@
       title: Strict dataclasses
     - local: package_reference/oauth
       title: OAuth
+    - local: package_reference/jobs
+      title: Jobs
