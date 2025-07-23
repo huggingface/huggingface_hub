@@ -37,6 +37,8 @@ from . import BaseHuggingfaceCLICommand
 
 logger = logging.get_logger(__name__)
 
+SUGGESTED_FLAVORS = [item.value for item in SpaceHardware if item.value != "zero-a10g"]
+
 
 class JobsCommands(BaseHuggingfaceCLICommand):
     @staticmethod
@@ -65,7 +67,7 @@ class RunCommand(BaseHuggingfaceCLICommand):
         run_parser.add_argument(
             "--flavor",
             type=str,
-            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SpaceHardware)}.",
+            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
         )
         run_parser.add_argument(
             "--timeout",
@@ -429,7 +431,7 @@ class UvCommand(BaseHuggingfaceCLICommand):
         run_parser.add_argument(
             "--flavor",
             type=str,
-            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SpaceHardware)}.",
+            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
         )
         run_parser.add_argument("-e", "--env", action="append", help="Environment variables")
         run_parser.add_argument("-s", "--secrets", action="append", help="Secret environment variables")
