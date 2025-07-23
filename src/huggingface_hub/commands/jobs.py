@@ -421,6 +421,7 @@ class UvCommand(BaseHuggingfaceCLICommand):
         )
         run_parser.add_argument("script", help="UV script to run (local file or URL)")
         run_parser.add_argument("script_args", nargs="...", help="Arguments for the script", default=[])
+        run_parser.add_argument("--image", type=str, help="Use a custom Docker image with `uv` installed.")
         run_parser.add_argument(
             "--repo",
             help="Repository name for the script (creates ephemeral if not specified)",
@@ -459,6 +460,7 @@ class UvCommand(BaseHuggingfaceCLICommand):
         self.script_args = args.script_args
         self.dependencies = args.with_
         self.python = args.python
+        self.image = args.image
         self.env: dict[str, Optional[str]] = {}
         if args.env_file:
             self.env.update(load_dotenv(Path(args.env_file).read_text()))
@@ -485,6 +487,7 @@ class UvCommand(BaseHuggingfaceCLICommand):
             script_args=self.script_args,
             dependencies=self.dependencies,
             python=self.python,
+            image=self.image,
             env=self.env,
             secrets=self.secrets,
             flavor=self.flavor,
