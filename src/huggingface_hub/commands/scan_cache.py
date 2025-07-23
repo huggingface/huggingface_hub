@@ -27,7 +27,7 @@ from typing import Optional
 
 from ..utils import CacheNotFound, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
-from ._cli_utils import ANSI, tabulate
+from ._cli_utils import ANSI, show_deprecation_warning, tabulate
 
 
 class ScanCacheCommand(BaseHuggingfaceCLICommand):
@@ -55,6 +55,8 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
         self.cache_dir: Optional[str] = args.dir
 
     def run(self):
+        show_deprecation_warning("huggingface-cli scan-cache", "hf cache scan")
+
         try:
             t0 = time.time()
             hf_cache_info = scan_cache_dir(self.cache_dir)

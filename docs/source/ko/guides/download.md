@@ -135,25 +135,25 @@ Hub에서 파일을 다운로드하는 가장 좋은 (그리고 기본적인) �
 
 ## CLI에서 파일 다운로드하기[[download-from-the-cli]]
 
-터미널에서 `huggingface-cli download` 명령어를 사용하면 Hub에서 파일을 바로 다운로드할 수 있습니다.
+터미널에서 `hf download` 명령어를 사용하면 Hub에서 파일을 바로 다운로드할 수 있습니다.
 이 명령어는 내부적으로 앞서 설명한 [`hf_hub_download`]과 [`snapshot_download`] 함수를 사용하고, 다운로드한 파일의 로컬 경로를 터미널에 출력합니다:
 
 ```bash
->>> huggingface-cli download gpt2 config.json
+>>> hf download gpt2 config.json
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
-기본적으로 (`huggingface-cli login` 명령으로) 로컬에 저장된 토큰을 사용합니다. 직접 인증하고 싶다면, `--token` 옵션을 사용하세요:
+기본적으로 (`hf auth login` 명령으로) 로컬에 저장된 토큰을 사용합니다. 직접 인증하고 싶다면, `--token` 옵션을 사용하세요:
 
 ```bash
->>> huggingface-cli download gpt2 config.json --token=hf_****
+>>> hf download gpt2 config.json --token=hf_****
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
 여러 파일을 한 번에 다운로드하면 진행률 표시줄이 보이고, 파일이 있는 스냅샷 경로가 반환됩니다:
 
 ```bash
->>> huggingface-cli download gpt2 config.json model.safetensors
+>>> hf download gpt2 config.json model.safetensors
 Fetching 2 files: 100%|████████████████████████████████████████████| 2/2 [00:00<00:00, 23831.27it/s]
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
@@ -161,14 +161,14 @@ Fetching 2 files: 100%|███████████████████
 진행률 표시줄이나 잠재적 경고가 필요 없다면 `--quiet` 옵션을 사용하세요. 이 옵션은 스크립트에서 다른 명령어로 출력을 넘겨주려는 경우에 유용할 수 있습니다.
 
 ```bash
->>> huggingface-cli download gpt2 config.json model.safetensors
+>>> hf download gpt2 config.json model.safetensors
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
 기본적으로 파일은 `HF_HOME` 환경 변수에 정의된 캐시 디렉터리(또는 지정하지 않은 경우 `~/.cache/huggingface/hub`)에 다운로드됩니다. 캐시 디렉터리는 `--cache-dir` 옵션으로 변경할 수 있습니다:
 
 ```bash
->>> huggingface-cli download gpt2 config.json --cache-dir=./cache
+>>> hf download gpt2 config.json --cache-dir=./cache
 ./cache/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
@@ -177,7 +177,7 @@ Fetching 2 files: 100%|███████████████████
 
 
 ```bash
->>> huggingface-cli download gpt2 config.json --local-dir=./models/gpt2
+>>> hf download gpt2 config.json --local-dir=./models/gpt2
 ./models/gpt2/config.json
 ```
 
@@ -185,7 +185,7 @@ Fetching 2 files: 100%|███████████████████
 다른 리포지토리 유형이나 버전에서 파일을 다운로드하거나 glob 패턴을 사용하여 다운로드할 파일을 선택하거나 제외하도록 지정할 수 있는 인수들이 더 있습니다:
 
 ```bash
->>> huggingface-cli download bigcode/the-stack --repo-type=dataset --revision=v1.2 --include="data/python/*" --exclu
+>>> hf download bigcode/the-stack --repo-type=dataset --revision=v1.2 --include="data/python/*" --exclu
 de="*.json" --exclude="*.zip"
 Fetching 206 files:   100%|████████████████████████████████████████████| 206/206 [02:31<2:31, ?it/s]
 /home/wauplin/.cache/huggingface/hub/datasets--bigcode--the-stack/snapshots/9ca8fa6acdbc8ce920a0cb58adcdafc495818ae7
@@ -194,5 +194,5 @@ Fetching 206 files:   100%|█████████████████�
 인수들의 전체 목록을 보려면 다음 명령어를 실행하세요:
 
 ```bash
-huggingface-cli download --help
+hf download --help
 ```

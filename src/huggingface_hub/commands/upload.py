@@ -61,6 +61,8 @@ from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 from huggingface_hub.utils._runtime import is_xet_available
 
+from ._cli_utils import show_deprecation_warning
+
 
 logger = logging.get_logger(__name__)
 
@@ -196,6 +198,8 @@ class UploadCommand(BaseHuggingfaceCLICommand):
             self.path_in_repo = args.path_in_repo
 
     def run(self) -> None:
+        show_deprecation_warning("huggingface-cli upload", "hf upload")
+
         if self.quiet:
             disable_progress_bars()
             with warnings.catch_warnings():

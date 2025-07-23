@@ -365,19 +365,16 @@ At the moment, cached files are never deleted from your local directory: when yo
 a new revision of a branch, previous files are kept in case you need them again.
 Therefore it can be useful to scan your cache directory in order to know which repos
 and revisions are taking the most disk space. `huggingface_hub` provides an helper to
-do so that can be used via `huggingface-cli` or in a python script.
+do so that can be used via `hf` CLI or in a python script.
 
 **Scan cache from the terminal**
 
-The easiest way to scan your HF cache-system is to use the `scan-cache` command from
-`huggingface-cli` tool. This command scans the cache and prints a report with information
-like repo id, repo type, disk usage, refs and full local path.
+The easiest way to scan your HF cache-system is to use the `hf cache scan` command line. This command scans the cache and prints a report with information like repo id, repo type, disk usage, refs and full local path.
 
-The snippet below shows a scan report in a folder in which 4 models and 2 datasets are
-cached.
+The snippet below shows a scan report in a folder in which 4 models and 2 datasets are cached.
 
 ```text
-➜ huggingface-cli scan-cache
+➜ hf cache scan
 REPO ID                     REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED LAST_MODIFIED REFS                LOCAL PATH
 --------------------------- --------- ------------ -------- ------------- ------------- ------------------- -------------------------------------------------------------------------
 glue                        dataset         116.3K       15 4 days ago    4 days ago    2.4.0, main, 1.17.0 /home/wauplin/.cache/huggingface/hub/datasets--glue
@@ -399,7 +396,7 @@ For example, here `bert-base-cased` has 2 revisions of 1.4G and 1.5G but the tot
 usage is only 1.9G.
 
 ```text
-➜ huggingface-cli scan-cache -v
+➜ hf cache scan -v
 REPO ID                     REPO TYPE REVISION                                 SIZE ON DISK NB FILES LAST_MODIFIED REFS        LOCAL PATH
 --------------------------- --------- ---------------------------------------- ------------ -------- ------------- ----------- ----------------------------------------------------------------------------------------------------------------------------
 glue                        dataset   9338f7b671827df886678df2bdd7cc7b4f36dffd        97.7K       14 4 days ago    main, 2.4.0 /home/wauplin/.cache/huggingface/hub/datasets--glue/snapshots/9338f7b671827df886678df2bdd7cc7b4f36dffd
@@ -425,7 +422,7 @@ filter the entries. Here is an example to filter only revisions from the "t5-sma
 model on a Unix-based machine.
 
 ```text
-➜ eval "huggingface-cli scan-cache -v" | grep "t5-small"
+➜ eval "hf cache scan -v" | grep "t5-small"
 t5-small                    model     98ffebbb27340ec1b1abd7c45da12c253ee1882a       726.2M        6 1 week ago    refs/pr/1   /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/98ffebbb27340ec1b1abd7c45da12c253ee1882a
 t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617       485.8M        6 4 weeks ago               /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d0a119eedb3718e34c648e594394474cf95e0617
 t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
@@ -499,7 +496,7 @@ HFCacheInfo(
 
 Scanning your cache is interesting but what you really want to do next is usually to
 delete some portions to free up some space on your drive. This is possible using the
-`delete-cache` CLI command. One can also programmatically use the
+`cache delete` CLI command. One can also programmatically use the
 [`~HFCacheInfo.delete_revisions`] helper from [`HFCacheInfo`] object returned when
 scanning the cache.
 
@@ -538,7 +535,7 @@ error is thrown. The deletion continues for other paths contained in the
 **Clean cache from the terminal**
 
 The easiest way to delete some revisions from your HF cache-system is to use the
-`delete-cache` command from `huggingface-cli` tool. The command has two modes. By
+`hf cache delete` CLI tool. The command has two modes. By
 default, a TUI (Terminal User Interface) is displayed to the user to select which
 revisions to delete. This TUI is currently in beta as it has not been tested on all
 platforms. If the TUI doesn't work on your machine, you can disable it using the
@@ -556,7 +553,7 @@ pip install huggingface_hub["cli"]
 Then run the command:
 
 ```
-huggingface-cli delete-cache
+hf cache delete
 ```
 
 You should now see a list of revisions that you can select/deselect:
@@ -581,7 +578,7 @@ confirmation message will be prompted. Press `<enter>` again and the deletion wi
 effective. If you want to cancel, enter `n`.
 
 ```txt
-✗ huggingface-cli delete-cache --dir ~/.cache/huggingface/hub
+✗ hf cache delete --dir ~/.cache/huggingface/hub
 ? Select revisions to delete: 2 revision(s) selected.
 ? 2 revisions selected counting for 3.1G. Confirm deletion ? Yes
 Start deletion.
@@ -605,7 +602,7 @@ and press `<enter>`. By default it will compute how much space would be freed wi
 updated list of revisions. You can continue to edit the file or confirm with `"y"`.
 
 ```sh
-huggingface-cli delete-cache --disable-tui
+hf cache delete --disable-tui
 ```
 
 Example of command file:
@@ -613,7 +610,7 @@ Example of command file:
 ```txt
 # INSTRUCTIONS
 # ------------
-# This is a temporary file created by running `huggingface-cli delete-cache` with the
+# This is a temporary file created by running `hf cache delete` with the
 # `--disable-tui` option. It contains a set of revisions that can be deleted from your
 # local cache directory.
 #

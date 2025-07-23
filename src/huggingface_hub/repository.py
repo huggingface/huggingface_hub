@@ -487,7 +487,7 @@ class Repository:
                 To set when cloning a repo from a repo_id. Default is model.
             token (`bool` or `str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
-                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                If `None` or `True` and machine is logged in (through `hf auth login`
                 or [`~huggingface_hub.login`]), token will be retrieved from the cache.
                 If `False`, token is not sent in the request header.
             git_user (`str`, *optional*):
@@ -878,7 +878,7 @@ class Repository:
         """
         try:
             lfs_config = "git config lfs.customtransfer.multipart"
-            run_subprocess(f"{lfs_config}.path huggingface-cli", self.local_dir)
+            run_subprocess(f"{lfs_config}.path hf", self.local_dir)
             run_subprocess(
                 f"{lfs_config}.args {LFS_MULTIPART_UPLOAD_COMMAND}",
                 self.local_dir,
