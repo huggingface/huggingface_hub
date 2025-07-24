@@ -372,6 +372,10 @@ _SUBMOD_ATTRS = {
         "ImageToTextInput",
         "ImageToTextOutput",
         "ImageToTextParameters",
+        "ImageToVideoInput",
+        "ImageToVideoOutput",
+        "ImageToVideoParameters",
+        "ImageToVideoTargetSize",
         "ObjectDetectionBoundingBox",
         "ObjectDetectionInput",
         "ObjectDetectionOutputElement",
@@ -660,6 +664,10 @@ __all__ = [
     "ImageToTextInput",
     "ImageToTextOutput",
     "ImageToTextParameters",
+    "ImageToVideoInput",
+    "ImageToVideoOutput",
+    "ImageToVideoParameters",
+    "ImageToVideoTargetSize",
     "InferenceApi",
     "InferenceClient",
     "InferenceEndpoint",
@@ -1370,6 +1378,10 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageToTextInput,  # noqa: F401
         ImageToTextOutput,  # noqa: F401
         ImageToTextParameters,  # noqa: F401
+        ImageToVideoInput,  # noqa: F401
+        ImageToVideoOutput,  # noqa: F401
+        ImageToVideoParameters,  # noqa: F401
+        ImageToVideoTargetSize,  # noqa: F401
         ObjectDetectionBoundingBox,  # noqa: F401
         ObjectDetectionInput,  # noqa: F401
         ObjectDetectionOutputElement,  # noqa: F401
