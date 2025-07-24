@@ -45,8 +45,7 @@ import os
 import sys
 from typing import TYPE_CHECKING
 
-
-__version__ = "0.33.4"
+__version__ = "0.33.5"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -1037,448 +1036,533 @@ if os.environ.get("EAGER_IMPORT", ""):
 # ```
 if TYPE_CHECKING:  # pragma: no cover
     from ._commit_scheduler import CommitScheduler  # noqa: F401
-    from ._inference_endpoints import (
-        InferenceEndpoint,  # noqa: F401
-        InferenceEndpointError,  # noqa: F401
-        InferenceEndpointStatus,  # noqa: F401
-        InferenceEndpointTimeoutError,  # noqa: F401
-        InferenceEndpointType,  # noqa: F401
-    )
-    from ._login import (
-        auth_list,  # noqa: F401
-        auth_switch,  # noqa: F401
-        interpreter_login,  # noqa: F401
-        login,  # noqa: F401
-        logout,  # noqa: F401
-        notebook_login,  # noqa: F401
-    )
-    from ._oauth import (
-        OAuthInfo,  # noqa: F401
-        OAuthOrgInfo,  # noqa: F401
-        OAuthUserInfo,  # noqa: F401
-        attach_huggingface_oauth,  # noqa: F401
-        parse_huggingface_oauth,  # noqa: F401
-    )
+    from ._inference_endpoints import InferenceEndpoint  # noqa: F401
+    from ._inference_endpoints import InferenceEndpointError  # noqa: F401
+    from ._inference_endpoints import InferenceEndpointStatus  # noqa: F401
+    from ._inference_endpoints import \
+        InferenceEndpointTimeoutError  # noqa: F401
+    from ._inference_endpoints import InferenceEndpointType  # noqa: F401
+    from ._login import auth_list  # noqa: F401
+    from ._login import auth_switch  # noqa: F401
+    from ._login import interpreter_login  # noqa: F401
+    from ._login import login  # noqa: F401
+    from ._login import logout  # noqa: F401
+    from ._login import notebook_login  # noqa: F401
+    from ._oauth import OAuthInfo  # noqa: F401
+    from ._oauth import OAuthOrgInfo  # noqa: F401
+    from ._oauth import OAuthUserInfo  # noqa: F401
+    from ._oauth import attach_huggingface_oauth  # noqa: F401
+    from ._oauth import parse_huggingface_oauth  # noqa: F401
     from ._snapshot_download import snapshot_download  # noqa: F401
-    from ._space_api import (
-        SpaceHardware,  # noqa: F401
-        SpaceRuntime,  # noqa: F401
-        SpaceStage,  # noqa: F401
-        SpaceStorage,  # noqa: F401
-        SpaceVariable,  # noqa: F401
-    )
+    from ._space_api import SpaceHardware  # noqa: F401
+    from ._space_api import SpaceRuntime  # noqa: F401
+    from ._space_api import SpaceStage  # noqa: F401
+    from ._space_api import SpaceStorage  # noqa: F401
+    from ._space_api import SpaceVariable  # noqa: F401
     from ._tensorboard_logger import HFSummaryWriter  # noqa: F401
-    from ._webhooks_payload import (
-        WebhookPayload,  # noqa: F401
-        WebhookPayloadComment,  # noqa: F401
-        WebhookPayloadDiscussion,  # noqa: F401
-        WebhookPayloadDiscussionChanges,  # noqa: F401
-        WebhookPayloadEvent,  # noqa: F401
-        WebhookPayloadMovedTo,  # noqa: F401
-        WebhookPayloadRepo,  # noqa: F401
-        WebhookPayloadUrl,  # noqa: F401
-        WebhookPayloadWebhook,  # noqa: F401
-    )
-    from ._webhooks_server import (
-        WebhooksServer,  # noqa: F401
-        webhook_endpoint,  # noqa: F401
-    )
-    from .community import (
-        Discussion,  # noqa: F401
-        DiscussionComment,  # noqa: F401
-        DiscussionCommit,  # noqa: F401
-        DiscussionEvent,  # noqa: F401
-        DiscussionStatusChange,  # noqa: F401
-        DiscussionTitleChange,  # noqa: F401
-        DiscussionWithDetails,  # noqa: F401
-    )
-    from .constants import (
-        CONFIG_NAME,  # noqa: F401
-        FLAX_WEIGHTS_NAME,  # noqa: F401
-        HUGGINGFACE_CO_URL_HOME,  # noqa: F401
-        HUGGINGFACE_CO_URL_TEMPLATE,  # noqa: F401
-        PYTORCH_WEIGHTS_NAME,  # noqa: F401
-        REPO_TYPE_DATASET,  # noqa: F401
-        REPO_TYPE_MODEL,  # noqa: F401
-        REPO_TYPE_SPACE,  # noqa: F401
-        TF2_WEIGHTS_NAME,  # noqa: F401
-        TF_WEIGHTS_NAME,  # noqa: F401
-    )
-    from .fastai_utils import (
-        _save_pretrained_fastai,  # noqa: F401
-        from_pretrained_fastai,  # noqa: F401
-        push_to_hub_fastai,  # noqa: F401
-    )
-    from .file_download import (
-        _CACHED_NO_EXIST,  # noqa: F401
-        HfFileMetadata,  # noqa: F401
-        get_hf_file_metadata,  # noqa: F401
-        hf_hub_download,  # noqa: F401
-        hf_hub_url,  # noqa: F401
-        try_to_load_from_cache,  # noqa: F401
-    )
-    from .hf_api import (
-        Collection,  # noqa: F401
-        CollectionItem,  # noqa: F401
-        CommitInfo,  # noqa: F401
-        CommitOperation,  # noqa: F401
-        CommitOperationAdd,  # noqa: F401
-        CommitOperationCopy,  # noqa: F401
-        CommitOperationDelete,  # noqa: F401
-        DatasetInfo,  # noqa: F401
-        GitCommitInfo,  # noqa: F401
-        GitRefInfo,  # noqa: F401
-        GitRefs,  # noqa: F401
-        HfApi,  # noqa: F401
-        ModelInfo,  # noqa: F401
-        RepoUrl,  # noqa: F401
-        SpaceInfo,  # noqa: F401
-        User,  # noqa: F401
-        UserLikes,  # noqa: F401
-        WebhookInfo,  # noqa: F401
-        WebhookWatchedItem,  # noqa: F401
-        accept_access_request,  # noqa: F401
-        add_collection_item,  # noqa: F401
-        add_space_secret,  # noqa: F401
-        add_space_variable,  # noqa: F401
-        auth_check,  # noqa: F401
-        cancel_access_request,  # noqa: F401
-        change_discussion_status,  # noqa: F401
-        comment_discussion,  # noqa: F401
-        create_branch,  # noqa: F401
-        create_collection,  # noqa: F401
-        create_commit,  # noqa: F401
-        create_discussion,  # noqa: F401
-        create_inference_endpoint,  # noqa: F401
-        create_inference_endpoint_from_catalog,  # noqa: F401
-        create_pull_request,  # noqa: F401
-        create_repo,  # noqa: F401
-        create_tag,  # noqa: F401
-        create_webhook,  # noqa: F401
-        dataset_info,  # noqa: F401
-        delete_branch,  # noqa: F401
-        delete_collection,  # noqa: F401
-        delete_collection_item,  # noqa: F401
-        delete_file,  # noqa: F401
-        delete_folder,  # noqa: F401
-        delete_inference_endpoint,  # noqa: F401
-        delete_repo,  # noqa: F401
-        delete_space_secret,  # noqa: F401
-        delete_space_storage,  # noqa: F401
-        delete_space_variable,  # noqa: F401
-        delete_tag,  # noqa: F401
-        delete_webhook,  # noqa: F401
-        disable_webhook,  # noqa: F401
-        duplicate_space,  # noqa: F401
-        edit_discussion_comment,  # noqa: F401
-        enable_webhook,  # noqa: F401
-        file_exists,  # noqa: F401
-        get_collection,  # noqa: F401
-        get_dataset_tags,  # noqa: F401
-        get_discussion_details,  # noqa: F401
-        get_full_repo_name,  # noqa: F401
-        get_inference_endpoint,  # noqa: F401
-        get_model_tags,  # noqa: F401
-        get_paths_info,  # noqa: F401
-        get_repo_discussions,  # noqa: F401
-        get_safetensors_metadata,  # noqa: F401
-        get_space_runtime,  # noqa: F401
-        get_space_variables,  # noqa: F401
-        get_token_permission,  # noqa: F401
-        get_user_overview,  # noqa: F401
-        get_webhook,  # noqa: F401
-        grant_access,  # noqa: F401
-        list_accepted_access_requests,  # noqa: F401
-        list_collections,  # noqa: F401
-        list_datasets,  # noqa: F401
-        list_inference_catalog,  # noqa: F401
-        list_inference_endpoints,  # noqa: F401
-        list_lfs_files,  # noqa: F401
-        list_liked_repos,  # noqa: F401
-        list_models,  # noqa: F401
-        list_organization_members,  # noqa: F401
-        list_papers,  # noqa: F401
-        list_pending_access_requests,  # noqa: F401
-        list_rejected_access_requests,  # noqa: F401
-        list_repo_commits,  # noqa: F401
-        list_repo_files,  # noqa: F401
-        list_repo_likers,  # noqa: F401
-        list_repo_refs,  # noqa: F401
-        list_repo_tree,  # noqa: F401
-        list_spaces,  # noqa: F401
-        list_user_followers,  # noqa: F401
-        list_user_following,  # noqa: F401
-        list_webhooks,  # noqa: F401
-        merge_pull_request,  # noqa: F401
-        model_info,  # noqa: F401
-        move_repo,  # noqa: F401
-        paper_info,  # noqa: F401
-        parse_safetensors_file_metadata,  # noqa: F401
-        pause_inference_endpoint,  # noqa: F401
-        pause_space,  # noqa: F401
-        permanently_delete_lfs_files,  # noqa: F401
-        preupload_lfs_files,  # noqa: F401
-        reject_access_request,  # noqa: F401
-        rename_discussion,  # noqa: F401
-        repo_exists,  # noqa: F401
-        repo_info,  # noqa: F401
-        repo_type_and_id_from_hf_id,  # noqa: F401
-        request_space_hardware,  # noqa: F401
-        request_space_storage,  # noqa: F401
-        restart_space,  # noqa: F401
-        resume_inference_endpoint,  # noqa: F401
-        revision_exists,  # noqa: F401
-        run_as_future,  # noqa: F401
-        scale_to_zero_inference_endpoint,  # noqa: F401
-        set_space_sleep_time,  # noqa: F401
-        space_info,  # noqa: F401
-        super_squash_history,  # noqa: F401
-        unlike,  # noqa: F401
-        update_collection_item,  # noqa: F401
-        update_collection_metadata,  # noqa: F401
-        update_inference_endpoint,  # noqa: F401
-        update_repo_settings,  # noqa: F401
-        update_repo_visibility,  # noqa: F401
-        update_webhook,  # noqa: F401
-        upload_file,  # noqa: F401
-        upload_folder,  # noqa: F401
-        upload_large_folder,  # noqa: F401
-        whoami,  # noqa: F401
-    )
-    from .hf_file_system import (
-        HfFileSystem,  # noqa: F401
-        HfFileSystemFile,  # noqa: F401
-        HfFileSystemResolvedPath,  # noqa: F401
-        HfFileSystemStreamFile,  # noqa: F401
-    )
-    from .hub_mixin import (
-        ModelHubMixin,  # noqa: F401
-        PyTorchModelHubMixin,  # noqa: F401
-    )
-    from .inference._client import (
-        InferenceClient,  # noqa: F401
-        InferenceTimeoutError,  # noqa: F401
-    )
-    from .inference._generated._async_client import AsyncInferenceClient  # noqa: F401
-    from .inference._generated.types import (
-        AudioClassificationInput,  # noqa: F401
-        AudioClassificationOutputElement,  # noqa: F401
-        AudioClassificationOutputTransform,  # noqa: F401
-        AudioClassificationParameters,  # noqa: F401
-        AudioToAudioInput,  # noqa: F401
-        AudioToAudioOutputElement,  # noqa: F401
-        AutomaticSpeechRecognitionEarlyStoppingEnum,  # noqa: F401
-        AutomaticSpeechRecognitionGenerationParameters,  # noqa: F401
-        AutomaticSpeechRecognitionInput,  # noqa: F401
-        AutomaticSpeechRecognitionOutput,  # noqa: F401
-        AutomaticSpeechRecognitionOutputChunk,  # noqa: F401
-        AutomaticSpeechRecognitionParameters,  # noqa: F401
-        ChatCompletionInput,  # noqa: F401
-        ChatCompletionInputFunctionDefinition,  # noqa: F401
-        ChatCompletionInputFunctionName,  # noqa: F401
-        ChatCompletionInputGrammarType,  # noqa: F401
-        ChatCompletionInputJSONSchema,  # noqa: F401
-        ChatCompletionInputMessage,  # noqa: F401
-        ChatCompletionInputMessageChunk,  # noqa: F401
-        ChatCompletionInputMessageChunkType,  # noqa: F401
-        ChatCompletionInputResponseFormatJSONObject,  # noqa: F401
-        ChatCompletionInputResponseFormatJSONSchema,  # noqa: F401
-        ChatCompletionInputResponseFormatText,  # noqa: F401
-        ChatCompletionInputStreamOptions,  # noqa: F401
-        ChatCompletionInputTool,  # noqa: F401
-        ChatCompletionInputToolCall,  # noqa: F401
-        ChatCompletionInputToolChoiceClass,  # noqa: F401
-        ChatCompletionInputToolChoiceEnum,  # noqa: F401
-        ChatCompletionInputURL,  # noqa: F401
-        ChatCompletionOutput,  # noqa: F401
-        ChatCompletionOutputComplete,  # noqa: F401
-        ChatCompletionOutputFunctionDefinition,  # noqa: F401
-        ChatCompletionOutputLogprob,  # noqa: F401
-        ChatCompletionOutputLogprobs,  # noqa: F401
-        ChatCompletionOutputMessage,  # noqa: F401
-        ChatCompletionOutputToolCall,  # noqa: F401
-        ChatCompletionOutputTopLogprob,  # noqa: F401
-        ChatCompletionOutputUsage,  # noqa: F401
-        ChatCompletionStreamOutput,  # noqa: F401
-        ChatCompletionStreamOutputChoice,  # noqa: F401
-        ChatCompletionStreamOutputDelta,  # noqa: F401
-        ChatCompletionStreamOutputDeltaToolCall,  # noqa: F401
-        ChatCompletionStreamOutputFunction,  # noqa: F401
-        ChatCompletionStreamOutputLogprob,  # noqa: F401
-        ChatCompletionStreamOutputLogprobs,  # noqa: F401
-        ChatCompletionStreamOutputTopLogprob,  # noqa: F401
-        ChatCompletionStreamOutputUsage,  # noqa: F401
-        DepthEstimationInput,  # noqa: F401
-        DepthEstimationOutput,  # noqa: F401
-        DocumentQuestionAnsweringInput,  # noqa: F401
-        DocumentQuestionAnsweringInputData,  # noqa: F401
-        DocumentQuestionAnsweringOutputElement,  # noqa: F401
-        DocumentQuestionAnsweringParameters,  # noqa: F401
-        FeatureExtractionInput,  # noqa: F401
-        FeatureExtractionInputTruncationDirection,  # noqa: F401
-        FillMaskInput,  # noqa: F401
-        FillMaskOutputElement,  # noqa: F401
-        FillMaskParameters,  # noqa: F401
-        ImageClassificationInput,  # noqa: F401
-        ImageClassificationOutputElement,  # noqa: F401
-        ImageClassificationOutputTransform,  # noqa: F401
-        ImageClassificationParameters,  # noqa: F401
-        ImageSegmentationInput,  # noqa: F401
-        ImageSegmentationOutputElement,  # noqa: F401
-        ImageSegmentationParameters,  # noqa: F401
-        ImageSegmentationSubtask,  # noqa: F401
-        ImageToImageInput,  # noqa: F401
-        ImageToImageOutput,  # noqa: F401
-        ImageToImageParameters,  # noqa: F401
-        ImageToImageTargetSize,  # noqa: F401
-        ImageToTextEarlyStoppingEnum,  # noqa: F401
-        ImageToTextGenerationParameters,  # noqa: F401
-        ImageToTextInput,  # noqa: F401
-        ImageToTextOutput,  # noqa: F401
-        ImageToTextParameters,  # noqa: F401
-        ObjectDetectionBoundingBox,  # noqa: F401
-        ObjectDetectionInput,  # noqa: F401
-        ObjectDetectionOutputElement,  # noqa: F401
-        ObjectDetectionParameters,  # noqa: F401
-        Padding,  # noqa: F401
-        QuestionAnsweringInput,  # noqa: F401
-        QuestionAnsweringInputData,  # noqa: F401
-        QuestionAnsweringOutputElement,  # noqa: F401
-        QuestionAnsweringParameters,  # noqa: F401
-        SentenceSimilarityInput,  # noqa: F401
-        SentenceSimilarityInputData,  # noqa: F401
-        SummarizationInput,  # noqa: F401
-        SummarizationOutput,  # noqa: F401
-        SummarizationParameters,  # noqa: F401
-        SummarizationTruncationStrategy,  # noqa: F401
-        TableQuestionAnsweringInput,  # noqa: F401
-        TableQuestionAnsweringInputData,  # noqa: F401
-        TableQuestionAnsweringOutputElement,  # noqa: F401
-        TableQuestionAnsweringParameters,  # noqa: F401
-        Text2TextGenerationInput,  # noqa: F401
-        Text2TextGenerationOutput,  # noqa: F401
-        Text2TextGenerationParameters,  # noqa: F401
-        Text2TextGenerationTruncationStrategy,  # noqa: F401
-        TextClassificationInput,  # noqa: F401
-        TextClassificationOutputElement,  # noqa: F401
-        TextClassificationOutputTransform,  # noqa: F401
-        TextClassificationParameters,  # noqa: F401
-        TextGenerationInput,  # noqa: F401
-        TextGenerationInputGenerateParameters,  # noqa: F401
-        TextGenerationInputGrammarType,  # noqa: F401
-        TextGenerationOutput,  # noqa: F401
-        TextGenerationOutputBestOfSequence,  # noqa: F401
-        TextGenerationOutputDetails,  # noqa: F401
-        TextGenerationOutputFinishReason,  # noqa: F401
-        TextGenerationOutputPrefillToken,  # noqa: F401
-        TextGenerationOutputToken,  # noqa: F401
-        TextGenerationStreamOutput,  # noqa: F401
-        TextGenerationStreamOutputStreamDetails,  # noqa: F401
-        TextGenerationStreamOutputToken,  # noqa: F401
-        TextToAudioEarlyStoppingEnum,  # noqa: F401
-        TextToAudioGenerationParameters,  # noqa: F401
-        TextToAudioInput,  # noqa: F401
-        TextToAudioOutput,  # noqa: F401
-        TextToAudioParameters,  # noqa: F401
-        TextToImageInput,  # noqa: F401
-        TextToImageOutput,  # noqa: F401
-        TextToImageParameters,  # noqa: F401
-        TextToSpeechEarlyStoppingEnum,  # noqa: F401
-        TextToSpeechGenerationParameters,  # noqa: F401
-        TextToSpeechInput,  # noqa: F401
-        TextToSpeechOutput,  # noqa: F401
-        TextToSpeechParameters,  # noqa: F401
-        TextToVideoInput,  # noqa: F401
-        TextToVideoOutput,  # noqa: F401
-        TextToVideoParameters,  # noqa: F401
-        TokenClassificationAggregationStrategy,  # noqa: F401
-        TokenClassificationInput,  # noqa: F401
-        TokenClassificationOutputElement,  # noqa: F401
-        TokenClassificationParameters,  # noqa: F401
-        TranslationInput,  # noqa: F401
-        TranslationOutput,  # noqa: F401
-        TranslationParameters,  # noqa: F401
-        TranslationTruncationStrategy,  # noqa: F401
-        TypeEnum,  # noqa: F401
-        VideoClassificationInput,  # noqa: F401
-        VideoClassificationOutputElement,  # noqa: F401
-        VideoClassificationOutputTransform,  # noqa: F401
-        VideoClassificationParameters,  # noqa: F401
-        VisualQuestionAnsweringInput,  # noqa: F401
-        VisualQuestionAnsweringInputData,  # noqa: F401
-        VisualQuestionAnsweringOutputElement,  # noqa: F401
-        VisualQuestionAnsweringParameters,  # noqa: F401
-        ZeroShotClassificationInput,  # noqa: F401
-        ZeroShotClassificationOutputElement,  # noqa: F401
-        ZeroShotClassificationParameters,  # noqa: F401
-        ZeroShotImageClassificationInput,  # noqa: F401
-        ZeroShotImageClassificationOutputElement,  # noqa: F401
-        ZeroShotImageClassificationParameters,  # noqa: F401
-        ZeroShotObjectDetectionBoundingBox,  # noqa: F401
-        ZeroShotObjectDetectionInput,  # noqa: F401
-        ZeroShotObjectDetectionOutputElement,  # noqa: F401
-        ZeroShotObjectDetectionParameters,  # noqa: F401
-    )
+    from ._webhooks_payload import WebhookPayload  # noqa: F401
+    from ._webhooks_payload import WebhookPayloadComment  # noqa: F401
+    from ._webhooks_payload import WebhookPayloadDiscussion  # noqa: F401
+    from ._webhooks_payload import \
+        WebhookPayloadDiscussionChanges  # noqa: F401
+    from ._webhooks_payload import WebhookPayloadEvent  # noqa: F401
+    from ._webhooks_payload import WebhookPayloadMovedTo  # noqa: F401
+    from ._webhooks_payload import WebhookPayloadRepo  # noqa: F401
+    from ._webhooks_payload import WebhookPayloadUrl  # noqa: F401
+    from ._webhooks_payload import WebhookPayloadWebhook  # noqa: F401
+    from ._webhooks_server import WebhooksServer  # noqa: F401
+    from ._webhooks_server import webhook_endpoint  # noqa: F401
+    from .community import Discussion  # noqa: F401
+    from .community import DiscussionComment  # noqa: F401
+    from .community import DiscussionCommit  # noqa: F401
+    from .community import DiscussionEvent  # noqa: F401
+    from .community import DiscussionStatusChange  # noqa: F401
+    from .community import DiscussionTitleChange  # noqa: F401
+    from .community import DiscussionWithDetails  # noqa: F401
+    from .constants import CONFIG_NAME  # noqa: F401
+    from .constants import FLAX_WEIGHTS_NAME  # noqa: F401
+    from .constants import HUGGINGFACE_CO_URL_HOME  # noqa: F401
+    from .constants import HUGGINGFACE_CO_URL_TEMPLATE  # noqa: F401
+    from .constants import PYTORCH_WEIGHTS_NAME  # noqa: F401
+    from .constants import REPO_TYPE_DATASET  # noqa: F401
+    from .constants import REPO_TYPE_MODEL  # noqa: F401
+    from .constants import REPO_TYPE_SPACE  # noqa: F401
+    from .constants import TF2_WEIGHTS_NAME  # noqa: F401
+    from .constants import TF_WEIGHTS_NAME  # noqa: F401
+    from .fastai_utils import _save_pretrained_fastai  # noqa: F401
+    from .fastai_utils import from_pretrained_fastai  # noqa: F401
+    from .fastai_utils import push_to_hub_fastai  # noqa: F401
+    from .file_download import _CACHED_NO_EXIST  # noqa: F401
+    from .file_download import HfFileMetadata  # noqa: F401
+    from .file_download import get_hf_file_metadata  # noqa: F401
+    from .file_download import hf_hub_download  # noqa: F401
+    from .file_download import hf_hub_url  # noqa: F401
+    from .file_download import try_to_load_from_cache  # noqa: F401
+    from .hf_api import Collection  # noqa: F401
+    from .hf_api import CollectionItem  # noqa: F401
+    from .hf_api import CommitInfo  # noqa: F401
+    from .hf_api import CommitOperation  # noqa: F401
+    from .hf_api import CommitOperationAdd  # noqa: F401
+    from .hf_api import CommitOperationCopy  # noqa: F401
+    from .hf_api import CommitOperationDelete  # noqa: F401
+    from .hf_api import DatasetInfo  # noqa: F401
+    from .hf_api import GitCommitInfo  # noqa: F401
+    from .hf_api import GitRefInfo  # noqa: F401
+    from .hf_api import GitRefs  # noqa: F401
+    from .hf_api import HfApi  # noqa: F401
+    from .hf_api import ModelInfo  # noqa: F401
+    from .hf_api import RepoUrl  # noqa: F401
+    from .hf_api import SpaceInfo  # noqa: F401
+    from .hf_api import User  # noqa: F401
+    from .hf_api import UserLikes  # noqa: F401
+    from .hf_api import WebhookInfo  # noqa: F401
+    from .hf_api import WebhookWatchedItem  # noqa: F401
+    from .hf_api import accept_access_request  # noqa: F401
+    from .hf_api import add_collection_item  # noqa: F401
+    from .hf_api import add_space_secret  # noqa: F401
+    from .hf_api import add_space_variable  # noqa: F401
+    from .hf_api import auth_check  # noqa: F401
+    from .hf_api import cancel_access_request  # noqa: F401
+    from .hf_api import change_discussion_status  # noqa: F401
+    from .hf_api import comment_discussion  # noqa: F401
+    from .hf_api import create_branch  # noqa: F401
+    from .hf_api import create_collection  # noqa: F401
+    from .hf_api import create_commit  # noqa: F401
+    from .hf_api import create_discussion  # noqa: F401
+    from .hf_api import create_inference_endpoint  # noqa: F401
+    from .hf_api import create_inference_endpoint_from_catalog  # noqa: F401
+    from .hf_api import create_pull_request  # noqa: F401
+    from .hf_api import create_repo  # noqa: F401
+    from .hf_api import create_tag  # noqa: F401
+    from .hf_api import create_webhook  # noqa: F401
+    from .hf_api import dataset_info  # noqa: F401
+    from .hf_api import delete_branch  # noqa: F401
+    from .hf_api import delete_collection  # noqa: F401
+    from .hf_api import delete_collection_item  # noqa: F401
+    from .hf_api import delete_file  # noqa: F401
+    from .hf_api import delete_folder  # noqa: F401
+    from .hf_api import delete_inference_endpoint  # noqa: F401
+    from .hf_api import delete_repo  # noqa: F401
+    from .hf_api import delete_space_secret  # noqa: F401
+    from .hf_api import delete_space_storage  # noqa: F401
+    from .hf_api import delete_space_variable  # noqa: F401
+    from .hf_api import delete_tag  # noqa: F401
+    from .hf_api import delete_webhook  # noqa: F401
+    from .hf_api import disable_webhook  # noqa: F401
+    from .hf_api import duplicate_space  # noqa: F401
+    from .hf_api import edit_discussion_comment  # noqa: F401
+    from .hf_api import enable_webhook  # noqa: F401
+    from .hf_api import file_exists  # noqa: F401
+    from .hf_api import get_collection  # noqa: F401
+    from .hf_api import get_dataset_tags  # noqa: F401
+    from .hf_api import get_discussion_details  # noqa: F401
+    from .hf_api import get_full_repo_name  # noqa: F401
+    from .hf_api import get_inference_endpoint  # noqa: F401
+    from .hf_api import get_model_tags  # noqa: F401
+    from .hf_api import get_paths_info  # noqa: F401
+    from .hf_api import get_repo_discussions  # noqa: F401
+    from .hf_api import get_safetensors_metadata  # noqa: F401
+    from .hf_api import get_space_runtime  # noqa: F401
+    from .hf_api import get_space_variables  # noqa: F401
+    from .hf_api import get_token_permission  # noqa: F401
+    from .hf_api import get_user_overview  # noqa: F401
+    from .hf_api import get_webhook  # noqa: F401
+    from .hf_api import grant_access  # noqa: F401
+    from .hf_api import list_accepted_access_requests  # noqa: F401
+    from .hf_api import list_collections  # noqa: F401
+    from .hf_api import list_datasets  # noqa: F401
+    from .hf_api import list_inference_catalog  # noqa: F401
+    from .hf_api import list_inference_endpoints  # noqa: F401
+    from .hf_api import list_lfs_files  # noqa: F401
+    from .hf_api import list_liked_repos  # noqa: F401
+    from .hf_api import list_models  # noqa: F401
+    from .hf_api import list_organization_members  # noqa: F401
+    from .hf_api import list_papers  # noqa: F401
+    from .hf_api import list_pending_access_requests  # noqa: F401
+    from .hf_api import list_rejected_access_requests  # noqa: F401
+    from .hf_api import list_repo_commits  # noqa: F401
+    from .hf_api import list_repo_files  # noqa: F401
+    from .hf_api import list_repo_likers  # noqa: F401
+    from .hf_api import list_repo_refs  # noqa: F401
+    from .hf_api import list_repo_tree  # noqa: F401
+    from .hf_api import list_spaces  # noqa: F401
+    from .hf_api import list_user_followers  # noqa: F401
+    from .hf_api import list_user_following  # noqa: F401
+    from .hf_api import list_webhooks  # noqa: F401
+    from .hf_api import merge_pull_request  # noqa: F401
+    from .hf_api import model_info  # noqa: F401
+    from .hf_api import move_repo  # noqa: F401
+    from .hf_api import paper_info  # noqa: F401
+    from .hf_api import parse_safetensors_file_metadata  # noqa: F401
+    from .hf_api import pause_inference_endpoint  # noqa: F401
+    from .hf_api import pause_space  # noqa: F401
+    from .hf_api import permanently_delete_lfs_files  # noqa: F401
+    from .hf_api import preupload_lfs_files  # noqa: F401
+    from .hf_api import reject_access_request  # noqa: F401
+    from .hf_api import rename_discussion  # noqa: F401
+    from .hf_api import repo_exists  # noqa: F401
+    from .hf_api import repo_info  # noqa: F401
+    from .hf_api import repo_type_and_id_from_hf_id  # noqa: F401
+    from .hf_api import request_space_hardware  # noqa: F401
+    from .hf_api import request_space_storage  # noqa: F401
+    from .hf_api import restart_space  # noqa: F401
+    from .hf_api import resume_inference_endpoint  # noqa: F401
+    from .hf_api import revision_exists  # noqa: F401
+    from .hf_api import run_as_future  # noqa: F401
+    from .hf_api import scale_to_zero_inference_endpoint  # noqa: F401
+    from .hf_api import set_space_sleep_time  # noqa: F401
+    from .hf_api import space_info  # noqa: F401
+    from .hf_api import super_squash_history  # noqa: F401
+    from .hf_api import unlike  # noqa: F401
+    from .hf_api import update_collection_item  # noqa: F401
+    from .hf_api import update_collection_metadata  # noqa: F401
+    from .hf_api import update_inference_endpoint  # noqa: F401
+    from .hf_api import update_repo_settings  # noqa: F401
+    from .hf_api import update_repo_visibility  # noqa: F401
+    from .hf_api import update_webhook  # noqa: F401
+    from .hf_api import upload_file  # noqa: F401
+    from .hf_api import upload_folder  # noqa: F401
+    from .hf_api import upload_large_folder  # noqa: F401
+    from .hf_api import whoami  # noqa: F401
+    from .hf_file_system import HfFileSystem  # noqa: F401
+    from .hf_file_system import HfFileSystemFile  # noqa: F401
+    from .hf_file_system import HfFileSystemResolvedPath  # noqa: F401
+    from .hf_file_system import HfFileSystemStreamFile  # noqa: F401
+    from .hub_mixin import ModelHubMixin  # noqa: F401
+    from .hub_mixin import PyTorchModelHubMixin  # noqa: F401
+    from .inference._client import InferenceClient  # noqa: F401
+    from .inference._client import InferenceTimeoutError  # noqa: F401
+    from .inference._generated._async_client import \
+        AsyncInferenceClient  # noqa: F401
+    from .inference._generated.types import \
+        AudioClassificationInput  # noqa: F401
+    from .inference._generated.types import \
+        AudioClassificationOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        AudioClassificationOutputTransform  # noqa: F401
+    from .inference._generated.types import \
+        AudioClassificationParameters  # noqa: F401
+    from .inference._generated.types import AudioToAudioInput  # noqa: F401
+    from .inference._generated.types import \
+        AudioToAudioOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        AutomaticSpeechRecognitionEarlyStoppingEnum  # noqa: F401
+    from .inference._generated.types import \
+        AutomaticSpeechRecognitionGenerationParameters  # noqa: F401
+    from .inference._generated.types import \
+        AutomaticSpeechRecognitionInput  # noqa: F401
+    from .inference._generated.types import \
+        AutomaticSpeechRecognitionOutput  # noqa: F401
+    from .inference._generated.types import \
+        AutomaticSpeechRecognitionOutputChunk  # noqa: F401
+    from .inference._generated.types import \
+        AutomaticSpeechRecognitionParameters  # noqa: F401
+    from .inference._generated.types import ChatCompletionInput  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputFunctionDefinition  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputFunctionName  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputGrammarType  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputJSONSchema  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputMessage  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputMessageChunk  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputMessageChunkType  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputResponseFormatJSONObject  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputResponseFormatJSONSchema  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputResponseFormatText  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputStreamOptions  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputTool  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputToolCall  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputToolChoiceClass  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputToolChoiceEnum  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionInputURL  # noqa: F401
+    from .inference._generated.types import ChatCompletionOutput  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionOutputComplete  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionOutputFunctionDefinition  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionOutputLogprob  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionOutputLogprobs  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionOutputMessage  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionOutputToolCall  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionOutputTopLogprob  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionOutputUsage  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionStreamOutput  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionStreamOutputChoice  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionStreamOutputDelta  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionStreamOutputDeltaToolCall  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionStreamOutputFunction  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionStreamOutputLogprob  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionStreamOutputLogprobs  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionStreamOutputTopLogprob  # noqa: F401
+    from .inference._generated.types import \
+        ChatCompletionStreamOutputUsage  # noqa: F401
+    from .inference._generated.types import DepthEstimationInput  # noqa: F401
+    from .inference._generated.types import DepthEstimationOutput  # noqa: F401
+    from .inference._generated.types import \
+        DocumentQuestionAnsweringInput  # noqa: F401
+    from .inference._generated.types import \
+        DocumentQuestionAnsweringInputData  # noqa: F401
+    from .inference._generated.types import \
+        DocumentQuestionAnsweringOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        DocumentQuestionAnsweringParameters  # noqa: F401
+    from .inference._generated.types import \
+        FeatureExtractionInput  # noqa: F401
+    from .inference._generated.types import \
+        FeatureExtractionInputTruncationDirection  # noqa: F401
+    from .inference._generated.types import FillMaskInput  # noqa: F401
+    from .inference._generated.types import FillMaskOutputElement  # noqa: F401
+    from .inference._generated.types import FillMaskParameters  # noqa: F401
+    from .inference._generated.types import \
+        ImageClassificationInput  # noqa: F401
+    from .inference._generated.types import \
+        ImageClassificationOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        ImageClassificationOutputTransform  # noqa: F401
+    from .inference._generated.types import \
+        ImageClassificationParameters  # noqa: F401
+    from .inference._generated.types import \
+        ImageSegmentationInput  # noqa: F401
+    from .inference._generated.types import \
+        ImageSegmentationOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        ImageSegmentationParameters  # noqa: F401
+    from .inference._generated.types import \
+        ImageSegmentationSubtask  # noqa: F401
+    from .inference._generated.types import ImageToImageInput  # noqa: F401
+    from .inference._generated.types import ImageToImageOutput  # noqa: F401
+    from .inference._generated.types import \
+        ImageToImageParameters  # noqa: F401
+    from .inference._generated.types import \
+        ImageToImageTargetSize  # noqa: F401
+    from .inference._generated.types import \
+        ImageToTextEarlyStoppingEnum  # noqa: F401
+    from .inference._generated.types import \
+        ImageToTextGenerationParameters  # noqa: F401
+    from .inference._generated.types import ImageToTextInput  # noqa: F401
+    from .inference._generated.types import ImageToTextOutput  # noqa: F401
+    from .inference._generated.types import ImageToTextParameters  # noqa: F401
+    from .inference._generated.types import \
+        ObjectDetectionBoundingBox  # noqa: F401
+    from .inference._generated.types import ObjectDetectionInput  # noqa: F401
+    from .inference._generated.types import \
+        ObjectDetectionOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        ObjectDetectionParameters  # noqa: F401
+    from .inference._generated.types import Padding  # noqa: F401
+    from .inference._generated.types import \
+        QuestionAnsweringInput  # noqa: F401
+    from .inference._generated.types import \
+        QuestionAnsweringInputData  # noqa: F401
+    from .inference._generated.types import \
+        QuestionAnsweringOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        QuestionAnsweringParameters  # noqa: F401
+    from .inference._generated.types import \
+        SentenceSimilarityInput  # noqa: F401
+    from .inference._generated.types import \
+        SentenceSimilarityInputData  # noqa: F401
+    from .inference._generated.types import SummarizationInput  # noqa: F401
+    from .inference._generated.types import SummarizationOutput  # noqa: F401
+    from .inference._generated.types import \
+        SummarizationParameters  # noqa: F401
+    from .inference._generated.types import \
+        SummarizationTruncationStrategy  # noqa: F401
+    from .inference._generated.types import \
+        TableQuestionAnsweringInput  # noqa: F401
+    from .inference._generated.types import \
+        TableQuestionAnsweringInputData  # noqa: F401
+    from .inference._generated.types import \
+        TableQuestionAnsweringOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        TableQuestionAnsweringParameters  # noqa: F401
+    from .inference._generated.types import \
+        Text2TextGenerationInput  # noqa: F401
+    from .inference._generated.types import \
+        Text2TextGenerationOutput  # noqa: F401
+    from .inference._generated.types import \
+        Text2TextGenerationParameters  # noqa: F401
+    from .inference._generated.types import \
+        Text2TextGenerationTruncationStrategy  # noqa: F401
+    from .inference._generated.types import \
+        TextClassificationInput  # noqa: F401
+    from .inference._generated.types import \
+        TextClassificationOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        TextClassificationOutputTransform  # noqa: F401
+    from .inference._generated.types import \
+        TextClassificationParameters  # noqa: F401
+    from .inference._generated.types import TextGenerationInput  # noqa: F401
+    from .inference._generated.types import \
+        TextGenerationInputGenerateParameters  # noqa: F401
+    from .inference._generated.types import \
+        TextGenerationInputGrammarType  # noqa: F401
+    from .inference._generated.types import TextGenerationOutput  # noqa: F401
+    from .inference._generated.types import \
+        TextGenerationOutputBestOfSequence  # noqa: F401
+    from .inference._generated.types import \
+        TextGenerationOutputDetails  # noqa: F401
+    from .inference._generated.types import \
+        TextGenerationOutputFinishReason  # noqa: F401
+    from .inference._generated.types import \
+        TextGenerationOutputPrefillToken  # noqa: F401
+    from .inference._generated.types import \
+        TextGenerationOutputToken  # noqa: F401
+    from .inference._generated.types import \
+        TextGenerationStreamOutput  # noqa: F401
+    from .inference._generated.types import \
+        TextGenerationStreamOutputStreamDetails  # noqa: F401
+    from .inference._generated.types import \
+        TextGenerationStreamOutputToken  # noqa: F401
+    from .inference._generated.types import \
+        TextToAudioEarlyStoppingEnum  # noqa: F401
+    from .inference._generated.types import \
+        TextToAudioGenerationParameters  # noqa: F401
+    from .inference._generated.types import TextToAudioInput  # noqa: F401
+    from .inference._generated.types import TextToAudioOutput  # noqa: F401
+    from .inference._generated.types import TextToAudioParameters  # noqa: F401
+    from .inference._generated.types import TextToImageInput  # noqa: F401
+    from .inference._generated.types import TextToImageOutput  # noqa: F401
+    from .inference._generated.types import TextToImageParameters  # noqa: F401
+    from .inference._generated.types import \
+        TextToSpeechEarlyStoppingEnum  # noqa: F401
+    from .inference._generated.types import \
+        TextToSpeechGenerationParameters  # noqa: F401
+    from .inference._generated.types import TextToSpeechInput  # noqa: F401
+    from .inference._generated.types import TextToSpeechOutput  # noqa: F401
+    from .inference._generated.types import \
+        TextToSpeechParameters  # noqa: F401
+    from .inference._generated.types import TextToVideoInput  # noqa: F401
+    from .inference._generated.types import TextToVideoOutput  # noqa: F401
+    from .inference._generated.types import TextToVideoParameters  # noqa: F401
+    from .inference._generated.types import \
+        TokenClassificationAggregationStrategy  # noqa: F401
+    from .inference._generated.types import \
+        TokenClassificationInput  # noqa: F401
+    from .inference._generated.types import \
+        TokenClassificationOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        TokenClassificationParameters  # noqa: F401
+    from .inference._generated.types import TranslationInput  # noqa: F401
+    from .inference._generated.types import TranslationOutput  # noqa: F401
+    from .inference._generated.types import TranslationParameters  # noqa: F401
+    from .inference._generated.types import \
+        TranslationTruncationStrategy  # noqa: F401
+    from .inference._generated.types import TypeEnum  # noqa: F401
+    from .inference._generated.types import \
+        VideoClassificationInput  # noqa: F401
+    from .inference._generated.types import \
+        VideoClassificationOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        VideoClassificationOutputTransform  # noqa: F401
+    from .inference._generated.types import \
+        VideoClassificationParameters  # noqa: F401
+    from .inference._generated.types import \
+        VisualQuestionAnsweringInput  # noqa: F401
+    from .inference._generated.types import \
+        VisualQuestionAnsweringInputData  # noqa: F401
+    from .inference._generated.types import \
+        VisualQuestionAnsweringOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        VisualQuestionAnsweringParameters  # noqa: F401
+    from .inference._generated.types import \
+        ZeroShotClassificationInput  # noqa: F401
+    from .inference._generated.types import \
+        ZeroShotClassificationOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        ZeroShotClassificationParameters  # noqa: F401
+    from .inference._generated.types import \
+        ZeroShotImageClassificationInput  # noqa: F401
+    from .inference._generated.types import \
+        ZeroShotImageClassificationOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        ZeroShotImageClassificationParameters  # noqa: F401
+    from .inference._generated.types import \
+        ZeroShotObjectDetectionBoundingBox  # noqa: F401
+    from .inference._generated.types import \
+        ZeroShotObjectDetectionInput  # noqa: F401
+    from .inference._generated.types import \
+        ZeroShotObjectDetectionOutputElement  # noqa: F401
+    from .inference._generated.types import \
+        ZeroShotObjectDetectionParameters  # noqa: F401
     from .inference._mcp.agent import Agent  # noqa: F401
     from .inference._mcp.mcp_client import MCPClient  # noqa: F401
     from .inference_api import InferenceApi  # noqa: F401
-    from .keras_mixin import (
-        KerasModelHubMixin,  # noqa: F401
-        from_pretrained_keras,  # noqa: F401
-        push_to_hub_keras,  # noqa: F401
-        save_pretrained_keras,  # noqa: F401
-    )
-    from .repocard import (
-        DatasetCard,  # noqa: F401
-        ModelCard,  # noqa: F401
-        RepoCard,  # noqa: F401
-        SpaceCard,  # noqa: F401
-        metadata_eval_result,  # noqa: F401
-        metadata_load,  # noqa: F401
-        metadata_save,  # noqa: F401
-        metadata_update,  # noqa: F401
-    )
-    from .repocard_data import (
-        CardData,  # noqa: F401
-        DatasetCardData,  # noqa: F401
-        EvalResult,  # noqa: F401
-        ModelCardData,  # noqa: F401
-        SpaceCardData,  # noqa: F401
-    )
+    from .keras_mixin import KerasModelHubMixin  # noqa: F401
+    from .keras_mixin import from_pretrained_keras  # noqa: F401
+    from .keras_mixin import push_to_hub_keras  # noqa: F401
+    from .keras_mixin import save_pretrained_keras  # noqa: F401
+    from .repocard import DatasetCard  # noqa: F401
+    from .repocard import ModelCard  # noqa: F401
+    from .repocard import RepoCard  # noqa: F401
+    from .repocard import SpaceCard  # noqa: F401
+    from .repocard import metadata_eval_result  # noqa: F401
+    from .repocard import metadata_load  # noqa: F401
+    from .repocard import metadata_save  # noqa: F401
+    from .repocard import metadata_update  # noqa: F401
+    from .repocard_data import CardData  # noqa: F401
+    from .repocard_data import DatasetCardData  # noqa: F401
+    from .repocard_data import EvalResult  # noqa: F401
+    from .repocard_data import ModelCardData  # noqa: F401
+    from .repocard_data import SpaceCardData  # noqa: F401
     from .repository import Repository  # noqa: F401
-    from .serialization import (
-        StateDictSplit,  # noqa: F401
-        get_tf_storage_size,  # noqa: F401
-        get_torch_storage_id,  # noqa: F401
-        get_torch_storage_size,  # noqa: F401
-        load_state_dict_from_file,  # noqa: F401
-        load_torch_model,  # noqa: F401
-        save_torch_model,  # noqa: F401
-        save_torch_state_dict,  # noqa: F401
-        split_state_dict_into_shards_factory,  # noqa: F401
-        split_tf_state_dict_into_shards,  # noqa: F401
-        split_torch_state_dict_into_shards,  # noqa: F401
-    )
-    from .serialization._dduf import (
-        DDUFEntry,  # noqa: F401
-        export_entries_as_dduf,  # noqa: F401
-        export_folder_as_dduf,  # noqa: F401
-        read_dduf_file,  # noqa: F401
-    )
-    from .utils import (
-        CachedFileInfo,  # noqa: F401
-        CachedRepoInfo,  # noqa: F401
-        CachedRevisionInfo,  # noqa: F401
-        CacheNotFound,  # noqa: F401
-        CorruptedCacheException,  # noqa: F401
-        DeleteCacheStrategy,  # noqa: F401
-        HFCacheInfo,  # noqa: F401
-        HfFolder,  # noqa: F401
-        cached_assets_path,  # noqa: F401
-        configure_http_backend,  # noqa: F401
-        dump_environment_info,  # noqa: F401
-        get_session,  # noqa: F401
-        get_token,  # noqa: F401
-        logging,  # noqa: F401
-        scan_cache_dir,  # noqa: F401
-    )
+    from .serialization import StateDictSplit  # noqa: F401
+    from .serialization import get_tf_storage_size  # noqa: F401
+    from .serialization import get_torch_storage_id  # noqa: F401
+    from .serialization import get_torch_storage_size  # noqa: F401
+    from .serialization import load_state_dict_from_file  # noqa: F401
+    from .serialization import load_torch_model  # noqa: F401
+    from .serialization import save_torch_model  # noqa: F401
+    from .serialization import save_torch_state_dict  # noqa: F401
+    from .serialization import \
+        split_state_dict_into_shards_factory  # noqa: F401
+    from .serialization import split_tf_state_dict_into_shards  # noqa: F401
+    from .serialization import split_torch_state_dict_into_shards  # noqa: F401
+    from .serialization._dduf import DDUFEntry  # noqa: F401
+    from .serialization._dduf import export_entries_as_dduf  # noqa: F401
+    from .serialization._dduf import export_folder_as_dduf  # noqa: F401
+    from .serialization._dduf import read_dduf_file  # noqa: F401
+    from .utils import CachedFileInfo  # noqa: F401
+    from .utils import CachedRepoInfo  # noqa: F401
+    from .utils import CachedRevisionInfo  # noqa: F401
+    from .utils import CacheNotFound  # noqa: F401
+    from .utils import CorruptedCacheException  # noqa: F401
+    from .utils import DeleteCacheStrategy  # noqa: F401
+    from .utils import HFCacheInfo  # noqa: F401
+    from .utils import HfFolder  # noqa: F401
+    from .utils import cached_assets_path  # noqa: F401
+    from .utils import configure_http_backend  # noqa: F401
+    from .utils import dump_environment_info  # noqa: F401
+    from .utils import get_session  # noqa: F401
+    from .utils import get_token  # noqa: F401
+    from .utils import logging  # noqa: F401
+    from .utils import scan_cache_dir  # noqa: F401
