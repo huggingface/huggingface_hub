@@ -30,7 +30,7 @@ Use `hf jobs uv run` to run local or remote UV scripts:
 
 ```bash
 >>> hf jobs uv run my_script.py
->>> hf jobs uv run --flavor a10g-small sft.py
+>>> hf jobs uv run --flavor a10g-small "https://raw.githubusercontent.com/huggingface/trl/main/trl/scripts/sft.py" 
 ```
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax defined in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
