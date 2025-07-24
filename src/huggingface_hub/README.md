@@ -95,7 +95,7 @@ Those API utilities are also exposed through the `hf` CLI:
 hf auth login
 hf auth logout
 hf auth whoami
-hr repo create
+hf repo create
 ```
 
 With the `HfApi` class there are methods to query models, datasets, and Spaces by specific tags (e.g. if you want to list models compatible with your library):
