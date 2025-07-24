@@ -15,6 +15,29 @@ A job runs on Hugging Face infrastructure and are defined with a command to run 
 If you want to run and manage a job on the Hub, your machine must be logged in. If you are not, please refer to
 [this section](../quick-start#authentication). In the rest of this guide, we will assume that your machine is logged in.
 
+## Jobs Command Line Interface
+
+Use the [`hf jobs` CLI](./cli#hf-jobs) to run Jobs from the command line, and pass `--flavor` to specify your hardware.
+
+`hf jobs run` runs Jobs with a Docker image and a command with a familiar Docker-like interface. Think `docker run`, but for running code on any hardware:
+
+```bash
+>>> hf jobs run python:12 -c "print('Hello world!')"
+>>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel python -c "import torch; print(torch.cuda.get_device_name())"
+```
+
+Use `hf jobs uv run` to run local or remote UV scripts:
+
+```bash
+>>> hf jobs uv run my_script.py
+>>> hf jobs uv run --flavor a10g-small "https://raw.githubusercontent.com/huggingface/trl/main/trl/scripts/sft.py" 
+```
+
+UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax defined in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
+
+Now the rest of this guide will show you the python API.
+If you would like to view all the available `hf jobs` commands and options instead, check out the [guide on the `hf jobs` command line interface](./cli#hf-jobs).
+
 ## Run a Job
 
 Run compute Jobs defined with a command and a Docker Image on Hugging Face infrastructure (including GPUs and TPUs).
@@ -56,12 +79,6 @@ This feature is pay-as-you-go: you only pay for the seconds you use.
 >>> from huggingface_hub import run_uv_job
 >>> run_uv_job("my_script.py")
 ```
-
-<Tip>
-
-Use [hf jobs](./cli#hf-jobs) to run jobs in the command line.
-
-</Tip>
 
 [`run_job`] returns the [`JobInfo`] which has the URL of the Job on Hugging Face, where you can see the Job status and the logs.
 Save the Job ID from [`JobInfo`] to manage the job:
