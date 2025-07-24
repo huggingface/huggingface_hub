@@ -59,7 +59,7 @@ Did not find it? :( So we can act quickly on it, please follow these steps:
 
 - A short, self-contained, code snippet that allows us to reproduce the bug in less than 30s;
 - Provide the _full_ traceback if an exception is raised by copying the text from your terminal in the issue description.
-- Include information about your local setup. You can dump this information by running `huggingface-cli env` in your terminal;
+- Include information about your local setup. You can dump this information by running `hf env` in your terminal;
 
 ### Do you want a new feature?
 

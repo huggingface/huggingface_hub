@@ -352,10 +352,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         strategy_mock.execute.assert_called_once_with()
 
         # Check output
-        self.assertEqual(
-            output.getvalue(),
-            "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n",
-        )
+        assert "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n" in output.getvalue()
 
     def test_run_nothing_selected_with_tui(self, mock__manual_review_tui: Mock) -> None:
         """Test command run but nothing is selected in manual review."""
@@ -368,7 +365,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
             self.command.run()
 
         # Check output
-        self.assertEqual(output.getvalue(), "Deletion is cancelled. Do nothing.\n")
+        assert "Deletion is cancelled. Do nothing.\n" in output.getvalue()
 
     def test_run_stuff_selected_but_cancel_item_as_well_with_tui(self, mock__manual_review_tui: Mock) -> None:
         """Test command run when some are selected but "cancel item" as well."""
@@ -385,7 +382,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
             self.command.run()
 
         # Check output
-        self.assertEqual(output.getvalue(), "Deletion is cancelled. Do nothing.\n")
+        assert "Deletion is cancelled. Do nothing.\n" in output.getvalue()
 
     def test_run_and_delete_no_tui(
         self,
@@ -423,10 +420,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         strategy_mock.execute.assert_called_once_with()
 
         # Check output
-        self.assertEqual(
-            output.getvalue(),
-            "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n",
-        )
+        assert "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n" in output.getvalue()
 
     def test_run_with_sorting(self):
         """Test command run with sorting enabled."""

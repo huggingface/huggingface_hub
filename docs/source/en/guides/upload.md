@@ -83,16 +83,16 @@ but before that, all previous logs on the repo on deleted. All of this in a sing
 
 ## Upload from the CLI
 
-You can use the `huggingface-cli upload` command from the terminal to directly upload files to the Hub. Internally it uses the same [`upload_file`] and [`upload_folder`] helpers described above.
+You can use the `hf upload` command from the terminal to directly upload files to the Hub. Internally it uses the same [`upload_file`] and [`upload_folder`] helpers described above.
 
 You can either upload a single file or an entire folder:
 
 ```bash
-# Usage:  huggingface-cli upload [repo_id] [local_path] [path_in_repo]
->>> huggingface-cli upload Wauplin/my-cool-model ./models/model.safetensors model.safetensors
+# Usage:  hf upload [repo_id] [local_path] [path_in_repo]
+>>> hf upload Wauplin/my-cool-model ./models/model.safetensors model.safetensors
 https://huggingface.co/Wauplin/my-cool-model/blob/main/model.safetensors
 
->>> huggingface-cli upload Wauplin/my-cool-model ./models .
+>>> hf upload Wauplin/my-cool-model ./models .
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
@@ -101,11 +101,11 @@ check if a local folder or file has the same name as the `repo_id`. If that's th
 Otherwise, an exception is raised asking the user to explicitly set `local_path`. In any case, if `path_in_repo` is not
 set, files are uploaded at the root of the repo.
 
-For more details about the CLI upload command, please refer to the [CLI guide](./cli#huggingface-cli-upload).
+For more details about the CLI upload command, please refer to the [CLI guide](./cli#hf-upload).
 
 ## Upload a large folder
 
-In most cases, the [`upload_folder`] method and `huggingface-cli upload` command should be the go-to solutions to upload files to the Hub. They ensure a single commit will be made, handle a lot of use cases, and fail explicitly when something wrong happens. However, when dealing with a large amount of data, you will usually prefer a resilient process even if it leads to more commits or requires more CPU usage. The [`upload_large_folder`] method has been implemented in that spirit:
+In most cases, the [`upload_folder`] method and `hf upload` command should be the go-to solutions to upload files to the Hub. They ensure a single commit will be made, handle a lot of use cases, and fail explicitly when something wrong happens. However, when dealing with a large amount of data, you will usually prefer a resilient process even if it leads to more commits or requires more CPU usage. The [`upload_large_folder`] method has been implemented in that spirit:
 - it is resumable: the upload process is split into many small tasks (hashing files, pre-uploading them, and committing them). Each time a task is completed, the result is cached locally in a `./cache/huggingface` folder inside the folder you are trying to upload. By doing so, restarting the process after an interruption will resume all completed tasks.
 - it is multi-threaded: hashing large files and pre-uploading them benefits a lot from multithreading if your machine allows it.
 - it is resilient to errors: a high-level retry-mechanism has been added to retry each independent task indefinitely until it passes (no matter if it's a OSError, ConnectionError, PermissionError, etc.). This mechanism is double-edged. If transient errors happen, the process will continue and retry. If permanent errors happen (e.g. permission denied), it will retry indefinitely without solving the root cause.
@@ -139,7 +139,7 @@ First, the repo is created if it didn't exist before. Then, the local folder is 
 A command line is also provided. You can define the number of workers and the level of verbosity in the terminal:
 
 ```sh
-huggingface-cli upload-large-folder HuggingFaceM4/Docmatix --repo-type=dataset /path/to/local/docmatix --num-workers=16
+hf upload-large-folder HuggingFaceM4/Docmatix --repo-type=dataset /path/to/local/docmatix --num-workers=16
 ```
 
 <Tip>
@@ -503,7 +503,7 @@ core differences between HTTP-based and Git-based approaches.
 Git LFS automatically handles files larger than 10MB. But for very large files (>5GB), you need to install a custom transfer agent for Git LFS:
 
 ```bash
-huggingface-cli lfs-enable-largefiles
+hf lfs-enable-largefiles
 ```
 
 You should install this for each repository that has a very large file. Once installed, you'll be able to push files larger than 5GB.

@@ -41,7 +41,7 @@ def get_token() -> Optional[str]:
 
     Token is retrieved in priority from the `HF_TOKEN` environment variable. Otherwise, we read the token file located
     in the Hugging Face home folder. Returns None if user is not logged in. To log in, use [`login`] or
-    `huggingface-cli login`.
+    `hf auth login`.
 
     Returns:
         `str` or `None`: The token, `None` if it doesn't exist.

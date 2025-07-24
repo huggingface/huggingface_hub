@@ -232,7 +232,7 @@ Boolean value. Equivalent to `HF_HUB_DISABLE_TELEMETRY`. When set to true, telem
 
 ### NO_COLOR
 
-Boolean value. When set, `huggingface-cli` tool will not print any ANSI color.
+Boolean value. When set, `hf` CLI will not print any ANSI color.
 See [no-color.org](https://no-color.org/).
 
 ### XDG_CACHE_HOME

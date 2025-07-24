@@ -197,6 +197,18 @@ This part of the lib is still under development and will be improved in future r
 
 
 
+## image_to_video
+
+[[autodoc]] huggingface_hub.ImageToVideoInput
+
+[[autodoc]] huggingface_hub.ImageToVideoOutput
+
+[[autodoc]] huggingface_hub.ImageToVideoParameters
+
+[[autodoc]] huggingface_hub.ImageToVideoTargetSize
+
+
+
 ## object_detection
 
 [[autodoc]] huggingface_hub.ObjectDetectionBoundingBox

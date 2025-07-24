@@ -632,9 +632,9 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
     )
     ```
 
-    You can also print a detailed report directly from the `huggingface-cli` using:
+    You can also print a detailed report directly from the `hf` command line using:
     ```text
-    > huggingface-cli scan-cache
+    > hf cache scan
     REPO ID                     REPO TYPE SIZE ON DISK NB FILES REFS                LOCAL PATH
     --------------------------- --------- ------------ -------- ------------------- -------------------------------------------------------------------------
     glue                        dataset         116.3K       15 1.17.0, main, 2.4.0 /Users/lucain/.cache/huggingface/hub/datasets--glue

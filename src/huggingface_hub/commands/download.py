@@ -46,6 +46,8 @@ from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
+from ._cli_utils import show_deprecation_warning
+
 
 logger = logging.get_logger(__name__)
 
@@ -142,6 +144,8 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             )
 
     def run(self) -> None:
+        show_deprecation_warning("huggingface-cli download", "hf download")
+
         if self.quiet:
             disable_progress_bars()
             with warnings.catch_warnings():

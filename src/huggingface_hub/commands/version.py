@@ -22,6 +22,7 @@ from argparse import _SubParsersAction
 from huggingface_hub import __version__
 
 from . import BaseHuggingfaceCLICommand
+from ._cli_utils import show_deprecation_warning
 
 
 class VersionCommand(BaseHuggingfaceCLICommand):
@@ -34,4 +35,6 @@ class VersionCommand(BaseHuggingfaceCLICommand):
         version_parser.set_defaults(func=VersionCommand)
 
     def run(self) -> None:
+        show_deprecation_warning("huggingface-cli version", "hf version")
+
         print(f"huggingface_hub version: {__version__}")
