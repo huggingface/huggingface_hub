@@ -491,7 +491,7 @@ class ModelHubMixin:
                 'http://hostname': 'foo.bar:4012'}`. The proxies are used on every request.
             token (`str` or `bool`, *optional*):
                 The token to use as HTTP bearer authorization for remote files. By default, it will use the token
-                cached when running `huggingface-cli login`.
+                cached when running `hf auth login`.
             cache_dir (`str`, `Path`, *optional*):
                 Path to the folder where cached files are stored.
             local_files_only (`bool`, *optional*, defaults to `False`):
@@ -619,7 +619,7 @@ class ModelHubMixin:
                 'http://hostname': 'foo.bar:4012'}`).
             token (`str` or `bool`, *optional*):
                 The token to use as HTTP bearer authorization for remote files. By default, it will use the token
-                cached when running `huggingface-cli login`.
+                cached when running `hf auth login`.
             cache_dir (`str`, `Path`, *optional*):
                 Path to the folder where cached files are stored.
             local_files_only (`bool`, *optional*, defaults to `False`):
@@ -664,7 +664,7 @@ class ModelHubMixin:
                 If `None` (default), the repo will be public unless the organization's default is private.
             token (`str`, *optional*):
                 The token to use as HTTP bearer authorization for remote files. By default, it will use the token
-                cached when running `huggingface-cli login`.
+                cached when running `hf auth login`.
             branch (`str`, *optional*):
                 The git branch on which to push the model. This defaults to `"main"`.
             create_pr (`boolean`, *optional*):

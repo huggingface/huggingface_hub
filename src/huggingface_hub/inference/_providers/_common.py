@@ -132,7 +132,7 @@ class TaskProviderHelper:
             api_key = get_token()
         if api_key is None:
             raise ValueError(
-                f"You must provide an api_key to work with {self.provider} API or log in with `huggingface-cli login`."
+                f"You must provide an api_key to work with {self.provider} API or log in with `hf auth login`."
             )
         return api_key
 

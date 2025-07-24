@@ -23,7 +23,7 @@ from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import disable_progress_bars
 
-from ._cli_utils import ANSI
+from ._cli_utils import ANSI, show_deprecation_warning
 
 
 logger = logging.get_logger(__name__)
@@ -86,6 +86,8 @@ class UploadLargeFolderCommand(BaseHuggingfaceCLICommand):
             raise ValueError("Large upload is only supported for folders.")
 
     def run(self) -> None:
+        show_deprecation_warning("huggingface-cli upload-large-folder", "hf upload-large-folder")
+
         logging.set_verbosity_info()
 
         print(

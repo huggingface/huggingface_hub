@@ -75,7 +75,7 @@ def login(
     components. If `token` is not provided, it will be prompted to the user either with
     a widget (in a notebook) or via the terminal.
 
-    To log in from outside of a script, one can also use `huggingface-cli login` which is
+    To log in from outside of a script, one can also use `hf auth login` which is
     a cli command that wraps [`login`].
 
     <Tip>
@@ -120,7 +120,7 @@ def login(
             logger.info(
                 "The token has not been saved to the git credentials helper. Pass "
                 "`add_to_git_credential=True` in this function directly or "
-                "`--add-to-git-credential` if using via `huggingface-cli` if "
+                "`--add-to-git-credential` if using via `hf`CLI if "
                 "you want to set the git credential as well."
             )
         _login(token, add_to_git_credential=add_to_git_credential)
@@ -233,7 +233,7 @@ def auth_list() -> None:
         )
     elif current_token_name is None:
         logger.warning(
-            "\nNote: No active token is set and no environment variable `HF_TOKEN` is found. Use `huggingface-cli login` to log in."
+            "\nNote: No active token is set and no environment variable `HF_TOKEN` is found. Use `hf auth login` to log in."
         )
 
 
@@ -273,8 +273,8 @@ def interpreter_login(*, new_session: bool = True, write_permission: bool = Fals
     print(_HF_LOGO_ASCII)
     if get_token() is not None:
         logger.info(
-            "    A token is already saved on your machine. Run `huggingface-cli"
-            " whoami` to get more information or `huggingface-cli logout` if you want"
+            "    A token is already saved on your machine. Run `hf auth whoami`"
+            " to get more information or `hf auth logout` if you want"
             " to log out."
         )
         logger.info("    Setting a new token will erase the existing one.")

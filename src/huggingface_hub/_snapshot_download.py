@@ -254,14 +254,19 @@ def snapshot_download(
     # At this stage, internet connection is up and running
     # => let's download the files!
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
-    assert repo_info.siblings is not None, "Repo info returned from server must have a siblings list."
 
     # Corner case: on very large repos, the siblings list in `repo_info` might not contain all files.
     # In that case, we need to use the `list_repo_tree` method to prevent caching issues.
-    repo_files: Iterable[str] = [f.rfilename for f in repo_info.siblings]
-    has_many_files = len(repo_info.siblings) > VERY_LARGE_REPO_THRESHOLD
-    if has_many_files:
-        logger.info("The repo has more than 50,000 files. Using `list_repo_tree` to ensure all files are listed.")
+    repo_files: Iterable[str] = [f.rfilename for f in repo_info.siblings] if repo_info.siblings is not None else []
+    unreliable_nb_files = (
+        repo_info.siblings is None
+        or len(repo_info.siblings) == 0
+        or len(repo_info.siblings) > VERY_LARGE_REPO_THRESHOLD
+    )
+    if unreliable_nb_files:
+        logger.info(
+            "Number of files in the repo is unreliable. Using `list_repo_tree` to ensure all files are listed."
+        )
         repo_files = (
             f.rfilename
             for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=revision, repo_type=repo_type)
@@ -274,7 +279,7 @@ def snapshot_download(
         ignore_patterns=ignore_patterns,
     )
 
-    if not has_many_files:
+    if not unreliable_nb_files:
         filtered_repo_files = list(filtered_repo_files)
         tqdm_desc = f"Fetching {len(filtered_repo_files)} files"
     else:

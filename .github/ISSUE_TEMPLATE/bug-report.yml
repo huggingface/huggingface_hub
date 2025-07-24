@@ -33,7 +33,7 @@ body:
       description: |
         Please dump your environment info by running the following command and copy-paste the result here:
         ```txt
-        huggingface-cli env
+        hf env
         ```
 
         If you are working in a notebook, please run it in a code cell:
