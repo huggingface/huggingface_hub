@@ -85,6 +85,7 @@ from .image_to_text import (
     ImageToTextOutput,
     ImageToTextParameters,
 )
+from .image_to_video import ImageToVideoInput, ImageToVideoOutput, ImageToVideoParameters, ImageToVideoTargetSize
 from .object_detection import (
     ObjectDetectionBoundingBox,
     ObjectDetectionInput,
