@@ -43,7 +43,6 @@ from huggingface_hub import (
     TranslationOutput,
     VisualQuestionAnsweringOutputElement,
     ZeroShotClassificationOutputElement,
-    constants,
     hf_hub_download,
 )
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
@@ -56,7 +55,7 @@ from huggingface_hub.inference._common import (
 from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.inference._providers.hf_inference import _build_chat_completion_url
 
-from .testing_utils import expect_deprecation, with_production_testing
+from .testing_utils import with_production_testing
 
 
 # Avoid calling APIs in VCRed tests
@@ -837,20 +836,6 @@ class TestHeadersAndCookies(TestBase):
 
         headers = get_session_mock().post.call_args_list[0].kwargs["headers"]
         assert headers["Accept"] == "image/png"
-
-
-class TestListDeployedModels(TestBase):
-    @expect_deprecation("list_deployed_models")
-    @patch("huggingface_hub.inference._client.get_session")
-    def test_list_deployed_models_main_frameworks_mock(self, get_session_mock: MagicMock) -> None:
-        InferenceClient(provider="hf-inference").list_deployed_models()
-        assert len(get_session_mock.return_value.get.call_args_list) == len(constants.MAIN_INFERENCE_API_FRAMEWORKS)
-
-    @expect_deprecation("list_deployed_models")
-    @patch("huggingface_hub.inference._client.get_session")
-    def test_list_deployed_models_all_frameworks_mock(self, get_session_mock: MagicMock) -> None:
-        InferenceClient(provider="hf-inference").list_deployed_models("all")
-        assert len(get_session_mock.return_value.get.call_args_list) == len(constants.ALL_INFERENCE_API_FRAMEWORKS)
 
 
 @with_production_testing
