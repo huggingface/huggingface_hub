@@ -26,6 +26,8 @@
       title: Inference
     - local: guides/inference_endpoints
       title: Inference Endpoints
+    - local: guides/jobs
+      title: Jobs
     - local: guides/community
       title: Community Tab
     - local: guides/collections
@@ -40,8 +42,6 @@
       title: Integrate a library
     - local: guides/webhooks
       title: Webhooks
-    - local: guides/jobs
-      title: Jobs
 - title: 'Conceptual guides'
   sections:
     - local: concepts/git_vs_http
