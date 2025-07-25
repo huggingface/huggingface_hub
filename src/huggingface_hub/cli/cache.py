@@ -65,6 +65,10 @@ class CacheCommand(BaseHuggingfaceCLICommand):
     def register_subcommand(parser: _SubParsersAction):
         cache_parser = parser.add_parser("cache", help="Manage local cache directory.")
         cache_subparsers = cache_parser.add_subparsers(dest="cache_command", help="Cache subcommands")
+
+        # Show help if no subcommand is provided
+        cache_parser.set_defaults(func=lambda args: cache_parser.print_help())
+
         # Scan subcommand
         scan_parser = cache_subparsers.add_parser("scan", help="Scan cache directory.")
         scan_parser.add_argument(
