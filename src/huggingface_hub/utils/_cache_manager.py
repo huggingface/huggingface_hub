@@ -266,7 +266,7 @@ class CachedRepoInfo:
         """
         return {ref: revision for revision in self.revisions for ref in revision.refs}
 
-
+# This is going to be place to start looking at this issue (#2219)
 @dataclass(frozen=True)
 class DeleteCacheStrategy:
     """Frozen data structure holding the strategy to delete cached revisions.
