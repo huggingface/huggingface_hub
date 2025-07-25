@@ -58,6 +58,9 @@ class JobsCommands(BaseHuggingfaceCLICommand):
         jobs_parser = parser.add_parser("jobs", help="Run and manage Jobs on the Hub.")
         jobs_subparsers = jobs_parser.add_subparsers(help="huggingface.co jobs related commands")
 
+        # Show help if no subcommand is provided
+        jobs_parser.set_defaults(func=lambda args: jobs_parser.print_help())
+
         # Register commands
         InspectCommand.register_subcommand(jobs_subparsers)
         LogsCommand.register_subcommand(jobs_subparsers)
