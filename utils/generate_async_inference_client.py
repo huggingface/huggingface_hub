@@ -57,12 +57,6 @@ def generate_async_client_code(code: str) -> str:
     code = _rename_HTTPError_to_ClientResponseError_in_docstring(code)
     code = _update_examples_in_public_methods(code)
 
-    # Adapt get_model_status
-    code = _adapt_get_model_status(code)
-
-    # Adapt list_deployed_models
-    code = _adapt_list_deployed_models(code)
-
     # Adapt /info and /health endpoints
     code = _adapt_info_and_health_endpoints(code)
 
@@ -399,42 +393,6 @@ def _use_async_streaming_util(code: str) -> str:
     )
     code = code.replace("_stream_chat_completion_response", "_async_stream_chat_completion_response")
     return code
-
-
-def _adapt_get_model_status(code: str) -> str:
-    sync_snippet = """
-        response = get_session().get(url, headers=build_hf_headers(token=self.token))
-        hf_raise_for_status(response)
-        response_data = response.json()"""
-
-    async_snippet = """
-        async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
-            response.raise_for_status()
-            response_data = await response.json()"""
-
-    return code.replace(sync_snippet, async_snippet)
-
-
-def _adapt_list_deployed_models(code: str) -> str:
-    sync_snippet = """
-        for framework in frameworks:
-            response = get_session().get(f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token))
-            hf_raise_for_status(response)
-            _unpack_response(framework, response.json())""".strip()
-
-    async_snippet = """
-        async def _fetch_framework(framework: str) -> None:
-            async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-                response = await client.get(f"{INFERENCE_ENDPOINT}/framework/{framework}", proxy=self.proxies)
-                response.raise_for_status()
-                _unpack_response(framework, await response.json())
-
-        import asyncio
-
-        await asyncio.gather(*[_fetch_framework(framework) for framework in frameworks])""".strip()
-
-    return code.replace(sync_snippet, async_snippet)
 
 
 def _adapt_info_and_health_endpoints(code: str) -> str:
