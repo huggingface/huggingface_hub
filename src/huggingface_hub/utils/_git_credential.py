@@ -27,7 +27,7 @@ GIT_CREDENTIAL_REGEX = re.compile(
         ^\s* # start of line
         credential\.helper # credential.helper value
         \s*=\s* # separator
-        (\w+) # the helper name (group 1)
+        ([\w\-\/]+) # the helper name or absolute path (group 1)
         (\s|$) # whitespace or end of line
     """,
     flags=re.MULTILINE | re.IGNORECASE | re.VERBOSE,
