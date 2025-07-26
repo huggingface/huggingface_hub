@@ -19,6 +19,7 @@ STORE_AND_CACHE_HELPERS_CONFIG = """
     helper = store
     helper = cache --timeout 30000
     helper = git-credential-manager
+    helper = /usr/libexec/git-core/git-credential-libsecret
 """
 
 
@@ -40,6 +41,7 @@ class TestGitCredentials(unittest.TestCase):
         self.assertIn("cache", helpers)
         self.assertIn("store", helpers)
         self.assertIn("git-credential-manager", helpers)
+        self.assertIn("/usr/libexec/git-core/git-credential-libsecret", helpers)
 
     def test_set_and_unset_git_credential(self) -> None:
         username = "hf_test_user_" + str(round(time.time()))  # make username unique
