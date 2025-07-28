@@ -123,6 +123,9 @@ class RunCommand(BaseHuggingfaceCLICommand):
         if args.env_file:
             self.env.update(load_dotenv(Path(args.env_file).read_text()))
         for env_value in args.env or []:
+            if "=" not in env_value:
+                # Get it from the current environment
+                env_value = f"{env_value}={os.environ[env_value]}"
             self.env.update(load_dotenv(env_value))
         self.secrets: dict[str, Optional[str]] = {}
         if args.secrets_file:
@@ -505,6 +508,9 @@ class UvCommand(BaseHuggingfaceCLICommand):
         if args.env_file:
             self.env.update(load_dotenv(Path(args.env_file).read_text()))
         for env_value in args.env or []:
+            if "=" not in env_value:
+                # Get it from the current environment
+                env_value = f"{env_value}={os.environ[env_value]}"
             self.env.update(load_dotenv(env_value))
         self.secrets: dict[str, Optional[str]] = {}
         if args.secrets_file:
