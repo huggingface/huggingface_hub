@@ -195,7 +195,7 @@ class WhoamiCommand(BaseUserCommand):
             exit()
         try:
             info = self._api.whoami(token)
-            print(info["name"])
+            print(ANSI.bold("user: "), info["name"])
             orgs = [org["name"] for org in info["orgs"]]
             if orgs:
                 print(ANSI.bold("orgs: "), ",".join(orgs))
