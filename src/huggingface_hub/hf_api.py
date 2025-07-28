@@ -10287,7 +10287,7 @@ class HfApi:
             python (`str`, *optional*)
                 Use a specific Python version. Default is 3.12.
 
-            image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"):
+            image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm"):
                 Use a custom Docker image with `uv` installed.
 
             env (`Dict[str, Any]`, *optional*):
@@ -10320,7 +10320,7 @@ class HfApi:
             >>> run_uv_job(script, dependencies=["trl"], flavor="a10g-small")
             ```
         """
-        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"
+        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
         env = env or {}
         secrets = secrets or {}
 
