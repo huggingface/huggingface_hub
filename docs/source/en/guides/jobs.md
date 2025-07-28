@@ -28,7 +28,7 @@ Use the [`hf jobs` CLI](./cli#hf-jobs) to run Jobs from the command line, and pa
 `hf jobs run` runs Jobs with a Docker image and a command with a familiar Docker-like interface. Think `docker run`, but for running code on any hardware:
 
 ```bash
->>> hf jobs run python:12 -c "print('Hello world!')"
+>>> hf jobs run python:12 python -c "print('Hello world!')"
 >>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel python -c "import torch; print(torch.cuda.get_device_name())"
 ```
 
