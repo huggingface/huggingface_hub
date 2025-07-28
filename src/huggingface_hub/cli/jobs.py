@@ -36,7 +36,7 @@ import re
 from argparse import Namespace, _SubParsersAction
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import requests
 
@@ -121,9 +121,9 @@ class RunCommand(BaseHuggingfaceCLICommand):
         self.command: List[str] = args.command
         self.env: dict[str, Optional[str]] = {}
         if args.env_file:
-            self.env.update(load_dotenv(Path(args.env_file).read_text(), environ=os.environ))
+            self.env.update(load_dotenv(Path(args.env_file).read_text(), environ=os.environ.copy()))
         for env_value in args.env or []:
-            self.env.update(load_dotenv(env_value, environ=os.environ))
+            self.env.update(load_dotenv(env_value, environ=os.environ.copy()))
         self.secrets: dict[str, Optional[str]] = {}
         extended_environ = _get_extended_environ()
         if args.secrets_file:
@@ -497,9 +497,9 @@ class UvCommand(BaseHuggingfaceCLICommand):
         self.image = args.image
         self.env: dict[str, Optional[str]] = {}
         if args.env_file:
-            self.env.update(load_dotenv(Path(args.env_file).read_text(), environ=os.environ))
+            self.env.update(load_dotenv(Path(args.env_file).read_text(), environ=os.environ.copy()))
         for env_value in args.env or []:
-            self.env.update(load_dotenv(env_value, environ=os.environ))
+            self.env.update(load_dotenv(env_value, environ=os.environ.copy()))
         self.secrets: dict[str, Optional[str]] = {}
         extended_environ = _get_extended_environ()
         if args.secrets_file:
@@ -543,8 +543,8 @@ class UvCommand(BaseHuggingfaceCLICommand):
             print(log)
 
 
-def _get_extended_environ() -> Dict[str, Any]:
+def _get_extended_environ() -> Dict[str, str]:
     extended_environ = os.environ.copy()
     if "HF_TOKEN" not in extended_environ:
-        extended_environ["HF_TOKEN"] = get_token()
+        extended_environ["HF_TOKEN"] = get_token() or ""
     return extended_environ
