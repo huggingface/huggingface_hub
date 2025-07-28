@@ -36,7 +36,7 @@ import re
 from argparse import Namespace, _SubParsersAction
 from dataclasses import asdict
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import requests
 
@@ -121,24 +121,15 @@ class RunCommand(BaseHuggingfaceCLICommand):
         self.command: List[str] = args.command
         self.env: dict[str, Optional[str]] = {}
         if args.env_file:
-            self.env.update(load_dotenv(Path(args.env_file).read_text()))
+            self.env.update(load_dotenv(Path(args.env_file).read_text(), environ=os.environ))
         for env_value in args.env or []:
-            if "=" not in env_value:
-                # Get it from the current environment
-                env_value = f"{env_value}={os.environ[env_value]}"
-            self.env.update(load_dotenv(env_value))
+            self.env.update(load_dotenv(env_value, environ=os.environ))
         self.secrets: dict[str, Optional[str]] = {}
+        extended_environ = _get_extended_environ()
         if args.secrets_file:
-            self.secrets.update(load_dotenv(Path(args.secrets_file).read_text()))
+            self.secrets.update(load_dotenv(Path(args.secrets_file).read_text(), environ=extended_environ))
         for secret in args.secrets or []:
-            if "=" not in secret:
-                # Get it from the current environment, or `get_token()` for HF_TOKEN
-                if secret == "HF_TOKEN":
-                    secret_value = get_token() or ""
-                else:
-                    secret_value = os.environ[secret]
-                secret = f"{secret}={secret_value}"
-            self.secrets.update(load_dotenv(secret))
+            self.secrets.update(load_dotenv(secret, environ=extended_environ))
         self.flavor: Optional[SpaceHardware] = args.flavor
         self.timeout: Optional[str] = args.timeout
         self.detach: bool = args.detach
@@ -506,24 +497,15 @@ class UvCommand(BaseHuggingfaceCLICommand):
         self.image = args.image
         self.env: dict[str, Optional[str]] = {}
         if args.env_file:
-            self.env.update(load_dotenv(Path(args.env_file).read_text()))
+            self.env.update(load_dotenv(Path(args.env_file).read_text(), environ=os.environ))
         for env_value in args.env or []:
-            if "=" not in env_value:
-                # Get it from the current environment
-                env_value = f"{env_value}={os.environ[env_value]}"
-            self.env.update(load_dotenv(env_value))
+            self.env.update(load_dotenv(env_value, environ=os.environ))
         self.secrets: dict[str, Optional[str]] = {}
+        extended_environ = _get_extended_environ()
         if args.secrets_file:
-            self.secrets.update(load_dotenv(Path(args.secrets_file).read_text()))
+            self.secrets.update(load_dotenv(Path(args.secrets_file).read_text(), environ=extended_environ))
         for secret in args.secrets or []:
-            if "=" not in secret:
-                # Get it from the current environment, or `get_token()` for HF_TOKEN
-                if secret == "HF_TOKEN":
-                    secret_value = get_token() or ""
-                else:
-                    secret_value = os.environ[secret]
-                secret = f"{secret}={secret_value}"
-            self.secrets.update(load_dotenv(secret))
+            self.secrets.update(load_dotenv(secret, environ=extended_environ))
         self.flavor: Optional[SpaceHardware] = args.flavor
         self.timeout: Optional[str] = args.timeout
         self.detach: bool = args.detach
@@ -559,3 +541,10 @@ class UvCommand(BaseHuggingfaceCLICommand):
         # Now let's stream the logs
         for log in api.fetch_job_logs(job_id=job.id):
             print(log)
+
+
+def _get_extended_environ() -> Dict[str, Any]:
+    extended_environ = os.environ.copy()
+    if "HF_TOKEN" not in extended_environ:
+        extended_environ["HF_TOKEN"] = get_token()
+    return extended_environ
