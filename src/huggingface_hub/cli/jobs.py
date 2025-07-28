@@ -40,7 +40,7 @@ from typing import Dict, List, Optional, Union
 
 import requests
 
-from huggingface_hub import HfApi, SpaceHardware
+from huggingface_hub import HfApi, SpaceHardware, get_token
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._dotenv import load_dotenv
 
@@ -81,9 +81,8 @@ class RunCommand(BaseHuggingfaceCLICommand):
             "--secrets",
             action="append",
             help=(
-                "Set secret environment variables. "
-                "Use the `hf_auth:` syntax to pass a local Hugging Face token. "
-                "E.g. `--secrets HF_TOKEN=hf_auth:<token_name>` (uses the current token if `<token_name>` is empty)"
+                "Set secret environment variables. E.g. --secrets SECRET=value "
+                "or `--secrets HF_TOKEN` to pass your Hugging Face token."
             ),
         )
         run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
@@ -129,6 +128,13 @@ class RunCommand(BaseHuggingfaceCLICommand):
         if args.secrets_file:
             self.secrets.update(load_dotenv(Path(args.secrets_file).read_text()))
         for secret in args.secrets or []:
+            if "=" not in secret:
+                # Get it from the current environment, or `get_token()` for HF_TOKEN
+                if secret == "HF_TOKEN":
+                    secret_value = get_token() or ""
+                else:
+                    secret_value = os.environ[secret]
+                secret = f"{secret}={secret_value}"
             self.secrets.update(load_dotenv(secret))
         self.flavor: Optional[SpaceHardware] = args.flavor
         self.timeout: Optional[str] = args.timeout
@@ -458,7 +464,15 @@ class UvCommand(BaseHuggingfaceCLICommand):
             help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
         )
         run_parser.add_argument("-e", "--env", action="append", help="Environment variables")
-        run_parser.add_argument("-s", "--secrets", action="append", help="Secret environment variables")
+        run_parser.add_argument(
+            "-s",
+            "--secrets",
+            action="append",
+            help=(
+                "Set secret environment variables. E.g. --secrets SECRET=value "
+                "or `--secrets HF_TOKEN` to pass your Hugging Face token."
+            ),
+        )
         run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
         run_parser.add_argument(
             "--secrets-file",
@@ -496,6 +510,13 @@ class UvCommand(BaseHuggingfaceCLICommand):
         if args.secrets_file:
             self.secrets.update(load_dotenv(Path(args.secrets_file).read_text()))
         for secret in args.secrets or []:
+            if "=" not in secret:
+                # Get it from the current environment, or `get_token()` for HF_TOKEN
+                if secret == "HF_TOKEN":
+                    secret_value = get_token() or ""
+                else:
+                    secret_value = os.environ[secret]
+                secret = f"{secret}={secret_value}"
             self.secrets.update(load_dotenv(secret))
         self.flavor: Optional[SpaceHardware] = args.flavor
         self.timeout: Optional[str] = args.timeout

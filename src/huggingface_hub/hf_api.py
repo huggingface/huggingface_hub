@@ -133,7 +133,6 @@ from .utils import (
 )
 from .utils import tqdm as hf_tqdm
 from .utils._auth import (
-    _get_token_by_name,
     _get_token_from_environment,
     _get_token_from_file,
     _get_token_from_google_colab,
@@ -9977,8 +9976,6 @@ class HfApi:
 
             secrets (`Dict[str, Any]`, *optional*):
                 Defines the secret environment variables for the Job.
-                Use the `hf_auth:` syntax to pass a local Hugging Face token.
-                E.g. `{"HF_TOKEN": "hf_auth:<token_name>"}` (uses the current token if `<token_name>` is empty)
 
             flavor (`str`, *optional*):
                 Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
@@ -10026,14 +10023,6 @@ class HfApi:
         }
         # secrets are optional
         if secrets:
-            # Parse stored_tokens
-            prefix = "hf_auth:"
-            secrets = {
-                key: (get_token() if value == prefix else _get_token_by_name(value[len(prefix) :]))
-                if value.startswith(prefix)
-                else value
-                for key, value in secrets.items()
-            }
             input_json["secrets"] = secrets
         # timeout is optional
         if timeout:
@@ -10310,8 +10299,6 @@ class HfApi:
 
             secrets (`Dict[str, Any]`, *optional*):
                 Defines the secret environment variables for the Job.
-                Use the `hf_auth:` syntax to pass a local Hugging Face token.
-                E.g. `{"HF_TOKEN": "hf_auth:<token_name>"}` (uses the current token if `<token_name>` is empty)
 
             flavor (`str`, *optional*):
                 Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
