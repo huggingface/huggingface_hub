@@ -30,7 +30,6 @@ from huggingface_hub.errors import InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
-    ModelStatus,
     RequestParameters,
     _async_stream_chat_completion_response,
     _async_stream_text_generation_response,
@@ -87,9 +86,8 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provider_helper
-from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
+from huggingface_hub.utils import build_hf_headers
 from huggingface_hub.utils._auth import get_token
-from huggingface_hub.utils._deprecation import _deprecate_method
 
 from .._common import _async_yield_from, _import_aiohttp
 
@@ -3257,102 +3255,6 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
-    @_deprecate_method(
-        version="0.35.0",
-        message=(
-            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
-            " Use `HfApi.list_models(..., inference_provider='...')` to list warm models per provider."
-        ),
-    )
-    async def list_deployed_models(
-        self, frameworks: Union[None, str, Literal["all"], List[str]] = None
-    ) -> Dict[str, List[str]]:
-        """
-        List models deployed on the HF Serverless Inference API service.
-
-        This helper checks deployed models framework by framework. By default, it will check the 4 main frameworks that
-        are supported and account for 95% of the hosted models. However, if you want a complete list of models you can
-        specify `frameworks="all"` as input. Alternatively, if you know before-hand which framework you are interested
-        in, you can also restrict to search to this one (e.g. `frameworks="text-generation-inference"`). The more
-        frameworks are checked, the more time it will take.
-
-        <Tip warning={true}>
-
-        This endpoint method does not return a live list of all models available for the HF Inference API service.
-        It searches over a cached list of models that were recently available and the list may not be up to date.
-        If you want to know the live status of a specific model, use [`~InferenceClient.get_model_status`].
-
-        </Tip>
-
-        <Tip>
-
-        This endpoint method is mostly useful for discoverability. If you already know which model you want to use and want to
-        check its availability, you can directly use [`~InferenceClient.get_model_status`].
-
-        </Tip>
-
-        Args:
-            frameworks (`Literal["all"]` or `List[str]` or `str`, *optional*):
-                The frameworks to filter on. By default only a subset of the available frameworks are tested. If set to
-                "all", all available frameworks will be tested. It is also possible to provide a single framework or a
-                custom set of frameworks to check.
-
-        Returns:
-            `Dict[str, List[str]]`: A dictionary mapping task names to a sorted list of model IDs.
-
-        Example:
-        ```py
-        # Must be run in an async contextthon
-        >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient()
-
-        # Discover zero-shot-classification models currently deployed
-        >>> models = await client.list_deployed_models()
-        >>> models["zero-shot-classification"]
-        ['Narsil/deberta-large-mnli-zero-cls', 'facebook/bart-large-mnli', ...]
-
-        # List from only 1 framework
-        >>> await client.list_deployed_models("text-generation-inference")
-        {'text-generation': ['bigcode/starcoder', 'meta-llama/Llama-2-70b-chat-hf', ...], ...}
-        ```
-        """
-        if self.provider != "hf-inference":
-            raise ValueError(f"Listing deployed models is not supported on '{self.provider}'.")
-
-        # Resolve which frameworks to check
-        if frameworks is None:
-            frameworks = constants.MAIN_INFERENCE_API_FRAMEWORKS
-        elif frameworks == "all":
-            frameworks = constants.ALL_INFERENCE_API_FRAMEWORKS
-        elif isinstance(frameworks, str):
-            frameworks = [frameworks]
-        frameworks = list(set(frameworks))
-
-        # Fetch them iteratively
-        models_by_task: Dict[str, List[str]] = {}
-
-        def _unpack_response(framework: str, items: List[Dict]) -> None:
-            for model in items:
-                if framework == "sentence-transformers":
-                    # Model running with the `sentence-transformers` framework can work with both tasks even if not
-                    # branded as such in the API response
-                    models_by_task.setdefault("feature-extraction", []).append(model["model_id"])
-                    models_by_task.setdefault("sentence-similarity", []).append(model["model_id"])
-                else:
-                    models_by_task.setdefault(model["task"], []).append(model["model_id"])
-
-        for framework in frameworks:
-            response = get_session().get(
-                f"{constants.INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
-            )
-            hf_raise_for_status(response)
-            _unpack_response(framework, response.json())
-
-        # Sort alphabetically for discoverability and return
-        for task, models in models_by_task.items():
-            models_by_task[task] = sorted(set(models), key=lambda x: x.lower())
-        return models_by_task
-
     def _get_client_session(self, headers: Optional[Dict] = None) -> "ClientSession":
         aiohttp = _import_aiohttp()
         client_headers = self.headers.copy()
@@ -3459,7 +3361,6 @@ class AsyncInferenceClient:
         Check the health of the deployed endpoint.
 
         Health check is only available with Inference Endpoints powered by Text-Generation-Inference (TGI) or Text-Embedding-Inference (TEI).
-        For Inference API, please use [`InferenceClient.get_model_status`] instead.
 
         Args:
             model (`str`, *optional*):
@@ -3484,77 +3385,12 @@ class AsyncInferenceClient:
         if model is None:
             raise ValueError("Model id not provided.")
         if not model.startswith(("http://", "https://")):
-            raise ValueError(
-                "Model must be an Inference Endpoint URL. For serverless Inference API, please use `InferenceClient.get_model_status`."
-            )
+            raise ValueError("Model must be an Inference Endpoint URL.")
         url = model.rstrip("/") + "/health"
 
         async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
             response = await client.get(url, proxy=self.proxies)
             return response.status == 200
-
-    @_deprecate_method(
-        version="0.35.0",
-        message=(
-            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
-            " Use `HfApi.model_info` to get the model status both with HF Inference API and external providers."
-        ),
-    )
-    async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
-        """
-        Get the status of a model hosted on the HF Inference API.
-
-        <Tip>
-
-        This endpoint is mostly useful when you already know which model you want to use and want to check its
-        availability. If you want to discover already deployed models, you should rather use [`~InferenceClient.list_deployed_models`].
-
-        </Tip>
-
-        Args:
-            model (`str`, *optional*):
-                Identifier of the model for witch the status gonna be checked. If model is not provided,
-                the model associated with this instance of [`InferenceClient`] will be used. Only HF Inference API service can be checked so the
-                identifier cannot be a URL.
-
-
-        Returns:
-            [`ModelStatus`]: An instance of ModelStatus dataclass, containing information,
-                         about the state of the model: load, state, compute type and framework.
-
-        Example:
-        ```py
-        # Must be run in an async context
-        >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient()
-        >>> await client.get_model_status("meta-llama/Meta-Llama-3-8B-Instruct")
-        ModelStatus(loaded=True, state='Loaded', compute_type='gpu', framework='text-generation-inference')
-        ```
-        """
-        if self.provider != "hf-inference":
-            raise ValueError(f"Getting model status is not supported on '{self.provider}'.")
-
-        model = model or self.model
-        if model is None:
-            raise ValueError("Model id not provided.")
-        if model.startswith("https://"):
-            raise NotImplementedError("Model status is only available for Inference API endpoints.")
-        url = f"{constants.INFERENCE_ENDPOINT}/status/{model}"
-
-        async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
-            response.raise_for_status()
-            response_data = await response.json()
-
-        if "error" in response_data:
-            raise ValueError(response_data["error"])
-
-        return ModelStatus(
-            loaded=response_data["loaded"],
-            state=response_data["state"],
-            compute_type=response_data["compute_type"],
-            framework=response_data["framework"],
-        )
 
     @property
     def chat(self) -> "ProxyClientChat":

@@ -47,10 +47,6 @@ def main():
     # LFS commands (hidden in --help)
     LfsCommands.register_subcommand(commands_parser)
 
-    # Legacy commands
-
-    # Experimental
-
     # Let's go
     args = parser.parse_args()
     if not hasattr(args, "func"):
@@ -59,7 +55,8 @@ def main():
 
     # Run
     service = args.func(args)
-    service.run()
+    if service is not None:
+        service.run()
 
 
 if __name__ == "__main__":

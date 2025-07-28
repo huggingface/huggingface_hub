@@ -43,6 +43,10 @@ class RepoCommands(BaseHuggingfaceCLICommand):
     def register_subcommand(parser: _SubParsersAction):
         repo_parser = parser.add_parser("repo", help="Manage repos on the Hub.")
         repo_subparsers = repo_parser.add_subparsers(help="huggingface.co repos related commands")
+
+        # Show help if no subcommand is provided
+        repo_parser.set_defaults(func=lambda args: repo_parser.print_help())
+
         # CREATE
         repo_create_parser = repo_subparsers.add_parser("create", help="Create a new repo on huggingface.co")
         repo_create_parser.add_argument(

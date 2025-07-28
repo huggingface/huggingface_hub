@@ -15,6 +15,12 @@ A job runs on Hugging Face infrastructure and are defined with a command to run 
 If you want to run and manage a job on the Hub, your machine must be logged in. If you are not, please refer to
 [this section](../quick-start#authentication). In the rest of this guide, we will assume that your machine is logged in.
 
+<Tip>
+
+**Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
+
+</Tip>
+
 ## Jobs Command Line Interface
 
 Use the [`hf jobs` CLI](./cli#hf-jobs) to run Jobs from the command line, and pass `--flavor` to specify your hardware.
@@ -22,7 +28,7 @@ Use the [`hf jobs` CLI](./cli#hf-jobs) to run Jobs from the command line, and pa
 `hf jobs run` runs Jobs with a Docker image and a command with a familiar Docker-like interface. Think `docker run`, but for running code on any hardware:
 
 ```bash
->>> hf jobs run python:12 -c "print('Hello world!')"
+>>> hf jobs run python:12 python -c "print('Hello world!')"
 >>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel python -c "import torch; print(torch.cuda.get_device_name())"
 ```
 

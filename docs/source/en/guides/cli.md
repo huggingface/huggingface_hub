@@ -636,6 +636,12 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 - 📊 **Live Monitoring**: Stream logs in real-time, just like running locally
 - 💰 **Pay-as-you-go**: Only pay for the seconds you use
 
+<Tip>
+
+**Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
+
+</Tip>
+
 ### Quick Start
 
 #### 1. Run your first job
