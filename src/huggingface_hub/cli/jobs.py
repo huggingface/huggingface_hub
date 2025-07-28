@@ -75,8 +75,17 @@ class RunCommand(BaseHuggingfaceCLICommand):
     def register_subcommand(parser: _SubParsersAction) -> None:
         run_parser = parser.add_parser("run", help="Run a Job")
         run_parser.add_argument("image", type=str, help="The Docker image to use.")
-        run_parser.add_argument("-e", "--env", action="append", help="Set environment variables.")
-        run_parser.add_argument("-s", "--secrets", action="append", help="Set secret environment variables.")
+        run_parser.add_argument("-e", "--env", action="append", help="Set environment variables. E.g. --env ENV=value")
+        run_parser.add_argument(
+            "-s",
+            "--secrets",
+            action="append",
+            help=(
+                "Set secret environment variables. "
+                "Use the `hf_auth:` syntax to pass a local Hugging Face token. "
+                "E.g. `--secrets HF_TOKEN=hf_auth:<token_name>` (uses the current token if `<token_name>` is empty)"
+            ),
+        )
         run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
         run_parser.add_argument("--secrets-file", type=str, help="Read in a file of secret environment variables.")
         run_parser.add_argument(

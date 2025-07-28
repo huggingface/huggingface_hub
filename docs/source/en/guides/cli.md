@@ -720,6 +720,13 @@ You can pass environment variables to your job using
 >>> hf jobs run --secrets-file .env.secrets python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
 ```
 
+<Tip>
+
+Use the `hf_auth:` syntax to pass a local Hugging Face token.
+E.g. `HF_TOKEN=hf_auth:<token_name>` (uses the current token if `<token_name>` is empty)
+
+</Tip>
+
 ### Hardware
 
 Available `--flavor` options:
