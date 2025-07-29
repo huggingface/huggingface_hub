@@ -619,6 +619,6 @@ def test_hf_file_system_file_can_handle_gzipped_file():
     """Test that HfFileSystemStreamFile.read() can handle gzipped files."""
     fs = HfFileSystem()
     # As of July 2025, the math_qa.py file is gzipped when queried from production:
-    with fs.open("datasets/math_qa/math_qa.py", "r", encoding="utf-8") as f:
+    with fs.open("datasets/allenai/math_qa/math_qa.py", "r", encoding="utf-8") as f:
         out = f.read()
     assert "class MathQa" in out
