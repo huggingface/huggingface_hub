@@ -2784,7 +2784,7 @@ class HfLargefilesTest(HfApiCommonTest):
             cwd=self.cache_dir,
         )
         self.assertEqual(failed_process.returncode, 1)
-        self.assertIn("cli lfs-enable-largefiles", failed_process.stderr.decode())
+        self.assertIn('Run "hf lfs-enable-largefiles ./path/to/your/repo"', failed_process.stderr.decode())
         # ^ Instructions on how to fix this are included in the error message.
         subprocess.run(["hf", "lfs-enable-largefiles", self.cache_dir], check=True)
 
