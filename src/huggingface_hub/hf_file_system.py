@@ -1092,6 +1092,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             )
             hf_raise_for_status(self.response)
             try:
+                self.response.raw.decode_content = True
                 out = self.response.raw.read(*read_args)
             except Exception:
                 self.response.close()
