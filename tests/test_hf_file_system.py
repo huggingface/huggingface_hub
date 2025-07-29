@@ -20,7 +20,7 @@ from huggingface_hub.hf_file_system import (
 )
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
-from .testing_utils import repo_name
+from .testing_utils import repo_name, with_production_testing
 
 
 class HfFileSystemTests(unittest.TestCase):
@@ -618,6 +618,7 @@ def test_exists_after_repo_deletion():
     assert not hffs.exists(repo_id, refresh=True)
 
 
+@with_production_testing
 def test_hf_file_system_file_can_handle_gzipped_file():
     """Test that HfFileSystemStreamFile.read() can handle gzipped files."""
     fs = HfFileSystem(endpoint=constants.ENDPOINT)
