@@ -12,17 +12,17 @@ def load_dotenv(dotenv_str: str, environ: Optional[Dict[str, str]] = None) -> Di
     line_pattern = re.compile(
         r"""
         ^\s*
-        (?:export\s+)?                    # optional export
+        (?:export[^\S\n]+)?               # optional export
         ([A-Za-z_][A-Za-z0-9_]*)          # key
-        \s*=\s*
+        [^\S\n]*(=)?[^\S\n]*
         (                                 # value group
             (?:
                 '(?:\\'|[^'])*'           # single-quoted value
-                | "(?:\\"|[^"])*"         # double-quoted value
+                | \"(?:\\\"|[^\"])*\"     # double-quoted value
                 | [^#\n\r]+?              # unquoted value
             )
         )?
-        \s*(?:\#.*)?$                     # optional inline comment
+        [^\S\n]*(?:\#.*)?$                # optional inline comment
     """,
         re.VERBOSE,
     )
@@ -34,20 +34,22 @@ def load_dotenv(dotenv_str: str, environ: Optional[Dict[str, str]] = None) -> Di
 
         match = line_pattern.match(line)
         if match:
-            key, raw_val = match.group(1), match.group(2) or ""
-            val = raw_val.strip()
+            key = match.group(1)
+            if match.group(2):  # if there is '='
+                raw_val = match.group(3) or ""
+                val = raw_val.strip()
+                # Remove surrounding quotes if quoted
+                if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                    val = val[1:-1]
+                    val = val.replace(r"\n", "\n").replace(r"\t", "\t").replace(r"\"", '"').replace(r"\\", "\\")
+                    if raw_val.startswith('"'):
+                        val = val.replace(r"\$", "$")  # only in double quotes
+            elif environ is not None and key in environ:
+                # Get it from the current environment
+                val = environ[key]
+            else:
+                continue
 
-            # Remove surrounding quotes if quoted
-            if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
-                val = val[1:-1]
-                val = val.replace(r"\n", "\n").replace(r"\t", "\t").replace(r"\"", '"').replace(r"\\", "\\")
-                if raw_val.startswith('"'):
-                    val = val.replace(r"\$", "$")  # only in double quotes
-
-        elif environ is not None:
-            # Get it from the current environment
-            key, val = line, environ[line]
-
-        env[key] = val
+            env[key] = val
 
     return env
