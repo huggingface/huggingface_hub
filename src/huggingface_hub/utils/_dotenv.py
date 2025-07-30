@@ -3,7 +3,7 @@ import re
 from typing import Dict
 
 
-def load_dotenv(dotenv_str: str, environ: Dict[str, str]) -> Dict[str, str]:
+def load_dotenv(dotenv_str: str, environ: Optional[Dict[str, str]] = None) -> Dict[str, str]:
     """
     Parse a DOTENV-format string and return a dictionary of key-value pairs.
     Handles quoted values, comments, export keyword, and blank lines.
@@ -44,7 +44,7 @@ def load_dotenv(dotenv_str: str, environ: Dict[str, str]) -> Dict[str, str]:
                 if raw_val.startswith('"'):
                     val = val.replace(r"\$", "$")  # only in double quotes
 
-        else:
+        elif environ is not None:
             # Get it from the current environment
             key, val = line, environ[line]
 

@@ -722,7 +722,7 @@ You can pass environment variables to your job using
 
 <Tip>
 
-Use `-s HF_TOKEN` (equivalent to `--secrets HF_TOKEN`) to pass your Hugging Face token implicitly.
+Use `--secrets HF_TOKEN` to pass your local Hugging Face token implicitly.
 With this syntax, the secret is retrieved from the environment variable.
 For `HF_TOKEN`, it may read the token file located in the Hugging Face home folder if the environment variable is unset.
 

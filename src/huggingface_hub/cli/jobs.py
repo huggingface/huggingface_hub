@@ -545,6 +545,6 @@ class UvCommand(BaseHuggingfaceCLICommand):
 
 def _get_extended_environ() -> Dict[str, str]:
     extended_environ = os.environ.copy()
-    if "HF_TOKEN" not in extended_environ:
-        extended_environ["HF_TOKEN"] = get_token() or ""
+    if (token := get_token()) is not None:
+        extended_environ["HF_TOKEN"] = token
     return extended_environ
