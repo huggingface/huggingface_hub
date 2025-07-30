@@ -1,6 +1,6 @@
 # AI-generated module (ChatGPT)
 import re
-from typing import Dict
+from typing import Dict, Optional
 
 
 def load_dotenv(dotenv_str: str, environ: Optional[Dict[str, str]] = None) -> Dict[str, str]:
