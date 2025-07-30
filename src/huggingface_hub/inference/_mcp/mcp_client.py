@@ -286,16 +286,19 @@ class MCPClient:
             # Process tool calls
             if delta.tool_calls:
                 for tool_call in delta.tool_calls:
-                    # Aggregate chunks into tool calls
-                    if tool_call.index not in final_tool_calls:
-                        if (
-                            tool_call.function.arguments is None or tool_call.function.arguments == "{}"
-                        ):  # Corner case (depends on provider)
-                            tool_call.function.arguments = ""
-                        final_tool_calls[tool_call.index] = tool_call
+                    idx = tool_call.index
+                    # first chunk for this tool call
+                    if idx not in final_tool_calls:
+                        final_tool_calls[idx] = tool_call
+                        if final_tool_calls[idx].function.arguments is None:
+                            final_tool_calls[idx].function.arguments = ""
+                        continue
+                    # safety before concatenating text to .function.arguments
+                    if final_tool_calls[idx].function.arguments is None:
+                        final_tool_calls[idx].function.arguments = ""
 
-                    elif tool_call.function.arguments:
-                        final_tool_calls[tool_call.index].function.arguments += tool_call.function.arguments
+                    if tool_call.function.arguments:
+                        final_tool_calls[idx].function.arguments += tool_call.function.arguments
 
             # Optionally exit early if no tools in first chunks
             if exit_if_first_chunk_no_tool and num_of_chunks <= 2 and len(final_tool_calls) == 0:
