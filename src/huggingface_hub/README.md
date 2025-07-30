@@ -89,13 +89,13 @@ single file to a repo or listing models from the Hub, you'll find helpers in
 * `delete_file()`
 * `delete_folder()`
 
-Those API utilities are also exposed through the `huggingface-cli` CLI:
+Those API utilities are also exposed through the `hf` CLI:
 
 ```bash
-huggingface-cli login
-huggingface-cli logout
-huggingface-cli whoami
-huggingface-cli repo create
+hf auth login
+hf auth logout
+hf auth whoami
+hf repo create
 ```
 
 With the `HfApi` class there are methods to query models, datasets, and Spaces by specific tags (e.g. if you want to list models compatible with your library):
@@ -143,21 +143,17 @@ will clone that repository:
 >>> repo = Repository("w2v2", clone_from="facebook/wav2vec2-large-960h-lv60")
 ```
 
-If the repository you're cloning is one of yours or one of your organisation's,
-then having the ability to commit and push to that repository is important. In
-order to do that, you should make sure to be logged-in using `huggingface-cli
-login`, and to have the `token` parameter set to `True` (the default)
-when  instantiating the `Repository` object:
+If the repository you're cloning is one of yours or one of your organisation's, then having the ability to commit and push to that repository is important. In order to do that, you should make sure to be logged-in using `hf auth login`,:
 
 ```python
->>> repo = Repository("my-model", clone_from="<user>/<model_id>", token=True)
+>>> repo = Repository("my-model", clone_from="<user>/<model_id>")
 ```
 
 This works for models, datasets and spaces repositories; but you will need to
 explicitely specify the type for the last two options:
 
 ```python
->>> repo = Repository("my-dataset", clone_from="<user>/<dataset_id>", token=True, repo_type="dataset")
+>>> repo = Repository("my-dataset", clone_from="<user>/<dataset_id>", repo_type="dataset")
 ```
 
 You can also change between branches:
@@ -183,7 +179,6 @@ who will be the author of the commits:
 >>> repo = Repository(
 ...   "my-dataset",
 ...   clone_from="<user>/<dataset_id>",
-...   token=True,
 ...   repo_type="dataset",
 ...   git_user="MyName",
 ...   git_email="me@cool.mail"
@@ -226,7 +221,7 @@ These two methods also have support for the `blocking` parameter.
 
 Examples using the `commit` context manager:
 ```python
->>> with Repository("text-files", clone_from="<user>/text-files", token=True).commit("My first file :)"):
+>>> with Repository("text-files", clone_from="<user>/text-files").commit("My first file :)"):
 ...     with open("file.txt", "w+") as f:
 ...         f.write(json.dumps({"hey": 8}))
 ```
@@ -234,7 +229,7 @@ Examples using the `commit` context manager:
 ```python
 >>> import torch
 >>> model = torch.nn.Transformer()
->>> with Repository("torch-model", clone_from="<user>/torch-model", token=True).commit("My cool model :)"):
+>>> with Repository("torch-model", clone_from="<user>/torch-model").commit("My cool model :)"):
 ...     torch.save(model.state_dict(), "model.pt")
   ```
 
@@ -287,14 +282,14 @@ for git-lfs, bundled in this package.
 To install, just run:
 
 ```bash
-$ huggingface-cli lfs-enable-largefiles
+$ hf lfs-enable-largefiles .
 ```
 
 This should be executed once for each model repo that contains a model file
 >5GB. If you just try to push a file bigger than 5GB without running that
 command, you will get an error with a message reminding you to run it.
 
-Finally, there's a `huggingface-cli lfs-multipart-upload` command but that one
+Finally, there's a `hf lfs-multipart-upload` command but that one
 is internal (called by lfs directly) and is not meant to be called by the user.
 
 <br>

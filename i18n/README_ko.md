@@ -97,9 +97,9 @@ snapshot_download("stabilityai/stable-diffusion-2-1")
 Hugging Face Hub는 토큰을 사용하여 애플리케이션을 인증합니다([문서](https://huggingface.co/docs/hub/security-tokens) 참조). 컴퓨터에서 로그인하려면 CLI를 사용하세요:
 
 ```bash
-huggingface-cli login
+hf auth login
 # 또는 환경 변수로 지정해주세요
-huggingface-cli login --token $HUGGINGFACE_TOKEN
+hf auth login --token $HUGGINGFACE_TOKEN
 ```
 
 ### 레포지토리 생성

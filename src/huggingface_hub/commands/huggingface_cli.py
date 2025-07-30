@@ -14,6 +14,7 @@
 
 from argparse import ArgumentParser
 
+from huggingface_hub.commands._cli_utils import show_deprecation_warning
 from huggingface_hub.commands.delete_cache import DeleteCacheCommand
 from huggingface_hub.commands.download import DownloadCommand
 from huggingface_hub.commands.env import EnvironmentCommand
@@ -51,6 +52,7 @@ def main():
     # Let's go
     args = parser.parse_args()
     if not hasattr(args, "func"):
+        show_deprecation_warning("huggingface-cli", "hf")
         parser.print_help()
         exit(1)
 

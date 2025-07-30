@@ -41,7 +41,7 @@ from huggingface_hub.hf_api import HfApi
 
 from .._login import auth_list, auth_switch, login, logout
 from ..utils import get_stored_tokens, get_token, logging
-from ._cli_utils import ANSI
+from ._cli_utils import ANSI, show_deprecation_warning
 
 
 logger = logging.get_logger(__name__)
@@ -107,6 +107,8 @@ class BaseUserCommand:
 
 class LoginCommand(BaseUserCommand):
     def run(self):
+        show_deprecation_warning("huggingface-cli login", "hf auth login")
+
         logging.set_verbosity_info()
         login(
             token=self.args.token,
@@ -116,12 +118,16 @@ class LoginCommand(BaseUserCommand):
 
 class LogoutCommand(BaseUserCommand):
     def run(self):
+        show_deprecation_warning("huggingface-cli logout", "hf auth logout")
+
         logging.set_verbosity_info()
         logout(token_name=self.args.token_name)
 
 
 class AuthSwitchCommand(BaseUserCommand):
     def run(self):
+        show_deprecation_warning("huggingface-cli auth switch", "hf auth switch")
+
         logging.set_verbosity_info()
         token_name = self.args.token_name
         if token_name is None:
@@ -173,12 +179,16 @@ class AuthSwitchCommand(BaseUserCommand):
 
 class AuthListCommand(BaseUserCommand):
     def run(self):
+        show_deprecation_warning("huggingface-cli auth list", "hf auth list")
+
         logging.set_verbosity_info()
         auth_list()
 
 
 class WhoamiCommand(BaseUserCommand):
     def run(self):
+        show_deprecation_warning("huggingface-cli whoami", "hf auth whoami")
+
         token = get_token()
         if token is None:
             print("Not logged in")

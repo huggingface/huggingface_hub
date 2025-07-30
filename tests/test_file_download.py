@@ -45,6 +45,7 @@ from huggingface_hub.file_download import (
     try_to_load_from_cache,
 )
 from huggingface_hub.utils import SoftTemporaryDirectory, get_session, hf_raise_for_status, is_hf_transfer_available
+from huggingface_hub.utils._headers import build_hf_headers
 
 from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
 from .testing_utils import (
@@ -1124,13 +1125,13 @@ class TestNormalizeEtag(unittest.TestCase):
     @with_production_testing
     def test_resolve_endpoint_on_regular_file(self):
         url = "https://huggingface.co/gpt2/resolve/e7da7f221d5bf496a48136c0cd264e630fe9fcc8/README.md"
-        response = requests.head(url)
+        response = requests.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
         self.assertEqual(self._get_etag_and_normalize(response), "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930")
 
     @with_production_testing
     def test_resolve_endpoint_on_lfs_file(self):
         url = "https://huggingface.co/gpt2/resolve/e7da7f221d5bf496a48136c0cd264e630fe9fcc8/pytorch_model.bin"
-        response = requests.head(url)
+        response = requests.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
         self.assertEqual(
             self._get_etag_and_normalize(response), "7c5d3f4b8b76583b422fcb9189ad6c89d5d97a094541ce8932dce3ecabde1421"
         )
@@ -1205,6 +1206,7 @@ class TestEtagTimeoutConfig(unittest.TestCase):
 @with_production_testing
 class TestExtraLargeFileDownloadPaths(unittest.TestCase):
     @patch("huggingface_hub.file_download.constants.HF_HUB_ENABLE_HF_TRANSFER", False)
+    @patch("huggingface_hub.file_download.constants.HF_HUB_DISABLE_XET", True)
     def test_large_file_http_path_error(self):
         with SoftTemporaryDirectory() as cache_dir:
             with self.assertRaises(
@@ -1226,6 +1228,7 @@ class TestExtraLargeFileDownloadPaths(unittest.TestCase):
         "hf_transfer not installed, so skipping large file download with hf_transfer check.",
     )
     @patch("huggingface_hub.file_download.constants.HF_HUB_ENABLE_HF_TRANSFER", True)
+    @patch("huggingface_hub.file_download.constants.HF_HUB_DISABLE_XET", True)
     @patch("huggingface_hub.file_download.constants.MAX_HTTP_DOWNLOAD_SIZE", 44)
     @patch("huggingface_hub.file_download.constants.DOWNLOAD_CHUNK_SIZE", 2)  # make sure hf_download is used
     def test_large_file_download_with_hf_transfer(self):

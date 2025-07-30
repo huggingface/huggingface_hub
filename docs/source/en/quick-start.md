@@ -73,7 +73,7 @@ Tokens can have `read` or `write` permissions. Make sure to have a `write` acces
 The easiest way to authenticate is to save the token on your machine. You can do that from the terminal using the [`login`] command:
 
 ```bash
-huggingface-cli login
+hf auth login
 ```
 
 The command will tell you if you are already logged in and prompt you for your token. The token is then validated and saved in your `HF_HOME` directory (defaults to `~/.cache/huggingface/token`). Any script or library interacting with the Hub will use this token when sending requests.
@@ -85,7 +85,7 @@ Alternatively, you can programmatically login using [`login`] in a notebook or a
 >>> login()
 ```
 
-You can only be logged in to one account at a time. Logging in to a new account will automatically log you out of the previous one. To determine your currently active account, simply run the `huggingface-cli whoami` command.
+You can only be logged in to one account at a time. Logging in to a new account will automatically log you out of the previous one. To determine your currently active account, simply run the `hf auth whoami` command.
 
 <Tip warning={true}>
 
@@ -98,13 +98,13 @@ Once logged in, all requests to the Hub - even methods that don't necessarily re
 You can save multiple tokens on your machine by simply logging in with the [`login`] command with each token. If you need to switch between these tokens locally, you can use the [`auth switch`] command:
 
 ```bash
-huggingface-cli auth switch
+hf auth switch
 ```
 
 This command will prompt you to select a token by its name from a list of saved tokens. Once selected, the chosen token becomes the _active_ token, and it will be used for all interactions with the Hub.
 
 
-You can list all available access tokens on your machine with `huggingface-cli auth list`.
+You can list all available access tokens on your machine with `hf auth list`.
 
 ### Environment variable
 

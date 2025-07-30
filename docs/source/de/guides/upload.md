@@ -16,9 +16,9 @@ Wenn Sie Dateien auf den Hub hochladen möchten, müssen Sie sich bei Ihrem Hugg
 - Melden Sie sich bei Ihrem Hugging Face-Konto mit dem folgenden Befehl an:
 
   ```bash
-  huggingface-cli login
+  hf auth login
   # oder mit einer Umgebungsvariable
-  huggingface-cli login --token $HUGGINGFACE_TOKEN
+  hf auth login --token $HUGGINGFACE_TOKEN
   ```
 
 - Alternativ können Sie sich in einem Notebook oder einem Skript programmatisch mit [`login`] anmelden:
@@ -378,7 +378,7 @@ Für weitere Details zu dieser Empfehlung werfen Sie bitte einen Blick auf diese
 Git LFS verarbeitet automatisch Dateien, die größer als 10MB sind. Für sehr große Dateien (>5GB) müssen Sie jedoch einen benutzerdefinierten Transferagenten für Git LFS installieren:
 
 ```bash
-huggingface-cli lfs-enable-largefiles
+hf lfs-enable-largefiles .
 ```
 
 Sie sollten dies für jedes Repository installieren, das eine sehr große Datei enthält. Einmal installiert, können Sie Dateien hochladen, die größer als 5GB sind.

@@ -144,12 +144,12 @@ Don't worry about the `.cache/huggingface/` folder when committing changes to th
 
 ## Download from the CLI
 
-You can use the `huggingface-cli download` command from the terminal to directly download files from the Hub.
+You can use the `hf download` command from the terminal to directly download files from the Hub.
 Internally, it uses the same [`hf_hub_download`] and [`snapshot_download`] helpers described above and prints the
 returned path to the terminal.
 
 ```bash
->>> huggingface-cli download gpt2 config.json
+>>> hf download gpt2 config.json
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
@@ -157,12 +157,12 @@ You can download multiple files at once which displays a progress bar and return
 are located:
 
 ```bash
->>> huggingface-cli download gpt2 config.json model.safetensors
+>>> hf download gpt2 config.json model.safetensors
 Fetching 2 files: 100%|████████████████████████████████████████████| 2/2 [00:00<00:00, 23831.27it/s]
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
-For more details about the CLI download command, please refer to the [CLI guide](./cli#huggingface-cli-download).
+For more details about the CLI download command, please refer to the [CLI guide](./cli#hf-download).
 
 ## Faster downloads
 

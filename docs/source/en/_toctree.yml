@@ -26,6 +26,8 @@
       title: Inference
     - local: guides/inference_endpoints
       title: Inference Endpoints
+    - local: guides/jobs
+      title: Jobs
     - local: guides/community
       title: Community Tab
     - local: guides/collections
@@ -92,3 +94,5 @@
       title: Strict dataclasses
     - local: package_reference/oauth
       title: OAuth
+    - local: package_reference/jobs
+      title: Jobs

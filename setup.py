@@ -110,7 +110,7 @@ extras["quality"] = [
     "ruff>=0.9.0",
     "mypy>=1.14.1,<1.15.0; python_version=='3.8'",
     "mypy==1.15.0; python_version>='3.9'",
-    "libcst==1.4.0",
+    "libcst>=1.4.0",
 ]
 
 extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
@@ -134,6 +134,7 @@ setup(
     entry_points={
         "console_scripts": [
             "huggingface-cli=huggingface_hub.commands.huggingface_cli:main",
+            "hf=huggingface_hub.cli.hf:main",
             "tiny-agents=huggingface_hub.inference._mcp.cli:app",
         ],
         "fsspec.specs": "hf=huggingface_hub.HfFileSystem",
