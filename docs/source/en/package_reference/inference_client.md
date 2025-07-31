@@ -35,10 +35,6 @@ pip install --upgrade huggingface_hub[inference]
 
 [[autodoc]] InferenceTimeoutError
 
-### ModelStatus
-
-[[autodoc]] huggingface_hub.inference._common.ModelStatus
-
 ## InferenceAPI
 
 [`InferenceAPI`] is the legacy way to call the Inference API. The interface is more simplistic and requires knowing

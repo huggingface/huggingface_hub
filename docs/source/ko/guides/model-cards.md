@@ -188,7 +188,7 @@ print(card)
 
 ## 모델 카드 공유하기[[share-model-cards]]
 
-Hugging Face Hub로 인증받은 경우(`huggingface-cli login` 또는 [`login`] 사용) 간단히 [`ModelCard.push_to_hub`]를 호출하여 카드를 Hub에 푸시할 수 있습니다. 이를 수행하는 방법을 살펴보겠습니다.
+Hugging Face Hub로 인증받은 경우(`hf auth login` 또는 [`login`] 사용) 간단히 [`ModelCard.push_to_hub`]를 호출하여 카드를 Hub에 푸시할 수 있습니다. 이를 수행하는 방법을 살펴보겠습니다.
 
 먼저 인증된 사용자의 네임스페이스 아래에 'hf-hub-modelcards-pr-test'라는 새로운 레포지토리를 만듭니다:
 

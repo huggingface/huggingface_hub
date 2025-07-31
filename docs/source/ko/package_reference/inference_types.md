@@ -196,6 +196,18 @@ rendered properly in your Markdown viewer.
 
 
 
+## image_to_video[[huggingface_hub.ImageToVideoInput]]
+
+[[autodoc]] huggingface_hub.ImageToVideoInput
+
+[[autodoc]] huggingface_hub.ImageToVideoOutput
+
+[[autodoc]] huggingface_hub.ImageToVideoParameters
+
+[[autodoc]] huggingface_hub.ImageToVideoTargetSize
+
+
+
 ## object_detection[[huggingface_hub.ObjectDetectionBoundingBox]]
 
 [[autodoc]] huggingface_hub.ObjectDetectionBoundingBox

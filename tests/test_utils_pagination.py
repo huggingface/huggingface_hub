@@ -63,13 +63,11 @@ class TestPagination(unittest.TestCase):
             call("GET", "url_p3", max_retries=20, retry_on_status_codes=429, headers=mock_headers),
         ]
 
-    def test_paginate_github_api(self) -> None:
-        # Real test: paginate over huggingface repos on Github
+    def test_paginate_hf_api(self) -> None:
+        # Real test: paginate over huggingface models
         # Use enumerate and stop after first page to avoid loading all repos
-        for num, _ in enumerate(
-            paginate("https://api.github.com/orgs/huggingface/repos?limit=4", params={}, headers={})
-        ):
-            if num == 6:
+        for num, _ in enumerate(paginate("https://huggingface.co/api/models?limit=2", params={}, headers={})):
+            if num == 5:
                 break
         else:
-            self.fail("Did not get more than 6 repos")
+            self.fail("Did not get more than 5 repos")

@@ -145,7 +145,7 @@ Hugging Face 생태계의 모든 환경 변수를 표준화하기 위해 일부 
 
 ### NO_COLOR[[nocolor]]
 
-불리언 값입니다. 이 값을 설정하면 `huggingface-cli` 도구는 ANSI 색상을 출력하지 않습니다. [no-color.org](https://no-color.org/)를 참조하세요.
+불리언 값입니다. 이 값을 설정하면 `hf` 도구는 ANSI 색상을 출력하지 않습니다. [no-color.org](https://no-color.org/)를 참조하세요.
 
 ### XDG_CACHE_HOME[[xdgcachehome]]
 

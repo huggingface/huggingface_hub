@@ -11,12 +11,16 @@ from unittest.mock import patch
 import fsspec
 import pytest
 
-from huggingface_hub import hf_file_system
+from huggingface_hub import constants, hf_file_system
 from huggingface_hub.errors import RepositoryNotFoundError, RevisionNotFoundError
-from huggingface_hub.hf_file_system import HfFileSystem, HfFileSystemFile, HfFileSystemStreamFile
+from huggingface_hub.hf_file_system import (
+    HfFileSystem,
+    HfFileSystemFile,
+    HfFileSystemStreamFile,
+)
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
-from .testing_utils import repo_name
+from .testing_utils import repo_name, with_production_testing
 
 
 class HfFileSystemTests(unittest.TestCase):
@@ -612,3 +616,13 @@ def test_exists_after_repo_deletion():
     api.delete_repo(repo_id=repo_id, repo_type="model")
     # Verify that the repo no longer exists.
     assert not hffs.exists(repo_id, refresh=True)
+
+
+@with_production_testing
+def test_hf_file_system_file_can_handle_gzipped_file():
+    """Test that HfFileSystemStreamFile.read() can handle gzipped files."""
+    fs = HfFileSystem(endpoint=constants.ENDPOINT)
+    # As of July 2025, the math_qa.py file is gzipped when queried from production:
+    with fs.open("datasets/allenai/math_qa/math_qa.py", "r", encoding="utf-8") as f:
+        out = f.read()
+    assert "class MathQa" in out

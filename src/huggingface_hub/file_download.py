@@ -317,9 +317,6 @@ def _get_file_length_from_http_response(response: requests.Response) -> Optional
 
     This function extracts the file size from the HTTP response headers, either from the
     `Content-Range` or `Content-Length` header, if available (in that order).
-        The HTTP response object containing the headers.
-        `int` or `None`: The length of the file in bytes if the information is available,
-        otherwise `None`.
 
     Args:
         response (`requests.Response`):
@@ -328,6 +325,15 @@ def _get_file_length_from_http_response(response: requests.Response) -> Optional
     Returns:
         `int` or `None`: The length of the file in bytes, or None if not available.
     """
+
+    # If HTTP response contains compressed body (e.g. gzip), the `Content-Length` header will
+    # contain the length of the compressed body, not the uncompressed file size.
+    # And at the start of transmission there's no way to know the uncompressed file size for gzip,
+    # thus we return None in that case.
+    content_encoding = response.headers.get("Content-Encoding", "identity").lower()
+    if content_encoding != "identity":
+        # gzip/br/deflate/zstd etc
+        return None
 
     content_range = response.headers.get("Content-Range")
     if content_range is not None:
@@ -422,11 +428,7 @@ def http_get(
     )
 
     hf_raise_for_status(r)
-    content_length = _get_file_length_from_http_response(r)
-
-    # NOTE: 'total' is the total number of bytes to download, not the number of bytes in the file.
-    #       If the file is compressed, the number of bytes in the saved file will be higher than 'total'.
-    total = resume_size + int(content_length) if content_length is not None else None
+    total: Optional[int] = _get_file_length_from_http_response(r)
 
     if displayed_filename is None:
         displayed_filename = url
@@ -1136,10 +1138,18 @@ def _hf_hub_download_to_cache_dir(
 
     # Some Windows versions do not allow for paths longer than 255 characters.
     # In this case, we must specify it as an extended path by using the "\\?\" prefix.
-    if os.name == "nt" and len(os.path.abspath(lock_path)) > 255:
+    if (
+        os.name == "nt"
+        and len(os.path.abspath(lock_path)) > 255
+        and not os.path.abspath(lock_path).startswith("\\\\?\\")
+    ):
         lock_path = "\\\\?\\" + os.path.abspath(lock_path)
 
-    if os.name == "nt" and len(os.path.abspath(blob_path)) > 255:
+    if (
+        os.name == "nt"
+        and len(os.path.abspath(blob_path)) > 255
+        and not os.path.abspath(blob_path).startswith("\\\\?\\")
+    ):
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)

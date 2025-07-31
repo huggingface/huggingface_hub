@@ -181,7 +181,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
     def test_whoami_with_implicit_token_from_login(self, mock_get_token: Mock) -> None:
-        """Test using `whoami` after a `huggingface-cli login`."""
+        """Test using `whoami` after a `hf auth login`."""
         with patch.object(self._api, "token", None):  # no default token
             info = self._api.whoami()
         self.assertEqual(info["name"], USER)
@@ -2784,9 +2784,9 @@ class HfLargefilesTest(HfApiCommonTest):
             cwd=self.cache_dir,
         )
         self.assertEqual(failed_process.returncode, 1)
-        self.assertIn("cli lfs-enable-largefiles", failed_process.stderr.decode())
+        self.assertIn('Run "hf lfs-enable-largefiles ./path/to/your/repo"', failed_process.stderr.decode())
         # ^ Instructions on how to fix this are included in the error message.
-        subprocess.run(["huggingface-cli", "lfs-enable-largefiles", self.cache_dir], check=True)
+        subprocess.run(["hf", "lfs-enable-largefiles", self.cache_dir], check=True)
 
         start_time = time.time()
         subprocess.run(["git", "push"], check=True, cwd=self.cache_dir)
@@ -2823,7 +2823,7 @@ class HfLargefilesTest(HfApiCommonTest):
         )
         subprocess.run(["git", "add", "*"], check=True, cwd=self.cache_dir)
         subprocess.run(["git", "commit", "-m", "both files in same commit"], check=True, cwd=self.cache_dir)
-        subprocess.run(["huggingface-cli", "lfs-enable-largefiles", self.cache_dir], check=True)
+        subprocess.run(["hf", "lfs-enable-largefiles", self.cache_dir], check=True)
 
         start_time = time.time()
         subprocess.run(["git", "push"], check=True, cwd=self.cache_dir)

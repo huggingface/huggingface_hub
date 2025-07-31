@@ -6,7 +6,7 @@ import time
 import urllib.parse
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
 
 from . import constants
 from .hf_api import whoami
@@ -39,10 +39,8 @@ class OAuthOrgInfo:
             Whether the org has a payment method set up. Hugging Face field.
         role_in_org (`Optional[str]`, *optional*):
             The user's role in the org. Hugging Face field.
-        pending_sso (`Optional[bool]`, *optional*):
-            Indicates if the user granted the OAuth app access to the org but didn't complete SSO. Hugging Face field.
-        missing_mfa (`Optional[bool]`, *optional*):
-            Indicates if the user granted the OAuth app access to the org but didn't complete MFA. Hugging Face field.
+        security_restrictions (`Optional[List[Literal["ip", "token-policy", "mfa", "sso"]]]`, *optional*):
+            Array of security restrictions that the user hasn't completed for this org. Possible values: "ip", "token-policy", "mfa", "sso". Hugging Face field.
     """
 
     sub: str
@@ -52,8 +50,7 @@ class OAuthOrgInfo:
     is_enterprise: bool
     can_pay: Optional[bool] = None
     role_in_org: Optional[str] = None
-    pending_sso: Optional[bool] = None
-    missing_mfa: Optional[bool] = None
+    security_restrictions: Optional[List[Literal["ip", "token-policy", "mfa", "sso"]]] = None
 
 
 @dataclass
@@ -221,8 +218,7 @@ def parse_huggingface_oauth(request: "fastapi.Request") -> Optional[OAuthInfo]:
                 is_enterprise=org.get("isEnterprise"),
                 can_pay=org.get("canPay"),
                 role_in_org=org.get("roleInOrg"),
-                pending_sso=org.get("pendingSSO"),
-                missing_mfa=org.get("missingMFA"),
+                security_restrictions=org.get("securityRestrictions"),
             )
             for org in orgs_data
         ]
@@ -415,7 +411,7 @@ def _get_mocked_oauth_info() -> Dict:
     if token is None:
         raise ValueError(
             "Your machine must be logged in to HF to debug an OAuth app locally. Please"
-            " run `huggingface-cli login` or set `HF_TOKEN` as environment variable "
+            " run `hf auth login` or set `HF_TOKEN` as environment variable "
             "with one of your access token. You can generate a new token in your "
             "settings page (https://huggingface.co/settings/tokens)."
         )

@@ -45,7 +45,7 @@ def _requires_keras_2_model(fn: CallableT) -> CallableT:
         if not hasattr(model, "history"):  # hacky way to check if model is Keras 2.x
             raise NotImplementedError(
                 f"Cannot use '{fn.__name__}': Keras 3.x is not supported."
-                " Please save models manually and upload them using `upload_folder` or `huggingface-cli upload`."
+                " Please save models manually and upload them using `upload_folder` or `hf upload`."
             )
         return fn(model, *args, **kwargs)
 
@@ -338,7 +338,7 @@ def push_to_hub_keras(
         token (`str`, *optional*):
             The token to use as HTTP bearer authorization for remote files. If
             not set, will use the token set when logging in with
-            `huggingface-cli login` (stored in `~/.huggingface`).
+            `hf auth login` (stored in `~/.huggingface`).
         branch (`str`, *optional*):
             The git branch on which to push the model. This defaults to
             the default branch as specified in your repository, which
