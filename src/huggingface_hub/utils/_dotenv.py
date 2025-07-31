@@ -35,6 +35,7 @@ def load_dotenv(dotenv_str: str, environ: Optional[Dict[str, str]] = None) -> Di
         match = line_pattern.match(line)
         if match:
             key = match.group(1)
+            val = None
             if match.group(2):  # if there is '='
                 raw_val = match.group(3) or ""
                 val = raw_val.strip()
@@ -44,12 +45,11 @@ def load_dotenv(dotenv_str: str, environ: Optional[Dict[str, str]] = None) -> Di
                     val = val.replace(r"\n", "\n").replace(r"\t", "\t").replace(r"\"", '"').replace(r"\\", "\\")
                     if raw_val.startswith('"'):
                         val = val.replace(r"\$", "$")  # only in double quotes
-            elif environ is not None and key in environ:
+            elif environ is not None:
                 # Get it from the current environment
-                val = environ[key]
-            else:
-                continue
+                val = environ.get(key)
 
-            env[key] = val
+            if val is not None:
+                env[key] = val
 
     return env
