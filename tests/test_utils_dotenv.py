@@ -62,3 +62,15 @@ def test_multiple_lines():
     D=4
     """
     assert load_dotenv(data) == {"A": "1", "B": "two", "C": "three", "D": "4"}
+
+
+def test_environ():
+    data = """
+    A=1
+    B
+    C=3
+    MISSING
+    EMPTY
+    """
+    environ = {"A": "one", "B": "two", "D": "four", "EMPTY": ""}
+    assert load_dotenv(data, environ=environ) == {"A": "1", "B": "two", "C": "3", "EMPTY": ""}
