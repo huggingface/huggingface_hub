@@ -132,7 +132,11 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
+from .utils._auth import (
+    _get_token_from_environment,
+    _get_token_from_file,
+    _get_token_from_google_colab,
+)
 from .utils._deprecation import _deprecate_method
 from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
