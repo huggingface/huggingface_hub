@@ -611,7 +611,7 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 
 ```bash
 # Directly run Python code
->>> hf jobs run python:3.12 python -c "print('Hello from the cloud!')"
+>>> hf jobs run python:3.12 python -c 'print("Hello from the cloud!")'
 
 # Use GPUs without any setup
 >>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
