@@ -141,7 +141,7 @@ def upload_large_folder_internal(
 
     # Check 2: Files per folder
     files_per_folder = Counter(str(Path(paths.path_in_repo).parent) for paths in paths_list)
-    
+
     for folder, count in files_per_folder.items():
         if count > MAX_FILES_PER_FOLDER:
             logger.warning(
@@ -157,7 +157,7 @@ def upload_large_folder_internal(
     for paths in paths_list:
         size = paths.file_path.stat().st_size
         size_gb = size / (1024**3)
-        
+
         if size_gb > MAX_FILE_SIZE_GB:
             very_large_files.append((paths.path_in_repo, size_gb))
         elif size_gb > RECOMMENDED_FILE_SIZE_GB:
