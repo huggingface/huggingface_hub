@@ -10,9 +10,7 @@ class XetProgressReporter:
     """
     Reports on progress for Xet uploads.
 
-    If per_file_progress is True, then per-file progress is shown in a scrolling list.  Otherwise,
-    only the summary bars showing file processing progress and data upload are shown.  By default,
-    the summary version is shown in notebooks and guis and the detailed file progress is shown in consoles.
+    Shows summary progress bars when running in notebooks or GUIs, and detailed per-file progress in console environments.
     """
 
     def __init__(self, n_lines: int = 10, description_width: int = 30):
