@@ -19,10 +19,7 @@ class XetProgressReporter:
         self.n_lines = n_lines
         self.description_width = description_width
 
-        if per_file_progress is None:
-            self.per_file_progress = tqdm.in_console()
-        else:
-            self.per_file_progress = per_file_progress
+        self.per_file_progress = is_google_colab() or not is_notebook()
 
         self.tqdm_settings = {
             "unit": "B",
