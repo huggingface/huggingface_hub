@@ -15,7 +15,7 @@ class XetProgressReporter:
     the summary version is shown in notebooks and guis and the detailed file progress is shown in consoles.
     """
 
-    def __init__(self, n_lines: int = 10, description_width: int = 30, per_file_progress=None):
+    def __init__(self, n_lines: int = 10, description_width: int = 30):
         self.n_lines = n_lines
         self.description_width = description_width
 
