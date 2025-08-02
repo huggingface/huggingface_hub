@@ -66,9 +66,12 @@ class JobOwner:
 
     @classmethod
     def from_dict(cls, data: dict) -> "JobOwner":
+        name = data.get("name")
+        if name is None:
+            raise ValueError("JobOwner requires 'name' field")
         return cls(
             id=data.get("_id"),
-            name=data.get("name"),
+            name=name,
             fullname=data.get("fullname"),
             avatar_url=data.get("avatarUrl"),
             type=data.get("type"),
@@ -163,4 +166,7 @@ class JobInfo:
 
         # Inferred fields
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)
-        self.url = f"{self.endpoint}/jobs/{self.owner.name}/{self.id}"
+        if self.owner:
+            self.url = f"{self.endpoint}/jobs/{self.owner.name}/{self.id}"
+        else:
+            self.url = f"{self.endpoint}/jobs/{self.id}"
