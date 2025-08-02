@@ -51,11 +51,31 @@ class JobStatus:
         self.stage = kwargs["stage"]
         self.message = kwargs.get("message")
 
-
 @dataclass
 class JobOwner:
-    id: str
     name: str
+    id: Optional[str] = None
+    fullname: Optional[str] = None
+    avatar_url: Optional[str] = None
+    type: Optional[str] = None
+    is_pro: Optional[bool] = None
+    is_hf: Optional[bool] = None
+    is_enterprise: Optional[bool] = None
+    follower_count: Optional[int] = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'JobOwner':
+        return cls(
+            id=data.get('_id'),
+            name=data.get('name'),
+            fullname=data.get('fullname'),
+            avatar_url=data.get('avatarUrl'),
+            type=data.get('type'),
+            is_pro=data.get('isPro'),
+            is_hf=data.get('isHf'),
+            is_enterprise=data.get('isEnterprise'),
+            follower_count=data.get('followerCount')
+        )
 
 
 @dataclass
@@ -132,7 +152,7 @@ class JobInfo:
         self.created_at = parse_datetime(created_at) if created_at else None
         self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
         self.space_id = kwargs.get("spaceId") or kwargs.get("space_id")
-        self.owner = JobOwner(**(kwargs["owner"] if isinstance(kwargs.get("owner"), dict) else {}))
+        self.owner = JobOwner.from_dict(kwargs["owner"]) if isinstance(kwargs.get("owner"), dict) else None
         self.command = kwargs.get("command")
         self.arguments = kwargs.get("arguments")
         self.environment = kwargs.get("environment")
