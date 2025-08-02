@@ -51,6 +51,7 @@ class JobStatus:
         self.stage = kwargs["stage"]
         self.message = kwargs.get("message")
 
+
 @dataclass
 class JobOwner:
     name: str
@@ -64,17 +65,17 @@ class JobOwner:
     follower_count: Optional[int] = None
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'JobOwner':
+    def from_dict(cls, data: dict) -> "JobOwner":
         return cls(
-            id=data.get('_id'),
-            name=data.get('name'),
-            fullname=data.get('fullname'),
-            avatar_url=data.get('avatarUrl'),
-            type=data.get('type'),
-            is_pro=data.get('isPro'),
-            is_hf=data.get('isHf'),
-            is_enterprise=data.get('isEnterprise'),
-            follower_count=data.get('followerCount')
+            id=data.get("_id"),
+            name=data.get("name"),
+            fullname=data.get("fullname"),
+            avatar_url=data.get("avatarUrl"),
+            type=data.get("type"),
+            is_pro=data.get("isPro"),
+            is_hf=data.get("isHf"),
+            is_enterprise=data.get("isEnterprise"),
+            follower_count=data.get("followerCount"),
         )
 
 
