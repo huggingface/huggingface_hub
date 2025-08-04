@@ -88,8 +88,7 @@ This feature is pay-as-you-go: you only pay for the seconds you use.
 
 <Tip warning>
 
-**Important**: Jobs have a default timeout that will automatically stop the job after a certain period. For long-running tasks like model training, make sure to set a custom timeout using the `timeout` parameter. See [Configure Job Timeout](#configure-job-timeout) for details.
-
+**Important**: Jobs have a default timeout (30 minutes), after which they will automatically stop. For long-running tasks like model training, make sure to set a custom timeout using the `timeout` parameter. See [Configure Job Timeout](#configure-job-timeout) for details.
 </Tip>
 
 [`run_job`] returns the [`JobInfo`] which has the URL of the Job on Hugging Face, where you can see the Job status and the logs.
