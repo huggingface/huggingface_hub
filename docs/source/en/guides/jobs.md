@@ -202,7 +202,7 @@ That's it! You're now running code on Hugging Face's infrastructure.
 
 ## Configure Job Timeout
 
-Jobs have a default timeout that will automatically stop the job after a certain period. This is important to know when running long-running tasks like model training.
+Jobs have a default timeout (30 minutes), after which they will automatically stop. This is important to know when running long-running tasks like model training.
 
 ### Setting a custom timeout
 
