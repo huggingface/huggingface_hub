@@ -2,8 +2,8 @@ from collections import OrderedDict
 from typing import List
 
 from hf_xet import PyItemProgressUpdate, PyTotalProgressUpdate
-from huggingface_hub.utils import is_google_colab, is_notebook
 
+from . import is_google_colab, is_notebook
 from .tqdm import tqdm
 
 
