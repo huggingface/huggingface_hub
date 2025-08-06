@@ -83,36 +83,50 @@ def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
         )
 
     # Check 2: Files and subdirectories per folder
-    # Count both files and subdirectories in each folder
-    entries_per_folder = Counter()
+    # Track immediate children (files and subdirs) for each folder
+    from collections import defaultdict
+    entries_per_folder = defaultdict(lambda: {"files": 0, "subdirs": set()})
     
     for paths in paths_list:
-        # Count this file in its parent directory
-        parent = str(Path(paths.path_in_repo).parent)
-        entries_per_folder[parent] += 1
+        path = Path(paths.path_in_repo)
+        parts = path.parts
         
-        # Also count all parent directories that contain subdirectories
-        parts = Path(paths.path_in_repo).parts
-        for i in range(len(parts) - 1):
-            # Build the path for each parent directory
+        # Count this file in its immediate parent directory
+        parent = str(path.parent) if str(path.parent) != "." else "."
+        entries_per_folder[parent]["files"] += 1
+        
+        # Track immediate subdirectories for each parent folder
+        # Walk through the path components to track parent-child relationships
+        for i in range(len(parts) - 1):  # -1 because last part is the filename
             if i == 0:
-                parent_path = "."
+                # First part is a direct subdirectory of root
+                parent = "."
+                child = parts[0]
             else:
-                parent_path = str(Path(*parts[:i]))
-            # Count the subdirectory in its parent
-            subdir_path = str(Path(*parts[:i+1]))
-            # Use a set-like key to avoid double counting subdirectories
-            key = f"{parent_path}::{subdir_path}"
-            if key not in entries_per_folder:
-                entries_per_folder[parent_path] += 1
-                entries_per_folder[key] = True  # Mark as counted
-
-    # Filter out the marker keys and check limits
-    for folder, count in entries_per_folder.items():
-        if "::" not in folder and isinstance(count, int) and count > MAX_FILES_PER_FOLDER:
+                # For nested paths, parent is everything up to index i
+                parent = str(Path(*parts[:i]))
+                child = parts[i]
+            
+            # Track this child as a subdirectory of its parent
+            entries_per_folder[parent]["subdirs"].add(child)
+    
+    # Check limits for each folder
+    for folder, data in entries_per_folder.items():
+        file_count = data["files"]
+        subdir_count = len(data["subdirs"])
+        total_entries = file_count + subdir_count
+        
+        if total_entries > MAX_FILES_PER_FOLDER:
             folder_display = folder if folder != "." else "root"
+            details = []
+            if file_count > 0:
+                details.append(f"{file_count:,} files")
+            if subdir_count > 0:
+                details.append(f"{subdir_count:,} subdirectories")
+            details_str = " and ".join(details)
+            
             logger.warning(
-                f"Folder '{folder_display}' contains {count:,} entries (files and/or subdirectories). "
+                f"Folder '{folder_display}' contains {total_entries:,} entries ({details_str}). "
                 f"This exceeds the recommended limit of {MAX_FILES_PER_FOLDER:,} entries per folder.\n"
                 f"Consider reorganizing into subfolders."
             )
