@@ -21,7 +21,6 @@ import sys
 import threading
 import time
 import traceback
-from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
@@ -60,10 +59,10 @@ RECOMMENDED_FILE_SIZE_GB = 20  # Recommended maximum for individual file size
 def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
     """
     Validate upload against repository limits and warn about potential issues.
-    
+
     Args:
         paths_list: List of file paths to be uploaded
-    
+
     Warns about:
         - Too many files in the repository (>100k)
         - Too many entries (files or subdirectories) in a single folder (>10k)
@@ -86,15 +85,15 @@ def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
     # Track immediate children (files and subdirs) for each folder
     from collections import defaultdict
     entries_per_folder = defaultdict(lambda: {"files": 0, "subdirs": set()})
-    
+
     for paths in paths_list:
         path = Path(paths.path_in_repo)
         parts = path.parts
-        
+
         # Count this file in its immediate parent directory
         parent = str(path.parent) if str(path.parent) != "." else "."
         entries_per_folder[parent]["files"] += 1
-        
+
         # Track immediate subdirectories for each parent folder
         # Walk through the path components to track parent-child relationships
         for i in range(len(parts) - 1):  # -1 because last part is the filename
@@ -106,16 +105,16 @@ def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
                 # For nested paths, parent is everything up to index i
                 parent = str(Path(*parts[:i]))
                 child = parts[i]
-            
+
             # Track this child as a subdirectory of its parent
             entries_per_folder[parent]["subdirs"].add(child)
-    
+
     # Check limits for each folder
     for folder, data in entries_per_folder.items():
         file_count = data["files"]
         subdir_count = len(data["subdirs"])
         total_entries = file_count + subdir_count
-        
+
         if total_entries > MAX_FILES_PER_FOLDER:
             folder_display = folder if folder != "." else "root"
             details = []
@@ -124,7 +123,7 @@ def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
             if subdir_count > 0:
                 details.append(f"{subdir_count:,} subdirectories")
             details_str = " and ".join(details)
-            
+
             logger.warning(
                 f"Folder '{folder_display}' contains {total_entries:,} entries ({details_str}). "
                 f"This exceeds the recommended limit of {MAX_FILES_PER_FOLDER:,} entries per folder.\n"
@@ -237,7 +236,7 @@ def upload_large_folder_internal(
 
     # Validate upload against repository limits
     _validate_upload_limits(paths_list)
-    
+
     logger.info("Starting upload...")
 
     # Read metadata for each file
