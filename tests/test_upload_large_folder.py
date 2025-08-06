@@ -51,6 +51,7 @@ class TestValidateUploadLimits(unittest.TestCase):
 
     class MockPath:
         """Mock object to simulate LocalUploadFilePaths."""
+
         def __init__(self, path_in_repo, size_bytes=1000):
             self.path_in_repo = path_in_repo
             self.file_path = MagicMock()
