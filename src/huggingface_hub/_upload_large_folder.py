@@ -24,7 +24,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import quote
 
 from . import constants
@@ -85,7 +85,7 @@ def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
     # Track immediate children (files and subdirs) for each folder
     from collections import defaultdict
 
-    entries_per_folder = defaultdict(lambda: {"files": 0, "subdirs": set()})
+    entries_per_folder: Dict[str, Any] = defaultdict(lambda: {"files": 0, "subdirs": set()})
 
     for paths in paths_list:
         path = Path(paths.path_in_repo)
