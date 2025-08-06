@@ -234,10 +234,18 @@ class tqdm(old_tqdm, metaclass=SafeDelLockMeta):
     """
 
     def __init__(self, *args, **kwargs):
-        if are_progress_bars_disabled():
+        name = kwargs.pop("name", None)  # do not pass `name` to `tqdm`
+        if are_progress_bars_disabled(name):
             kwargs["disable"] = True
         super().__init__(*args, **kwargs)
 
+    def __delattr__(self, attr: str) -> None:
+        """Fix for https://github.com/huggingface/huggingface_hub/issues/1603"""
+        try:
+            super().__delattr__(attr)
+        except AttributeError:
+            if attr != "_lock":
+                raise
 
 @contextmanager
 def tqdm_stream_file(path: Union[Path, str]) -> Iterator[io.BufferedReader]:
