@@ -57,6 +57,102 @@ MAX_FILE_SIZE_GB = 50  # Hard limit for individual file size
 RECOMMENDED_FILE_SIZE_GB = 20  # Recommended maximum for individual file size
 
 
+def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
+    """
+    Validate upload against repository limits and warn about potential issues.
+    
+    Args:
+        paths_list: List of file paths to be uploaded
+    
+    Warns about:
+        - Too many files in the repository (>100k)
+        - Too many entries (files or subdirectories) in a single folder (>10k)
+        - Files exceeding size limits (>20GB recommended, >50GB hard limit)
+    """
+    logger.info("Running validation checks on files to upload...")
+
+    # Check 1: Total file count
+    if len(paths_list) > MAX_FILES_PER_REPO:
+        logger.warning(
+            f"You are about to upload {len(paths_list):,} files. "
+            f"This exceeds the recommended limit of {MAX_FILES_PER_REPO:,} files per repository.\n"
+            f"Consider:\n"
+            f"  - Splitting your data into multiple repositories\n"
+            f"  - Using fewer, larger files (e.g., parquet files)\n"
+            f"  - See: https://huggingface.co/docs/hub/repositories-recommendations"
+        )
+
+    # Check 2: Files and subdirectories per folder
+    # Count both files and subdirectories in each folder
+    entries_per_folder = Counter()
+    
+    for paths in paths_list:
+        # Count this file in its parent directory
+        parent = str(Path(paths.path_in_repo).parent)
+        entries_per_folder[parent] += 1
+        
+        # Also count all parent directories that contain subdirectories
+        parts = Path(paths.path_in_repo).parts
+        for i in range(len(parts) - 1):
+            # Build the path for each parent directory
+            if i == 0:
+                parent_path = "."
+            else:
+                parent_path = str(Path(*parts[:i]))
+            # Count the subdirectory in its parent
+            subdir_path = str(Path(*parts[:i+1]))
+            # Use a set-like key to avoid double counting subdirectories
+            key = f"{parent_path}::{subdir_path}"
+            if key not in entries_per_folder:
+                entries_per_folder[parent_path] += 1
+                entries_per_folder[key] = True  # Mark as counted
+
+    # Filter out the marker keys and check limits
+    for folder, count in entries_per_folder.items():
+        if "::" not in folder and isinstance(count, int) and count > MAX_FILES_PER_FOLDER:
+            folder_display = folder if folder != "." else "root"
+            logger.warning(
+                f"Folder '{folder_display}' contains {count:,} entries (files and/or subdirectories). "
+                f"This exceeds the recommended limit of {MAX_FILES_PER_FOLDER:,} entries per folder.\n"
+                f"Consider reorganizing into subfolders."
+            )
+
+    # Check 3: File sizes
+    large_files = []
+    very_large_files = []
+
+    for paths in paths_list:
+        size = paths.file_path.stat().st_size
+        size_gb = size / 1_000_000_000  # Use decimal GB as per Hub limits
+
+        if size_gb > MAX_FILE_SIZE_GB:
+            very_large_files.append((paths.path_in_repo, size_gb))
+        elif size_gb > RECOMMENDED_FILE_SIZE_GB:
+            large_files.append((paths.path_in_repo, size_gb))
+
+    # Warn about very large files (>50GB)
+    if very_large_files:
+        files_str = "\n  - ".join(f"{path}: {size:.1f}GB" for path, size in very_large_files[:5])
+        more_str = f"\n  ... and {len(very_large_files) - 5} more files" if len(very_large_files) > 5 else ""
+        logger.warning(
+            f"Found {len(very_large_files)} files exceeding the {MAX_FILE_SIZE_GB}GB hard limit:\n"
+            f"  - {files_str}{more_str}\n"
+            f"These files may fail to upload. Consider splitting them into smaller chunks."
+        )
+
+    # Warn about large files (>20GB)
+    if large_files:
+        files_str = "\n  - ".join(f"{path}: {size:.1f}GB" for path, size in large_files[:5])
+        more_str = f"\n  ... and {len(large_files) - 5} more files" if len(large_files) > 5 else ""
+        logger.warning(
+            f"Found {len(large_files)} files larger than {RECOMMENDED_FILE_SIZE_GB}GB (recommended limit):\n"
+            f"  - {files_str}{more_str}\n"
+            f"Large files may slow down loading and processing."
+        )
+
+    logger.info("Validation checks complete.")
+
+
 def upload_large_folder_internal(
     api: "HfApi",
     repo_id: str,
@@ -125,65 +221,10 @@ def upload_large_folder_internal(
     paths_list = [get_local_upload_paths(folder_path, relpath) for relpath in filtered_paths_list]
     logger.info(f"Found {len(paths_list)} candidate files to upload")
 
-    # Validation checks for repository limits
-    logger.info("Running validation checks on files to upload...")
-
-    # Check 1: Total file count
-    if len(paths_list) > MAX_FILES_PER_REPO:
-        logger.warning(
-            f"You are about to upload {len(paths_list):,} files. "
-            f"This exceeds the recommended limit of {MAX_FILES_PER_REPO:,} files per repository.\n"
-            f"Consider:\n"
-            f"  - Splitting your data into multiple repositories\n"
-            f"  - Using fewer, larger files (e.g., parquet files)\n"
-            f"  - See: https://huggingface.co/docs/hub/repositories-recommendations"
-        )
-
-    # Check 2: Files per folder
-    files_per_folder = Counter(str(Path(paths.path_in_repo).parent) for paths in paths_list)
-
-    for folder, count in files_per_folder.items():
-        if count > MAX_FILES_PER_FOLDER:
-            logger.warning(
-                f"Folder '{folder}' contains {count:,} files. "
-                f"This exceeds the recommended limit of {MAX_FILES_PER_FOLDER:,} files per folder.\n"
-                f"Consider reorganizing into subfolders."
-            )
-
-    # Check 3: File sizes
-    large_files = []
-    very_large_files = []
-
-    for paths in paths_list:
-        size = paths.file_path.stat().st_size
-        size_gb = size / (1024**3)
-
-        if size_gb > MAX_FILE_SIZE_GB:
-            very_large_files.append((paths.path_in_repo, size_gb))
-        elif size_gb > RECOMMENDED_FILE_SIZE_GB:
-            large_files.append((paths.path_in_repo, size_gb))
-
-    # Warn about very large files (>50GB)
-    if very_large_files:
-        files_str = "\n  - ".join(f"{path}: {size:.1f}GB" for path, size in very_large_files[:5])
-        more_str = f"\n  ... and {len(very_large_files) - 5} more files" if len(very_large_files) > 5 else ""
-        logger.warning(
-            f"Found {len(very_large_files)} files exceeding the {MAX_FILE_SIZE_GB}GB hard limit:\n"
-            f"  - {files_str}{more_str}\n"
-            f"These files may fail to upload. Consider splitting them into smaller chunks."
-        )
-
-    # Warn about large files (>20GB)
-    if large_files:
-        files_str = "\n  - ".join(f"{path}: {size:.1f}GB" for path, size in large_files[:5])
-        more_str = f"\n  ... and {len(large_files) - 5} more files" if len(large_files) > 5 else ""
-        logger.warning(
-            f"Found {len(large_files)} files larger than {RECOMMENDED_FILE_SIZE_GB}GB (recommended limit):\n"
-            f"  - {files_str}{more_str}\n"
-            f"Large files may slow down loading and processing."
-        )
-
-    logger.info("Validation checks complete. Starting upload...")
+    # Validate upload against repository limits
+    _validate_upload_limits(paths_list)
+    
+    logger.info("Starting upload...")
 
     # Read metadata for each file
     items = [
