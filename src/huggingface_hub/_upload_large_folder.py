@@ -135,7 +135,7 @@ def upload_large_folder_internal(
             f"This exceeds the recommended limit of {MAX_FILES_PER_REPO:,} files per repository.\n"
             f"Consider:\n"
             f"  - Splitting your data into multiple repositories\n"
-            f"  - Using fewer, larger files (e.g., tar archives)\n"
+            f"  - Using fewer, larger files (e.g., parquet files)\n"
             f"  - See: https://huggingface.co/docs/hub/repositories-recommendations"
         )
 
