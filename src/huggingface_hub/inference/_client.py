@@ -1356,7 +1356,7 @@ class InferenceClient:
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
-                The input image for translation. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
+                The input image to generate a video from. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
