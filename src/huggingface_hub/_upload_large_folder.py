@@ -97,17 +97,8 @@ def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
 
         # Track immediate subdirectories for each parent folder
         # Walk through the path components to track parent-child relationships
-        for i in range(len(parts) - 1):  # -1 because last part is the filename
-            if i == 0:
-                # First part is a direct subdirectory of root
-                parent = "."
-                child = parts[0]
-            else:
-                # For nested paths, parent is everything up to index i
-                parent = str(Path(*parts[:i]))
-                child = parts[i]
-
-            # Track this child as a subdirectory of its parent
+        for i, child in enumerate(parts[:-1]):           
+            parent = "." if i == 0 else "/".join(parts[:i])
             entries_per_folder[parent]["subdirs"].add(child)
 
     # Check limits for each folder
