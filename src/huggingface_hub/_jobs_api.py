@@ -57,6 +57,7 @@ class JobOwner:
     id: str
     name: str
     type: str
+    avatarUrl: str
 
 
 @dataclass
