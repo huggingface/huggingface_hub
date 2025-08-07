@@ -56,6 +56,7 @@ class JobStatus:
 class JobOwner:
     id: str
     name: str
+    type: str
 
 
 @dataclass
