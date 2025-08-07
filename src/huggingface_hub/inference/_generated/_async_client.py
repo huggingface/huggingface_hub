@@ -65,6 +65,7 @@ from huggingface_hub.inference._generated.types import (
     ImageSegmentationSubtask,
     ImageToImageTargetSize,
     ImageToTextOutput,
+    ImageToVideoTargetSize,
     ObjectDetectionOutputElement,
     Padding,
     QuestionAnsweringOutputElement,
@@ -1394,7 +1395,7 @@ class AsyncInferenceClient:
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
         seed: Optional[int] = None,
-        target_size: Optional[ImageToImageTargetSize] = None,
+        target_size: Optional[ImageToVideoTargetSize] = None,
         **kwargs,
     ) -> bytes:
         """
@@ -1411,17 +1412,22 @@ class AsyncInferenceClient:
             negative_prompt (`str`, *optional*):
                 One prompt to guide what NOT to include in video generation.
             num_frames (`float`, *optional*):
-                The number of frames to generate.
+                The num_frames parameter determines how many video frames are generated.
             num_inference_steps (`int`, *optional*):
                 For diffusion models. The number of denoising steps. More denoising steps usually lead to a higher
                 quality image at the expense of slower inference.
             guidance_scale (`float`, *optional*):
-                For diffusion models. A higher guidance scale value encourages the model to generate images closely
+                For diffusion models. A higher guidance scale value encourages the model to generate videos closely
                 linked to the text prompt at the expense of lower image quality.
             seed (`int`, *optional*):
                 The seed to use for the video generation.
-            target_size (`ImageToImageTargetSize`, *optional*):
-                The size in pixel of the output video.
+            target_size (`ImageToVideoTargetSize`, *optional*):
+                The size in pixel of the output video frames.
+            num_inference_steps (`int`, *optional*):
+                The number of denoising steps. More denoising steps usually lead to a higher quality video at the
+                expense of slower inference.
+            seed (`int`, *optional*):
+                Seed for the random number generator.
 
         Returns:
             `bytes`: The generated video.
@@ -1431,7 +1437,7 @@ class AsyncInferenceClient:
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
-        >>> video = await client.image_to_video("cat.jpg", prompt="turn the cat into a tiger")
+        >>> video = await client.image_to_video("cat.jpg", model="Wan-AI/Wan2.2-I2V-A14B", prompt="turn the cat into a tiger")
         >>> with open("tiger.mp4", "wb") as f:
         ...     f.write(video)
         ```
