@@ -1337,6 +1337,80 @@ class InferenceClient:
         response = provider_helper.get_response(response, request_parameters)
         return _bytes_to_image(response)
 
+    def image_to_video(
+        self,
+        image: ContentT,
+        *,
+        model: Optional[str] = None,
+        prompt: Optional[str] = None,
+        negative_prompt: Optional[str] = None,
+        num_frames: Optional[float] = None,
+        num_inference_steps: Optional[int] = None,
+        guidance_scale: Optional[float] = None,
+        seed: Optional[int] = None,
+        target_size: Optional[ImageToImageTargetSize] = None,
+        **kwargs,
+    ) -> bytes:
+        """
+        Generate a video from an input image.
+
+        Args:
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image for translation. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
+            model (`str`, *optional*):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+            prompt (`str`, *optional*):
+                The text prompt to guide the video generation.
+            negative_prompt (`str`, *optional*):
+                One prompt to guide what NOT to include in video generation.
+            num_frames (`float`, *optional*):
+                The number of frames to generate.
+            num_inference_steps (`int`, *optional*):
+                For diffusion models. The number of denoising steps. More denoising steps usually lead to a higher
+                quality image at the expense of slower inference.
+            guidance_scale (`float`, *optional*):
+                For diffusion models. A higher guidance scale value encourages the model to generate images closely
+                linked to the text prompt at the expense of lower image quality.
+            seed (`int`, *optional*):
+                The seed to use for the video generation.
+            target_size (`ImageToImageTargetSize`, *optional*):
+                The size in pixel of the output video.
+
+        Returns:
+            `bytes`: The generated video.
+
+        Examples:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> video = client.image_to_video("cat.jpg", prompt="turn the cat into a tiger")
+        >>> with open("tiger.mp4", "wb") as f:
+        ...     f.write(video)
+        ```
+        """
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="image-to-video", model=model_id)
+        request_parameters = provider_helper.prepare_request(
+            inputs=image,
+            parameters={
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "num_frames": num_frames,
+                "num_inference_steps": num_inference_steps,
+                "guidance_scale": guidance_scale,
+                "seed": seed,
+                "target_size": target_size,
+                **kwargs,
+            },
+            headers=self.headers,
+            model=model_id,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
+        response = provider_helper.get_response(response, request_parameters)
+        return response
+
     def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> ImageToTextOutput:
         """
         Takes an input image and return text.
