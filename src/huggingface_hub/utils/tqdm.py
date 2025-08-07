@@ -83,6 +83,7 @@ Group-based control:
 import io
 import logging
 import os
+import threading
 import warnings
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
@@ -227,17 +228,31 @@ class SafeDelLockMeta(type):
 
 
 class tqdm(old_tqdm, metaclass=SafeDelLockMeta):
+    # class tqdm(old_tqdm):
     """
     Class to override `disable` argument in case progress bars are globally disabled.
 
     Taken from https://github.com/tqdm/tqdm/issues/619#issuecomment-619639324.
     """
 
+    _lock = threading.RLock()  # fallback, just in case
+
+    @classmethod
+    def get_lock(cls):
+        if not hasattr(cls, "_lock") or cls._lock is None:
+            cls._lock = threading.RLock()
+        return cls._lock
+
     def __init__(self, *args, **kwargs):
         name = kwargs.pop("name", None)  # do not pass `name` to `tqdm`
         if are_progress_bars_disabled(name):
             kwargs["disable"] = True
         super().__init__(*args, **kwargs)
+
+    def update(self, n=1):
+        # Always get a valid lock
+        with self.get_lock():
+            super().update(n)
 
     def __delattr__(self, attr: str) -> None:
         """Fix for https://github.com/huggingface/huggingface_hub/issues/1603"""
