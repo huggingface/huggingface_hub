@@ -126,12 +126,13 @@ def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
 
         if total_entries > MAX_FILES_PER_FOLDER:
             folder_display = folder if folder != "." else "root"
-            details = []
-            if file_count > 0:
-                details.append(f"{file_count:,} files")
-            if subdir_count > 0:
-                details.append(f"{subdir_count:,} subdirectories")
-            details_str = " and ".join(details)
+            # Build details string based on what's present
+            if file_count > 0 and subdir_count > 0:
+                details_str = f"{file_count:,} files and {subdir_count:,} subdirectories"
+            elif file_count > 0:
+                details_str = f"{file_count:,} files"
+            else:
+                details_str = f"{subdir_count:,} subdirectories"
 
             logger.warning(
                 f"Folder '{folder_display}' contains {total_entries:,} entries ({details_str}). "
