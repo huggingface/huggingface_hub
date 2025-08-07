@@ -1781,18 +1781,20 @@ class HfApi:
         try:
             hf_raise_for_status(r)
         except HTTPError as e:
-            error_message = "Invalid user token."
-            # Check which token is the effective one and generate the error message accordingly
-            if effective_token == _get_token_from_google_colab():
-                error_message += " The token from Google Colab vault is invalid. Please update it from the UI."
-            elif effective_token == _get_token_from_environment():
-                error_message += (
-                    " The token from HF_TOKEN environment variable is invalid. "
-                    "Note that HF_TOKEN takes precedence over `hf auth login`."
-                )
-            elif effective_token == _get_token_from_file():
-                error_message += " The token stored is invalid. Please run `hf auth login` to update it."
-            raise HTTPError(error_message, request=e.request, response=e.response) from e
+            if e.response.status_code == 401:
+                error_message = "Invalid user token."
+                # Check which token is the effective one and generate the error message accordingly
+                if effective_token == _get_token_from_google_colab():
+                    error_message += " The token from Google Colab vault is invalid. Please update it from the UI."
+                elif effective_token == _get_token_from_environment():
+                    error_message += (
+                        " The token from HF_TOKEN environment variable is invalid. "
+                        "Note that HF_TOKEN takes precedence over `hf auth login`."
+                    )
+                elif effective_token == _get_token_from_file():
+                    error_message += " The token stored is invalid. Please run `hf auth login` to update it."
+                raise HTTPError(error_message, request=e.request, response=e.response) from e
+            raise
         return r.json()
 
     @_deprecate_method(
