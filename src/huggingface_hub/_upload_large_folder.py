@@ -108,18 +108,12 @@ def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
         total_entries = file_count + subdir_count
 
         if total_entries > MAX_FILES_PER_FOLDER:
-            folder_display = folder if folder != "." else "root"
-            details = []
-            if file_count > 0:
-                details.append(f"{file_count:,} files")
-            if subdir_count > 0:
-                details.append(f"{subdir_count:,} subdirectories")
-            details_str = " and ".join(details)
-
+            folder_display = "root" if folder == "." else folder
             logger.warning(
-                f"Folder '{folder_display}' contains {total_entries:,} entries ({details_str}). "
-                f"This exceeds the recommended limit of {MAX_FILES_PER_FOLDER:,} entries per folder.\n"
-                f"Consider reorganizing into subfolders."
+                f"Folder '{folder_display}' contains {total_entries:,} entries "
+                f"({file_count:,} files and {subdir_count:,} subdirectories). "
+                f"This exceeds the recommended {MAX_FILES_PER_FOLDER:,} entries per folder.\n"
+                "Consider reorganising into sub-folders."
             )
 
     # Check 3: File sizes
