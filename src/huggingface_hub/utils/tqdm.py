@@ -247,6 +247,7 @@ class tqdm(old_tqdm, metaclass=SafeDelLockMeta):
             if attr != "_lock":
                 raise
 
+
 @contextmanager
 def tqdm_stream_file(path: Union[Path, str]) -> Iterator[io.BufferedReader]:
     """
