@@ -21,10 +21,12 @@ import sys
 import threading
 import time
 import traceback
+from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import quote
 
 from . import constants
@@ -56,6 +58,14 @@ MAX_FILE_SIZE_GB = 50  # Hard limit for individual file size
 RECOMMENDED_FILE_SIZE_GB = 20  # Recommended maximum for individual file size
 
 
+@dataclass
+class DirStats:
+    """Track immediate children (files and subdirectories) of a directory."""
+
+    files: int = 0
+    subdirs: Set[str] = field(default_factory=set)
+
+
 def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
     """
     Validate upload against repository limits and warn about potential issues.
@@ -83,9 +93,7 @@ def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
 
     # Check 2: Files and subdirectories per folder
     # Track immediate children (files and subdirs) for each folder
-    from collections import defaultdict
-
-    entries_per_folder: Dict[str, Any] = defaultdict(lambda: {"files": 0, "subdirs": set()})
+    entries_per_folder: Dict[str, DirStats] = defaultdict(DirStats)
 
     for paths in paths_list:
         path = Path(paths.path_in_repo)
@@ -93,18 +101,18 @@ def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
 
         # Count this file in its immediate parent directory
         parent = str(path.parent) if str(path.parent) != "." else "."
-        entries_per_folder[parent]["files"] += 1
+        entries_per_folder[parent].files += 1
 
         # Track immediate subdirectories for each parent folder
         # Walk through the path components to track parent-child relationships
-        for i, child in enumerate(parts[:-1]):           
+        for i, child in enumerate(parts[:-1]):
             parent = "." if i == 0 else "/".join(parts[:i])
-            entries_per_folder[parent]["subdirs"].add(child)
+            entries_per_folder[parent].subdirs.add(child)
 
     # Check limits for each folder
-    for folder, data in entries_per_folder.items():
-        file_count = data["files"]
-        subdir_count = len(data["subdirs"])
+    for folder, stats in entries_per_folder.items():
+        file_count = stats.files
+        subdir_count = len(stats.subdirs)
         total_entries = file_count + subdir_count
 
         if total_entries > MAX_FILES_PER_FOLDER:
