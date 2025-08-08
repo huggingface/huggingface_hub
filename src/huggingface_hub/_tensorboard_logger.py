@@ -26,26 +26,24 @@ from .utils import experimental
 # or from 'torch.utils.tensorboard'. Both are compatible so let's try to load
 # from either of them.
 try:
-    from tensorboardX import SummaryWriter as _TBXSummaryWriter
+    from tensorboardX import SummaryWriter as _RuntimeSummaryWriter
 
-    SummaryWriter = _TBXSummaryWriter
     is_summary_writer_available = True
 except ImportError:
     try:
-        from torch.utils.tensorboard import SummaryWriter as _TorchSummaryWriter
+        from torch.utils.tensorboard import SummaryWriter as _RuntimeSummaryWriter
 
-        SummaryWriter = _TorchSummaryWriter
         is_summary_writer_available = True
     except ImportError:
         # Dummy class to avoid failing at import. Will raise on instance creation.
         class _DummySummaryWriter:
             pass
 
-        SummaryWriter = _DummySummaryWriter
+        _RuntimeSummaryWriter = _DummySummaryWriter  # type: ignore[assignment]
         is_summary_writer_available = False
 
 
-class HFSummaryWriter(SummaryWriter):
+class HFSummaryWriter(_RuntimeSummaryWriter):
     """
     Wrapper around the tensorboard's `SummaryWriter` to push training logs to the Hub.
 
