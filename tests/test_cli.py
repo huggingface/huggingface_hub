@@ -851,7 +851,15 @@ class TestJobsCommand(unittest.TestCase):
     @patch(
         "requests.Session.post",
         return_value=DummyResponse(
-            {"id": "my-job-id", "owner": {"id": "userid", "name": "my-username", "type": "user",  "avatarUrl": "https://example.com/avatar.jpg"}, "status": {"stage": "RUNNING"}}
+            {
+                "id": "my-job-id",
+                "owner": {
+                    "id": "userid",
+                    "name": "my-username",
+                    "type": "user",
+                },
+                "status": {"stage": "RUNNING"},
+            }
         ),
     )
     @patch("huggingface_hub.hf_api.HfApi.whoami", return_value={"name": "my-username"})
