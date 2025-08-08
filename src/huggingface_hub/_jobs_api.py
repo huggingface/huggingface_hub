@@ -47,15 +47,12 @@ class JobStatus:
     stage: JobStage
     message: Optional[str]
 
-    def __init__(self, **kwargs) -> None:
-        self.stage = kwargs["stage"]
-        self.message = kwargs.get("message")
-
 
 @dataclass
 class JobOwner:
     id: str
     name: str
+    type: str
 
 
 @dataclass
@@ -89,7 +86,7 @@ class JobInfo:
             Status of the Job, e.g. `JobStatus(stage="RUNNING", message=None)`
             See [`JobStage`] for possible stage values.
         status: (`JobOwner` or `None`):
-            Owner of the Job, e.g. `JobOwner(id="5e9ecfc04957053f60648a3e", name="lhoestq")`
+            Owner of the Job, e.g. `JobOwner(id="5e9ecfc04957053f60648a3e", name="lhoestq", type="user")`
 
     Example:
 
@@ -100,7 +97,7 @@ class JobInfo:
     ...     command=["python", "-c", "print('Hello from the cloud!')"]
     ... )
     >>> job
-    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', status=JobStatus(stage='RUNNING', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
+    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', status=JobStatus(stage='RUNNING', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq', type='user'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
     >>> job.id
     '687fb701029421ae5549d998'
     >>> job.url
@@ -119,8 +116,8 @@ class JobInfo:
     environment: Optional[Dict[str, Any]]
     secrets: Optional[Dict[str, Any]]
     flavor: Optional[SpaceHardware]
-    status: Optional[JobStatus]
-    owner: Optional[JobOwner]
+    status: JobStatus
+    owner: JobOwner
 
     # Inferred fields
     endpoint: str
@@ -132,13 +129,15 @@ class JobInfo:
         self.created_at = parse_datetime(created_at) if created_at else None
         self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
         self.space_id = kwargs.get("spaceId") or kwargs.get("space_id")
-        self.owner = JobOwner(**(kwargs["owner"] if isinstance(kwargs.get("owner"), dict) else {}))
+        owner = kwargs.get("owner", {})
+        self.owner = JobOwner(id=owner["id"], name=owner["name"], type=owner["type"])
         self.command = kwargs.get("command")
         self.arguments = kwargs.get("arguments")
         self.environment = kwargs.get("environment")
         self.secrets = kwargs.get("secrets")
         self.flavor = kwargs.get("flavor")
-        self.status = JobStatus(**(kwargs["status"] if isinstance(kwargs.get("status"), dict) else {}))
+        status = kwargs.get("status", {})
+        self.status = JobStatus(stage=status["stage"], message=status.get("message"))
 
         # Inferred fields
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)
