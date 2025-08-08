@@ -164,7 +164,7 @@ Follow these steps to start contributing:
    ```
 
    Compared to `make style`, `make quality` will never update your code. In addition to the previous code formatter, it
-   also runs [`mypy`](https://github.com/python/mypy) to check for static typing issues. All those tests will also run
+   also runs [`ty`](https://docs.astral.sh/ty/) type checker to check for static typing issues. All those tests will also run
    in the CI once you open your PR but it is recommended to run them locally in order to iterate faster.
 
    > For the commands leveraging the `make` utility, we recommend using the WSL system when running on

@@ -14,7 +14,7 @@
 """Contains a logger to push training logs to the Hub, using Tensorboard."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import List, Optional, Union
 
 from ._commit_scheduler import CommitScheduler
 from .errors import EntryNotFoundError
@@ -26,25 +26,24 @@ from .utils import experimental
 # or from 'torch.utils.tensorboard'. Both are compatible so let's try to load
 # from either of them.
 try:
-    from tensorboardX import SummaryWriter
+    from tensorboardX import SummaryWriter as _RuntimeSummaryWriter
 
     is_summary_writer_available = True
-
 except ImportError:
     try:
-        from torch.utils.tensorboard import SummaryWriter
+        from torch.utils.tensorboard import SummaryWriter as _RuntimeSummaryWriter
 
-        is_summary_writer_available = False
+        is_summary_writer_available = True
     except ImportError:
         # Dummy class to avoid failing at import. Will raise on instance creation.
-        SummaryWriter = object
+        class _DummySummaryWriter:
+            pass
+
+        _RuntimeSummaryWriter = _DummySummaryWriter  # type: ignore[assignment]
         is_summary_writer_available = False
 
-if TYPE_CHECKING:
-    from tensorboardX import SummaryWriter
 
-
-class HFSummaryWriter(SummaryWriter):
+class HFSummaryWriter(_RuntimeSummaryWriter):
     """
     Wrapper around the tensorboard's `SummaryWriter` to push training logs to the Hub.
 

@@ -1460,8 +1460,8 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
-        output = ImageToTextOutput.parse_obj(response)
-        return output[0] if isinstance(output, list) else output
+        output_list: List[ImageToTextOutput] = ImageToTextOutput.parse_obj_as_list(response)
+        return output_list[0]
 
     def object_detection(
         self, image: ContentT, *, model: Optional[str] = None, threshold: Optional[float] = None

@@ -77,7 +77,7 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
             if self.verbosity >= 3:
                 print(ANSI.gray(message))
                 for warning in hf_cache_info.warnings:
-                    print(ANSI.gray(warning))
+                    print(ANSI.gray(str(warning)))
             else:
                 print(ANSI.gray(message + " Use -vvv to print details."))
 

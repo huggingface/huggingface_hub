@@ -13,7 +13,7 @@ quality:
 	python utils/check_all_variable.py
 	python utils/generate_async_inference_client.py
 
-	mypy src
+	ty check src
 
 style:
 	ruff format $(check_dirs) # formatter

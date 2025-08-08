@@ -32,7 +32,7 @@ def _patch_anyio_open_process():
             kwargs.setdefault("creationflags", subprocess.CREATE_NEW_PROCESS_GROUP)
             return await original_open_process(*args, **kwargs)
 
-        anyio.open_process = open_process_in_new_group
+        anyio.open_process = open_process_in_new_group  # ty: ignore[invalid-assignment]
     else:
         # For Unix-like systems, we can use setsid to create a new session
         async def open_process_in_new_group(*args, **kwargs):
@@ -42,7 +42,7 @@ def _patch_anyio_open_process():
             kwargs.setdefault("start_new_session", True)
             return await original_open_process(*args, **kwargs)
 
-        anyio.open_process = open_process_in_new_group
+        anyio.open_process = open_process_in_new_group  # ty: ignore[invalid-assignment]
 
 
 async def _async_prompt(exit_event: asyncio.Event, prompt: str = "» ") -> str:

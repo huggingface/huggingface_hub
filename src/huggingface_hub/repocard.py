@@ -771,7 +771,8 @@ def metadata_update(
             raise ValueError("Cannot update metadata on a Space that doesn't contain a `README.md` file.")
 
         # Initialize a ModelCard or DatasetCard from default template and no data.
-        card = card_class.from_template(CardData())
+        # Cast to the concrete expected card type to satisfy type checkers.
+        card = card_class.from_template(CardData())  # type: ignore[return-value]
 
     for key, value in metadata.items():
         if key == "model-index":
