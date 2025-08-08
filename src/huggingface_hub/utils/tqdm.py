@@ -233,14 +233,6 @@ class tqdm(old_tqdm):
             if attr != "_lock":
                 raise
 
-    @classmethod
-    def in_console(cls) -> bool:
-        """Returns true if running in a standard console environment and false if running in a notebook or gui."""
-
-        # Returns true if the current display method is the one in the standard tqdm class, or false if it's been
-        # overwritten by the gui, notebook, keras, etc. subclassing it.
-        return cls.display is std_tqdm.display
-
 
 @contextmanager
 def tqdm_stream_file(path: Union[Path, str]) -> Iterator[io.BufferedReader]:
