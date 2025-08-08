@@ -139,26 +139,26 @@ class MCPClient:
                         - args (List[str], optional): Arguments for the command
                         - env (Dict[str, str], optional): Environment variables for the command
                         - cwd (Union[str, Path, None], optional): Working directory for the command
-                        - tools (Dict, optional): Tool filtering configuration with 'include' and/or 'exclude' lists
+                        - allowed_tools (List[str], optional): List of tool names to allow from this server
                     - For SSE servers:
                         - url (str): The URL of the SSE server
                         - headers (Dict[str, Any], optional): Headers for the SSE connection
                         - timeout (float, optional): Connection timeout
                         - sse_read_timeout (float, optional): SSE read timeout
-                        - tools (Dict, optional): Tool filtering configuration with 'include' and/or 'exclude' lists
+                        - allowed_tools (List[str], optional): List of tool names to allow from this server
                     - For StreamableHTTP servers:
                         - url (str): The URL of the StreamableHTTP server
                         - headers (Dict[str, Any], optional): Headers for the StreamableHTTP connection
                         - timeout (timedelta, optional): Connection timeout
                         - sse_read_timeout (timedelta, optional): SSE read timeout
                         - terminate_on_close (bool, optional): Whether to terminate on close
-                        - tools (Dict, optional): Tool filtering configuration with 'include' and/or 'exclude' lists
+                        - allowed_tools (List[str], optional): List of tool names to allow from this server
         """
         from mcp import ClientSession, StdioServerParameters
         from mcp import types as mcp_types
 
-        # Extract tools configuration if provided
-        tools_config = params.pop("tools", None)
+        # Extract allowed_tools configuration if provided
+        allowed_tools = params.pop("allowed_tools", None)
 
         # Determine server type and create appropriate parameters
         if type == "stdio":
@@ -218,10 +218,10 @@ class MCPClient:
         all_tool_names = [tool.name for tool in response.tools]
         logger.debug("Connected to server with tools:", all_tool_names)
 
-        # Filter tools based on configuration
-        filtered_tools = self._filter_tools(response.tools, tools_config, all_tool_names)
+        # Filter tools based on allowed_tools configuration
+        filtered_tools = self._filter_tools(response.tools, allowed_tools)
 
-        if tools_config:
+        if allowed_tools:
             logger.info(
                 f"Tool filtering applied. Using {len(filtered_tools)} of {len(response.tools)} available tools: {[tool.name for tool in filtered_tools]}"
             )
@@ -248,49 +248,27 @@ class MCPClient:
                 )
             )
 
-    def _filter_tools(
-        self, tools: List[Any], tools_config: Optional[Dict[str, Any]], all_tool_names: List[str]
-    ) -> List[Any]:
-        """Filter tools based on include/exclude configuration.
+    def _filter_tools(self, tools: List[Any], allowed_tools: Optional[List[str]]) -> List[Any]:
+        """Filter tools based on allowed_tools list.
 
         Args:
             tools: List of MCP tool objects
-            tools_config: Optional tools configuration dict with 'include' and/or 'exclude' keys
-            all_tool_names: List of all available tool names for validation
+            allowed_tools: Optional list of tool names to allow
 
         Returns:
             Filtered list of tools
         """
-        if not tools_config:
+        if allowed_tools is None:
             return tools
 
-        include_list = tools_config.get("include")
-        exclude_list = tools_config.get("exclude")
-
         # Validate that specified tools exist
-        if include_list:
-            missing_tools = set(include_list) - set(all_tool_names)
-            if missing_tools:
-                logger.warning(f"Tools specified in 'include' list not found on server: {list(missing_tools)}")
+        all_tool_names = [tool.name for tool in tools]
+        missing_tools = set(allowed_tools) - set(all_tool_names)
+        if missing_tools:
+            logger.warning(f"Tools specified in 'allowed_tools' not found on server: {list(missing_tools)}")
 
-        if exclude_list:
-            missing_tools = set(exclude_list) - set(all_tool_names)
-            if missing_tools:
-                logger.warning(f"Tools specified in 'exclude' list not found on server: {list(missing_tools)}")
-
-        filtered_tools = []
-        for tool in tools:
-            # If include list is specified, only include tools in that list
-            if include_list and tool.name not in include_list:
-                continue
-
-            # If exclude list is specified, exclude tools in that list
-            if exclude_list and tool.name in exclude_list:
-                continue
-
-            filtered_tools.append(tool)
-
-        return filtered_tools
+        # Filter tools using list comprehension
+        return [tool for tool in tools if tool.name in allowed_tools]
 
     async def process_single_turn_with_tools(
         self,

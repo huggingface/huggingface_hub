@@ -10,32 +10,27 @@ class InputConfig(TypedDict, total=False):
     password: bool
 
 
-class ToolsConfig(TypedDict, total=False):
-    include: NotRequired[List[str]]
-    exclude: NotRequired[List[str]]
-
-
 class StdioServerConfig(TypedDict):
     type: Literal["stdio"]
     command: str
     args: List[str]
     env: Dict[str, str]
     cwd: str
-    tools: NotRequired[ToolsConfig]
+    allowed_tools: NotRequired[List[str]]
 
 
 class HTTPServerConfig(TypedDict):
     type: Literal["http"]
     url: str
     headers: Dict[str, str]
-    tools: NotRequired[ToolsConfig]
+    allowed_tools: NotRequired[List[str]]
 
 
 class SSEServerConfig(TypedDict):
     type: Literal["sse"]
     url: str
     headers: Dict[str, str]
-    tools: NotRequired[ToolsConfig]
+    allowed_tools: NotRequired[List[str]]
 
 
 ServerConfig = Union[StdioServerConfig, HTTPServerConfig, SSEServerConfig]
