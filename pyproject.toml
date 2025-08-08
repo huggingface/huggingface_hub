@@ -1,3 +1,6 @@
+[tool.mypy]
+ignore_missing_imports = true
+
 [tool.ty]
 [tool.ty.terminal]
 # Do not fail CI on warnings; keep output readable

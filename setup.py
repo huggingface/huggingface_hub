@@ -108,6 +108,8 @@ extras["typing"] = [
 
 extras["quality"] = [
     "ruff>=0.9.0",
+    "mypy>=1.14.1,<1.15.0; python_version=='3.8'",
+    "mypy==1.15.0; python_version>='3.9'",
     "libcst>=1.4.0",
     "ty",
 ]
