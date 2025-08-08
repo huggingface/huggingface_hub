@@ -16,18 +16,21 @@ class StdioServerConfig(TypedDict):
     args: List[str]
     env: Dict[str, str]
     cwd: str
+    allowed_tools: NotRequired[List[str]]
 
 
 class HTTPServerConfig(TypedDict):
     type: Literal["http"]
     url: str
     headers: Dict[str, str]
+    allowed_tools: NotRequired[List[str]]
 
 
 class SSEServerConfig(TypedDict):
     type: Literal["sse"]
     url: str
     headers: Dict[str, str]
+    allowed_tools: NotRequired[List[str]]
 
 
 ServerConfig = Union[StdioServerConfig, HTTPServerConfig, SSEServerConfig]
