@@ -89,7 +89,6 @@ from pathlib import Path
 from typing import ContextManager, Dict, Iterator, Optional, Union
 
 from tqdm.auto import tqdm as old_tqdm
-from tqdm.std import tqdm as std_tqdm
 
 from ..constants import HF_HUB_DISABLE_PROGRESS_BARS
 
