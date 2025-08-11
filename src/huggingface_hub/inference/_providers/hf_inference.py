@@ -144,7 +144,8 @@ def _build_chat_completion_url(model_url: str) -> str:
         new_path = path + "/v1/chat/completions"
 
     # Reconstruct the URL with the new path and original query parameters.
-    return urlunparse(parsed._replace(path=new_path))
+    new_parsed = parsed._replace(path=new_path)
+    return str(urlunparse(new_parsed))
 
 
 @lru_cache(maxsize=1)

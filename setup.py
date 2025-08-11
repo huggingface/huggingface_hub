@@ -111,6 +111,7 @@ extras["quality"] = [
     "mypy>=1.14.1,<1.15.0; python_version=='3.8'",
     "mypy==1.15.0; python_version>='3.9'",
     "libcst>=1.4.0",
+    "ty",
 ]
 
 extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
