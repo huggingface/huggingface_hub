@@ -14,6 +14,7 @@ from .cohere import CohereConversationalTask
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAIImageToImageTask,
+    FalAIImageToVideoTask,
     FalAITextToImageTask,
     FalAITextToSpeechTask,
     FalAITextToVideoTask,
@@ -84,6 +85,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-image": FalAITextToImageTask(),
         "text-to-speech": FalAITextToSpeechTask(),
         "text-to-video": FalAITextToVideoTask(),
+        "image-to-video": FalAIImageToVideoTask(),
         "image-to-image": FalAIImageToImageTask(),
     },
     "featherless-ai": {

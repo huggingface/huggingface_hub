@@ -21,13 +21,7 @@ from functools import wraps
 from tempfile import mkstemp
 from typing import Any, Callable, Iterable, List, Literal, Optional, Union
 
-from ..utils import (
-    CachedRepoInfo,
-    CachedRevisionInfo,
-    CacheNotFound,
-    HFCacheInfo,
-    scan_cache_dir,
-)
+from ..utils import CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
 from ._cli_utils import ANSI, tabulate
 
@@ -149,7 +143,7 @@ class CacheCommand(BaseHuggingfaceCLICommand):
             if self.verbosity >= 3:
                 print(ANSI.gray(message))
                 for warning in hf_cache_info.warnings:
-                    print(ANSI.gray(warning))
+                    print(ANSI.gray(str(warning)))
             else:
                 print(ANSI.gray(message + " Use -vvv to print details."))
 
