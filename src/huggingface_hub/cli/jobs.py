@@ -575,27 +575,25 @@ class ScheduledJobsCommands(BaseHuggingfaceCLICommand):
 class ScheduledCreateCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction) -> None:
-        create_parser = parser.add_parser("create", help="Create a scheduled Job")
-        create_parser.add_argument(
+        run_parser = parser.add_parser("run", help="Schedule a Job")
+        run_parser.add_argument(
             "schedule",
             type=str,
             help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
         )
-        create_parser.add_argument("image", type=str, help="The Docker image to use.")
-        create_parser.add_argument(
+        run_parser.add_argument("image", type=str, help="The Docker image to use.")
+        run_parser.add_argument(
             "--suspend",
             action="store_true",
             help="Suspend (pause) the scheduled Job",
         )
-        create_parser.add_argument(
+        run_parser.add_argument(
             "--concurrency",
             action="store_true",
             help="Allow multiple instances of this Job to run concurrently",
         )
-        create_parser.add_argument(
-            "-e", "--env", action="append", help="Set environment variables. E.g. --env ENV=value"
-        )
-        create_parser.add_argument(
+        run_parser.add_argument("-e", "--env", action="append", help="Set environment variables. E.g. --env ENV=value")
+        run_parser.add_argument(
             "-s",
             "--secrets",
             action="append",
@@ -604,30 +602,30 @@ class ScheduledCreateCommand(BaseHuggingfaceCLICommand):
                 "or `--secrets HF_TOKEN` to pass your Hugging Face token."
             ),
         )
-        create_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
-        create_parser.add_argument("--secrets-file", type=str, help="Read in a file of secret environment variables.")
-        create_parser.add_argument(
+        run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
+        run_parser.add_argument("--secrets-file", type=str, help="Read in a file of secret environment variables.")
+        run_parser.add_argument(
             "--flavor",
             type=str,
             help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
         )
-        create_parser.add_argument(
+        run_parser.add_argument(
             "--timeout",
             type=str,
             help="Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
         )
-        create_parser.add_argument(
+        run_parser.add_argument(
             "--namespace",
             type=str,
             help="The namespace where the scheduled Job will be created. Defaults to the current user's namespace.",
         )
-        create_parser.add_argument(
+        run_parser.add_argument(
             "--token",
             type=str,
             help="A User Access Token generated from https://huggingface.co/settings/tokens",
         )
-        create_parser.add_argument("command", nargs="...", help="The command to run.")
-        create_parser.set_defaults(func=RunCommand)
+        run_parser.add_argument("command", nargs="...", help="The command to run.")
+        run_parser.set_defaults(func=RunCommand)
 
     def __init__(self, args: Namespace) -> None:
         self.schedule: str = args.schedule
@@ -653,7 +651,7 @@ class ScheduledCreateCommand(BaseHuggingfaceCLICommand):
 
     def run(self) -> None:
         api = HfApi(token=self.token)
-        scheduled_job = api.create_scheduled_job(
+        scheduled_job = api.schedule_job(
             image=self.image,
             command=self.command,
             schedule=self.schedule,
@@ -1069,10 +1067,10 @@ class ScheduledUvCommand(BaseHuggingfaceCLICommand):
         self._repo = args.repo
 
     def run(self) -> None:
-        """Execute UV command."""
+        """Schedule UV command."""
         logging.set_verbosity(logging.INFO)
         api = HfApi(token=self.token)
-        job = api.create_scheduled_uv_job(
+        job = api.schedule_uv_job(
             script=self.script,
             script_args=self.script_args,
             schedule=self.schedule,

@@ -10453,7 +10453,7 @@ class HfApi:
             token=token,
         )
 
-    def create_scheduled_job(
+    def schedule_job(
         self,
         *,
         image: str,
@@ -10516,17 +10516,17 @@ class HfApi:
             Create your first scheduled Job:
 
             ```python
-            >>> from huggingface_hub import create_scheduled_job
-            >>> create_scheduled_job("python:3.12", ["python", "-c" ,"print('Hello from HF compute!')"], schedule="hourly")
+            >>> from huggingface_hub import schedule_job
+            >>> schedule_job("python:3.12", ["python", "-c" ,"print('Hello from HF compute!')"], schedule="hourly")
             ```
 
             Create a scheduled GPU Job:
 
             ```python
-            >>> from huggingface_hub import create_scheduled_job
+            >>> from huggingface_hub import schedule_job
             >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
             >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
-            >>> create_scheduled_job(image, command, flavor="a10g-small", schedule="hourly")
+            >>> schedule_job(image, command, flavor="a10g-small", schedule="hourly")
             ```
 
         """
@@ -10740,7 +10740,7 @@ class HfApi:
         ).raise_for_status()
 
     @experimental
-    def create_scheduled_uv_job(
+    def schedule_uv_job(
         self,
         script: str,
         *,
@@ -10813,9 +10813,9 @@ class HfApi:
         Example:
 
             ```python
-            >>> from huggingface_hub import run_uv_job
+            >>> from huggingface_hub import schedule_uv_job
             >>> script = "https://raw.githubusercontent.com/huggingface/trl/refs/heads/main/trl/scripts/sft.py"
-            >>> run_uv_job(script, dependencies=["trl"], flavor="a10g-small")
+            >>> schedule_uv_job(script, dependencies=["trl"], flavor="a10g-small", schedule="weekly")
             ```
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
@@ -10930,7 +10930,7 @@ class HfApi:
             command = ["bash", "-c", " ".join(pre_command) + " && " + " ".join(command)]
 
         # Create RunCommand args
-        return self.create_scheduled_job(
+        return self.schedule_job(
             image=image,
             command=command,
             schedule=schedule,
