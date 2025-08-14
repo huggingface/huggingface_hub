@@ -192,7 +192,7 @@ class ScheduledJobStatus:
         last_job = kwargs.get("lastJob") or kwargs.get("last_job")
         self.last_job = LastJobInfo(**last_job) if last_job else None
         next_job_run_at = kwargs.get("nextJobRunAt") or kwargs.get("next_job_run_at")
-        self.next_job_run_at = parse_datetime(next_job_run_at)
+        self.next_job_run_at = parse_datetime(str(next_job_run_at))
 
 
 @dataclass
