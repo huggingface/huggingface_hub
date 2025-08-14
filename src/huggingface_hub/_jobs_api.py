@@ -85,7 +85,7 @@ class JobInfo:
         status: (`JobStatus` or `None`):
             Status of the Job, e.g. `JobStatus(stage="RUNNING", message=None)`
             See [`JobStage`] for possible stage values.
-        status: (`JobOwner` or `None`):
+        owner: (`JobOwner` or `None`):
             Owner of the Job, e.g. `JobOwner(id="5e9ecfc04957053f60648a3e", name="lhoestq", type="user")`
 
     Example:
@@ -142,3 +142,134 @@ class JobInfo:
         # Inferred fields
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)
         self.url = f"{self.endpoint}/jobs/{self.owner.name}/{self.id}"
+
+
+@dataclass
+class JobSpec:
+    docker_image: Optional[str]
+    space_id: Optional[str]
+    command: Optional[List[str]]
+    arguments: Optional[List[str]]
+    environment: Optional[Dict[str, Any]]
+    secrets: Optional[Dict[str, Any]]
+    flavor: Optional[SpaceHardware]
+    owner: JobOwner
+    timeout: Optional[int]
+    tags: Optional[List[str]]
+    arch: Optional[str]
+
+    def __init__(self, **kwargs) -> None:
+        self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
+        self.space_id = kwargs.get("spaceId") or kwargs.get("space_id")
+        self.command = kwargs.get("command")
+        self.arguments = kwargs.get("arguments")
+        self.environment = kwargs.get("environment")
+        self.secrets = kwargs.get("secrets")
+        self.flavor = kwargs.get("flavor")
+        owner = kwargs.get("owner", {})
+        self.owner = JobOwner(id=owner["id"], name=owner["name"], type=owner["type"])
+        self.timeout = kwargs.get("timeout")
+        self.tags = kwargs.get("tags")
+        self.arch = kwargs.get("arch")
+
+
+@dataclass
+class LastJobInfo:
+    id: str
+    at: datetime
+
+    def __init__(self, **kwargs) -> None:
+        self.id = kwargs["id"]
+        self.at = parse_datetime(kwargs["at"])
+
+
+@dataclass
+class ScheduledJobStatus:
+    last_job: Optional[LastJobInfo]
+    next_job_run_at: datetime
+
+    def __init__(self, **kwargs) -> None:
+        last_job = kwargs.get("lastJob") or kwargs.get("last_job")
+        self.last_job = None if last_job is None else LastJobInfo(**last_job)
+        next_job_run_at = kwargs.get("nextJobRunAt") or kwargs.get("next_job_run_at")
+        self.next_job_run_at = parse_datetime(next_job_run_at)
+
+
+@dataclass
+class ScheduledJobInfo:
+    """
+    Contains information about a Job.
+
+    Args:
+        id (`str`):
+            Scheduled Job ID.
+        created_at (`datetime` or `None`):
+            When the scheduled Job was created.
+        tags (`List[str]` or `None`):
+            The tags of the scheduled Job.
+        schedule (`str` or `None`):
+            One of "annually", "yearly", "monthly", "weekly", "daily", "hourly", or a
+            CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
+        suspend (`bool` or `None`):
+            Whether the the scheduled job is suspended (paused).
+        concurrency (`bool` or `None`):
+            Whether multiple instances of this Job can run concurrently.
+        status (`ScheduledJobStatus` or `None`):
+            Status of the scheduled Job.
+        owner: (`JobOwner` or `None`):
+            Owner of the scheduled Job, e.g. `JobOwner(id="5e9ecfc04957053f60648a3e", name="lhoestq", type="user")`
+        job_spec: (`JobSpec` or `None`):
+            Specifications of the Job.
+
+    Example:
+
+    ```python
+    >>> from huggingface_hub import run_job
+    >>> scheduled_job = create_scheduled_job(
+    ...     image="python:3.12",
+    ...     command=["python", "-c", "print('Hello from the cloud!')"],
+    ...     schedule="hourly",
+    ... )
+    >>> scheduled_job.id
+    '687fb701029421ae5549d999'
+    >>> scheduled_job.status.next_job_run_at
+    datetime.datetime(2025, 7, 22, 17, 6, 25, 79000, tzinfo=datetime.timezone.utc)
+    ```
+    """
+
+    id: str
+    created_at: Optional[datetime]
+    docker_image: Optional[str]
+    space_id: Optional[str]
+    command: Optional[List[str]]
+    arguments: Optional[List[str]]
+    schedule: Optional[str]
+    suspend: Optional[bool]
+    concurrency: Optional[bool]
+    environment: Optional[Dict[str, Any]]
+    secrets: Optional[Dict[str, Any]]
+    flavor: Optional[SpaceHardware]
+    status: ScheduledJobStatus
+    owner: JobOwner
+
+    def __init__(self, **kwargs) -> None:
+        self.id = kwargs["id"]
+        created_at = kwargs.get("createdAt") or kwargs.get("created_at")
+        self.created_at = parse_datetime(created_at) if created_at else None
+        self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
+        self.space_id = kwargs.get("spaceId") or kwargs.get("space_id")
+        self.command = kwargs.get("command")
+        self.arguments = kwargs.get("arguments")
+        self.schedule = kwargs.get("schedule")
+        self.suspend = kwargs.get("suspend")
+        self.concurrency = kwargs.get("concurrency")
+        self.environment = kwargs.get("environment")
+        self.secrets = kwargs.get("secrets")
+        self.flavor = kwargs.get("flavor")
+        status = kwargs.get("status", {})
+        self.status = ScheduledJobStatus(
+            last_job=status.get("last_job") or status.get("lastJob"),
+            next_job_run_at=status.get("next_job_run_at") or status.get("nextJobRunAt"),
+        )
+        owner = kwargs.get("owner", {})
+        self.owner = JobOwner(id=owner["id"], name=owner["name"], type=owner["type"])
