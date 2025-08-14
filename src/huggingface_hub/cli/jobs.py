@@ -300,7 +300,7 @@ class PsCommand(BaseHuggingfaceCLICommand):
                 command_str = " ".join(command) if command else "N/A"
 
                 # Extract creation time
-                created_at = job.created_at or "N/A"
+                created_at = job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else "N/A"
 
                 # Create a dict with all job properties for filtering
                 job_properties = {
@@ -560,10 +560,10 @@ class ScheduledJobsCommands(BaseHuggingfaceCLICommand):
         )
 
         # Show help if no subcommand is provided
-        scheduled_jobs_subparsers.set_defaults(func=lambda args: scheduled_jobs_subparsers.print_help())
+        scheduled_jobs_parser.set_defaults(func=lambda args: scheduled_jobs_subparsers.print_help())
 
         # Register commands
-        ScheduledCreateCommand.register_subcommand(scheduled_jobs_subparsers)
+        ScheduledRunCommand.register_subcommand(scheduled_jobs_subparsers)
         ScheduledPsCommand.register_subcommand(scheduled_jobs_subparsers)
         ScheduledInspectCommand.register_subcommand(scheduled_jobs_subparsers)
         ScheduledDeleteCommand.register_subcommand(scheduled_jobs_subparsers)
@@ -572,7 +572,7 @@ class ScheduledJobsCommands(BaseHuggingfaceCLICommand):
         ScheduledUvCommand.register_subcommand(scheduled_jobs_subparsers)
 
 
-class ScheduledCreateCommand(BaseHuggingfaceCLICommand):
+class ScheduledRunCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction) -> None:
         run_parser = parser.add_parser("run", help="Schedule a Job")
@@ -625,7 +625,7 @@ class ScheduledCreateCommand(BaseHuggingfaceCLICommand):
             help="A User Access Token generated from https://huggingface.co/settings/tokens",
         )
         run_parser.add_argument("command", nargs="...", help="The command to run.")
-        run_parser.set_defaults(func=RunCommand)
+        run_parser.set_defaults(func=ScheduledRunCommand)
 
     def __init__(self, args: Namespace) -> None:
         self.schedule: str = args.schedule
@@ -701,7 +701,7 @@ class ScheduledPsCommand(BaseHuggingfaceCLICommand):
             type=str,
             help="Format output using a custom template",
         )
-        run_parser.set_defaults(func=PsCommand)
+        run_parser.set_defaults(func=ScheduledPsCommand)
 
     def __init__(self, args: Namespace) -> None:
         self.all: bool = args.all
@@ -731,13 +731,12 @@ class ScheduledPsCommand(BaseHuggingfaceCLICommand):
 
             # Define table headers
             table_headers = [
-                "SCHEDULED JOB ID",
+                "ID",
+                "SCHEDULE",
                 "IMAGE/SPACE",
                 "COMMAND",
-                "CREATED",
-                "LAST JOB ID",
-                "LAST JOB AT",
-                "NEXT JOB RUN AT",
+                "LAST RUN",
+                "NEXT RUN",
                 "SUSPEND",
             ]
 
@@ -755,20 +754,23 @@ class ScheduledPsCommand(BaseHuggingfaceCLICommand):
                 # Extract job ID
                 scheduled_job_id = scheduled_job.id
 
+                # Extract schedule
+                schedule = scheduled_job.schedule
+
                 # Extract image or space information
-                image_or_space = scheduled_job.docker_image or "N/A"
+                image_or_space = scheduled_job.job_spec.docker_image or "N/A"
 
                 # Extract and format command
-                command = scheduled_job.command or []
+                command = scheduled_job.job_spec.command or []
                 command_str = " ".join(command) if command else "N/A"
 
-                # Extract creation time
-                created_at = scheduled_job.created_at or "N/A"
-
                 # Extract status
-                last_job_id = scheduled_job.status.last_job.id
-                last_job_at = scheduled_job.status.last_job.at
-                next_job_run_at = scheduled_job.status.next_job_run_at
+                last_job_at = (
+                    scheduled_job.status.last_job.at.strftime("%Y-%m-%d %H:%M:%S")
+                    if scheduled_job.status.last_job
+                    else "N/A"
+                )
+                next_job_run_at = scheduled_job.status.next_job_run_at.strftime("%Y-%m-%d %H:%M:%S")
 
                 # Create a dict with all job properties for filtering
                 job_properties = {
@@ -786,10 +788,9 @@ class ScheduledPsCommand(BaseHuggingfaceCLICommand):
                 rows.append(
                     [
                         scheduled_job_id,
+                        schedule,
                         image_or_space,
                         command_str,
-                        created_at,
-                        last_job_id,
                         last_job_at,
                         next_job_run_at,
                         suspend,
@@ -802,7 +803,7 @@ class ScheduledPsCommand(BaseHuggingfaceCLICommand):
                 if self.filters:
                     filters_msg = f" matching filters: {', '.join([f'{k}={v}' for k, v in self.filters.items()])}"
 
-                print(f"No jobs found{filters_msg}")
+                print(f"No scheduled jobs found{filters_msg}")
                 return
 
             # Apply custom format if provided or use default tabular format
@@ -842,7 +843,7 @@ class ScheduledPsCommand(BaseHuggingfaceCLICommand):
             for row in rows:
                 line = template
                 for i, field in enumerate(
-                    ["id", "image", "command", "created", "last_job_id", "last_job_at", "next_job_run_at", "suspend"]
+                    ["id", "schedule", "image", "command", "last_job_at", "next_job_run_at", "suspend"]
                 ):
                     placeholder = f"{{{{.{field}}}}}"
                     if placeholder in line:
@@ -871,7 +872,7 @@ class ScheduledInspectCommand(BaseHuggingfaceCLICommand):
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
         )
         run_parser.add_argument("scheduled_job_ids", nargs="...", help="The scheduled jobs to inspect")
-        run_parser.set_defaults(func=InspectCommand)
+        run_parser.set_defaults(func=ScheduledInspectCommand)
 
     def __init__(self, args: Namespace) -> None:
         self.namespace: Optional[str] = args.namespace
@@ -900,7 +901,7 @@ class ScheduledDeleteCommand(BaseHuggingfaceCLICommand):
         run_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
         )
-        run_parser.set_defaults(func=CancelCommand)
+        run_parser.set_defaults(func=ScheduledDeleteCommand)
 
     def __init__(self, args: Namespace) -> None:
         self.scheduled_job_id: str = args.scheduled_job_id
@@ -925,7 +926,7 @@ class ScheduledSuspendCommand(BaseHuggingfaceCLICommand):
         run_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
         )
-        run_parser.set_defaults(func=CancelCommand)
+        run_parser.set_defaults(func=ScheduledSuspendCommand)
 
     def __init__(self, args: Namespace) -> None:
         self.scheduled_job_id: str = args.scheduled_job_id
@@ -950,7 +951,7 @@ class ScheduledResumeCommand(BaseHuggingfaceCLICommand):
         run_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
         )
-        run_parser.set_defaults(func=CancelCommand)
+        run_parser.set_defaults(func=ScheduledResumeCommand)
 
     def __init__(self, args: Namespace) -> None:
         self.scheduled_job_id: str = args.scheduled_job_id
@@ -1036,7 +1037,7 @@ class ScheduledUvCommand(BaseHuggingfaceCLICommand):
         run_parser.add_argument(
             "-p", "--python", type=str, help="The Python interpreter to use for the run environment"
         )
-        run_parser.set_defaults(func=UvCommand)
+        run_parser.set_defaults(func=ScheduledUvCommand)
 
     def __init__(self, args: Namespace) -> None:
         """Initialize the command with parsed arguments."""
@@ -1088,4 +1089,4 @@ class ScheduledUvCommand(BaseHuggingfaceCLICommand):
         )
 
         # Always print the job ID to the user
-        print(f"Job started with ID: {job.id}")
+        print(f"Scheduled Job created with ID: {job.id}")

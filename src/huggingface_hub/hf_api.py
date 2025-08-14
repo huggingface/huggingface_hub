@@ -10764,10 +10764,10 @@ class HfApi:
 
         Args:
             script (`str`):
-                Path or URL of the UV script.
+                Path or URL of the UV script, or a command.
 
             script_args (`List[str]`, *optional*)
-                Arguments to pass to the script.
+                Arguments to pass to the script, or a command.
 
             schedule (`str`):
                 One of "annually", "yearly", "monthly", "weekly", "daily", "hourly", or a
@@ -10812,10 +10812,31 @@ class HfApi:
 
         Example:
 
+            Schedule a script from a URL:
+
             ```python
             >>> from huggingface_hub import schedule_uv_job
             >>> script = "https://raw.githubusercontent.com/huggingface/trl/refs/heads/main/trl/scripts/sft.py"
-            >>> schedule_uv_job(script, dependencies=["trl"], flavor="a10g-small", schedule="weekly")
+            >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
+            >>> schedule_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="weekly")
+            ```
+
+            Schedule a local script:
+
+            ```python
+            >>> from huggingface_hub import schedule_uv_job
+            >>> script = "my_sft.py"
+            >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
+            >>> schedule_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="weekly")
+            ```
+
+            Schedule a command:
+
+            ```python
+            >>> from huggingface_hub import schedule_uv_job
+            >>> script = "lighteval"
+            >>> script_args= ["endpoint", "inference-providers", "model_name=openai/gpt-oss-20b,provider=auto", "lighteval|gsm8k|0|0"]
+            >>> schedule_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small", schedule="weekly")
             ```
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
@@ -10834,8 +10855,8 @@ class HfApi:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
 
-        if script.startswith("http://") or script.startswith("https://"):
-            # Direct URL execution - no upload needed
+        if script.startswith("http://") or script.startswith("https://") or not script.endswith(".py"):
+            # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
         else:
             # Local file - upload to HF

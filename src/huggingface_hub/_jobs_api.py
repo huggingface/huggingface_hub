@@ -190,7 +190,7 @@ class ScheduledJobStatus:
 
     def __init__(self, **kwargs) -> None:
         last_job = kwargs.get("lastJob") or kwargs.get("last_job")
-        self.last_job = None if last_job is None else LastJobInfo(**last_job)
+        self.last_job = LastJobInfo(**last_job) if last_job else None
         next_job_run_at = kwargs.get("nextJobRunAt") or kwargs.get("next_job_run_at")
         self.next_job_run_at = parse_datetime(next_job_run_at)
 
@@ -239,16 +239,10 @@ class ScheduledJobInfo:
 
     id: str
     created_at: Optional[datetime]
-    docker_image: Optional[str]
-    space_id: Optional[str]
-    command: Optional[List[str]]
-    arguments: Optional[List[str]]
+    job_spec: JobSpec
     schedule: Optional[str]
     suspend: Optional[bool]
     concurrency: Optional[bool]
-    environment: Optional[Dict[str, Any]]
-    secrets: Optional[Dict[str, Any]]
-    flavor: Optional[SpaceHardware]
     status: ScheduledJobStatus
     owner: JobOwner
 
@@ -256,16 +250,10 @@ class ScheduledJobInfo:
         self.id = kwargs["id"]
         created_at = kwargs.get("createdAt") or kwargs.get("created_at")
         self.created_at = parse_datetime(created_at) if created_at else None
-        self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
-        self.space_id = kwargs.get("spaceId") or kwargs.get("space_id")
-        self.command = kwargs.get("command")
-        self.arguments = kwargs.get("arguments")
+        self.job_spec = JobSpec(**(kwargs.get("job_spec") or kwargs.get("jobSpec")))
         self.schedule = kwargs.get("schedule")
         self.suspend = kwargs.get("suspend")
         self.concurrency = kwargs.get("concurrency")
-        self.environment = kwargs.get("environment")
-        self.secrets = kwargs.get("secrets")
-        self.flavor = kwargs.get("flavor")
         status = kwargs.get("status", {})
         self.status = ScheduledJobStatus(
             last_job=status.get("last_job") or status.get("lastJob"),
