@@ -10537,7 +10537,7 @@ class HfApi:
         job_spec: Dict[str, Any] = {
             "command": command,
             "arguments": [],
-            "environment": env or {},
+            "env": env or {},
             "flavor": flavor,
         }
         # secrets are optional
