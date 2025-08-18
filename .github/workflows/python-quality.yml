@@ -44,7 +44,7 @@ jobs:
       - run: .venv/bin/python utils/generate_async_inference_client.py
       - run: .venv/bin/python utils/generate_inference_types.py
       - run: .venv/bin/python utils/check_task_parameters.py
-
+      - run: uvx ty check src
       # Run type checking at least on huggingface_hub root file to check all modules
       # that can be lazy-loaded actually exist.
       - run: .venv/bin/mypy src/huggingface_hub/__init__.py --follow-imports=silent --show-traceback

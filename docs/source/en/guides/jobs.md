@@ -28,7 +28,7 @@ Use the [`hf jobs` CLI](./cli#hf-jobs) to run Jobs from the command line, and pa
 `hf jobs run` runs Jobs with a Docker image and a command with a familiar Docker-like interface. Think `docker run`, but for running code on any hardware:
 
 ```bash
->>> hf jobs run python:12 python -c "print('Hello world!')"
+>>> hf jobs run python:3.12 python -c "print('Hello world!')"
 >>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel python -c "import torch; print(torch.cuda.get_device_name())"
 ```
 
@@ -85,6 +85,11 @@ This feature is pay-as-you-go: you only pay for the seconds you use.
 >>> from huggingface_hub import run_uv_job
 >>> run_uv_job("my_script.py")
 ```
+
+<Tip warning>
+
+**Important**: Jobs have a default timeout (30 minutes), after which they will automatically stop. For long-running tasks like model training, make sure to set a custom timeout using the `timeout` parameter. See [Configure Job Timeout](#configure-job-timeout) for details.
+</Tip>
 
 [`run_job`] returns the [`JobInfo`] which has the URL of the Job on Hugging Face, where you can see the Job status and the logs.
 Save the Job ID from [`JobInfo`] to manage the job:
@@ -194,6 +199,87 @@ Available `flavor` options:
 (updated in 07/2025 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
 
 That's it! You're now running code on Hugging Face's infrastructure.
+
+## Configure Job Timeout
+
+Jobs have a default timeout (30 minutes), after which they will automatically stop. This is important to know when running long-running tasks like model training.
+
+### Setting a custom timeout
+
+You can specify a custom timeout value using the `timeout` parameter when running a job. The timeout can be specified in two ways:
+
+1. **As a number** (interpreted as seconds):
+```python
+>>> from huggingface_hub import run_job
+>>> job = run_job(
+...     image="pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel",
+...     command=["python", "train_model.py"],
+...     flavor="a10g-large",
+...     timeout=7200,  # 2 hours in seconds
+... )
+```
+
+2. **As a string with time units**:
+```python
+>>> # Using different time units
+>>> job = run_job(
+...     image="pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel",
+...     command=["python", "train_model.py"],
+...     flavor="a10g-large",
+...     timeout="2h",  # 2 hours
+... )
+
+>>> # Other examples:
+>>> # timeout="30m"    # 30 minutes
+>>> # timeout="1.5h"   # 1.5 hours
+>>> # timeout="1d"     # 1 day
+>>> # timeout="3600s"  # 3600 seconds
+```
+
+Supported time units:
+- `s` - seconds
+- `m` - minutes  
+- `h` - hours
+- `d` - days
+
+### Using timeout with UV jobs
+
+For UV jobs, you can also specify the timeout:
+
+```python
+>>> from huggingface_hub import run_uv_job
+>>> job = run_uv_job(
+...     "training_script.py",
+...     flavor="a10g-large",
+...     timeout="90m",  # 90 minutes
+... )
+```
+
+<Tip warning>
+
+If you don't specify a timeout, a default timeout will be applied to your job. For long-running tasks like model training that may take hours, make sure to set an appropriate timeout to avoid unexpected job terminations.
+
+</Tip>
+
+### Monitoring job duration
+
+When running long tasks, it's good practice to:
+- Estimate your job's expected duration and set a timeout with some buffer
+- Monitor your job's progress through the logs
+- Check the job status to ensure it hasn't timed out
+
+```python
+>>> from huggingface_hub import inspect_job, fetch_job_logs
+>>> # Check job status
+>>> job_info = inspect_job(job_id=job.id)
+>>> if job_info.status.stage == "ERROR":
+...     print(f"Job failed: {job_info.status.message}")
+...     # Check logs for more details
+...     for log in fetch_job_logs(job_id=job.id):
+...         print(log)
+```
+
+For more details about the timeout parameter, see the [`run_job` API reference](https://huggingface.co/docs/huggingface_hub/package_reference/hf_api#huggingface_hub.HfApi.run_job.timeout).
 
 ## Pass Environment variables and Secrets
 

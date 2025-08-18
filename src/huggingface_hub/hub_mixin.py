@@ -266,12 +266,14 @@ class ModelHubMixin:
         if pipeline_tag is not None:
             info.model_card_data.pipeline_tag = pipeline_tag
         if tags is not None:
+            normalized_tags = list(tags)
             if info.model_card_data.tags is not None:
-                info.model_card_data.tags.extend(tags)
+                info.model_card_data.tags.extend(normalized_tags)
             else:
-                info.model_card_data.tags = tags
+                info.model_card_data.tags = normalized_tags
 
-        info.model_card_data.tags = sorted(set(info.model_card_data.tags))
+        if info.model_card_data.tags is not None:
+            info.model_card_data.tags = sorted(set(info.model_card_data.tags))
 
         # Handle encoders/decoders for args
         cls._hub_mixin_coders = coders or {}

@@ -132,7 +132,11 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
+from .utils._auth import (
+    _get_token_from_environment,
+    _get_token_from_file,
+    _get_token_from_google_colab,
+)
 from .utils._deprecation import _deprecate_method
 from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
@@ -1777,18 +1781,20 @@ class HfApi:
         try:
             hf_raise_for_status(r)
         except HTTPError as e:
-            error_message = "Invalid user token."
-            # Check which token is the effective one and generate the error message accordingly
-            if effective_token == _get_token_from_google_colab():
-                error_message += " The token from Google Colab vault is invalid. Please update it from the UI."
-            elif effective_token == _get_token_from_environment():
-                error_message += (
-                    " The token from HF_TOKEN environment variable is invalid. "
-                    "Note that HF_TOKEN takes precedence over `hf auth login`."
-                )
-            elif effective_token == _get_token_from_file():
-                error_message += " The token stored is invalid. Please run `hf auth login` to update it."
-            raise HTTPError(error_message, request=e.request, response=e.response) from e
+            if e.response.status_code == 401:
+                error_message = "Invalid user token."
+                # Check which token is the effective one and generate the error message accordingly
+                if effective_token == _get_token_from_google_colab():
+                    error_message += " The token from Google Colab vault is invalid. Please update it from the UI."
+                elif effective_token == _get_token_from_environment():
+                    error_message += (
+                        " The token from HF_TOKEN environment variable is invalid. "
+                        "Note that HF_TOKEN takes precedence over `hf auth login`."
+                    )
+                elif effective_token == _get_token_from_file():
+                    error_message += " The token stored is invalid. Please run `hf auth login` to update it."
+                raise HTTPError(error_message, request=e.request, response=e.response) from e
+            raise
         return r.json()
 
     @_deprecate_method(
@@ -5315,14 +5321,18 @@ class HfApi:
             1. (Check parameters and setup.)
             2. Create repo if missing.
             3. List local files to upload.
-            4. Start workers. Workers can perform the following tasks:
+            4. Run validation checks and display warnings if repository limits might be exceeded:
+                - Warns if the total number of files exceeds 100k (recommended limit).
+                - Warns if any folder contains more than 10k files (recommended limit).
+                - Warns about files larger than 20GB (recommended) or 50GB (hard limit).
+            5. Start workers. Workers can perform the following tasks:
                 - Hash a file.
                 - Get upload mode (regular or LFS) for a list of files.
                 - Pre-upload an LFS file.
                 - Commit a bunch of files.
             Once a worker finishes a task, it will move on to the next task based on the priority list (see below) until
             all files are uploaded and committed.
-            5. While workers are up, regularly print a report to sys.stdout.
+            6. While workers are up, regularly print a report to sys.stdout.
 
         Order of priority:
             1. Commit if more than 5 minutes since last commit attempt (and at least 1 file).
