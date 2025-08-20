@@ -10004,7 +10004,7 @@ class HfApi:
 
             ```python
             >>> from huggingface_hub import run_job
-            >>> run_job("python:3.12", ["python", "-c" ,"print('Hello from HF compute!')"])
+            >>> run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
             ```
 
             Run a GPU Job:
@@ -10013,7 +10013,7 @@ class HfApi:
             >>> from huggingface_hub import run_job
             >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
             >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
-            >>> run_job(image, command, flavor="a10g-small")
+            >>> run_job(image=image, command=command, flavor="a10g-small")
             ```
 
         """
@@ -10086,7 +10086,7 @@ class HfApi:
 
             ```python
             >>> from huggingface_hub import fetch_job_logs, run_job
-            >>> job = run_job("python:3.12", ["python", "-c" ,"print('Hello from HF compute!')"])
+            >>> job = run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
             >>> for log in fetch_job_logs(job.id):
             ...     print(log)
             Hello from HF compute!
@@ -10210,7 +10210,7 @@ class HfApi:
 
             ```python
             >>> from huggingface_hub import inspect_job, run_job
-            >>> job = run_job("python:3.12", ["python", "-c" ,"print('Hello from HF compute!')"])
+            >>> job = run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
             >>> inspect_job(job.id)
             JobInfo(
                 id='68780d00bbe36d38803f645f',
@@ -10481,7 +10481,7 @@ class HfApi:
                 The command to run. Example: `["echo", "hello"]`.
 
             schedule (`str`):
-                One of "annually", "yearly", "monthly", "weekly", "daily", "hourly", or a
+                One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
                 CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
 
             suspend (`bool`, *optional*):
@@ -10517,7 +10517,14 @@ class HfApi:
 
             ```python
             >>> from huggingface_hub import schedule_job
-            >>> schedule_job("python:3.12", ["python", "-c" ,"print('Hello from HF compute!')"], schedule="hourly")
+            >>> schedule_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], schedule="@hourly")
+            ```
+
+            Use a CRON schedule expression:
+
+            ```python
+            >>> from huggingface_hub import schedule_job
+            >>> schedule_job(image="python:3.12", command=["python", "-c" ,"print('this runs every 5min')"], schedule="*/5 * * * *")
             ```
 
             Create a scheduled GPU Job:
@@ -10526,7 +10533,7 @@ class HfApi:
             >>> from huggingface_hub import schedule_job
             >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
             >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
-            >>> schedule_job(image, command, flavor="a10g-small", schedule="hourly")
+            >>> schedule_job(image, command, flavor="a10g-small", schedule="@hourly")
             ```
 
         """
@@ -10638,8 +10645,8 @@ class HfApi:
         Example:
 
             ```python
-            >>> from huggingface_hub import inspect_job, run_scheduled_job
-            >>> scheduled_job = run_scheduled_job("python:3.12", ["python", "-c" ,"print('Hello from HF compute!')"], schedule="hourly")
+            >>> from huggingface_hub import inspect_job, schedule_job
+            >>> scheduled_job = schedule_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], schedule="@hourly")
             >>> inspect_scheduled_job(scheduled_job.id)
             ```
         """
@@ -10770,7 +10777,7 @@ class HfApi:
                 Arguments to pass to the script, or a command.
 
             schedule (`str`):
-                One of "annually", "yearly", "monthly", "weekly", "daily", "hourly", or a
+                One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
                 CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
 
             suspend (`bool`, *optional*):
@@ -10818,7 +10825,7 @@ class HfApi:
             >>> from huggingface_hub import schedule_uv_job
             >>> script = "https://raw.githubusercontent.com/huggingface/trl/refs/heads/main/trl/scripts/sft.py"
             >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
-            >>> schedule_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="weekly")
+            >>> schedule_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="@weekly")
             ```
 
             Schedule a local script:
@@ -10827,7 +10834,7 @@ class HfApi:
             >>> from huggingface_hub import schedule_uv_job
             >>> script = "my_sft.py"
             >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
-            >>> schedule_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="weekly")
+            >>> schedule_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="@weekly")
             ```
 
             Schedule a command:
@@ -10836,7 +10843,7 @@ class HfApi:
             >>> from huggingface_hub import schedule_uv_job
             >>> script = "lighteval"
             >>> script_args= ["endpoint", "inference-providers", "model_name=openai/gpt-oss-20b,provider=auto", "lighteval|gsm8k|0|0"]
-            >>> schedule_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small", schedule="weekly")
+            >>> schedule_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small", schedule="@weekly")
             ```
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"

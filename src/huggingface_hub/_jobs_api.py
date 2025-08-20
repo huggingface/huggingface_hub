@@ -208,7 +208,7 @@ class ScheduledJobInfo:
         tags (`List[str]` or `None`):
             The tags of the scheduled Job.
         schedule (`str` or `None`):
-            One of "annually", "yearly", "monthly", "weekly", "daily", "hourly", or a
+            One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
             CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
         suspend (`bool` or `None`):
             Whether the the scheduled job is suspended (paused).
@@ -228,7 +228,7 @@ class ScheduledJobInfo:
     >>> scheduled_job = create_scheduled_job(
     ...     image="python:3.12",
     ...     command=["python", "-c", "print('Hello from the cloud!')"],
-    ...     schedule="hourly",
+    ...     schedule="@hourly",
     ... )
     >>> scheduled_job.id
     '687fb701029421ae5549d999'
