@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 from huggingface_hub.cli.cache import CacheCommand
 from huggingface_hub.cli.download import DownloadCommand
-from huggingface_hub.cli.jobs import JobsCommands, RunCommand
+from huggingface_hub.cli.jobs import JobsCommands, RunCommand, ScheduledRunCommand
 from huggingface_hub.cli.repo import RepoCommands
 from huggingface_hub.cli.repo_files import DeleteFilesSubCommand, RepoFilesCommand
 from huggingface_hub.cli.upload import UploadCommand
@@ -876,4 +876,46 @@ class TestJobsCommand(unittest.TestCase):
             "environment": {},
             "flavor": "cpu-basic",
             "dockerImage": "ubuntu",
+        }
+
+    @patch(
+        "requests.Session.post",
+        return_value=DummyResponse(
+            {
+                "id": "my-job-id",
+                "owner": {
+                    "id": "userid",
+                    "name": "my-username",
+                    "type": "user",
+                },
+                "status": {"lastJob": None, "nextJobRunAt": "2025-08-20T15:35:00.000Z"},
+                "jobSpec": {
+                    "owner": {
+                        "id": "userid",
+                        "name": "my-username",
+                        "type": "user",
+                    },
+                },
+            }
+        ),
+    )
+    @patch("huggingface_hub.hf_api.HfApi.whoami", return_value={"name": "my-username"})
+    def test_schedule(self, whoami: Mock, requests_post: Mock) -> None:
+        input_args = ["jobs", "scheduled", "run", "@hourly", "ubuntu", "echo", "hello"]
+        cmd = ScheduledRunCommand(self.parser.parse_args(input_args))
+        cmd.run()
+        assert requests_post.call_count == 1
+        args, kwargs = requests_post.call_args_list[0]
+        assert args == ("https://huggingface.co/api/scheduled-jobs/my-username",)
+        assert kwargs["json"] == {
+            "jobSpec": {
+                "command": ["echo", "hello"],
+                "arguments": [],
+                "environment": {},
+                "flavor": "cpu-basic",
+                "dockerImage": "ubuntu",
+            },
+            "schedule": "@hourly",
+            "suspend": False,
+            "concurrency": False,
         }
