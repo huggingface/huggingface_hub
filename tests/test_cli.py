@@ -889,13 +889,7 @@ class TestJobsCommand(unittest.TestCase):
                     "type": "user",
                 },
                 "status": {"lastJob": None, "nextJobRunAt": "2025-08-20T15:35:00.000Z"},
-                "jobSpec": {
-                    "owner": {
-                        "id": "userid",
-                        "name": "my-username",
-                        "type": "user",
-                    },
-                },
+                "jobSpec": {},
             }
         ),
     )

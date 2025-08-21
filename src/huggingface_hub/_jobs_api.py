@@ -153,7 +153,6 @@ class JobSpec:
     environment: Optional[Dict[str, Any]]
     secrets: Optional[Dict[str, Any]]
     flavor: Optional[SpaceHardware]
-    owner: JobOwner
     timeout: Optional[int]
     tags: Optional[List[str]]
     arch: Optional[str]
@@ -166,8 +165,6 @@ class JobSpec:
         self.environment = kwargs.get("environment")
         self.secrets = kwargs.get("secrets")
         self.flavor = kwargs.get("flavor")
-        owner = kwargs.get("owner", {})
-        self.owner = JobOwner(id=owner["id"], name=owner["name"], type=owner["type"])
         self.timeout = kwargs.get("timeout")
         self.tags = kwargs.get("tags")
         self.arch = kwargs.get("arch")
