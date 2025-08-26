@@ -31,6 +31,7 @@ from . import constants
 from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
 from ._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths, get_local_upload_paths, read_upload_metadata
 from .constants import DEFAULT_REVISION, REPO_TYPES
+from .errors import HfHubHTTPError
 from .utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects, tqdm
 from .utils._cache_manager import _format_size
 from .utils._runtime import is_xet_available
@@ -485,8 +486,15 @@ def _worker_job(
             except Exception as e:
                 logger.error(f"Failed to preupload LFS: {e}")
                 traceback.format_exc()
-                for item in items:
-                    status.queue_preupload_lfs.put(item)
+
+                if isinstance(e, HfHubHTTPError) and e.response is not None and e.response.status_code == 403:
+                    for item in items:
+                        _, metadata = item
+                        metadata.should_ignore = True
+                        metadata.save(item[0])
+                else:
+                    for item in items:
+                        status.queue_preupload_lfs.put(item)
 
             with status.lock:
                 status.nb_workers_preupload_lfs -= 1
@@ -501,8 +509,15 @@ def _worker_job(
             except Exception as e:
                 logger.error(f"Failed to commit: {e}")
                 traceback.format_exc()
-                for item in items:
-                    status.queue_commit.put(item)
+
+                if isinstance(e, HfHubHTTPError) and e.response is not None and e.response.status_code == 403:
+                    for item in items:
+                        _, metadata = item
+                        metadata.should_ignore = True
+                        metadata.save(item[0])
+                else:
+                    for item in items:
+                        status.queue_commit.put(item)
                 success = False
             duration = time.time() - start_ts
             status.update_chunk(success, len(items), duration)
