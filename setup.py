@@ -14,7 +14,7 @@ def get_version() -> str:
 install_requires = [
     "filelock",
     "fsspec>=2023.5.0",
-    "hf-xet>=1.1.3,<2.0.0; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='arm64' or platform_machine=='aarch64'",
+    "hf_xet==1.1.9rc1; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='arm64' or platform_machine=='aarch64'",
     "packaging>=20.9",
     "pyyaml>=5.1",
     "requests",
@@ -63,7 +63,7 @@ extras["tensorflow-testing"] = [
     "keras<3.0",
 ]
 
-extras["hf_xet"] = ["hf-xet>=1.1.2,<2.0.0"]
+extras["hf_xet"] = ["hf_xet==1.1.9rc1"]
 
 extras["mcp"] = [
     "mcp>=1.8.0",
