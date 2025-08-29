@@ -2168,6 +2168,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert any(dataset.card_data is not None for dataset in self._api.list_datasets(full=True, limit=50))
         assert all(dataset.card_data is None for dataset in self._api.list_datasets(full=False, limit=50))
 
+    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_tag(self):
         for dataset in self._api.list_datasets(tags="fiftyone", limit=5):
             assert "fiftyone" in dataset.tags
@@ -2278,6 +2279,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(author="muellerzr", model_name="testme"))
         assert len(models) == 0
 
+    @expect_deprecation("list_models")
     def test_filter_models_with_library(self):
         models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", library="tensorflow"))
         assert len(models) == 0
@@ -2285,6 +2287,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", library="pytorch"))
         assert len(models) > 0
 
+    @expect_deprecation("list_models")
     def test_filter_models_with_task(self):
         models = list(self._api.list_models(task="fill-mask", model_name="albert-base-v2"))
         assert models[0].pipeline_tag == "fill-mask"
@@ -2295,11 +2298,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(task="dummytask"))
         assert len(models) == 0
 
+    @expect_deprecation("list_models")
     def test_filter_models_by_language(self):
         for language in ["en", "fr", "zh"]:
             for model in self._api.list_models(language=language, limit=5):
                 assert language in model.tags
 
+    @expect_deprecation("list_models")
     def test_filter_models_with_tag(self):
         models = list(self._api.list_models(author="HuggingFaceBR4", tags=["tensorboard"]))
         assert models[0].id.startswith("HuggingFaceBR4/")
