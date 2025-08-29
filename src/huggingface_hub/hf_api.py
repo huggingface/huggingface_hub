@@ -137,7 +137,7 @@ from .utils._auth import (
     _get_token_from_file,
     _get_token_from_google_colab,
 )
-from .utils._deprecation import _deprecate_method
+from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -1855,6 +1855,9 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
+    @_deprecate_arguments(
+        version="1.0", deprecated_args=["language", "library", "task", "tags"], custom_message="Use `filter` instead."
+    )
     @validate_hf_hub_args
     def list_models(
         self,
@@ -1865,12 +1868,8 @@ class HfApi:
         gated: Optional[bool] = None,
         inference: Optional[Literal["warm"]] = None,
         inference_provider: Optional[Union[Literal["all"], "PROVIDER_T", List["PROVIDER_T"]]] = None,
-        library: Optional[Union[str, List[str]]] = None,
-        language: Optional[Union[str, List[str]]] = None,
         model_name: Optional[str] = None,
-        task: Optional[Union[str, List[str]]] = None,
         trained_dataset: Optional[Union[str, List[str]]] = None,
-        tags: Optional[Union[str, List[str]]] = None,
         search: Optional[str] = None,
         pipeline_tag: Optional[str] = None,
         emissions_thresholds: Optional[Tuple[float, float]] = None,
@@ -1884,6 +1883,11 @@ class HfApi:
         cardData: bool = False,
         fetch_config: bool = False,
         token: Union[bool, str, None] = None,
+        # Deprecated arguments - use `filter` instead
+        language: Optional[Union[str, List[str]]] = None,
+        library: Optional[Union[str, List[str]]] = None,
+        tags: Optional[Union[str, List[str]]] = None,
+        task: Optional[Union[str, List[str]]] = None,
     ) -> Iterable[ModelInfo]:
         """
         List models hosted on the Huggingface Hub, given some filters.
@@ -1891,6 +1895,7 @@ class HfApi:
         Args:
             filter (`str` or `Iterable[str]`, *optional*):
                 A string or list of string to filter models on the Hub.
+                Models can be filtered by library, language, task, tags, and more.
             author (`str`, *optional*):
                 A string which identify the author (user or organization) of the
                 returned models.
@@ -1904,23 +1909,19 @@ class HfApi:
                 A string to filter models on the Hub that are served by a specific provider.
                 Pass `"all"` to get all models served by at least one provider.
             library (`str` or `List`, *optional*):
-                A string or list of strings of foundational libraries models were
-                originally trained from, such as pytorch, tensorflow, or allennlp.
+                Deprecated. Pass a library name in `filter` to filter models by library.
             language (`str` or `List`, *optional*):
-                A string or list of strings of languages, both by name and country
-                code, such as "en" or "English"
+                Deprecated. Pass a language in `filter` to filter models by language.
             model_name (`str`, *optional*):
                 A string that contain complete or partial names for models on the
                 Hub, such as "bert" or "bert-base-cased"
             task (`str` or `List`, *optional*):
-                A string or list of strings of tasks models were designed for, such
-                as: "fill-mask" or "automatic-speech-recognition"
+                Deprecated. Pass a task in `filter` to filter models by task.
             trained_dataset (`str` or `List`, *optional*):
                 A string tag or a list of string tags of the trained dataset for a
                 model on the Hub.
             tags (`str` or `List`, *optional*):
-                A string tag or a list of tags to filter models on the Hub by, such
-                as `text-generation` or `spacy`.
+                Deprecated. Pass tags in `filter` to filter models by tags.
             search (`str`, *optional*):
                 A string that will be contained in the returned model ids.
             pipeline_tag (`str`, *optional*):
@@ -1991,7 +1992,7 @@ class HfApi:
         if expand and (full or cardData or fetch_config):
             raise ValueError("`expand` cannot be used if `full`, `cardData` or `fetch_config` are passed.")
 
-        if emissions_thresholds is not None and cardData is None:
+        if emissions_thresholds is not None and not cardData:
             raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
 
         path = f"{self.endpoint}/api/models"
@@ -2074,6 +2075,7 @@ class HfApi:
             if emissions_thresholds is None or _is_emission_within_threshold(model_info, *emissions_thresholds):
                 yield model_info
 
+    @_deprecate_arguments(version="1.0", deprecated_args=["tags"], custom_message="Use `filter` instead.")
     @validate_hf_hub_args
     def list_datasets(
         self,
@@ -2088,7 +2090,6 @@ class HfApi:
         language: Optional[Union[str, List[str]]] = None,
         multilinguality: Optional[Union[str, List[str]]] = None,
         size_categories: Optional[Union[str, List[str]]] = None,
-        tags: Optional[Union[str, List[str]]] = None,
         task_categories: Optional[Union[str, List[str]]] = None,
         task_ids: Optional[Union[str, List[str]]] = None,
         search: Optional[str] = None,
@@ -2100,6 +2101,8 @@ class HfApi:
         expand: Optional[List[ExpandDatasetProperty_T]] = None,
         full: Optional[bool] = None,
         token: Union[bool, str, None] = None,
+        # Deprecated arguments - use `filter` instead
+        tags: Optional[Union[str, List[str]]] = None,
     ) -> Iterable[DatasetInfo]:
         """
         List datasets hosted on the Huggingface Hub, given some filters.
@@ -2134,7 +2137,7 @@ class HfApi:
                 the Hub by the size of the dataset such as `100K<n<1M` or
                 `1M<n<10M`.
             tags (`str` or `List`, *optional*):
-                A string tag or a list of tags to filter datasets on the Hub.
+                Deprecated. Pass tags in `filter` to filter datasets by tags.
             task_categories (`str` or `List`, *optional*):
                 A string or list of strings that can be used to identify datasets on
                 the Hub by the designed task, such as `audio_classification` or
