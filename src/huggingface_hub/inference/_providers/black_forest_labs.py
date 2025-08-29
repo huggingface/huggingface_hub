@@ -18,7 +18,7 @@ class BlackForestLabsTextToImageTask(TaskProviderHelper):
     def __init__(self):
         super().__init__(provider="black-forest-labs", base_url="https://api.us1.bfl.ai", task="text-to-image")
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
         headers = super()._prepare_headers(headers, api_key)
         if not api_key.startswith("hf_"):
             _ = headers.pop("authorization")

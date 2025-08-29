@@ -15,7 +15,7 @@ For `text-generation` and `conversational` tasks, one can just inherit from `Bas
 ```py
 from typing import Any, Dict, Optional, Union
 
-from ._common import TaskProviderHelper
+from ._common import TaskProviderHelper, MimeBytes
 
 
 class MyNewProviderTaskProviderHelper(TaskProviderHelper):
@@ -34,7 +34,7 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
         Override this method in subclasses for customized response handling."""
         return super().get_response(response)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
         """Return the headers to use for the request.
 
         Override this method in subclasses for customized headers.
@@ -58,11 +58,13 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
 
     def _prepare_payload_as_bytes(
         self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
-    ) -> Optional[bytes]:
+    ) -> Optional[MimeBytes]:
         """Return the body to use for the request, as bytes.
 
         Override this method in subclasses for customized body data.
         Only one of `_prepare_payload_as_dict` and `_prepare_payload_as_bytes` should return a value.
+
+        `MimeBytes` is a subclass of `bytes` that carries a `mime_type` attribute.
         """
         return super()._prepare_payload_as_bytes(inputs, parameters, mapped_model, extra_payload)
     

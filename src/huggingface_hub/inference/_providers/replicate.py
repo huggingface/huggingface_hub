@@ -14,7 +14,7 @@ class ReplicateTask(TaskProviderHelper):
     def __init__(self, task: str):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task=task)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
         headers = super()._prepare_headers(headers, api_key)
         headers["Prefer"] = "wait"
         return headers

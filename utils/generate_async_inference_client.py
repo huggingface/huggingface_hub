@@ -169,37 +169,36 @@ ASYNC_INNER_POST_CODE = """
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        with _open_as_binary(request_parameters.data) as data_as_binary:
-            # Do not use context manager as we don't want to close the connection immediately when returning
-            # a stream
-            session = self._get_client_session(headers=request_parameters.headers)
+        # Do not use context manager as we don't want to close the connection immediately when returning
+        # a stream
+        session = self._get_client_session(headers=request_parameters.headers)
 
-            try:
-                response = await session.post(request_parameters.url, json=request_parameters.json, data=data_as_binary, proxy=self.proxies)
-                response_error_payload = None
-                if response.status != 200:
-                    try:
-                        response_error_payload = await response.json()  # get payload before connection closed
-                    except Exception:
-                        pass
-                response.raise_for_status()
-                if stream:
-                    return _async_yield_from(session, response)
-                else:
-                    content = await response.read()
-                    await session.close()
-                    return content
-            except asyncio.TimeoutError as error:
+        try:
+            response = await session.post(request_parameters.url, json=request_parameters.json, data=request_parameters.data, proxy=self.proxies)
+            response_error_payload = None
+            if response.status != 200:
+                try:
+                    response_error_payload = await response.json()  # get payload before connection closed
+                except Exception:
+                    pass
+            response.raise_for_status()
+            if stream:
+                return _async_yield_from(session, response)
+            else:
+                content = await response.read()
                 await session.close()
-                # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
-            except aiohttp.ClientResponseError as error:
-                error.response_error_payload = response_error_payload
-                await session.close()
-                raise error
-            except Exception:
-                await session.close()
-                raise
+                return content
+        except asyncio.TimeoutError as error:
+            await session.close()
+            # Convert any `TimeoutError` to a `InferenceTimeoutError`
+            raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
+        except aiohttp.ClientResponseError as error:
+            error.response_error_payload = response_error_payload
+            await session.close()
+            raise error
+        except Exception:
+            await session.close()
+            raise
 
     async def __aenter__(self):
         return self
