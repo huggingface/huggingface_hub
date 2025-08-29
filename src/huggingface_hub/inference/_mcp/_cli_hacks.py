@@ -17,7 +17,7 @@ def _patch_anyio_open_process():
 
     if getattr(anyio, "_tiny_agents_patched", False):
         return
-    anyio._tiny_agents_patched = True
+    anyio._tiny_agents_patched = True  # ty: ignore[invalid-assignment]
 
     original_open_process = anyio.open_process
 
