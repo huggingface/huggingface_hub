@@ -219,10 +219,10 @@ class MCPClient:
         logger.debug("Connected to server with tools:", all_tool_names)
 
         # Filter tools based on allowed_tools configuration
-        filtered_tools = self._filter_tools(response.tools, allowed_tools)
+        filtered_tools = [tool for tool in response.tools if tool.name in allowed_tools]
 
         if allowed_tools:
-            logger.info(
+            logger.debug(
                 f"Tool filtering applied. Using {len(filtered_tools)} of {len(response.tools)} available tools: {[tool.name for tool in filtered_tools]}"
             )
 
@@ -247,28 +247,6 @@ class MCPClient:
                     }
                 )
             )
-
-    def _filter_tools(self, tools: List[Any], allowed_tools: Optional[List[str]]) -> List[Any]:
-        """Filter tools based on allowed_tools list.
-
-        Args:
-            tools: List of MCP tool objects
-            allowed_tools: Optional list of tool names to allow
-
-        Returns:
-            Filtered list of tools
-        """
-        if allowed_tools is None:
-            return tools
-
-        # Validate that specified tools exist
-        all_tool_names = [tool.name for tool in tools]
-        missing_tools = set(allowed_tools) - set(all_tool_names)
-        if missing_tools:
-            logger.warning(f"Tools specified in 'allowed_tools' not found on server: {list(missing_tools)}")
-
-        # Filter tools using list comprehension
-        return [tool for tool in tools if tool.name in allowed_tools]
 
     async def process_single_turn_with_tools(
         self,
