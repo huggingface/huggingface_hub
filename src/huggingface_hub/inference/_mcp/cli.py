@@ -33,7 +33,7 @@ async def run_agent(
 
     Args:
         agent_path (`str`, *optional*):
-            Path to a local folder containing an `agent.json` and optionally a custom `PROMPT.md` file or a built-in agent stored in a Hugging Face dataset.
+            Path to a local folder containing an `agent.json` and optionally a custom `PROMPT.md` or `AGENTS.md` file or a built-in agent stored in a Hugging Face dataset.
 
     """
     _patch_anyio_open_process()  # Hacky way to prevent stdio connections to be stopped by Ctrl+C
