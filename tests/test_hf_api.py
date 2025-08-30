@@ -1832,6 +1832,20 @@ class HfApiPublicProductionTest(unittest.TestCase):
         for model in models:
             assert model.id.startswith("google/")
 
+    def test_list_models_apps(self):
+        models = list(self._api.list_models(apps="ollama", full=True, limit=500))
+        assert len(models) > 1
+        assert len(models) <= 500
+        assert isinstance(models[0], ModelInfo)
+        for model in models:
+            assert "gguf" in model.tags
+            found_at_least_one_gguf = False
+            for model_sibling in model.siblings:
+                if model_sibling.rfilename.lower().endswith(".gguf"):
+                    found_at_least_one_gguf = True
+                    break
+            assert found_at_least_one_gguf, f"No .gguf file found in {model.id}"
+
     def test_list_models_search(self):
         models = list(self._api.list_models(search="bert"))
         assert len(models) > 10
