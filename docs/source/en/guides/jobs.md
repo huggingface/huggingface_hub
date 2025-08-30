@@ -327,3 +327,64 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 ```
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
+
+### Scheduled Jobs
+
+Schedule and manage jobs that will run on HF infrastructure.
+
+Use [`schedule_job`] or [`schedule_uv_job`] with a schedule of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`, or a CRON schedule expression (e.g., `"0 9 * * 1"` for 9 AM every Monday):
+
+```python
+# Schedule a job that runs every hour
+>>> from huggingface_hub import schedule_job
+>>> schedule_job(
+...     image="python:3.12",
+...     command=["python",  "-c", "print('This runs every hour!')"],
+...     schedule="@hourly"
+... )
+
+# Use the CRON syntax
+>>> schedule_job(
+...     image="python:3.12",
+...     command=["python",  "-c", "print('This runs every 5 minutes!')"],
+...     schedule="*/5 * * * *"
+... )
+
+# Schedule with GPU
+>>> schedule_job(
+...     image="pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel",
+...     command=["python",  "-c", 'import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")'],
+...     schedule="@hourly",
+...     flavor="a10g-small",
+... )
+
+# Schedule a UV script
+>>> from huggingface_hub import schedule_uv_job
+>>> schedule_uv_job("my_script.py", schedule="@hourly")
+```
+
+Use the same parameters as [`run_job`] and [`run_uv_job`] to pass environment variables, secrets, timeout, etc.
+
+Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], [`suspend_scheduled_job`], [`resume_scheduled_job`], and [`delete_scheduled_job`]:
+
+```python
+# List your active scheduled jobs
+>>> from huggingface_hub import list_scheduled_jobs
+>>> list_scheduled_jobs()
+
+# Inspect the status of a job
+>>> from huggingface_hub import inspect_scheduled_job
+>>> inspect_scheduled_job(scheduled_job_id)
+
+# Suspend (pause) a scheduled job
+>>> from huggingface_hub import suspend_scheduled_job
+>>> suspend_scheduled_job(scheduled_job_id)
+
+# Resume a scheduled job
+>>> from huggingface_hub import resume_scheduled_job
+>>> resume_scheduled_job(scheduled_job_id)
+
+# Delete a scheduled job
+>>> from huggingface_hub import delete_scheduled_job
+>>> delete_scheduled_job(scheduled_job_id)
+```

@@ -192,6 +192,7 @@ _SUBMOD_ATTRS = {
         "delete_folder",
         "delete_inference_endpoint",
         "delete_repo",
+        "delete_scheduled_job",
         "delete_space_secret",
         "delete_space_storage",
         "delete_space_variable",
@@ -219,6 +220,7 @@ _SUBMOD_ATTRS = {
         "get_webhook",
         "grant_access",
         "inspect_job",
+        "inspect_scheduled_job",
         "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
@@ -259,14 +261,18 @@ _SUBMOD_ATTRS = {
         "request_space_storage",
         "restart_space",
         "resume_inference_endpoint",
+        "resume_scheduled_job",
         "revision_exists",
         "run_as_future",
         "run_job",
         "run_uv_job",
         "scale_to_zero_inference_endpoint",
+        "schedule_job",
+        "schedule_uv_job",
         "set_space_sleep_time",
         "space_info",
         "super_squash_history",
+        "suspend_scheduled_job",
         "unlike",
         "update_collection_item",
         "update_collection_metadata",
@@ -838,6 +844,7 @@ __all__ = [
     "delete_folder",
     "delete_inference_endpoint",
     "delete_repo",
+    "delete_scheduled_job",
     "delete_space_secret",
     "delete_space_storage",
     "delete_space_variable",
@@ -878,6 +885,7 @@ __all__ = [
     "hf_hub_download",
     "hf_hub_url",
     "inspect_job",
+    "inspect_scheduled_job",
     "interpreter_login",
     "list_accepted_access_requests",
     "list_collections",
@@ -933,6 +941,7 @@ __all__ = [
     "request_space_storage",
     "restart_space",
     "resume_inference_endpoint",
+    "resume_scheduled_job",
     "revision_exists",
     "run_as_future",
     "run_job",
@@ -942,6 +951,8 @@ __all__ = [
     "save_torch_state_dict",
     "scale_to_zero_inference_endpoint",
     "scan_cache_dir",
+    "schedule_job",
+    "schedule_uv_job",
     "set_space_sleep_time",
     "snapshot_download",
     "space_info",
@@ -949,6 +960,7 @@ __all__ = [
     "split_tf_state_dict_into_shards",
     "split_torch_state_dict_into_shards",
     "super_squash_history",
+    "suspend_scheduled_job",
     "try_to_load_from_cache",
     "unlike",
     "update_collection_item",
@@ -1200,6 +1212,7 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_folder,  # noqa: F401
         delete_inference_endpoint,  # noqa: F401
         delete_repo,  # noqa: F401
+        delete_scheduled_job,  # noqa: F401
         delete_space_secret,  # noqa: F401
         delete_space_storage,  # noqa: F401
         delete_space_variable,  # noqa: F401
@@ -1227,6 +1240,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
         inspect_job,  # noqa: F401
+        inspect_scheduled_job,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
@@ -1267,14 +1281,18 @@ if TYPE_CHECKING:  # pragma: no cover
         request_space_storage,  # noqa: F401
         restart_space,  # noqa: F401
         resume_inference_endpoint,  # noqa: F401
+        resume_scheduled_job,  # noqa: F401
         revision_exists,  # noqa: F401
         run_as_future,  # noqa: F401
         run_job,  # noqa: F401
         run_uv_job,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
+        schedule_job,  # noqa: F401
+        schedule_uv_job,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
         space_info,  # noqa: F401
         super_squash_history,  # noqa: F401
+        suspend_scheduled_job,  # noqa: F401
         unlike,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401
