@@ -207,7 +207,7 @@ def _open_as_mime_bytes(content: Optional[ContentT]) -> Optional[MimeBytes]:
     # If nothing matched, raise error
     raise TypeError(
         f"Unsupported content type: {type(content)}. "
-        "Expected one of: bytes, BinaryIO, Path, str (URL or file path), or PIL.Image.Image."
+        "Expected one of: bytes, bytearray, BinaryIO, memoryview, Path, str (URL or file path), or PIL.Image.Image."
     )
 
 
