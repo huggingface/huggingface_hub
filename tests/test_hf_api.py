@@ -1836,7 +1836,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(apps="ollama", full=True, limit=500))
         assert len(models) > 1
         for model in models:
-        assert any(sibling.rfilename.lower().endswith(".gguf") for sibling in model.siblings)
+            assert any(sibling.rfilename.lower().endswith(".gguf") for sibling in model.siblings)
 
     def test_list_models_search(self):
         models = list(self._api.list_models(search="bert"))

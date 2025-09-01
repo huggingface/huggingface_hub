@@ -1865,11 +1865,11 @@ class HfApi:
         # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
+        apps: Optional[Union[str, List[str]]] = None,
         gated: Optional[bool] = None,
         inference: Optional[Literal["warm"]] = None,
         inference_provider: Optional[Union[Literal["all"], "PROVIDER_T", List["PROVIDER_T"]]] = None,
         model_name: Optional[str] = None,
-        apps: Optional[Union[str, List[str]]] = None,
         trained_dataset: Optional[Union[str, List[str]]] = None,
         search: Optional[str] = None,
         pipeline_tag: Optional[str] = None,
@@ -1900,6 +1900,9 @@ class HfApi:
             author (`str`, *optional*):
                 A string which identify the author (user or organization) of the
                 returned models.
+            apps (`str` or `List`, *optional*):
+                A string or list of strings to filter models on the Hub that
+                support the specified apps. Example values include `"ollama"` or `["ollama", "vllm"]`.
             gated (`bool`, *optional*):
                 A boolean to filter models on the Hub that are gated or not. By default, all models are returned.
                 If `gated=True` is passed, only gated models are returned.
@@ -1918,9 +1921,6 @@ class HfApi:
                 Hub, such as "bert" or "bert-base-cased"
             task (`str` or `List`, *optional*):
                 Deprecated. Pass a task in `filter` to filter models by task.
-            apps (`str` or `List`, *optional*):
-                A string or list of strings to filter models on the Hub that
-                support the specified apps. Example values include `"ollama"` or `["ollama", "vllm"]`.
             trained_dataset (`str` or `List`, *optional*):
                 A string tag or a list of string tags of the trained dataset for a
                 model on the Hub.
@@ -2026,12 +2026,12 @@ class HfApi:
             params["filter"] = filter_list
 
         # Handle other query params
+        if author:
+            params["author"] = author
         if apps:
             if isinstance(apps, str):
                 apps = [apps]
             params["apps"] = apps
-        if author:
-            params["author"] = author
         if gated is not None:
             params["gated"] = gated
         if inference is not None:
