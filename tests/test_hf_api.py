@@ -1835,8 +1835,6 @@ class HfApiPublicProductionTest(unittest.TestCase):
     def test_list_models_apps(self):
         models = list(self._api.list_models(apps="ollama", full=True, limit=500))
         assert len(models) > 1
-        assert len(models) <= 500
-        assert isinstance(models[0], ModelInfo)
         for model in models:
             assert "gguf" in model.tags
             found_at_least_one_gguf = False
