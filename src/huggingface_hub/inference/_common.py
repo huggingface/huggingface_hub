@@ -176,7 +176,10 @@ def _open_as_mime_bytes(content: Optional[ContentT]) -> Optional[MimeBytes]:
         if content.startswith("https://") or content.startswith("http://"):
             logger.debug(f"Downloading content from {content}")
             response = get_session().get(content)
-            return MimeBytes(response.content, mime_type=response.headers.get("Content-Type"))
+            mime_type = response.headers.get("Content-Type")
+            if mime_type is None:
+                mime_type = mimetypes.guess_type(content)[0]
+            return MimeBytes(response.content, mime_type=mime_type)
 
         content = Path(content)
         if not content.exists():
@@ -225,7 +228,7 @@ def _as_url(content: ContentT, default_mime_type: str) -> str:
     mime_type = raw_bytes.mime_type or default_mime_type
 
     # Encode content to base64
-    encoded_data = _b64_encode(raw_bytes)
+    encoded_data = base64.b64encode(raw_bytes).decode()
 
     # Build data URL
     return f"data:{mime_type};base64,{encoded_data}"
