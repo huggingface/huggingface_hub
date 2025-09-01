@@ -8,7 +8,7 @@ from huggingface_hub import ChatCompletionInputTool
 
 
 FILENAME_CONFIG = "agent.json"
-FILENAME_PROMPT = "PROMPT.md"
+PROMPT_FILENAMES = ("PROMPT.md", "AGENTS.md")
 
 DEFAULT_AGENT = {
     "model": "Qwen/Qwen2.5-72B-Instruct",

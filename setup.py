@@ -83,7 +83,7 @@ extras["testing"] = (
         "pytest-xdist",
         "pytest-vcr",  # to mock Inference
         "pytest-asyncio",  # for AsyncInferenceClient
-        "pytest-rerunfailures",  # to rerun flaky tests in CI
+        "pytest-rerunfailures<16.0",  # to rerun flaky tests in CI
         "pytest-mock",
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",

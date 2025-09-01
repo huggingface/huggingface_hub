@@ -33,11 +33,7 @@ The list helpers have several attributes like:
 Let's see an example to get all models on the Hub that does image classification, have been trained on the imagenet dataset and that runs with PyTorch.
 
 ```py
-models = hf_api.list_models(
-	task="image-classification",
-	library="pytorch",
-	trained_dataset="imagenet",
-)
+models = hf_api.list_models(filter=["image-classification", "pytorch", "imagenet"])
 ```
 
 While filtering, you can also sort the models and take only the top results. For example,
