@@ -158,7 +158,7 @@ class MCPClient:
         from mcp import types as mcp_types
 
         # Extract allowed_tools configuration if provided
-        allowed_tools = params.pop("allowed_tools", None)
+        allowed_tools = params.pop("allowed_tools", [])
 
         # Determine server type and create appropriate parameters
         if type == "stdio":
