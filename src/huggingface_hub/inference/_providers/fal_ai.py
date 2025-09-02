@@ -22,7 +22,7 @@ class FalAITask(TaskProviderHelper, ABC):
     def __init__(self, task: str):
         super().__init__(provider="fal-ai", base_url="https://fal.run", task=task)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
         headers = super()._prepare_headers(headers, api_key)
         if not api_key.startswith("hf_"):
             headers["authorization"] = f"Key {api_key}"
@@ -36,7 +36,7 @@ class FalAIQueueTask(TaskProviderHelper, ABC):
     def __init__(self, task: str):
         super().__init__(provider="fal-ai", base_url="https://queue.fal.run", task=task)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
         headers = super()._prepare_headers(headers, api_key)
         if not api_key.startswith("hf_"):
             headers["authorization"] = f"Key {api_key}"

@@ -914,6 +914,31 @@ class TestHFInferenceProvider:
         else:
             _check_supported_task("test-model", task)
 
+    def test_prepare_request_from_binary_data(self, mocker, tmp_path):
+        helper = HFInferenceBinaryInputTask("image-classification")
+
+        mock_model_info = mocker.Mock(pipeline_tag="image-classification", tags=[])
+        mocker.patch("huggingface_hub.hf_api.HfApi.model_info", return_value=mock_model_info)
+
+        image_path = tmp_path / "image.jpg"
+        image_path.write_bytes(b"dummy binary input")
+
+        request = helper.prepare_request(
+            inputs=image_path,
+            parameters={},
+            headers={},
+            model="microsoft/resnet-50",
+            api_key="hf_test_token",
+            extra_payload=None,
+        )
+        assert request.url == "https://router.huggingface.co/hf-inference/models/microsoft/resnet-50"
+        assert request.task == "image-classification"
+        assert request.model == "microsoft/resnet-50"
+        assert request.json is None
+        assert isinstance(request.data, bytes)
+        assert request.headers["authorization"] == "Bearer hf_test_token"
+        assert request.headers["content-type"] == "image/jpeg"  # based on filename
+
 
 class TestHyperbolicProvider:
     def test_prepare_route(self):

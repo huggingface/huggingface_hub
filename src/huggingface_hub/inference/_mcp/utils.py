@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, List, Optional, Tuple
 from huggingface_hub import snapshot_download
 from huggingface_hub.errors import EntryNotFoundError
 
-from .constants import DEFAULT_AGENT, DEFAULT_REPO_ID, FILENAME_CONFIG, FILENAME_PROMPT
+from .constants import DEFAULT_AGENT, DEFAULT_REPO_ID, FILENAME_CONFIG, PROMPT_FILENAMES
 from .types import AgentConfig
 
 
@@ -93,8 +93,12 @@ def _load_agent_config(agent_path: Optional[str]) -> Tuple[AgentConfig, Optional
             raise FileNotFoundError(f" Config file not found in {directory}! Please make sure it exists locally")
 
         config: AgentConfig = json.loads(cfg_file.read_text(encoding="utf-8"))
-        prompt_file = directory / FILENAME_PROMPT
-        prompt: Optional[str] = prompt_file.read_text(encoding="utf-8") if prompt_file.exists() else None
+        prompt: Optional[str] = None
+        for filename in PROMPT_FILENAMES:
+            prompt_file = directory / filename
+            if prompt_file.exists():
+                prompt = prompt_file.read_text(encoding="utf-8")
+                break
         return config, prompt
 
     if agent_path is None:

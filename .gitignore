@@ -140,3 +140,6 @@ dmypy.json
 cspell.json
 
 tmp*
+
+# Claude Code
+CLAUDE.md

@@ -19,7 +19,6 @@ import io
 import json
 import logging
 import mimetypes
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
@@ -27,9 +26,7 @@ from typing import (
     Any,
     AsyncIterable,
     BinaryIO,
-    ContextManager,
     Dict,
-    Generator,
     Iterable,
     List,
     Literal,
@@ -61,8 +58,7 @@ if TYPE_CHECKING:
 # TYPES
 UrlT = str
 PathT = Union[str, Path]
-BinaryT = Union[bytes, BinaryIO]
-ContentT = Union[BinaryT, PathT, UrlT, "Image"]
+ContentT = Union[bytes, BinaryIO, PathT, UrlT, "Image", bytearray, memoryview]
 
 # Use to set a Accept: image/png header
 TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
@@ -76,8 +72,33 @@ class RequestParameters:
     task: str
     model: Optional[str]
     json: Optional[Union[str, Dict, List]]
-    data: Optional[ContentT]
+    data: Optional[bytes]
     headers: Dict[str, Any]
+
+
+class MimeBytes(bytes):
+    """
+    A bytes object with a mime type.
+    To be returned by `_prepare_payload_open_as_mime_bytes` in subclasses.
+
+    Example:
+    ```python
+        >>> b = MimeBytes(b"hello", "text/plain")
+        >>> isinstance(b, bytes)
+        True
+        >>> b.mime_type
+        'text/plain'
+    ```
+    """
+
+    mime_type: Optional[str]
+
+    def __new__(cls, data: bytes, mime_type: Optional[str] = None):
+        obj = super().__new__(cls, data)
+        obj.mime_type = mime_type
+        if isinstance(data, MimeBytes) and mime_type is None:
+            obj.mime_type = data.mime_type
+        return obj
 
 
 ## IMPORT UTILS
@@ -117,31 +138,49 @@ def _import_pil_image():
 
 
 @overload
-def _open_as_binary(
-    content: ContentT,
-) -> ContextManager[BinaryT]: ...  # means "if input is not None, output is not None"
+def _open_as_mime_bytes(content: ContentT) -> MimeBytes: ...  # means "if input is not None, output is not None"
 
 
 @overload
-def _open_as_binary(
-    content: Literal[None],
-) -> ContextManager[Literal[None]]: ...  # means "if input is None, output is None"
+def _open_as_mime_bytes(content: Literal[None]) -> Literal[None]: ...  # means "if input is None, output is None"
 
 
-@contextmanager  # type: ignore
-def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT], None, None]:
+def _open_as_mime_bytes(content: Optional[ContentT]) -> Optional[MimeBytes]:
     """Open `content` as a binary file, either from a URL, a local path, raw bytes, or a PIL Image.
 
     Do nothing if `content` is None.
-
-    TODO: handle base64 as input
     """
+    # If content is None, yield None
+    if content is None:
+        return None
+
+    # If content is bytes, return it
+    if isinstance(content, bytes):
+        return MimeBytes(content)
+
+    # If content is raw binary data (bytearray, memoryview)
+    if isinstance(content, (bytearray, memoryview)):
+        return MimeBytes(bytes(content))
+
+    # If content is a binary file-like object
+    if hasattr(content, "read"):  # duck-typing instead of isinstance(content, BinaryIO)
+        logger.debug("Reading content from BinaryIO")
+        data = content.read()
+        mime_type = mimetypes.guess_type(content.name)[0] if hasattr(content, "name") else None
+        if isinstance(data, str):
+            raise TypeError("Expected binary stream (bytes), but got text stream")
+        return MimeBytes(data, mime_type=mime_type)
+
     # If content is a string => must be either a URL or a path
     if isinstance(content, str):
         if content.startswith("https://") or content.startswith("http://"):
             logger.debug(f"Downloading content from {content}")
-            yield get_session().get(content).content  # TODO: retrieve as stream and pipe to post request ?
-            return
+            response = get_session().get(content)
+            mime_type = response.headers.get("Content-Type")
+            if mime_type is None:
+                mime_type = mimetypes.guess_type(content)[0]
+            return MimeBytes(response.content, mime_type=mime_type)
+
         content = Path(content)
         if not content.exists():
             raise FileNotFoundError(
@@ -152,9 +191,7 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
     # If content is a Path => open it
     if isinstance(content, Path):
         logger.debug(f"Opening content from {content}")
-        with content.open("rb") as f:
-            yield f
-        return
+        return MimeBytes(content.read_bytes(), mime_type=mimetypes.guess_type(content)[0])
 
     # If content is a PIL Image => convert to bytes
     if is_pillow_available():
@@ -163,38 +200,37 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
         if isinstance(content, Image.Image):
             logger.debug("Converting PIL Image to bytes")
             buffer = io.BytesIO()
-            content.save(buffer, format=content.format or "PNG")
-            yield buffer.getvalue()
-            return
+            format = content.format or "PNG"
+            content.save(buffer, format=format)
+            return MimeBytes(buffer.getvalue(), mime_type=f"image/{format.lower()}")
 
-    # Otherwise: already a file-like object or None
-    yield content  # type: ignore
+    # If nothing matched, raise error
+    raise TypeError(
+        f"Unsupported content type: {type(content)}. "
+        "Expected one of: bytes, bytearray, BinaryIO, memoryview, Path, str (URL or file path), or PIL.Image.Image."
+    )
 
 
 def _b64_encode(content: ContentT) -> str:
     """Encode a raw file (image, audio) into base64. Can be bytes, an opened file, a path or a URL."""
-    with _open_as_binary(content) as data:
-        data_as_bytes = data if isinstance(data, bytes) else data.read()
-        return base64.b64encode(data_as_bytes).decode()
+    raw_bytes = _open_as_mime_bytes(content)
+    return base64.b64encode(raw_bytes).decode()
 
 
 def _as_url(content: ContentT, default_mime_type: str) -> str:
-    if isinstance(content, str) and (content.startswith("https://") or content.startswith("http://")):
+    if isinstance(content, str) and content.startswith(("http://", "https://", "data:")):
         return content
 
-    # Handle MIME type detection for different content types
-    mime_type = None
-    if isinstance(content, (str, Path)):
-        mime_type = mimetypes.guess_type(content, strict=False)[0]
-    elif is_pillow_available():
-        from PIL import Image
+    # Convert content to bytes
+    raw_bytes = _open_as_mime_bytes(content)
 
-        if isinstance(content, Image.Image):
-            # Determine MIME type from PIL Image format, in sync with `_open_as_binary`
-            mime_type = f"image/{(content.format or 'PNG').lower()}"
+    # Get MIME type
+    mime_type = raw_bytes.mime_type or default_mime_type
 
-    mime_type = mime_type or default_mime_type
-    encoded_data = _b64_encode(content)
+    # Encode content to base64
+    encoded_data = base64.b64encode(raw_bytes).decode()
+
+    # Build data URL
     return f"data:{mime_type};base64,{encoded_data}"
 
 
@@ -237,9 +273,6 @@ def _bytes_to_image(content: bytes) -> "Image":
 
 def _as_dict(response: Union[bytes, Dict]) -> Dict:
     return json.loads(response) if isinstance(response, bytes) else response
-
-
-## PAYLOAD UTILS
 
 
 ## STREAMING UTILS
