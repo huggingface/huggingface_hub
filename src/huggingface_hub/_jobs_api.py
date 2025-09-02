@@ -247,7 +247,7 @@ class ScheduledJobInfo:
         self.id = kwargs["id"]
         created_at = kwargs.get("createdAt") or kwargs.get("created_at")
         self.created_at = parse_datetime(created_at) if created_at else None
-        self.job_spec = JobSpec(**(kwargs.get("job_spec") or kwargs.get("jobSpec")))
+        self.job_spec = JobSpec(**(kwargs.get("job_spec") or kwargs.get("jobSpec", {})))
         self.schedule = kwargs.get("schedule")
         self.suspend = kwargs.get("suspend")
         self.concurrency = kwargs.get("concurrency")

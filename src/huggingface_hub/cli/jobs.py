@@ -770,7 +770,11 @@ class ScheduledPsCommand(BaseHuggingfaceCLICommand):
                     if scheduled_job.status.last_job
                     else "N/A"
                 )
-                next_job_run_at = scheduled_job.status.next_job_run_at.strftime("%Y-%m-%d %H:%M:%S")
+                next_job_run_at = (
+                    scheduled_job.status.next_job_run_at.strftime("%Y-%m-%d %H:%M:%S")
+                    if scheduled_job.status.next_job_run_at
+                    else "N/A"
+                )
 
                 # Create a dict with all job properties for filtering
                 job_properties = {
