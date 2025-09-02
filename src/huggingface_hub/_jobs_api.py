@@ -183,13 +183,13 @@ class LastJobInfo:
 @dataclass
 class ScheduledJobStatus:
     last_job: Optional[LastJobInfo]
-    next_job_run_at: datetime
+    next_job_run_at: Optional[datetime]
 
     def __init__(self, **kwargs) -> None:
         last_job = kwargs.get("lastJob") or kwargs.get("last_job")
         self.last_job = LastJobInfo(**last_job) if last_job else None
         next_job_run_at = kwargs.get("nextJobRunAt") or kwargs.get("next_job_run_at")
-        self.next_job_run_at = parse_datetime(str(next_job_run_at))
+        self.next_job_run_at = parse_datetime(str(next_job_run_at)) if next_job_run_at else None
 
 
 @dataclass
@@ -208,7 +208,7 @@ class ScheduledJobInfo:
             One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
             CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
         suspend (`bool` or `None`):
-            Whether the the scheduled job is suspended (paused).
+            Whether the scheduled job is suspended (paused).
         concurrency (`bool` or `None`):
             Whether multiple instances of this Job can run concurrently.
         status (`ScheduledJobStatus` or `None`):

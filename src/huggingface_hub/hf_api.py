@@ -10453,14 +10453,14 @@ class HfApi:
             token=token,
         )
 
-    def schedule_job(
+    def create_scheduled_job(
         self,
         *,
         image: str,
         command: List[str],
         schedule: str,
-        suspend: bool = False,
-        concurrency: bool = False,
+        suspend: Optional[bool] = None,
+        concurrency: Optional[bool] = None,
         env: Optional[Dict[str, Any]] = None,
         secrets: Optional[Dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
@@ -10488,7 +10488,7 @@ class HfApi:
                 If True, the scheduled Job is suspended (paused).
 
             concurrency (`bool`, *optional*):
-                If True, multiple instances of this Job can run concurrently.
+                If True, multiple instances of this Job can run concurrently. Defaults to False.
 
             env (`Dict[str, Any]`, *optional*):
                 Defines the environment variables for the Job.
@@ -10611,13 +10611,13 @@ class HfApi:
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
         """
         if namespace is None:
-            namespace = whoami(token=token)["name"]
+            namespace = self.whoami(token=token)["name"]
         response = get_session().get(
             f"{self.endpoint}/api/scheduled-jobs/{namespace}",
             headers=self._build_hf_headers(token=token),
             timeout=timeout,
         )
-        response.raise_for_status()
+        hf_raise_for_status(response)
         return [ScheduledJobInfo(**scheduled_job_info) for scheduled_job_info in response.json()]
 
     def inspect_scheduled_job(
@@ -10656,7 +10656,7 @@ class HfApi:
             f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}",
             headers=self._build_hf_headers(token=token),
         )
-        response.raise_for_status()
+        hf_raise_for_status(response)
         return ScheduledJobInfo(**response.json())
 
     def delete_scheduled_job(
@@ -10683,10 +10683,11 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
-        get_session().delete(
+        response = get_session().delete(
             f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}",
             headers=self._build_hf_headers(token=token),
-        ).raise_for_status()
+        )
+        hf_raise_for_status(response)
 
     def suspend_scheduled_job(
         self,
@@ -10874,7 +10875,6 @@ class HfApi:
                 repo_id = _repo
                 if "/" not in repo_id:
                     repo_id = f"{namespace}/{repo_id}"
-                repo_id = _repo
             else:
                 repo_id = f"{namespace}/hf-cli-jobs-uv-run-scripts"
 
@@ -10898,8 +10898,8 @@ class HfApi:
                 repo_type="dataset",
             ).oid
 
-            script_url = f"https://huggingface.co/datasets/{repo_id}/resolve/{commit_hash}/{filename}"
-            repo_url = f"https://huggingface.co/datasets/{repo_id}"
+            script_url = f"{self.endpoint}/datasets/{repo_id}/resolve/{commit_hash}/{filename}"
+            repo_url = f"{self.endpoint}/datasets/{repo_id}"
 
             logger.debug(f"✓ Script uploaded to: {repo_url}/blob/main/{filename}")
 
@@ -11141,5 +11141,5 @@ list_scheduled_jobs = api.list_scheduled_jobs
 inspect_scheduled_job = api.inspect_scheduled_job
 delete_scheduled_job = api.delete_scheduled_job
 suspend_scheduled_job = api.suspend_scheduled_job
-resume_scheduled_job = api.suspend_scheduled_job
+resume_scheduled_job = api.resume_scheduled_job
 schedule_uv_job = api.schedule_uv_job

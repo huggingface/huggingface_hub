@@ -775,7 +775,7 @@ The schedule should be one of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@d
 >>> hf jobs scheduled run "*/5 * * * *" python:3.12 python -c 'print("This runs every 5 minutes!")'
 
 # Schedule with GPU
->>> hf jobs schefuled run @hourly --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
+>>> hf jobs scheduled run @hourly --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
 ... python -c "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"
 
 # Schedule a UV script
