@@ -15,7 +15,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from huggingface_hub import constants
 from huggingface_hub._space_api import SpaceHardware
@@ -258,3 +258,44 @@ class ScheduledJobInfo:
         )
         owner = kwargs.get("owner", {})
         self.owner = JobOwner(id=owner["id"], name=owner["name"], type=owner["type"])
+
+
+def _create_job_spec(
+    *,
+    image: str,
+    command: List[str],
+    env: Optional[Dict[str, Any]],
+    secrets: Optional[Dict[str, Any]],
+    flavor: Optional[SpaceHardware],
+    timeout: Optional[Union[int, float, str]],
+) -> Dict[str, Any]:
+    # prepare job spec to send to HF Jobs API
+    job_spec: Dict[str, Any] = {
+        "command": command,
+        "arguments": [],
+        "environment": env or {},
+        "flavor": flavor or SpaceHardware.CPU_BASIC,
+    }
+    # secrets are optional
+    if secrets:
+        job_spec["secrets"] = secrets
+    # timeout is optional
+    if timeout:
+        time_units_factors = {"s": 1, "m": 60, "h": 3600, "d": 3600 * 24}
+        if isinstance(timeout, str) and timeout[-1] in time_units_factors:
+            job_spec["timeoutSeconds"] = int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
+        else:
+            job_spec["timeoutSeconds"] = int(timeout)
+    # input is either from docker hub or from HF spaces
+    for prefix in (
+        "https://huggingface.co/spaces/",
+        "https://hf.co/spaces/",
+        "huggingface.co/spaces/",
+        "hf.co/spaces/",
+    ):
+        if image.startswith(prefix):
+            job_spec["spaceId"] = image[len(prefix) :]
+            break
+    else:
+        job_spec["dockerImage"] = image
+    return job_spec

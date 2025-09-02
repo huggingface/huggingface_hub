@@ -67,7 +67,7 @@ from ._commit_api import (
     _warn_on_overwriting_operations,
 )
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
-from ._jobs_api import JobInfo, ScheduledJobInfo
+from ._jobs_api import JobInfo, ScheduledJobInfo, _create_job_spec
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
@@ -10017,43 +10017,19 @@ class HfApi:
             ```
 
         """
-        if flavor is None:
-            flavor = SpaceHardware.CPU_BASIC
-
-        # prepare payload to send to HF Jobs API
-        input_json: Dict[str, Any] = {
-            "command": command,
-            "arguments": [],
-            "environment": env or {},
-            "flavor": flavor,
-        }
-        # secrets are optional
-        if secrets:
-            input_json["secrets"] = secrets
-        # timeout is optional
-        if timeout:
-            time_units_factors = {"s": 1, "m": 60, "h": 3600, "d": 3600 * 24}
-            if isinstance(timeout, str) and timeout[-1] in time_units_factors:
-                input_json["timeoutSeconds"] = int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
-            else:
-                input_json["timeoutSeconds"] = int(timeout)
-        # input is either from docker hub or from HF spaces
-        for prefix in (
-            "https://huggingface.co/spaces/",
-            "https://hf.co/spaces/",
-            "huggingface.co/spaces/",
-            "hf.co/spaces/",
-        ):
-            if image.startswith(prefix):
-                input_json["spaceId"] = image[len(prefix) :]
-                break
-        else:
-            input_json["dockerImage"] = image
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
+        job_spec = _create_job_spec(
+            image=image,
+            command=command,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+        )
         response = get_session().post(
             f"https://huggingface.co/api/jobs/{namespace}",
-            json=input_json,
+            json=job_spec,
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -10335,112 +10311,17 @@ class HfApi:
         secrets = secrets or {}
 
         # Build command
-        uv_args = []
-        if dependencies:
-            for dependency in dependencies:
-                uv_args += ["--with", dependency]
-        if python:
-            uv_args += ["--python", python]
-        script_args = script_args or []
-
-        if namespace is None:
-            namespace = self.whoami(token=token)["name"]
-
-        if script.startswith("http://") or script.startswith("https://"):
-            # Direct URL execution - no upload needed
-            command = ["uv", "run"] + uv_args + [script] + script_args
-        else:
-            # Local file - upload to HF
-            script_path = Path(script)
-            filename = script_path.name
-            # Parse repo
-            if _repo:
-                repo_id = _repo
-                if "/" not in repo_id:
-                    repo_id = f"{namespace}/{repo_id}"
-                repo_id = _repo
-            else:
-                repo_id = f"{namespace}/hf-cli-jobs-uv-run-scripts"
-
-            # Create repo if needed
-            try:
-                self.repo_info(repo_id, repo_type="dataset")
-                logger.debug(f"Using existing repository: {repo_id}")
-            except RepositoryNotFoundError:
-                logger.info(f"Creating repository: {repo_id}")
-                create_repo(repo_id, repo_type="dataset", private=True, exist_ok=True)
-
-            # Upload script
-            logger.info(f"Uploading {script_path.name} to {repo_id}...")
-            with open(script_path, "r") as f:
-                script_content = f.read()
-
-            commit_hash = self.upload_file(
-                path_or_fileobj=script_content.encode(),
-                path_in_repo=filename,
-                repo_id=repo_id,
-                repo_type="dataset",
-            ).oid
-
-            script_url = f"https://huggingface.co/datasets/{repo_id}/resolve/{commit_hash}/{filename}"
-            repo_url = f"https://huggingface.co/datasets/{repo_id}"
-
-            logger.debug(f"✓ Script uploaded to: {repo_url}/blob/main/{filename}")
-
-            # Create and upload minimal README
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-            readme_content = dedent(
-                f"""
-                ---
-                tags:
-                - hf-cli-jobs-uv-script
-                - ephemeral
-                viewer: false
-                ---
-
-                # UV Script: {filename}
-
-                Executed via `hf jobs uv run` on {timestamp}
-
-                ## Run this script
-
-                ```bash
-                hf jobs uv run {filename}
-                ```
-
-                ---
-                *Created with [hf jobs](https://huggingface.co/docs/huggingface_hub/main/en/guides/jobs)*
-                """
-            )
-            self.upload_file(
-                path_or_fileobj=readme_content.encode(),
-                path_in_repo="README.md",
-                repo_id=repo_id,
-                repo_type="dataset",
-            )
-
-            secrets["UV_SCRIPT_HF_TOKEN"] = token or self.token or get_token()
-            env["UV_SCRIPT_URL"] = script_url
-
-            pre_command = (
-                dedent(
-                    """
-                    import urllib.request
-                    import os
-                    from pathlib import Path
-                    o = urllib.request.build_opener()
-                    o.addheaders = [("Authorization", "Bearer " + os.environ["UV_SCRIPT_HF_TOKEN"])]
-                    Path("/tmp/script.py").write_bytes(o.open(os.environ["UV_SCRIPT_URL"]).read())
-                    """
-                )
-                .strip()
-                .replace('"', r"\"")
-                .split("\n")
-            )
-            pre_command = ["python", "-c", '"' + "; ".join(pre_command) + '"']
-            command = ["uv", "run"] + uv_args + ["/tmp/script.py"] + script_args
-            command = ["bash", "-c", " ".join(pre_command) + " && " + " ".join(command)]
-
+        command, env, secrets = self._create_uv_command_env_and_secrets(
+            script=script,
+            script_args=script_args,
+            dependencies=dependencies,
+            python=python,
+            env=env,
+            secrets=secrets,
+            namespace=namespace,
+            token=token,
+            _repo=_repo,
+        )
         # Create RunCommand args
         return self.run_job(
             image=image,
@@ -10485,7 +10366,7 @@ class HfApi:
                 CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
 
             suspend (`bool`, *optional*):
-                If True, the scheduled Job is suspended (paused).
+                If True, the scheduled Job is suspended (paused).  Defaults to False.
 
             concurrency (`bool`, *optional*):
                 If True, multiple instances of this Job can run concurrently. Defaults to False.
@@ -10516,69 +10397,47 @@ class HfApi:
             Create your first scheduled Job:
 
             ```python
-            >>> from huggingface_hub import schedule_job
-            >>> schedule_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], schedule="@hourly")
+            >>> from huggingface_hub import create_scheduled_job
+            >>> create_scheduled_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], schedule="@hourly")
             ```
 
             Use a CRON schedule expression:
 
             ```python
-            >>> from huggingface_hub import schedule_job
-            >>> schedule_job(image="python:3.12", command=["python", "-c" ,"print('this runs every 5min')"], schedule="*/5 * * * *")
+            >>> from huggingface_hub import create_scheduled_job
+            >>> create_scheduled_job(image="python:3.12", command=["python", "-c" ,"print('this runs every 5min')"], schedule="*/5 * * * *")
             ```
 
             Create a scheduled GPU Job:
 
             ```python
-            >>> from huggingface_hub import schedule_job
+            >>> from huggingface_hub import create_scheduled_job
             >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
             >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
-            >>> schedule_job(image, command, flavor="a10g-small", schedule="@hourly")
+            >>> create_scheduled_job(image, command, flavor="a10g-small", schedule="@hourly")
             ```
 
         """
-        if flavor is None:
-            flavor = SpaceHardware.CPU_BASIC
-
-        # prepare job spec to send to HF Jobs API
-        job_spec: Dict[str, Any] = {
-            "command": command,
-            "arguments": [],
-            "environment": env or {},
-            "flavor": flavor,
-        }
-        # secrets are optional
-        if secrets:
-            job_spec["secrets"] = secrets
-        # timeout is optional
-        if timeout:
-            time_units_factors = {"s": 1, "m": 60, "h": 3600, "d": 3600 * 24}
-            if isinstance(timeout, str) and timeout[-1] in time_units_factors:
-                job_spec["timeoutSeconds"] = int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
-            else:
-                job_spec["timeoutSeconds"] = int(timeout)
-        # input is either from docker hub or from HF spaces
-        for prefix in (
-            "https://huggingface.co/spaces/",
-            "https://hf.co/spaces/",
-            "huggingface.co/spaces/",
-            "hf.co/spaces/",
-        ):
-            if image.startswith(prefix):
-                job_spec["spaceId"] = image[len(prefix) :]
-                break
-        else:
-            job_spec["dockerImage"] = image
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
 
         # prepare payload to send to HF Jobs API
+        job_spec = _create_job_spec(
+            image=image,
+            command=command,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+        )
         input_json: Dict[str, Any] = {
             "jobSpec": job_spec,
             "schedule": schedule,
-            "suspend": suspend,
-            "concurrency": concurrency,
         }
+        if concurrency is not None:
+            input_json["concurrency"] = concurrency
+        if suspend is not None:
+            input_json["suspend"] = suspend
         response = get_session().post(
             f"https://huggingface.co/api/scheduled-jobs/{namespace}",
             json=input_json,
@@ -10645,8 +10504,8 @@ class HfApi:
         Example:
 
             ```python
-            >>> from huggingface_hub import inspect_job, schedule_job
-            >>> scheduled_job = schedule_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], schedule="@hourly")
+            >>> from huggingface_hub import inspect_job, create_scheduled_job
+            >>> scheduled_job = create_scheduled_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], schedule="@hourly")
             >>> inspect_scheduled_job(scheduled_job.id)
             ```
         """
@@ -10754,8 +10613,8 @@ class HfApi:
         *,
         script_args: Optional[List[str]] = None,
         schedule: str,
-        suspend: bool = False,
-        concurrency: bool = False,
+        suspend: Optional[bool] = None,
+        concurrency: Optional[bool] = None,
         dependencies: Optional[List[str]] = None,
         python: Optional[str] = None,
         image: Optional[str] = None,
@@ -10782,10 +10641,10 @@ class HfApi:
                 CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
 
             suspend (`bool`, *optional*):
-                If True, the scheduled Job is suspended (paused).
+                If True, the scheduled Job is suspended (paused).  Defaults to False.
 
             concurrency (`bool`, *optional*):
-                If True, multiple instances of this Job can run concurrently.
+                If True, multiple instances of this Job can run concurrently. Defaults to False.
 
             dependencies (`List[str]`, *optional*)
                 Dependencies to use to run the UV script.
@@ -10848,6 +10707,46 @@ class HfApi:
             ```
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        # Build command
+        command, env, secrets = self._create_uv_command_env_and_secrets(
+            script=script,
+            script_args=script_args,
+            dependencies=dependencies,
+            python=python,
+            env=env,
+            secrets=secrets,
+            namespace=namespace,
+            token=token,
+            _repo=_repo,
+        )
+        # Create RunCommand args
+        return self.create_scheduled_job(
+            image=image,
+            command=command,
+            schedule=schedule,
+            suspend=suspend,
+            concurrency=concurrency,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+            namespace=namespace,
+            token=token,
+        )
+
+    def _create_uv_command_env_and_secrets(
+        self,
+        *,
+        script: str,
+        script_args: Optional[List[str]],
+        dependencies: Optional[List[str]],
+        python: Optional[str],
+        env: Optional[Dict[str, Any]],
+        secrets: Optional[Dict[str, Any]],
+        namespace: Optional[str],
+        token: Union[bool, str, None],
+        _repo: Optional[str],
+    ) -> Tuple[List[str], Dict[str, Any], Dict[str, Any]]:
         env = env or {}
         secrets = secrets or {}
 
@@ -10863,7 +10762,8 @@ class HfApi:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
 
-        if script.startswith("http://") or script.startswith("https://") or not script.endswith(".py"):
+        is_url = script.startswith("http://") or script.startswith("https://")
+        if is_url or not Path(script).is_file():
             # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
         else:
@@ -10956,21 +10856,7 @@ class HfApi:
             pre_command = ["python", "-c", '"' + "; ".join(pre_command) + '"']
             command = ["uv", "run"] + uv_args + ["/tmp/script.py"] + script_args
             command = ["bash", "-c", " ".join(pre_command) + " && " + " ".join(command)]
-
-        # Create RunCommand args
-        return self.schedule_job(
-            image=image,
-            command=command,
-            schedule=schedule,
-            suspend=suspend,
-            concurrency=concurrency,
-            env=env,
-            secrets=secrets,
-            flavor=flavor,
-            timeout=timeout,
-            namespace=namespace,
-            token=token,
-        )
+        return command, env, secrets
 
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
@@ -11136,7 +11022,7 @@ list_jobs = api.list_jobs
 inspect_job = api.inspect_job
 cancel_job = api.cancel_job
 run_uv_job = api.run_uv_job
-schedule_job = api.schedule_job
+create_scheduled_job = api.create_scheduled_job
 list_scheduled_jobs = api.list_scheduled_jobs
 inspect_scheduled_job = api.inspect_scheduled_job
 delete_scheduled_job = api.delete_scheduled_job

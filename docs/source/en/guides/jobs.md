@@ -332,26 +332,26 @@ UV scripts are Python scripts that include their dependencies directly in the fi
 
 Schedule and manage jobs that will run on HF infrastructure.
 
-Use [`schedule_job`] or [`schedule_uv_job`] with a schedule of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`, or a CRON schedule expression (e.g., `"0 9 * * 1"` for 9 AM every Monday):
+Use [`create_scheduled_job`] or [`schedule_uv_job`] with a schedule of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`, or a CRON schedule expression (e.g., `"0 9 * * 1"` for 9 AM every Monday):
 
 ```python
 # Schedule a job that runs every hour
->>> from huggingface_hub import schedule_job
->>> schedule_job(
+>>> from huggingface_hub import create_scheduled_job
+>>> create_scheduled_job(
 ...     image="python:3.12",
 ...     command=["python",  "-c", "print('This runs every hour!')"],
 ...     schedule="@hourly"
 ... )
 
 # Use the CRON syntax
->>> schedule_job(
+>>> create_scheduled_job(
 ...     image="python:3.12",
 ...     command=["python",  "-c", "print('This runs every 5 minutes!')"],
 ...     schedule="*/5 * * * *"
 ... )
 
 # Schedule with GPU
->>> schedule_job(
+>>> create_scheduled_job(
 ...     image="pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel",
 ...     command=["python",  "-c", 'import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")'],
 ...     schedule="@hourly",

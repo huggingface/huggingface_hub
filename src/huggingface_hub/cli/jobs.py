@@ -651,7 +651,7 @@ class ScheduledRunCommand(BaseHuggingfaceCLICommand):
 
     def run(self) -> None:
         api = HfApi(token=self.token)
-        scheduled_job = api.schedule_job(
+        scheduled_job = api.create_scheduled_job(
             image=self.image,
             command=self.command,
             schedule=self.schedule,

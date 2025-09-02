@@ -182,6 +182,7 @@ _SUBMOD_ATTRS = {
         "create_inference_endpoint_from_catalog",
         "create_pull_request",
         "create_repo",
+        "create_scheduled_job",
         "create_tag",
         "create_webhook",
         "dataset_info",
@@ -267,7 +268,6 @@ _SUBMOD_ATTRS = {
         "run_job",
         "run_uv_job",
         "scale_to_zero_inference_endpoint",
-        "schedule_job",
         "schedule_uv_job",
         "set_space_sleep_time",
         "space_info",
@@ -834,6 +834,7 @@ __all__ = [
     "create_inference_endpoint_from_catalog",
     "create_pull_request",
     "create_repo",
+    "create_scheduled_job",
     "create_tag",
     "create_webhook",
     "dataset_info",
@@ -951,7 +952,6 @@ __all__ = [
     "save_torch_state_dict",
     "scale_to_zero_inference_endpoint",
     "scan_cache_dir",
-    "schedule_job",
     "schedule_uv_job",
     "set_space_sleep_time",
     "snapshot_download",
@@ -1202,6 +1202,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_inference_endpoint_from_catalog,  # noqa: F401
         create_pull_request,  # noqa: F401
         create_repo,  # noqa: F401
+        create_scheduled_job,  # noqa: F401
         create_tag,  # noqa: F401
         create_webhook,  # noqa: F401
         dataset_info,  # noqa: F401
@@ -1287,7 +1288,6 @@ if TYPE_CHECKING:  # pragma: no cover
         run_job,  # noqa: F401
         run_uv_job,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
-        schedule_job,  # noqa: F401
         schedule_uv_job,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
         space_info,  # noqa: F401
