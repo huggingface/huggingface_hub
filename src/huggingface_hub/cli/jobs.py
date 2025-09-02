@@ -1079,7 +1079,7 @@ class ScheduledUvCommand(BaseHuggingfaceCLICommand):
         """Schedule UV command."""
         logging.set_verbosity(logging.INFO)
         api = HfApi(token=self.token)
-        job = api.schedule_uv_job(
+        job = api.create_scheduled_uv_job(
             script=self.script,
             script_args=self.script_args,
             schedule=self.schedule,

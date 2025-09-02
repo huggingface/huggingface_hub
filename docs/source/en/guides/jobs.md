@@ -332,7 +332,7 @@ UV scripts are Python scripts that include their dependencies directly in the fi
 
 Schedule and manage jobs that will run on HF infrastructure.
 
-Use [`create_scheduled_job`] or [`schedule_uv_job`] with a schedule of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`, or a CRON schedule expression (e.g., `"0 9 * * 1"` for 9 AM every Monday):
+Use [`create_scheduled_job`] or [`create_scheduled_uv_job`] with a schedule of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`, or a CRON schedule expression (e.g., `"0 9 * * 1"` for 9 AM every Monday):
 
 ```python
 # Schedule a job that runs every hour
@@ -359,8 +359,8 @@ Use [`create_scheduled_job`] or [`schedule_uv_job`] with a schedule of `@annuall
 ... )
 
 # Schedule a UV script
->>> from huggingface_hub import schedule_uv_job
->>> schedule_uv_job("my_script.py", schedule="@hourly")
+>>> from huggingface_hub import create_scheduled_uv_job
+>>> create_scheduled_uv_job("my_script.py", schedule="@hourly")
 ```
 
 Use the same parameters as [`run_job`] and [`run_uv_job`] to pass environment variables, secrets, timeout, etc.

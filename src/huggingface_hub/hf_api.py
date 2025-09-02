@@ -10607,7 +10607,7 @@ class HfApi:
         ).raise_for_status()
 
     @experimental
-    def schedule_uv_job(
+    def create_scheduled_uv_job(
         self,
         script: str,
         *,
@@ -10682,28 +10682,28 @@ class HfApi:
             Schedule a script from a URL:
 
             ```python
-            >>> from huggingface_hub import schedule_uv_job
+            >>> from huggingface_hub import create_scheduled_uv_job
             >>> script = "https://raw.githubusercontent.com/huggingface/trl/refs/heads/main/trl/scripts/sft.py"
             >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
-            >>> schedule_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="@weekly")
+            >>> create_scheduled_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="@weekly")
             ```
 
             Schedule a local script:
 
             ```python
-            >>> from huggingface_hub import schedule_uv_job
+            >>> from huggingface_hub import create_scheduled_uv_job
             >>> script = "my_sft.py"
             >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
-            >>> schedule_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="@weekly")
+            >>> create_scheduled_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="@weekly")
             ```
 
             Schedule a command:
 
             ```python
-            >>> from huggingface_hub import schedule_uv_job
+            >>> from huggingface_hub import create_scheduled_uv_job
             >>> script = "lighteval"
             >>> script_args= ["endpoint", "inference-providers", "model_name=openai/gpt-oss-20b,provider=auto", "lighteval|gsm8k|0|0"]
-            >>> schedule_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small", schedule="@weekly")
+            >>> create_scheduled_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small", schedule="@weekly")
             ```
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
@@ -11028,4 +11028,4 @@ inspect_scheduled_job = api.inspect_scheduled_job
 delete_scheduled_job = api.delete_scheduled_job
 suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
-schedule_uv_job = api.schedule_uv_job
+create_scheduled_uv_job = api.create_scheduled_uv_job
