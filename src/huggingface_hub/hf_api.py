@@ -10379,7 +10379,7 @@ class HfApi:
             namespace = self.whoami(token=token)["name"]
 
         is_url = script.startswith("http://") or script.startswith("https://")
-        if is_url or not os.path.isfile(script):
+        if is_url or not Path(script).is_file():
             # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
         else:
