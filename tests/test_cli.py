@@ -894,7 +894,7 @@ class TestJobsCommand(unittest.TestCase):
         ),
     )
     @patch("huggingface_hub.hf_api.HfApi.whoami", return_value={"name": "my-username"})
-    def test_schedule(self, whoami: Mock, requests_post: Mock) -> None:
+    def test_create_scheduled_job(self, whoami: Mock, requests_post: Mock) -> None:
         input_args = ["jobs", "scheduled", "run", "@hourly", "ubuntu", "echo", "hello"]
         cmd = ScheduledRunCommand(self.parser.parse_args(input_args))
         cmd.run()
@@ -910,6 +910,4 @@ class TestJobsCommand(unittest.TestCase):
                 "dockerImage": "ubuntu",
             },
             "schedule": "@hourly",
-            "suspend": False,
-            "concurrency": False,
         }

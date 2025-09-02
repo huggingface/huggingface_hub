@@ -586,11 +586,13 @@ class ScheduledRunCommand(BaseHuggingfaceCLICommand):
             "--suspend",
             action="store_true",
             help="Suspend (pause) the scheduled Job",
+            default=None,
         )
         run_parser.add_argument(
             "--concurrency",
             action="store_true",
             help="Allow multiple instances of this Job to run concurrently",
+            default=None,
         )
         run_parser.add_argument("-e", "--env", action="append", help="Set environment variables. E.g. --env ENV=value")
         run_parser.add_argument(
@@ -631,8 +633,8 @@ class ScheduledRunCommand(BaseHuggingfaceCLICommand):
         self.schedule: str = args.schedule
         self.image: str = args.image
         self.command: List[str] = args.command
-        self.suspend: bool = args.suspend
-        self.concurrency: bool = args.concurrency
+        self.suspend: Optional[bool] = args.suspend
+        self.concurrency: Optional[bool] = args.concurrency
         self.env: dict[str, Optional[str]] = {}
         if args.env_file:
             self.env.update(load_dotenv(Path(args.env_file).read_text(), environ=os.environ.copy()))
@@ -996,11 +998,13 @@ class ScheduledUvCommand(BaseHuggingfaceCLICommand):
             "--suspend",
             action="store_true",
             help="Suspend (pause) the scheduled Job",
+            default=None,
         )
         run_parser.add_argument(
             "--concurrency",
             action="store_true",
             help="Allow multiple instances of this Job to run concurrently",
+            default=None,
         )
         run_parser.add_argument("--image", type=str, help="Use a custom Docker image with `uv` installed.")
         run_parser.add_argument(
@@ -1048,8 +1052,8 @@ class ScheduledUvCommand(BaseHuggingfaceCLICommand):
         self.schedule: str = args.schedule
         self.script = args.script
         self.script_args = args.script_args
-        self.suspend: bool = args.suspend
-        self.concurrency: bool = args.concurrency
+        self.suspend: Optional[bool] = args.suspend
+        self.concurrency: Optional[bool] = args.concurrency
         self.dependencies = args.with_
         self.python = args.python
         self.image = args.image
