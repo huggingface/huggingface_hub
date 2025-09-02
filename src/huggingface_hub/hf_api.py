@@ -10367,7 +10367,8 @@ class HfApi:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
 
-        if script.startswith("http://") or script.startswith("https://") or not script.endswith(".py"):
+        is_url = script.startswith("http://") or script.startswith("https://")
+        if is_url or not os.path.isfile(script):
             # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
         else:
