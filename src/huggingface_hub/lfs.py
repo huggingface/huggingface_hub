@@ -14,7 +14,6 @@
 # limitations under the License.
 """Git LFS related type definitions and utilities"""
 
-import inspect
 import io
 import re
 import warnings
@@ -420,12 +419,6 @@ def _upload_parts_hf_transfer(
             " not available in your environment. Try `pip install hf_transfer`."
         )
 
-    supports_callback = "callback" in inspect.signature(multipart_upload).parameters
-    if not supports_callback:
-        warnings.warn(
-            "You are using an outdated version of `hf_transfer`. Consider upgrading to latest version to enable progress bars using `pip install -U hf_transfer`."
-        )
-
     total = operation.upload_info.size
     desc = operation.path_in_repo
     if len(desc) > 40:
@@ -448,13 +441,11 @@ def _upload_parts_hf_transfer(
                 max_files=128,
                 parallel_failures=127,  # could be removed
                 max_retries=5,
-                **({"callback": progress.update} if supports_callback else {}),
+                callback=progress.update,
             )
         except Exception as e:
             raise RuntimeError(
                 "An error occurred while uploading using `hf_transfer`. Consider disabling HF_HUB_ENABLE_HF_TRANSFER for"
                 " better error handling."
             ) from e
-        if not supports_callback:
-            progress.update(total)
         return output

@@ -30,7 +30,6 @@ from unittest.mock import Mock, patch
 from urllib.parse import quote, urlparse
 
 import pytest
-import requests
 
 import huggingface_hub.lfs
 from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage, constants

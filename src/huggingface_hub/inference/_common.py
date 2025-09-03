@@ -355,17 +355,16 @@ async def _async_stream_chat_completion_response(
 
 
 def _format_chat_completion_stream_output(
-    byte_payload: bytes,
+    payload: str,
 ) -> Optional[ChatCompletionStreamOutput]:
-    if not byte_payload.startswith(b"data:"):
+    if not payload.startswith("data:"):
         return None  # empty line
 
-    if byte_payload.strip() == b"data: [DONE]":
+    if payload.strip() == "data: [DONE]":
         raise StopIteration("[DONE] signal received.")
 
     # Decode payload
-    payload = byte_payload.decode("utf-8")
-    json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
+    json_payload = json.loads(payload.lstrip("data:").strip())
 
     # Either an error as being returned
     if json_payload.get("error") is not None:

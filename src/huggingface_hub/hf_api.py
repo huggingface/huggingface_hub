@@ -10111,23 +10111,22 @@ class HfApi:
             time.sleep(sleep_time)
             sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
             try:
-                resp = get_session().get(
+                with get_session().stream(
+                    "GET",
                     f"https://huggingface.co/api/jobs/{namespace}/{job_id}/logs",
                     headers=self._build_hf_headers(token=token),
-                    stream=True,
                     timeout=120,
-                )
-                log = None
-                for line in resp.iter_lines(chunk_size=1):
-                    line = line.decode("utf-8")
-                    if line and line.startswith("data: {"):
-                        data = json.loads(line[len("data: ") :])
-                        # timestamp = data["timestamp"]
-                        if not data["data"].startswith("===== Job started"):
-                            logging_started = True
-                            log = data["data"]
-                            yield log
-                logging_finished = logging_started
+                ) as response:
+                    log = None
+                    for line in response.iter_lines():
+                        if line and line.startswith("data: {"):
+                            data = json.loads(line[len("data: ") :])
+                            # timestamp = data["timestamp"]
+                            if not data["data"].startswith("===== Job started"):
+                                logging_started = True
+                                log = data["data"]
+                                yield log
+                    logging_finished = logging_started
             except httpx.DecodingError:
                 # Response ended prematurely
                 break

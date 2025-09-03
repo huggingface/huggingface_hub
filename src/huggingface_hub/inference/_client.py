@@ -227,6 +227,8 @@ class InferenceClient:
         self.cookies = cookies
         self.timeout = timeout
 
+        self.responses = []  # TODO: to do better! (same as for the current async client)
+
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
 
@@ -254,22 +256,25 @@ class InferenceClient:
             request_parameters.headers["Accept"] = "image/png"
 
         try:
-            response = get_session().post(
+            connection = get_session().stream(
+                "POST",
                 request_parameters.url,
                 json=request_parameters.json,
                 data=request_parameters.data,
                 headers=request_parameters.headers,
                 cookies=self.cookies,
                 timeout=self.timeout,
-                stream=stream,
             )
+            self.responses.append(connection)  # TODO: close this at some point! (same as for the current async client)
+            response = connection.__enter__()
+            hf_raise_for_status(response)
+            if stream:
+                return response.iter_lines()
+            else:
+                return response.content
         except TimeoutError as error:
             # Convert any `TimeoutError` to a `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
-
-        try:
-            hf_raise_for_status(response)
-            return response.iter_lines() if stream else response.content
         except HTTPError as error:
             if error.response.status_code == 422 and request_parameters.task != "unknown":
                 msg = str(error.args[0])

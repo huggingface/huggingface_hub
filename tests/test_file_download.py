@@ -36,7 +36,6 @@ from huggingface_hub.file_download import (
     _check_disk_space,
     _create_symlink,
     _get_pointer_path,
-    _httpx_wrapper,
     _normalize_etag,
     get_hf_file_metadata,
     hf_hub_download,
@@ -46,6 +45,7 @@ from huggingface_hub.file_download import (
 )
 from huggingface_hub.utils import SoftTemporaryDirectory, get_session, hf_raise_for_status, is_hf_transfer_available
 from huggingface_hub.utils._headers import build_hf_headers
+from huggingface_hub.utils._http import _http_backoff_base
 
 from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
 from .testing_utils import (
@@ -307,7 +307,7 @@ class CachedDownloadTests(unittest.TestCase):
             assert "foo/bar" in headers["user-agent"]
 
         with SoftTemporaryDirectory() as cache_dir:
-            with patch("huggingface_hub.file_download._httpx_wrapper", wraps=_httpx_wrapper) as mock_request:
+            with patch("huggingface_hub.utils._http._http_backoff_base", wraps=_http_backoff_base) as mock_request:
                 # First download
                 hf_hub_download(
                     DUMMY_MODEL_ID,
@@ -322,7 +322,7 @@ class CachedDownloadTests(unittest.TestCase):
                 for call in calls:
                     _check_user_agent(call.kwargs["headers"])
 
-            with patch("huggingface_hub.file_download._httpx_wrapper", wraps=_httpx_wrapper) as mock_request:
+            with patch("huggingface_hub.utils._http._http_backoff_base", wraps=_http_backoff_base) as mock_request:
                 # Second download: no GET call
                 hf_hub_download(
                     DUMMY_MODEL_ID,
@@ -1027,7 +1027,7 @@ class TestHttpGet:
             yield b"0" * 10
             yield b"0" * 10
 
-        with patch("huggingface_hub.file_download._httpx_wrapper") as mock:
+        with patch("huggingface_hub.file_download._httpx_follow_relative_redirects") as mock:
             mock.return_value.headers = {"Content-Length": 100}
             mock.return_value.iter_content.side_effect = [
                 _iter_content_1(),
