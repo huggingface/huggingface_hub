@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 from huggingface_hub.cli.cache import CacheCommand
 from huggingface_hub.cli.download import DownloadCommand
-from huggingface_hub.cli.jobs import JobsCommands, RunCommand, ScheduledRunCommand
+from huggingface_hub.cli.jobs import JobsCommands, RunCommand, ScheduledRunCommand, UvCommand
 from huggingface_hub.cli.repo import RepoCommands
 from huggingface_hub.cli.repo_files import DeleteFilesSubCommand, RepoFilesCommand
 from huggingface_hub.cli.upload import UploadCommand
@@ -848,7 +848,7 @@ class TestJobsCommand(unittest.TestCase):
         commands_parser = self.parser.add_subparsers()
         JobsCommands.register_subcommand(commands_parser)
 
-    @patch(
+    patch_requests_post = patch(
         "requests.Session.post",
         return_value=DummyResponse(
             {
@@ -862,7 +862,13 @@ class TestJobsCommand(unittest.TestCase):
             }
         ),
     )
-    @patch("huggingface_hub.hf_api.HfApi.whoami", return_value={"name": "my-username"})
+    patch_whoami = patch("huggingface_hub.hf_api.HfApi.whoami", return_value={"name": "my-username"})
+    patch_get_token = patch("huggingface_hub.hf_api.get_token", return_value="hf_xxx")
+    patch_repo_info = patch("huggingface_hub.hf_api.HfApi.repo_info")
+    patch_upload_file = patch("huggingface_hub.hf_api.HfApi.upload_file")
+
+    @patch_requests_post
+    @patch_whoami
     def test_run(self, whoami: Mock, requests_post: Mock) -> None:
         input_args = ["jobs", "run", "--detach", "ubuntu", "echo", "hello"]
         cmd = RunCommand(self.parser.parse_args(input_args))
@@ -911,3 +917,65 @@ class TestJobsCommand(unittest.TestCase):
             },
             "schedule": "@hourly",
         }
+
+    @patch_requests_post
+    @patch_whoami
+    def test_uv_command(self, whoami: Mock, requests_post: Mock) -> None:
+        input_args = ["jobs", "uv", "run", "--detach", "echo", "hello"]
+        cmd = UvCommand(self.parser.parse_args(input_args))
+        cmd.run()
+        assert requests_post.call_count == 1
+        args, kwargs = requests_post.call_args_list[0]
+        assert args == ("https://huggingface.co/api/jobs/my-username",)
+        assert kwargs["json"] == {
+            "command": ["uv", "run", "echo", "hello"],
+            "arguments": [],
+            "environment": {},
+            "flavor": "cpu-basic",
+            "dockerImage": "ghcr.io/astral-sh/uv:python3.12-bookworm",
+        }
+
+    @patch_requests_post
+    @patch_whoami
+    def test_uv_remote_script(self, whoami: Mock, requests_post: Mock) -> None:
+        input_args = ["jobs", "uv", "run", "--detach", "https://.../script.py"]
+        cmd = UvCommand(self.parser.parse_args(input_args))
+        cmd.run()
+        assert requests_post.call_count == 1
+        args, kwargs = requests_post.call_args_list[0]
+        assert args == ("https://huggingface.co/api/jobs/my-username",)
+        assert kwargs["json"] == {
+            "command": ["uv", "run", "https://.../script.py"],
+            "arguments": [],
+            "environment": {},
+            "flavor": "cpu-basic",
+            "dockerImage": "ghcr.io/astral-sh/uv:python3.12-bookworm",
+        }
+
+    @patch_requests_post
+    @patch_whoami
+    @patch_get_token
+    @patch_repo_info
+    @patch_upload_file
+    def test_uv_local_script(
+        self, upload_file: Mock, repo_info: Mock, get_token: Mock, whoami: Mock, requests_post: Mock
+    ) -> None:
+        input_args = ["jobs", "uv", "run", "--detach", __file__]
+        cmd = UvCommand(self.parser.parse_args(input_args))
+        cmd.run()
+        assert requests_post.call_count == 1
+        args, kwargs = requests_post.call_args_list[0]
+        assert args == ("https://huggingface.co/api/jobs/my-username",)
+        command = kwargs["json"].pop("command")
+        assert "UV_SCRIPT_URL" in " ".join(command)
+        assert kwargs["json"] == {
+            "arguments": [],
+            "environment": {
+                "UV_SCRIPT_URL": "https://huggingface.co/datasets/my-username/hf-cli-jobs-uv-run-scripts/resolve/main/test_cli.py"
+            },
+            "secrets": {"UV_SCRIPT_HF_TOKEN": "hf_xxx"},
+            "flavor": "cpu-basic",
+            "dockerImage": "ghcr.io/astral-sh/uv:python3.12-bookworm",
+        }
+        assert repo_info.call_count == 1  # check if repo exists
+        assert upload_file.call_count == 2  # script and readme

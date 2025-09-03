@@ -53,7 +53,6 @@ from huggingface_hub.inference._common import (
     _bytes_to_list,
     _get_unsupported_text_generation_kwargs,
     _import_numpy,
-    _open_as_binary,
     _set_unsupported_text_generation_kwargs,
     _stream_chat_completion_response,
     _stream_text_generation_response,
@@ -257,21 +256,20 @@ class InferenceClient:
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        with _open_as_binary(request_parameters.data) as data_as_binary:
-            try:
-                response = get_session().post(
-                    request_parameters.url,
-                    json=request_parameters.json,
-                    data=data_as_binary,
-                    headers=request_parameters.headers,
-                    cookies=self.cookies,
-                    timeout=self.timeout,
-                    stream=stream,
-                    proxies=self.proxies,
-                )
-            except TimeoutError as error:
-                # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
+        try:
+            response = get_session().post(
+                request_parameters.url,
+                json=request_parameters.json,
+                data=request_parameters.data,
+                headers=request_parameters.headers,
+                cookies=self.cookies,
+                timeout=self.timeout,
+                stream=stream,
+                proxies=self.proxies,
+            )
+        except TimeoutError as error:
+            # Convert any `TimeoutError` to a `InferenceTimeoutError`
+            raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
 
         try:
             hf_raise_for_status(response)

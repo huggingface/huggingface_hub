@@ -309,6 +309,12 @@ You can pass environment variables to your job using `env` and `secrets`:
 
 ### UV Scripts (Experimental)
 
+<Tip>
+
+Looking for ready-to-use UV scripts? Check out the [uv-scripts organization](https://huggingface.co/uv-scripts) on the Hugging Face Hub, which offers a community collection of UV scripts for tasks like model training, synthetic data generation, data processing, and more.
+
+</Tip>
+
 Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 
 ```python
@@ -324,6 +330,9 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 
 # Run a script directly from a URL
 >>> run_uv_job("https://huggingface.co/datasets/username/scripts/resolve/main/example.py")
+
+# Run a command
+>>> run_uv_job("python", script_args=["-c", "import lighteval"], dependencies=["lighteval"])
 ```
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
