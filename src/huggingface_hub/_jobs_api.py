@@ -15,7 +15,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from huggingface_hub import constants
 from huggingface_hub._space_api import SpaceHardware
@@ -85,7 +85,7 @@ class JobInfo:
         status: (`JobStatus` or `None`):
             Status of the Job, e.g. `JobStatus(stage="RUNNING", message=None)`
             See [`JobStage`] for possible stage values.
-        status: (`JobOwner` or `None`):
+        owner: (`JobOwner` or `None`):
             Owner of the Job, e.g. `JobOwner(id="5e9ecfc04957053f60648a3e", name="lhoestq", type="user")`
 
     Example:
@@ -142,3 +142,160 @@ class JobInfo:
         # Inferred fields
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)
         self.url = f"{self.endpoint}/jobs/{self.owner.name}/{self.id}"
+
+
+@dataclass
+class JobSpec:
+    docker_image: Optional[str]
+    space_id: Optional[str]
+    command: Optional[List[str]]
+    arguments: Optional[List[str]]
+    environment: Optional[Dict[str, Any]]
+    secrets: Optional[Dict[str, Any]]
+    flavor: Optional[SpaceHardware]
+    timeout: Optional[int]
+    tags: Optional[List[str]]
+    arch: Optional[str]
+
+    def __init__(self, **kwargs) -> None:
+        self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
+        self.space_id = kwargs.get("spaceId") or kwargs.get("space_id")
+        self.command = kwargs.get("command")
+        self.arguments = kwargs.get("arguments")
+        self.environment = kwargs.get("environment")
+        self.secrets = kwargs.get("secrets")
+        self.flavor = kwargs.get("flavor")
+        self.timeout = kwargs.get("timeout")
+        self.tags = kwargs.get("tags")
+        self.arch = kwargs.get("arch")
+
+
+@dataclass
+class LastJobInfo:
+    id: str
+    at: datetime
+
+    def __init__(self, **kwargs) -> None:
+        self.id = kwargs["id"]
+        self.at = parse_datetime(kwargs["at"])
+
+
+@dataclass
+class ScheduledJobStatus:
+    last_job: Optional[LastJobInfo]
+    next_job_run_at: Optional[datetime]
+
+    def __init__(self, **kwargs) -> None:
+        last_job = kwargs.get("lastJob") or kwargs.get("last_job")
+        self.last_job = LastJobInfo(**last_job) if last_job else None
+        next_job_run_at = kwargs.get("nextJobRunAt") or kwargs.get("next_job_run_at")
+        self.next_job_run_at = parse_datetime(str(next_job_run_at)) if next_job_run_at else None
+
+
+@dataclass
+class ScheduledJobInfo:
+    """
+    Contains information about a Job.
+
+    Args:
+        id (`str`):
+            Scheduled Job ID.
+        created_at (`datetime` or `None`):
+            When the scheduled Job was created.
+        tags (`List[str]` or `None`):
+            The tags of the scheduled Job.
+        schedule (`str` or `None`):
+            One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
+            CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
+        suspend (`bool` or `None`):
+            Whether the scheduled job is suspended (paused).
+        concurrency (`bool` or `None`):
+            Whether multiple instances of this Job can run concurrently.
+        status (`ScheduledJobStatus` or `None`):
+            Status of the scheduled Job.
+        owner: (`JobOwner` or `None`):
+            Owner of the scheduled Job, e.g. `JobOwner(id="5e9ecfc04957053f60648a3e", name="lhoestq", type="user")`
+        job_spec: (`JobSpec` or `None`):
+            Specifications of the Job.
+
+    Example:
+
+    ```python
+    >>> from huggingface_hub import run_job
+    >>> scheduled_job = create_scheduled_job(
+    ...     image="python:3.12",
+    ...     command=["python", "-c", "print('Hello from the cloud!')"],
+    ...     schedule="@hourly",
+    ... )
+    >>> scheduled_job.id
+    '687fb701029421ae5549d999'
+    >>> scheduled_job.status.next_job_run_at
+    datetime.datetime(2025, 7, 22, 17, 6, 25, 79000, tzinfo=datetime.timezone.utc)
+    ```
+    """
+
+    id: str
+    created_at: Optional[datetime]
+    job_spec: JobSpec
+    schedule: Optional[str]
+    suspend: Optional[bool]
+    concurrency: Optional[bool]
+    status: ScheduledJobStatus
+    owner: JobOwner
+
+    def __init__(self, **kwargs) -> None:
+        self.id = kwargs["id"]
+        created_at = kwargs.get("createdAt") or kwargs.get("created_at")
+        self.created_at = parse_datetime(created_at) if created_at else None
+        self.job_spec = JobSpec(**(kwargs.get("job_spec") or kwargs.get("jobSpec", {})))
+        self.schedule = kwargs.get("schedule")
+        self.suspend = kwargs.get("suspend")
+        self.concurrency = kwargs.get("concurrency")
+        status = kwargs.get("status", {})
+        self.status = ScheduledJobStatus(
+            last_job=status.get("last_job") or status.get("lastJob"),
+            next_job_run_at=status.get("next_job_run_at") or status.get("nextJobRunAt"),
+        )
+        owner = kwargs.get("owner", {})
+        self.owner = JobOwner(id=owner["id"], name=owner["name"], type=owner["type"])
+
+
+def _create_job_spec(
+    *,
+    image: str,
+    command: List[str],
+    env: Optional[Dict[str, Any]],
+    secrets: Optional[Dict[str, Any]],
+    flavor: Optional[SpaceHardware],
+    timeout: Optional[Union[int, float, str]],
+) -> Dict[str, Any]:
+    # prepare job spec to send to HF Jobs API
+    job_spec: Dict[str, Any] = {
+        "command": command,
+        "arguments": [],
+        "environment": env or {},
+        "flavor": flavor or SpaceHardware.CPU_BASIC,
+    }
+    # secrets are optional
+    if secrets:
+        job_spec["secrets"] = secrets
+    # timeout is optional
+    if timeout:
+        time_units_factors = {"s": 1, "m": 60, "h": 3600, "d": 3600 * 24}
+        if isinstance(timeout, str) and timeout[-1] in time_units_factors:
+            job_spec["timeoutSeconds"] = int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
+        else:
+            job_spec["timeoutSeconds"] = int(timeout)
+    # input is either from docker hub or from HF spaces
+    for prefix in (
+        "https://huggingface.co/spaces/",
+        "https://hf.co/spaces/",
+        "huggingface.co/spaces/",
+        "hf.co/spaces/",
+    ):
+        if image.startswith(prefix):
+            job_spec["spaceId"] = image[len(prefix) :]
+            break
+    else:
+        job_spec["dockerImage"] = image
+    return job_spec
