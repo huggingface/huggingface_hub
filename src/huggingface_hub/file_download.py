@@ -57,7 +57,6 @@ from .utils import (
     logging,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
-    reset_sessions,
     tqdm,
     validate_hf_hub_args,
 )
@@ -1480,7 +1479,7 @@ def get_hf_file_metadata(
         # Either from response headers (if redirected) or defaults to request url
         # Do not use directly `url`, as `_request_wrapper` might have followed relative
         # redirects.
-        location=r.headers.get("Location") or r.request.url,  # type: ignore
+        location=r.headers.get("Location") or str(r.request.url),  # type: ignore
         size=_int_or_none(
             r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
         ),
@@ -1694,14 +1693,14 @@ def _download_to_tmp_and_move(
         # Do nothing if already exists (except if force_download=True)
         return
 
-    if incomplete_path.exists() and (force_download or (constants.HF_HUB_ENABLE_HF_TRANSFER and not proxies)):
+    if incomplete_path.exists() and (force_download or constants.HF_HUB_ENABLE_HF_TRANSFER):
         # By default, we will try to resume the download if possible.
         # However, if the user has set `force_download=True` or if `hf_transfer` is enabled, then we should
         # not resume the download => delete the incomplete file.
         message = f"Removing incomplete file '{incomplete_path}'"
         if force_download:
             message += " (force_download=True)"
-        elif constants.HF_HUB_ENABLE_HF_TRANSFER and not proxies:
+        elif constants.HF_HUB_ENABLE_HF_TRANSFER:
             message += " (hf_transfer=True)"
         logger.info(message)
         incomplete_path.unlink(missing_ok=True)

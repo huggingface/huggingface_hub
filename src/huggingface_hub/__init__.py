@@ -525,8 +525,10 @@ _SUBMOD_ATTRS = {
         "cached_assets_path",
         "configure_http_backend",
         "dump_environment_info",
+        "get_async_session",
         "get_session",
         "get_token",
+        "hf_raise_for_status",
         "logging",
         "scan_cache_dir",
     ],
@@ -854,6 +856,7 @@ __all__ = [
     "file_exists",
     "from_pretrained_fastai",
     "from_pretrained_keras",
+    "get_async_session",
     "get_collection",
     "get_dataset_tags",
     "get_discussion_details",
@@ -877,6 +880,7 @@ __all__ = [
     "grant_access",
     "hf_hub_download",
     "hf_hub_url",
+    "hf_raise_for_status",
     "inspect_job",
     "interpreter_login",
     "list_accepted_access_requests",
@@ -1523,8 +1527,10 @@ if TYPE_CHECKING:  # pragma: no cover
         cached_assets_path,  # noqa: F401
         configure_http_backend,  # noqa: F401
         dump_environment_info,  # noqa: F401
+        get_async_session,  # noqa: F401
         get_session,  # noqa: F401
         get_token,  # noqa: F401
+        hf_raise_for_status,  # noqa: F401
         logging,  # noqa: F401
         scan_cache_dir,  # noqa: F401
     )

@@ -3826,7 +3826,7 @@ class HfApi:
             json["type"] = repo_type
 
         headers = self._build_hf_headers(token=token)
-        r = get_session().delete(path, headers=headers, json=json)
+        r = get_session().request("DELETE", path, headers=headers, json=json)
         try:
             hf_raise_for_status(r)
         except RepositoryNotFoundError:

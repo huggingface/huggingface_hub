@@ -12,23 +12,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains utilities to handle HTTP requests in Huggingface Hub."""
+"""Contains utilities to handle HTTP requests in huggingface_hub."""
 
+import atexit
 import io
-import os
 import re
 import threading
 import time
 import uuid
-from functools import lru_cache
 from http import HTTPStatus
 from shlex import quote
 from typing import Any, Callable, List, Optional, Tuple, Type, Union
 
-import requests
-from requests import HTTPError, Response
-from requests.adapters import HTTPAdapter
-from requests.models import PreparedRequest
+import httpx
+from httpx import HTTPError, Response
 
 from huggingface_hub.errors import OfflineModeIsEnabled
 
@@ -72,142 +69,180 @@ REPO_API_REGEX = re.compile(
 )
 
 
-class UniqueRequestIdAdapter(HTTPAdapter):
-    X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
+class HfHubTransport(httpx.HTTPTransport):
+    """
+    Transport that will be used to make HTTP requests to the Hugging Face Hub.
 
-    def add_headers(self, request, **kwargs):
-        super().add_headers(request, **kwargs)
+    What it does:
+    - Block requests if offline mode is enabled
+    - Add a request ID to the request headers
+    - Log the request if debug mode is enabled
+    """
 
-        # Add random request ID => easier for server-side debug
-        if X_AMZN_TRACE_ID not in request.headers:
-            request.headers[X_AMZN_TRACE_ID] = request.headers.get(X_REQUEST_ID) or str(uuid.uuid4())
-
-        # Add debug log
-        has_token = len(str(request.headers.get("authorization", ""))) > 0
-        logger.debug(
-            f"Request {request.headers[X_AMZN_TRACE_ID]}: {request.method} {request.url} (authenticated: {has_token})"
-        )
-
-    def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
-        """Catch any RequestException to append request id to the error message for debugging."""
-        if constants.HF_DEBUG:
-            logger.debug(f"Send: {_curlify(request)}")
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        if constants.HF_HUB_OFFLINE:
+            raise OfflineModeIsEnabled(
+                f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
+            )
+        request_id = _add_request_id(request)
         try:
-            return super().send(request, *args, **kwargs)
-        except requests.RequestException as e:
-            request_id = request.headers.get(X_AMZN_TRACE_ID)
+            return super().handle_request(request)
+        except httpx.RequestError as e:
             if request_id is not None:
                 # Taken from https://stackoverflow.com/a/58270258
                 e.args = (*e.args, f"(Request ID: {request_id})")
             raise
 
 
-class OfflineAdapter(HTTPAdapter):
-    def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
-        raise OfflineModeIsEnabled(
-            f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
-        )
+class HfHubAsyncTransport(httpx.AsyncHTTPTransport):
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        if constants.HF_HUB_OFFLINE:
+            raise OfflineModeIsEnabled(
+                f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
+            )
+        request_id = _add_request_id(request)
+        try:
+            return await super().handle_async_request(request)
+        except httpx.RequestError as e:
+            if request_id is not None:
+                # Taken from https://stackoverflow.com/a/58270258
+                e.args = (*e.args, f"(Request ID: {request_id})")
+            raise
 
 
-def _default_backend_factory() -> requests.Session:
-    session = requests.Session()
-    if constants.HF_HUB_OFFLINE:
-        session.mount("http://", OfflineAdapter())
-        session.mount("https://", OfflineAdapter())
-    else:
-        session.mount("http://", UniqueRequestIdAdapter())
-        session.mount("https://", UniqueRequestIdAdapter())
-    return session
+def _add_request_id(request: httpx.Request) -> Optional[str]:
+    # Add random request ID => easier for server-side debug
+    if X_AMZN_TRACE_ID not in request.headers:
+        request.headers[X_AMZN_TRACE_ID] = request.headers.get(X_REQUEST_ID) or str(uuid.uuid4())
+    request_id = request.headers.get(X_AMZN_TRACE_ID)
+
+    # Debug log
+    logger.debug(
+        "Request %s: %s %s (authenticated: %s)",
+        request_id,
+        request.method,
+        request.url,
+        len(str(request.headers.get("authorization", ""))) > 0,
+    )
+    if constants.HF_DEBUG:
+        logger.debug("Send: %s", _curlify(request))
+
+    return request_id
 
 
-BACKEND_FACTORY_T = Callable[[], requests.Session]
-_GLOBAL_BACKEND_FACTORY: BACKEND_FACTORY_T = _default_backend_factory
-
-
-def configure_http_backend(backend_factory: BACKEND_FACTORY_T = _default_backend_factory) -> None:
+def _client_factory() -> httpx.Client:
     """
-    Configure the HTTP backend by providing a `backend_factory`. Any HTTP calls made by `huggingface_hub` will use a
-    Session object instantiated by this factory. This can be useful if you are running your scripts in a specific
-    environment requiring custom configuration (e.g. custom proxy or certifications).
-
-    Use [`get_session`] to get a configured Session. Since `requests.Session` is not guaranteed to be thread-safe,
-    `huggingface_hub` creates 1 Session instance per thread. They are all instantiated using the same `backend_factory`
-    set in [`configure_http_backend`]. A LRU cache is used to cache the created sessions (and connections) between
-    calls. Max size is 128 to avoid memory leaks if thousands of threads are spawned.
-
-    See [this issue](https://github.com/psf/requests/issues/2766) to know more about thread-safety in `requests`.
-
-    Example:
-    ```py
-    import requests
-    from huggingface_hub import configure_http_backend, get_session
-
-    # Create a factory function that returns a Session with configured proxies
-    def backend_factory() -> requests.Session:
-        session = requests.Session()
-        session.proxies = {"http": "http://10.10.1.10:3128", "https": "https://10.10.1.11:1080"}
-        return session
-
-    # Set it as the default session factory
-    configure_http_backend(backend_factory=backend_factory)
-
-    # In practice, this is mostly done internally in `huggingface_hub`
-    session = get_session()
-    ```
+    Factory function to create a `httpx.Client` with the default transport.
     """
-    global _GLOBAL_BACKEND_FACTORY
-    _GLOBAL_BACKEND_FACTORY = backend_factory
-    reset_sessions()
+    return httpx.Client(transport=HfHubTransport(), follow_redirects=True)
 
 
-def get_session() -> requests.Session:
+def _async_client_factory() -> httpx.AsyncClient:
     """
-    Get a `requests.Session` object, using the session factory from the user.
-
-    Use [`get_session`] to get a configured Session. Since `requests.Session` is not guaranteed to be thread-safe,
-    `huggingface_hub` creates 1 Session instance per thread. They are all instantiated using the same `backend_factory`
-    set in [`configure_http_backend`]. A LRU cache is used to cache the created sessions (and connections) between
-    calls. Max size is 128 to avoid memory leaks if thousands of threads are spawned.
-
-    See [this issue](https://github.com/psf/requests/issues/2766) to know more about thread-safety in `requests`.
-
-    Example:
-    ```py
-    import requests
-    from huggingface_hub import configure_http_backend, get_session
-
-    # Create a factory function that returns a Session with configured proxies
-    def backend_factory() -> requests.Session:
-        session = requests.Session()
-        session.proxies = {"http": "http://10.10.1.10:3128", "https": "https://10.10.1.11:1080"}
-        return session
-
-    # Set it as the default session factory
-    configure_http_backend(backend_factory=backend_factory)
-
-    # In practice, this is mostly done internally in `huggingface_hub`
-    session = get_session()
-    ```
+    Factory function to create a `httpx.AsyncClient` with the default transport.
     """
-    return _get_session_from_cache(process_id=os.getpid(), thread_id=threading.get_ident())
+    return httpx.AsyncClient(transport=HfHubAsyncTransport(), follow_redirects=True)
 
 
-def reset_sessions() -> None:
-    """Reset the cache of sessions.
+CLIENT_FACTORY_T = Callable[[], httpx.Client]
+ASYNC_CLIENT_FACTORY_T = Callable[[], httpx.AsyncClient]
 
-    Mostly used internally when sessions are reconfigured or an SSLError is raised.
-    See [`configure_http_backend`] for more details.
+_CLIENT_LOCK = threading.Lock()
+_GLOBAL_CLIENT_FACTORY: CLIENT_FACTORY_T = _client_factory
+_GLOBAL_ASYNC_CLIENT_FACTORY: ASYNC_CLIENT_FACTORY_T = _async_client_factory
+_GLOBAL_CLIENT: Optional[httpx.Client] = None
+
+
+def set_client_factory(client_factory: CLIENT_FACTORY_T) -> None:
     """
-    _get_session_from_cache.cache_clear()
+    Set the HTTP client factory to be used by `huggingface_hub`.
+
+    The client factory is a method that returns a `httpx.Client` object. On the first call to [`get_client`] the client factory
+    will be used to create a new `httpx.Client` object that will be shared between all calls made by `huggingface_hub`.
+
+    This can be useful if you are running your scripts in a specific environment requiring custom configuration (e.g. custom proxy or certifications).
+
+    Use [`get_client`] to get a correctly configured `httpx.Client`.
+    """
+    global _GLOBAL_CLIENT_FACTORY
+    with _CLIENT_LOCK:
+        close_client()
+        _GLOBAL_CLIENT_FACTORY = client_factory
 
 
-@lru_cache
-def _get_session_from_cache(process_id: int, thread_id: int) -> requests.Session:
+async def set_async_client_factory(async_client_factory: ASYNC_CLIENT_FACTORY_T) -> None:
     """
-    Create a new session per thread using global factory. Using LRU cache (maxsize 128) to avoid memory leaks when
-    using thousands of threads. Cache is cleared when `configure_http_backend` is called.
+    Set the HTTP async client factory to be used by `huggingface_hub`.
+
+    The async client factory is a method that returns a `httpx.AsyncClient` object.
+    This can be useful if you are running your scripts in a specific environment requiring custom configuration (e.g. custom proxy or certifications).
+    Use [`get_async_client`] to get a correctly configured `httpx.AsyncClient`.
+
+    <Tip warning={true}>
+
+    Contrary to the `httpx.Client` that is shared between all calls made by `huggingface_hub`, the `httpx.AsyncClient` is not shared.
+    It is recommended to use an async context manager to ensure the client is properly closed when the context is exited.
+
+    </Tip>
     """
-    return _GLOBAL_BACKEND_FACTORY()
+    global _GLOBAL_ASYNC_CLIENT_FACTORY
+    _GLOBAL_ASYNC_CLIENT_FACTORY = async_client_factory
+
+
+def get_session() -> httpx.Client:
+    """
+    Get a `httpx.Client` object, using the transport factory from the user.
+
+    This client is shared between all calls made by `huggingface_hub`. Therefore you should not close it manually.
+
+    Use [`set_client_factory`] to customize the `httpx.Client`.
+    """
+    global _GLOBAL_CLIENT
+    if _GLOBAL_CLIENT is None:
+        with _CLIENT_LOCK:
+            _GLOBAL_CLIENT = _GLOBAL_CLIENT_FACTORY()
+    return _GLOBAL_CLIENT
+
+
+def get_async_session() -> httpx.AsyncClient:
+    """
+    Return a `httpx.AsyncClient` object, using the transport factory from the user.
+
+    Use [`set_async_client_factory`] to customize the `httpx.AsyncClient`.
+
+        <Tip warning={true}>
+
+    Contrary to the `httpx.Client` that is shared between all calls made by `huggingface_hub`, the `httpx.AsyncClient` is not shared.
+    It is recommended to use an async context manager to ensure the client is properly closed when the context is exited.
+
+    </Tip>
+    """
+    return _GLOBAL_ASYNC_CLIENT_FACTORY()
+
+
+def close_client() -> None:
+    """
+    Close the global httpx.Client used by `huggingface_hub`.
+
+    If a Client is closed, it will be recreated on the next call to [`get_client`].
+
+    Can be useful if e.g. an SSL certificate has been updated.
+    """
+    global _GLOBAL_CLIENT
+    client = _GLOBAL_CLIENT
+
+    # First, set global client to None
+    _GLOBAL_CLIENT = None
+
+    # Then, close the clients
+    if client is not None:
+        try:
+            client.close()
+        except Exception as e:
+            logger.warning(f"Error closing client: {e}")
+
+
+atexit.register(close_client)
 
 
 def http_backoff(
@@ -217,14 +252,11 @@ def http_backoff(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (
-        requests.Timeout,
-        requests.ConnectionError,
-    ),
+    retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (httpx.Timeout, httpx.NetworkError),
     retry_on_status_codes: Union[int, Tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
     **kwargs,
 ) -> Response:
-    """Wrapper around requests to retry calls on an endpoint, with exponential backoff.
+    """Wrapper around httpx to retry calls on an endpoint, with exponential backoff.
 
     Endpoint call is retried on exceptions (ex: connection timeout, proxy error,...)
     and/or on specific status codes (ex: service unavailable). If the call failed more
@@ -249,18 +281,18 @@ def http_backoff(
             Maximum duration (in seconds) to wait before retrying.
         retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
-            By default, retry on `requests.Timeout` and `requests.ConnectionError`.
+            By default, retry on `httpx.Timeout` and `httpx.NetworkError`.
         retry_on_status_codes (`int` or `Tuple[int]`, *optional*, defaults to `503`):
             Define on which status codes the request must be retried. By default, only
             HTTP 503 Service Unavailable is retried.
         **kwargs (`dict`, *optional*):
-            kwargs to pass to `requests.request`.
+            kwargs to pass to `httpx.request`.
 
     Example:
     ```
     >>> from huggingface_hub.utils import http_backoff
 
-    # Same usage as "requests.request".
+    # Same usage as "httpx.request".
     >>> response = http_backoff("GET", "https://www.google.com")
     >>> response.raise_for_status()
 
@@ -271,7 +303,7 @@ def http_backoff(
 
     <Tip warning={true}>
 
-    When using `requests` it is possible to stream data by passing an iterator to the
+    When using `httpx` it is possible to stream data by passing an iterator to the
     `data` argument. On http backoff this is a problem as the iterator is not reset
     after a failed call. This issue is mitigated for file objects or any IO streams
     by saving the initial position of the cursor (with `data.tell()`) and resetting the
@@ -297,7 +329,7 @@ def http_backoff(
     if "data" in kwargs and isinstance(kwargs["data"], (io.IOBase, SliceFileObj)):
         io_obj_initial_pos = kwargs["data"].tell()
 
-    session = get_session()
+    client = get_session()
     while True:
         nb_tries += 1
         try:
@@ -307,7 +339,7 @@ def http_backoff(
                 kwargs["data"].seek(io_obj_initial_pos)
 
             # Perform request and return if status_code is not in the retry list.
-            response = session.request(method=method, url=url, **kwargs)
+            response = client.request(method=method, url=url, **kwargs)
             if response.status_code not in retry_on_status_codes:
                 return response
 
@@ -322,8 +354,8 @@ def http_backoff(
         except retry_on_exceptions as err:
             logger.warning(f"'{err}' thrown while requesting {method} {url}")
 
-            if isinstance(err, requests.ConnectionError):
-                reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
+            if isinstance(err, httpx.ConnectError):
+                close_client()  # In case of SSLError it's best to close the shared httpx.Client objects
 
             if nb_tries > max_retries:
                 raise err
@@ -351,36 +383,16 @@ def fix_hf_endpoint_in_url(url: str, endpoint: Optional[str]) -> str:
 
 def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None) -> None:
     """
-    Internal version of `response.raise_for_status()` that will refine a
-    potential HTTPError. Raised exception will be an instance of `HfHubHTTPError`.
+    Internal version of `response.raise_for_status()` that will refine a potential HTTPError.
+    Raised exception will be an instance of [`~errors.HfHubHTTPError`].
 
-    This helper is meant to be the unique method to raise_for_status when making a call
-    to the Hugging Face Hub.
-
-
-    Example:
-    ```py
-        import requests
-        from huggingface_hub.utils import get_session, hf_raise_for_status, HfHubHTTPError
-
-        response = get_session().post(...)
-        try:
-            hf_raise_for_status(response)
-        except HfHubHTTPError as e:
-            print(str(e)) # formatted message
-            e.request_id, e.server_message # details returned by server
-
-            # Complete the error message with additional information once it's raised
-            e.append_to_message("\n`create_commit` expects the repository to exist.")
-            raise
-    ```
+    This helper is meant to be the unique method to raise_for_status when making a call to the Hugging Face Hub.
 
     Args:
         response (`Response`):
             Response from the server.
         endpoint_name (`str`, *optional*):
-            Name of the endpoint that has been called. If provided, the error message
-            will be more complete.
+            Name of the endpoint that has been called. If provided, the error message will be more complete.
 
     <Tip warning={true}>
 
@@ -440,7 +452,7 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
             and error_message != "Invalid credentials in Authorization header"
             and response.request is not None
             and response.request.url is not None
-            and REPO_API_REGEX.search(response.request.url) is not None
+            and REPO_API_REGEX.search(str(response.request.url)) is not None
         ):
             # 401 is misleading as it is returned for:
             #    - private and gated repos if user is not authenticated
@@ -556,8 +568,8 @@ def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: Res
     return error_type(final_error_message.strip(), response=response, server_message=server_message or None)
 
 
-def _curlify(request: requests.PreparedRequest) -> str:
-    """Convert a `requests.PreparedRequest` into a curl command (str).
+def _curlify(request: httpx.Request) -> str:
+    """Convert a `httpx.Request` into a curl command (str).
 
     Used for debug purposes only.
 
@@ -572,10 +584,10 @@ def _curlify(request: requests.PreparedRequest) -> str:
     for k, v in sorted(request.headers.items()):
         if k.lower() == "authorization":
             v = "<TOKEN>"  # Hide authorization header, no matter its value (can be Bearer, Key, etc.)
-        parts += [("-H", "{0}: {1}".format(k, v))]
+        parts += [("-H", f"{k}: {v}")]
 
-    if request.body:
-        body = request.body
+    if request.content:
+        body = request.content
         if isinstance(body, bytes):
             body = body.decode("utf-8", errors="ignore")
         elif hasattr(body, "read"):

@@ -18,6 +18,7 @@ install_requires = [
     "packaging>=20.9",
     "pyyaml>=5.1",
     "requests",
+    "httpx>=0.23.0, <1",
     "tqdm>=4.42.1",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
 ]

@@ -15,7 +15,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from huggingface_hub.utils import is_package_available, logging, reset_sessions
+from huggingface_hub.utils import is_package_available, logging
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
 
 
@@ -204,9 +204,7 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
                 yield
     elif mode is OfflineSimulationMode.HF_HUB_OFFLINE_SET_TO_1:
         with patch("huggingface_hub.constants.HF_HUB_OFFLINE", True):
-            reset_sessions()
             yield
-        reset_sessions()
     else:
         raise ValueError("Please use a value from the OfflineSimulationMode enum.")
 

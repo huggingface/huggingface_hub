@@ -19,7 +19,6 @@ from huggingface_hub.utils._http import (
     fix_hf_endpoint_in_url,
     get_session,
     http_backoff,
-    reset_sessions,
 )
 
 
@@ -245,7 +244,6 @@ class TestConfigureSession(unittest.TestCase):
 
 class OfflineModeSessionTest(unittest.TestCase):
     def tearDown(self) -> None:
-        reset_sessions()
         return super().tearDown()
 
     @patch("huggingface_hub.constants.HF_HUB_OFFLINE", True)

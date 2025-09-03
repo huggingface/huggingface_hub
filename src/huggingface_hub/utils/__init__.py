@@ -52,12 +52,18 @@ from ._git_credential import list_credential_helpers, set_git_credential, unset_
 from ._headers import build_hf_headers, get_token_to_send
 from ._hf_folder import HfFolder
 from ._http import (
-    configure_http_backend,
+    ASYNC_CLIENT_FACTORY_T,
+    CLIENT_FACTORY_T,
+    HfHubAsyncTransport,
+    HfHubTransport,
+    close_client,
     fix_hf_endpoint_in_url,
+    get_async_session,
     get_session,
     hf_raise_for_status,
     http_backoff,
-    reset_sessions,
+    set_async_client_factory,
+    set_client_factory,
 )
 from ._pagination import paginate
 from ._paths import DEFAULT_IGNORE_PATTERNS, FORBIDDEN_FOLDERS, filter_repo_objects

@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Optional, Union
 
-from requests import HTTPError, Response
+from httpx import HTTPError, Response
 
 
 # CACHE ERRORS
@@ -74,12 +74,10 @@ class HfHubHTTPError(HTTPError):
             else None
         )
         self.server_message = server_message
+        self.request = response.request
+        self.response = response
 
-        super().__init__(
-            message,
-            response=response,  # type: ignore [arg-type]
-            request=response.request if response is not None else None,  # type: ignore [arg-type]
-        )
+        super().__init__(message)
 
     def append_to_message(self, additional_message: str) -> None:
         """Append additional information to the `HfHubHTTPError` initial message."""
