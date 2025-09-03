@@ -309,6 +309,12 @@ You can pass environment variables to your job using `env` and `secrets`:
 
 ### UV Scripts (Experimental)
 
+<Tip>
+
+Looking for ready-to-use UV scripts? Check out the [uv-scripts organization](https://huggingface.co/uv-scripts) on the Hugging Face Hub, which offers a community collection of UV scripts for tasks like model training, synthetic data generation, data processing, and more.
+
+</Tip>
+
 Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 
 ```python
