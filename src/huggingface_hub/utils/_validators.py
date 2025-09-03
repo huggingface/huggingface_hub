@@ -111,6 +111,8 @@ def validate_hf_hub_args(fn: CallableT) -> CallableT:
         if check_use_auth_token:
             kwargs = smoothly_deprecate_use_auth_token(fn_name=fn.__name__, has_token=has_token, kwargs=kwargs)
 
+        kwargs = smoothly_deprecate_proxies(fn_name=fn.__name__, kwargs=kwargs)
+
         return fn(*args, **kwargs)
 
     return _inner_fn  # type: ignore
@@ -168,6 +170,37 @@ def validate_repo_id(repo_id: str) -> None:
 
     if repo_id.endswith(".git"):
         raise HFValidationError(f"Repo_id cannot end by '.git': '{repo_id}'.")
+
+
+def smoothly_deprecate_proxies(fn_name: str, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Smoothly deprecate `proxies` in the `huggingface_hub` codebase.
+
+    This function removes the `proxies` key from the kwargs and warns the user that the `proxies` argument is ignored.
+    To set up proxies, user must either use the HTTP_PROXY environment variable or configure the `httpx.Client` manually
+    using the [`set_client_factory`] function.
+
+    In huggingface_hub 0.x, `proxies` was a dictionary directly passed to `requests.request`.
+    In huggingface_hub 1.x, we migrated to `httpx` which does not support `proxies` the same way.
+    In particular, it is not possible to configure proxies on a per-request basis. The solution is to configure
+    it globally using the [`set_client_factory`] function or using the HTTP_PROXY environment variable.
+
+    More more details, see:
+    - https://www.python-httpx.org/advanced/proxies/
+    - https://www.python-httpx.org/compatibility/#proxy-keys.
+
+    We did not want to completely remove the `proxies` argument to avoid breaking existing code.
+    """
+    new_kwargs = kwargs.copy()  # do not mutate input !
+
+    proxies = new_kwargs.pop("proxies", None)  # remove from kwargs
+    if proxies is not None:
+        warnings.warn(
+            f"The `proxies` argument is ignored in `{fn_name}`. To set up proxies, use the HTTP_PROXY / HTTPS_PROXY"
+            " environment variables or configure the `httpx.Client` manually using `huggingface_hub.set_client_factory`."
+            " See https://www.python-httpx.org/advanced/proxies/ for more details."
+        )
+
+    return new_kwargs
 
 
 def smoothly_deprecate_use_auth_token(fn_name: str, has_token: bool, kwargs: Dict[str, Any]) -> Dict[str, Any]:

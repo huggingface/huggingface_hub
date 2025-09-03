@@ -220,7 +220,7 @@ class RepoCard:
         headers = {"Accept": "text/plain"}
 
         try:
-            r = get_session().post("https://huggingface.co/api/validate-yaml", body, headers=headers)
+            r = get_session().post("https://huggingface.co/api/validate-yaml", content=body, headers=headers)
             r.raise_for_status()
         except requests.exceptions.HTTPError as exc:
             if r.status_code == 400:

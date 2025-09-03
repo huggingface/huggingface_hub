@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Optional, Union
 
-from httpx import HTTPError, Response
+from httpx import HTTPError, Request, Response
 
 
 # CACHE ERRORS
@@ -67,14 +67,21 @@ class HfHubHTTPError(HTTPError):
     ```
     """
 
-    def __init__(self, message: str, response: Optional[Response] = None, *, server_message: Optional[str] = None):
+    def __init__(
+        self,
+        message: str,
+        request: Optional[Request] = None,
+        response: Optional[Response] = None,
+        *,
+        server_message: Optional[str] = None,
+    ):
         self.request_id = (
             response.headers.get("x-request-id") or response.headers.get("X-Amzn-Trace-Id")
             if response is not None
             else None
         )
         self.server_message = server_message
-        self.request = response.request
+        self.request = request
         self.response = response
 
         super().__init__(message)

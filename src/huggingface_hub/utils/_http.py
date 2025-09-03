@@ -252,7 +252,10 @@ def http_backoff(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (httpx.Timeout, httpx.NetworkError),
+    retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (
+        httpx.TimeoutException,
+        httpx.NetworkError,
+    ),
     retry_on_status_codes: Union[int, Tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
     **kwargs,
 ) -> Response:

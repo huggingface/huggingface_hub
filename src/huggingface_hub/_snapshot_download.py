@@ -36,7 +36,6 @@ def snapshot_download(
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Optional[Union[Dict, str]] = None,
-    proxies: Optional[Dict] = None,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     force_download: bool = False,
     token: Optional[Union[bool, str]] = None,
@@ -85,9 +84,6 @@ def snapshot_download(
             The version of the library.
         user_agent (`str`, `dict`, *optional*):
             The user-agent info in the form of a dictionary or a string.
-        proxies (`dict`, *optional*):
-            Dictionary mapping protocol to the URL of the proxy passed to
-            `requests.request`.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
             data before giving up which is passed to `requests.request`.
@@ -315,7 +311,6 @@ def snapshot_download(
             library_name=library_name,
             library_version=library_version,
             user_agent=user_agent,
-            proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,
             force_download=force_download,

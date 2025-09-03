@@ -86,7 +86,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provider_helper
-from huggingface_hub.utils import build_hf_headers
+from huggingface_hub.utils import build_hf_headers, validate_hf_hub_args
 from huggingface_hub.utils._auth import get_token
 
 from .._common import _async_yield_from, _import_aiohttp
@@ -137,8 +137,6 @@ class AsyncInferenceClient:
             Additional cookies to send to the server.
         trust_env ('bool', 'optional'):
             Trust environment settings for proxy configuration if the parameter is `True` (`False` by default).
-        proxies (`Any`, `optional`):
-            Proxies to use for the request.
         base_url (`str`, `optional`):
             Base URL to run inference. This is a duplicated argument from `model` to make [`InferenceClient`]
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `model` is set. Defaults to None.
@@ -147,6 +145,7 @@ class AsyncInferenceClient:
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `token` is set. Defaults to None.
     """
 
+    @validate_hf_hub_args
     def __init__(
         self,
         model: Optional[str] = None,
@@ -157,7 +156,6 @@ class AsyncInferenceClient:
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
         trust_env: bool = False,
-        proxies: Optional[Any] = None,
         bill_to: Optional[str] = None,
         # OpenAI compatibility
         base_url: Optional[str] = None,
@@ -218,9 +216,8 @@ class AsyncInferenceClient:
         self.provider = provider
 
         self.cookies = cookies
-        self.timeout = timeout
         self.trust_env = trust_env
-        self.proxies = proxies
+        self.timeout = timeout
 
         # Keep track of the sessions to close them properly
         self._sessions: Dict["ClientSession", Set["ClientResponse"]] = dict()
@@ -260,7 +257,7 @@ class AsyncInferenceClient:
 
         try:
             response = await session.post(
-                request_parameters.url, json=request_parameters.json, data=request_parameters.data, proxy=self.proxies
+                request_parameters.url, json=request_parameters.json, data=request_parameters.data
             )
             response_error_payload = None
             if response.status != 200:
@@ -3431,7 +3428,7 @@ class AsyncInferenceClient:
             url = f"{constants.INFERENCE_ENDPOINT}/models/{model}/info"
 
         async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
+            response = await client.get(url)
             response.raise_for_status()
             return await response.json()
 
@@ -3468,7 +3465,7 @@ class AsyncInferenceClient:
         url = model.rstrip("/") + "/health"
 
         async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
+            response = await client.get(url)
             return response.status == 200
 
     @property

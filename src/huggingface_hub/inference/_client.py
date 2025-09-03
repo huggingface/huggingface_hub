@@ -101,7 +101,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provider_helper
-from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
+from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status, validate_hf_hub_args
 from huggingface_hub.utils._auth import get_token
 
 
@@ -147,8 +147,6 @@ class InferenceClient:
             Requests can only be billed to an organization the user is a member of, and which has subscribed to Enterprise Hub.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
-        proxies (`Any`, `optional`):
-            Proxies to use for the request.
         base_url (`str`, `optional`):
             Base URL to run inference. This is a duplicated argument from `model` to make [`InferenceClient`]
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `model` is set. Defaults to None.
@@ -157,6 +155,7 @@ class InferenceClient:
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `token` is set. Defaults to None.
     """
 
+    @validate_hf_hub_args
     def __init__(
         self,
         model: Optional[str] = None,
@@ -166,7 +165,6 @@ class InferenceClient:
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
-        proxies: Optional[Any] = None,
         bill_to: Optional[str] = None,
         # OpenAI compatibility
         base_url: Optional[str] = None,
@@ -228,7 +226,6 @@ class InferenceClient:
 
         self.cookies = cookies
         self.timeout = timeout
-        self.proxies = proxies
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
@@ -265,7 +262,6 @@ class InferenceClient:
                 cookies=self.cookies,
                 timeout=self.timeout,
                 stream=stream,
-                proxies=self.proxies,
             )
         except TimeoutError as error:
             # Convert any `TimeoutError` to a `InferenceTimeoutError`

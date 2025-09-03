@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, BinaryIO, Dict, Literal, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
 
+import httpx
 import requests
 
 from . import (
@@ -260,11 +261,11 @@ def hf_hub_url(
     return url
 
 
-def _request_wrapper(
+def _httpx_wrapper(
     method: HTTP_METHOD_T, url: str, *, follow_relative_redirects: bool = False, **params
-) -> requests.Response:
-    """Wrapper around requests methods to follow relative redirects if `follow_relative_redirects=True` even when
-    `allow_redirection=False`.
+) -> httpx.Response:
+    """Wrapper around httpx methods to follow relative redirects if `follow_relative_redirects=True` even when
+    `follow_redirection=False`.
 
     A backoff mechanism retries the HTTP call on 429, 503 and 504 errors.
 
@@ -278,11 +279,11 @@ def _request_wrapper(
             kwarg is set to False. Useful when we want to follow a redirection to a renamed repository without
             following redirection to a CDN.
         **params (`dict`, *optional*):
-            Params to pass to `requests.request`.
+            Params to pass to `httpx.request`.
     """
     # Recursively follow relative redirects
     if follow_relative_redirects:
-        response = _request_wrapper(
+        response = _httpx_wrapper(
             method=method,
             url=url,
             follow_relative_redirects=False,
@@ -301,7 +302,7 @@ def _request_wrapper(
                 # Highly inspired by `resolve_redirects` from requests library.
                 # See https://github.com/psf/requests/blob/main/requests/sessions.py#L159
                 next_url = urlparse(url)._replace(path=parsed_target.path).geturl()
-                return _request_wrapper(method=method, url=next_url, follow_relative_redirects=True, **params)
+                return _httpx_wrapper(method=method, url=next_url, follow_relative_redirects=True, **params)
         return response
 
     # Perform request and return if status_code is not in the retry list.
@@ -310,7 +311,7 @@ def _request_wrapper(
     return response
 
 
-def _get_file_length_from_http_response(response: requests.Response) -> Optional[int]:
+def _get_file_length_from_http_response(response: httpx.Response) -> Optional[int]:
     """
     Get the length of the file from the HTTP response headers.
 
@@ -318,7 +319,7 @@ def _get_file_length_from_http_response(response: requests.Response) -> Optional
     `Content-Range` or `Content-Length` header, if available (in that order).
 
     Args:
-        response (`requests.Response`):
+        response (`httpx.Response`):
             The HTTP response object.
 
     Returns:
@@ -345,11 +346,11 @@ def _get_file_length_from_http_response(response: requests.Response) -> Optional
     return None
 
 
+@validate_hf_hub_args
 def http_get(
     url: str,
     temp_file: BinaryIO,
     *,
-    proxies: Optional[Dict] = None,
     resume_size: int = 0,
     headers: Optional[Dict[str, Any]] = None,
     expected_size: Optional[int] = None,
@@ -369,8 +370,6 @@ def http_get(
             The URL of the file to download.
         temp_file (`BinaryIO`):
             The file-like object where to save the file.
-        proxies (`dict`, *optional*):
-            Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
         resume_size (`int`, *optional*):
             The number of bytes already downloaded. If set to 0 (default), the whole file is download. If set to a
             positive number, the download will resume at the given position.
@@ -392,8 +391,6 @@ def http_get(
     if constants.HF_HUB_ENABLE_HF_TRANSFER:
         if resume_size != 0:
             warnings.warn("'hf_transfer' does not support `resume_size`: falling back to regular download method")
-        elif proxies is not None:
-            warnings.warn("'hf_transfer' does not support `proxies`: falling back to regular download method")
         elif has_custom_range_header:
             warnings.warn("'hf_transfer' ignores custom 'Range' headers; falling back to regular download method")
         else:
@@ -422,9 +419,7 @@ def http_get(
                 " Try `pip install hf_transfer` or `pip install hf_xet`."
             )
 
-    r = _request_wrapper(
-        method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT
-    )
+    r = _httpx_wrapper(method="GET", url=url, stream=True, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT)
 
     hf_raise_for_status(r)
     total: Optional[int] = _get_file_length_from_http_response(r)
@@ -508,11 +503,9 @@ def http_get(
                 raise
             logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
             time.sleep(1)
-            reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
             return http_get(
                 url=url,
                 temp_file=temp_file,
-                proxies=proxies,
                 resume_size=new_resume_size,
                 headers=initial_headers,
                 expected_size=expected_size,
@@ -821,7 +814,6 @@ def hf_hub_download(
     local_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
     force_download: bool = False,
-    proxies: Optional[Dict] = None,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
@@ -892,9 +884,6 @@ def hf_hub_download(
         force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in
             the local cache.
-        proxies (`dict`, *optional*):
-            Dictionary mapping protocol to the URL of the proxy passed to
-            `requests.request`.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
             data before giving up which is passed to `requests.request`.
@@ -998,7 +987,6 @@ def hf_hub_download(
             endpoint=endpoint,
             etag_timeout=etag_timeout,
             headers=hf_headers,
-            proxies=proxies,
             token=token,
             # Additional options
             cache_dir=cache_dir,
@@ -1018,7 +1006,6 @@ def hf_hub_download(
             endpoint=endpoint,
             etag_timeout=etag_timeout,
             headers=hf_headers,
-            proxies=proxies,
             token=token,
             # Additional options
             local_files_only=local_files_only,
@@ -1039,7 +1026,6 @@ def _hf_hub_download_to_cache_dir(
     endpoint: Optional[str],
     etag_timeout: float,
     headers: Dict[str, str],
-    proxies: Optional[Dict],
     token: Optional[Union[bool, str]],
     # Additional options
     local_files_only: bool,
@@ -1075,7 +1061,6 @@ def _hf_hub_download_to_cache_dir(
         repo_type=repo_type,
         revision=revision,
         endpoint=endpoint,
-        proxies=proxies,
         etag_timeout=etag_timeout,
         headers=headers,
         token=token,
@@ -1171,7 +1156,6 @@ def _hf_hub_download_to_cache_dir(
             incomplete_path=Path(blob_path + ".incomplete"),
             destination_path=Path(blob_path),
             url_to_download=url_to_download,
-            proxies=proxies,
             headers=headers,
             expected_size=expected_size,
             filename=filename,
@@ -1198,7 +1182,6 @@ def _hf_hub_download_to_local_dir(
     endpoint: Optional[str],
     etag_timeout: float,
     headers: Dict[str, str],
-    proxies: Optional[Dict],
     token: Union[bool, str, None],
     # Additional options
     cache_dir: str,
@@ -1234,7 +1217,6 @@ def _hf_hub_download_to_local_dir(
         repo_type=repo_type,
         revision=revision,
         endpoint=endpoint,
-        proxies=proxies,
         etag_timeout=etag_timeout,
         headers=headers,
         token=token,
@@ -1300,7 +1282,6 @@ def _hf_hub_download_to_local_dir(
             incomplete_path=paths.incomplete_path(etag),
             destination_path=paths.file_path,
             url_to_download=url_to_download,
-            proxies=proxies,
             headers=headers,
             expected_size=expected_size,
             filename=filename,
@@ -1410,7 +1391,6 @@ def try_to_load_from_cache(
 def get_hf_file_metadata(
     url: str,
     token: Union[bool, str, None] = None,
-    proxies: Optional[Dict] = None,
     timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
@@ -1429,9 +1409,6 @@ def get_hf_file_metadata(
                   folder.
                 - If `False` or `None`, no token is provided.
                 - If a string, it's used as the authentication token.
-        proxies (`dict`, *optional*):
-            Dictionary mapping protocol to the URL of the proxy passed to
-            `requests.request`.
         timeout (`float`, *optional*, defaults to 10):
             How many seconds to wait for the server to send metadata before giving up.
         library_name (`str`, *optional*):
@@ -1459,13 +1436,12 @@ def get_hf_file_metadata(
     hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
-    r = _request_wrapper(
+    r = _httpx_wrapper(
         method="HEAD",
         url=url,
         headers=hf_headers,
-        allow_redirects=False,
+        follow_redirects=False,
         follow_relative_redirects=True,
-        proxies=proxies,
         timeout=timeout,
     )
     hf_raise_for_status(r)
@@ -1473,12 +1449,10 @@ def get_hf_file_metadata(
     # Return
     return HfFileMetadata(
         commit_hash=r.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT),
-        # We favor a custom header indicating the etag of the linked resource, and
-        # we fallback to the regular etag header.
+        # We favor a custom header indicating the etag of the linked resource, and we fallback to the regular etag header.
         etag=_normalize_etag(r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")),
         # Either from response headers (if redirected) or defaults to request url
-        # Do not use directly `url`, as `_request_wrapper` might have followed relative
-        # redirects.
+        # Do not use directly `url`, as `_httpx_wrapper` might have followed relative redirects.
         location=r.headers.get("Location") or str(r.request.url),  # type: ignore
         size=_int_or_none(
             r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
@@ -1494,7 +1468,6 @@ def _get_metadata_or_catch_error(
     repo_type: str,
     revision: str,
     endpoint: Optional[str],
-    proxies: Optional[Dict],
     etag_timeout: Optional[float],
     headers: Dict[str, str],  # mutated inplace!
     token: Union[bool, str, None],
@@ -1543,7 +1516,7 @@ def _get_metadata_or_catch_error(
         try:
             try:
                 metadata = get_hf_file_metadata(
-                    url=url, proxies=proxies, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
+                    url=url, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
                 )
             except EntryNotFoundError as http_error:
                 if storage_folder is not None and relative_filename is not None:
@@ -1668,7 +1641,6 @@ def _download_to_tmp_and_move(
     incomplete_path: Path,
     destination_path: Path,
     url_to_download: str,
-    proxies: Optional[Dict],
     headers: Dict[str, str],
     expected_size: Optional[int],
     filename: str,
@@ -1737,7 +1709,6 @@ def _download_to_tmp_and_move(
             http_get(
                 url_to_download,
                 f,
-                proxies=proxies,
                 resume_size=resume_size,
                 headers=headers,
                 expected_size=expected_size,

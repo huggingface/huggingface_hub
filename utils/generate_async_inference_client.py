@@ -174,7 +174,7 @@ ASYNC_INNER_POST_CODE = """
         session = self._get_client_session(headers=request_parameters.headers)
 
         try:
-            response = await session.post(request_parameters.url, json=request_parameters.json, data=request_parameters.data, proxy=self.proxies)
+            response = await session.post(request_parameters.url, json=request_parameters.json, data=request_parameters.data)
             response_error_payload = None
             if response.status != 200:
                 try:
@@ -402,7 +402,7 @@ def _adapt_info_and_health_endpoints(code: str) -> str:
 
     info_async_snippet = """
         async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
+            response = await client.get(url)
             response.raise_for_status()
             return await response.json()"""
 
@@ -414,7 +414,7 @@ def _adapt_info_and_health_endpoints(code: str) -> str:
 
     health_async_snippet = """
         async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
+            response = await client.get(url)
             return response.status == 200"""
 
     return code.replace(health_sync_snippet, health_async_snippet)
@@ -422,13 +422,13 @@ def _adapt_info_and_health_endpoints(code: str) -> str:
 
 def _add_get_client_session(code: str) -> str:
     # Add trust_env as parameter
-    code = _add_before(code, "proxies: Optional[Any] = None,", "trust_env: bool = False,")
-    code = _add_before(code, "\n        self.proxies = proxies\n", "\n        self.trust_env = trust_env")
+    code = _add_before(code, "bill_to: Optional[str] = None,", "trust_env: bool = False,")
+    code = _add_before(code, "\n        self.timeout = timeout\n", "\n        self.trust_env = trust_env")
 
     # Document `trust_env` parameter
     code = _add_before(
         code,
-        "\n        proxies (`Any`, `optional`):",
+        "\n        base_url (`str`, `optional`):",
         """
         trust_env ('bool', 'optional'):
             Trust environment settings for proxy configuration if the parameter is `True` (`False` by default).""",
