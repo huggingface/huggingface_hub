@@ -352,7 +352,7 @@ hf jobs uv run \
 ...
 ```
 
-The above command will run using the `vllm/vllm-openai:latest` image. This approach could be useful, for example if you are using vllm for synthetic data generation.
+The above command will run using the `vllm/vllm-openai:latest` image. This approach could be useful if you are using vLLM for synthetic data generation.
 
 <Tip>
 
