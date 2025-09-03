@@ -10284,10 +10284,10 @@ class HfApi:
 
         Args:
             script (`str`):
-                Path or URL of the UV script.
+                Path or URL of the UV script, or a command.
 
             script_args (`List[str]`, *optional*)
-                Arguments to pass to the script.
+                Arguments to pass to the script or command.
 
             dependencies (`List[str]`, *optional*)
                 Dependencies to use to run the UV script.
@@ -10322,10 +10322,31 @@ class HfApi:
 
         Example:
 
+            Run a script from a URL:
+
             ```python
             >>> from huggingface_hub import run_uv_job
             >>> script = "https://raw.githubusercontent.com/huggingface/trl/refs/heads/main/trl/scripts/sft.py"
-            >>> run_uv_job(script, dependencies=["trl"], flavor="a10g-small")
+            >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
+            >>> run_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small")
+            ```
+
+            Run a local script:
+
+            ```python
+            >>> from huggingface_hub import run_uv_job
+            >>> script = "my_sft.py"
+            >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
+            >>> run_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small")
+            ```
+
+            Run a command:
+
+            ```python
+            >>> from huggingface_hub import run_uv_job
+            >>> script = "lighteval"
+            >>> script_args= ["endpoint", "inference-providers", "model_name=openai/gpt-oss-20b,provider=auto", "lighteval|gsm8k|0|0"]
+            >>> run_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small")
             ```
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
@@ -10344,8 +10365,9 @@ class HfApi:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
 
-        if script.startswith("http://") or script.startswith("https://"):
-            # Direct URL execution - no upload needed
+        is_url = script.startswith("http://") or script.startswith("https://")
+        if is_url or not Path(script).is_file():
+            # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
         else:
             # Local file - upload to HF
