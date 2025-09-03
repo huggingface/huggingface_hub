@@ -337,6 +337,30 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
 
+
+#### Docker Images for UV Scripts
+
+While UV scripts can specify their dependencies inline, ML workloads often have complex dependencies. Using pre-built Docker images with these libraries already installed can significantly speed up job startup and avoid dependency issues.
+
+By default, when you run `hf jobs uv run` the `astral-sh/uv:python3.12-bookworm` image is used. This image is based on the Python 3.12 Bookworm distribution with uv pre-installed.
+
+You can specify a different image using the `--image` flag:
+
+```bash
+hf jobs uv run \
+ --flavor a10g-large \
+ --image vllm/vllm-openai:latest \
+...
+```
+
+The above command will run using the `vllm/vllm-openai:latest` image. This approach could be useful if you are using vLLM for synthetic data generation.
+
+<Tip>
+
+Many inference frameworks provide optimized docker images. As uv is increasingly adopted in the Python ecosystem more of these will also have uv pre-installed meaning they will work when using hf jobs uv run.
+
+</Tip>
+
 ### Scheduled Jobs
 
 Schedule and manage jobs that will run on HF infrastructure.
