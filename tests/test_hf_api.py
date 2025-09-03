@@ -31,7 +31,6 @@ from urllib.parse import quote, urlparse
 
 import pytest
 import requests
-from requests.exceptions import HTTPError
 
 import huggingface_hub.lfs
 from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage, constants
@@ -197,7 +196,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         # test for #751
         # See https://github.com/huggingface/huggingface_hub/issues/751
         with self.assertRaisesRegex(
-            requests.exceptions.HTTPError,
+            HfHubHTTPError,
             re.compile(
                 r"404 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
                 flags=re.DOTALL,
@@ -607,7 +606,7 @@ class CommitApiTest(HfApiCommonTest):
         self.assertEqual(resp.pr_revision, "refs/pr/1")
 
         # File doesn't exist on main...
-        with self.assertRaises(HTTPError) as ctx:
+        with self.assertRaises(HfHubHTTPError) as ctx:
             # Should raise a 404
             self._api.hf_hub_download(repo_id, "buffer")
             self.assertEqual(ctx.exception.response.status_code, 404)
@@ -708,7 +707,7 @@ class CommitApiTest(HfApiCommonTest):
             self.assertIsNone(resp.pr_num)
             self.assertIsNone(resp.pr_revision)
 
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             # Should raise a 404
             hf_hub_download(repo_id, "temp/new_file.md")
 
@@ -737,7 +736,7 @@ class CommitApiTest(HfApiCommonTest):
         operations = [
             CommitOperationAdd(path_in_repo="buffer", path_or_fileobj=b"Buffer data"),
         ]
-        with self.assertRaises(HTTPError) as exc_ctx:
+        with self.assertRaises(HfHubHTTPError) as exc_ctx:
             self._api.create_commit(
                 operations=operations,
                 commit_message="Test create_commit",
@@ -1592,7 +1591,7 @@ class HfApiTagEndpointTest(HfApiCommonTest):
     @use_tmp_repo("model")
     def test_invalid_tag_name(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` with an invalid tag name."""
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.create_tag(repo_url.repo_id, tag="invalid tag")
 
     @use_tmp_repo("model")
@@ -2572,7 +2571,7 @@ class HfApiPrivateTest(HfApiCommonTest):
         with patch.object(self._api, "token", None):  # no default token
             # Test we cannot access model info without a token
             with self.assertRaisesRegex(
-                requests.exceptions.HTTPError,
+                HfHubHTTPError,
                 re.compile(
                     r"401 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
                     flags=re.DOTALL,
@@ -2588,7 +2587,7 @@ class HfApiPrivateTest(HfApiCommonTest):
         with patch.object(self._api, "token", None):  # no default token
             # Test we cannot access model info without a token
             with self.assertRaisesRegex(
-                requests.exceptions.HTTPError,
+                HfHubHTTPError,
                 re.compile(
                     r"401 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
                     flags=re.DOTALL,
@@ -4053,7 +4052,7 @@ class CollectionAPITest(HfApiCommonTest):
         self.slug = collection_1.slug
 
         # Cannot create twice with same title
-        with self.assertRaises(HTTPError):  # already exists
+        with self.assertRaises(HfHubHTTPError):  # already exists
             self._api.create_collection(self.title)
 
         # Can ignore error
@@ -4069,7 +4068,7 @@ class CollectionAPITest(HfApiCommonTest):
 
         # Get private collection
         self._api.get_collection(collection.slug)  # no error
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.get_collection(collection.slug, token=OTHER_TOKEN)  # not authorized
 
         # Get public collection
@@ -4111,7 +4110,7 @@ class CollectionAPITest(HfApiCommonTest):
         self._api.delete_collection(collection.slug)
 
         # Cannot delete twice the same collection
-        with self.assertRaises(HTTPError):  # already exists
+        with self.assertRaises(HfHubHTTPError):  # already exists
             self._api.delete_collection(collection.slug)
 
         # Possible to ignore error
@@ -4139,12 +4138,12 @@ class CollectionAPITest(HfApiCommonTest):
         self.assertIsNone(collection.items[1].note)
 
         # Add existing item fails (except if ignore error)
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.add_collection_item(collection.slug, model_id, "model")
         self._api.add_collection_item(collection.slug, model_id, "model", exists_ok=True)
 
         # Add inexistent item fails
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.add_collection_item(collection.slug, model_id, "dataset")
 
         # Update first item
@@ -4245,21 +4244,21 @@ class AccessRequestAPITest(HfApiCommonTest):
         self._api.grant_access(self.repo_id, OTHER_USER)
 
         # Cannot grant twice
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.grant_access(self.repo_id, OTHER_USER)
 
         # Cannot accept to already accepted
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.accept_access_request(self.repo_id, OTHER_USER)
 
         # Cannot reject to already rejected
         self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
 
         # Cannot cancel to already cancelled
         self._api.cancel_access_request(self.repo_id, OTHER_USER)
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.cancel_access_request(self.repo_id, OTHER_USER)
 
 
@@ -4377,7 +4376,7 @@ class WebhookApiTest(HfApiCommonTest):
             url=self.webhook_url, watched=self.watched_items, domains=self.domains, secret=self.secret
         )
         self._api.delete_webhook(webhook_to_delete.id)
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.get_webhook(webhook_to_delete.id)
 
 

@@ -16,6 +16,7 @@
 
 import atexit
 import io
+import json
 import re
 import threading
 import time
@@ -25,7 +26,6 @@ from shlex import quote
 from typing import Any, Callable, List, Optional, Tuple, Type, Union
 
 import httpx
-from httpx import HTTPError, Response
 
 from huggingface_hub.errors import OfflineModeIsEnabled
 
@@ -40,7 +40,6 @@ from ..errors import (
     RevisionNotFoundError,
 )
 from . import logging
-from ._fixes import JSONDecodeError
 from ._lfs import SliceFileObj
 from ._typing import HTTP_METHOD_T
 
@@ -130,18 +129,24 @@ def _add_request_id(request: httpx.Request) -> Optional[str]:
     return request_id
 
 
+DEFAULT_CLIENT_CONFIG = {
+    "follow_redirects": True,
+    "timeout": httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
+}
+
+
 def _client_factory() -> httpx.Client:
     """
     Factory function to create a `httpx.Client` with the default transport.
     """
-    return httpx.Client(transport=HfHubTransport(), follow_redirects=True)
+    return httpx.Client(transport=HfHubTransport(), **DEFAULT_CLIENT_CONFIG)
 
 
 def _async_client_factory() -> httpx.AsyncClient:
     """
     Factory function to create a `httpx.AsyncClient` with the default transport.
     """
-    return httpx.AsyncClient(transport=HfHubAsyncTransport(), follow_redirects=True)
+    return httpx.AsyncClient(transport=HfHubAsyncTransport(), **DEFAULT_CLIENT_CONFIG)
 
 
 CLIENT_FACTORY_T = Callable[[], httpx.Client]
@@ -258,7 +263,7 @@ def http_backoff(
     ),
     retry_on_status_codes: Union[int, Tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
     **kwargs,
-) -> Response:
+) -> httpx.Response:
     """Wrapper around httpx to retry calls on an endpoint, with exponential backoff.
 
     Endpoint call is retried on exceptions (ex: connection timeout, proxy error,...)
@@ -384,7 +389,7 @@ def fix_hf_endpoint_in_url(url: str, endpoint: Optional[str]) -> str:
     return url
 
 
-def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None) -> None:
+def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] = None) -> None:
     """
     Internal version of `response.raise_for_status()` that will refine a potential HTTPError.
     Raised exception will be an instance of [`~errors.HfHubHTTPError`].
@@ -422,7 +427,10 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
     """
     try:
         response.raise_for_status()
-    except HTTPError as e:
+    except httpx.HTTPStatusError as e:
+        if response.status_code // 100 == 3:
+            return  # Do not raise on redirects to stay consistent with `requests`
+
         error_code = response.headers.get("X-Error-Code")
         error_message = response.headers.get("X-Error-Message")
 
@@ -497,7 +505,7 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
         raise _format(HfHubHTTPError, str(e), response) from e
 
 
-def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: Response) -> HfHubHTTPError:
+def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: httpx.Response) -> HfHubHTTPError:
     server_errors = []
 
     # Retrieve server error from header
@@ -526,7 +534,7 @@ def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: Res
                 if "message" in error:
                     server_errors.append(error["message"])
 
-    except JSONDecodeError:
+    except json.JSONDecodeError:
         # If content is not JSON and not HTML, append the text
         content_type = response.headers.get("Content-Type", "")
         if response.text and "html" not in content_type.lower():
