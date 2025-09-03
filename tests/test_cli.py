@@ -839,6 +839,11 @@ class DummyResponse:
         return self._json
 
 
+class DummyCommit:
+    def __init__(self, oid: str):
+        self.oid = oid
+
+
 class TestJobsCommand(unittest.TestCase):
     def setUp(self) -> None:
         """
@@ -865,7 +870,7 @@ class TestJobsCommand(unittest.TestCase):
     patch_whoami = patch("huggingface_hub.hf_api.HfApi.whoami", return_value={"name": "my-username"})
     patch_get_token = patch("huggingface_hub.hf_api.get_token", return_value="hf_xxx")
     patch_repo_info = patch("huggingface_hub.hf_api.HfApi.repo_info")
-    patch_upload_file = patch("huggingface_hub.hf_api.HfApi.upload_file")
+    patch_upload_file = patch("huggingface_hub.hf_api.HfApi.upload_file", return_value=DummyCommit(oid="ae068f"))
 
     @patch_requests_post
     @patch_whoami
@@ -971,7 +976,7 @@ class TestJobsCommand(unittest.TestCase):
         assert kwargs["json"] == {
             "arguments": [],
             "environment": {
-                "UV_SCRIPT_URL": "https://huggingface.co/datasets/my-username/hf-cli-jobs-uv-run-scripts/resolve/main/test_cli.py"
+                "UV_SCRIPT_URL": "https://hub-ci.huggingface.co/datasets/my-username/hf-cli-jobs-uv-run-scripts/resolve/ae068f/test_cli.py"
             },
             "secrets": {"UV_SCRIPT_HF_TOKEN": "hf_xxx"},
             "flavor": "cpu-basic",
