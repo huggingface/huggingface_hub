@@ -136,14 +136,14 @@ DEFAULT_CLIENT_CONFIG = {
 }
 
 
-def _client_factory() -> httpx.Client:
+def default_client_factory() -> httpx.Client:
     """
     Factory function to create a `httpx.Client` with the default transport.
     """
     return httpx.Client(transport=HfHubTransport(), **DEFAULT_CLIENT_CONFIG)
 
 
-def _async_client_factory() -> httpx.AsyncClient:
+def default_async_client_factory() -> httpx.AsyncClient:
     """
     Factory function to create a `httpx.AsyncClient` with the default transport.
     """
@@ -154,8 +154,8 @@ CLIENT_FACTORY_T = Callable[[], httpx.Client]
 ASYNC_CLIENT_FACTORY_T = Callable[[], httpx.AsyncClient]
 
 _CLIENT_LOCK = threading.Lock()
-_GLOBAL_CLIENT_FACTORY: CLIENT_FACTORY_T = _client_factory
-_GLOBAL_ASYNC_CLIENT_FACTORY: ASYNC_CLIENT_FACTORY_T = _async_client_factory
+_GLOBAL_CLIENT_FACTORY: CLIENT_FACTORY_T = default_client_factory
+_GLOBAL_ASYNC_CLIENT_FACTORY: ASYNC_CLIENT_FACTORY_T = default_async_client_factory
 _GLOBAL_CLIENT: Optional[httpx.Client] = None
 
 
