@@ -36,6 +36,7 @@ import base64
 import logging
 import re
 import warnings
+from contextlib import ExitStack
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Union, overload
 
 from requests import HTTPError
@@ -227,10 +228,19 @@ class InferenceClient:
         self.cookies = cookies
         self.timeout = timeout
 
-        self.responses = []  # TODO: to do better! (same as for the current async client)
+        self.exit_stack = ExitStack()
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.exit_stack.close()
+
+    def close(self):
+        self.exit_stack.close()
 
     @overload
     def _inner_post(  # type: ignore[misc]
@@ -240,38 +250,38 @@ class InferenceClient:
     @overload
     def _inner_post(  # type: ignore[misc]
         self, request_parameters: RequestParameters, *, stream: Literal[True] = ...
-    ) -> Iterable[bytes]: ...
+    ) -> Iterable[str]: ...
 
     @overload
     def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, Iterable[bytes]]: ...
+    ) -> Union[bytes, Iterable[str]]: ...
 
     def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, Iterable[bytes]]:
+    ) -> Union[bytes, Iterable[str]]:
         """Make a request to the inference server."""
         # TODO: this should be handled in provider helpers directly
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
         try:
-            connection = get_session().stream(
-                "POST",
-                request_parameters.url,
-                json=request_parameters.json,
-                data=request_parameters.data,
-                headers=request_parameters.headers,
-                cookies=self.cookies,
-                timeout=self.timeout,
+            response = self.exit_stack.enter_context(
+                get_session().stream(
+                    "POST",
+                    request_parameters.url,
+                    json=request_parameters.json,
+                    data=request_parameters.data,
+                    headers=request_parameters.headers,
+                    cookies=self.cookies,
+                    timeout=self.timeout,
+                )
             )
-            self.responses.append(connection)  # TODO: close this at some point! (same as for the current async client)
-            response = connection.__enter__()
             hf_raise_for_status(response)
             if stream:
                 return response.iter_lines()
             else:
-                return response.content
+                return response.read()
         except TimeoutError as error:
             # Convert any `TimeoutError` to a `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore

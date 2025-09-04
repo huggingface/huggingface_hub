@@ -23,7 +23,8 @@ import base64
 import logging
 import re
 import warnings
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Set, Union, overload
+from contextlib import ExitStack
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, Iterable, List, Literal, Optional, Set, Union, overload
 
 from huggingface_hub import constants
 from huggingface_hub.errors import InferenceTimeoutError
@@ -219,6 +220,8 @@ class AsyncInferenceClient:
         self.trust_env = trust_env
         self.timeout = timeout
 
+        self.exit_stack = ExitStack()
+
         # Keep track of the sessions to close them properly
         self._sessions: Dict["ClientSession", Set["ClientResponse"]] = dict()
 
@@ -233,16 +236,16 @@ class AsyncInferenceClient:
     @overload
     async def _inner_post(  # type: ignore[misc]
         self, request_parameters: RequestParameters, *, stream: Literal[True] = ...
-    ) -> AsyncIterable[bytes]: ...
+    ) -> AsyncIterable[str]: ...
 
     @overload
     async def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, AsyncIterable[bytes]]: ...
+    ) -> Union[bytes, Iterable[str]]: ...
 
     async def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, AsyncIterable[bytes]]:
+    ) -> Union[bytes, Iterable[str]]:
         """Make a request to the inference server."""
 
         aiohttp = _import_aiohttp()

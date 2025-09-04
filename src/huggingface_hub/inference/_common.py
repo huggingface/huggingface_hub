@@ -36,6 +36,7 @@ from typing import (
     overload,
 )
 
+import httpx
 from requests import HTTPError
 
 from huggingface_hub.errors import (
@@ -52,7 +53,6 @@ from ._generated.types import ChatCompletionStreamOutput, TextGenerationStreamOu
 
 
 if TYPE_CHECKING:
-    from aiohttp import ClientResponse, ClientSession
     from PIL.Image import Image
 
 # TYPES
@@ -279,13 +279,13 @@ def _as_dict(response: Union[bytes, Dict]) -> Dict:
 
 
 def _stream_text_generation_response(
-    bytes_output_as_lines: Iterable[bytes], details: bool
+    output_lines: Iterable[str], details: bool
 ) -> Union[Iterable[str], Iterable[TextGenerationStreamOutput]]:
     """Used in `InferenceClient.text_generation`."""
     # Parse ServerSentEvents
-    for byte_payload in bytes_output_as_lines:
+    for line in output_lines:
         try:
-            output = _format_text_generation_stream_output(byte_payload, details)
+            output = _format_text_generation_stream_output(line, details)
         except StopIteration:
             break
         if output is not None:
@@ -293,13 +293,13 @@ def _stream_text_generation_response(
 
 
 async def _async_stream_text_generation_response(
-    bytes_output_as_lines: AsyncIterable[bytes], details: bool
+    output_lines: AsyncIterable[str], details: bool
 ) -> Union[AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:
     """Used in `AsyncInferenceClient.text_generation`."""
     # Parse ServerSentEvents
-    async for byte_payload in bytes_output_as_lines:
+    async for line in output_lines:
         try:
-            output = _format_text_generation_stream_output(byte_payload, details)
+            output = _format_text_generation_stream_output(line, details)
         except StopIteration:
             break
         if output is not None:
@@ -307,17 +307,17 @@ async def _async_stream_text_generation_response(
 
 
 def _format_text_generation_stream_output(
-    byte_payload: bytes, details: bool
+    line: str, details: bool
 ) -> Optional[Union[str, TextGenerationStreamOutput]]:
-    if not byte_payload.startswith(b"data:"):
+    if not line.startswith("data:"):
         return None  # empty line
 
-    if byte_payload.strip() == b"data: [DONE]":
+    if line.strip() == "data: [DONE]":
         raise StopIteration("[DONE] signal received.")
 
     # Decode payload
-    payload = byte_payload.decode("utf-8")
-    json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
+    payload = line.lstrip("data:").rstrip("/n")
+    json_payload = json.loads(payload)
 
     # Either an error as being returned
     if json_payload.get("error") is not None:
@@ -329,12 +329,12 @@ def _format_text_generation_stream_output(
 
 
 def _stream_chat_completion_response(
-    bytes_lines: Iterable[bytes],
+    lines: Iterable[str],
 ) -> Iterable[ChatCompletionStreamOutput]:
     """Used in `InferenceClient.chat_completion` if model is served with TGI."""
-    for item in bytes_lines:
+    for line in lines:
         try:
-            output = _format_chat_completion_stream_output(item)
+            output = _format_chat_completion_stream_output(line)
         except StopIteration:
             break
         if output is not None:
@@ -342,12 +342,12 @@ def _stream_chat_completion_response(
 
 
 async def _async_stream_chat_completion_response(
-    bytes_lines: AsyncIterable[bytes],
+    lines: AsyncIterable[str],
 ) -> AsyncIterable[ChatCompletionStreamOutput]:
     """Used in `AsyncInferenceClient.chat_completion`."""
-    async for item in bytes_lines:
+    async for line in lines:
         try:
-            output = _format_chat_completion_stream_output(item)
+            output = _format_chat_completion_stream_output(line)
         except StopIteration:
             break
         if output is not None:
@@ -355,16 +355,16 @@ async def _async_stream_chat_completion_response(
 
 
 def _format_chat_completion_stream_output(
-    payload: str,
+    line: str,
 ) -> Optional[ChatCompletionStreamOutput]:
-    if not payload.startswith("data:"):
+    if not line.startswith("data:"):
         return None  # empty line
 
-    if payload.strip() == "data: [DONE]":
+    if line.strip() == "data: [DONE]":
         raise StopIteration("[DONE] signal received.")
 
     # Decode payload
-    json_payload = json.loads(payload.lstrip("data:").strip())
+    json_payload = json.loads(line.lstrip("data:").strip())
 
     # Either an error as being returned
     if json_payload.get("error") is not None:
@@ -374,13 +374,9 @@ def _format_chat_completion_stream_output(
     return ChatCompletionStreamOutput.parse_obj_as_instance(json_payload)
 
 
-async def _async_yield_from(client: "ClientSession", response: "ClientResponse") -> AsyncIterable[bytes]:
-    try:
-        async for byte_payload in response.content:
-            yield byte_payload.strip()
-    finally:
-        # Always close the underlying HTTP session to avoid resource leaks
-        await client.close()
+async def _async_yield_from(client: httpx.AsyncClient, response: httpx.Response) -> AsyncIterable[str]:
+    async for line in response.aiter_lines():
+        yield line.strip()
 
 
 # "TGI servers" are servers running with the `text-generation-inference` backend.
