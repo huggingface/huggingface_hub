@@ -3,7 +3,6 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Type, Union
 
-import requests
 import yaml
 
 from huggingface_hub.file_download import hf_hub_download
@@ -17,7 +16,7 @@ from huggingface_hub.repocard_data import (
     eval_results_to_model_index,
     model_index_to_eval_results,
 )
-from huggingface_hub.utils import get_session, is_jinja_available, yaml_dump
+from huggingface_hub.utils import HfHubHTTPError, get_session, hf_raise_for_status, is_jinja_available, yaml_dump
 
 from . import constants
 from .errors import EntryNotFoundError
@@ -204,7 +203,7 @@ class RepoCard:
 
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if the card fails validation checks.
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+            - [`HfHubHTTPError`]
               if the request to the Hub API fails for any other reason.
 
         </Tip>
@@ -220,11 +219,11 @@ class RepoCard:
         headers = {"Accept": "text/plain"}
 
         try:
-            r = get_session().post("https://huggingface.co/api/validate-yaml", content=body, headers=headers)
-            r.raise_for_status()
-        except requests.exceptions.HTTPError as exc:
-            if r.status_code == 400:
-                raise ValueError(r.text)
+            response = get_session().post("https://huggingface.co/api/validate-yaml", json=body, headers=headers)
+            hf_raise_for_status(response)
+        except HfHubHTTPError as exc:
+            if response.status_code == 400:
+                raise ValueError(response.text)
             else:
                 raise exc
 
