@@ -648,7 +648,11 @@ def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: htt
     # Retrieve server error from body
     try:
         # Case errors are returned in a JSON format
-        data = response.json()
+        try:
+            data = response.json()
+        except httpx.ResponseNotRead:
+            response.read()  # In case of streaming response, we need to read the response first
+            data = response.json()
 
         error = data.get("error")
         if error is not None:

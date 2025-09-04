@@ -62,6 +62,7 @@ from ._http import (
     get_session,
     hf_raise_for_status,
     http_backoff,
+    http_stream_backoff,
     set_async_client_factory,
     set_client_factory,
 )

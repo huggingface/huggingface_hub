@@ -192,9 +192,9 @@ class HfFileSystemTests(unittest.TestCase):
             self.assertIsInstance(f, HfFileSystemStreamFile)
             self.assertEqual(f.read(6), b"dummy ")
             # Simulate that streaming fails mid-way
-            f.response.raw.read = None
+            f.response = None
             self.assertEqual(f.read(6), b"binary")
-            self.assertIsNotNone(f.response.raw.read)  # a new connection has been created
+            self.assertIsNotNone(f.response)  # a new connection has been created
 
     def test_read_file_with_revision(self):
         with self.hffs.open(self.hf_path + "/data/binary_data_for_pr.bin", "rb", revision="refs/pr/1") as f:
