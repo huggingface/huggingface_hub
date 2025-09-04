@@ -143,6 +143,7 @@ def _add_imports(code: str) -> str:
             + "from contextlib import AsyncExitStack\n"
             + "from typing import Set\n"
             + "import asyncio\n"
+            + "import httpx\n"
         ),
         string=code,
         count=1,
@@ -226,7 +227,7 @@ def _make_inner_post_async(code: str) -> str:
     )
     # Update `post`'s type annotations
     code = code.replace("    def _inner_post(", "    async def _inner_post(")
-    return code.replace("Iterable[bytes]", "AsyncIterable[bytes]")
+    return code.replace("Iterable[str]", "AsyncIterable[str]")
 
 
 ENTER_EXIT_STACK_SYNC_CODE = """
@@ -266,7 +267,10 @@ ENTER_EXIT_STACK_ASYNC_CODE = """
 
 
 def _remove_enter_exit_stack(code: str) -> str:
-    code = code.replace("exit_stack = ExitStack()", "exit_stack = AsyncExitStack()")
+    code = code.replace(
+        "exit_stack = ExitStack()",
+        "exit_stack = AsyncExitStack()\n        self._async_client: Optional[httpx.AsyncClient] = None",
+    )
     code = code.replace(ENTER_EXIT_STACK_SYNC_CODE, ENTER_EXIT_STACK_ASYNC_CODE)
     return code
 

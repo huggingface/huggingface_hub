@@ -27,6 +27,8 @@ import warnings
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, Iterable, List, Literal, Optional, Union, overload
 
+import httpx
+
 from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
@@ -222,6 +224,7 @@ class AsyncInferenceClient:
         self.timeout = timeout
 
         self.exit_stack = AsyncExitStack()
+        self._async_client: Optional[httpx.AsyncClient] = None
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
@@ -262,11 +265,11 @@ class AsyncInferenceClient:
     @overload
     async def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, Iterable[str]]: ...
+    ) -> Union[bytes, AsyncIterable[str]]: ...
 
     async def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, Iterable[str]]:
+    ) -> Union[bytes, AsyncIterable[str]]:
         """Make a request to the inference server."""
 
         # TODO: this should be handled in provider helpers directly
@@ -2134,7 +2137,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]: ...
+    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], Iterable[TextGenerationStreamOutput]]: ...
 
     async def text_generation(
         self,
@@ -2163,7 +2166,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:
+    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], Iterable[TextGenerationStreamOutput]]:
         """
         Given a prompt, generate the following text.
 
@@ -2234,10 +2237,10 @@ class AsyncInferenceClient:
                 Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
 
         Returns:
-            `Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]`:
+            `Union[str, TextGenerationOutput, AsyncIterable[str], Iterable[TextGenerationStreamOutput]]`:
             Generated text returned from the server:
             - if `stream=False` and `details=False`, the generated text is returned as a `str` (default)
-            - if `stream=True` and `details=False`, the generated text is returned token by token as a `Iterable[str]`
+            - if `stream=True` and `details=False`, the generated text is returned token by token as a `AsyncIterable[str]`
             - if `stream=False` and `details=True`, the generated text is returned with more details as a [`~huggingface_hub.TextGenerationOutput`]
             - if `details=True` and `stream=True`, the generated text is returned token by token as a iterable of [`~huggingface_hub.TextGenerationStreamOutput`]
 

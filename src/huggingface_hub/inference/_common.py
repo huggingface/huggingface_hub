@@ -37,10 +37,10 @@ from typing import (
 )
 
 import httpx
-from requests import HTTPError
 
 from huggingface_hub.errors import (
     GenerationError,
+    HfHubHTTPError,
     IncompleteGenerationError,
     OverloadedError,
     TextGenerationError,
@@ -415,7 +415,7 @@ def _get_unsupported_text_generation_kwargs(model: Optional[str]) -> List[str]:
 # ----------------------
 
 
-def raise_text_generation_error(http_error: HTTPError) -> NoReturn:
+def raise_text_generation_error(http_error: HfHubHTTPError) -> NoReturn:
     """
     Try to parse text-generation-inference error message and raise HTTPError in any case.
 
