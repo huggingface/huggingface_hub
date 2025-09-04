@@ -216,7 +216,7 @@ def get_async_session() -> httpx.AsyncClient:
 
     Use [`set_async_client_factory`] to customize the `httpx.AsyncClient`.
 
-        <Tip warning={true}>
+    <Tip warning={true}>
 
     Contrary to the `httpx.Client` that is shared between all calls made by `huggingface_hub`, the `httpx.AsyncClient` is not shared.
     It is recommended to use an async context manager to ensure the client is properly closed when the context is exited.
