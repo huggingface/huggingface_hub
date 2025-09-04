@@ -190,6 +190,12 @@ Use this to run a fine tuning script like [trl/scripts/sft.py](https://github.co
 ... )
 ```
 
+<Tip>
+
+For comprehensive guidance on running model training jobs with TRL on Hugging Face infrastructure, check out the [TRL Jobs Training documentation](https://huggingface.co/docs/trl/main/en/jobs_training). It covers fine-tuning recipes, hardware selection, and best practices for training models efficiently.
+
+</Tip>
+
 Available `flavor` options:
 
 - CPU: `cpu-basic`, `cpu-upgrade`
