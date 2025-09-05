@@ -150,7 +150,6 @@ class ModelHubMixin:
     ...         *,
     ...         force_download: bool = False,
     ...         resume_download: Optional[bool] = None,
-    ...         proxies: Optional[Dict] = None,
     ...         token: Optional[Union[str, bool]] = None,
     ...         cache_dir: Optional[Union[str, Path]] = None,
     ...         local_files_only: bool = False,
@@ -467,7 +466,6 @@ class ModelHubMixin:
         *,
         force_download: bool = False,
         resume_download: Optional[bool] = None,
-        proxies: Optional[Dict] = None,
         token: Optional[Union[str, bool]] = None,
         cache_dir: Optional[Union[str, Path]] = None,
         local_files_only: bool = False,
@@ -488,9 +486,6 @@ class ModelHubMixin:
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether to force (re-)downloading the model weights and configuration files from the Hub, overriding
                 the existing cache.
-            proxies (`Dict[str, str]`, *optional*):
-                A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
-                'http://hostname': 'foo.bar:4012'}`. The proxies are used on every request.
             token (`str` or `bool`, *optional*):
                 The token to use as HTTP bearer authorization for remote files. By default, it will use the token
                 cached when running `hf auth login`.
@@ -516,7 +511,6 @@ class ModelHubMixin:
                     revision=revision,
                     cache_dir=cache_dir,
                     force_download=force_download,
-                    proxies=proxies,
                     resume_download=resume_download,
                     token=token,
                     local_files_only=local_files_only,
@@ -570,7 +564,6 @@ class ModelHubMixin:
             revision=revision,
             cache_dir=cache_dir,
             force_download=force_download,
-            proxies=proxies,
             resume_download=resume_download,
             local_files_only=local_files_only,
             token=token,
@@ -592,7 +585,6 @@ class ModelHubMixin:
         revision: Optional[str],
         cache_dir: Optional[Union[str, Path]],
         force_download: bool,
-        proxies: Optional[Dict],
         resume_download: Optional[bool],
         local_files_only: bool,
         token: Optional[Union[str, bool]],
@@ -616,9 +608,6 @@ class ModelHubMixin:
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether to force (re-)downloading the model weights and configuration files from the Hub, overriding
                 the existing cache.
-            proxies (`Dict[str, str]`, *optional*):
-                A dictionary of proxy servers to use by protocol or endpoint (e.g., `{'http': 'foo.bar:3128',
-                'http://hostname': 'foo.bar:4012'}`).
             token (`str` or `bool`, *optional*):
                 The token to use as HTTP bearer authorization for remote files. By default, it will use the token
                 cached when running `hf auth login`.
@@ -779,7 +768,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
         revision: Optional[str],
         cache_dir: Optional[Union[str, Path]],
         force_download: bool,
-        proxies: Optional[Dict],
         resume_download: Optional[bool],
         local_files_only: bool,
         token: Union[str, bool, None],
@@ -801,7 +789,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
                     revision=revision,
                     cache_dir=cache_dir,
                     force_download=force_download,
-                    proxies=proxies,
                     resume_download=resume_download,
                     token=token,
                     local_files_only=local_files_only,
@@ -814,7 +801,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
                     revision=revision,
                     cache_dir=cache_dir,
                     force_download=force_download,
-                    proxies=proxies,
                     resume_download=resume_download,
                     token=token,
                     local_files_only=local_files_only,

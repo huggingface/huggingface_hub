@@ -239,6 +239,7 @@ class ChatCompletionOutputToolCall(BaseInferenceType):
 class ChatCompletionOutputMessage(BaseInferenceType):
     role: str
     content: Optional[str] = None
+    reasoning: Optional[str] = None
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List[ChatCompletionOutputToolCall]] = None
 
@@ -292,6 +293,7 @@ class ChatCompletionStreamOutputDeltaToolCall(BaseInferenceType):
 class ChatCompletionStreamOutputDelta(BaseInferenceType):
     role: str
     content: Optional[str] = None
+    reasoning: Optional[str] = None
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List[ChatCompletionStreamOutputDeltaToolCall]] = None
 

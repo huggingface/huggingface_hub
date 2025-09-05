@@ -16,7 +16,7 @@ requirements:
     - pip
     - fsspec
     - filelock
-    - requests
+    - httpx
     - tqdm
     - typing-extensions
     - packaging
@@ -26,7 +26,7 @@ requirements:
     - python
     - pip
     - filelock
-    - requests
+    - httpx
     - tqdm
     - typing-extensions
     - packaging

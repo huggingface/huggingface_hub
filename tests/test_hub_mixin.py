@@ -126,7 +126,6 @@ class DummyModelThatIsAlsoADataclass(ModelHubMixin):
         revision: Optional[str],
         cache_dir: Optional[Union[str, Path]],
         force_download: bool,
-        proxies: Optional[Dict],
         resume_download: bool,
         local_files_only: bool,
         token: Optional[Union[str, bool]],
@@ -341,7 +340,6 @@ class HubMixinTest(unittest.TestCase):
             revision="123456789",  # Revision is passed correctly!
             cache_dir=None,
             force_download=False,
-            proxies=None,
             resume_download=None,
             local_files_only=False,
             token=None,

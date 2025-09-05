@@ -8,9 +8,9 @@ from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
-from requests import HTTPError
 
 from huggingface_hub import InferenceClient, TextGenerationOutputPrefillToken
+from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.inference._common import (
     _UNSUPPORTED_TEXT_GENERATION_KWARGS,
     GenerationError,
@@ -46,7 +46,7 @@ class TestTextGenerationErrors(unittest.TestCase):
 
 
 def _mocked_error(payload: Dict) -> MagicMock:
-    error = HTTPError(response=MagicMock())
+    error = HfHubHTTPError("message", response=MagicMock())
     error.response.json.return_value = payload
     return error
 

@@ -7,19 +7,20 @@ from typing import Generator, Optional
 from unittest.mock import Mock, call, patch
 from uuid import UUID
 
+import httpx
 import pytest
-import requests
-from requests import ConnectTimeout, HTTPError
+from httpx import ConnectTimeout, HTTPError
 
 from huggingface_hub.constants import ENDPOINT
+from huggingface_hub.errors import OfflineModeIsEnabled
 from huggingface_hub.utils._http import (
-    OfflineModeIsEnabled,
+    HfHubTransport,
     _adjust_range_header,
-    configure_http_backend,
+    default_client_factory,
     fix_hf_endpoint_in_url,
     get_session,
     http_backoff,
-    reset_sessions,
+    set_client_factory,
 )
 
 
@@ -63,7 +64,7 @@ class TestHttpBackoff(unittest.TestCase):
 
     def test_backoff_on_exception_until_max(self) -> None:
         """Test `http_backoff` until max limit is reached with exceptions."""
-        self.mock_request.side_effect = ConnectTimeout()
+        self.mock_request.side_effect = ConnectTimeout("Connection timeout")
 
         with self.assertRaises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.0, max_retries=3)
@@ -76,7 +77,7 @@ class TestHttpBackoff(unittest.TestCase):
         mock_503.status_code = 503
         mock_504 = Mock()
         mock_504.status_code = 504
-        mock_504.raise_for_status.side_effect = HTTPError()
+        mock_504.raise_for_status.side_effect = HTTPError("HTTP Error")
         self.mock_request.side_effect = (mock_503, mock_504, mock_503, mock_504)
 
         with self.assertRaises(HTTPError):
@@ -94,7 +95,7 @@ class TestHttpBackoff(unittest.TestCase):
         """Test `http_backoff` until max limit with status codes and exceptions."""
         mock_503 = Mock()
         mock_503.status_code = 503
-        self.mock_request.side_effect = (mock_503, ConnectTimeout())
+        self.mock_request.side_effect = (mock_503, ConnectTimeout("Connection timeout"))
 
         with self.assertRaises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.0, max_retries=1)
@@ -131,7 +132,7 @@ class TestHttpBackoff(unittest.TestCase):
         def _side_effect_timer() -> Generator[ConnectTimeout, None, None]:
             t0 = time.time()
             while True:
-                yield ConnectTimeout()
+                yield ConnectTimeout("Connection timeout")
                 t1 = time.time()
                 sleep_times.append(round(t1 - t0, 1))
                 t0 = t1
@@ -151,65 +152,62 @@ class TestHttpBackoff(unittest.TestCase):
 class TestConfigureSession(unittest.TestCase):
     def setUp(self) -> None:
         # Reconfigure + clear session cache between each test
-        configure_http_backend()
+        set_client_factory(default_client_factory)
 
     @classmethod
     def tearDownClass(cls) -> None:
         # Clear all sessions after tests
-        configure_http_backend()
+        set_client_factory(default_client_factory)
 
     @staticmethod
-    def _factory() -> requests.Session:
-        session = requests.Session()
-        session.headers.update({"x-test-header": 4})
-        return session
+    def _factory() -> httpx.Client:
+        client = httpx.Client()
+        client.headers.update({"x-test-header": "4"})
+        return client
 
     def test_default_configuration(self) -> None:
-        session = get_session()
-        self.assertEqual(session.headers["connection"], "keep-alive")  # keep connection alive by default
-        self.assertIsNone(session.auth)
-        self.assertEqual(session.proxies, {})
-        self.assertEqual(session.verify, True)
-        self.assertIsNone(session.cert)
-        self.assertEqual(session.max_redirects, 30)
-        self.assertEqual(session.trust_env, True)
-        self.assertEqual(session.hooks, {"response": []})
+        client = get_session()
+        # Check httpx.Client default configuration
+        self.assertTrue(client.follow_redirects)
+        self.assertIsNotNone(client.timeout)
+        # Check that it's using the HfHubTransport
+        self.assertIsInstance(client._transport, HfHubTransport)
 
     def test_set_configuration(self) -> None:
-        configure_http_backend(backend_factory=self._factory)
+        set_client_factory(self._factory)
 
         # Check headers have been set correctly
-        session = get_session()
-        self.assertNotEqual(session.headers, {"x-test-header": 4})
-        self.assertEqual(session.headers["x-test-header"], 4)
+        client = get_session()
+        self.assertNotEqual(client.headers, {"x-test-header": "4"})
+        self.assertEqual(client.headers["x-test-header"], "4")
 
     def test_get_session_twice(self):
-        session_1 = get_session()
-        session_2 = get_session()
-        self.assertIs(session_1, session_2)  # exact same instance
+        client_1 = get_session()
+        client_2 = get_session()
+        self.assertIs(client_1, client_2)  # exact same instance
 
     def test_get_session_twice_but_reconfigure_in_between(self):
         """Reconfiguring the session clears the cache."""
-        session_1 = get_session()
-        configure_http_backend(backend_factory=self._factory)
+        client_1 = get_session()
+        set_client_factory(self._factory)
 
-        session_2 = get_session()
-        self.assertIsNot(session_1, session_2)
-        self.assertIsNone(session_1.headers.get("x-test-header"))
-        self.assertEqual(session_2.headers["x-test-header"], 4)
+        client_2 = get_session()
+        self.assertIsNot(client_1, client_2)
+        self.assertIsNone(client_1.headers.get("x-test-header"))
+        self.assertEqual(client_2.headers["x-test-header"], "4")
 
     def test_get_session_multiple_threads(self):
         N = 3
-        sessions = [None] * N
+        clients = [None] * N
 
         def _get_session_in_thread(index: int) -> None:
             time.sleep(0.1)
-            sessions[index] = get_session()
+            clients[index] = get_session()
 
-        # Get main thread session
-        main_session = get_session()
+        # Get main thread client
+        main_client = get_session()
 
-        # Start 3 threads and get sessions in each of them
+        # Start 3 threads and get clients in each of them
         threads = [threading.Thread(target=_get_session_in_thread, args=(index,)) for index in range(N)]
         for th in threads:
             th.start()
@@ -217,43 +215,41 @@ class TestConfigureSession(unittest.TestCase):
         for th in threads:
             th.join()
 
-        # Check all sessions are different
+        # Check all clients are the same instance (httpx is thread-safe)
         for i in range(N):
-            self.assertIsNot(main_session, sessions[i])
+            self.assertIs(main_client, clients[i])
             for j in range(N):
-                if i != j:
-                    self.assertIsNot(sessions[i], sessions[j])
+                self.assertIs(clients[i], clients[j])
 
     @unittest.skipIf(os.name == "nt", "Works differently on Windows.")
     def test_get_session_in_forked_process(self):
-        # Get main process session
-        main_session = get_session()
+        # Get main process client
+        main_client = get_session()
 
         def _child_target():
-            # Put `repr(session)` in queue because putting the `Session` object directly would duplicate it.
-            # Repr looks like this: "<requests.sessions.Session object at 0x7f5adcc41e40>"
+            # Put `repr(client)` in queue because putting the `Client` object directly would duplicate it.
+            # Repr looks like this: "<httpx.Client object at 0x7f5adcc41e40>"
             process_queue.put(repr(get_session()))
 
-        # Fork a new process and get session in it
+        # Fork a new process and get client in it
         process_queue = Queue()
         Process(target=_child_target).start()
-        child_session = process_queue.get()
+        child_client = process_queue.get()
 
-        # Check sessions are different
-        self.assertNotEqual(repr(main_session), child_session)
+        # Check clients are the same instance
+        self.assertEqual(repr(main_client), child_client)
 
 
 class OfflineModeSessionTest(unittest.TestCase):
     def tearDown(self) -> None:
-        reset_sessions()
         return super().tearDown()
 
     @patch("huggingface_hub.constants.HF_HUB_OFFLINE", True)
     def test_offline_mode(self):
-        configure_http_backend()
-        session = get_session()
+        set_client_factory(default_client_factory)
+        client = get_session()
         with self.assertRaises(OfflineModeIsEnabled):
-            session.get("https://huggingface.co")
+            client.get("https://huggingface.co")
 
 
 class TestUniqueRequestId(unittest.TestCase):

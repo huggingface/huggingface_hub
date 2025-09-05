@@ -1,6 +1,5 @@
 import copy
 import errno
-import inspect
 import os
 import re
 import shutil
@@ -13,7 +12,7 @@ from pathlib import Path
 from typing import Any, BinaryIO, Dict, Literal, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
 
-import requests
+import httpx
 
 from . import (
     __version__,  # noqa: F401 # for backward compatibility
@@ -25,11 +24,11 @@ from .constants import (
     HUGGINGFACE_HUB_CACHE,  # noqa: F401 # for backward compatibility
 )
 from .errors import (
-    EntryNotFoundError,
     FileMetadataError,
     GatedRepoError,
     HfHubHTTPError,
     LocalEntryNotFoundError,
+    RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
@@ -57,11 +56,10 @@ from .utils import (
     logging,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
-    reset_sessions,
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._http import _adjust_range_header, http_backoff
+from .utils._http import _adjust_range_header, http_backoff, http_stream_backoff
 from .utils._runtime import _PY_VERSION, is_xet_available  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
@@ -261,11 +259,10 @@ def hf_hub_url(
     return url
 
 
-def _request_wrapper(
-    method: HTTP_METHOD_T, url: str, *, follow_relative_redirects: bool = False, **params
-) -> requests.Response:
-    """Wrapper around requests methods to follow relative redirects if `follow_relative_redirects=True` even when
-    `allow_redirection=False`.
+def _httpx_follow_relative_redirects(method: HTTP_METHOD_T, url: str, **httpx_kwargs) -> httpx.Response:
+    """Perform an HTTP request with backoff and follow relative redirects only.
+
+    This is useful to follow a redirection to a renamed repository without following redirection to a CDN.
 
     A backoff mechanism retries the HTTP call on 429, 503 and 504 errors.
 
@@ -274,44 +271,36 @@ def _request_wrapper(
             HTTP method, such as 'GET' or 'HEAD'.
         url (`str`):
             The URL of the resource to fetch.
-        follow_relative_redirects (`bool`, *optional*, defaults to `False`)
-            If True, relative redirection (redirection to the same site) will be resolved even when `allow_redirection`
-            kwarg is set to False. Useful when we want to follow a redirection to a renamed repository without
-            following redirection to a CDN.
-        **params (`dict`, *optional*):
-            Params to pass to `requests.request`.
+        **httpx_kwargs (`dict`, *optional*):
+            Params to pass to `httpx.request`.
     """
-    # Recursively follow relative redirects
-    if follow_relative_redirects:
-        response = _request_wrapper(
+    while True:
+        # Make the request
+        response = http_backoff(
             method=method,
             url=url,
-            follow_relative_redirects=False,
-            **params,
+            **httpx_kwargs,
+            follow_redirects=False,
+            retry_on_exceptions=(),
+            retry_on_status_codes=(429,),
         )
+        hf_raise_for_status(response)
 
-        # If redirection, we redirect only relative paths.
-        # This is useful in case of a renamed repository.
+        # Check if response is a relative redirect
         if 300 <= response.status_code <= 399:
             parsed_target = urlparse(response.headers["Location"])
             if parsed_target.netloc == "":
-                # This means it is a relative 'location' headers, as allowed by RFC 7231.
-                # (e.g. '/path/to/resource' instead of 'http://domain.tld/path/to/resource')
-                # We want to follow this relative redirect !
-                #
-                # Highly inspired by `resolve_redirects` from requests library.
-                # See https://github.com/psf/requests/blob/main/requests/sessions.py#L159
-                next_url = urlparse(url)._replace(path=parsed_target.path).geturl()
-                return _request_wrapper(method=method, url=next_url, follow_relative_redirects=True, **params)
-        return response
+                # Relative redirect -> update URL and retry
+                url = urlparse(url)._replace(path=parsed_target.path).geturl()
+                continue
 
-    # Perform request and return if status_code is not in the retry list.
-    response = http_backoff(method=method, url=url, **params, retry_on_exceptions=(), retry_on_status_codes=(429,))
-    hf_raise_for_status(response)
+        # Break if no relative redirect
+        break
+
     return response
 
 
-def _get_file_length_from_http_response(response: requests.Response) -> Optional[int]:
+def _get_file_length_from_http_response(response: httpx.Response) -> Optional[int]:
     """
     Get the length of the file from the HTTP response headers.
 
@@ -319,7 +308,7 @@ def _get_file_length_from_http_response(response: requests.Response) -> Optional
     `Content-Range` or `Content-Length` header, if available (in that order).
 
     Args:
-        response (`requests.Response`):
+        response (`httpx.Response`):
             The HTTP response object.
 
     Returns:
@@ -346,11 +335,11 @@ def _get_file_length_from_http_response(response: requests.Response) -> Optional
     return None
 
 
+@validate_hf_hub_args
 def http_get(
     url: str,
     temp_file: BinaryIO,
     *,
-    proxies: Optional[Dict] = None,
     resume_size: int = 0,
     headers: Optional[Dict[str, Any]] = None,
     expected_size: Optional[int] = None,
@@ -370,8 +359,6 @@ def http_get(
             The URL of the file to download.
         temp_file (`BinaryIO`):
             The file-like object where to save the file.
-        proxies (`dict`, *optional*):
-            Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
         resume_size (`int`, *optional*):
             The number of bytes already downloaded. If set to 0 (default), the whole file is download. If set to a
             positive number, the download will resume at the given position.
@@ -393,8 +380,6 @@ def http_get(
     if constants.HF_HUB_ENABLE_HF_TRANSFER:
         if resume_size != 0:
             warnings.warn("'hf_transfer' does not support `resume_size`: falling back to regular download method")
-        elif proxies is not None:
-            warnings.warn("'hf_transfer' does not support `proxies`: falling back to regular download method")
         elif has_custom_range_header:
             warnings.warn("'hf_transfer' ignores custom 'Range' headers; falling back to regular download method")
         else:
@@ -423,103 +408,97 @@ def http_get(
                 " Try `pip install hf_transfer` or `pip install hf_xet`."
             )
 
-    r = _request_wrapper(
-        method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT
-    )
+    with http_stream_backoff(
+        method="GET",
+        url=url,
+        headers=headers,
+        timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
+        retry_on_exceptions=(),
+        retry_on_status_codes=(429,),
+    ) as response:
+        hf_raise_for_status(response)
+        total: Optional[int] = _get_file_length_from_http_response(response)
 
-    hf_raise_for_status(r)
-    total: Optional[int] = _get_file_length_from_http_response(r)
+        if displayed_filename is None:
+            displayed_filename = url
+            content_disposition = response.headers.get("Content-Disposition")
+            if content_disposition is not None:
+                match = HEADER_FILENAME_PATTERN.search(content_disposition)
+                if match is not None:
+                    # Means file is on CDN
+                    displayed_filename = match.groupdict()["filename"]
 
-    if displayed_filename is None:
-        displayed_filename = url
-        content_disposition = r.headers.get("Content-Disposition")
-        if content_disposition is not None:
-            match = HEADER_FILENAME_PATTERN.search(content_disposition)
-            if match is not None:
-                # Means file is on CDN
-                displayed_filename = match.groupdict()["filename"]
+        # Truncate filename if too long to display
+        if len(displayed_filename) > 40:
+            displayed_filename = f"(…){displayed_filename[-40:]}"
 
-    # Truncate filename if too long to display
-    if len(displayed_filename) > 40:
-        displayed_filename = f"(…){displayed_filename[-40:]}"
+        consistency_error_message = (
+            f"Consistency check failed: file should be of size {expected_size} but has size"
+            f" {{actual_size}} ({displayed_filename}).\nThis is usually due to network issues while downloading the file."
+            " Please retry with `force_download=True`."
+        )
+        progress_cm = _get_progress_bar_context(
+            desc=displayed_filename,
+            log_level=logger.getEffectiveLevel(),
+            total=total,
+            initial=resume_size,
+            name="huggingface_hub.http_get",
+            _tqdm_bar=_tqdm_bar,
+        )
 
-    consistency_error_message = (
-        f"Consistency check failed: file should be of size {expected_size} but has size"
-        f" {{actual_size}} ({displayed_filename}).\nThis is usually due to network issues while downloading the file."
-        " Please retry with `force_download=True`."
-    )
-    progress_cm = _get_progress_bar_context(
-        desc=displayed_filename,
-        log_level=logger.getEffectiveLevel(),
-        total=total,
-        initial=resume_size,
-        name="huggingface_hub.http_get",
-        _tqdm_bar=_tqdm_bar,
-    )
-
-    with progress_cm as progress:
-        if hf_transfer and total is not None and total > 5 * constants.DOWNLOAD_CHUNK_SIZE:
-            supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
-            if not supports_callback:
-                warnings.warn(
-                    "You are using an outdated version of `hf_transfer`. "
-                    "Consider upgrading to latest version to enable progress bars "
-                    "using `pip install -U hf_transfer`."
-                )
-            try:
-                hf_transfer.download(
-                    url=url,
-                    filename=temp_file.name,
-                    max_files=constants.HF_TRANSFER_CONCURRENCY,
-                    chunk_size=constants.DOWNLOAD_CHUNK_SIZE,
-                    headers=initial_headers,
-                    parallel_failures=3,
-                    max_retries=5,
-                    **({"callback": progress.update} if supports_callback else {}),
-                )
-            except Exception as e:
-                raise RuntimeError(
-                    "An error occurred while downloading using `hf_transfer`. Consider"
-                    " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
-                ) from e
-            if not supports_callback:
-                progress.update(total)
-            if expected_size is not None and expected_size != os.path.getsize(temp_file.name):
-                raise EnvironmentError(
-                    consistency_error_message.format(
-                        actual_size=os.path.getsize(temp_file.name),
+        with progress_cm as progress:
+            if hf_transfer and total is not None and total > 5 * constants.DOWNLOAD_CHUNK_SIZE:
+                try:
+                    hf_transfer.download(
+                        url=url,
+                        filename=temp_file.name,
+                        max_files=constants.HF_TRANSFER_CONCURRENCY,
+                        chunk_size=constants.DOWNLOAD_CHUNK_SIZE,
+                        headers=initial_headers,
+                        parallel_failures=3,
+                        max_retries=5,
+                        callback=progress.update,
                     )
+                except Exception as e:
+                    raise RuntimeError(
+                        "An error occurred while downloading using `hf_transfer`. Consider"
+                        " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
+                    ) from e
+                if expected_size is not None and expected_size != os.path.getsize(temp_file.name):
+                    raise EnvironmentError(
+                        consistency_error_message.format(
+                            actual_size=os.path.getsize(temp_file.name),
+                        )
+                    )
+                return
+
+            new_resume_size = resume_size
+            try:
+                for chunk in response.iter_bytes(chunk_size=constants.DOWNLOAD_CHUNK_SIZE):
+                    if chunk:  # filter out keep-alive new chunks
+                        progress.update(len(chunk))
+                        temp_file.write(chunk)
+                        new_resume_size += len(chunk)
+                        # Some data has been downloaded from the server so we reset the number of retries.
+                        _nb_retries = 5
+            except (httpx.ConnectError, httpx.TimeoutException) as e:
+                # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
+                # a transient error (network outage?). We log a warning message and try to resume the download a few times
+                # before giving up. Tre retry mechanism is basic but should be enough in most cases.
+                if _nb_retries <= 0:
+                    logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
+                    raise
+                logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
+                time.sleep(1)
+                return http_get(
+                    url=url,
+                    temp_file=temp_file,
+                    resume_size=new_resume_size,
+                    headers=initial_headers,
+                    expected_size=expected_size,
+                    _nb_retries=_nb_retries - 1,
+                    _tqdm_bar=_tqdm_bar,
                 )
-            return
-        new_resume_size = resume_size
-        try:
-            for chunk in r.iter_content(chunk_size=constants.DOWNLOAD_CHUNK_SIZE):
-                if chunk:  # filter out keep-alive new chunks
-                    progress.update(len(chunk))
-                    temp_file.write(chunk)
-                    new_resume_size += len(chunk)
-                    # Some data has been downloaded from the server so we reset the number of retries.
-                    _nb_retries = 5
-        except (requests.ConnectionError, requests.ReadTimeout) as e:
-            # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
-            # a transient error (network outage?). We log a warning message and try to resume the download a few times
-            # before giving up. Tre retry mechanism is basic but should be enough in most cases.
-            if _nb_retries <= 0:
-                logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
-                raise
-            logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
-            time.sleep(1)
-            reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
-            return http_get(
-                url=url,
-                temp_file=temp_file,
-                proxies=proxies,
-                resume_size=new_resume_size,
-                headers=initial_headers,
-                expected_size=expected_size,
-                _nb_retries=_nb_retries - 1,
-                _tqdm_bar=_tqdm_bar,
-            )
 
     if expected_size is not None and expected_size != temp_file.tell():
         raise EnvironmentError(
@@ -822,7 +801,6 @@ def hf_hub_download(
     local_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
     force_download: bool = False,
-    proxies: Optional[Dict] = None,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
@@ -893,9 +871,6 @@ def hf_hub_download(
         force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in
             the local cache.
-        proxies (`dict`, *optional*):
-            Dictionary mapping protocol to the URL of the proxy passed to
-            `requests.request`.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
             data before giving up which is passed to `requests.request`.
@@ -919,7 +894,7 @@ def hf_hub_download(
             or because it is set to `private` and you do not have access.
         [`~utils.RevisionNotFoundError`]
             If the revision to download from cannot be found.
-        [`~utils.EntryNotFoundError`]
+        [`~utils.RemoteEntryNotFoundError`]
             If the file to download cannot be found.
         [`~utils.LocalEntryNotFoundError`]
             If network is disabled or unavailable and file is not found in cache.
@@ -999,7 +974,6 @@ def hf_hub_download(
             endpoint=endpoint,
             etag_timeout=etag_timeout,
             headers=hf_headers,
-            proxies=proxies,
             token=token,
             # Additional options
             cache_dir=cache_dir,
@@ -1019,7 +993,6 @@ def hf_hub_download(
             endpoint=endpoint,
             etag_timeout=etag_timeout,
             headers=hf_headers,
-            proxies=proxies,
             token=token,
             # Additional options
             local_files_only=local_files_only,
@@ -1040,7 +1013,6 @@ def _hf_hub_download_to_cache_dir(
     endpoint: Optional[str],
     etag_timeout: float,
     headers: Dict[str, str],
-    proxies: Optional[Dict],
     token: Optional[Union[bool, str]],
     # Additional options
     local_files_only: bool,
@@ -1076,7 +1048,6 @@ def _hf_hub_download_to_cache_dir(
         repo_type=repo_type,
         revision=revision,
         endpoint=endpoint,
-        proxies=proxies,
         etag_timeout=etag_timeout,
         headers=headers,
         token=token,
@@ -1172,7 +1143,6 @@ def _hf_hub_download_to_cache_dir(
             incomplete_path=Path(blob_path + ".incomplete"),
             destination_path=Path(blob_path),
             url_to_download=url_to_download,
-            proxies=proxies,
             headers=headers,
             expected_size=expected_size,
             filename=filename,
@@ -1199,7 +1169,6 @@ def _hf_hub_download_to_local_dir(
     endpoint: Optional[str],
     etag_timeout: float,
     headers: Dict[str, str],
-    proxies: Optional[Dict],
     token: Union[bool, str, None],
     # Additional options
     cache_dir: str,
@@ -1235,7 +1204,6 @@ def _hf_hub_download_to_local_dir(
         repo_type=repo_type,
         revision=revision,
         endpoint=endpoint,
-        proxies=proxies,
         etag_timeout=etag_timeout,
         headers=headers,
         token=token,
@@ -1301,7 +1269,6 @@ def _hf_hub_download_to_local_dir(
             incomplete_path=paths.incomplete_path(etag),
             destination_path=paths.file_path,
             url_to_download=url_to_download,
-            proxies=proxies,
             headers=headers,
             expected_size=expected_size,
             filename=filename,
@@ -1411,7 +1378,6 @@ def try_to_load_from_cache(
 def get_hf_file_metadata(
     url: str,
     token: Union[bool, str, None] = None,
-    proxies: Optional[Dict] = None,
     timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
@@ -1430,9 +1396,6 @@ def get_hf_file_metadata(
                   folder.
                 - If `False` or `None`, no token is provided.
                 - If a string, it's used as the authentication token.
-        proxies (`dict`, *optional*):
-            Dictionary mapping protocol to the URL of the proxy passed to
-            `requests.request`.
         timeout (`float`, *optional*, defaults to 10):
             How many seconds to wait for the server to send metadata before giving up.
         library_name (`str`, *optional*):
@@ -1460,31 +1423,23 @@ def get_hf_file_metadata(
     hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
-    r = _request_wrapper(
-        method="HEAD",
-        url=url,
-        headers=hf_headers,
-        allow_redirects=False,
-        follow_relative_redirects=True,
-        proxies=proxies,
-        timeout=timeout,
-    )
-    hf_raise_for_status(r)
+    response = _httpx_follow_relative_redirects(method="HEAD", url=url, headers=hf_headers, timeout=timeout)
+    hf_raise_for_status(response)
 
     # Return
     return HfFileMetadata(
-        commit_hash=r.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT),
-        # We favor a custom header indicating the etag of the linked resource, and
-        # we fallback to the regular etag header.
-        etag=_normalize_etag(r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")),
-        # Either from response headers (if redirected) or defaults to request url
-        # Do not use directly `url`, as `_request_wrapper` might have followed relative
-        # redirects.
-        location=r.headers.get("Location") or r.request.url,  # type: ignore
-        size=_int_or_none(
-            r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
+        commit_hash=response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT),
+        # We favor a custom header indicating the etag of the linked resource, and we fallback to the regular etag header.
+        etag=_normalize_etag(
+            response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
         ),
-        xet_file_data=parse_xet_file_data_from_response(r, endpoint=endpoint),  # type: ignore
+        # Either from response headers (if redirected) or defaults to request url
+        # Do not use directly `url` as we might have followed relative redirects.
+        location=response.headers.get("Location") or str(response.request.url),  # type: ignore
+        size=_int_or_none(
+            response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or response.headers.get("Content-Length")
+        ),
+        xet_file_data=parse_xet_file_data_from_response(response, endpoint=endpoint),  # type: ignore
     )
 
 
@@ -1495,7 +1450,6 @@ def _get_metadata_or_catch_error(
     repo_type: str,
     revision: str,
     endpoint: Optional[str],
-    proxies: Optional[Dict],
     etag_timeout: Optional[float],
     headers: Dict[str, str],  # mutated inplace!
     token: Union[bool, str, None],
@@ -1544,9 +1498,9 @@ def _get_metadata_or_catch_error(
         try:
             try:
                 metadata = get_hf_file_metadata(
-                    url=url, proxies=proxies, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
+                    url=url, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
                 )
-            except EntryNotFoundError as http_error:
+            except RemoteEntryNotFoundError as http_error:
                 if storage_folder is not None and relative_filename is not None:
                     # Cache the non-existence of the file
                     commit_hash = http_error.response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT)
@@ -1597,21 +1551,17 @@ def _get_metadata_or_catch_error(
                 if urlparse(url).netloc != urlparse(metadata.location).netloc:
                     # Remove authorization header when downloading a LFS blob
                     headers.pop("authorization", None)
-        except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
-            # Actually raise for those subclasses of ConnectionError
+        except httpx.ProxyError:
+            # Actually raise on proxy error
             raise
-        except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout,
-            OfflineModeIsEnabled,
-        ) as error:
+        except (httpx.ConnectError, httpx.TimeoutException, OfflineModeIsEnabled) as error:
             # Otherwise, our Internet connection is down.
             # etag is None
             head_error_call = error
-        except (RevisionNotFoundError, EntryNotFoundError):
+        except (RevisionNotFoundError, RemoteEntryNotFoundError):
             # The repo was found but the revision or entry doesn't exist on the Hub (never existed or got deleted)
             raise
-        except requests.HTTPError as error:
+        except HfHubHTTPError as error:
             # Multiple reasons for an http error:
             # - Repository is private and invalid/missing token sent
             # - Repository is gated and invalid/missing token sent
@@ -1669,7 +1619,6 @@ def _download_to_tmp_and_move(
     incomplete_path: Path,
     destination_path: Path,
     url_to_download: str,
-    proxies: Optional[Dict],
     headers: Dict[str, str],
     expected_size: Optional[int],
     filename: str,
@@ -1694,14 +1643,14 @@ def _download_to_tmp_and_move(
         # Do nothing if already exists (except if force_download=True)
         return
 
-    if incomplete_path.exists() and (force_download or (constants.HF_HUB_ENABLE_HF_TRANSFER and not proxies)):
+    if incomplete_path.exists() and (force_download or constants.HF_HUB_ENABLE_HF_TRANSFER):
         # By default, we will try to resume the download if possible.
         # However, if the user has set `force_download=True` or if `hf_transfer` is enabled, then we should
         # not resume the download => delete the incomplete file.
         message = f"Removing incomplete file '{incomplete_path}'"
         if force_download:
             message += " (force_download=True)"
-        elif constants.HF_HUB_ENABLE_HF_TRANSFER and not proxies:
+        elif constants.HF_HUB_ENABLE_HF_TRANSFER:
             message += " (hf_transfer=True)"
         logger.info(message)
         incomplete_path.unlink(missing_ok=True)
@@ -1738,7 +1687,6 @@ def _download_to_tmp_and_move(
             http_get(
                 url_to_download,
                 f,
-                proxies=proxies,
                 resume_size=resume_size,
                 headers=headers,
                 expected_size=expected_size,

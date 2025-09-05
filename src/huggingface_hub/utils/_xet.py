@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional
 
-import requests
+import httpx
 
 from .. import constants
 from . import get_session, hf_raise_for_status, validate_hf_hub_args
@@ -27,7 +27,7 @@ class XetConnectionInfo:
 
 
 def parse_xet_file_data_from_response(
-    response: requests.Response, endpoint: Optional[str] = None
+    response: httpx.Response, endpoint: Optional[str] = None
 ) -> Optional[XetFileData]:
     """
     Parse XET file metadata from an HTTP response.
@@ -36,7 +36,7 @@ def parse_xet_file_data_from_response(
     of a given response object. If the required metadata is not found, it returns `None`.
 
     Args:
-        response (`requests.Response`):
+        response (`httpx.Response`):
             The HTTP response object containing headers dict and links dict to extract the XET metadata from.
     Returns:
         `Optional[XetFileData]`:

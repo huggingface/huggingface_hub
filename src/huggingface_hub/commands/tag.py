@@ -32,8 +32,6 @@ Usage Examples:
 
 from argparse import Namespace, _SubParsersAction
 
-from requests.exceptions import HTTPError
-
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.constants import (
     REPO_TYPES,
@@ -129,7 +127,7 @@ class TagListCommand(TagCommand):
         except RepositoryNotFoundError:
             print(f"{self.repo_type.capitalize()} {ANSI.bold(self.repo_id)} not found.")
             exit(1)
-        except HTTPError as e:
+        except HfHubHTTPError as e:
             print(e)
             print(ANSI.red(e.response.text))
             exit(1)

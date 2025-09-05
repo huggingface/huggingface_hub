@@ -21,12 +21,16 @@
 import asyncio
 import base64
 import logging
+import os
 import re
 import warnings
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Set, Union, overload
+from contextlib import AsyncExitStack
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Union, overload
+
+import httpx
 
 from huggingface_hub import constants
-from huggingface_hub.errors import InferenceTimeoutError
+from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
@@ -86,15 +90,19 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provider_helper
-from huggingface_hub.utils import build_hf_headers
+from huggingface_hub.utils import (
+    build_hf_headers,
+    get_async_session,
+    hf_raise_for_status,
+    validate_hf_hub_args,
+)
 from huggingface_hub.utils._auth import get_token
 
-from .._common import _async_yield_from, _import_aiohttp
+from .._common import _async_yield_from
 
 
 if TYPE_CHECKING:
     import numpy as np
-    from aiohttp import ClientResponse, ClientSession
     from PIL.Image import Image
 
 logger = logging.getLogger(__name__)
@@ -135,10 +143,6 @@ class AsyncInferenceClient:
             Requests can only be billed to an organization the user is a member of, and which has subscribed to Enterprise Hub.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
-        trust_env ('bool', 'optional'):
-            Trust environment settings for proxy configuration if the parameter is `True` (`False` by default).
-        proxies (`Any`, `optional`):
-            Proxies to use for the request.
         base_url (`str`, `optional`):
             Base URL to run inference. This is a duplicated argument from `model` to make [`InferenceClient`]
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `model` is set. Defaults to None.
@@ -147,6 +151,7 @@ class AsyncInferenceClient:
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `token` is set. Defaults to None.
     """
 
+    @validate_hf_hub_args
     def __init__(
         self,
         model: Optional[str] = None,
@@ -156,8 +161,6 @@ class AsyncInferenceClient:
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
-        trust_env: bool = False,
-        proxies: Optional[Any] = None,
         bill_to: Optional[str] = None,
         # OpenAI compatibility
         base_url: Optional[str] = None,
@@ -219,14 +222,35 @@ class AsyncInferenceClient:
 
         self.cookies = cookies
         self.timeout = timeout
-        self.trust_env = trust_env
-        self.proxies = proxies
 
-        # Keep track of the sessions to close them properly
-        self._sessions: Dict["ClientSession", Set["ClientResponse"]] = dict()
+        self.exit_stack = AsyncExitStack()
+        self._async_client: Optional[httpx.AsyncClient] = None
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.close()
+
+    async def close(self):
+        """Close the client.
+
+        This method is automatically called when using the client as a context manager.
+        """
+        await self.exit_stack.aclose()
+
+    async def _get_async_client(self):
+        """Get a unique async client for this AsyncInferenceClient instance.
+
+        Returns the same client instance on subsequent calls, ensuring proper
+        connection reuse and resource management through the exit stack.
+        """
+        if self._async_client is None:
+            self._async_client = await self.exit_stack.enter_async_context(get_async_session())
+        return self._async_client
 
     @overload
     async def _inner_post(  # type: ignore[misc]
@@ -236,82 +260,59 @@ class AsyncInferenceClient:
     @overload
     async def _inner_post(  # type: ignore[misc]
         self, request_parameters: RequestParameters, *, stream: Literal[True] = ...
-    ) -> AsyncIterable[bytes]: ...
+    ) -> AsyncIterable[str]: ...
 
     @overload
     async def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, AsyncIterable[bytes]]: ...
+    ) -> Union[bytes, AsyncIterable[str]]: ...
 
     async def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, AsyncIterable[bytes]]:
+    ) -> Union[bytes, AsyncIterable[str]]:
         """Make a request to the inference server."""
-
-        aiohttp = _import_aiohttp()
 
         # TODO: this should be handled in provider helpers directly
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        # Do not use context manager as we don't want to close the connection immediately when returning
-        # a stream
-        session = self._get_client_session(headers=request_parameters.headers)
-
         try:
-            response = await session.post(
-                request_parameters.url, json=request_parameters.json, data=request_parameters.data, proxy=self.proxies
-            )
-            response_error_payload = None
-            if response.status != 200:
-                try:
-                    response_error_payload = await response.json()  # get payload before connection closed
-                except Exception:
-                    pass
-            response.raise_for_status()
+            client = await self._get_async_client()
             if stream:
-                return _async_yield_from(session, response)
+                response = await self.exit_stack.enter_async_context(
+                    client.stream(
+                        "POST",
+                        request_parameters.url,
+                        json=request_parameters.json,
+                        data=request_parameters.data,
+                        headers=request_parameters.headers,
+                        cookies=self.cookies,
+                        timeout=self.timeout,
+                    )
+                )
+                hf_raise_for_status(response)
+                return _async_yield_from(client, response)
             else:
-                content = await response.read()
-                await session.close()
-                return content
+                response = await client.post(
+                    request_parameters.url,
+                    json=request_parameters.json,
+                    data=request_parameters.data,
+                    headers=request_parameters.headers,
+                    cookies=self.cookies,
+                    timeout=self.timeout,
+                )
+                hf_raise_for_status(response)
+                return response.content
         except asyncio.TimeoutError as error:
-            await session.close()
             # Convert any `TimeoutError` to a `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
-        except aiohttp.ClientResponseError as error:
-            error.response_error_payload = response_error_payload
-            await session.close()
-            raise error
-        except Exception:
-            await session.close()
+        except HfHubHTTPError as error:
+            if error.response.status_code == 422 and request_parameters.task != "unknown":
+                msg = str(error.args[0])
+                if len(error.response.text) > 0:
+                    msg += f"{os.linesep}{error.response.text}{os.linesep}"
+                error.args = (msg,) + error.args[1:]
             raise
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        await self.close()
-
-    def __del__(self):
-        if len(self._sessions) > 0:
-            warnings.warn(
-                "Deleting 'AsyncInferenceClient' client but some sessions are still open. "
-                "This can happen if you've stopped streaming data from the server before the stream was complete. "
-                "To close the client properly, you must call `await client.close()` "
-                "or use an async context (e.g. `async with AsyncInferenceClient(): ...`."
-            )
-
-    async def close(self):
-        """Close all open sessions.
-
-        By default, 'aiohttp.ClientSession' objects are closed automatically when a call is completed. However, if you
-        are streaming data from the server and you stop before the stream is complete, you must call this method to
-        close the session properly.
-
-        Another possibility is to use an async context (e.g. `async with AsyncInferenceClient(): ...`).
-        """
-        await asyncio.gather(*[session.close() for session in self._sessions.keys()])
 
     async def audio_classification(
         self,
@@ -343,7 +344,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -395,7 +396,7 @@ class AsyncInferenceClient:
         Raises:
             `InferenceTimeoutError`:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -449,7 +450,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -656,7 +657,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1016,7 +1017,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
 
@@ -1092,7 +1093,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1155,7 +1156,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1209,7 +1210,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1272,7 +1273,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1350,7 +1351,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1482,7 +1483,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1535,7 +1536,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
             `ValueError`:
                 If the request output is not a List.
@@ -1612,7 +1613,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1668,7 +1669,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1730,7 +1731,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1796,7 +1797,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1840,7 +1841,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1896,7 +1897,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1958,7 +1959,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2236,10 +2237,10 @@ class AsyncInferenceClient:
                 Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
 
         Returns:
-            `Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]`:
+            `Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]`:
             Generated text returned from the server:
             - if `stream=False` and `details=False`, the generated text is returned as a `str` (default)
-            - if `stream=True` and `details=False`, the generated text is returned token by token as a `Iterable[str]`
+            - if `stream=True` and `details=False`, the generated text is returned token by token as a `AsyncIterable[str]`
             - if `stream=False` and `details=True`, the generated text is returned with more details as a [`~huggingface_hub.TextGenerationOutput`]
             - if `details=True` and `stream=True`, the generated text is returned token by token as a iterable of [`~huggingface_hub.TextGenerationStreamOutput`]
 
@@ -2248,7 +2249,7 @@ class AsyncInferenceClient:
                 If input values are not valid. No HTTP call is made to the server.
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2438,9 +2439,9 @@ class AsyncInferenceClient:
         # Handle errors separately for more precise error messages
         try:
             bytes_output = await self._inner_post(request_parameters, stream=stream or False)
-        except _import_aiohttp().ClientResponseError as e:
-            match = MODEL_KWARGS_NOT_USED_REGEX.search(e.response_error_payload["error"])
-            if e.status == 400 and match:
+        except HfHubHTTPError as e:
+            match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
+            if isinstance(e, BadRequestError) and match:
                 unused_params = [kwarg.strip("' ") for kwarg in match.group(1).split(",")]
                 _set_unsupported_text_generation_kwargs(model, unused_params)
                 return await self.text_generation(  # type: ignore
@@ -2541,7 +2542,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2814,7 +2815,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2965,7 +2966,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -3051,7 +3052,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
             `ValueError`:
                 If only one of the `src_lang` and `tgt_lang` arguments are provided.
@@ -3127,7 +3128,7 @@ class AsyncInferenceClient:
         Raises:
             `InferenceTimeoutError`:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -3195,7 +3196,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example with `multi_label=False`:
@@ -3299,7 +3300,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -3333,47 +3334,6 @@ class AsyncInferenceClient:
         )
         response = await self._inner_post(request_parameters)
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
-
-    def _get_client_session(self, headers: Optional[Dict] = None) -> "ClientSession":
-        aiohttp = _import_aiohttp()
-        client_headers = self.headers.copy()
-        if headers is not None:
-            client_headers.update(headers)
-
-        # Return a new aiohttp ClientSession with correct settings.
-        session = aiohttp.ClientSession(
-            headers=client_headers,
-            cookies=self.cookies,
-            timeout=aiohttp.ClientTimeout(self.timeout),
-            trust_env=self.trust_env,
-        )
-
-        # Keep track of sessions to close them later
-        self._sessions[session] = set()
-
-        # Override the `._request` method to register responses to be closed
-        session._wrapped_request = session._request
-
-        async def _request(method, url, **kwargs):
-            response = await session._wrapped_request(method, url, **kwargs)
-            self._sessions[session].add(response)
-            return response
-
-        session._request = _request
-
-        # Override the 'close' method to
-        # 1. close ongoing responses
-        # 2. deregister the session when closed
-        session._close = session.close
-
-        async def close_session():
-            for response in self._sessions[session]:
-                response.close()
-            await session._close()
-            self._sessions.pop(session, None)
-
-        session.close = close_session
-        return session
 
     async def get_endpoint_info(self, *, model: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -3430,10 +3390,10 @@ class AsyncInferenceClient:
         else:
             url = f"{constants.INFERENCE_ENDPOINT}/models/{model}/info"
 
-        async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
-            response.raise_for_status()
-            return await response.json()
+        client = await self._get_async_client()
+        response = await client.get(url, headers=build_hf_headers(token=self.token))
+        hf_raise_for_status(response)
+        return response.json()
 
     async def health_check(self, model: Optional[str] = None) -> bool:
         """
@@ -3467,9 +3427,9 @@ class AsyncInferenceClient:
             raise ValueError("Model must be an Inference Endpoint URL.")
         url = model.rstrip("/") + "/health"
 
-        async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
-            return response.status == 200
+        client = await self._get_async_client()
+        response = await client.get(url, headers=build_hf_headers(token=self.token))
+        return response.status_code == 200
 
     @property
     def chat(self) -> "ProxyClientChat":
