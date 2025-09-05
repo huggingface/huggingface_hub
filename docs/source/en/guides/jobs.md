@@ -190,6 +190,12 @@ Use this to run a fine tuning script like [trl/scripts/sft.py](https://github.co
 ... )
 ```
 
+<Tip>
+
+For comprehensive guidance on running model training jobs with TRL on Hugging Face infrastructure, check out the [TRL Jobs Training documentation](https://huggingface.co/docs/trl/main/en/jobs_training). It covers fine-tuning recipes, hardware selection, and best practices for training models efficiently.
+
+</Tip>
+
 Available `flavor` options:
 
 - CPU: `cpu-basic`, `cpu-upgrade`
@@ -336,3 +342,88 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 ```
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
+
+
+#### Docker Images for UV Scripts
+
+While UV scripts can specify their dependencies inline, ML workloads often have complex dependencies. Using pre-built Docker images with these libraries already installed can significantly speed up job startup and avoid dependency issues.
+
+By default, when you run `hf jobs uv run` the `astral-sh/uv:python3.12-bookworm` image is used. This image is based on the Python 3.12 Bookworm distribution with uv pre-installed.
+
+You can specify a different image using the `--image` flag:
+
+```bash
+hf jobs uv run \
+ --flavor a10g-large \
+ --image vllm/vllm-openai:latest \
+...
+```
+
+The above command will run using the `vllm/vllm-openai:latest` image. This approach could be useful if you are using vLLM for synthetic data generation.
+
+<Tip>
+
+Many inference frameworks provide optimized docker images. As uv is increasingly adopted in the Python ecosystem more of these will also have uv pre-installed meaning they will work when using hf jobs uv run.
+
+</Tip>
+
+### Scheduled Jobs
+
+Schedule and manage jobs that will run on HF infrastructure.
+
+Use [`create_scheduled_job`] or [`create_scheduled_uv_job`] with a schedule of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`, or a CRON schedule expression (e.g., `"0 9 * * 1"` for 9 AM every Monday):
+
+```python
+# Schedule a job that runs every hour
+>>> from huggingface_hub import create_scheduled_job
+>>> create_scheduled_job(
+...     image="python:3.12",
+...     command=["python",  "-c", "print('This runs every hour!')"],
+...     schedule="@hourly"
+... )
+
+# Use the CRON syntax
+>>> create_scheduled_job(
+...     image="python:3.12",
+...     command=["python",  "-c", "print('This runs every 5 minutes!')"],
+...     schedule="*/5 * * * *"
+... )
+
+# Schedule with GPU
+>>> create_scheduled_job(
+...     image="pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel",
+...     command=["python",  "-c", 'import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")'],
+...     schedule="@hourly",
+...     flavor="a10g-small",
+... )
+
+# Schedule a UV script
+>>> from huggingface_hub import create_scheduled_uv_job
+>>> create_scheduled_uv_job("my_script.py", schedule="@hourly")
+```
+
+Use the same parameters as [`run_job`] and [`run_uv_job`] to pass environment variables, secrets, timeout, etc.
+
+Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], [`suspend_scheduled_job`], [`resume_scheduled_job`], and [`delete_scheduled_job`]:
+
+```python
+# List your active scheduled jobs
+>>> from huggingface_hub import list_scheduled_jobs
+>>> list_scheduled_jobs()
+
+# Inspect the status of a job
+>>> from huggingface_hub import inspect_scheduled_job
+>>> inspect_scheduled_job(scheduled_job_id)
+
+# Suspend (pause) a scheduled job
+>>> from huggingface_hub import suspend_scheduled_job
+>>> suspend_scheduled_job(scheduled_job_id)
+
+# Resume a scheduled job
+>>> from huggingface_hub import resume_scheduled_job
+>>> resume_scheduled_job(scheduled_job_id)
+
+# Delete a scheduled job
+>>> from huggingface_hub import delete_scheduled_job
+>>> delete_scheduled_job(scheduled_job_id)
+```

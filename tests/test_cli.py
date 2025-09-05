@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 from huggingface_hub.cli.cache import CacheCommand
 from huggingface_hub.cli.download import DownloadCommand
-from huggingface_hub.cli.jobs import JobsCommands, RunCommand, UvCommand
+from huggingface_hub.cli.jobs import JobsCommands, RunCommand, ScheduledRunCommand, UvCommand
 from huggingface_hub.cli.repo import RepoCommands
 from huggingface_hub.cli.repo_files import DeleteFilesSubCommand, RepoFilesCommand
 from huggingface_hub.cli.upload import UploadCommand
@@ -839,6 +839,11 @@ class DummyResponse:
         return self._json
 
 
+class DummyCommit:
+    def __init__(self, oid: str):
+        self.oid = oid
+
+
 class TestJobsCommand(unittest.TestCase):
     def setUp(self) -> None:
         """
@@ -865,7 +870,7 @@ class TestJobsCommand(unittest.TestCase):
     patch_whoami = patch("huggingface_hub.hf_api.HfApi.whoami", return_value={"name": "my-username"})
     patch_get_token = patch("huggingface_hub.hf_api.get_token", return_value="hf_xxx")
     patch_repo_info = patch("huggingface_hub.hf_api.HfApi.repo_info")
-    patch_upload_file = patch("huggingface_hub.hf_api.HfApi.upload_file")
+    patch_upload_file = patch("huggingface_hub.hf_api.HfApi.upload_file", return_value=DummyCommit(oid="ae068f"))
 
     @patch_httpx_post
     @patch_whoami
@@ -882,6 +887,40 @@ class TestJobsCommand(unittest.TestCase):
             "environment": {},
             "flavor": "cpu-basic",
             "dockerImage": "ubuntu",
+        }
+
+    @patch(
+        "httpx.Client.post",
+        return_value=DummyResponse(
+            {
+                "id": "my-job-id",
+                "owner": {
+                    "id": "userid",
+                    "name": "my-username",
+                    "type": "user",
+                },
+                "status": {"lastJob": None, "nextJobRunAt": "2025-08-20T15:35:00.000Z"},
+                "jobSpec": {},
+            }
+        ),
+    )
+    @patch("huggingface_hub.hf_api.HfApi.whoami", return_value={"name": "my-username"})
+    def test_create_scheduled_job(self, whoami: Mock, httpx_mock: Mock) -> None:
+        input_args = ["jobs", "scheduled", "run", "@hourly", "ubuntu", "echo", "hello"]
+        cmd = ScheduledRunCommand(self.parser.parse_args(input_args))
+        cmd.run()
+        assert httpx_mock.call_count == 1
+        args, kwargs = httpx_mock.call_args_list[0]
+        assert args == ("https://huggingface.co/api/scheduled-jobs/my-username",)
+        assert kwargs["json"] == {
+            "jobSpec": {
+                "command": ["echo", "hello"],
+                "arguments": [],
+                "environment": {},
+                "flavor": "cpu-basic",
+                "dockerImage": "ubuntu",
+            },
+            "schedule": "@hourly",
         }
 
     @patch_httpx_post
@@ -937,7 +976,7 @@ class TestJobsCommand(unittest.TestCase):
         assert kwargs["json"] == {
             "arguments": [],
             "environment": {
-                "UV_SCRIPT_URL": "https://huggingface.co/datasets/my-username/hf-cli-jobs-uv-run-scripts/resolve/main/test_cli.py"
+                "UV_SCRIPT_URL": "https://hub-ci.huggingface.co/datasets/my-username/hf-cli-jobs-uv-run-scripts/resolve/ae068f/test_cli.py"
             },
             "secrets": {"UV_SCRIPT_HF_TOKEN": "hf_xxx"},
             "flavor": "cpu-basic",
