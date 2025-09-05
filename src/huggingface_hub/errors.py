@@ -51,7 +51,7 @@ class HfHubHTTPError(HTTPError):
 
     Example:
     ```py
-        import requests
+        import httpx
         from huggingface_hub.utils import get_session, hf_raise_for_status, HfHubHTTPError
 
         response = get_session().post(...)
@@ -316,7 +316,7 @@ class BadRequestError(HfHubHTTPError, ValueError):
     Example:
 
     ```py
-    >>> resp = requests.post("hf.co/api/check", ...)
+    >>> resp = httpx.post("hf.co/api/check", ...)
     >>> hf_raise_for_status(resp, endpoint_name="check")
     huggingface_hub.errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
     ```

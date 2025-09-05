@@ -44,7 +44,7 @@ ALL_TASKS = [
 
 
 class InferenceApi:
-    """Client to configure requests and make calls to the HuggingFace Inference API.
+    """Client to configure httpx and make calls to the HuggingFace Inference API.
 
     Example:
 

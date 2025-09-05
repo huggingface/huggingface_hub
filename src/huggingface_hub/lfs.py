@@ -135,7 +135,7 @@ def post_lfs_batch_info(
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an argument is invalid or the server response is malformed.
-        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        [`HfHubHTTPError`]
             If the server returned an error.
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
@@ -213,7 +213,7 @@ def lfs_upload(
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If `lfs_batch_action` is improperly formatted
-        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        [`HfHubHTTPError`]
             If the upload resulted in an error
     """
     # 0. If LFS file is already present, skip upload
@@ -307,11 +307,9 @@ def _upload_single_part(operation: "CommitOperationAdd", upload_url: str) -> Non
         fileobj:
             The file-like object holding the data to upload.
 
-    Returns: `requests.Response`
-
     Raises:
-     [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-        If the upload resulted in an error.
+        [`HfHubHTTPError`]
+            If the upload resulted in an error.
     """
     with operation.as_file(with_tqdm=True) as fileobj:
         # S3 might raise a transient 500 error -> let's retry if that happens

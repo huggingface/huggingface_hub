@@ -212,7 +212,7 @@ ASYNC_INNER_POST_CODE = """
 
 
 def _make_inner_post_async(code: str) -> str:
-    # Update AsyncInferenceClient._inner_post() implementation (use aiohttp instead of requests)
+    # Update AsyncInferenceClient._inner_post() implementation
     code = re.sub(
         r"""
         def[ ]_inner_post\( # definition
@@ -296,22 +296,7 @@ def _make_tasks_methods_async(code: str) -> str:
 
 
 def _adapt_text_generation_to_async(code: str) -> str:
-    # Text-generation task has to be handled specifically since it has a recursive call mechanism (to retry on non-tgi
-    # servers)
-
-    # Catch `aiohttp` error instead of `requests` error
-    code = code.replace(
-        """
-        except HTTPError as e:
-            match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
-            if isinstance(e, BadRequestError) and match:
-    """,
-        """
-        except _import_aiohttp().ClientResponseError as e:
-            match = MODEL_KWARGS_NOT_USED_REGEX.search(e.response_error_payload["error"])
-            if e.status == 400 and match:
-    """,
-    )
+    # Text-generation task has to be handled specifically since it has a recursive call mechanism (to retry on non-tgi servers)
 
     # Await recursive call
     code = code.replace(

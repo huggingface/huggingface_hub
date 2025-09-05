@@ -17,7 +17,6 @@ install_requires = [
     "hf-xet>=1.1.3,<2.0.0; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='arm64' or platform_machine=='aarch64'",
     "packaging>=20.9",
     "pyyaml>=5.1",
-    "requests",
     "httpx>=0.23.0, <1",
     "tqdm>=4.42.1",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
@@ -100,7 +99,6 @@ extras["testing"] = (
 extras["typing"] = [
     "typing-extensions>=4.8.0",
     "types-PyYAML",
-    "types-requests",
     "types-simplejson",
     "types-toml",
     "types-tqdm",

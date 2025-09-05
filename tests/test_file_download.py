@@ -24,8 +24,6 @@ from unittest.mock import Mock, patch
 
 import httpx
 import pytest
-import requests
-from requests import Response
 
 import huggingface_hub.file_download
 from huggingface_hub import HfApi, RepoUrl, constants
@@ -1137,19 +1135,19 @@ class TestNormalizeEtag(unittest.TestCase):
     @with_production_testing
     def test_resolve_endpoint_on_regular_file(self):
         url = "https://huggingface.co/gpt2/resolve/e7da7f221d5bf496a48136c0cd264e630fe9fcc8/README.md"
-        response = requests.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
+        response = httpx.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
         self.assertEqual(self._get_etag_and_normalize(response), "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930")
 
     @with_production_testing
     def test_resolve_endpoint_on_lfs_file(self):
         url = "https://huggingface.co/gpt2/resolve/e7da7f221d5bf496a48136c0cd264e630fe9fcc8/pytorch_model.bin"
-        response = requests.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
+        response = httpx.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
         self.assertEqual(
             self._get_etag_and_normalize(response), "7c5d3f4b8b76583b422fcb9189ad6c89d5d97a094541ce8932dce3ecabde1421"
         )
 
     @staticmethod
-    def _get_etag_and_normalize(response: Response) -> str:
+    def _get_etag_and_normalize(response: httpx.Response) -> str:
         response.raise_for_status()
         return _normalize_etag(
             response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")

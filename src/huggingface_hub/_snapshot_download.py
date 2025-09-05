@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Dict, Iterable, List, Literal, Optional, Type, Union
 
-import requests
+import httpx
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
@@ -86,7 +86,7 @@ def snapshot_download(
             The user-agent info in the form of a dictionary or a string.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
-            data before giving up which is passed to `requests.request`.
+            data before giving up which is passed to `httpx.request`.
         force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in the local cache.
         token (`str`, `bool`, *optional*):
@@ -159,14 +159,10 @@ def snapshot_download(
         try:
             # if we have internet connection we want to list files to download
             repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision)
-        except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
-            # Actually raise for those subclasses of ConnectionError
+        except httpx.ProxyError:
+            # Actually raise on proxy error
             raise
-        except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout,
-            OfflineModeIsEnabled,
-        ) as error:
+        except (httpx.ConnectError, httpx.TimeoutException, OfflineModeIsEnabled) as error:
             # Internet connection is down
             # => will try to use local files only
             api_call_error = error
@@ -174,7 +170,7 @@ def snapshot_download(
         except RevisionNotFoundError:
             # The repo was found but the revision doesn't exist on the Hub (never existed or got deleted)
             raise
-        except requests.HTTPError as error:
+        except HfHubHTTPError as error:
             # Multiple reasons for an http error:
             # - Repository is private and invalid/missing token sent
             # - Repository is gated and invalid/missing token sent
