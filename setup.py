@@ -89,6 +89,7 @@ extras["testing"] = (
         "soundfile",
         "Pillow",
         "gradio>=4.0.0",  # to test webhooks # pin to avoid issue on Python3.12
+        "requests", # for gradio
         "numpy",  # for embeddings
         "fastapi",  # To build the documentation
     ]
