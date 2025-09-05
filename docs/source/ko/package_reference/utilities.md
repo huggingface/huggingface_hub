@@ -125,39 +125,43 @@ except HfHubHTTPError as e:
 
 여기에는 `huggingface_hub`에서 발생하는 HTTP 오류 목록이 있습니다.
 
-#### HfHubHTTPError[[huggingface_hub.utils.HfHubHTTPError]]
+#### HfHubHTTPError[[huggingface_hub.errors.HfHubHTTPError]]
 
 `HfHubHTTPError`는 HF Hub HTTP 오류에 대한 부모 클래스입니다. 이 클래스는 서버 응답을 구문 분석하고 오류 메시지를 형식화하여 사용자에게 가능한 많은 정보를 제공합니다.
 
-[[autodoc]] huggingface_hub.utils.HfHubHTTPError
+[[autodoc]] huggingface_hub.errors.HfHubHTTPError
 
-#### RepositoryNotFoundError[[huggingface_hub.utils.RepositoryNotFoundError]]
+#### RepositoryNotFoundError[[huggingface_hub.errors.RepositoryNotFoundError]]
 
-[[autodoc]] huggingface_hub.utils.RepositoryNotFoundError
+[[autodoc]] huggingface_hub.errors.RepositoryNotFoundError
 
-#### GatedRepoError[[huggingface_hub.utils.GatedRepoError]]
+#### GatedRepoError[[huggingface_hub.errors.GatedRepoError]]
 
-[[autodoc]] huggingface_hub.utils.GatedRepoError
+[[autodoc]] huggingface_hub.errors.GatedRepoError
 
-#### RevisionNotFoundError[[huggingface_hub.utils.RevisionNotFoundError]]
+#### RevisionNotFoundError[[huggingface_hub.errors.RevisionNotFoundError]]
 
-[[autodoc]] huggingface_hub.utils.RevisionNotFoundError
+[[autodoc]] huggingface_hub.errors.RevisionNotFoundError
 
-#### EntryNotFoundError[[huggingface_hub.utils.EntryNotFoundError]]
+#### BadRequestError[[huggingface_hub.errors.BadRequestError]]
 
-[[autodoc]] huggingface_hub.utils.EntryNotFoundError
+[[autodoc]] huggingface_hub.errors.BadRequestError
 
-#### BadRequestError[[huggingface_hub.utils.BadRequestError]]
+#### EntryNotFoundError[[huggingface_hub.errors.EntryNotFoundError]]
 
-[[autodoc]] huggingface_hub.utils.BadRequestError
+[[autodoc]] huggingface_hub.errors.EntryNotFoundError
 
-#### LocalEntryNotFoundError[[huggingface_hub.utils.LocalEntryNotFoundError]]
+#### RemoteEntryNotFoundError[[huggingface_hub.errors.RemoteEntryNotFoundError]]
 
-[[autodoc]] huggingface_hub.utils.LocalEntryNotFoundError
+[[autodoc]] huggingface_hub.errors.RemoteEntryNotFoundError
 
-#### OfflineModeIsEnabledd[[huggingface_hub.utils.OfflineModeIsEnabled]]
+#### LocalEntryNotFoundError[[huggingface_hub.errors.LocalEntryNotFoundError]]
 
-[[autodoc]] huggingface_hub.utils.OfflineModeIsEnabled
+[[autodoc]] huggingface_hub.errors.LocalEntryNotFoundError
+
+#### OfflineModeIsEnabledd[[huggingface_hub.errors.OfflineModeIsEnabled]]
+
+[[autodoc]] huggingface_hub.errors.OfflineModeIsEnabled
 
 ## 원격 측정[[huggingface_hub.utils.send_telemetry]]
 

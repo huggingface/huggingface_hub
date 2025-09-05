@@ -1147,7 +1147,7 @@ def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: 
     return fs.open(path, mode=mode, block_size=block_size, cache_type=cache_type)
 
 
-def _partial_read(response: httpx.Response, length: Optional[int] = -1) -> bytes:
+def _partial_read(response: httpx.Response, length: int = -1) -> bytes:
     """
     Read up to `length` bytes from a streamed response.
     If length == -1, read until EOF.

@@ -187,7 +187,7 @@ class InferenceApi:
             payload["parameters"] = params
 
         # Make API call
-        response = get_session().post(self.api_url, headers=self.headers, json=payload, data=data)
+        response = get_session().post(self.api_url, headers=self.headers, json=payload, content=data)
 
         # Let the user handle the response
         if raw_response:

@@ -24,11 +24,11 @@ from .constants import (
     HUGGINGFACE_HUB_CACHE,  # noqa: F401 # for backward compatibility
 )
 from .errors import (
-    EntryNotFoundError,
     FileMetadataError,
     GatedRepoError,
     HfHubHTTPError,
     LocalEntryNotFoundError,
+    RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
@@ -894,7 +894,7 @@ def hf_hub_download(
             or because it is set to `private` and you do not have access.
         [`~utils.RevisionNotFoundError`]
             If the revision to download from cannot be found.
-        [`~utils.EntryNotFoundError`]
+        [`~utils.RemoteEntryNotFoundError`]
             If the file to download cannot be found.
         [`~utils.LocalEntryNotFoundError`]
             If network is disabled or unavailable and file is not found in cache.
@@ -1500,7 +1500,7 @@ def _get_metadata_or_catch_error(
                 metadata = get_hf_file_metadata(
                     url=url, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
                 )
-            except EntryNotFoundError as http_error:
+            except RemoteEntryNotFoundError as http_error:
                 if storage_folder is not None and relative_filename is not None:
                     # Cache the non-existence of the file
                     commit_hash = http_error.response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT)
@@ -1558,7 +1558,7 @@ def _get_metadata_or_catch_error(
             # Otherwise, our Internet connection is down.
             # etag is None
             head_error_call = error
-        except (RevisionNotFoundError, EntryNotFoundError):
+        except (RevisionNotFoundError, RemoteEntryNotFoundError):
             # The repo was found but the revision or entry doesn't exist on the Hub (never existed or got deleted)
             raise
         except HfHubHTTPError as error:

@@ -34,9 +34,9 @@ from .. import constants
 from ..errors import (
     BadRequestError,
     DisabledRepoError,
-    EntryNotFoundError,
     GatedRepoError,
     HfHubHTTPError,
+    RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
@@ -122,7 +122,7 @@ def _add_request_id(request: httpx.Request) -> Optional[str]:
         request_id,
         request.method,
         request.url,
-        len(str(request.headers.get("authorization", ""))) > 0,
+        str(request.headers.get("authorization", "")) != "",
     )
     if constants.HF_DEBUG:
         logger.debug("Send: %s", _curlify(request))
@@ -130,24 +130,26 @@ def _add_request_id(request: httpx.Request) -> Optional[str]:
     return request_id
 
 
-DEFAULT_CLIENT_CONFIG = {
-    "follow_redirects": True,
-    "timeout": httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
-}
-
-
 def default_client_factory() -> httpx.Client:
     """
     Factory function to create a `httpx.Client` with the default transport.
     """
-    return httpx.Client(transport=HfHubTransport(), **DEFAULT_CLIENT_CONFIG)
+    return httpx.Client(
+        transport=HfHubTransport(),
+        follow_redirects=True,
+        timeout=httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
+    )
 
 
 def default_async_client_factory() -> httpx.AsyncClient:
     """
     Factory function to create a `httpx.AsyncClient` with the default transport.
     """
-    return httpx.AsyncClient(transport=HfHubAsyncTransport(), **DEFAULT_CLIENT_CONFIG)
+    return httpx.AsyncClient(
+        transport=HfHubAsyncTransport(),
+        follow_redirects=True,
+        timeout=httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
+    )
 
 
 CLIENT_FACTORY_T = Callable[[], httpx.Client]
@@ -539,17 +541,14 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
     Raises when the request has failed:
 
         - [`~utils.RepositoryNotFoundError`]
-            If the repository to download from cannot be found. This may be because it
-            doesn't exist, because `repo_type` is not set correctly, or because the repo
-            is `private` and you do not have access.
+            If the repository to download from cannot be found. This may be because it doesn't exist, because `repo_type`
+            is not set correctly, or because the repo is `private` and you do not have access.
         - [`~utils.GatedRepoError`]
-            If the repository exists but is gated and the user is not on the authorized
-            list.
+            If the repository exists but is gated and the user is not on the authorized list.
         - [`~utils.RevisionNotFoundError`]
             If the repository exists but the revision couldn't be find.
-        - [`~utils.EntryNotFoundError`]
-            If the repository exists but the entry (e.g. the requested file) couldn't be
-            find.
+        - [`~utils.RemoteEntryNotFoundError`]
+            If the repository exists but the entry (e.g. the requested file) couldn't be find.
         - [`~utils.BadRequestError`]
             If request failed with a HTTP 400 BadRequest error.
         - [`~utils.HfHubHTTPError`]
@@ -572,7 +571,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
 
         elif error_code == "EntryNotFound":
             message = f"{response.status_code} Client Error." + "\n\n" + f"Entry Not Found for url: {response.url}."
-            raise _format(EntryNotFoundError, message, response) from e
+            raise _format(RemoteEntryNotFoundError, message, response) from e
 
         elif error_code == "GatedRepo":
             message = (
@@ -733,14 +732,14 @@ def _curlify(request: httpx.Request) -> str:
             v = "<TOKEN>"  # Hide authorization header, no matter its value (can be Bearer, Key, etc.)
         parts += [("-H", f"{k}: {v}")]
 
-    if request.content:
-        body = request.content
-        if isinstance(body, bytes):
-            body = body.decode("utf-8", errors="ignore")
-        elif hasattr(body, "read"):
-            body = "<file-like object>"  # Don't try to read it to avoid consuming the stream
+    body: Optional[str] = None
+    if request.content is not None:
+        body = request.content.decode("utf-8", errors="ignore")
         if len(body) > 1000:
-            body = body[:1000] + " ... [truncated]"
+            body = f"{body[:1000]} ... [truncated]"
+    elif request.stream is not None:
+        body = "<streaming body>"
+    if body is not None:
         parts += [("-d", body.replace("\n", ""))]
 
     parts += [(None, request.url)]

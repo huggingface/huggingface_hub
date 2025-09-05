@@ -275,7 +275,7 @@ class InferenceClient:
                     "POST",
                     request_parameters.url,
                     json=request_parameters.json,
-                    data=request_parameters.data,
+                    content=request_parameters.data,
                     headers=request_parameters.headers,
                     cookies=self.cookies,
                     timeout=self.timeout,

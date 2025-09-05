@@ -424,6 +424,8 @@ def raise_text_generation_error(http_error: HfHubHTTPError) -> NoReturn:
             The HTTPError that have been raised.
     """
     # Try to parse a Text Generation Inference error
+    if http_error.response is None:
+        raise http_error
 
     try:
         # Hacky way to retrieve payload in case of aiohttp error

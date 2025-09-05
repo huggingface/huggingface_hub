@@ -100,9 +100,9 @@ from .constants import (
 )
 from .errors import (
     BadRequestError,
-    EntryNotFoundError,
     GatedRepoError,
     HfHubHTTPError,
+    RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
@@ -1792,7 +1792,7 @@ class HfApi:
                     )
                 elif effective_token == _get_token_from_file():
                     error_message += " The token stored is invalid. Please run `hf auth login` to update it."
-                raise HfHubHTTPError(error_message, request=e.request, response=e.response) from e
+                raise HfHubHTTPError(error_message, response=e.response) from e
             raise
         return r.json()
 
@@ -3015,7 +3015,7 @@ class HfApi:
             return True
         except GatedRepoError:  # raise specifically on gated repo
             raise
-        except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
+        except (RepositoryNotFoundError, RemoteEntryNotFoundError, RevisionNotFoundError):
             return False
 
     @validate_hf_hub_args
@@ -3105,7 +3105,7 @@ class HfApi:
                 does not exist.
             [`~utils.RevisionNotFoundError`]:
                 If revision is not found (error 404) on the repo.
-            [`~utils.EntryNotFoundError`]:
+            [`~utils.RemoteEntryNotFoundError`]:
                 If the tree (folder) does not exist (error 404) on the repo.
 
         Examples:
@@ -4337,12 +4337,12 @@ class HfApi:
         params = {"create_pr": "1"} if create_pr else None
 
         try:
-            commit_resp = get_session().post(url=commit_url, headers=headers, data=data, params=params)
+            commit_resp = get_session().post(url=commit_url, headers=headers, content=data, params=params)
             hf_raise_for_status(commit_resp, endpoint_name="commit")
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
-        except EntryNotFoundError as e:
+        except RemoteEntryNotFoundError as e:
             if nb_deletions > 0 and "A file with this name doesn't exist" in str(e):
                 e.append_to_message(
                     "\nMake sure to differentiate file and folder paths in delete"
@@ -5085,7 +5085,7 @@ class HfApi:
               or because it is set to `private` and you do not have access.
             - [`~utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
-            - [`~utils.EntryNotFoundError`]
+            - [`~utils.RemoteEntryNotFoundError`]
               If the file to download cannot be found.
 
         </Tip>
@@ -5510,7 +5510,7 @@ class HfApi:
                 or because it is set to `private` and you do not have access.
             [`~utils.RevisionNotFoundError`]
                 If the revision to download from cannot be found.
-            [`~utils.EntryNotFoundError`]
+            [`~utils.RemoteEntryNotFoundError`]
                 If the file to download cannot be found.
             [`~utils.LocalEntryNotFoundError`]
                 If network is disabled or unavailable and file is not found in cache.
