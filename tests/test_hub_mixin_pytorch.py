@@ -195,7 +195,7 @@ class PytorchHubMixinTest(unittest.TestCase):
 
     def pretend_file_download(self, **kwargs):
         if kwargs.get("filename") == "config.json":
-            raise RemoteEntryNotFoundError("no config")
+            raise RemoteEntryNotFoundError("no config", response=Mock())
         DummyModel().save_pretrained(self.cache_dir)
         return self.cache_dir / "model.safetensors"
 
@@ -218,7 +218,7 @@ class PytorchHubMixinTest(unittest.TestCase):
     def pretend_file_download_fallback(self, **kwargs):
         filename = kwargs.get("filename")
         if filename == "model.safetensors" or filename == "config.json":
-            raise RemoteEntryNotFoundError("not found")
+            raise RemoteEntryNotFoundError("not found", response=Mock())
 
         class TestMixin(ModelHubMixin):
             def _save_pretrained(self, save_directory: Path) -> None:
