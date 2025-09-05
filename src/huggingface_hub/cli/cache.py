@@ -46,7 +46,7 @@ def require_inquirer_py(fn: Callable) -> Callable:
         if not _inquirer_py_available:
             raise ImportError(
                 "The 'cache delete' command requires extra dependencies for the TUI.\n"
-                "Please run 'pip install huggingface_hub[cli]' to install them.\n"
+                "Please run 'pip install \"huggingface_hub[cli]\"' to install them.\n"
                 "Otherwise, disable TUI using the '--disable-tui' flag."
             )
         return fn(*args, **kwargs)

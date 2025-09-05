@@ -22,7 +22,7 @@ Usage:
 
 NOTE:
     This command is based on `InquirerPy` to build the multiselect menu in the terminal.
-    This dependency has to be installed with `pip install huggingface_hub[cli]`. Since
+    This dependency has to be installed with `pip install "huggingface_hub[cli]"`. Since
     we want to avoid as much as possible cross-platform issues, I chose a library that
     is built on top of `python-prompt-toolkit` which seems to be a reference in terminal
     GUI (actively maintained on both Unix and Windows, 7.9k stars).
@@ -88,7 +88,7 @@ def require_inquirer_py(fn: Callable) -> Callable:
         if not _inquirer_py_available:
             raise ImportError(
                 "The `delete-cache` command requires extra dependencies to work with"
-                " the TUI.\nPlease run `pip install huggingface_hub[cli]` to install"
+                " the TUI.\nPlease run `pip install \"huggingface_hub[cli]\"` to install"
                 " them.\nOtherwise, disable TUI using the `--disable-tui` flag."
             )
 
