@@ -128,7 +128,7 @@ class TestHfHubHTTPError(unittest.TestCase):
 
     def setUp(self) -> None:
         """Setup with a default response."""
-        self.response = Response(status_code=404)
+        self.response = Response(status_code=404, request=Request(method="GET", url="https://huggingface.co/fake"))
 
     def test_hf_hub_http_error_initialization(self) -> None:
         """Test HfHubHTTPError is initialized properly."""
