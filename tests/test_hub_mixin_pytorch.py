@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from huggingface_hub import HfApi, ModelCard, constants, hf_hub_download
-from huggingface_hub.errors import EntryNotFoundError, HfHubHTTPError
+from huggingface_hub.errors import RemoteEntryNotFoundError
 from huggingface_hub.hub_mixin import ModelHubMixin, PyTorchModelHubMixin
 from huggingface_hub.serialization._torch import storage_ptr
 from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available
@@ -195,7 +195,7 @@ class PytorchHubMixinTest(unittest.TestCase):
 
     def pretend_file_download(self, **kwargs):
         if kwargs.get("filename") == "config.json":
-            raise HfHubHTTPError("no config")
+            raise RemoteEntryNotFoundError("no config")
         DummyModel().save_pretrained(self.cache_dir)
         return self.cache_dir / "model.safetensors"
 
@@ -218,7 +218,7 @@ class PytorchHubMixinTest(unittest.TestCase):
     def pretend_file_download_fallback(self, **kwargs):
         filename = kwargs.get("filename")
         if filename == "model.safetensors" or filename == "config.json":
-            raise EntryNotFoundError("not found")
+            raise RemoteEntryNotFoundError("not found")
 
         class TestMixin(ModelHubMixin):
             def _save_pretrained(self, save_directory: Path) -> None:
