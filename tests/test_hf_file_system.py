@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Optional
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import fsspec
 import pytest
@@ -577,9 +577,9 @@ def test_resolve_path_with_refs_revision() -> None:
 def mock_repo_info(fs: HfFileSystem):
     def _inner(repo_id: str, *, revision: str, repo_type: str, **kwargs):
         if repo_id not in ["gpt2", "squad", "username/my_dataset", "username/my_model"]:
-            raise RepositoryNotFoundError(repo_id)
+            raise RepositoryNotFoundError(repo_id, response=Mock())
         if revision is not None and revision not in ["main", "dev", "refs"] and not revision.startswith("refs/"):
-            raise RevisionNotFoundError(revision)
+            raise RevisionNotFoundError(revision, response=Mock())
 
     return patch.object(fs._api, "repo_info", _inner)
 
