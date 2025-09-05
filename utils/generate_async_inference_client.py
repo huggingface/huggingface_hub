@@ -227,7 +227,7 @@ def _make_inner_post_async(code: str) -> str:
     )
     # Update `post`'s type annotations
     code = code.replace("    def _inner_post(", "    async def _inner_post(")
-    return code.replace("Iterable[str]", "AsyncIterable[str]")
+    return code
 
 
 ENTER_EXIT_STACK_SYNC_CODE = """
@@ -325,24 +325,8 @@ def _adapt_text_generation_to_async(code: str) -> str:
 
     # Update return types: Iterable -> AsyncIterable
     code = code.replace(
-        ") -> Iterable[str]:",
-        ") -> AsyncIterable[str]:",
-    )
-    code = code.replace(
-        ") -> Union[bytes, Iterable[bytes]]:",
-        ") -> Union[bytes, AsyncIterable[bytes]]:",
-    )
-    code = code.replace(
-        ") -> Iterable[TextGenerationStreamOutput]:",
-        ") -> AsyncIterable[TextGenerationStreamOutput]:",
-    )
-    code = code.replace(
-        ") -> Union[TextGenerationOutput, Iterable[TextGenerationStreamOutput]]:",
-        ") -> Union[TextGenerationOutput, AsyncIterable[TextGenerationStreamOutput]]:",
-    )
-    code = code.replace(
-        ") -> Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]:",
-        ") -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:",
+        "Iterable[",
+        "AsyncIterable[",
     )
 
     return code
@@ -353,16 +337,6 @@ def _adapt_chat_completion_to_async(code: str) -> str:
     code = code.replace(
         "text_generation_output = self.text_generation(",
         "text_generation_output = await self.text_generation(",
-    )
-
-    # Update return types: Iterable -> AsyncIterable
-    code = code.replace(
-        ") -> Iterable[ChatCompletionStreamOutput]:",
-        ") -> AsyncIterable[ChatCompletionStreamOutput]:",
-    )
-    code = code.replace(
-        ") -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:",
-        ") -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]:",
     )
 
     return code

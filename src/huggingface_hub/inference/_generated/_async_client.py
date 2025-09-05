@@ -25,7 +25,7 @@ import os
 import re
 import warnings
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, Iterable, List, Literal, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Union, overload
 
 import httpx
 
@@ -2137,7 +2137,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], Iterable[TextGenerationStreamOutput]]: ...
+    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]: ...
 
     async def text_generation(
         self,
@@ -2166,7 +2166,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], Iterable[TextGenerationStreamOutput]]:
+    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:
         """
         Given a prompt, generate the following text.
 
@@ -2237,7 +2237,7 @@ class AsyncInferenceClient:
                 Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
 
         Returns:
-            `Union[str, TextGenerationOutput, AsyncIterable[str], Iterable[TextGenerationStreamOutput]]`:
+            `Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]`:
             Generated text returned from the server:
             - if `stream=False` and `details=False`, the generated text is returned as a `str` (default)
             - if `stream=True` and `details=False`, the generated text is returned token by token as a `AsyncIterable[str]`
