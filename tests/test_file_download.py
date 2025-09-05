@@ -1148,7 +1148,6 @@ class TestNormalizeEtag(unittest.TestCase):
 
     @staticmethod
     def _get_etag_and_normalize(response: httpx.Response) -> str:
-        response.raise_for_status()
         return _normalize_etag(
             response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
         )
