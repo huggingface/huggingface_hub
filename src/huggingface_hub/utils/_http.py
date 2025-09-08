@@ -377,7 +377,7 @@ def http_backoff(
             Maximum duration (in seconds) to wait before retrying.
         retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
-            By default, retry on `httpx.Timeout` and `httpx.NetworkError`.
+            By default, retry on `httpx.TimeoutException` and `httpx.NetworkError`.
         retry_on_status_codes (`int` or `Tuple[int]`, *optional*, defaults to `503`):
             Define on which status codes the request must be retried. By default, only
             HTTP 503 Service Unavailable is retried.
