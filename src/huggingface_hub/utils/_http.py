@@ -122,7 +122,7 @@ def _add_request_id(request: httpx.Request) -> Optional[str]:
         request_id,
         request.method,
         request.url,
-        str(request.headers.get("authorization", "")) != "",
+        request.headers.get("authorization") is not None,
     )
     if constants.HF_DEBUG:
         logger.debug("Send: %s", _curlify(request))
