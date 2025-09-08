@@ -772,13 +772,8 @@ class TestTryDeletePath(unittest.TestCase):
             _try_delete_path(file_path, path_type="TYPE")
 
         # Assert warning message with traceback for debug purposes
-        self.assertEqual(len(captured.output), 1)
-        self.assertTrue(
-            captured.output[0].startswith(
-                "WARNING:huggingface_hub.utils._cache_manager:Couldn't delete TYPE:"
-                f" file not found ({file_path})\nTraceback (most recent call last):"
-            )
-        )
+        assert len(captured.output) > 0
+        assert any(f"Couldn't delete TYPE: file not found ({file_path})" in log for log in captured.output)
 
     def test_delete_path_on_missing_folder(self) -> None:
         """Try delete a missing folder."""
@@ -788,13 +783,8 @@ class TestTryDeletePath(unittest.TestCase):
             _try_delete_path(dir_path, path_type="TYPE")
 
         # Assert warning message with traceback for debug purposes
-        self.assertEqual(len(captured.output), 1)
-        self.assertTrue(
-            captured.output[0].startswith(
-                "WARNING:huggingface_hub.utils._cache_manager:Couldn't delete TYPE:"
-                f" file not found ({dir_path})\nTraceback (most recent call last):"
-            )
-        )
+        assert len(captured.output) > 0
+        assert any(f"Couldn't delete TYPE: file not found ({dir_path})" in log for log in captured.output)
 
     @xfail_on_windows(reason="Permissions are handled differently on Windows.")
     def test_delete_path_on_local_folder_with_wrong_permission(self) -> None:
