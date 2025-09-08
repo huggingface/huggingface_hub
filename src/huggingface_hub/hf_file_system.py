@@ -1153,7 +1153,10 @@ def _partial_read(response: httpx.Response, length: int = -1) -> bytes:
     If length == -1, read until EOF.
     """
     buf = bytearray()
-
+    if length < -1:
+        raise ValueError("length must be -1 or >= 0")
+    if length == 0:
+        return b""
     if length == -1:
         for chunk in response.iter_bytes():
             buf.extend(chunk)
