@@ -178,7 +178,7 @@ def set_client_factory(client_factory: CLIENT_FACTORY_T) -> None:
         _GLOBAL_CLIENT_FACTORY = client_factory
 
 
-async def set_async_client_factory(async_client_factory: ASYNC_CLIENT_FACTORY_T) -> None:
+def set_async_client_factory(async_client_factory: ASYNC_CLIENT_FACTORY_T) -> None:
     """
     Set the HTTP async client factory to be used by `huggingface_hub`.
 
