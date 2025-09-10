@@ -6,6 +6,7 @@ from typing import (
     Callable,
     Literal,
     Optional,
+    Type,
     TypeVar,
     Union,
     get_args,
@@ -26,16 +27,16 @@ T = TypeVar("T")
 
 # The overload decorator helps type checkers understand the different return types
 @overload
-def strict(cls: type[T]) -> type[T]: ...
+def strict(cls: Type[T]) -> Type[T]: ...
 
 
 @overload
-def strict(*, accept_kwargs: bool = False) -> Callable[[type[T]], type[T]]: ...
+def strict(*, accept_kwargs: bool = False) -> Callable[[Type[T]], Type[T]]: ...
 
 
 def strict(
-    cls: Optional[type[T]] = None, *, accept_kwargs: bool = False
-) -> Union[type[T], Callable[[type[T]], type[T]]]:
+    cls: Optional[Type[T]] = None, *, accept_kwargs: bool = False
+) -> Union[Type[T], Callable[[Type[T]], Type[T]]]:
     """
     Decorator to add strict validation to a dataclass.
 
@@ -91,7 +92,7 @@ def strict(
     ```
     """
 
-    def wrap(cls: type[T]) -> type[T]:
+    def wrap(cls: Type[T]) -> Type[T]:
         if not hasattr(cls, "__dataclass_fields__"):
             raise StrictDataclassDefinitionError(
                 f"Class '{cls.__name__}' must be a dataclass before applying @strict."
