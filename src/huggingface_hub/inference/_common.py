@@ -21,20 +21,7 @@ import logging
 import mimetypes
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    AsyncIterable,
-    BinaryIO,
-    Dict,
-    Iterable,
-    List,
-    Literal,
-    NoReturn,
-    Optional,
-    Union,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, AsyncIterable, BinaryIO, Iterable, Literal, NoReturn, Optional, Union, overload
 
 import httpx
 
@@ -71,9 +58,9 @@ class RequestParameters:
     url: str
     task: str
     model: Optional[str]
-    json: Optional[Union[str, Dict, List]]
+    json: Optional[Union[str, dict, list]]
     data: Optional[bytes]
-    headers: Dict[str, Any]
+    headers: dict[str, Any]
 
 
 class MimeBytes(bytes):
@@ -240,7 +227,7 @@ def _b64_to_image(encoded_image: str) -> "Image":
     return Image.open(io.BytesIO(base64.b64decode(encoded_image)))
 
 
-def _bytes_to_list(content: bytes) -> List:
+def _bytes_to_list(content: bytes) -> list:
     """Parse bytes from a Response object into a Python list.
 
     Expects the response body to be JSON-encoded data.
@@ -251,7 +238,7 @@ def _bytes_to_list(content: bytes) -> List:
     return json.loads(content.decode())
 
 
-def _bytes_to_dict(content: bytes) -> Dict:
+def _bytes_to_dict(content: bytes) -> dict:
     """Parse bytes from a Response object into a Python dictionary.
 
     Expects the response body to be JSON-encoded data.
@@ -271,7 +258,7 @@ def _bytes_to_image(content: bytes) -> "Image":
     return Image.open(io.BytesIO(content))
 
 
-def _as_dict(response: Union[bytes, Dict]) -> Dict:
+def _as_dict(response: Union[bytes, dict]) -> dict:
     return json.loads(response) if isinstance(response, bytes) else response
 
 
@@ -397,14 +384,14 @@ async def _async_yield_from(client: httpx.AsyncClient, response: httpx.Response)
 # For more details, see https://github.com/huggingface/text-generation-inference and
 # https://huggingface.co/docs/api-inference/detailed_parameters#text-generation-task.
 
-_UNSUPPORTED_TEXT_GENERATION_KWARGS: Dict[Optional[str], List[str]] = {}
+_UNSUPPORTED_TEXT_GENERATION_KWARGS: dict[Optional[str], list[str]] = {}
 
 
-def _set_unsupported_text_generation_kwargs(model: Optional[str], unsupported_kwargs: List[str]) -> None:
+def _set_unsupported_text_generation_kwargs(model: Optional[str], unsupported_kwargs: list[str]) -> None:
     _UNSUPPORTED_TEXT_GENERATION_KWARGS.setdefault(model, []).extend(unsupported_kwargs)
 
 
-def _get_unsupported_text_generation_kwargs(model: Optional[str]) -> List[str]:
+def _get_unsupported_text_generation_kwargs(model: Optional[str]) -> list[str]:
     return _UNSUPPORTED_TEXT_GENERATION_KWARGS.get(model, [])
 
 

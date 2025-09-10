@@ -4,7 +4,6 @@
 # See './src/huggingface_hub/inference/_text_generation.py' for details.
 import json
 import unittest
-from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -45,7 +44,7 @@ class TestTextGenerationErrors(unittest.TestCase):
             raise_text_generation_error(error)
 
 
-def _mocked_error(payload: Dict) -> MagicMock:
+def _mocked_error(payload: dict) -> MagicMock:
     error = HfHubHTTPError("message", response=MagicMock())
     error.response.json.return_value = payload
     return error

@@ -3,7 +3,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -854,6 +854,6 @@ class TestStringFormatters(unittest.TestCase):
             )
 
 
-def is_sublist(sub: List[Any], full: List[Any]) -> bool:
+def is_sublist(sub: list[Any], full: list[Any]) -> bool:
     it = iter(full)
     return all(item in it for item in sub)

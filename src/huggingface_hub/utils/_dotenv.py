@@ -1,14 +1,14 @@
 # AI-generated module (ChatGPT)
 import re
-from typing import Dict, Optional
+from typing import Optional
 
 
-def load_dotenv(dotenv_str: str, environ: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+def load_dotenv(dotenv_str: str, environ: Optional[dict[str, str]] = None) -> dict[str, str]:
     """
     Parse a DOTENV-format string and return a dictionary of key-value pairs.
     Handles quoted values, comments, export keyword, and blank lines.
     """
-    env: Dict[str, str] = {}
+    env: dict[str, str] = {}
     line_pattern = re.compile(
         r"""
         ^\s*

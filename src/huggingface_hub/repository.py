@@ -6,7 +6,7 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Dict, Iterator, List, Optional, Tuple, TypedDict, Union
+from typing import Callable, Iterator, Optional, TypedDict, Union
 from urllib.parse import urlparse
 
 from huggingface_hub import constants
@@ -238,7 +238,7 @@ def is_binary_file(filename: Union[str, Path]) -> bool:
         return True
 
 
-def files_to_be_staged(pattern: str = ".", folder: Union[str, Path, None] = None) -> List[str]:
+def files_to_be_staged(pattern: str = ".", folder: Union[str, Path, None] = None) -> list[str]:
     """
     Returns a list of filenames that are to be staged.
 
@@ -249,7 +249,7 @@ def files_to_be_staged(pattern: str = ".", folder: Union[str, Path, None] = None
             The folder in which to run the command.
 
     Returns:
-        `List[str]`: List of files that are to be staged.
+        `list[str]`: List of files that are to be staged.
     """
     try:
         p = run_subprocess("git ls-files --exclude-standard -mo".split() + [pattern], folder)
@@ -333,7 +333,7 @@ def _lfs_log_progress():
         the tail.
         """
         # Key is tuple(state, filename), value is a dict(tqdm bar and a previous value)
-        pbars: Dict[Tuple[str, str], PbarT] = {}
+        pbars: dict[tuple[str, str], PbarT] = {}
 
         def close_pbars():
             for pbar in pbars.values():
@@ -438,7 +438,7 @@ class Repository:
     > https://huggingface.co/docs/huggingface_hub/concepts/git_vs_http.
     """
 
-    command_queue: List[CommandInProgress]
+    command_queue: list[CommandInProgress]
 
     @validate_hf_hub_args
     @_deprecate_method(
@@ -790,13 +790,13 @@ class Repository:
             url = url[:-1]
         return f"{url}/commit/{sha}"
 
-    def list_deleted_files(self) -> List[str]:
+    def list_deleted_files(self) -> list[str]:
         """
         Returns a list of the files that are deleted in the working directory or
         index.
 
         Returns:
-            `List[str]`: A list of files that have been deleted in the working
+            `list[str]`: A list of files that have been deleted in the working
             directory or index.
         """
         try:
@@ -825,7 +825,7 @@ class Repository:
 
         return deleted_files
 
-    def lfs_track(self, patterns: Union[str, List[str]], filename: bool = False):
+    def lfs_track(self, patterns: Union[str, list[str]], filename: bool = False):
         """
         Tell git-lfs to track files according to a pattern.
 
@@ -834,7 +834,7 @@ class Repository:
         filename will be escaped when writing to the `.gitattributes` file.
 
         Args:
-            patterns (`Union[str, List[str]]`):
+            patterns (`Union[str, list[str]]`):
                 The pattern, or list of patterns, to track with git-lfs.
             filename (`bool`, *optional*, defaults to `False`):
                 Whether to use the patterns as literal filenames.
@@ -850,12 +850,12 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-    def lfs_untrack(self, patterns: Union[str, List[str]]):
+    def lfs_untrack(self, patterns: Union[str, list[str]]):
         """
         Tell git-lfs to untrack those files.
 
         Args:
-            patterns (`Union[str, List[str]]`):
+            patterns (`Union[str, list[str]]`):
                 The pattern, or list of patterns, to untrack with git-lfs.
         """
         if isinstance(patterns, str):
@@ -880,7 +880,7 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-    def auto_track_binary_files(self, pattern: str = ".") -> List[str]:
+    def auto_track_binary_files(self, pattern: str = ".") -> list[str]:
         """
         Automatically track binary files with git-lfs.
 
@@ -889,7 +889,7 @@ class Repository:
                 The pattern with which to track files that are binary.
 
         Returns:
-            `List[str]`: List of filenames that are now tracked due to being
+            `list[str]`: List of filenames that are now tracked due to being
             binary files
         """
         files_to_be_tracked_with_lfs = []
@@ -923,7 +923,7 @@ class Repository:
 
         return files_to_be_tracked_with_lfs
 
-    def auto_track_large_files(self, pattern: str = ".") -> List[str]:
+    def auto_track_large_files(self, pattern: str = ".") -> list[str]:
         """
         Automatically track large files (files that weigh more than 10MBs) with
         git-lfs.
@@ -933,7 +933,7 @@ class Repository:
                 The pattern with which to track files that are above 10MBs.
 
         Returns:
-            `List[str]`: List of filenames that are now tracked due to their
+            `list[str]`: List of filenames that are now tracked due to their
             size.
         """
         files_to_be_tracked_with_lfs = []
@@ -1054,7 +1054,7 @@ class Repository:
         upstream: Optional[str] = None,
         blocking: bool = True,
         auto_lfs_prune: bool = False,
-    ) -> Union[str, Tuple[str, CommandInProgress]]:
+    ) -> Union[str, tuple[str, CommandInProgress]]:
         """
         git push
 
@@ -1292,7 +1292,7 @@ class Repository:
         blocking: bool = True,
         clean_ok: bool = True,
         auto_lfs_prune: bool = False,
-    ) -> Union[None, str, Tuple[str, CommandInProgress]]:
+    ) -> Union[None, str, tuple[str, CommandInProgress]]:
         """
         Helper to add, commit, and push files to remote repository on the
         HuggingFace Hub. Will automatically track large files (>10MB).
@@ -1427,13 +1427,13 @@ class Repository:
 
             os.chdir(current_working_directory)
 
-    def repocard_metadata_load(self) -> Optional[Dict]:
+    def repocard_metadata_load(self) -> Optional[dict]:
         filepath = os.path.join(self.local_dir, constants.REPOCARD_NAME)
         if os.path.isfile(filepath):
             return metadata_load(filepath)
         return None
 
-    def repocard_metadata_save(self, data: Dict) -> None:
+    def repocard_metadata_save(self, data: dict) -> None:
         return metadata_save(os.path.join(self.local_dir, constants.REPOCARD_NAME), data)
 
     @property

@@ -20,7 +20,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, FrozenSet, List, Literal, Optional, Set, Union
+from typing import Literal, Optional, Union
 
 from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
@@ -116,9 +116,9 @@ class CachedRevisionInfo:
         snapshot_path (`Path`):
             Path to the revision directory in the `snapshots` folder. It contains the
             exact tree structure as the repo on the Hub.
-        files: (`FrozenSet[CachedFileInfo]`):
+        files: (`frozenset[CachedFileInfo]`):
             Set of [`~CachedFileInfo`] describing all files contained in the snapshot.
-        refs (`FrozenSet[str]`):
+        refs (`frozenset[str]`):
             Set of `refs` pointing to this revision. If the revision has no `refs`, it
             is considered detached.
             Example: `{"main", "2.4.0"}` or `{"refs/pr/1"}`.
@@ -140,8 +140,8 @@ class CachedRevisionInfo:
     commit_hash: str
     snapshot_path: Path
     size_on_disk: int
-    files: FrozenSet[CachedFileInfo]
-    refs: FrozenSet[str]
+    files: frozenset[CachedFileInfo]
+    refs: frozenset[str]
 
     last_modified: float
 
@@ -187,7 +187,7 @@ class CachedRepoInfo:
             Sum of the blob file sizes in the cached repo.
         nb_files (`int`):
             Total number of blob files in the cached repo.
-        revisions (`FrozenSet[CachedRevisionInfo]`):
+        revisions (`frozenset[CachedRevisionInfo]`):
             Set of [`~CachedRevisionInfo`] describing all revisions cached in the repo.
         last_accessed (`float`):
             Timestamp of the last time a blob file of the repo has been accessed.
@@ -210,7 +210,7 @@ class CachedRepoInfo:
     repo_path: Path
     size_on_disk: int
     nb_files: int
-    revisions: FrozenSet[CachedRevisionInfo]
+    revisions: frozenset[CachedRevisionInfo]
 
     last_accessed: float
     last_modified: float
@@ -245,7 +245,7 @@ class CachedRepoInfo:
         return _format_size(self.size_on_disk)
 
     @property
-    def refs(self) -> Dict[str, CachedRevisionInfo]:
+    def refs(self) -> dict[str, CachedRevisionInfo]:
         """
         (property) Mapping between `refs` and revision data structures.
         """
@@ -262,21 +262,21 @@ class DeleteCacheStrategy:
     Args:
         expected_freed_size (`float`):
             Expected freed size once strategy is executed.
-        blobs (`FrozenSet[Path]`):
+        blobs (`frozenset[Path]`):
             Set of blob file paths to be deleted.
-        refs (`FrozenSet[Path]`):
+        refs (`frozenset[Path]`):
             Set of reference file paths to be deleted.
-        repos (`FrozenSet[Path]`):
+        repos (`frozenset[Path]`):
             Set of entire repo paths to be deleted.
-        snapshots (`FrozenSet[Path]`):
+        snapshots (`frozenset[Path]`):
             Set of snapshots to be deleted (directory of symlinks).
     """
 
     expected_freed_size: int
-    blobs: FrozenSet[Path]
-    refs: FrozenSet[Path]
-    repos: FrozenSet[Path]
-    snapshots: FrozenSet[Path]
+    blobs: frozenset[Path]
+    refs: frozenset[Path]
+    repos: frozenset[Path]
+    snapshots: frozenset[Path]
 
     @property
     def expected_freed_size_str(self) -> str:
@@ -331,10 +331,10 @@ class HFCacheInfo:
     Args:
         size_on_disk (`int`):
             Sum of all valid repo sizes in the cache-system.
-        repos (`FrozenSet[CachedRepoInfo]`):
+        repos (`frozenset[CachedRepoInfo]`):
             Set of [`~CachedRepoInfo`] describing all valid cached repos found on the
             cache-system while scanning.
-        warnings (`List[CorruptedCacheException]`):
+        warnings (`list[CorruptedCacheException]`):
             List of [`~CorruptedCacheException`] that occurred while scanning the cache.
             Those exceptions are captured so that the scan can continue. Corrupted repos
             are skipped from the scan.
@@ -345,8 +345,8 @@ class HFCacheInfo:
     """
 
     size_on_disk: int
-    repos: FrozenSet[CachedRepoInfo]
-    warnings: List[CorruptedCacheException]
+    repos: frozenset[CachedRepoInfo]
+    warnings: list[CorruptedCacheException]
 
     @property
     def size_on_disk_str(self) -> str:
@@ -393,9 +393,9 @@ class HFCacheInfo:
         > be executed. The [`~utils.DeleteCacheStrategy`] is not meant to be modified but
         > allows having a dry run before actually executing the deletion.
         """
-        hashes_to_delete: Set[str] = set(revisions)
+        hashes_to_delete: set[str] = set(revisions)
 
-        repos_with_revisions: Dict[CachedRepoInfo, Set[CachedRevisionInfo]] = defaultdict(set)
+        repos_with_revisions: dict[CachedRepoInfo, set[CachedRevisionInfo]] = defaultdict(set)
 
         for repo in self.repos:
             for revision in repo.revisions:
@@ -406,10 +406,10 @@ class HFCacheInfo:
         if len(hashes_to_delete) > 0:
             logger.warning(f"Revision(s) not found - cannot delete them: {', '.join(hashes_to_delete)}")
 
-        delete_strategy_blobs: Set[Path] = set()
-        delete_strategy_refs: Set[Path] = set()
-        delete_strategy_repos: Set[Path] = set()
-        delete_strategy_snapshots: Set[Path] = set()
+        delete_strategy_blobs: set[Path] = set()
+        delete_strategy_refs: set[Path] = set()
+        delete_strategy_repos: set[Path] = set()
+        delete_strategy_snapshots: set[Path] = set()
         delete_strategy_expected_freed_size = 0
 
         for affected_repo, revisions_to_delete in repos_with_revisions.items():
@@ -651,8 +651,8 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
             f"Scan cache expects a directory but found a file: {cache_dir}. Please use `cache_dir` argument or set `HF_HUB_CACHE` environment variable."
         )
 
-    repos: Set[CachedRepoInfo] = set()
-    warnings: List[CorruptedCacheException] = []
+    repos: set[CachedRepoInfo] = set()
+    warnings: list[CorruptedCacheException] = []
     for repo_path in cache_dir.iterdir():
         if repo_path.name == ".locks":  # skip './.locks/' folder
             continue
@@ -688,7 +688,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
             f"Repo type must be `dataset`, `model` or `space`, found `{repo_type}` ({repo_path})."
         )
 
-    blob_stats: Dict[Path, os.stat_result] = {}  # Key is blob_path, value is blob stats
+    blob_stats: dict[Path, os.stat_result] = {}  # Key is blob_path, value is blob stats
 
     snapshots_path = repo_path / "snapshots"
     refs_path = repo_path / "refs"
@@ -699,7 +699,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
     # Scan over `refs` directory
 
     # key is revision hash, value is set of refs
-    refs_by_hash: Dict[str, Set[str]] = defaultdict(set)
+    refs_by_hash: dict[str, set[str]] = defaultdict(set)
     if refs_path.exists():
         # Example of `refs` directory
         # ── refs
@@ -722,7 +722,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
             refs_by_hash[commit_hash].add(ref_name)
 
     # Scan snapshots directory
-    cached_revisions: Set[CachedRevisionInfo] = set()
+    cached_revisions: set[CachedRevisionInfo] = set()
     for revision_path in snapshots_path.iterdir():
         # Ignore OS-created helper files
         if revision_path.name in FILES_TO_IGNORE:

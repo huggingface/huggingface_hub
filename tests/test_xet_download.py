@@ -1,7 +1,6 @@
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Tuple
 from unittest.mock import DEFAULT, Mock, patch
 
 from huggingface_hub import snapshot_download
@@ -318,7 +317,7 @@ class TestXetSnapshotDownload:
 
         connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers={})
 
-        def token_refresher() -> Tuple[str, int]:
+        def token_refresher() -> tuple[str, int]:
             connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers={})
             return connection_info.access_token, connection_info.expiration_unix_epoch
 

@@ -1,6 +1,6 @@
 import inspect
 from dataclasses import asdict, astuple, dataclass, is_dataclass
-from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union, get_type_hints
+from typing import Any, Literal, Optional, Union, get_type_hints
 
 import jedi
 import pytest
@@ -180,18 +180,18 @@ def test_custom_validator_must_be_callable():
         ("John", Literal["John", "Doe"]),
         (5, Literal[4, 5, 6]),
         # List
-        ([1, 2, 3], List[int]),
-        ([1, 2, "3"], List[Union[int, str]]),
+        ([1, 2, 3], list[int]),
+        ([1, 2, "3"], list[Union[int, str]]),
         # Tuple
-        ((1, 2, 3), Tuple[int, int, int]),
-        ((1, 2, "3"), Tuple[int, int, str]),
-        ((1, 2, 3, 4), Tuple[int, ...]),
+        ((1, 2, 3), tuple[int, int, int]),
+        ((1, 2, "3"), tuple[int, int, str]),
+        ((1, 2, 3, 4), tuple[int, ...]),
         # Dict
-        ({"a": 1, "b": 2}, Dict[str, int]),
-        ({"a": 1, "b": "2"}, Dict[str, Union[int, str]]),
+        ({"a": 1, "b": 2}, dict[str, int]),
+        ({"a": 1, "b": "2"}, dict[str, Union[int, str]]),
         # Set
-        ({1, 2, 3}, Set[int]),
-        ({1, 2, "3"}, Set[Union[int, str]]),
+        ({1, 2, 3}, set[int]),
+        ({1, 2, "3"}, set[Union[int, str]]),
         # Custom classes
         (DummyClass(), DummyClass),
         # Any
@@ -206,13 +206,13 @@ def test_custom_validator_must_be_callable():
                     (2, DummyClass(), None),
                 ],
             },
-            Dict[
+            dict[
                 str,
-                List[
-                    Tuple[
+                list[
+                    tuple[
                         int,
                         DummyClass,
-                        Optional[Set[Union[int, str],]],
+                        Optional[set[Union[int, str],]],
                     ]
                 ],
             ],
@@ -241,19 +241,19 @@ def test_type_validator_valid(value, type_annotation):
         ("Ada", Literal["John", "Doe"]),
         (3, Literal[4, 5, 6]),
         # List
-        (5, List[int]),
-        ([1, 2, "3"], List[int]),
+        (5, list[int]),
+        ([1, 2, "3"], list[int]),
         # Tuple
-        (5, Tuple[int, int, int]),
-        ((1, 2, "3"), Tuple[int, int, int]),
-        ((1, 2, 3, 4), Tuple[int, int, int]),
-        ((1, 2, "3", 4), Tuple[int, ...]),
+        (5, tuple[int, int, int]),
+        ((1, 2, "3"), tuple[int, int, int]),
+        ((1, 2, 3, 4), tuple[int, int, int]),
+        ((1, 2, "3", 4), tuple[int, ...]),
         # Dict
-        (5, Dict[str, int]),
-        ({"a": 1, "b": "2"}, Dict[str, int]),
+        (5, dict[str, int]),
+        ({"a": 1, "b": "2"}, dict[str, int]),
         # Set
-        (5, Set[int]),
-        ({1, 2, "3"}, Set[int]),
+        (5, set[int]),
+        ({1, 2, "3"}, set[int]),
         # Custom classes
         (5, DummyClass),
         ("John", DummyClass),

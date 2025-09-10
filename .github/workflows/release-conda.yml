@@ -26,7 +26,7 @@ jobs:
         with:
           auto-update-conda: true
           auto-activate-base: false
-          python-version: 3.8
+          python-version: 3.9
           activate-environment: "build-hub"
 
       - name: Setup conda env

@@ -86,7 +86,7 @@ import os
 import warnings
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import ContextManager, Dict, Iterator, Optional, Union
+from typing import ContextManager, Iterator, Optional, Union
 
 from tqdm.auto import tqdm as old_tqdm
 
@@ -102,7 +102,7 @@ from ..constants import HF_HUB_DISABLE_PROGRESS_BARS
 # progress bar visibility through code. By default, progress bars are turned on.
 
 
-progress_bar_states: Dict[str, bool] = {}
+progress_bar_states: dict[str, bool] = {}
 
 
 def disable_progress_bars(name: Optional[str] = None) -> None:

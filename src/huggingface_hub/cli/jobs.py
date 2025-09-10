@@ -36,7 +36,7 @@ import re
 from argparse import Namespace, _SubParsersAction
 from dataclasses import asdict
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 
 from huggingface_hub import HfApi, SpaceHardware, get_token
 from huggingface_hub.errors import HfHubHTTPError
@@ -118,7 +118,7 @@ class RunCommand(BaseHuggingfaceCLICommand):
 
     def __init__(self, args: Namespace) -> None:
         self.image: str = args.image
-        self.command: List[str] = args.command
+        self.command: list[str] = args.command
         self.env: dict[str, Optional[str]] = {}
         if args.env_file:
             self.env.update(load_dotenv(Path(args.env_file).read_text(), environ=os.environ.copy()))
@@ -185,7 +185,7 @@ class LogsCommand(BaseHuggingfaceCLICommand):
             print(log)
 
 
-def _tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
+def _tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
     """
     Inspired by:
 
@@ -253,7 +253,7 @@ class PsCommand(BaseHuggingfaceCLICommand):
         self.namespace: Optional[str] = args.namespace
         self.token: Optional[str] = args.token
         self.format: Optional[str] = args.format
-        self.filters: Dict[str, str] = {}
+        self.filters: dict[str, str] = {}
 
         # Parse filter arguments (key=value pairs)
         for f in args.filter:
@@ -335,7 +335,7 @@ class PsCommand(BaseHuggingfaceCLICommand):
         except Exception as e:
             print(f"Unexpected error - {type(e).__name__}: {e}")
 
-    def _matches_filters(self, job_properties: Dict[str, str]) -> bool:
+    def _matches_filters(self, job_properties: dict[str, str]) -> bool:
         """Check if job matches all specified filters."""
         for key, pattern in self.filters.items():
             # Check if property exists
@@ -394,7 +394,7 @@ class InspectCommand(BaseHuggingfaceCLICommand):
     def __init__(self, args: Namespace) -> None:
         self.namespace: Optional[str] = args.namespace
         self.token: Optional[str] = args.token
-        self.job_ids: List[str] = args.job_ids
+        self.job_ids: list[str] = args.job_ids
 
     def run(self) -> None:
         api = HfApi(token=self.token)
@@ -543,7 +543,7 @@ class UvCommand(BaseHuggingfaceCLICommand):
             print(log)
 
 
-def _get_extended_environ() -> Dict[str, str]:
+def _get_extended_environ() -> dict[str, str]:
     extended_environ = os.environ.copy()
     if (token := get_token()) is not None:
         extended_environ["HF_TOKEN"] = token
@@ -631,7 +631,7 @@ class ScheduledRunCommand(BaseHuggingfaceCLICommand):
     def __init__(self, args: Namespace) -> None:
         self.schedule: str = args.schedule
         self.image: str = args.image
-        self.command: List[str] = args.command
+        self.command: list[str] = args.command
         self.suspend: Optional[bool] = args.suspend
         self.concurrency: Optional[bool] = args.concurrency
         self.env: dict[str, Optional[str]] = {}
@@ -709,7 +709,7 @@ class ScheduledPsCommand(BaseHuggingfaceCLICommand):
         self.namespace: Optional[str] = args.namespace
         self.token: Optional[str] = args.token
         self.format: Optional[str] = args.format
-        self.filters: Dict[str, str] = {}
+        self.filters: dict[str, str] = {}
 
         # Parse filter arguments (key=value pairs)
         for f in args.filter:
@@ -821,7 +821,7 @@ class ScheduledPsCommand(BaseHuggingfaceCLICommand):
         except Exception as e:
             print(f"Unexpected error - {type(e).__name__}: {e}")
 
-    def _matches_filters(self, job_properties: Dict[str, str]) -> bool:
+    def _matches_filters(self, job_properties: dict[str, str]) -> bool:
         """Check if scheduled job matches all specified filters."""
         for key, pattern in self.filters.items():
             # Check if property exists
@@ -882,7 +882,7 @@ class ScheduledInspectCommand(BaseHuggingfaceCLICommand):
     def __init__(self, args: Namespace) -> None:
         self.namespace: Optional[str] = args.namespace
         self.token: Optional[str] = args.token
-        self.scheduled_job_ids: List[str] = args.scheduled_job_ids
+        self.scheduled_job_ids: list[str] = args.scheduled_job_ids
 
     def run(self) -> None:
         api = HfApi(token=self.token)
