@@ -48,9 +48,9 @@ def build_hf_headers(
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
-    headers: Optional[Dict[str, str]] = None,
+    headers: Optional[dict[str, str]] = None,
     is_write_action: bool = False,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Build headers dictionary to send in a HF Hub call.
 

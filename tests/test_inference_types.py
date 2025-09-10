@@ -1,6 +1,6 @@
 import inspect
 import json
-from typing import List, Optional, Union, get_args, get_origin
+from typing import Optional, Union, get_args, get_origin
 
 import pytest
 
@@ -18,8 +18,8 @@ class DummyType(BaseInferenceType):
 @dataclass_with_extra
 class DummyNestedType(BaseInferenceType):
     item: DummyType
-    items: List[DummyType]
-    maybe_items: Optional[List[DummyType]] = None
+    items: list[DummyType]
+    maybe_items: Optional[list[DummyType]] = None
 
 
 DUMMY_AS_DICT = {"foo": 42, "bar": "baz"}

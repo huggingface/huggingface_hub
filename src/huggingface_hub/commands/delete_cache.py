@@ -197,9 +197,9 @@ def _get_repo_sorting_key(repo: CachedRepoInfo, sort_by: Optional[SortingOption_
 @require_inquirer_py
 def _manual_review_tui(
     hf_cache_info: HFCacheInfo,
-    preselected: List[str],
+    preselected: list[str],
     sort_by: Optional[SortingOption_T] = None,
-) -> List[str]:
+) -> list[str]:
     """Ask the user for a manual review of the revisions to delete.
 
     Displays a multi-select menu in the terminal (TUI).
@@ -254,7 +254,7 @@ def _ask_for_confirmation_tui(message: str, default: bool = True) -> bool:
 
 def _get_tui_choices_from_scan(
     repos: Iterable[CachedRepoInfo],
-    preselected: List[str],
+    preselected: list[str],
     sort_by: Optional[SortingOption_T] = None,
 ) -> List:
     """Build a list of choices from the scanned repos.
@@ -262,7 +262,7 @@ def _get_tui_choices_from_scan(
     Args:
         repos (*Iterable[`CachedRepoInfo`]*):
             List of scanned repos on which we want to delete revisions.
-        preselected (*List[`str`]*):
+        preselected (*list[`str`]*):
             List of revision hashes that will be preselected.
         sort_by (*Optional[SortingOption_T]*):
             Sorting direction. Choices: "alphabetical", "lastUpdated", "lastUsed", "size".
@@ -270,7 +270,7 @@ def _get_tui_choices_from_scan(
     Return:
         The list of choices to pass to `inquirer.checkbox`.
     """
-    choices: List[Union[Choice, Separator]] = []
+    choices: list[Union[Choice, Separator]] = []
 
     # First choice is to cancel the deletion
     choices.append(
@@ -312,9 +312,9 @@ def _get_tui_choices_from_scan(
 
 def _manual_review_no_tui(
     hf_cache_info: HFCacheInfo,
-    preselected: List[str],
+    preselected: list[str],
     sort_by: Optional[SortingOption_T] = None,
-) -> List[str]:
+) -> list[str]:
     """Ask the user for a manual review of the revisions to delete.
 
     Used when TUI is disabled. Manual review happens in a separate tmp file that the
@@ -390,7 +390,7 @@ def _ask_for_confirmation_no_tui(message: str, default: bool = True) -> bool:
         print(f"Invalid input. Must be one of {ALL}")
 
 
-def _get_expectations_str(hf_cache_info: HFCacheInfo, selected_hashes: List[str]) -> str:
+def _get_expectations_str(hf_cache_info: HFCacheInfo, selected_hashes: list[str]) -> str:
     """Format a string to display to the user how much space would be saved.
 
     Example:
@@ -405,7 +405,7 @@ def _get_expectations_str(hf_cache_info: HFCacheInfo, selected_hashes: List[str]
     return f"{len(selected_hashes)} revisions selected counting for {strategy.expected_freed_size_str}."
 
 
-def _read_manual_review_tmp_file(tmp_path: str) -> List[str]:
+def _read_manual_review_tmp_file(tmp_path: str) -> list[str]:
     """Read the manually reviewed instruction file and return a list of revision hash.
 
     Example:

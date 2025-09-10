@@ -19,7 +19,7 @@ import os
 import platform
 import sys
 import warnings
-from typing import Any, Dict
+from typing import Any
 
 from .. import __version__, constants
 
@@ -312,7 +312,7 @@ def is_colab_enterprise() -> bool:
     return os.environ.get("VERTEX_PRODUCT") == "COLAB_ENTERPRISE"
 
 
-def dump_environment_info() -> Dict[str, Any]:
+def dump_environment_info() -> dict[str, Any]:
     """Dump information about the machine to help debugging issues.
 
     Similar helper exist in:
@@ -326,7 +326,7 @@ def dump_environment_info() -> Dict[str, Any]:
     token = get_token()
 
     # Generic machine info
-    info: Dict[str, Any] = {
+    info: dict[str, Any] = {
         "huggingface_hub version": get_hf_hub_version(),
         "Platform": platform.platform(),
         "Python version": get_python_version(),

@@ -1,7 +1,7 @@
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Type, Union
+from typing import Any, Dict, Literal, Optional, Union
 
 import yaml
 
@@ -751,7 +751,7 @@ def metadata_update(
     commit_message = commit_message if commit_message is not None else "Update metadata with huggingface_hub"
 
     # Card class given repo_type
-    card_class: Type[RepoCard]
+    card_class: type[RepoCard]
     if repo_type is None or repo_type == "model":
         card_class = ModelCard
     elif repo_type == "dataset":

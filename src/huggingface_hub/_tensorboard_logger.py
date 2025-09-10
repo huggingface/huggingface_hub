@@ -14,7 +14,7 @@
 """Contains a logger to push training logs to the Hub, using Tensorboard."""
 
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from ._commit_scheduler import CommitScheduler
 from .errors import EntryNotFoundError
@@ -77,10 +77,10 @@ class HFSummaryWriter(_RuntimeSummaryWriter):
             Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists.
         path_in_repo (`str`, *optional*):
             The path to the folder in the repo where the logs will be pushed. Defaults to "tensorboard/".
-        repo_allow_patterns (`List[str]` or `str`, *optional*):
+        repo_allow_patterns (`list[str]` or `str`, *optional*):
             A list of patterns to include in the upload. Defaults to `"*.tfevents.*"`. Check out the
             [upload guide](https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-folder) for more details.
-        repo_ignore_patterns (`List[str]` or `str`, *optional*):
+        repo_ignore_patterns (`list[str]` or `str`, *optional*):
             A list of patterns to exclude in the upload. Check out the
             [upload guide](https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-folder) for more details.
         token (`str`, *optional*):
@@ -137,8 +137,8 @@ class HFSummaryWriter(_RuntimeSummaryWriter):
         repo_revision: Optional[str] = None,
         repo_private: Optional[bool] = None,
         path_in_repo: Optional[str] = "tensorboard",
-        repo_allow_patterns: Optional[Union[List[str], str]] = "*.tfevents.*",
-        repo_ignore_patterns: Optional[Union[List[str], str]] = None,
+        repo_allow_patterns: Optional[Union[list[str], str]] = "*.tfevents.*",
+        repo_ignore_patterns: Optional[Union[list[str], str]] = None,
         token: Optional[str] = None,
         **kwargs,
     ):

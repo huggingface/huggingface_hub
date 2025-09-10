@@ -50,7 +50,7 @@ import os
 import time
 import warnings
 from argparse import Namespace, _SubParsersAction
-from typing import List, Optional
+from typing import Optional
 
 from huggingface_hub import logging
 from huggingface_hub._commit_scheduler import CommitScheduler
@@ -144,9 +144,9 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         self.revision: Optional[str] = args.revision
         self.private: bool = args.private
 
-        self.include: Optional[List[str]] = args.include
-        self.exclude: Optional[List[str]] = args.exclude
-        self.delete: Optional[List[str]] = args.delete
+        self.include: Optional[list[str]] = args.include
+        self.exclude: Optional[list[str]] = args.exclude
+        self.delete: Optional[list[str]] = args.delete
 
         self.commit_message: Optional[str] = args.commit_message
         self.commit_description: Optional[str] = args.commit_description

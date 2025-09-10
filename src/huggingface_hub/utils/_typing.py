@@ -15,10 +15,10 @@
 """Handle typing imports based on system compatibility."""
 
 import sys
-from typing import Any, Callable, List, Literal, Type, TypeVar, Union, get_args, get_origin
+from typing import Any, Callable, Literal, Type, TypeVar, Union, get_args, get_origin
 
 
-UNION_TYPES: List[Any] = [Union]
+UNION_TYPES: list[Any] = [Union]
 if sys.version_info >= (3, 10):
     from types import UnionType
 

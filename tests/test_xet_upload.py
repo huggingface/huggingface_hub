@@ -15,7 +15,6 @@
 from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
-from typing import Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -366,7 +365,7 @@ class TestXetE2E(TestXetUpload):
 
         # manually construct parameters to hf_xet.download_files and use a locally defined token_refresher function
         # to verify that token refresh works as expected.
-        def token_refresher() -> Tuple[str, int]:
+        def token_refresher() -> tuple[str, int]:
             # Issue a token refresh by returning a new access token and expiration time
             new_connection = refresh_xet_connection_info(file_data=xet_filedata, headers=headers)
             return new_connection.access_token, new_connection.expiration_unix_epoch

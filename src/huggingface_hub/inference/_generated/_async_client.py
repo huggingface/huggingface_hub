@@ -25,7 +25,7 @@ import os
 import re
 import warnings
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, Literal, Optional, Union, overload
 
 import httpx
 
@@ -135,13 +135,13 @@ class AsyncInferenceClient:
             arguments are mutually exclusive and have the exact same behavior.
         timeout (`float`, `optional`):
             The maximum number of seconds to wait for a response from the server. Defaults to None, meaning it will loop until the server is available.
-        headers (`Dict[str, str]`, `optional`):
+        headers (`dict[str, str]`, `optional`):
             Additional headers to send to the server. By default only the authorization and user-agent headers are sent.
             Values in this dictionary will override the default values.
         bill_to (`str`, `optional`):
             The billing account to use for the requests. By default the requests are billed on the user's account.
             Requests can only be billed to an organization the user is a member of, and which has subscribed to Enterprise Hub.
-        cookies (`Dict[str, str]`, `optional`):
+        cookies (`dict[str, str]`, `optional`):
             Additional cookies to send to the server.
         base_url (`str`, `optional`):
             Base URL to run inference. This is a duplicated argument from `model` to make [`InferenceClient`]
@@ -159,8 +159,8 @@ class AsyncInferenceClient:
         provider: Optional[PROVIDER_OR_POLICY_T] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
-        headers: Optional[Dict[str, str]] = None,
-        cookies: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
+        cookies: Optional[dict[str, str]] = None,
         bill_to: Optional[str] = None,
         # OpenAI compatibility
         base_url: Optional[str] = None,
@@ -321,7 +321,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         top_k: Optional[int] = None,
         function_to_apply: Optional["AudioClassificationOutputTransform"] = None,
-    ) -> List[AudioClassificationOutputElement]:
+    ) -> list[AudioClassificationOutputElement]:
         """
         Perform audio classification on the provided audio content.
 
@@ -339,7 +339,7 @@ class AsyncInferenceClient:
                 The function to apply to the model outputs in order to retrieve the scores.
 
         Returns:
-            `List[AudioClassificationOutputElement]`: List of [`AudioClassificationOutputElement`] items containing the predicted labels and their confidence.
+            `list[AudioClassificationOutputElement]`: List of [`AudioClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -377,7 +377,7 @@ class AsyncInferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[AudioToAudioOutputElement]:
+    ) -> list[AudioToAudioOutputElement]:
         """
         Performs multiple tasks related to audio-to-audio depending on the model (eg: speech enhancement, source separation).
 
@@ -391,7 +391,7 @@ class AsyncInferenceClient:
                 audio_to_audio will be used.
 
         Returns:
-            `List[AudioToAudioOutputElement]`: A list of [`AudioToAudioOutputElement`] items containing audios label, content-type, and audio content in blob.
+            `list[AudioToAudioOutputElement]`: A list of [`AudioToAudioOutputElement`] items containing audios label, content-type, and audio content in blob.
 
         Raises:
             `InferenceTimeoutError`:
@@ -477,24 +477,24 @@ class AsyncInferenceClient:
     @overload
     async def chat_completion(  # type: ignore
         self,
-        messages: List[Union[Dict, ChatCompletionInputMessage]],
+        messages: list[Union[Dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: Literal[False] = False,
         frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[List[float]] = None,
+        logit_bias: Optional[list[float]] = None,
         logprobs: Optional[bool] = None,
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
         tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
         extra_body: Optional[Dict] = None,
@@ -503,24 +503,24 @@ class AsyncInferenceClient:
     @overload
     async def chat_completion(  # type: ignore
         self,
-        messages: List[Union[Dict, ChatCompletionInputMessage]],
+        messages: list[Union[Dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: Literal[True] = True,
         frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[List[float]] = None,
+        logit_bias: Optional[list[float]] = None,
         logprobs: Optional[bool] = None,
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
         tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
         extra_body: Optional[Dict] = None,
@@ -529,24 +529,24 @@ class AsyncInferenceClient:
     @overload
     async def chat_completion(
         self,
-        messages: List[Union[Dict, ChatCompletionInputMessage]],
+        messages: list[Union[Dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: bool = False,
         frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[List[float]] = None,
+        logit_bias: Optional[list[float]] = None,
         logprobs: Optional[bool] = None,
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
         tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
         extra_body: Optional[Dict] = None,
@@ -554,25 +554,25 @@ class AsyncInferenceClient:
 
     async def chat_completion(
         self,
-        messages: List[Union[Dict, ChatCompletionInputMessage]],
+        messages: list[Union[Dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: bool = False,
         # Parameters from ChatCompletionInput (handled manually)
         frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[List[float]] = None,
+        logit_bias: Optional[list[float]] = None,
         logprobs: Optional[bool] = None,
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
         tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
         extra_body: Optional[Dict] = None,
@@ -605,7 +605,7 @@ class AsyncInferenceClient:
             frequency_penalty (`float`, *optional*):
                 Penalizes new tokens based on their existing frequency
                 in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
-            logit_bias (`List[float]`, *optional*):
+            logit_bias (`list[float]`, *optional*):
                 Adjusts the likelihood of specific tokens appearing in the generated output.
             logprobs (`bool`, *optional*):
                 Whether to return log probabilities of the output tokens or not. If true, returns the log
@@ -621,7 +621,7 @@ class AsyncInferenceClient:
                 Grammar constraints. Can be either a JSONSchema or a regex.
             seed (Optional[`int`], *optional*):
                 Seed for reproducible control flow. Defaults to None.
-            stop (`List[str]`, *optional*):
+            stop (`list[str]`, *optional*):
                 Up to four strings which trigger the end of the response.
                 Defaults to None.
             stream (`bool`, *optional*):
@@ -977,8 +977,8 @@ class AsyncInferenceClient:
         max_question_len: Optional[int] = None,
         max_seq_len: Optional[int] = None,
         top_k: Optional[int] = None,
-        word_boxes: Optional[List[Union[List[float], str]]] = None,
-    ) -> List[DocumentQuestionAnsweringOutputElement]:
+        word_boxes: Optional[list[Union[list[float], str]]] = None,
+    ) -> list[DocumentQuestionAnsweringOutputElement]:
         """
         Answer questions on document images.
 
@@ -1008,11 +1008,11 @@ class AsyncInferenceClient:
             top_k (`int`, *optional*):
                 The number of answers to return (will be chosen by order of likelihood). Can return less than top_k
                 answers if there are not enough options available within the context.
-            word_boxes (`List[Union[List[float], str`, *optional*):
+            word_boxes (`list[Union[list[float], str`, *optional*):
                 A list of words and bounding boxes (normalized 0->1000). If provided, the inference will skip the OCR
                 step and use the provided bounding boxes instead.
         Returns:
-            `List[DocumentQuestionAnsweringOutputElement]`: a list of [`DocumentQuestionAnsweringOutputElement`] items containing the predicted label, associated probability, word ids, and page number.
+            `list[DocumentQuestionAnsweringOutputElement]`: a list of [`DocumentQuestionAnsweringOutputElement`] items containing the predicted label, associated probability, word ids, and page number.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1032,7 +1032,7 @@ class AsyncInferenceClient:
         """
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="document-question-answering", model=model_id)
-        inputs: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
+        inputs: dict[str, Any] = {"question": question, "image": _b64_encode(image)}
         request_parameters = provider_helper.prepare_request(
             inputs=inputs,
             parameters={
@@ -1131,9 +1131,9 @@ class AsyncInferenceClient:
         text: str,
         *,
         model: Optional[str] = None,
-        targets: Optional[List[str]] = None,
+        targets: Optional[list[str]] = None,
         top_k: Optional[int] = None,
-    ) -> List[FillMaskOutputElement]:
+    ) -> list[FillMaskOutputElement]:
         """
         Fill in a hole with a missing word (token to be precise).
 
@@ -1143,14 +1143,14 @@ class AsyncInferenceClient:
             model (`str`, *optional*):
                 The model to use for the fill mask task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended fill mask model will be used.
-            targets (`List[str`, *optional*):
+            targets (`list[str`, *optional*):
                 When passed, the model will limit the scores to the passed targets instead of looking up in the whole
                 vocabulary. If the provided targets are not in the model vocab, they will be tokenized and the first
                 resulting token will be used (with a warning, and that might be slower).
             top_k (`int`, *optional*):
                 When passed, overrides the number of predictions to return.
         Returns:
-            `List[FillMaskOutputElement]`: a list of [`FillMaskOutputElement`] items containing the predicted label, associated
+            `list[FillMaskOutputElement]`: a list of [`FillMaskOutputElement`] items containing the predicted label, associated
             probability, token reference, and completed text.
 
         Raises:
@@ -1190,7 +1190,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         function_to_apply: Optional["ImageClassificationOutputTransform"] = None,
         top_k: Optional[int] = None,
-    ) -> List[ImageClassificationOutputElement]:
+    ) -> list[ImageClassificationOutputElement]:
         """
         Perform image classification on the given image using the specified model.
 
@@ -1205,7 +1205,7 @@ class AsyncInferenceClient:
             top_k (`int`, *optional*):
                 When specified, limits the output to the top K most probable classes.
         Returns:
-            `List[ImageClassificationOutputElement]`: a list of [`ImageClassificationOutputElement`] items containing the predicted label and associated probability.
+            `list[ImageClassificationOutputElement]`: a list of [`ImageClassificationOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1243,7 +1243,7 @@ class AsyncInferenceClient:
         overlap_mask_area_threshold: Optional[float] = None,
         subtask: Optional["ImageSegmentationSubtask"] = None,
         threshold: Optional[float] = None,
-    ) -> List[ImageSegmentationOutputElement]:
+    ) -> list[ImageSegmentationOutputElement]:
         """
         Perform image segmentation on the given image using the specified model.
 
@@ -1268,7 +1268,7 @@ class AsyncInferenceClient:
             threshold (`float`, *optional*):
                 Probability threshold to filter out predicted masks.
         Returns:
-            `List[ImageSegmentationOutputElement]`: A list of [`ImageSegmentationOutputElement`] items containing the segmented masks and associated attributes.
+            `list[ImageSegmentationOutputElement]`: A list of [`ImageSegmentationOutputElement`] items containing the segmented masks and associated attributes.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1507,12 +1507,12 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        output_list: List[ImageToTextOutput] = ImageToTextOutput.parse_obj_as_list(response)
+        output_list: list[ImageToTextOutput] = ImageToTextOutput.parse_obj_as_list(response)
         return output_list[0]
 
     async def object_detection(
         self, image: ContentT, *, model: Optional[str] = None, threshold: Optional[float] = None
-    ) -> List[ObjectDetectionOutputElement]:
+    ) -> list[ObjectDetectionOutputElement]:
         """
         Perform object detection on the given image using the specified model.
 
@@ -1531,7 +1531,7 @@ class AsyncInferenceClient:
             threshold (`float`, *optional*):
                 The probability necessary to make a prediction.
         Returns:
-            `List[ObjectDetectionOutputElement]`: A list of [`ObjectDetectionOutputElement`] items containing the bounding boxes and associated attributes.
+            `list[ObjectDetectionOutputElement]`: A list of [`ObjectDetectionOutputElement`] items containing the bounding boxes and associated attributes.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1575,7 +1575,7 @@ class AsyncInferenceClient:
         max_question_len: Optional[int] = None,
         max_seq_len: Optional[int] = None,
         top_k: Optional[int] = None,
-    ) -> Union[QuestionAnsweringOutputElement, List[QuestionAnsweringOutputElement]]:
+    ) -> Union[QuestionAnsweringOutputElement, list[QuestionAnsweringOutputElement]]:
         """
         Retrieve the answer to a question from a given text.
 
@@ -1607,7 +1607,7 @@ class AsyncInferenceClient:
                 topk answers if there are not enough options available within the context.
 
         Returns:
-            Union[`QuestionAnsweringOutputElement`, List[`QuestionAnsweringOutputElement`]]:
+            Union[`QuestionAnsweringOutputElement`, list[`QuestionAnsweringOutputElement`]]:
                 When top_k is 1 or not provided, it returns a single `QuestionAnsweringOutputElement`.
                 When top_k is greater than 1, it returns a list of `QuestionAnsweringOutputElement`.
         Raises:
@@ -1648,15 +1648,15 @@ class AsyncInferenceClient:
         return output
 
     async def sentence_similarity(
-        self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
-    ) -> List[float]:
+        self, sentence: str, other_sentences: list[str], *, model: Optional[str] = None
+    ) -> list[float]:
         """
         Compute the semantic similarity between a sentence and a list of other sentences by comparing their embeddings.
 
         Args:
             sentence (`str`):
                 The main sentence to compare to others.
-            other_sentences (`List[str]`):
+            other_sentences (`list[str]`):
                 The list of sentences to compare to.
             model (`str`, *optional*):
                 The model to use for the sentence similarity task. Can be a model ID hosted on the Hugging Face Hub or a URL to
@@ -1664,7 +1664,7 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[float]`: The embedding representing the input text.
+            `list[float]`: The embedding representing the input text.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1707,7 +1707,7 @@ class AsyncInferenceClient:
         *,
         model: Optional[str] = None,
         clean_up_tokenization_spaces: Optional[bool] = None,
-        generate_parameters: Optional[Dict[str, Any]] = None,
+        generate_parameters: Optional[dict[str, Any]] = None,
         truncation: Optional["SummarizationTruncationStrategy"] = None,
     ) -> SummarizationOutput:
         """
@@ -1721,7 +1721,7 @@ class AsyncInferenceClient:
                 Inference Endpoint. If not provided, the default recommended model for summarization will be used.
             clean_up_tokenization_spaces (`bool`, *optional*):
                 Whether to clean up the potential extra spaces in the text output.
-            generate_parameters (`Dict[str, Any]`, *optional*):
+            generate_parameters (`dict[str, Any]`, *optional*):
                 Additional parametrization of the text generation algorithm.
             truncation (`"SummarizationTruncationStrategy"`, *optional*):
                 The truncation strategy to use.
@@ -1762,7 +1762,7 @@ class AsyncInferenceClient:
 
     async def table_question_answering(
         self,
-        table: Dict[str, Any],
+        table: dict[str, Any],
         query: str,
         *,
         model: Optional[str] = None,
@@ -1823,12 +1823,12 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return TableQuestionAnsweringOutputElement.parse_obj_as_instance(response)
 
-    async def tabular_classification(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[str]:
+    async def tabular_classification(self, table: dict[str, Any], *, model: Optional[str] = None) -> list[str]:
         """
         Classifying a target category (a group) based on a set of attributes.
 
         Args:
-            table (`Dict[str, Any]`):
+            table (`dict[str, Any]`):
                 Set of attributes to classify.
             model (`str`, *optional*):
                 The model to use for the tabular classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
@@ -1879,12 +1879,12 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return _bytes_to_list(response)
 
-    async def tabular_regression(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[float]:
+    async def tabular_regression(self, table: dict[str, Any], *, model: Optional[str] = None) -> list[float]:
         """
         Predicting a numerical target value given a set of attributes/features in a table.
 
         Args:
-            table (`Dict[str, Any]`):
+            table (`dict[str, Any]`):
                 Set of attributes stored in a table. The attributes used to predict the target can be both numerical and categorical.
             model (`str`, *optional*):
                 The model to use for the tabular regression task. Can be a model ID hosted on the Hugging Face Hub or a URL to
@@ -1937,7 +1937,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         top_k: Optional[int] = None,
         function_to_apply: Optional["TextClassificationOutputTransform"] = None,
-    ) -> List[TextClassificationOutputElement]:
+    ) -> list[TextClassificationOutputElement]:
         """
         Perform text classification (e.g. sentiment-analysis) on the given text.
 
@@ -1954,7 +1954,7 @@ class AsyncInferenceClient:
                 The function to apply to the model outputs in order to retrieve the scores.
 
         Returns:
-            `List[TextClassificationOutputElement]`: a list of [`TextClassificationOutputElement`] items containing the predicted label and associated probability.
+            `list[TextClassificationOutputElement]`: a list of [`TextClassificationOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -2008,8 +2008,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2038,8 +2038,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2068,8 +2068,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = None,  # Manual default value
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2098,8 +2098,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2128,8 +2128,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2157,8 +2157,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2214,9 +2214,9 @@ class AsyncInferenceClient:
                 Whether to prepend the prompt to the generated text
             seed (`int`, *optional*):
                 Random sampling seed
-            stop (`List[str]`, *optional*):
+            stop (`list[str]`, *optional*):
                 Stop generating tokens if a member of `stop` is generated.
-            stop_sequences (`List[str]`, *optional*):
+            stop_sequences (`list[str]`, *optional*):
                 Deprecated argument. Use `stop` instead.
             temperature (`float`, *optional*):
                 The value used to module the logits distribution.
@@ -2494,7 +2494,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         scheduler: Optional[str] = None,
         seed: Optional[int] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[dict[str, Any]] = None,
     ) -> "Image":
         """
         Generate an image based on a given text using a specified model.
@@ -2532,7 +2532,7 @@ class AsyncInferenceClient:
                 Override the scheduler with a compatible one.
             seed (`int`, *optional*):
                 Seed for the random number generator.
-            extra_body (`Dict[str, Any]`, *optional*):
+            extra_body (`dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
 
@@ -2632,11 +2632,11 @@ class AsyncInferenceClient:
         *,
         model: Optional[str] = None,
         guidance_scale: Optional[float] = None,
-        negative_prompt: Optional[List[str]] = None,
+        negative_prompt: Optional[list[str]] = None,
         num_frames: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
         seed: Optional[int] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[dict[str, Any]] = None,
     ) -> bytes:
         """
         Generate a video based on a given text.
@@ -2655,7 +2655,7 @@ class AsyncInferenceClient:
             guidance_scale (`float`, *optional*):
                 A higher guidance scale value encourages the model to generate videos closely linked to the text
                 prompt, but values too high may cause saturation and other artifacts.
-            negative_prompt (`List[str]`, *optional*):
+            negative_prompt (`list[str]`, *optional*):
                 One or several prompt to guide what NOT to include in video generation.
             num_frames (`float`, *optional*):
                 The num_frames parameter determines how many video frames are generated.
@@ -2664,7 +2664,7 @@ class AsyncInferenceClient:
                 expense of slower inference.
             seed (`int`, *optional*):
                 Seed for the random number generator.
-            extra_body (`Dict[str, Any]`, *optional*):
+            extra_body (`dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
 
@@ -2744,7 +2744,7 @@ class AsyncInferenceClient:
         top_p: Optional[float] = None,
         typical_p: Optional[float] = None,
         use_cache: Optional[bool] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[dict[str, Any]] = None,
     ) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
@@ -2806,7 +2806,7 @@ class AsyncInferenceClient:
                 paper](https://hf.co/papers/2202.00666) for more details.
             use_cache (`bool`, *optional*):
                 Whether the model should use the past last key/values attentions to speed up decoding
-            extra_body (`Dict[str, Any]`, *optional*):
+            extra_body (`dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
         Returns:
@@ -2939,9 +2939,9 @@ class AsyncInferenceClient:
         *,
         model: Optional[str] = None,
         aggregation_strategy: Optional["TokenClassificationAggregationStrategy"] = None,
-        ignore_labels: Optional[List[str]] = None,
+        ignore_labels: Optional[list[str]] = None,
         stride: Optional[int] = None,
-    ) -> List[TokenClassificationOutputElement]:
+    ) -> list[TokenClassificationOutputElement]:
         """
         Perform token classification on the given text.
         Usually used for sentence parsing, either grammatical, or Named Entity Recognition (NER) to understand keywords contained within text.
@@ -2955,13 +2955,13 @@ class AsyncInferenceClient:
                 Defaults to None.
             aggregation_strategy (`"TokenClassificationAggregationStrategy"`, *optional*):
                 The strategy used to fuse tokens based on model predictions
-            ignore_labels (`List[str`, *optional*):
+            ignore_labels (`list[str`, *optional*):
                 A list of labels to ignore
             stride (`int`, *optional*):
                 The number of overlapping tokens between chunks when splitting the input text.
 
         Returns:
-            `List[TokenClassificationOutputElement]`: List of [`TokenClassificationOutputElement`] items containing the entity group, confidence score, word, start and end index.
+            `list[TokenClassificationOutputElement]`: List of [`TokenClassificationOutputElement`] items containing the entity group, confidence score, word, start and end index.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -3018,7 +3018,7 @@ class AsyncInferenceClient:
         tgt_lang: Optional[str] = None,
         clean_up_tokenization_spaces: Optional[bool] = None,
         truncation: Optional["TranslationTruncationStrategy"] = None,
-        generate_parameters: Optional[Dict[str, Any]] = None,
+        generate_parameters: Optional[dict[str, Any]] = None,
     ) -> TranslationOutput:
         """
         Convert text from one language to another.
@@ -3043,7 +3043,7 @@ class AsyncInferenceClient:
                 Whether to clean up the potential extra spaces in the text output.
             truncation (`"TranslationTruncationStrategy"`, *optional*):
                 The truncation strategy to use.
-            generate_parameters (`Dict[str, Any]`, *optional*):
+            generate_parameters (`dict[str, Any]`, *optional*):
                 Additional parametrization of the text generation algorithm.
 
         Returns:
@@ -3106,7 +3106,7 @@ class AsyncInferenceClient:
         *,
         model: Optional[str] = None,
         top_k: Optional[int] = None,
-    ) -> List[VisualQuestionAnsweringOutputElement]:
+    ) -> list[VisualQuestionAnsweringOutputElement]:
         """
         Answering open-ended questions based on an image.
 
@@ -3123,7 +3123,7 @@ class AsyncInferenceClient:
                 The number of answers to return (will be chosen by order of likelihood). Note that we return less than
                 topk answers if there are not enough options available within the context.
         Returns:
-            `List[VisualQuestionAnsweringOutputElement]`: a list of [`VisualQuestionAnsweringOutputElement`] items containing the predicted label and associated probability.
+            `list[VisualQuestionAnsweringOutputElement]`: a list of [`VisualQuestionAnsweringOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             `InferenceTimeoutError`:
@@ -3162,21 +3162,21 @@ class AsyncInferenceClient:
     async def zero_shot_classification(
         self,
         text: str,
-        candidate_labels: List[str],
+        candidate_labels: list[str],
         *,
         multi_label: Optional[bool] = False,
         hypothesis_template: Optional[str] = None,
         model: Optional[str] = None,
-    ) -> List[ZeroShotClassificationOutputElement]:
+    ) -> list[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
 
         Args:
             text (`str`):
                 The input text to classify.
-            candidate_labels (`List[str]`):
+            candidate_labels (`list[str]`):
                 The set of possible class labels to classify the text into.
-            labels (`List[str]`, *optional*):
+            labels (`list[str]`, *optional*):
                 (deprecated) List of strings. Each string is the verbalization of a possible label for the input text.
             multi_label (`bool`, *optional*):
                 Whether multiple candidate labels can be true. If false, the scores are normalized such that the sum of
@@ -3191,7 +3191,7 @@ class AsyncInferenceClient:
 
 
         Returns:
-            `List[ZeroShotClassificationOutputElement]`: List of [`ZeroShotClassificationOutputElement`] items containing the predicted labels and their confidence.
+            `list[ZeroShotClassificationOutputElement]`: List of [`ZeroShotClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -3270,22 +3270,22 @@ class AsyncInferenceClient:
     async def zero_shot_image_classification(
         self,
         image: ContentT,
-        candidate_labels: List[str],
+        candidate_labels: list[str],
         *,
         model: Optional[str] = None,
         hypothesis_template: Optional[str] = None,
         # deprecated argument
-        labels: List[str] = None,  # type: ignore
-    ) -> List[ZeroShotImageClassificationOutputElement]:
+        labels: list[str] = None,  # type: ignore
+    ) -> list[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
                 The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
-            candidate_labels (`List[str]`):
+            candidate_labels (`list[str]`):
                 The candidate labels for this image
-            labels (`List[str]`, *optional*):
+            labels (`list[str]`, *optional*):
                 (deprecated) List of string possible labels. There must be at least 2 labels.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
@@ -3295,7 +3295,7 @@ class AsyncInferenceClient:
                 replacing the placeholder with the candidate labels.
 
         Returns:
-            `List[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
+            `list[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -3335,7 +3335,7 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
-    async def get_endpoint_info(self, *, model: Optional[str] = None) -> Dict[str, Any]:
+    async def get_endpoint_info(self, *, model: Optional[str] = None) -> dict[str, Any]:
         """
         Get information about the deployed endpoint.
 
@@ -3348,7 +3348,7 @@ class AsyncInferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `Dict[str, Any]`: Information about the endpoint.
+            `dict[str, Any]`: Information about the endpoint.
 
         Example:
         ```py

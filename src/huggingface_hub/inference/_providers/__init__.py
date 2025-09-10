@@ -1,4 +1,4 @@
-from typing import Dict, Literal, Optional, Union
+from typing import Literal, Optional, Union
 
 from huggingface_hub.inference._providers.featherless_ai import (
     FeatherlessConversationalTask,
@@ -65,7 +65,7 @@ PROVIDER_T = Literal[
 
 PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
 
-PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
+PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     "black-forest-labs": {
         "text-to-image": BlackForestLabsTextToImageTask(),
     },

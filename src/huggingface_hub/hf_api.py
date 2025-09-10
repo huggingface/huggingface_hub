@@ -37,11 +37,8 @@ from typing import (
     Dict,
     Iterable,
     Iterator,
-    List,
     Literal,
     Optional,
-    Tuple,
-    Type,
     TypeVar,
     Union,
     overload,
@@ -242,7 +239,7 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
 logger = logging.get_logger(__name__)
 
 
-def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tuple[Optional[str], Optional[str], str]:
+def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tuple[Optional[str], Optional[str], str]:
     """
     Returns the repo type and ID from a huggingface.co URL linking to a
     repository
@@ -373,7 +370,7 @@ class TransformersInfo(dict):
 
 @dataclass
 class SafeTensorsInfo(dict):
-    parameters: Dict[str, int]
+    parameters: dict[str, int]
     total: int
 
     def __post_init__(self):  # hack to make SafeTensorsInfo backward compatible
@@ -476,7 +473,7 @@ class AccessRequest:
             Timestamp of the request.
         status (`Literal["pending", "accepted", "rejected"]`):
             Status of the request. Can be one of `["pending", "accepted", "rejected"]`.
-        fields (`Dict[str, Any]`, *optional*):
+        fields (`dict[str, Any]`, *optional*):
             Additional fields filled by the user in the gate form.
     """
 
@@ -487,7 +484,7 @@ class AccessRequest:
     status: Literal["pending", "accepted", "rejected"]
 
     # Additional fields filled by the user in the gate form
-    fields: Optional[Dict[str, Any]] = None
+    fields: Optional[dict[str, Any]] = None
 
 
 @dataclass
@@ -514,9 +511,9 @@ class WebhookInfo:
             ID of the webhook.
         url (`str`):
             URL of the webhook.
-        watched (`List[WebhookWatchedItem]`):
+        watched (`list[WebhookWatchedItem]`):
             List of items watched by the webhook, see [`WebhookWatchedItem`].
-        domains (`List[WEBHOOK_DOMAIN_T]`):
+        domains (`list[WEBHOOK_DOMAIN_T]`):
             List of domains the webhook is watching. Can be one of `["repo", "discussions"]`.
         secret (`str`, *optional*):
             Secret of the webhook.
@@ -526,8 +523,8 @@ class WebhookInfo:
 
     id: str
     url: str
-    watched: List[WebhookWatchedItem]
-    domains: List[constants.WEBHOOK_DOMAIN_T]
+    watched: list[WebhookWatchedItem]
+    domains: list[constants.WEBHOOK_DOMAIN_T]
     secret: Optional[str]
     disabled: bool
 
@@ -782,13 +779,13 @@ class ModelInfo:
             GGUF information of the model.
         inference (`Literal["warm"]`, *optional*):
             Status of the model on Inference Providers. Warm if the model is served by at least one provider.
-        inference_provider_mapping (`List[InferenceProviderMapping]`, *optional*):
+        inference_provider_mapping (`list[InferenceProviderMapping]`, *optional*):
             A list of [`InferenceProviderMapping`] ordered after the user's provider order.
         likes (`int`):
             Number of likes of the model.
         library_name (`str`, *optional*):
             Library associated with the model.
-        tags (`List[str]`):
+        tags (`list[str]`):
             List of tags of the model. Compared to `card_data.tags`, contains extra tags computed by the Hub
             (e.g. supported libraries, model's arXiv).
         pipeline_tag (`str`, *optional*):
@@ -807,9 +804,9 @@ class ModelInfo:
             Trending score of the model.
         card_data (`ModelCardData`, *optional*):
             Model Card Metadata  as a [`huggingface_hub.repocard_data.ModelCardData`] object.
-        siblings (`List[RepoSibling]`):
+        siblings (`list[RepoSibling]`):
             List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the model.
-        spaces (`List[str]`, *optional*):
+        spaces (`list[str]`, *optional*):
             List of spaces using the model.
         safetensors (`SafeTensorsInfo`, *optional*):
             Model's safetensors information.
@@ -829,10 +826,10 @@ class ModelInfo:
     gated: Optional[Literal["auto", "manual", False]]
     gguf: Optional[Dict]
     inference: Optional[Literal["warm"]]
-    inference_provider_mapping: Optional[List[InferenceProviderMapping]]
+    inference_provider_mapping: Optional[list[InferenceProviderMapping]]
     likes: Optional[int]
     library_name: Optional[str]
-    tags: Optional[List[str]]
+    tags: Optional[list[str]]
     pipeline_tag: Optional[str]
     mask_token: Optional[str]
     card_data: Optional[ModelCardData]
@@ -841,8 +838,8 @@ class ModelInfo:
     config: Optional[Dict]
     transformers_info: Optional[TransformersInfo]
     trending_score: Optional[int]
-    siblings: Optional[List[RepoSibling]]
-    spaces: Optional[List[str]]
+    siblings: Optional[list[RepoSibling]]
+    spaces: Optional[list[str]]
     safetensors: Optional[SafeTensorsInfo]
     security_repo_status: Optional[Dict]
     xet_enabled: Optional[bool]
@@ -979,11 +976,11 @@ class DatasetInfo:
             Cumulated number of downloads of the model since its creation.
         likes (`int`):
             Number of likes of the dataset.
-        tags (`List[str]`):
+        tags (`list[str]`):
             List of tags of the dataset.
         card_data (`DatasetCardData`, *optional*):
             Model Card Metadata  as a [`huggingface_hub.repocard_data.DatasetCardData`] object.
-        siblings (`List[RepoSibling]`):
+        siblings (`list[RepoSibling]`):
             List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the dataset.
         paperswithcode_id (`str`, *optional*):
             Papers with code ID of the dataset.
@@ -1003,10 +1000,10 @@ class DatasetInfo:
     downloads_all_time: Optional[int]
     likes: Optional[int]
     paperswithcode_id: Optional[str]
-    tags: Optional[List[str]]
+    tags: Optional[list[str]]
     trending_score: Optional[int]
     card_data: Optional[DatasetCardData]
-    siblings: Optional[List[RepoSibling]]
+    siblings: Optional[list[RepoSibling]]
     xet_enabled: Optional[bool]
 
     def __init__(self, **kwargs):
@@ -1098,9 +1095,9 @@ class SpaceInfo:
             Subdomain of the Space.
         likes (`int`):
             Number of likes of the Space.
-        tags (`List[str]`):
+        tags (`list[str]`):
             List of tags of the Space.
-        siblings (`List[RepoSibling]`):
+        siblings (`list[RepoSibling]`):
             List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the Space.
         card_data (`SpaceCardData`, *optional*):
             Space Card Metadata  as a [`huggingface_hub.repocard_data.SpaceCardData`] object.
@@ -1108,9 +1105,9 @@ class SpaceInfo:
             Space runtime information as a [`huggingface_hub.hf_api.SpaceRuntime`] object.
         sdk (`str`, *optional*):
             SDK used by the Space.
-        models (`List[str]`, *optional*):
+        models (`list[str]`, *optional*):
             List of models used by the Space.
-        datasets (`List[str]`, *optional*):
+        datasets (`list[str]`, *optional*):
             List of datasets used by the Space.
         trending_score (`int`, *optional*):
             Trending score of the Space.
@@ -1128,13 +1125,13 @@ class SpaceInfo:
     subdomain: Optional[str]
     likes: Optional[int]
     sdk: Optional[str]
-    tags: Optional[List[str]]
-    siblings: Optional[List[RepoSibling]]
+    tags: Optional[list[str]]
+    siblings: Optional[list[RepoSibling]]
     trending_score: Optional[int]
     card_data: Optional[SpaceCardData]
     runtime: Optional[SpaceRuntime]
-    models: Optional[List[str]]
-    datasets: Optional[List[str]]
+    models: Optional[list[str]]
+    datasets: Optional[list[str]]
     xet_enabled: Optional[bool]
 
     def __init__(self, **kwargs):
@@ -1248,7 +1245,7 @@ class Collection:
             Title of the collection. E.g. `"Recent models"`.
         owner (`str`):
             Owner of the collection. E.g. `"TheBloke"`.
-        items (`List[CollectionItem]`):
+        items (`list[CollectionItem]`):
             List of items in the collection.
         last_updated (`datetime`):
             Date of the last update of the collection.
@@ -1269,7 +1266,7 @@ class Collection:
     slug: str
     title: str
     owner: str
-    items: List[CollectionItem]
+    items: list[CollectionItem]
     last_updated: datetime
     position: int
     private: bool
@@ -1326,22 +1323,22 @@ class GitRefs:
     Object is returned by [`list_repo_refs`].
 
     Attributes:
-        branches (`List[GitRefInfo]`):
+        branches (`list[GitRefInfo]`):
             A list of [`GitRefInfo`] containing information about branches on the repo.
-        converts (`List[GitRefInfo]`):
+        converts (`list[GitRefInfo]`):
             A list of [`GitRefInfo`] containing information about "convert" refs on the repo.
             Converts are refs used (internally) to push preprocessed data in Dataset repos.
-        tags (`List[GitRefInfo]`):
+        tags (`list[GitRefInfo]`):
             A list of [`GitRefInfo`] containing information about tags on the repo.
-        pull_requests (`List[GitRefInfo]`, *optional*):
+        pull_requests (`list[GitRefInfo]`, *optional*):
             A list of [`GitRefInfo`] containing information about pull requests on the repo.
             Only returned if `include_prs=True` is set.
     """
 
-    branches: List[GitRefInfo]
-    converts: List[GitRefInfo]
-    tags: List[GitRefInfo]
-    pull_requests: Optional[List[GitRefInfo]] = None
+    branches: list[GitRefInfo]
+    converts: list[GitRefInfo]
+    tags: list[GitRefInfo]
+    pull_requests: Optional[list[GitRefInfo]] = None
 
 
 @dataclass
@@ -1352,7 +1349,7 @@ class GitCommitInfo:
     Attributes:
         commit_id (`str`):
             OID of the commit (e.g. `"e7da7f221d5bf496a48136c0cd264e630fe9fcc8"`)
-        authors (`List[str]`):
+        authors (`list[str]`):
             List of authors of the commit.
         created_at (`datetime`):
             Datetime when the commit was created.
@@ -1368,7 +1365,7 @@ class GitCommitInfo:
 
     commit_id: str
 
-    authors: List[str]
+    authors: list[str]
     created_at: datetime
     title: str
     message: str
@@ -1387,11 +1384,11 @@ class UserLikes:
             Name of the user for which we fetched the likes.
         total (`int`):
             Total number of likes.
-        datasets (`List[str]`):
+        datasets (`list[str]`):
             List of datasets liked by the user (as repo_ids).
-        models (`List[str]`):
+        models (`list[str]`):
             List of models liked by the user (as repo_ids).
-        spaces (`List[str]`):
+        spaces (`list[str]`):
             List of spaces liked by the user (as repo_ids).
     """
 
@@ -1400,9 +1397,9 @@ class UserLikes:
     total: int
 
     # User likes
-    datasets: List[str]
-    models: List[str]
-    spaces: List[str]
+    datasets: list[str]
+    models: list[str]
+    spaces: list[str]
 
 
 @dataclass
@@ -1488,7 +1485,7 @@ class User:
     num_likes: Optional[int] = None
     num_following: Optional[int] = None
     num_followers: Optional[int] = None
-    orgs: List[Organization] = field(default_factory=list)
+    orgs: list[Organization] = field(default_factory=list)
 
     def __init__(self, **kwargs) -> None:
         self.username = kwargs.pop("user", "")
@@ -1521,7 +1518,7 @@ class PaperInfo:
     Attributes:
         id (`str`):
             arXiv paper ID.
-        authors (`List[str]`, **optional**):
+        authors (`list[str]`, **optional**):
             Names of paper authors
         published_at (`datetime`, **optional**):
             Date paper published.
@@ -1544,7 +1541,7 @@ class PaperInfo:
     """
 
     id: str
-    authors: Optional[List[str]]
+    authors: Optional[list[str]]
     published_at: Optional[datetime]
     title: Optional[str]
     summary: Optional[str]
@@ -1709,7 +1706,7 @@ class HfApi:
         library_name: Optional[str] = None,
         library_version: Optional[str] = None,
         user_agent: Union[Dict, str, None] = None,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> None:
         self.endpoint = endpoint if endpoint is not None else constants.ENDPOINT
         self.token = token
@@ -1864,30 +1861,30 @@ class HfApi:
         # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
-        apps: Optional[Union[str, List[str]]] = None,
+        apps: Optional[Union[str, list[str]]] = None,
         gated: Optional[bool] = None,
         inference: Optional[Literal["warm"]] = None,
-        inference_provider: Optional[Union[Literal["all"], "PROVIDER_T", List["PROVIDER_T"]]] = None,
+        inference_provider: Optional[Union[Literal["all"], "PROVIDER_T", list["PROVIDER_T"]]] = None,
         model_name: Optional[str] = None,
-        trained_dataset: Optional[Union[str, List[str]]] = None,
+        trained_dataset: Optional[Union[str, list[str]]] = None,
         search: Optional[str] = None,
         pipeline_tag: Optional[str] = None,
-        emissions_thresholds: Optional[Tuple[float, float]] = None,
+        emissions_thresholds: Optional[tuple[float, float]] = None,
         # Sorting and pagination parameters
         sort: Union[Literal["last_modified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
-        expand: Optional[List[ExpandModelProperty_T]] = None,
+        expand: Optional[list[ExpandModelProperty_T]] = None,
         full: Optional[bool] = None,
         cardData: bool = False,
         fetch_config: bool = False,
         token: Union[bool, str, None] = None,
         # Deprecated arguments - use `filter` instead
-        language: Optional[Union[str, List[str]]] = None,
-        library: Optional[Union[str, List[str]]] = None,
-        tags: Optional[Union[str, List[str]]] = None,
-        task: Optional[Union[str, List[str]]] = None,
+        language: Optional[Union[str, list[str]]] = None,
+        library: Optional[Union[str, list[str]]] = None,
+        tags: Optional[Union[str, list[str]]] = None,
+        task: Optional[Union[str, list[str]]] = None,
     ) -> Iterable[ModelInfo]:
         """
         List models hosted on the Huggingface Hub, given some filters.
@@ -1941,7 +1938,7 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of models fetched. Leaving this option
                 to `None` fetches all models.
-            expand (`List[ExpandModelProperty_T]`, *optional*):
+            expand (`list[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
                 Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"resourceGroup"` and `"xetEnabled"`.
@@ -2000,10 +1997,10 @@ class HfApi:
 
         path = f"{self.endpoint}/api/models"
         headers = self._build_hf_headers(token=token)
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
 
         # Build the filter list
-        filter_list: List[str] = []
+        filter_list: list[str] = []
         if filter:
             filter_list.extend([filter] if isinstance(filter, str) else filter)
         if library:
@@ -2090,26 +2087,26 @@ class HfApi:
         # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
-        benchmark: Optional[Union[str, List[str]]] = None,
+        benchmark: Optional[Union[str, list[str]]] = None,
         dataset_name: Optional[str] = None,
         gated: Optional[bool] = None,
-        language_creators: Optional[Union[str, List[str]]] = None,
-        language: Optional[Union[str, List[str]]] = None,
-        multilinguality: Optional[Union[str, List[str]]] = None,
-        size_categories: Optional[Union[str, List[str]]] = None,
-        task_categories: Optional[Union[str, List[str]]] = None,
-        task_ids: Optional[Union[str, List[str]]] = None,
+        language_creators: Optional[Union[str, list[str]]] = None,
+        language: Optional[Union[str, list[str]]] = None,
+        multilinguality: Optional[Union[str, list[str]]] = None,
+        size_categories: Optional[Union[str, list[str]]] = None,
+        task_categories: Optional[Union[str, list[str]]] = None,
+        task_ids: Optional[Union[str, list[str]]] = None,
         search: Optional[str] = None,
         # Sorting and pagination parameters
         sort: Optional[Union[Literal["last_modified"], str]] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
-        expand: Optional[List[ExpandDatasetProperty_T]] = None,
+        expand: Optional[list[ExpandDatasetProperty_T]] = None,
         full: Optional[bool] = None,
         token: Union[bool, str, None] = None,
         # Deprecated arguments - use `filter` instead
-        tags: Optional[Union[str, List[str]]] = None,
+        tags: Optional[Union[str, list[str]]] = None,
     ) -> Iterable[DatasetInfo]:
         """
         List datasets hosted on the Huggingface Hub, given some filters.
@@ -2164,7 +2161,7 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
-            expand (`List[ExpandDatasetProperty_T]`, *optional*):
+            expand (`list[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
                 Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
@@ -2224,7 +2221,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/datasets"
         headers = self._build_hf_headers(token=token)
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
 
         # Build `filter` list
         filter_list = []
@@ -2311,7 +2308,7 @@ class HfApi:
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
-        expand: Optional[List[ExpandSpaceProperty_T]] = None,
+        expand: Optional[list[ExpandSpaceProperty_T]] = None,
         full: Optional[bool] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[SpaceInfo]:
@@ -2342,7 +2339,7 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of Spaces fetched. Leaving this option
                 to `None` fetches all Spaces.
-            expand (`List[ExpandSpaceProperty_T]`, *optional*):
+            expand (`list[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
                 Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
@@ -2363,7 +2360,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/spaces"
         headers = self._build_hf_headers(token=token)
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if filter is not None:
             params["filter"] = filter
         if author is not None:
@@ -2580,7 +2577,7 @@ class HfApi:
         timeout: Optional[float] = None,
         securityStatus: Optional[bool] = None,
         files_metadata: bool = False,
-        expand: Optional[List[ExpandModelProperty_T]] = None,
+        expand: Optional[list[ExpandModelProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> ModelInfo:
         """
@@ -2603,7 +2600,7 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
-            expand (`List[ExpandModelProperty_T]`, *optional*):
+            expand (`list[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
                 Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
@@ -2657,7 +2654,7 @@ class HfApi:
         revision: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
-        expand: Optional[List[ExpandDatasetProperty_T]] = None,
+        expand: Optional[list[ExpandDatasetProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> DatasetInfo:
         """
@@ -2677,7 +2674,7 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
-            expand (`List[ExpandDatasetProperty_T]`, *optional*):
+            expand (`list[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `files_metadata` is passed.
                 Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`,`"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
@@ -2730,7 +2727,7 @@ class HfApi:
         revision: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
-        expand: Optional[List[ExpandSpaceProperty_T]] = None,
+        expand: Optional[list[ExpandSpaceProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> SpaceInfo:
         """
@@ -2750,7 +2747,7 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
-            expand (`List[ExpandSpaceProperty_T]`, *optional*):
+            expand (`list[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
                 Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
@@ -3026,7 +3023,7 @@ class HfApi:
         revision: Optional[str] = None,
         repo_type: Optional[str] = None,
         token: Union[str, bool, None] = None,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Get the list of files in a given repo.
 
@@ -3045,7 +3042,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[str]`: the list of files in a given repository.
+            `list[str]`: the list of files in a given repository.
         """
         return [
             f.rfilename
@@ -3268,7 +3265,7 @@ class HfApi:
         token: Union[bool, str, None] = None,
         revision: Optional[str] = None,
         formatted: bool = False,
-    ) -> List[GitCommitInfo]:
+    ) -> list[GitCommitInfo]:
         """
         Get the list of commits of a given revision for a repo on the Hub.
 
@@ -3315,7 +3312,7 @@ class HfApi:
         ```
 
         Returns:
-            List[[`GitCommitInfo`]]: list of objects containing information about the commits for a repo on the Hub.
+            list[[`GitCommitInfo`]]: list of objects containing information about the commits for a repo on the Hub.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:
@@ -3349,20 +3346,20 @@ class HfApi:
     def get_paths_info(
         self,
         repo_id: str,
-        paths: Union[List[str], str],
+        paths: Union[list[str], str],
         *,
         expand: bool = False,
         revision: Optional[str] = None,
         repo_type: Optional[str] = None,
         token: Union[str, bool, None] = None,
-    ) -> List[Union[RepoFile, RepoFolder]]:
+    ) -> list[Union[RepoFile, RepoFolder]]:
         """
         Get information about a repo's paths.
 
         Args:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated by a `/`.
-            paths (`Union[List[str], str]`, *optional*):
+            paths (`Union[list[str], str]`, *optional*):
                 The paths to get information about. If a path do not exist, it is ignored without raising
                 an exception.
             expand (`bool`, *optional*, defaults to `False`):
@@ -3382,7 +3379,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[Union[RepoFile, RepoFolder]]`:
+            `list[Union[RepoFile, RepoFolder]]`:
                 The information about the paths, as a list of [`RepoFile`] and [`RepoFolder`] objects.
 
         Raises:
@@ -3647,8 +3644,8 @@ class HfApi:
         space_hardware: Optional[SpaceHardware] = None,
         space_storage: Optional[SpaceStorage] = None,
         space_sleep_time: Optional[int] = None,
-        space_secrets: Optional[List[Dict[str, str]]] = None,
-        space_variables: Optional[List[Dict[str, str]]] = None,
+        space_secrets: Optional[list[dict[str, str]]] = None,
+        space_variables: Optional[list[dict[str, str]]] = None,
     ) -> RepoUrl:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -3685,10 +3682,10 @@ class HfApi:
                 your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
                 the sleep time (value is fixed to 48 hours of inactivity).
                 See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
-            space_secrets (`List[Dict[str, str]]`, *optional*):
+            space_secrets (`list[dict[str, str]]`, *optional*):
                 A list of secret keys to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
-            space_variables (`List[Dict[str, str]]`, *optional*):
+            space_variables (`list[dict[str, str]]`, *optional*):
                 A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
 
@@ -3703,7 +3700,7 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError("Invalid repo type")
 
-        json: Dict[str, Any] = {"name": name, "organization": organization}
+        json: dict[str, Any] = {"name": name, "organization": organization}
         if private is not None:
             json["private"] = private
         if repo_type is not None:
@@ -3841,7 +3838,7 @@ class HfApi:
         *,
         token: Union[str, bool, None] = None,
         repo_type: Optional[str] = None,
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """Update the visibility setting of a repository.
 
         Deprecated. Use `update_repo_settings` instead.
@@ -4760,9 +4757,9 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
-        delete_patterns: Optional[Union[List[str], str]] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+        delete_patterns: Optional[Union[list[str], str]] = None,
         run_as_future: Literal[False] = ...,
     ) -> CommitInfo: ...
 
@@ -4780,9 +4777,9 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
-        delete_patterns: Optional[Union[List[str], str]] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+        delete_patterns: Optional[Union[list[str], str]] = None,
         run_as_future: Literal[True] = ...,
     ) -> Future[CommitInfo]: ...
 
@@ -4801,9 +4798,9 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
-        delete_patterns: Optional[Union[List[str], str]] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+        delete_patterns: Optional[Union[list[str], str]] = None,
         run_as_future: bool = False,
     ) -> Union[CommitInfo, Future[CommitInfo]]:
         """
@@ -4865,11 +4862,11 @@ class HfApi:
                 If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
-            allow_patterns (`List[str]` or `str`, *optional*):
+            allow_patterns (`list[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are uploaded.
-            ignore_patterns (`List[str]` or `str`, *optional*):
+            ignore_patterns (`list[str]` or `str`, *optional*):
                 If provided, files matching any of the patterns are not uploaded.
-            delete_patterns (`List[str]` or `str`, *optional*):
+            delete_patterns (`list[str]` or `str`, *optional*):
                 If provided, remote files matching any of the patterns will be deleted from the repo while committing
                 new files. This is useful if you don't know which files have already been uploaded.
                 Note: to avoid discrepancies the `.gitattributes` file is not deleted even if it matches the pattern.
@@ -5113,7 +5110,7 @@ class HfApi:
     def delete_files(
         self,
         repo_id: str,
-        delete_patterns: List[str],
+        delete_patterns: list[str],
         *,
         token: Union[bool, str, None] = None,
         repo_type: Optional[str] = None,
@@ -5133,7 +5130,7 @@ class HfApi:
             repo_id (`str`):
                 The repository from which the folder will be deleted, for example:
                 `"username/custom_transformers"`
-            delete_patterns (`List[str]`):
+            delete_patterns (`list[str]`):
                 List of files or folders to delete. Each string can either be
                 a file path, a folder path or a Unix shell-style wildcard.
                 E.g. `["file.txt", "folder/", "data/*.parquet"]`
@@ -5261,8 +5258,8 @@ class HfApi:
         repo_type: str,  # Repo type is required!
         revision: Optional[str] = None,
         private: Optional[bool] = None,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
         num_workers: Optional[int] = None,
         print_report: bool = True,
         print_report_every: int = 60,
@@ -5290,9 +5287,9 @@ class HfApi:
             private (`bool`, `optional`):
                 Whether the repository should be private.
                 If `None` (default), the repo will be public unless the organization's default is private.
-            allow_patterns (`List[str]` or `str`, *optional*):
+            allow_patterns (`list[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are uploaded.
-            ignore_patterns (`List[str]` or `str`, *optional*):
+            ignore_patterns (`list[str]` or `str`, *optional*):
                 If provided, files matching any of the patterns are not uploaded.
             num_workers (`int`, *optional*):
                 Number of workers to start. Defaults to `os.cpu_count() - 2` (minimum 2).
@@ -5562,10 +5559,10 @@ class HfApi:
         force_download: bool = False,
         token: Union[bool, str, None] = None,
         local_files_only: bool = False,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
         max_workers: int = 8,
-        tqdm_class: Optional[Type[base_tqdm]] = None,
+        tqdm_class: Optional[type[base_tqdm]] = None,
         # Deprecated args
         local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
         resume_download: Optional[bool] = None,
@@ -5611,9 +5608,9 @@ class HfApi:
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the
                 local cached file if it exists.
-            allow_patterns (`List[str]` or `str`, *optional*):
+            allow_patterns (`list[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are downloaded.
-            ignore_patterns (`List[str]` or `str`, *optional*):
+            ignore_patterns (`list[str]` or `str`, *optional*):
                 If provided, files matching any of the patterns are not downloaded.
             max_workers (`int`, *optional*):
                 Number of concurrent threads to download files (1 thread = 1 file download).
@@ -6276,7 +6273,7 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions"
 
-        params: Dict[str, Union[str, int]] = {}
+        params: dict[str, Union[str, int]] = {}
         if discussion_type is not None:
             params["type"] = discussion_type
         if discussion_status is not None:
@@ -6785,7 +6782,7 @@ class HfApi:
         """
         if new_status not in ["open", "closed"]:
             raise ValueError("Invalid status, valid statuses are: 'open' and 'closed'")
-        body: Dict[str, str] = {"status": new_status}
+        body: dict[str, str] = {"status": new_status}
         if comment and comment.strip():
             body["comment"] = comment.strip()
         resp = self._post_discussion_changes(
@@ -7045,7 +7042,7 @@ class HfApi:
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
-    def get_space_variables(self, repo_id: str, *, token: Union[bool, str, None] = None) -> Dict[str, SpaceVariable]:
+    def get_space_variables(self, repo_id: str, *, token: Union[bool, str, None] = None) -> dict[str, SpaceVariable]:
         """Gets all variables from a Space.
 
         Variables allow to set environment variables to a Space without hardcoding them.
@@ -7076,7 +7073,7 @@ class HfApi:
         *,
         description: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> Dict[str, SpaceVariable]:
+    ) -> dict[str, SpaceVariable]:
         """Adds or updates a variable in a Space.
 
         Variables allow to set environment variables to a Space without hardcoding them.
@@ -7111,7 +7108,7 @@ class HfApi:
     @validate_hf_hub_args
     def delete_space_variable(
         self, repo_id: str, key: str, *, token: Union[bool, str, None] = None
-    ) -> Dict[str, SpaceVariable]:
+    ) -> dict[str, SpaceVariable]:
         """Deletes a variable from a Space.
 
         Variables allow to set environment variables to a Space without hardcoding them.
@@ -7200,7 +7197,7 @@ class HfApi:
                 " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
                 UserWarning,
             )
-        payload: Dict[str, Any] = {"flavor": hardware}
+        payload: dict[str, Any] = {"flavor": hardware}
         if sleep_time is not None:
             payload["sleepTimeSeconds"] = sleep_time
         r = get_session().post(
@@ -7359,8 +7356,8 @@ class HfApi:
         hardware: Optional[SpaceHardware] = None,
         storage: Optional[SpaceStorage] = None,
         sleep_time: Optional[int] = None,
-        secrets: Optional[List[Dict[str, str]]] = None,
-        variables: Optional[List[Dict[str, str]]] = None,
+        secrets: Optional[list[dict[str, str]]] = None,
+        variables: Optional[list[dict[str, str]]] = None,
     ) -> RepoUrl:
         """Duplicate a Space.
 
@@ -7391,10 +7388,10 @@ class HfApi:
                 your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
                 the sleep time (value is fixed to 48 hours of inactivity).
                 See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
-            secrets (`List[Dict[str, str]]`, *optional*):
+            secrets (`list[dict[str, str]]`, *optional*):
                 A list of secret keys to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
-            variables (`List[Dict[str, str]]`, *optional*):
+            variables (`list[dict[str, str]]`, *optional*):
                 A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
 
@@ -7434,7 +7431,7 @@ class HfApi:
         to_repo_name = parsed_to_id.repo_name if to_id is not None else RepoUrl(from_id).repo_name  # type: ignore
 
         # repository must be a valid repo_id (namespace/repo_name).
-        payload: Dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
+        payload: dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
 
         keys = ["private", "hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
         values = [private, hardware, storage, sleep_time, secrets, variables]
@@ -7495,7 +7492,7 @@ class HfApi:
 
         </Tip>
         """
-        payload: Dict[str, SpaceStorage] = {"tier": storage}
+        payload: dict[str, SpaceStorage] = {"tier": storage}
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/storage",
             headers=self._build_hf_headers(token=token),
@@ -7541,7 +7538,7 @@ class HfApi:
 
     def list_inference_endpoints(
         self, namespace: Optional[str] = None, *, token: Union[bool, str, None] = None
-    ) -> List[InferenceEndpoint]:
+    ) -> list[InferenceEndpoint]:
         """Lists all inference endpoints for the given namespace.
 
         Args:
@@ -7555,7 +7552,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            List[`InferenceEndpoint`]: A list of all inference endpoints for the given namespace.
+            list[`InferenceEndpoint`]: A list of all inference endpoints for the given namespace.
 
         Example:
         ```python
@@ -7570,7 +7567,7 @@ class HfApi:
             user = self.whoami(token=token)
 
             # List personal endpoints first
-            endpoints: List[InferenceEndpoint] = list_inference_endpoints(namespace=self._get_namespace(token=token))
+            endpoints: list[InferenceEndpoint] = list_inference_endpoints(namespace=self._get_namespace(token=token))
 
             # Then list endpoints for all orgs the user belongs to and ignore 401 errors (no billing or no access)
             for org in user.get("orgs", []):
@@ -7615,13 +7612,13 @@ class HfApi:
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
-        env: Optional[Dict[str, str]] = None,
-        secrets: Optional[Dict[str, str]] = None,
+        env: Optional[dict[str, str]] = None,
+        secrets: Optional[dict[str, str]] = None,
         type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
         domain: Optional[str] = None,
         path: Optional[str] = None,
         cache_http_responses: Optional[bool] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
@@ -7661,9 +7658,9 @@ class HfApi:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
-            env (`Dict[str, str]`, *optional*):
+            env (`dict[str, str]`, *optional*):
                 Non-secret environment variables to inject in the container environment.
-            secrets (`Dict[str, str]`, *optional*):
+            secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
             type ([`InferenceEndpointType]`, *optional*):
                 The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
@@ -7673,7 +7670,7 @@ class HfApi:
                 The custom path to the deployed model, should start with a `/` (e.g. `"/models/google-bert/bert-base-uncased"`).
             cache_http_responses (`bool`, *optional*):
                 Whether to cache HTTP responses from the Inference Endpoint. Defaults to `False`.
-            tags (`List[str]`, *optional*):
+            tags (`list[str]`, *optional*):
                 A list of tags to associate with the Inference Endpoint.
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.
@@ -7883,7 +7880,7 @@ class HfApi:
 
     @experimental
     @validate_hf_hub_args
-    def list_inference_catalog(self, *, token: Union[bool, str, None] = None) -> List[str]:
+    def list_inference_catalog(self, *, token: Union[bool, str, None] = None) -> list[str]:
         """List models available in the Hugging Face Inference Catalog.
 
         The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
@@ -7899,7 +7896,7 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
 
         Returns:
-            List[`str`]: A list of model IDs available in the catalog.
+            list[`str`]: A list of model IDs available in the catalog.
         <Tip warning={true}>
 
         `list_inference_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
@@ -7978,14 +7975,14 @@ class HfApi:
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
-        env: Optional[Dict[str, str]] = None,
-        secrets: Optional[Dict[str, str]] = None,
+        env: Optional[dict[str, str]] = None,
+        secrets: Optional[dict[str, str]] = None,
         # Route update
         domain: Optional[str] = None,
         path: Optional[str] = None,
         # Other
         cache_http_responses: Optional[bool] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
@@ -8024,9 +8021,9 @@ class HfApi:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
-            env (`Dict[str, str]`, *optional*):
+            env (`dict[str, str]`, *optional*):
                 Non-secret environment variables to inject in the container environment
-            secrets (`Dict[str, str]`, *optional*):
+            secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
 
             domain (`str`, *optional*):
@@ -8036,7 +8033,7 @@ class HfApi:
 
             cache_http_responses (`bool`, *optional*):
                 Whether to cache HTTP responses from the Inference Endpoint.
-            tags (`List[str]`, *optional*):
+            tags (`list[str]`, *optional*):
                 A list of tags to associate with the Inference Endpoint.
 
             namespace (`str`, *optional*):
@@ -8260,8 +8257,8 @@ class HfApi:
     def list_collections(
         self,
         *,
-        owner: Union[List[str], str, None] = None,
-        item: Union[List[str], str, None] = None,
+        owner: Union[list[str], str, None] = None,
+        item: Union[list[str], str, None] = None,
         sort: Optional[Literal["lastModified", "trending", "upvotes"]] = None,
         limit: Optional[int] = None,
         token: Union[bool, str, None] = None,
@@ -8276,9 +8273,9 @@ class HfApi:
         </Tip>
 
         Args:
-            owner (`List[str]` or `str`, *optional*):
+            owner (`list[str]` or `str`, *optional*):
                 Filter by owner's username.
-            item (`List[str]` or `str`, *optional*):
+            item (`list[str]` or `str`, *optional*):
                 Filter collections containing a particular items. Example: `"models/teknium/OpenHermes-2.5-Mistral-7B"`, `"datasets/squad"` or `"papers/2311.12983"`.
             sort (`Literal["lastModified", "trending", "upvotes"]`, *optional*):
                 Sort collections by last modified, trending or upvotes.
@@ -8595,7 +8592,7 @@ class HfApi:
         (...)
         ```
         """
-        payload: Dict[str, Any] = {"item": {"id": item_id, "type": item_type}}
+        payload: dict[str, Any] = {"item": {"id": item_id, "type": item_type}}
         if note is not None:
             payload["note"] = note
         r = get_session().post(
@@ -8725,7 +8722,7 @@ class HfApi:
     @validate_hf_hub_args
     def list_pending_access_requests(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
-    ) -> List[AccessRequest]:
+    ) -> list[AccessRequest]:
         """
         Get pending access requests for a given gated repo.
 
@@ -8748,7 +8745,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `list[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
 
@@ -8789,7 +8786,7 @@ class HfApi:
     @validate_hf_hub_args
     def list_accepted_access_requests(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
-    ) -> List[AccessRequest]:
+    ) -> list[AccessRequest]:
         """
         Get accepted access requests for a given gated repo.
 
@@ -8814,7 +8811,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `list[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
 
@@ -8851,7 +8848,7 @@ class HfApi:
     @validate_hf_hub_args
     def list_rejected_access_requests(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
-    ) -> List[AccessRequest]:
+    ) -> list[AccessRequest]:
         """
         Get rejected access requests for a given gated repo.
 
@@ -8876,7 +8873,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `list[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
 
@@ -8916,7 +8913,7 @@ class HfApi:
         status: Literal["accepted", "rejected", "pending"],
         repo_type: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> List[AccessRequest]:
+    ) -> list[AccessRequest]:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
@@ -9209,7 +9206,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def list_webhooks(self, *, token: Union[bool, str, None] = None) -> List[WebhookInfo]:
+    def list_webhooks(self, *, token: Union[bool, str, None] = None) -> list[WebhookInfo]:
         """List all configured webhooks.
 
         Args:
@@ -9219,7 +9216,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[WebhookInfo]`:
+            `list[WebhookInfo]`:
                 List of webhook info objects.
 
         Example:
@@ -9263,8 +9260,8 @@ class HfApi:
         self,
         *,
         url: str,
-        watched: List[Union[Dict, WebhookWatchedItem]],
-        domains: Optional[List[constants.WEBHOOK_DOMAIN_T]] = None,
+        watched: list[Union[Dict, WebhookWatchedItem]],
+        domains: Optional[list[constants.WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> WebhookInfo:
@@ -9273,10 +9270,10 @@ class HfApi:
         Args:
             url (`str`):
                 URL to send the payload to.
-            watched (`List[WebhookWatchedItem]`):
+            watched (`list[WebhookWatchedItem]`):
                 List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets or spaces.
                 Watched items can also be provided as plain dictionaries.
-            domains (`List[Literal["repo", "discussion"]]`, optional):
+            domains (`list[Literal["repo", "discussion"]]`, optional):
                 List of domains to watch. It can be "repo", "discussion" or both.
             secret (`str`, optional):
                 A secret to sign the payload with.
@@ -9337,8 +9334,8 @@ class HfApi:
         webhook_id: str,
         *,
         url: Optional[str] = None,
-        watched: Optional[List[Union[Dict, WebhookWatchedItem]]] = None,
-        domains: Optional[List[constants.WEBHOOK_DOMAIN_T]] = None,
+        watched: Optional[list[Union[Dict, WebhookWatchedItem]]] = None,
+        domains: Optional[list[constants.WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> WebhookInfo:
@@ -9349,10 +9346,10 @@ class HfApi:
                 The unique identifier of the webhook to be updated.
             url (`str`, optional):
                 The URL to which the payload will be sent.
-            watched (`List[WebhookWatchedItem]`, optional):
+            watched (`list[WebhookWatchedItem]`, optional):
                 List of items to watch. It can be users, orgs, models, datasets, or spaces.
                 Refer to [`WebhookWatchedItem`] for more details. Watched items can also be provided as plain dictionaries.
-            domains (`List[Literal["repo", "discussion"]]`, optional):
+            domains (`list[Literal["repo", "discussion"]]`, optional):
                 The domains to watch. This can include "repo", "discussion", or both.
             secret (`str`, optional):
                 A secret to sign the payload with, providing an additional layer of security.
@@ -9549,7 +9546,7 @@ class HfApi:
         library_name: Optional[str] = None,
         library_version: Optional[str] = None,
         user_agent: Union[Dict, str, None] = None,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """
         Alias for [`build_hf_headers`] that uses the token from [`HfApi`] client
         when `token` is not provided.
@@ -9571,9 +9568,9 @@ class HfApi:
         repo_type: Optional[str],
         revision: Optional[str],
         path_in_repo: str,
-        delete_patterns: Optional[Union[List[str], str]],
+        delete_patterns: Optional[Union[list[str], str]],
         token: Union[bool, str, None] = None,
-    ) -> List[CommitOperationDelete]:
+    ) -> list[CommitOperationDelete]:
         """Generate the list of Delete operations for a commit to delete files from a repo.
 
         List remote files and match them against the `delete_patterns` constraints. Returns a list of [`CommitOperationDelete`]
@@ -9609,11 +9606,11 @@ class HfApi:
         self,
         folder_path: Union[str, Path],
         path_in_repo: str,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
         repo_type: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> List[CommitOperationAdd]:
+    ) -> list[CommitOperationAdd]:
         """Generate the list of Add operations for a commit to upload a folder.
 
         Files not matching the `allow_patterns` (allowlist) and `ignore_patterns` (denylist)
@@ -9955,9 +9952,9 @@ class HfApi:
         self,
         *,
         image: str,
-        command: List[str],
-        env: Optional[Dict[str, Any]] = None,
-        secrets: Optional[Dict[str, Any]] = None,
+        command: list[str],
+        env: Optional[dict[str, Any]] = None,
+        secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
         namespace: Optional[str] = None,
@@ -9972,13 +9969,13 @@ class HfApi:
                 Examples: `"ubuntu"`, `"python:3.12"`, `"pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"`.
                 Example with an image from a Space: `"hf.co/spaces/lhoestq/duckdb"`.
 
-            command (`List[str]`):
+            command (`list[str]`):
                 The command to run. Example: `["echo", "hello"]`.
 
-            env (`Dict[str, Any]`, *optional*):
+            env (`dict[str, Any]`, *optional*):
                 Defines the environment variables for the Job.
 
-            secrets (`Dict[str, Any]`, *optional*):
+            secrets (`dict[str, Any]`, *optional*):
                 Defines the secret environment variables for the Job.
 
             flavor (`str`, *optional*):
@@ -10131,7 +10128,7 @@ class HfApi:
         timeout: Optional[int] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> List[JobInfo]:
+    ) -> list[JobInfo]:
         """
         List compute Jobs on Hugging Face infrastructure.
 
@@ -10242,12 +10239,12 @@ class HfApi:
         self,
         script: str,
         *,
-        script_args: Optional[List[str]] = None,
-        dependencies: Optional[List[str]] = None,
+        script_args: Optional[list[str]] = None,
+        dependencies: Optional[list[str]] = None,
         python: Optional[str] = None,
         image: Optional[str] = None,
-        env: Optional[Dict[str, Any]] = None,
-        secrets: Optional[Dict[str, Any]] = None,
+        env: Optional[dict[str, Any]] = None,
+        secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
         namespace: Optional[str] = None,
@@ -10261,10 +10258,10 @@ class HfApi:
             script (`str`):
                 Path or URL of the UV script, or a command.
 
-            script_args (`List[str]`, *optional*)
+            script_args (`list[str]`, *optional*)
                 Arguments to pass to the script or command.
 
-            dependencies (`List[str]`, *optional*)
+            dependencies (`list[str]`, *optional*)
                 Dependencies to use to run the UV script.
 
             python (`str`, *optional*)
@@ -10273,10 +10270,10 @@ class HfApi:
             image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm"):
                 Use a custom Docker image with `uv` installed.
 
-            env (`Dict[str, Any]`, *optional*):
+            env (`dict[str, Any]`, *optional*):
                 Defines the environment variables for the Job.
 
-            secrets (`Dict[str, Any]`, *optional*):
+            secrets (`dict[str, Any]`, *optional*):
                 Defines the secret environment variables for the Job.
 
             flavor (`str`, *optional*):
@@ -10356,12 +10353,12 @@ class HfApi:
         self,
         *,
         image: str,
-        command: List[str],
+        command: list[str],
         schedule: str,
         suspend: Optional[bool] = None,
         concurrency: Optional[bool] = None,
-        env: Optional[Dict[str, Any]] = None,
-        secrets: Optional[Dict[str, Any]] = None,
+        env: Optional[dict[str, Any]] = None,
+        secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
         namespace: Optional[str] = None,
@@ -10376,7 +10373,7 @@ class HfApi:
                 Examples: `"ubuntu"`, `"python:3.12"`, `"pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"`.
                 Example with an image from a Space: `"hf.co/spaces/lhoestq/duckdb"`.
 
-            command (`List[str]`):
+            command (`list[str]`):
                 The command to run. Example: `["echo", "hello"]`.
 
             schedule (`str`):
@@ -10389,10 +10386,10 @@ class HfApi:
             concurrency (`bool`, *optional*):
                 If True, multiple instances of this Job can run concurrently. Defaults to False.
 
-            env (`Dict[str, Any]`, *optional*):
+            env (`dict[str, Any]`, *optional*):
                 Defines the environment variables for the Job.
 
-            secrets (`Dict[str, Any]`, *optional*):
+            secrets (`dict[str, Any]`, *optional*):
                 Defines the secret environment variables for the Job.
 
             flavor (`str`, *optional*):
@@ -10448,7 +10445,7 @@ class HfApi:
             flavor=flavor,
             timeout=timeout,
         )
-        input_json: Dict[str, Any] = {
+        input_json: dict[str, Any] = {
             "jobSpec": job_spec,
             "schedule": schedule,
         }
@@ -10471,7 +10468,7 @@ class HfApi:
         timeout: Optional[int] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> List[ScheduledJobInfo]:
+    ) -> list[ScheduledJobInfo]:
         """
         List scheduled compute Jobs on Hugging Face infrastructure.
 
@@ -10629,15 +10626,15 @@ class HfApi:
         self,
         script: str,
         *,
-        script_args: Optional[List[str]] = None,
+        script_args: Optional[list[str]] = None,
         schedule: str,
         suspend: Optional[bool] = None,
         concurrency: Optional[bool] = None,
-        dependencies: Optional[List[str]] = None,
+        dependencies: Optional[list[str]] = None,
         python: Optional[str] = None,
         image: Optional[str] = None,
-        env: Optional[Dict[str, Any]] = None,
-        secrets: Optional[Dict[str, Any]] = None,
+        env: Optional[dict[str, Any]] = None,
+        secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
         namespace: Optional[str] = None,
@@ -10651,7 +10648,7 @@ class HfApi:
             script (`str`):
                 Path or URL of the UV script, or a command.
 
-            script_args (`List[str]`, *optional*)
+            script_args (`list[str]`, *optional*)
                 Arguments to pass to the script, or a command.
 
             schedule (`str`):
@@ -10664,7 +10661,7 @@ class HfApi:
             concurrency (`bool`, *optional*):
                 If True, multiple instances of this Job can run concurrently. Defaults to False.
 
-            dependencies (`List[str]`, *optional*)
+            dependencies (`list[str]`, *optional*)
                 Dependencies to use to run the UV script.
 
             python (`str`, *optional*)
@@ -10673,10 +10670,10 @@ class HfApi:
             image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm"):
                 Use a custom Docker image with `uv` installed.
 
-            env (`Dict[str, Any]`, *optional*):
+            env (`dict[str, Any]`, *optional*):
                 Defines the environment variables for the Job.
 
-            secrets (`Dict[str, Any]`, *optional*):
+            secrets (`dict[str, Any]`, *optional*):
                 Defines the secret environment variables for the Job.
 
             flavor (`str`, *optional*):
@@ -10756,15 +10753,15 @@ class HfApi:
         self,
         *,
         script: str,
-        script_args: Optional[List[str]],
-        dependencies: Optional[List[str]],
+        script_args: Optional[list[str]],
+        dependencies: Optional[list[str]],
         python: Optional[str],
-        env: Optional[Dict[str, Any]],
-        secrets: Optional[Dict[str, Any]],
+        env: Optional[dict[str, Any]],
+        secrets: Optional[dict[str, Any]],
         namespace: Optional[str],
         token: Union[bool, str, None],
         _repo: Optional[str],
-    ) -> Tuple[List[str], Dict[str, Any], Dict[str, Any]]:
+    ) -> tuple[list[str], dict[str, Any], dict[str, Any]]:
         env = env or {}
         secrets = secrets or {}
 

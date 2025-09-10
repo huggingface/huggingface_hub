@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncGenerator, Dict, Iterable, List, Optional, Union
+from typing import AsyncGenerator, Dict, Iterable, Optional, Union
 
 from huggingface_hub import ChatCompletionInputMessage, ChatCompletionStreamOutput, MCPClient
 
@@ -49,7 +49,7 @@ class Agent(MCPClient):
     ):
         super().__init__(model=model, provider=provider, base_url=base_url, api_key=api_key)
         self._servers_cfg = list(servers)
-        self.messages: List[Union[Dict, ChatCompletionInputMessage]] = [
+        self.messages: list[Union[Dict, ChatCompletionInputMessage]] = [
             {"role": "system", "content": prompt or DEFAULT_SYSTEM_PROMPT}
         ]
 

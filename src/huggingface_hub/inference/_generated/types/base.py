@@ -16,7 +16,7 @@
 import inspect
 import json
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Type, TypeVar, Union, get_args
+from typing import Any, Dict, List, TypeVar, Union, get_args
 
 
 T = TypeVar("T", bound="BaseInferenceType")
@@ -28,7 +28,7 @@ def _repr_with_extra(self):
     return f"{self.__class__.__name__}({', '.join(f'{k}={self.__dict__[k]!r}' for k in fields + other_fields)})"
 
 
-def dataclass_with_extra(cls: Type[T]) -> Type[T]:
+def dataclass_with_extra(cls: type[T]) -> type[T]:
     """Decorator to add a custom __repr__ method to a dataclass, showing all fields, including extra ones.
 
     This decorator only works with dataclasses that inherit from `BaseInferenceType`.
@@ -49,7 +49,7 @@ class BaseInferenceType(dict):
     """
 
     @classmethod
-    def parse_obj_as_list(cls: Type[T], data: Union[bytes, str, List, Dict]) -> List[T]:
+    def parse_obj_as_list(cls: type[T], data: Union[bytes, str, List, Dict]) -> list[T]:
         """Alias to parse server response and return a single instance.
 
         See `parse_obj` for more details.
@@ -60,7 +60,7 @@ class BaseInferenceType(dict):
         return output
 
     @classmethod
-    def parse_obj_as_instance(cls: Type[T], data: Union[bytes, str, List, Dict]) -> T:
+    def parse_obj_as_instance(cls: type[T], data: Union[bytes, str, List, Dict]) -> T:
         """Alias to parse server response and return a single instance.
 
         See `parse_obj` for more details.
@@ -71,7 +71,7 @@ class BaseInferenceType(dict):
         return output
 
     @classmethod
-    def parse_obj(cls: Type[T], data: Union[bytes, str, List, Dict]) -> Union[List[T], T]:
+    def parse_obj(cls: type[T], data: Union[bytes, str, List, Dict]) -> Union[list[T], T]:
         """Parse server response as a dataclass or list of dataclasses.
 
         To enable future-compatibility, we want to handle cases where the server return more fields than expected.

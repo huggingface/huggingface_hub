@@ -18,7 +18,7 @@ import atexit
 import inspect
 import os
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from .utils import experimental, is_fastapi_available, is_gradio_available
 
@@ -115,7 +115,7 @@ class WebhooksServer:
         self._ui = ui
 
         self.webhook_secret = webhook_secret or os.getenv("WEBHOOK_SECRET")
-        self.registered_webhooks: Dict[str, Callable] = {}
+        self.registered_webhooks: dict[str, Callable] = {}
         _warn_on_empty_secret(self.webhook_secret)
 
     def add_webhook(self, path: Optional[str] = None) -> Callable:

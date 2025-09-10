@@ -156,7 +156,7 @@ def _build_chat_completion_url(model_url: str) -> str:
 
 
 @lru_cache(maxsize=1)
-def _fetch_recommended_models() -> Dict[str, Optional[str]]:
+def _fetch_recommended_models() -> dict[str, Optional[str]]:
     response = get_session().get(f"{constants.ENDPOINT}/api/tasks", headers=build_hf_headers())
     hf_raise_for_status(response)
     return {task: next(iter(details["widgetModels"]), None) for task, details in response.json().items()}

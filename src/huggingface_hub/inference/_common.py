@@ -73,7 +73,7 @@ class RequestParameters:
     model: Optional[str]
     json: Optional[Union[str, Dict, List]]
     data: Optional[bytes]
-    headers: Dict[str, Any]
+    headers: dict[str, Any]
 
 
 class MimeBytes(bytes):
@@ -397,14 +397,14 @@ async def _async_yield_from(client: httpx.AsyncClient, response: httpx.Response)
 # For more details, see https://github.com/huggingface/text-generation-inference and
 # https://huggingface.co/docs/api-inference/detailed_parameters#text-generation-task.
 
-_UNSUPPORTED_TEXT_GENERATION_KWARGS: Dict[Optional[str], List[str]] = {}
+_UNSUPPORTED_TEXT_GENERATION_KWARGS: dict[Optional[str], list[str]] = {}
 
 
-def _set_unsupported_text_generation_kwargs(model: Optional[str], unsupported_kwargs: List[str]) -> None:
+def _set_unsupported_text_generation_kwargs(model: Optional[str], unsupported_kwargs: list[str]) -> None:
     _UNSUPPORTED_TEXT_GENERATION_KWARGS.setdefault(model, []).extend(unsupported_kwargs)
 
 
-def _get_unsupported_text_generation_kwargs(model: Optional[str]) -> List[str]:
+def _get_unsupported_text_generation_kwargs(model: Optional[str]) -> list[str]:
     return _UNSUPPORTED_TEXT_GENERATION_KWARGS.get(model, [])
 
 

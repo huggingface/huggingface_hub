@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any, List, Optional, Union
+from typing import Any, Optional, Union
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -46,7 +46,7 @@ class DocumentQuestionAnsweringParameters(BaseInferenceType):
     """The number of answers to return (will be chosen by order of likelihood). Can return less
     than top_k answers if there are not enough options available within the context.
     """
-    word_boxes: Optional[List[Union[List[float], str]]] = None
+    word_boxes: Optional[list[Union[list[float], str]]] = None
     """A list of words and bounding boxes (normalized 0->1000). If provided, the inference will
     skip the OCR step and use the provided bounding boxes instead.
     """

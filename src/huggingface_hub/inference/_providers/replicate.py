@@ -14,7 +14,7 @@ class ReplicateTask(TaskProviderHelper):
     def __init__(self, task: str):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task=task)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
+    def _prepare_headers(self, headers: Dict, api_key: str) -> dict[str, Any]:
         headers = super()._prepare_headers(headers, api_key)
         headers["Prefer"] = "wait"
         return headers
@@ -28,7 +28,7 @@ class ReplicateTask(TaskProviderHelper):
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
         mapped_model = provider_mapping_info.provider_id
-        payload: Dict[str, Any] = {"input": {"prompt": inputs, **filter_none(parameters)}}
+        payload: dict[str, Any] = {"input": {"prompt": inputs, **filter_none(parameters)}}
         if ":" in mapped_model:
             version = mapped_model.split(":", 1)[1]
             payload["version"] = version
@@ -81,7 +81,7 @@ class ReplicateImageToImageTask(ReplicateTask):
     ) -> Optional[Dict]:
         image_url = _as_url(inputs, default_mime_type="image/jpeg")
 
-        payload: Dict[str, Any] = {"input": {"input_image": image_url, **filter_none(parameters)}}
+        payload: dict[str, Any] = {"input": {"input_image": image_url, **filter_none(parameters)}}
 
         mapped_model = provider_mapping_info.provider_id
         if ":" in mapped_model:

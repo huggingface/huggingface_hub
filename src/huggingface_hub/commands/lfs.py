@@ -21,7 +21,7 @@ import os
 import subprocess
 import sys
 from argparse import _SubParsersAction
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
@@ -146,7 +146,7 @@ class LfsUploadCommand:
             completion_url = msg["action"]["href"]
             header = msg["action"]["header"]
             chunk_size = int(header.pop("chunk_size"))
-            presigned_urls: List[str] = list(header.values())
+            presigned_urls: list[str] = list(header.values())
 
             # Send a "started" progress event to allow other workers to start.
             # Otherwise they're delayed until first "progress" event is reported,

@@ -6,7 +6,7 @@ import time
 import urllib.parse
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Literal, Optional, Union
 
 from . import constants
 from .hf_api import whoami
@@ -39,7 +39,7 @@ class OAuthOrgInfo:
             Whether the org has a payment method set up. Hugging Face field.
         role_in_org (`Optional[str]`, *optional*):
             The user's role in the org. Hugging Face field.
-        security_restrictions (`Optional[List[Literal["ip", "token-policy", "mfa", "sso"]]]`, *optional*):
+        security_restrictions (`Optional[list[Literal["ip", "token-policy", "mfa", "sso"]]]`, *optional*):
             Array of security restrictions that the user hasn't completed for this org. Possible values: "ip", "token-policy", "mfa", "sso". Hugging Face field.
     """
 
@@ -50,7 +50,7 @@ class OAuthOrgInfo:
     is_enterprise: bool
     can_pay: Optional[bool] = None
     role_in_org: Optional[str] = None
-    security_restrictions: Optional[List[Literal["ip", "token-policy", "mfa", "sso"]]] = None
+    security_restrictions: Optional[list[Literal["ip", "token-policy", "mfa", "sso"]]] = None
 
 
 @dataclass
@@ -79,7 +79,7 @@ class OAuthUserInfo:
             Whether the user is a pro user. Hugging Face field.
         can_pay (`Optional[bool]`, *optional*):
             Whether the user has a payment method set up. Hugging Face field.
-        orgs (`Optional[List[OrgInfo]]`, *optional*):
+        orgs (`Optional[list[OrgInfo]]`, *optional*):
             List of organizations the user is part of. Hugging Face field.
     """
 
@@ -93,7 +93,7 @@ class OAuthUserInfo:
     website: Optional[str]
     is_pro: bool
     can_pay: Optional[bool]
-    orgs: Optional[List[OAuthOrgInfo]]
+    orgs: Optional[list[OAuthOrgInfo]]
 
 
 @dataclass
@@ -306,7 +306,7 @@ def _add_oauth_routes(app: "fastapi.FastAPI", route_prefix: str) -> None:
             target_url = request.query_params.get("_target_url")
 
             # Build redirect URI with the same query params as before and bump nb_redirects count
-            query_params: Dict[str, Union[int, str]] = {"_nb_redirects": nb_redirects + 1}
+            query_params: dict[str, Union[int, str]] = {"_nb_redirects": nb_redirects + 1}
             if target_url:
                 query_params["_target_url"] = target_url
 
@@ -449,7 +449,7 @@ def _get_mocked_oauth_info() -> Dict:
     }
 
 
-def _get_oauth_uris(route_prefix: str = "/") -> Tuple[str, str, str]:
+def _get_oauth_uris(route_prefix: str = "/") -> tuple[str, str, str]:
     route_prefix = route_prefix.strip("/")
     if route_prefix:
         route_prefix = f"/{route_prefix}"

@@ -243,8 +243,8 @@ def _get_repo_sorting_key(repo: CachedRepoInfo, sort_by: Optional[SortingOption_
 
 @require_inquirer_py
 def _manual_review_tui(
-    hf_cache_info: HFCacheInfo, preselected: List[str], sort_by: Optional[SortingOption_T] = None
-) -> List[str]:
+    hf_cache_info: HFCacheInfo, preselected: list[str], sort_by: Optional[SortingOption_T] = None
+) -> list[str]:
     choices = _get_tui_choices_from_scan(repos=hf_cache_info.repos, preselected=preselected, sort_by=sort_by)
     checkbox = inquirer.checkbox(
         message="Select revisions to delete:",
@@ -277,9 +277,9 @@ def _ask_for_confirmation_tui(message: str, default: bool = True) -> bool:
 
 
 def _get_tui_choices_from_scan(
-    repos: Iterable[CachedRepoInfo], preselected: List[str], sort_by: Optional[SortingOption_T] = None
+    repos: Iterable[CachedRepoInfo], preselected: list[str], sort_by: Optional[SortingOption_T] = None
 ) -> List:
-    choices: List[Union["Choice", "Separator"]] = []
+    choices: list[Union["Choice", "Separator"]] = []
     choices.append(
         Choice(
             _CANCEL_DELETION_STR, name="None of the following (if selected, nothing will be deleted).", enabled=False
@@ -306,8 +306,8 @@ def _get_tui_choices_from_scan(
 
 
 def _manual_review_no_tui(
-    hf_cache_info: HFCacheInfo, preselected: List[str], sort_by: Optional[SortingOption_T] = None
-) -> List[str]:
+    hf_cache_info: HFCacheInfo, preselected: list[str], sort_by: Optional[SortingOption_T] = None
+) -> list[str]:
     fd, tmp_path = mkstemp(suffix=".txt")
     os.close(fd)
     lines = []
@@ -358,14 +358,14 @@ def _ask_for_confirmation_no_tui(message: str, default: bool = True) -> bool:
         print(f"Invalid input. Must be one of {ALL}")
 
 
-def _get_expectations_str(hf_cache_info: HFCacheInfo, selected_hashes: List[str]) -> str:
+def _get_expectations_str(hf_cache_info: HFCacheInfo, selected_hashes: list[str]) -> str:
     if _CANCEL_DELETION_STR in selected_hashes:
         return "Nothing will be deleted."
     strategy = hf_cache_info.delete_revisions(*selected_hashes)
     return f"{len(selected_hashes)} revisions selected counting for {strategy.expected_freed_size_str}."
 
 
-def _read_manual_review_tmp_file(tmp_path: str) -> List[str]:
+def _read_manual_review_tmp_file(tmp_path: str) -> list[str]:
     with open(tmp_path) as f:
         content = f.read()
     lines = [line.strip() for line in content.split("\n")]

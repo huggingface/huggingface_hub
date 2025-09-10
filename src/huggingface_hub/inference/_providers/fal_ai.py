@@ -22,7 +22,7 @@ class FalAITask(TaskProviderHelper, ABC):
     def __init__(self, task: str):
         super().__init__(provider="fal-ai", base_url="https://fal.run", task=task)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
+    def _prepare_headers(self, headers: Dict, api_key: str) -> dict[str, Any]:
         headers = super()._prepare_headers(headers, api_key)
         if not api_key.startswith("hf_"):
             headers["authorization"] = f"Key {api_key}"
@@ -36,7 +36,7 @@ class FalAIQueueTask(TaskProviderHelper, ABC):
     def __init__(self, task: str):
         super().__init__(provider="fal-ai", base_url="https://queue.fal.run", task=task)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
+    def _prepare_headers(self, headers: Dict, api_key: str) -> dict[str, Any]:
         headers = super()._prepare_headers(headers, api_key)
         if not api_key.startswith("hf_"):
             headers["authorization"] = f"Key {api_key}"
@@ -122,7 +122,7 @@ class FalAITextToImageTask(FalAITask):
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "prompt": inputs,
             **filter_none(parameters),
         }
@@ -191,7 +191,7 @@ class FalAIImageToImageTask(FalAIQueueTask):
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
         image_url = _as_url(inputs, default_mime_type="image/jpeg")
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "image_url": image_url,
             **filter_none(parameters),
         }
@@ -223,7 +223,7 @@ class FalAIImageToVideoTask(FalAIQueueTask):
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
         image_url = _as_url(inputs, default_mime_type="image/jpeg")
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "image_url": image_url,
             **filter_none(parameters),
         }

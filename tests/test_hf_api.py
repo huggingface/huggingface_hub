@@ -25,7 +25,7 @@ from concurrent.futures import Future
 from dataclasses import fields
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Set, Union, get_args
+from typing import List, Optional, Union, get_args
 from unittest.mock import Mock, patch
 from urllib.parse import quote, urlparse
 
@@ -1758,7 +1758,7 @@ class HfApiDeleteFilesTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=self.repo_id)
         super().tearDown()
 
-    def remote_files(self) -> Set[set]:
+    def remote_files(self) -> set[set]:
         return set(self._api.list_repo_files(repo_id=self.repo_id))
 
     def test_delete_single_file(self):
@@ -2196,7 +2196,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert files is not None
         self._check_siblings_metadata(files)
 
-    def _check_siblings_metadata(self, files: List[RepoSibling]):
+    def _check_siblings_metadata(self, files: list[RepoSibling]):
         """Check requested metadata has been received from the server."""
         at_least_one_lfs = False
         for file in files:
@@ -2657,7 +2657,7 @@ class UploadFolderMockedTest(unittest.TestCase):
         self.create_commit_mock.return_value.pr_url = None
         self.api.create_commit = self.create_commit_mock
 
-    def _upload_folder_alias(self, **kwargs) -> List[Union[CommitOperationAdd, CommitOperationDelete]]:
+    def _upload_folder_alias(self, **kwargs) -> list[Union[CommitOperationAdd, CommitOperationDelete]]:
         """Alias to call `upload_folder` + retrieve the CommitOperation list passed to `create_commit`."""
         if "folder_path" not in kwargs:
             kwargs["folder_path"] = self.cache_dir

@@ -35,7 +35,7 @@ Usage:
 """
 
 from argparse import _SubParsersAction
-from typing import List, Optional
+from typing import Optional
 
 from huggingface_hub import logging
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
@@ -52,7 +52,7 @@ class DeleteFilesSubCommand:
         self.repo_type: Optional[str] = args.repo_type
         self.revision: Optional[str] = args.revision
         self.api: HfApi = HfApi(token=args.token, library_name="hf")
-        self.patterns: List[str] = args.patterns
+        self.patterns: list[str] = args.patterns
         self.commit_message: Optional[str] = args.commit_message
         self.commit_description: Optional[str] = args.commit_description
         self.create_pr: bool = args.create_pr
