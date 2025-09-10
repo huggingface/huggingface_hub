@@ -346,6 +346,17 @@ class MCPClient:
         # Process tool calls one by one
         for tool_call in final_tool_calls.values():
             function_name = tool_call.function.name
+            if function_name is None:
+                message = ChatCompletionInputMessage.parse_obj_as_instance(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": "Invalid tool call with no function name.",
+                    }
+                )
+                messages.append(message)
+                yield message
+                continue  # move to next tool call
             try:
                 function_args = json.loads(tool_call.function.arguments or "{}")
             except json.JSONDecodeError as err:

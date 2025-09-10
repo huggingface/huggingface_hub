@@ -335,7 +335,7 @@ class RepoCard:
 
 
 class ModelCard(RepoCard):
-    card_data_class = ModelCardData
+    card_data_class = ModelCardData  # type: ignore[assignment]
     default_template_path = TEMPLATE_MODELCARD_PATH
     repo_type = "model"
 
@@ -416,7 +416,7 @@ class ModelCard(RepoCard):
 
 
 class DatasetCard(RepoCard):
-    card_data_class = DatasetCardData
+    card_data_class = DatasetCardData  # type: ignore[assignment]
     default_template_path = TEMPLATE_DATASETCARD_PATH
     repo_type = "dataset"
 
@@ -481,7 +481,7 @@ class DatasetCard(RepoCard):
 
 
 class SpaceCard(RepoCard):
-    card_data_class = SpaceCardData
+    card_data_class = SpaceCardData  # type: ignore[assignment]
     default_template_path = TEMPLATE_MODELCARD_PATH
     repo_type = "space"
 
