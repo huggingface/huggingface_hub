@@ -25,7 +25,7 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
 
     def get_response(
         self,
-        response: Union[bytes, Dict],
+        response: Union[bytes, dict],
         request_params: Optional[RequestParameters] = None,
     ) -> Any:
         """
@@ -48,7 +48,7 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
         """
         return super()._prepare_route(mapped_model)
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[dict]:
         """Return the payload to use for the request, as a dict.
 
         Override this method in subclasses for customized payloads.
@@ -57,7 +57,7 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
         return super()._prepare_payload_as_dict(inputs, parameters, mapped_model)
 
     def _prepare_payload_as_bytes(
-        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
+        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[dict]
     ) -> Optional[MimeBytes]:
         """Return the body to use for the request, as bytes.
 

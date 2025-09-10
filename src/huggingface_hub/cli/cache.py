@@ -19,7 +19,7 @@ import time
 from argparse import Namespace, _SubParsersAction
 from functools import wraps
 from tempfile import mkstemp
-from typing import Any, Callable, Iterable, List, Literal, Optional, Union
+from typing import Any, Callable, Iterable, Literal, Optional, Union, list
 
 from ..utils import CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
@@ -278,7 +278,7 @@ def _ask_for_confirmation_tui(message: str, default: bool = True) -> bool:
 
 def _get_tui_choices_from_scan(
     repos: Iterable[CachedRepoInfo], preselected: list[str], sort_by: Optional[SortingOption_T] = None
-) -> List:
+) -> list:
     choices: list[Union["Choice", "Separator"]] = []
     choices.append(
         Choice(

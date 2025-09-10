@@ -21,7 +21,7 @@ import os
 import subprocess
 import sys
 from argparse import _SubParsersAction
-from typing import Dict, Optional
+from typing import Optional
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
@@ -89,14 +89,14 @@ class LfsEnableCommand:
         print("Local repo set up for largefiles")
 
 
-def write_msg(msg: Dict):
+def write_msg(msg: dict):
     """Write out the message in Line delimited JSON."""
     msg_str = json.dumps(msg) + "\n"
     sys.stdout.write(msg_str)
     sys.stdout.flush()
 
 
-def read_msg() -> Optional[Dict]:
+def read_msg() -> Optional[dict]:
     """Read Line delimited JSON from stdin."""
     msg = json.loads(sys.stdin.readline().strip())
 

@@ -507,7 +507,7 @@ def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:  # n
         return "\n"
 
 
-def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
+def metadata_load(local_path: Union[str, Path]) -> Optional[dict]:
     content = Path(local_path).read_text()
     match = REGEX_YAML_BLOCK.search(content)
     if match:
@@ -520,7 +520,7 @@ def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
         return None
 
 
-def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
+def metadata_save(local_path: Union[str, Path], data: dict) -> None:
     """
     Save the metadata dict in the upper YAML part Trying to preserve newlines as
     in the existing file. Docs about open() with newline="" parameter:

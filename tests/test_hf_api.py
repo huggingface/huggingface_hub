@@ -25,7 +25,7 @@ from concurrent.futures import Future
 from dataclasses import fields
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Union, get_args
+from typing import Optional, Union, get_args, list
 from unittest.mock import Mock, patch
 from urllib.parse import quote, urlparse
 
@@ -4488,7 +4488,7 @@ class HfApiInferenceCatalogTest(HfApiCommonTest):
     def test_list_inference_catalog(self) -> None:
         models = self._api.list_inference_catalog()  # note: @experimental api
         # Check that server returns a list[str] => at least if it changes in the future, we'll notice
-        assert isinstance(models, List)
+        assert isinstance(models, list)
         assert len(models) > 0
         assert all(isinstance(model, str) for model in models)
 

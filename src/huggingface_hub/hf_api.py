@@ -349,8 +349,8 @@ class BlobLfsInfo(dict):
 class BlobSecurityInfo(dict):
     safe: bool  # duplicate information with "status" field, keeping it for backward compatibility
     status: str
-    av_scan: Optional[Dict]
-    pickle_import_scan: Optional[Dict]
+    av_scan: Optional[dict]
+    pickle_import_scan: Optional[dict]
 
     def __post_init__(self):  # hack to make BlogSecurityInfo backward compatible
         self.update(asdict(self))
@@ -824,7 +824,7 @@ class ModelInfo:
     downloads: Optional[int]
     downloads_all_time: Optional[int]
     gated: Optional[Literal["auto", "manual", False]]
-    gguf: Optional[Dict]
+    gguf: Optional[dict]
     inference: Optional[Literal["warm"]]
     inference_provider_mapping: Optional[list[InferenceProviderMapping]]
     likes: Optional[int]
@@ -834,14 +834,14 @@ class ModelInfo:
     mask_token: Optional[str]
     card_data: Optional[ModelCardData]
     widget_data: Optional[Any]
-    model_index: Optional[Dict]
-    config: Optional[Dict]
+    model_index: Optional[dict]
+    config: Optional[dict]
     transformers_info: Optional[TransformersInfo]
     trending_score: Optional[int]
     siblings: Optional[list[RepoSibling]]
     spaces: Optional[list[str]]
     safetensors: Optional[SafeTensorsInfo]
-    security_repo_status: Optional[Dict]
+    security_repo_status: Optional[dict]
     xet_enabled: Optional[bool]
 
     def __init__(self, **kwargs):
@@ -1219,7 +1219,7 @@ class CollectionItem:
         id: str,
         type: CollectionItemType_T,
         position: int,
-        note: Optional[Dict] = None,
+        note: Optional[dict] = None,
         **kwargs,
     ) -> None:
         self.item_object_id: str = _id  # id in database
@@ -3244,7 +3244,7 @@ class HfApi:
         hf_raise_for_status(response)
         data = response.json()
 
-        def _format_as_git_ref_info(item: Dict) -> GitRefInfo:
+        def _format_as_git_ref_info(item: dict) -> GitRefInfo:
             return GitRefInfo(name=item["name"], ref=item["ref"], target_commit=item["targetCommit"])
 
         return GitRefs(
@@ -7611,7 +7611,7 @@ class HfApi:
         scale_to_zero_timeout: Optional[int] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
-        custom_image: Optional[Dict] = None,
+        custom_image: Optional[dict] = None,
         env: Optional[dict[str, str]] = None,
         secrets: Optional[dict[str, str]] = None,
         type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
@@ -7974,7 +7974,7 @@ class HfApi:
         framework: Optional[str] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
-        custom_image: Optional[Dict] = None,
+        custom_image: Optional[dict] = None,
         env: Optional[dict[str, str]] = None,
         secrets: Optional[dict[str, str]] = None,
         # Route update

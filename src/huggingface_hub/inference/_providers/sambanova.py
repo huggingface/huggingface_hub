@@ -11,7 +11,7 @@ class SambanovaConversationalTask(BaseConversationalTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         response_format_config = parameters.get("response_format")
         if isinstance(response_format_config, dict):
             if response_format_config.get("type") == "json_schema":
@@ -33,10 +33,10 @@ class SambanovaFeatureExtractionTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         parameters = filter_none(parameters)
         return {"input": inputs, "model": provider_mapping_info.provider_id, **parameters}
 
-    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
         embeddings = _as_dict(response)["data"]
         return [embedding["embedding"] for embedding in embeddings]

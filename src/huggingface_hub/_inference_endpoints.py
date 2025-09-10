@@ -260,7 +260,7 @@ class InferenceEndpoint:
         framework: Optional[str] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
-        custom_image: Optional[Dict] = None,
+        custom_image: Optional[dict] = None,
         secrets: Optional[dict[str, str]] = None,
     ) -> "InferenceEndpoint":
         """Update the Inference Endpoint.

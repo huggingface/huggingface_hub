@@ -23,7 +23,7 @@ class NovitaTextGenerationTask(BaseTextGenerationTask):
         # there is no v1/ route for novita
         return "/v3/openai/completions"
 
-    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
         output = _as_dict(response)["choices"][0]
         return {
             "generated_text": output["text"],
@@ -52,10 +52,10 @@ class NovitaTextToVideoTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         return {"prompt": inputs, **filter_none(parameters)}
 
-    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
         response_dict = _as_dict(response)
         if not (
             isinstance(response_dict, dict)

@@ -158,7 +158,7 @@ class InferenceApi:
     def __call__(
         self,
         inputs: Optional[Union[str, Dict, list[str], list[list[str]]]] = None,
-        params: Optional[Dict] = None,
+        params: Optional[dict] = None,
         data: Optional[bytes] = None,
         raw_response: bool = False,
     ) -> Any:

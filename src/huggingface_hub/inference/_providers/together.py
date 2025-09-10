@@ -36,7 +36,7 @@ class TogetherTextGenerationTask(BaseTextGenerationTask):
     def __init__(self):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
 
-    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
         output = _as_dict(response)["choices"][0]
         return {
             "generated_text": output["text"],
@@ -53,7 +53,7 @@ class TogetherConversationalTask(BaseConversationalTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         payload = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)
         response_format = parameters.get("response_format")
         if isinstance(response_format, dict) and response_format.get("type") == "json_schema":
@@ -73,7 +73,7 @@ class TogetherTextToImageTask(TogetherTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         mapped_model = provider_mapping_info.provider_id
         parameters = filter_none(parameters)
         if "num_inference_steps" in parameters:
@@ -83,6 +83,6 @@ class TogetherTextToImageTask(TogetherTask):
 
         return {"prompt": inputs, "response_format": "base64", **parameters, "model": mapped_model}
 
-    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
         response_dict = _as_dict(response)
         return base64.b64decode(response_dict["data"][0]["b64_json"])

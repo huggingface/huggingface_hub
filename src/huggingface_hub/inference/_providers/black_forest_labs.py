@@ -30,7 +30,7 @@ class BlackForestLabsTextToImageTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         parameters = filter_none(parameters)
         if "num_inference_steps" in parameters:
             parameters["steps"] = parameters.pop("num_inference_steps")
@@ -39,7 +39,7 @@ class BlackForestLabsTextToImageTask(TaskProviderHelper):
 
         return {"prompt": inputs, **parameters}
 
-    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
         """
         Polling mechanism for Black Forest Labs since the API is asynchronous.
         """

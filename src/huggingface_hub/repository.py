@@ -6,7 +6,7 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Dict, Iterator, Optional, TypedDict, Union
+from typing import Callable, Iterator, Optional, TypedDict, Union
 from urllib.parse import urlparse
 
 from huggingface_hub import constants
@@ -1433,13 +1433,13 @@ class Repository:
 
             os.chdir(current_working_directory)
 
-    def repocard_metadata_load(self) -> Optional[Dict]:
+    def repocard_metadata_load(self) -> Optional[dict]:
         filepath = os.path.join(self.local_dir, constants.REPOCARD_NAME)
         if os.path.isfile(filepath):
             return metadata_load(filepath)
         return None
 
-    def repocard_metadata_save(self, data: Dict) -> None:
+    def repocard_metadata_save(self, data: dict) -> None:
         return metadata_save(os.path.join(self.local_dir, constants.REPOCARD_NAME), data)
 
     @property

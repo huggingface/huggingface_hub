@@ -395,7 +395,7 @@ def _upload_lfs_files(
     # Step 1: retrieve upload instructions from the LFS batch endpoint.
     #         Upload instructions are retrieved by chunk of 256 files to avoid reaching
     #         the payload limit.
-    batch_actions: list[Dict] = []
+    batch_actions: list[dict] = []
     for chunk in chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES):
         batch_actions_chunk, batch_errors_chunk = post_lfs_batch_info(
             upload_infos=[op.upload_info for op in chunk],

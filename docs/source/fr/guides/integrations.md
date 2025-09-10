@@ -223,7 +223,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
       revision: str,
       cache_dir: str,
       force_download: bool,
-      proxies: Optional[Dict],
+      proxies: Optional[dict],
       resume_download: bool,
       local_files_only: bool,
       token: Union[str, bool, None],
@@ -266,9 +266,9 @@ est ici pour vous donner des indications et des idées sur comment gérer l'int�
 n'hésitez pas à nous contacter si vous avez une question !
 
 <!-- Généré en utilisant https://www.tablesgenerator.com/markdown_tables -->
-| Intégration | Utilisant des helpers | Utilisant [`ModelHubMixin`] |
-|:---:|:---:|:---:|
-| Expérience utilisateur | `model = load_from_hub(...)`<br>`push_to_hub(model, ...)` | `model = MyModel.from_pretrained(...)`<br>`model.push_to_hub(...)` |
-| Flexible | Très flexible.<br>Vous controllez complètement l'implémentation. | Moins flexible.<br>Votre framework doit avoir une classe de modèle. |
-| Maintenance | Plus de maintenance pour ajouter du support pour la configuration, et de nouvelles fonctionnalités. Peut aussi nécessiter de fixx des problèmes signalés par les utilisateurs.| Moins de maintenance vu que la plupart des intégrations avec le Hub sont implémentés dans `huggingface_hub` |
-| Documentation / Anotation de type| A écrire à la main | Géré partiellement par `huggingface_hub`. |
+|            Intégration            |                                                                             Utilisant des helpers                                                                              |                                         Utilisant [`ModelHubMixin`]                                         |
+| :-------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: |
+|      Expérience utilisateur       |                                                           `model = load_from_hub(...)`<br>`push_to_hub(model, ...)`                                                            |                     `model = MyModel.from_pretrained(...)`<br>`model.push_to_hub(...)`                      |
+|             Flexible              |                                                        Très flexible.<br>Vous controllez complètement l'implémentation.                                                        |                     Moins flexible.<br>Votre framework doit avoir une classe de modèle.                     |
+|            Maintenance            | Plus de maintenance pour ajouter du support pour la configuration, et de nouvelles fonctionnalités. Peut aussi nécessiter de fixx des problèmes signalés par les utilisateurs. | Moins de maintenance vu que la plupart des intégrations avec le Hub sont implémentés dans `huggingface_hub` |
+| Documentation / Anotation de type |                                                                               A écrire à la main                                                                               |                                  Géré partiellement par `huggingface_hub`.                                  |

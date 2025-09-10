@@ -61,7 +61,7 @@ class HFInferenceTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         if isinstance(inputs, bytes):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
         if isinstance(inputs, Path):
@@ -72,7 +72,7 @@ class HFInferenceTask(TaskProviderHelper):
 class HFInferenceBinaryInputTask(HFInferenceTask):
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         return None
 
     def _prepare_payload_as_bytes(
@@ -80,7 +80,7 @@ class HFInferenceBinaryInputTask(HFInferenceTask):
         inputs: Any,
         parameters: Dict,
         provider_mapping_info: InferenceProviderMapping,
-        extra_payload: Optional[Dict],
+        extra_payload: Optional[dict],
     ) -> Optional[MimeBytes]:
         parameters = filter_none(parameters)
         extra_payload = extra_payload or {}
@@ -107,7 +107,7 @@ class HFInferenceConversational(HFInferenceTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         payload = filter_none(parameters)
         mapped_model = provider_mapping_info.provider_id
         payload_model = parameters.get("model") or mapped_model
@@ -212,7 +212,7 @@ class HFInferenceFeatureExtractionTask(HFInferenceTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         if isinstance(inputs, bytes):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
         if isinstance(inputs, Path):
@@ -222,7 +222,7 @@ class HFInferenceFeatureExtractionTask(HFInferenceTask):
         # See specs: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/src/tasks/feature-extraction/spec/input.json
         return {"inputs": inputs, **filter_none(parameters)}
 
-    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
         if isinstance(response, bytes):
             return _bytes_to_dict(response)
         return response

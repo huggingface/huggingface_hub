@@ -430,7 +430,7 @@ class AsyncInferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> AutomaticSpeechRecognitionOutput:
         """
         Perform automatic speech recognition (ASR or audio-to-text) on the given audio content.
@@ -497,7 +497,7 @@ class AsyncInferenceClient:
         tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> ChatCompletionOutput: ...
 
     @overload
@@ -523,7 +523,7 @@ class AsyncInferenceClient:
         tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> AsyncIterable[ChatCompletionStreamOutput]: ...
 
     @overload
@@ -549,7 +549,7 @@ class AsyncInferenceClient:
         tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]: ...
 
     async def chat_completion(
@@ -575,7 +575,7 @@ class AsyncInferenceClient:
         tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]:
         """
         A method for completing conversations using a specified language model.

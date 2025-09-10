@@ -130,7 +130,7 @@ class SpaceRuntime:
     storage: Optional[SpaceStorage]
     raw: Dict
 
-    def __init__(self, data: Dict) -> None:
+    def __init__(self, data: dict) -> None:
         self.stage = data["stage"]
         self.hardware = data.get("hardware", {}).get("current")
         self.requested_hardware = data.get("hardware", {}).get("requested")
@@ -160,7 +160,7 @@ class SpaceVariable:
     description: Optional[str]
     updated_at: Optional[datetime]
 
-    def __init__(self, key: str, values: Dict) -> None:
+    def __init__(self, key: str, values: dict) -> None:
         self.key = key
         self.value = values["value"]
         self.description = values.get("description")

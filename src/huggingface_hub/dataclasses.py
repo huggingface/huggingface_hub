@@ -4,7 +4,6 @@ from functools import wraps
 from typing import (
     Any,
     Callable,
-    Dict,
     Literal,
     Optional,
     TypeVar,
@@ -242,7 +241,7 @@ def validated_field(
     repr: bool = True,
     hash: Optional[bool] = None,
     compare: bool = True,
-    metadata: Optional[Dict] = None,
+    metadata: Optional[dict] = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -293,7 +292,7 @@ def as_validated_field(validator: Validator_T):
         repr: bool = True,
         hash: Optional[bool] = None,
         compare: bool = True,
-        metadata: Optional[Dict] = None,
+        metadata: Optional[dict] = None,
         **kwargs: Any,
     ):
         return validated_field(

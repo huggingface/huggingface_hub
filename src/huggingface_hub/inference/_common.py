@@ -28,7 +28,6 @@ from typing import (
     BinaryIO,
     Dict,
     Iterable,
-    List,
     Literal,
     NoReturn,
     Optional,
@@ -71,7 +70,7 @@ class RequestParameters:
     url: str
     task: str
     model: Optional[str]
-    json: Optional[Union[str, Dict, List]]
+    json: Optional[Union[str, Dict, list]]
     data: Optional[bytes]
     headers: dict[str, Any]
 
@@ -240,7 +239,7 @@ def _b64_to_image(encoded_image: str) -> "Image":
     return Image.open(io.BytesIO(base64.b64decode(encoded_image)))
 
 
-def _bytes_to_list(content: bytes) -> List:
+def _bytes_to_list(content: bytes) -> list:
     """Parse bytes from a Response object into a Python list.
 
     Expects the response body to be JSON-encoded data.
@@ -271,7 +270,7 @@ def _bytes_to_image(content: bytes) -> "Image":
     return Image.open(io.BytesIO(content))
 
 
-def _as_dict(response: Union[bytes, Dict]) -> Dict:
+def _as_dict(response: Union[bytes, dict]) -> Dict:
     return json.loads(response) if isinstance(response, bytes) else response
 
 

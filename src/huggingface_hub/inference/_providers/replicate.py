@@ -26,7 +26,7 @@ class ReplicateTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         mapped_model = provider_mapping_info.provider_id
         payload: dict[str, Any] = {"input": {"prompt": inputs, **filter_none(parameters)}}
         if ":" in mapped_model:
@@ -34,7 +34,7 @@ class ReplicateTask(TaskProviderHelper):
             payload["version"] = version
         return payload
 
-    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
         response_dict = _as_dict(response)
         if response_dict.get("output") is None:
             raise TimeoutError(
@@ -53,7 +53,7 @@ class ReplicateTextToImageTask(ReplicateTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         payload: Dict = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)  # type: ignore[assignment]
         if provider_mapping_info.adapter_weights_path is not None:
             payload["input"]["lora_weights"] = f"https://huggingface.co/{provider_mapping_info.hf_model_id}"
@@ -66,7 +66,7 @@ class ReplicateTextToSpeechTask(ReplicateTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         payload: Dict = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)  # type: ignore[assignment]
         payload["input"]["text"] = payload["input"].pop("prompt")  # rename "prompt" to "text" for TTS
         return payload
@@ -78,7 +78,7 @@ class ReplicateImageToImageTask(ReplicateTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         image_url = _as_url(inputs, default_mime_type="image/jpeg")
 
         payload: dict[str, Any] = {"input": {"input_image": image_url, **filter_none(parameters)}}

@@ -370,7 +370,7 @@ def _get_sorted_parts_urls(header: Dict, upload_info: UploadInfo, chunk_size: in
     return sorted_part_upload_urls
 
 
-def _get_completion_payload(response_headers: list[Dict], oid: str) -> CompletionPayloadT:
+def _get_completion_payload(response_headers: list[dict], oid: str) -> CompletionPayloadT:
     parts: list[PayloadPartT] = []
     for part_number, header in enumerate(response_headers):
         etag = header.get("etag")
@@ -387,7 +387,7 @@ def _get_completion_payload(response_headers: list[Dict], oid: str) -> Completio
 
 def _upload_parts_iteratively(
     operation: "CommitOperationAdd", sorted_parts_urls: list[str], chunk_size: int
-) -> list[Dict]:
+) -> list[dict]:
     headers = []
     with operation.as_file(with_tqdm=True) as fileobj:
         for part_idx, part_upload_url in enumerate(sorted_parts_urls):
@@ -407,7 +407,7 @@ def _upload_parts_iteratively(
 
 def _upload_parts_hf_transfer(
     operation: "CommitOperationAdd", sorted_parts_urls: list[str], chunk_size: int
-) -> list[Dict]:
+) -> list[dict]:
     # Upload file using an external Rust-based package. Upload is faster but support less features (no progress bars).
     try:
         from hf_transfer import multipart_upload

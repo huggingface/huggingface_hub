@@ -256,7 +256,7 @@ class MCPClient:
         """Process a query using `self.model` and available tools, yielding chunks and tool outputs.
 
         Args:
-            messages (`list[Dict]`):
+            messages (`list[dict]`):
                 List of message objects representing the conversation history
             exit_loop_tools (`list[ChatCompletionInputTool]`, *optional*):
                 List of tools that should exit the generator when called

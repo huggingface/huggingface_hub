@@ -123,7 +123,7 @@ class TaskProviderHelper:
 
     def get_response(
         self,
-        response: Union[bytes, Dict],
+        response: Union[bytes, dict],
         request_params: Optional[RequestParameters] = None,
     ) -> Any:
         """
@@ -232,7 +232,7 @@ class TaskProviderHelper:
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         """Return the payload to use for the request, as a dict.
 
         Override this method in subclasses for customized payloads.
@@ -245,7 +245,7 @@ class TaskProviderHelper:
         inputs: Any,
         parameters: Dict,
         provider_mapping_info: InferenceProviderMapping,
-        extra_payload: Optional[Dict],
+        extra_payload: Optional[dict],
     ) -> Optional[MimeBytes]:
         """Return the body to use for the request, as bytes.
 
@@ -272,7 +272,7 @@ class BaseConversationalTask(TaskProviderHelper):
         inputs: list[Union[Dict, ChatCompletionInputMessage]],
         parameters: Dict,
         provider_mapping_info: InferenceProviderMapping,
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         return filter_none({"messages": inputs, **parameters, "model": provider_mapping_info.provider_id})
 
 
@@ -290,7 +290,7 @@ class BaseTextGenerationTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         return filter_none({"prompt": inputs, **parameters, "model": provider_mapping_info.provider_id})
 
 
@@ -308,7 +308,7 @@ def _fetch_inference_provider_mapping(model: str) -> list["InferenceProviderMapp
     return provider_mapping
 
 
-def recursive_merge(dict1: Dict, dict2: Dict) -> Dict:
+def recursive_merge(dict1: Dict, dict2: dict) -> Dict:
     return {
         **dict1,
         **{

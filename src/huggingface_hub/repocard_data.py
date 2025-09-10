@@ -1,7 +1,7 @@
 import copy
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 from huggingface_hub.utils import logging, yaml_dump
 
@@ -445,7 +445,7 @@ class DatasetCardData(CardData):
         task_ids: Optional[Union[str, list[str]]] = None,
         paperswithcode_id: Optional[str] = None,
         pretty_name: Optional[str] = None,
-        train_eval_index: Optional[Dict] = None,
+        train_eval_index: Optional[dict] = None,
         config_names: Optional[Union[str, list[str]]] = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
