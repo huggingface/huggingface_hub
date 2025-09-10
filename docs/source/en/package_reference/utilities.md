@@ -177,35 +177,39 @@ Here is a list of HTTP errors thrown in `huggingface_hub`.
 the server response and format the error message to provide as much information to the
 user as possible.
 
-[[autodoc]] huggingface_hub.utils.HfHubHTTPError
+[[autodoc]] huggingface_hub.errors.HfHubHTTPError
 
 #### RepositoryNotFoundError
 
-[[autodoc]] huggingface_hub.utils.RepositoryNotFoundError
+[[autodoc]] huggingface_hub.errors.RepositoryNotFoundError
 
 #### GatedRepoError
 
-[[autodoc]] huggingface_hub.utils.GatedRepoError
+[[autodoc]] huggingface_hub.errors.GatedRepoError
 
 #### RevisionNotFoundError
 
-[[autodoc]] huggingface_hub.utils.RevisionNotFoundError
-
-#### EntryNotFoundError
-
-[[autodoc]] huggingface_hub.utils.EntryNotFoundError
+[[autodoc]] huggingface_hub.errors.RevisionNotFoundError
 
 #### BadRequestError
 
-[[autodoc]] huggingface_hub.utils.BadRequestError
+[[autodoc]] huggingface_hub.errors.BadRequestError
+
+#### EntryNotFoundError
+
+[[autodoc]] huggingface_hub.errors.EntryNotFoundError
+
+#### RemoteEntryNotFoundError
+
+[[autodoc]] huggingface_hub.errors.RemoteEntryNotFoundError
 
 #### LocalEntryNotFoundError
 
-[[autodoc]] huggingface_hub.utils.LocalEntryNotFoundError
+[[autodoc]] huggingface_hub.errors.LocalEntryNotFoundError
 
 #### OfflineModeIsEnabled
 
-[[autodoc]] huggingface_hub.utils.OfflineModeIsEnabled
+[[autodoc]] huggingface_hub.errors.OfflineModeIsEnabled
 
 ## Telemetry
 

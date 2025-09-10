@@ -17,8 +17,8 @@ import time
 import unittest
 from pathlib import Path
 
+import httpx
 import pytest
-import requests
 
 from huggingface_hub import RepoUrl
 from huggingface_hub.hf_api import HfApi
@@ -280,7 +280,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
 
         # Check that the returned commit url
         # actually exists.
-        r = requests.head(url)
+        r = httpx.head(url)
         r.raise_for_status()
 
     def test_add_commit_push_non_blocking(self):
@@ -302,7 +302,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
 
         # Check that the returned commit url
         # actually exists.
-        r = requests.head(url)
+        r = httpx.head(url)
         r.raise_for_status()
 
     def test_context_manager_non_blocking(self):

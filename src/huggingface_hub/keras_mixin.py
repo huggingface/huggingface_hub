@@ -265,10 +265,6 @@ def from_pretrained_keras(*args, **kwargs) -> "KerasModelHubMixin":
         force_download (`bool`, *optional*, defaults to `False`):
             Whether to force the (re-)download of the model weights and
             configuration files, overriding the cached versions if they exist.
-        proxies (`Dict[str, str]`, *optional*):
-            A dictionary of proxy servers to use by protocol or endpoint, e.g.,
-            `{'http': 'foo.bar:3128', 'http://hostname': 'foo.bar:4012'}`. The
-            proxies are used on each request.
         token (`str` or `bool`, *optional*):
             The token to use as HTTP bearer authorization for remote files. If
             `True`, will use the token generated when running `transformers-cli
@@ -463,7 +459,6 @@ class KerasModelHubMixin(ModelHubMixin):
         revision,
         cache_dir,
         force_download,
-        proxies,
         resume_download,
         local_files_only,
         token,

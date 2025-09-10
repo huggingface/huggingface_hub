@@ -38,9 +38,8 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-import requests
-
 from huggingface_hub import HfApi, SpaceHardware, get_token
+from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._dotenv import load_dotenv
 
@@ -329,7 +328,7 @@ class PsCommand(BaseHuggingfaceCLICommand):
             # Apply custom format if provided or use default tabular format
             self._print_output(rows, table_headers)
 
-        except requests.RequestException as e:
+        except HfHubHTTPError as e:
             print(f"Error fetching jobs data: {e}")
         except (KeyError, ValueError, TypeError) as e:
             print(f"Error processing jobs data: {e}")
@@ -815,7 +814,7 @@ class ScheduledPsCommand(BaseHuggingfaceCLICommand):
             # Apply custom format if provided or use default tabular format
             self._print_output(rows, table_headers)
 
-        except requests.RequestException as e:
+        except HfHubHTTPError as e:
             print(f"Error fetching scheduled jobs data: {e}")
         except (KeyError, ValueError, TypeError) as e:
             print(f"Error processing scheduled jobs data: {e}")

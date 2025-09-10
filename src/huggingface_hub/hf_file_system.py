@@ -2,6 +2,7 @@ import os
 import re
 import tempfile
 from collections import deque
+from contextlib import ExitStack
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
@@ -10,16 +11,16 @@ from typing import Any, Dict, Iterator, List, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
+import httpx
 from fsspec.callbacks import _DEFAULT_CALLBACK, NoOpCallback, TqdmCallback
 from fsspec.utils import isfilelike
-from requests import Response
 
 from . import constants
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
-from .errors import EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
+from .errors import EntryNotFoundError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from .file_download import hf_hub_url, http_get
 from .hf_api import HfApi, LastCommitInfo, RepoFile
-from .utils import HFValidationError, hf_raise_for_status, http_backoff
+from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff
 
 
 # Regex used to match special revisions with "/" in them (see #1710)
@@ -1033,8 +1034,9 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         super().__init__(
             fs, self.resolved_path.unresolve(), mode=mode, block_size=block_size, cache_type=cache_type, **kwargs
         )
-        self.response: Optional[Response] = None
+        self.response: Optional[httpx.Response] = None
         self.fs: HfFileSystem
+        self._exit_stack = ExitStack()
 
     def seek(self, loc: int, whence: int = 0):
         if loc == 0 and whence == 1:
@@ -1044,53 +1046,32 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         raise ValueError("Cannot seek streaming HF file")
 
     def read(self, length: int = -1):
-        read_args = (length,) if length >= 0 else ()
-        if self.response is None:
-            url = hf_hub_url(
-                repo_id=self.resolved_path.repo_id,
-                revision=self.resolved_path.revision,
-                filename=self.resolved_path.path_in_repo,
-                repo_type=self.resolved_path.repo_type,
-                endpoint=self.fs.endpoint,
-            )
-            self.response = http_backoff(
-                "GET",
-                url,
-                headers=self.fs._api._build_hf_headers(),
-                stream=True,
-                timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
-            )
-            hf_raise_for_status(self.response)
-        try:
-            self.response.raw.decode_content = True
-            out = self.response.raw.read(*read_args)
-        except Exception:
-            self.response.close()
+        """Read the remote file.
 
-            # Retry by recreating the connection
-            url = hf_hub_url(
-                repo_id=self.resolved_path.repo_id,
-                revision=self.resolved_path.revision,
-                filename=self.resolved_path.path_in_repo,
-                repo_type=self.resolved_path.repo_type,
-                endpoint=self.fs.endpoint,
-            )
-            self.response = http_backoff(
-                "GET",
-                url,
-                headers={"Range": "bytes=%d-" % self.loc, **self.fs._api._build_hf_headers()},
-                stream=True,
-                timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
-            )
-            hf_raise_for_status(self.response)
+        If the file is already open, we reuse the connection.
+        Otherwise, open a new connection and read from it.
+
+        If reading the stream fails, we retry with a new connection.
+        """
+        if self.response is None:
+            self._open_connection()
+
+        retried_once = False
+        while True:
             try:
-                self.response.raw.decode_content = True
-                out = self.response.raw.read(*read_args)
+                if self.response is None:
+                    return b""  # Already read the entire file
+                out = _partial_read(self.response, length)
+                self.loc += len(out)
+                return out
             except Exception:
-                self.response.close()
-                raise
-        self.loc += len(out)
-        return out
+                if self.response is not None:
+                    self.response.close()
+                if retried_once:  # Already retried once, give up
+                    raise
+                # First failure, retry with range header
+                self._open_connection()
+                retried_once = True
 
     def url(self) -> str:
         return self.fs.url(self.path)
@@ -1099,10 +1080,42 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         if not hasattr(self, "resolved_path"):
             # Means that the constructor failed. Nothing to do.
             return
+        self._exit_stack.close()
         return super().__del__()
 
     def __reduce__(self):
         return reopen, (self.fs, self.path, self.mode, self.blocksize, self.cache.name)
+
+    def _open_connection(self):
+        """Open a connection to the remote file."""
+        url = hf_hub_url(
+            repo_id=self.resolved_path.repo_id,
+            revision=self.resolved_path.revision,
+            filename=self.resolved_path.path_in_repo,
+            repo_type=self.resolved_path.repo_type,
+            endpoint=self.fs.endpoint,
+        )
+        headers = self.fs._api._build_hf_headers()
+        if self.loc > 0:
+            headers["Range"] = f"bytes={self.loc}-"
+        self.response = self._exit_stack.enter_context(
+            http_stream_backoff(
+                "GET",
+                url,
+                headers=headers,
+                retry_on_status_codes=(500, 502, 503, 504),
+                timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
+            )
+        )
+
+        try:
+            hf_raise_for_status(self.response)
+        except HfHubHTTPError as e:
+            if e.response.status_code == 416:
+                # Range not satisfiable => means that we have already read the entire file
+                self.response = None
+                return
+            raise
 
 
 def safe_revision(revision: str) -> str:
@@ -1126,3 +1139,26 @@ def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
 
 def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: str):
     return fs.open(path, mode=mode, block_size=block_size, cache_type=cache_type)
+
+
+def _partial_read(response: httpx.Response, length: int = -1) -> bytes:
+    """
+    Read up to `length` bytes from a streamed response.
+    If length == -1, read until EOF.
+    """
+    buf = bytearray()
+    if length < -1:
+        raise ValueError("length must be -1 or >= 0")
+    if length == 0:
+        return b""
+    if length == -1:
+        for chunk in response.iter_bytes():
+            buf.extend(chunk)
+        return bytes(buf)
+
+    for chunk in response.iter_bytes(chunk_size=length):
+        buf.extend(chunk)
+        if len(buf) >= length:
+            return bytes(buf[:length])
+
+    return bytes(buf)  # may be < length if response ended

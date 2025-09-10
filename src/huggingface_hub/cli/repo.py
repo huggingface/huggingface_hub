@@ -25,8 +25,6 @@ import argparse
 from argparse import _SubParsersAction
 from typing import Optional
 
-from requests.exceptions import HTTPError
-
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.commands._cli_utils import ANSI
 from huggingface_hub.constants import REPO_TYPES, SPACES_SDK_TYPES
@@ -218,7 +216,7 @@ class RepoTagListCommand(RepoTagCommand):
         except RepositoryNotFoundError:
             print(f"{self.repo_type.capitalize()} {ANSI.bold(self.repo_id)} not found.")
             exit(1)
-        except HTTPError as e:
+        except HfHubHTTPError as e:
             print(e)
             print(ANSI.red(e.response.text))
             exit(1)
