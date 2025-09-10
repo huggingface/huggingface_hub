@@ -9,7 +9,7 @@ import uuid
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, Literal, NoReturn, Optional, Tuple, Union
+from typing import Any, BinaryIO, Literal, NoReturn, Optional, Union
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -81,7 +81,7 @@ REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 # Regex to check if the file etag IS a valid sha256
 REGEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
-_are_symlinks_supported_in_dir: Dict[str, bool] = {}
+_are_symlinks_supported_in_dir: dict[str, bool] = {}
 
 
 def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
@@ -338,7 +338,7 @@ def http_get(
     temp_file: BinaryIO,
     *,
     resume_size: int = 0,
-    headers: Optional[Dict[str, Any]] = None,
+    headers: Optional[dict[str, Any]] = None,
     expected_size: Optional[int] = None,
     displayed_filename: Optional[str] = None,
     _nb_retries: int = 5,
@@ -509,7 +509,7 @@ def xet_get(
     *,
     incomplete_path: Path,
     xet_file_data: XetFileData,
-    headers: Dict[str, str],
+    headers: dict[str, str],
     expected_size: Optional[int] = None,
     displayed_filename: Optional[str] = None,
     _tqdm_bar: Optional[tqdm] = None,
@@ -522,7 +522,7 @@ def xet_get(
             The path to the file to download.
         xet_file_data (`XetFileData`):
             The file metadata needed to make the request to the xet storage service.
-        headers (`Dict[str, str]`):
+        headers (`dict[str, str]`):
             The headers to send to the xet storage service.
         expected_size (`int`, *optional*):
             The expected size of the file to download. If set, the download will raise an error if the size of the
@@ -569,7 +569,7 @@ def xet_get(
 
     connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
 
-    def token_refresher() -> Tuple[str, int]:
+    def token_refresher() -> tuple[str, int]:
         connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
         if connection_info is None:
             raise ValueError("Failed to refresh token using xet metadata.")
@@ -796,12 +796,12 @@ def hf_hub_download(
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     local_dir: Union[str, Path, None] = None,
-    user_agent: Union[Dict, str, None] = None,
+    user_agent: Union[dict, str, None] = None,
     force_download: bool = False,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
-    headers: Optional[Dict[str, str]] = None,
+    headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
     resume_download: Optional[bool] = None,
     force_filename: Optional[str] = None,
@@ -1009,7 +1009,7 @@ def _hf_hub_download_to_cache_dir(
     # HTTP info
     endpoint: Optional[str],
     etag_timeout: float,
-    headers: Dict[str, str],
+    headers: dict[str, str],
     token: Optional[Union[bool, str]],
     # Additional options
     local_files_only: bool,
@@ -1165,7 +1165,7 @@ def _hf_hub_download_to_local_dir(
     # HTTP info
     endpoint: Optional[str],
     etag_timeout: float,
-    headers: Dict[str, str],
+    headers: dict[str, str],
     token: Union[bool, str, None],
     # Additional options
     cache_dir: str,
@@ -1378,8 +1378,8 @@ def get_hf_file_metadata(
     timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
-    user_agent: Union[Dict, str, None] = None,
-    headers: Optional[Dict[str, str]] = None,
+    user_agent: Union[dict, str, None] = None,
+    headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
@@ -1448,17 +1448,17 @@ def _get_metadata_or_catch_error(
     revision: str,
     endpoint: Optional[str],
     etag_timeout: Optional[float],
-    headers: Dict[str, str],  # mutated inplace!
+    headers: dict[str, str],  # mutated inplace!
     token: Union[bool, str, None],
     local_files_only: bool,
     relative_filename: Optional[str] = None,  # only used to store `.no_exists` in cache
     storage_folder: Optional[str] = None,  # only used to store `.no_exists` in cache
 ) -> Union[
     # Either an exception is caught and returned
-    Tuple[None, None, None, None, None, Exception],
+    tuple[None, None, None, None, None, Exception],
     # Or the metadata is returned as
     # `(url_to_download, etag, commit_hash, expected_size, xet_file_data, None)`
-    Tuple[str, str, str, int, Optional[XetFileData], None],
+    tuple[str, str, str, int, Optional[XetFileData], None],
 ]:
     """Get metadata for a file on the Hub, safely handling network issues.
 
@@ -1616,7 +1616,7 @@ def _download_to_tmp_and_move(
     incomplete_path: Path,
     destination_path: Path,
     url_to_download: str,
-    headers: Dict[str, str],
+    headers: dict[str, str],
     expected_size: Optional[int],
     filename: str,
     force_download: bool,

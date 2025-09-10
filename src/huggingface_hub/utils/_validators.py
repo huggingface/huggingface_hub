@@ -19,7 +19,7 @@ import re
 import warnings
 from functools import wraps
 from itertools import chain
-from typing import Any, Dict
+from typing import Any
 
 from huggingface_hub.errors import HFValidationError
 
@@ -172,7 +172,7 @@ def validate_repo_id(repo_id: str) -> None:
         raise HFValidationError(f"Repo_id cannot end by '.git': '{repo_id}'.")
 
 
-def smoothly_deprecate_proxies(fn_name: str, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def smoothly_deprecate_proxies(fn_name: str, kwargs: dict[str, Any]) -> dict[str, Any]:
     """Smoothly deprecate `proxies` in the `huggingface_hub` codebase.
 
     This function removes the `proxies` key from the kwargs and warns the user that the `proxies` argument is ignored.
@@ -203,7 +203,7 @@ def smoothly_deprecate_proxies(fn_name: str, kwargs: Dict[str, Any]) -> Dict[str
     return new_kwargs
 
 
-def smoothly_deprecate_use_auth_token(fn_name: str, has_token: bool, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def smoothly_deprecate_use_auth_token(fn_name: str, has_token: bool, kwargs: dict[str, Any]) -> dict[str, Any]:
     """Smoothly deprecate `use_auth_token` in the `huggingface_hub` codebase.
 
     The long-term goal is to remove any mention of `use_auth_token` in the codebase in

@@ -16,7 +16,7 @@
 
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Callable, Generator, Iterable, List, Optional, TypeVar, Union
+from typing import Callable, Generator, Iterable, Optional, TypeVar, Union
 
 
 T = TypeVar("T")
@@ -39,8 +39,8 @@ FORBIDDEN_FOLDERS = [".git", ".cache"]
 def filter_repo_objects(
     items: Iterable[T],
     *,
-    allow_patterns: Optional[Union[List[str], str]] = None,
-    ignore_patterns: Optional[Union[List[str], str]] = None,
+    allow_patterns: Optional[Union[list[str], str]] = None,
+    ignore_patterns: Optional[Union[list[str], str]] = None,
     key: Optional[Callable[[T], str]] = None,
 ) -> Generator[T, None, None]:
     """Filter repo objects based on an allowlist and a denylist.
@@ -55,10 +55,10 @@ def filter_repo_objects(
     Args:
         items (`Iterable`):
             List of items to filter.
-        allow_patterns (`str` or `List[str]`, *optional*):
+        allow_patterns (`str` or `list[str]`, *optional*):
             Patterns constituting the allowlist. If provided, item paths must match at
             least one pattern from the allowlist.
-        ignore_patterns (`str` or `List[str]`, *optional*):
+        ignore_patterns (`str` or `list[str]`, *optional*):
             Patterns constituting the denylist. If provided, item paths must not match
             any patterns from the denylist.
         key (`Callable[[T], str]`, *optional*):

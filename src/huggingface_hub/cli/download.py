@@ -38,7 +38,7 @@ Usage:
 
 import warnings
 from argparse import Namespace, _SubParsersAction
-from typing import List, Optional
+from typing import Optional
 
 from huggingface_hub import logging
 from huggingface_hub._snapshot_download import snapshot_download
@@ -113,11 +113,11 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
     def __init__(self, args: Namespace) -> None:
         self.token = args.token
         self.repo_id: str = args.repo_id
-        self.filenames: List[str] = args.filenames
+        self.filenames: list[str] = args.filenames
         self.repo_type: str = args.repo_type
         self.revision: Optional[str] = args.revision
-        self.include: Optional[List[str]] = args.include
-        self.exclude: Optional[List[str]] = args.exclude
+        self.include: Optional[list[str]] = args.include
+        self.exclude: Optional[list[str]] = args.exclude
         self.cache_dir: Optional[str] = args.cache_dir
         self.local_dir: Optional[str] = args.local_dir
         self.force_download: bool = args.force_download

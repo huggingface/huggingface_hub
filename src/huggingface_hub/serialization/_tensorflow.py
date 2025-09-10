@@ -15,7 +15,7 @@
 
 import math
 import re
-from typing import TYPE_CHECKING, Dict, Union
+from typing import TYPE_CHECKING, Union
 
 from .. import constants
 from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 def split_tf_state_dict_into_shards(
-    state_dict: Dict[str, "tf.Tensor"],
+    state_dict: dict[str, "tf.Tensor"],
     *,
     filename_pattern: str = constants.TF2_WEIGHTS_FILE_PATTERN,
     max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
@@ -44,7 +44,7 @@ def split_tf_state_dict_into_shards(
     > size greater than `max_shard_size`.
 
     Args:
-        state_dict (`Dict[str, Tensor]`):
+        state_dict (`dict[str, Tensor]`):
             The state dictionary to save.
         filename_pattern (`str`, *optional*):
             The pattern to generate the files names in which the model will be saved. Pattern must be a string that

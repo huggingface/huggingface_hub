@@ -15,8 +15,9 @@
 
 import inspect
 import json
+import types
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Type, TypeVar, Union, get_args
+from typing import Any, TypeVar, Union, get_args
 
 
 T = TypeVar("T", bound="BaseInferenceType")
@@ -28,7 +29,7 @@ def _repr_with_extra(self):
     return f"{self.__class__.__name__}({', '.join(f'{k}={self.__dict__[k]!r}' for k in fields + other_fields)})"
 
 
-def dataclass_with_extra(cls: Type[T]) -> Type[T]:
+def dataclass_with_extra(cls: type[T]) -> type[T]:
     """Decorator to add a custom __repr__ method to a dataclass, showing all fields, including extra ones.
 
     This decorator only works with dataclasses that inherit from `BaseInferenceType`.
@@ -49,7 +50,7 @@ class BaseInferenceType(dict):
     """
 
     @classmethod
-    def parse_obj_as_list(cls: Type[T], data: Union[bytes, str, List, Dict]) -> List[T]:
+    def parse_obj_as_list(cls: type[T], data: Union[bytes, str, list, dict]) -> list[T]:
         """Alias to parse server response and return a single instance.
 
         See `parse_obj` for more details.
@@ -60,7 +61,7 @@ class BaseInferenceType(dict):
         return output
 
     @classmethod
-    def parse_obj_as_instance(cls: Type[T], data: Union[bytes, str, List, Dict]) -> T:
+    def parse_obj_as_instance(cls: type[T], data: Union[bytes, str, list, dict]) -> T:
         """Alias to parse server response and return a single instance.
 
         See `parse_obj` for more details.
@@ -71,7 +72,7 @@ class BaseInferenceType(dict):
         return output
 
     @classmethod
-    def parse_obj(cls: Type[T], data: Union[bytes, str, List, Dict]) -> Union[List[T], T]:
+    def parse_obj(cls: type[T], data: Union[bytes, str, list, dict]) -> Union[list[T], T]:
         """Parse server response as a dataclass or list of dataclasses.
 
         To enable future-compatibility, we want to handle cases where the server return more fields than expected.
@@ -85,7 +86,7 @@ class BaseInferenceType(dict):
             data = json.loads(data)
 
         # If a list, parse each item individually
-        if isinstance(data, List):
+        if isinstance(data, list):
             return [cls.parse_obj(d) for d in data]  # type: ignore [misc]
 
         # At this point, we expect a dict
@@ -109,7 +110,9 @@ class BaseInferenceType(dict):
                     else:
                         expected_types = get_args(field_type)
                         for expected_type in expected_types:
-                            if getattr(expected_type, "_name", None) == "List":
+                            if (
+                                isinstance(expected_type, types.GenericAlias) and expected_type.__origin__ is list
+                            ) or getattr(expected_type, "_name", None) == "List":
                                 expected_type = get_args(expected_type)[
                                     0
                                 ]  # assume same type for all items in the list

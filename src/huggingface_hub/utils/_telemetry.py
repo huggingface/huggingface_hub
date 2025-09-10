@@ -1,6 +1,6 @@
 from queue import Queue
 from threading import Lock, Thread
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 from urllib.parse import quote
 
 from .. import constants, logging
@@ -22,7 +22,7 @@ def send_telemetry(
     *,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
-    user_agent: Union[Dict, str, None] = None,
+    user_agent: Union[dict, str, None] = None,
 ) -> None:
     """
     Sends telemetry that helps tracking usage of different HF libraries.
@@ -98,7 +98,7 @@ def _send_telemetry_in_thread(
     *,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
-    user_agent: Union[Dict, str, None] = None,
+    user_agent: Union[dict, str, None] = None,
 ) -> None:
     """Contains the actual data sending data to the Hub.
 

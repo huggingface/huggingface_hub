@@ -20,7 +20,7 @@ import re
 from collections import defaultdict, namedtuple
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Iterable, NamedTuple, Optional, Union
 
 from packaging import version
 
@@ -43,10 +43,10 @@ def save_torch_model(
     filename_pattern: Optional[str] = None,
     force_contiguous: bool = True,
     max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
-    metadata: Optional[Dict[str, str]] = None,
+    metadata: Optional[dict[str, str]] = None,
     safe_serialization: bool = True,
     is_main_process: bool = True,
-    shared_tensors_to_discard: Optional[List[str]] = None,
+    shared_tensors_to_discard: Optional[list[str]] = None,
 ):
     """
     Saves a given torch model to disk, handling sharding and shared tensors issues.
@@ -86,7 +86,7 @@ def save_torch_model(
             that reason. Defaults to `True`.
         max_shard_size (`int` or `str`, *optional*):
             The maximum size of each shard, in bytes. Defaults to 5GB.
-        metadata (`Dict[str, str]`, *optional*):
+        metadata (`dict[str, str]`, *optional*):
             Extra information to save along with the model. Some metadata will be added for each dropped tensors.
             This information will not be enough to recover the entire shared structure but might help understanding
             things.
@@ -98,7 +98,7 @@ def save_torch_model(
             Whether the process calling this is the main process or not. Useful when in distributed training like
             TPUs and need to call this function from all processes. In this case, set `is_main_process=True` only on
             the main process to avoid race conditions. Defaults to True.
-        shared_tensors_to_discard (`List[str]`, *optional*):
+        shared_tensors_to_discard (`list[str]`, *optional*):
             List of tensor names to drop when saving shared tensors. If not provided and shared tensors are
             detected, it will drop the first name alphabetically.
 
@@ -131,16 +131,16 @@ def save_torch_model(
 
 
 def save_torch_state_dict(
-    state_dict: Dict[str, "torch.Tensor"],
+    state_dict: dict[str, "torch.Tensor"],
     save_directory: Union[str, Path],
     *,
     filename_pattern: Optional[str] = None,
     force_contiguous: bool = True,
     max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
-    metadata: Optional[Dict[str, str]] = None,
+    metadata: Optional[dict[str, str]] = None,
     safe_serialization: bool = True,
     is_main_process: bool = True,
-    shared_tensors_to_discard: Optional[List[str]] = None,
+    shared_tensors_to_discard: Optional[list[str]] = None,
 ) -> None:
     """
     Save a model state dictionary to the disk, handling sharding and shared tensors issues.
@@ -165,7 +165,7 @@ def save_torch_state_dict(
     > If your model is a `transformers.PreTrainedModel`, you should pass `model._tied_weights_keys` as `shared_tensors_to_discard` to properly handle shared tensors saving. This ensures the correct duplicate tensors are discarded during saving.
 
     Args:
-        state_dict (`Dict[str, torch.Tensor]`):
+        state_dict (`dict[str, torch.Tensor]`):
             The state dictionary to save.
         save_directory (`str` or `Path`):
             The directory in which the model will be saved.
@@ -180,7 +180,7 @@ def save_torch_state_dict(
             that reason. Defaults to `True`.
         max_shard_size (`int` or `str`, *optional*):
             The maximum size of each shard, in bytes. Defaults to 5GB.
-        metadata (`Dict[str, str]`, *optional*):
+        metadata (`dict[str, str]`, *optional*):
             Extra information to save along with the model. Some metadata will be added for each dropped tensors.
             This information will not be enough to recover the entire shared structure but might help understanding
             things.
@@ -192,7 +192,7 @@ def save_torch_state_dict(
             Whether the process calling this is the main process or not. Useful when in distributed training like
             TPUs and need to call this function from all processes. In this case, set `is_main_process=True` only on
             the main process to avoid race conditions. Defaults to True.
-        shared_tensors_to_discard (`List[str]`, *optional*):
+        shared_tensors_to_discard (`list[str]`, *optional*):
             List of tensor names to drop when saving shared tensors. If not provided and shared tensors are
             detected, it will drop the first name alphabetically.
 
@@ -288,7 +288,7 @@ def save_torch_state_dict(
 
 
 def split_torch_state_dict_into_shards(
-    state_dict: Dict[str, "torch.Tensor"],
+    state_dict: dict[str, "torch.Tensor"],
     *,
     filename_pattern: str = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN,
     max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
@@ -311,7 +311,7 @@ def split_torch_state_dict_into_shards(
     > size greater than `max_shard_size`.
 
     Args:
-        state_dict (`Dict[str, torch.Tensor]`):
+        state_dict (`dict[str, torch.Tensor]`):
             The state dictionary to save.
         filename_pattern (`str`, *optional*):
             The pattern to generate the files names in which the model will be saved. Pattern must be a string that
@@ -330,7 +330,7 @@ def split_torch_state_dict_into_shards(
     >>> from safetensors.torch import save_file as safe_save_file
     >>> from huggingface_hub import split_torch_state_dict_into_shards
 
-    >>> def save_state_dict(state_dict: Dict[str, torch.Tensor], save_directory: str):
+    >>> def save_state_dict(state_dict: dict[str, torch.Tensor], save_directory: str):
     ...     state_dict_split = split_torch_state_dict_into_shards(state_dict)
     ...     for filename, tensors in state_dict_split.filename_to_tensors.items():
     ...         shard = {tensor: state_dict[tensor] for tensor in tensors}
@@ -542,7 +542,7 @@ def load_state_dict_from_file(
     map_location: Optional[Union[str, "torch.device"]] = None,
     weights_only: bool = False,
     mmap: bool = False,
-) -> Union[Dict[str, "torch.Tensor"], Any]:
+) -> Union[dict[str, "torch.Tensor"], Any]:
     """
     Loads a checkpoint file, handling both safetensors and pickle checkpoint formats.
 
@@ -562,7 +562,7 @@ def load_state_dict_from_file(
             loading safetensors files, as the `safetensors` library uses memory mapping by default.
 
     Returns:
-        `Union[Dict[str, "torch.Tensor"], Any]`: The loaded checkpoint.
+        `Union[dict[str, "torch.Tensor"], Any]`: The loaded checkpoint.
             - For safetensors files: always returns a dictionary mapping parameter names to tensors.
             - For pickle files: returns any Python object that was pickled (commonly a state dict, but could be
               an entire model, optimizer state, or any other Python object).
@@ -682,7 +682,7 @@ def _validate_keys_for_strict_loading(
         raise RuntimeError(error_message)
 
 
-def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
+def _get_unique_id(tensor: "torch.Tensor") -> Union[int, tuple[Any, ...]]:
     """Returns a unique id for plain tensor
     or a (potentially nested) Tuple of unique id for the flattened Tensor
     if the input is a wrapper tensor subclass Tensor
@@ -723,7 +723,7 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
     return unique_id
 
 
-def get_torch_storage_id(tensor: "torch.Tensor") -> Optional[Tuple["torch.device", Union[int, Tuple[Any, ...]], int]]:
+def get_torch_storage_id(tensor: "torch.Tensor") -> Optional[tuple["torch.device", Union[int, tuple[Any, ...]], int]]:
     """
     Return unique identifier to a tensor storage.
 
@@ -797,7 +797,7 @@ def is_torch_tpu_available(check_device=True):
     return False
 
 
-def storage_ptr(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
+def storage_ptr(tensor: "torch.Tensor") -> Union[int, tuple[Any, ...]]:
     """
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L11.
     """
@@ -823,10 +823,10 @@ def storage_ptr(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
 
 
 def _clean_state_dict_for_safetensors(
-    state_dict: Dict[str, "torch.Tensor"],
-    metadata: Dict[str, str],
+    state_dict: dict[str, "torch.Tensor"],
+    metadata: dict[str, str],
     force_contiguous: bool = True,
-    shared_tensors_to_discard: Optional[List[str]] = None,
+    shared_tensors_to_discard: Optional[list[str]] = None,
 ):
     """Remove shared tensors from state_dict and update metadata accordingly (for reloading).
 
@@ -860,7 +860,7 @@ def _end_ptr(tensor: "torch.Tensor") -> int:
     return stop
 
 
-def _filter_shared_not_shared(tensors: List[Set[str]], state_dict: Dict[str, "torch.Tensor"]) -> List[Set[str]]:
+def _filter_shared_not_shared(tensors: list[set[str]], state_dict: dict[str, "torch.Tensor"]) -> list[set[str]]:
     """
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L44
     """
@@ -888,7 +888,7 @@ def _filter_shared_not_shared(tensors: List[Set[str]], state_dict: Dict[str, "to
     return filtered_tensors
 
 
-def _find_shared_tensors(state_dict: Dict[str, "torch.Tensor"]) -> List[Set[str]]:
+def _find_shared_tensors(state_dict: dict[str, "torch.Tensor"]) -> list[set[str]]:
     """
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L69.
     """
@@ -925,11 +925,11 @@ def _is_complete(tensor: "torch.Tensor") -> bool:
 
 
 def _remove_duplicate_names(
-    state_dict: Dict[str, "torch.Tensor"],
+    state_dict: dict[str, "torch.Tensor"],
     *,
-    preferred_names: Optional[List[str]] = None,
-    discard_names: Optional[List[str]] = None,
-) -> Dict[str, List[str]]:
+    preferred_names: Optional[list[str]] = None,
+    discard_names: Optional[list[str]] = None,
+) -> dict[str, list[str]]:
     """
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L80
     """

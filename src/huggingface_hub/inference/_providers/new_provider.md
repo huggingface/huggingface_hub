@@ -13,7 +13,7 @@ If the provider supports multiple tasks that require different implementations, 
 For `text-generation` and `conversational` tasks, one can just inherit from `BaseTextGenerationTask` and `BaseConversationalTask` respectively (defined in `_common.py`) and override the methods if needed. Examples can be found in `fireworks_ai.py` and `together.py`.
 
 ```py
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 from ._common import TaskProviderHelper, MimeBytes
 
@@ -25,7 +25,7 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
 
     def get_response(
         self,
-        response: Union[bytes, Dict],
+        response: Union[bytes, dict],
         request_params: Optional[RequestParameters] = None,
     ) -> Any:
         """
@@ -34,7 +34,7 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
         Override this method in subclasses for customized response handling."""
         return super().get_response(response)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
+    def _prepare_headers(self, headers: dict, api_key: str) -> dict[str, Any]:
         """Return the headers to use for the request.
 
         Override this method in subclasses for customized headers.
@@ -48,7 +48,7 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
         """
         return super()._prepare_route(mapped_model)
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: dict, mapped_model: str) -> Optional[dict]:
         """Return the payload to use for the request, as a dict.
 
         Override this method in subclasses for customized payloads.
@@ -57,7 +57,7 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
         return super()._prepare_payload_as_dict(inputs, parameters, mapped_model)
 
     def _prepare_payload_as_bytes(
-        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
+        self, inputs: Any, parameters: dict, mapped_model: str, extra_payload: Optional[dict]
     ) -> Optional[MimeBytes]:
         """Return the body to use for the request, as bytes.
 

@@ -14,7 +14,7 @@
 """Contains a utility for good-looking prints."""
 
 import os
-from typing import List, Union
+from typing import Union
 
 
 class ANSI:
@@ -52,7 +52,7 @@ class ANSI:
         return f"{code}{s}{cls._reset}"
 
 
-def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
+def tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
     """
     Inspired by:
 

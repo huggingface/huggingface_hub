@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import List, Optional
+from typing import Optional
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -12,7 +12,7 @@ from .base import BaseInferenceType, dataclass_with_extra
 class ZeroShotImageClassificationParameters(BaseInferenceType):
     """Additional inference parameters for Zero Shot Image Classification"""
 
-    candidate_labels: List[str]
+    candidate_labels: list[str]
     """The candidate labels for this image"""
     hypothesis_template: Optional[str] = None
     """The sentence used in conjunction with `candidate_labels` to attempt the image

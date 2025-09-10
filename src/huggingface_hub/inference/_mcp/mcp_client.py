@@ -3,9 +3,9 @@ import logging
 from contextlib import AsyncExitStack
 from datetime import timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, AsyncIterable, Literal, Optional, TypedDict, Union, overload
 
-from typing_extensions import NotRequired, TypeAlias, TypedDict, Unpack
+from typing_extensions import NotRequired, TypeAlias, Unpack
 
 from ...utils._runtime import get_hf_hub_version
 from .._generated._async_client import AsyncInferenceClient
@@ -32,14 +32,14 @@ ServerType: TypeAlias = Literal["stdio", "sse", "http"]
 
 class StdioServerParameters_T(TypedDict):
     command: str
-    args: NotRequired[List[str]]
-    env: NotRequired[Dict[str, str]]
+    args: NotRequired[list[str]]
+    env: NotRequired[dict[str, str]]
     cwd: NotRequired[Union[str, Path, None]]
 
 
 class SSEServerParameters_T(TypedDict):
     url: str
-    headers: NotRequired[Dict[str, Any]]
+    headers: NotRequired[dict[str, Any]]
     timeout: NotRequired[float]
     sse_read_timeout: NotRequired[float]
 
@@ -81,9 +81,9 @@ class MCPClient:
         api_key: Optional[str] = None,
     ):
         # Initialize MCP sessions as a dictionary of ClientSession objects
-        self.sessions: Dict[ToolName, "ClientSession"] = {}
+        self.sessions: dict[ToolName, "ClientSession"] = {}
         self.exit_stack = AsyncExitStack()
-        self.available_tools: List[ChatCompletionInputTool] = []
+        self.available_tools: list[ChatCompletionInputTool] = []
         # To be able to send the model in the payload if `base_url` is provided
         if model is None and base_url is None:
             raise ValueError("At least one of `model` or `base_url` should be set in `MCPClient`.")
@@ -129,27 +129,27 @@ class MCPClient:
                 - "stdio": Standard input/output server (local)
                 - "sse": Server-sent events (SSE) server
                 - "http": StreamableHTTP server
-            **params (`Dict[str, Any]`):
+            **params (`dict[str, Any]`):
                 Server parameters that can be either:
                     - For stdio servers:
                         - command (str): The command to run the MCP server
-                        - args (List[str], optional): Arguments for the command
-                        - env (Dict[str, str], optional): Environment variables for the command
+                        - args (list[str], optional): Arguments for the command
+                        - env (dict[str, str], optional): Environment variables for the command
                         - cwd (Union[str, Path, None], optional): Working directory for the command
-                        - allowed_tools (List[str], optional): List of tool names to allow from this server
+                        - allowed_tools (list[str], optional): List of tool names to allow from this server
                     - For SSE servers:
                         - url (str): The URL of the SSE server
-                        - headers (Dict[str, Any], optional): Headers for the SSE connection
+                        - headers (dict[str, Any], optional): Headers for the SSE connection
                         - timeout (float, optional): Connection timeout
                         - sse_read_timeout (float, optional): SSE read timeout
-                        - allowed_tools (List[str], optional): List of tool names to allow from this server
+                        - allowed_tools (list[str], optional): List of tool names to allow from this server
                     - For StreamableHTTP servers:
                         - url (str): The URL of the StreamableHTTP server
-                        - headers (Dict[str, Any], optional): Headers for the StreamableHTTP connection
+                        - headers (dict[str, Any], optional): Headers for the StreamableHTTP connection
                         - timeout (timedelta, optional): Connection timeout
                         - sse_read_timeout (timedelta, optional): SSE read timeout
                         - terminate_on_close (bool, optional): Whether to terminate on close
-                        - allowed_tools (List[str], optional): List of tool names to allow from this server
+                        - allowed_tools (list[str], optional): List of tool names to allow from this server
         """
         from mcp import ClientSession, StdioServerParameters
         from mcp import types as mcp_types
@@ -246,16 +246,16 @@ class MCPClient:
 
     async def process_single_turn_with_tools(
         self,
-        messages: List[Union[Dict, ChatCompletionInputMessage]],
-        exit_loop_tools: Optional[List[ChatCompletionInputTool]] = None,
+        messages: list[Union[dict, ChatCompletionInputMessage]],
+        exit_loop_tools: Optional[list[ChatCompletionInputTool]] = None,
         exit_if_first_chunk_no_tool: bool = False,
     ) -> AsyncIterable[Union[ChatCompletionStreamOutput, ChatCompletionInputMessage]]:
         """Process a query using `self.model` and available tools, yielding chunks and tool outputs.
 
         Args:
-            messages (`List[Dict]`):
+            messages (`list[dict]`):
                 List of message objects representing the conversation history
-            exit_loop_tools (`List[ChatCompletionInputTool]`, *optional*):
+            exit_loop_tools (`list[ChatCompletionInputTool]`, *optional*):
                 List of tools that should exit the generator when called
             exit_if_first_chunk_no_tool (`bool`, *optional*):
                 Exit if no tool is present in the first chunks. Default to False.
@@ -277,8 +277,8 @@ class MCPClient:
             stream=True,
         )
 
-        message: Dict[str, Any] = {"role": "unknown", "content": ""}
-        final_tool_calls: Dict[int, ChatCompletionStreamOutputDeltaToolCall] = {}
+        message: dict[str, Any] = {"role": "unknown", "content": ""}
+        final_tool_calls: dict[int, ChatCompletionStreamOutputDeltaToolCall] = {}
         num_of_chunks = 0
 
         # Read from stream
@@ -325,7 +325,7 @@ class MCPClient:
                 message["role"] = "assistant"
             # Convert final_tool_calls to the format expected by OpenAI
             if final_tool_calls:
-                tool_calls_list: List[Dict[str, Any]] = []
+                tool_calls_list: list[dict[str, Any]] = []
                 for tc in final_tool_calls.values():
                     tool_calls_list.append(
                         {
@@ -343,6 +343,17 @@ class MCPClient:
         # Process tool calls one by one
         for tool_call in final_tool_calls.values():
             function_name = tool_call.function.name
+            if function_name is None:
+                message = ChatCompletionInputMessage.parse_obj_as_instance(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": "Invalid tool call with no function name.",
+                    }
+                )
+                messages.append(message)
+                yield message
+                continue  # move to next tool call
             try:
                 function_args = json.loads(tool_call.function.arguments or "{}")
             except json.JSONDecodeError as err:
