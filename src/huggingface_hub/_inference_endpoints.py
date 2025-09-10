@@ -2,7 +2,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from huggingface_hub.errors import InferenceEndpointError, InferenceEndpointTimeoutError
 
@@ -62,7 +62,7 @@ class InferenceEndpoint:
             The timestamp of the last update of the Inference Endpoint.
         type ([`InferenceEndpointType`]):
             The type of the Inference Endpoint (public, protected, private).
-        raw (`Dict`):
+        raw (`dict`):
             The raw dictionary data returned from the API.
         token (`str` or `bool`, *optional*):
             Authentication token for the Inference Endpoint, if set when requesting the API. Will default to the
@@ -112,7 +112,7 @@ class InferenceEndpoint:
     type: InferenceEndpointType = field(repr=False, init=False)
 
     # Raw dict from the API
-    raw: Dict = field(repr=False)
+    raw: dict = field(repr=False)
 
     # Internal fields
     _token: Union[str, bool, None] = field(repr=False, compare=False)
@@ -120,7 +120,7 @@ class InferenceEndpoint:
 
     @classmethod
     def from_raw(
-        cls, raw: Dict, namespace: str, token: Union[str, bool, None] = None, api: Optional["HfApi"] = None
+        cls, raw: dict, namespace: str, token: Union[str, bool, None] = None, api: Optional["HfApi"] = None
     ) -> "InferenceEndpoint":
         """Initialize object from raw dictionary."""
         if api is None:
@@ -293,7 +293,7 @@ class InferenceEndpoint:
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
-            custom_image (`Dict`, *optional*):
+            custom_image (`dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
             secrets (`dict[str, str]`, *optional*):

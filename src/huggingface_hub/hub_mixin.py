@@ -493,7 +493,7 @@ class ModelHubMixin:
                 Path to the folder where cached files are stored.
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the local cached file if it exists.
-            model_kwargs (`Dict`, *optional*):
+            model_kwargs (`dict`, *optional*):
                 Additional kwargs to pass to the model during initialization.
         """
         model_id = str(pretrained_model_name_or_path)

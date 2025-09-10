@@ -1,7 +1,7 @@
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 import yaml
 
@@ -568,7 +568,7 @@ def metadata_eval_result(
     dataset_split: Optional[str] = None,
     dataset_revision: Optional[str] = None,
     metrics_verification_token: Optional[str] = None,
-) -> Dict:
+) -> dict:
     """
     Creates a metadata dict with the result from a model evaluated on a dataset.
 
@@ -683,7 +683,7 @@ def metadata_eval_result(
 @validate_hf_hub_args
 def metadata_update(
     repo_id: str,
-    metadata: Dict,
+    metadata: dict,
     *,
     repo_type: Optional[str] = None,
     overwrite: bool = False,

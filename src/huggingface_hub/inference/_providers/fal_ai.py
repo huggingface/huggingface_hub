@@ -1,7 +1,7 @@
 import base64
 import time
 from abc import ABC
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 from urllib.parse import urlparse
 
 from huggingface_hub import constants
@@ -22,7 +22,7 @@ class FalAITask(TaskProviderHelper, ABC):
     def __init__(self, task: str):
         super().__init__(provider="fal-ai", base_url="https://fal.run", task=task)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> dict[str, Any]:
+    def _prepare_headers(self, headers: dict, api_key: str) -> dict[str, Any]:
         headers = super()._prepare_headers(headers, api_key)
         if not api_key.startswith("hf_"):
             headers["authorization"] = f"Key {api_key}"
@@ -36,7 +36,7 @@ class FalAIQueueTask(TaskProviderHelper, ABC):
     def __init__(self, task: str):
         super().__init__(provider="fal-ai", base_url="https://queue.fal.run", task=task)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> dict[str, Any]:
+    def _prepare_headers(self, headers: dict, api_key: str) -> dict[str, Any]:
         headers = super()._prepare_headers(headers, api_key)
         if not api_key.startswith("hf_"):
             headers["authorization"] = f"Key {api_key}"
@@ -91,7 +91,7 @@ class FalAIAutomaticSpeechRecognitionTask(FalAITask):
         super().__init__("automatic-speech-recognition")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         if isinstance(inputs, str) and inputs.startswith(("http://", "https://")):
             # If input is a URL, pass it directly
@@ -120,7 +120,7 @@ class FalAITextToImageTask(FalAITask):
         super().__init__("text-to-image")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         payload: dict[str, Any] = {
             "prompt": inputs,
@@ -155,7 +155,7 @@ class FalAITextToSpeechTask(FalAITask):
         super().__init__("text-to-speech")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         return {"text": inputs, **filter_none(parameters)}
 
@@ -169,7 +169,7 @@ class FalAITextToVideoTask(FalAIQueueTask):
         super().__init__("text-to-video")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         return {"prompt": inputs, **filter_none(parameters)}
 
@@ -188,7 +188,7 @@ class FalAIImageToImageTask(FalAIQueueTask):
         super().__init__("image-to-image")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         image_url = _as_url(inputs, default_mime_type="image/jpeg")
         payload: dict[str, Any] = {
@@ -220,7 +220,7 @@ class FalAIImageToVideoTask(FalAIQueueTask):
         super().__init__("image-to-video")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         image_url = _as_url(inputs, default_mime_type="image/jpeg")
         payload: dict[str, Any] = {

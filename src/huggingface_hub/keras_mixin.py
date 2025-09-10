@@ -276,7 +276,7 @@ def from_pretrained_keras(*args, **kwargs) -> "KerasModelHubMixin":
         local_files_only(`bool`, *optional*, defaults to `False`):
             Whether to only look at local files (i.e., do not try to download
             the model).
-        model_kwargs (`Dict`, *optional*):
+        model_kwargs (`dict`, *optional*):
             model_kwargs will be passed to the model during initialization
 
     <Tip>

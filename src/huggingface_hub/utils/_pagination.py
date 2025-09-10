@@ -14,7 +14,7 @@
 # limitations under the License.
 """Contains utilities to handle pagination on Huggingface Hub."""
 
-from typing import Dict, Iterable, Optional
+from typing import Iterable, Optional
 
 import httpx
 
@@ -24,7 +24,7 @@ from . import get_session, hf_raise_for_status, http_backoff, logging
 logger = logging.get_logger(__name__)
 
 
-def paginate(path: str, params: Dict, headers: dict) -> Iterable:
+def paginate(path: str, params: dict, headers: dict) -> Iterable:
     """Fetch a list of models/datasets/spaces and paginate through results.
 
     This is using the same "Link" header format as GitHub.

@@ -49,7 +49,7 @@ class SafetensorsFileMetadata:
     For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
 
     Attributes:
-        metadata (`Dict`):
+        metadata (`dict`):
             The metadata contained in the file.
         tensors (`dict[str, TensorInfo]`):
             A map of all tensors. Keys are tensor names and values are information about the corresponding tensor, as a
@@ -82,7 +82,7 @@ class SafetensorsRepoMetadata:
     For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
 
     Attributes:
-        metadata (`Dict`, *optional*):
+        metadata (`dict`, *optional*):
             The metadata contained in the 'model.safetensors.index.json' file, if it exists. Only populated for sharded
             models.
         sharded (`bool`):

@@ -34,7 +34,6 @@ from typing import (
     Any,
     BinaryIO,
     Callable,
-    Dict,
     Iterable,
     Iterator,
     Literal,
@@ -775,7 +774,7 @@ class ModelInfo:
         gated (`Literal["auto", "manual", False]`, *optional*):
             Is the repo gated.
             If so, whether there is manual or automatic approval.
-        gguf (`Dict`, *optional*):
+        gguf (`dict`, *optional*):
             GGUF information of the model.
         inference (`Literal["warm"]`, *optional*):
             Status of the model on Inference Providers. Warm if the model is served by at least one provider.
@@ -794,9 +793,9 @@ class ModelInfo:
             Mask token used by the model.
         widget_data (`Any`, *optional*):
             Widget data associated with the model.
-        model_index (`Dict`, *optional*):
+        model_index (`dict`, *optional*):
             Model index for evaluation.
-        config (`Dict`, *optional*):
+        config (`dict`, *optional*):
             Model configuration.
         transformers_info (`TransformersInfo`, *optional*):
             Transformers-specific info (auto class, processor, etc.) associated with the model.
@@ -810,7 +809,7 @@ class ModelInfo:
             List of spaces using the model.
         safetensors (`SafeTensorsInfo`, *optional*):
             Model's safetensors information.
-        security_repo_status (`Dict`, *optional*):
+        security_repo_status (`dict`, *optional*):
             Model's security scan status.
     """
 
@@ -1705,7 +1704,7 @@ class HfApi:
         token: Union[str, bool, None] = None,
         library_name: Optional[str] = None,
         library_version: Optional[str] = None,
-        user_agent: Union[Dict, str, None] = None,
+        user_agent: Union[dict, str, None] = None,
         headers: Optional[dict[str, str]] = None,
     ) -> None:
         self.endpoint = endpoint if endpoint is not None else constants.ENDPOINT
@@ -1757,7 +1756,7 @@ class HfApi:
         return self._thread_pool.submit(fn, *args, **kwargs)
 
     @validate_hf_hub_args
-    def whoami(self, token: Union[bool, str, None] = None) -> Dict:
+    def whoami(self, token: Union[bool, str, None] = None) -> dict:
         """
         Call HF API to know "whoami".
 
@@ -1833,7 +1832,7 @@ class HfApi:
         except (LocalTokenNotFoundError, HfHubHTTPError, KeyError):
             return None
 
-    def get_model_tags(self) -> Dict:
+    def get_model_tags(self) -> dict:
         """
         List all valid model tags as a nested namespace object
         """
@@ -1842,7 +1841,7 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
-    def get_dataset_tags(self) -> Dict:
+    def get_dataset_tags(self) -> dict:
         """
         List all valid dataset tags as a nested namespace object.
         """
@@ -2634,7 +2633,7 @@ class HfApi:
             if revision is None
             else (f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}")
         )
-        params: Dict = {}
+        params: dict = {}
         if securityStatus:
             params["securityStatus"] = True
         if files_metadata:
@@ -2708,7 +2707,7 @@ class HfApi:
             if revision is None
             else (f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}")
         )
-        params: Dict = {}
+        params: dict = {}
         if files_metadata:
             params["blobs"] = True
         if expand:
@@ -2781,7 +2780,7 @@ class HfApi:
             if revision is None
             else (f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}")
         )
-        params: Dict = {}
+        params: dict = {}
         if files_metadata:
             params["blobs"] = True
         if expand:
@@ -3939,7 +3938,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL  # default repo type
 
         # Prepare the JSON payload for the PUT request
-        payload: Dict = {}
+        payload: dict = {}
 
         if gated is not None:
             if gated not in ["auto", "manual", False]:
@@ -7655,7 +7654,7 @@ class HfApi:
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
-            custom_image (`Dict`, *optional*):
+            custom_image (`dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
             env (`dict[str, str]`, *optional*):
@@ -7773,7 +7772,7 @@ class HfApi:
         else:
             image = {"huggingface": {}}
 
-        payload: Dict = {
+        payload: dict = {
             "accountId": account_id,
             "compute": {
                 "accelerator": accelerator,
@@ -7862,7 +7861,7 @@ class HfApi:
         </Tip>
         """
         token = token or self.token or get_token()
-        payload: Dict = {
+        payload: dict = {
             "namespace": namespace or self._get_namespace(token=token),
             "repoId": repo_id,
         }
@@ -8018,7 +8017,7 @@ class HfApi:
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
-            custom_image (`Dict`, *optional*):
+            custom_image (`dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
             env (`dict[str, str]`, *optional*):
@@ -8050,7 +8049,7 @@ class HfApi:
         namespace = namespace or self._get_namespace(token=token)
 
         # Populate only the fields that are not None
-        payload: Dict = defaultdict(lambda: defaultdict(dict))
+        payload: dict = defaultdict(lambda: defaultdict(dict))
         if accelerator is not None:
             payload["compute"]["accelerator"] = accelerator
         if instance_size is not None:
@@ -8293,7 +8292,7 @@ class HfApi:
         # Construct the API endpoint
         path = f"{self.endpoint}/api/collections"
         headers = self._build_hf_headers(token=token)
-        params: Dict = {}
+        params: dict = {}
         if owner is not None:
             params.update({"owner": owner})
         if item is not None:
@@ -9260,7 +9259,7 @@ class HfApi:
         self,
         *,
         url: str,
-        watched: list[Union[Dict, WebhookWatchedItem]],
+        watched: list[Union[dict, WebhookWatchedItem]],
         domains: Optional[list[constants.WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
@@ -9334,7 +9333,7 @@ class HfApi:
         webhook_id: str,
         *,
         url: Optional[str] = None,
-        watched: Optional[list[Union[Dict, WebhookWatchedItem]]] = None,
+        watched: Optional[list[Union[dict, WebhookWatchedItem]]] = None,
         domains: Optional[list[constants.WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
@@ -9545,7 +9544,7 @@ class HfApi:
         token: Union[bool, str, None] = None,
         library_name: Optional[str] = None,
         library_version: Optional[str] = None,
-        user_agent: Union[Dict, str, None] = None,
+        user_agent: Union[dict, str, None] = None,
     ) -> dict[str, str]:
         """
         Alias for [`build_hf_headers`] that uses the token from [`HfApi`] client

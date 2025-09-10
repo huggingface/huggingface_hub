@@ -9,7 +9,7 @@ import uuid
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, Literal, NoReturn, Optional, Union
+from typing import Any, BinaryIO, Literal, NoReturn, Optional, Union
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -799,7 +799,7 @@ def hf_hub_download(
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     local_dir: Union[str, Path, None] = None,
-    user_agent: Union[Dict, str, None] = None,
+    user_agent: Union[dict, str, None] = None,
     force_download: bool = False,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     token: Union[bool, str, None] = None,
@@ -1381,7 +1381,7 @@ def get_hf_file_metadata(
     timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
-    user_agent: Union[Dict, str, None] = None,
+    user_agent: Union[dict, str, None] = None,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
 ) -> HfFileMetadata:

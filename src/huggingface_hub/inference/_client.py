@@ -38,7 +38,7 @@ import os
 import re
 import warnings
 from contextlib import ExitStack
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Literal, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, Iterable, Literal, Optional, Union, overload
 
 from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
@@ -422,7 +422,7 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for ASR. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for ASR will be used.
-            extra_body (`Dict`, *optional*):
+            extra_body (`dict`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
         Returns:
@@ -457,7 +457,7 @@ class InferenceClient:
     @overload
     def chat_completion(  # type: ignore
         self,
-        messages: list[Union[Dict, ChatCompletionInputMessage]],
+        messages: list[Union[dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: Literal[False] = False,
@@ -483,7 +483,7 @@ class InferenceClient:
     @overload
     def chat_completion(  # type: ignore
         self,
-        messages: list[Union[Dict, ChatCompletionInputMessage]],
+        messages: list[Union[dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: Literal[True] = True,
@@ -509,7 +509,7 @@ class InferenceClient:
     @overload
     def chat_completion(
         self,
-        messages: list[Union[Dict, ChatCompletionInputMessage]],
+        messages: list[Union[dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: bool = False,
@@ -534,7 +534,7 @@ class InferenceClient:
 
     def chat_completion(
         self,
-        messages: list[Union[Dict, ChatCompletionInputMessage]],
+        messages: list[Union[dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: bool = False,
@@ -625,7 +625,7 @@ class InferenceClient:
             tools (List of [`ChatCompletionInputTool`], *optional*):
                 A list of tools the model may call. Currently, only functions are supported as a tool. Use this to
                 provide a list of functions the model may generate JSON inputs for.
-            extra_body (`Dict`, *optional*):
+            extra_body (`dict`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
         Returns:

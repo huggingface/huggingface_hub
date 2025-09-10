@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Dict, Iterable, Literal, Optional, Union
+from typing import Iterable, Literal, Optional, Union
 
 import httpx
 from tqdm.auto import tqdm as base_tqdm
@@ -35,7 +35,7 @@ def snapshot_download(
     local_dir: Union[str, Path, None] = None,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
-    user_agent: Optional[Union[Dict, str]] = None,
+    user_agent: Optional[Union[dict, str]] = None,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     force_download: bool = False,
     token: Optional[Union[bool, str]] = None,

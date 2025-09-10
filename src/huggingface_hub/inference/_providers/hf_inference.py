@@ -1,7 +1,7 @@
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 from urllib.parse import urlparse, urlunparse
 
 from huggingface_hub import constants
@@ -60,7 +60,7 @@ class HFInferenceTask(TaskProviderHelper):
         )
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         if isinstance(inputs, bytes):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
@@ -71,14 +71,14 @@ class HFInferenceTask(TaskProviderHelper):
 
 class HFInferenceBinaryInputTask(HFInferenceTask):
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         return None
 
     def _prepare_payload_as_bytes(
         self,
         inputs: Any,
-        parameters: Dict,
+        parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
         extra_payload: Optional[dict],
     ) -> Optional[MimeBytes]:
@@ -106,7 +106,7 @@ class HFInferenceConversational(HFInferenceTask):
         super().__init__("conversational")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         payload = filter_none(parameters)
         mapped_model = provider_mapping_info.provider_id
@@ -211,7 +211,7 @@ class HFInferenceFeatureExtractionTask(HFInferenceTask):
         super().__init__("feature-extraction")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         if isinstance(inputs, bytes):
             raise ValueError(f"Unexpected binary input for task {self.task}.")

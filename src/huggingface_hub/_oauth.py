@@ -6,7 +6,7 @@ import time
 import urllib.parse
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Literal, Optional, Union
+from typing import TYPE_CHECKING, Literal, Optional, Union
 
 from . import constants
 from .hf_api import whoami
@@ -406,7 +406,7 @@ def _get_redirect_target(request: "fastapi.Request", default_target: str = "/") 
     return request.query_params.get("_target_url", default_target)
 
 
-def _get_mocked_oauth_info() -> Dict:
+def _get_mocked_oauth_info() -> dict:
     token = get_token()
     if token is None:
         raise ValueError(

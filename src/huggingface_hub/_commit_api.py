@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, Iterable, Iterator, Literal, Optional, Union
 
 from tqdm.contrib.concurrent import thread_map
 
@@ -670,7 +670,7 @@ def _fetch_upload_modes(
     oid_info: dict[str, Optional[str]] = {}
 
     for chunk in chunk_iterable(additions, 256):
-        payload: Dict = {
+        payload: dict = {
             "files": [
                 {
                     "path": op.path_in_repo,

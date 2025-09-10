@@ -3,7 +3,7 @@ import logging
 from contextlib import AsyncExitStack
 from datetime import timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, Literal, Optional, TypedDict, Union, overload
+from typing import TYPE_CHECKING, Any, AsyncIterable, Literal, Optional, TypedDict, Union, overload
 
 from typing_extensions import NotRequired, TypeAlias, Unpack
 
@@ -249,7 +249,7 @@ class MCPClient:
 
     async def process_single_turn_with_tools(
         self,
-        messages: list[Union[Dict, ChatCompletionInputMessage]],
+        messages: list[Union[dict, ChatCompletionInputMessage]],
         exit_loop_tools: Optional[list[ChatCompletionInputTool]] = None,
         exit_if_first_chunk_no_tool: bool = False,
     ) -> AsyncIterable[Union[ChatCompletionStreamOutput, ChatCompletionInputMessage]]:

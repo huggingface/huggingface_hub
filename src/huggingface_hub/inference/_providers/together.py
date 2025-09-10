@@ -1,6 +1,6 @@
 import base64
 from abc import ABC
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
@@ -52,7 +52,7 @@ class TogetherConversationalTask(BaseConversationalTask):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         payload = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)
         response_format = parameters.get("response_format")
@@ -72,7 +72,7 @@ class TogetherTextToImageTask(TogetherTask):
         super().__init__("text-to-image")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         mapped_model = provider_mapping_info.provider_id
         parameters = filter_none(parameters)

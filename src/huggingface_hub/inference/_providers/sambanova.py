@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
@@ -10,7 +10,7 @@ class SambanovaConversationalTask(BaseConversationalTask):
         super().__init__(provider="sambanova", base_url="https://api.sambanova.ai")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         response_format_config = parameters.get("response_format")
         if isinstance(response_format_config, dict):
@@ -32,7 +32,7 @@ class SambanovaFeatureExtractionTask(TaskProviderHelper):
         return "/v1/embeddings"
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         parameters = filter_none(parameters)
         return {"input": inputs, "model": provider_mapping_info.provider_id, **parameters}

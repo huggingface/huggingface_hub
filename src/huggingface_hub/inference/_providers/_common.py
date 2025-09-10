@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Any, Dict, Optional, Union, overload
+from typing import Any, Optional, Union, overload
 
 from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
@@ -73,7 +73,7 @@ class TaskProviderHelper:
         *,
         inputs: Any,
         parameters: dict[str, Any],
-        headers: Dict,
+        headers: dict,
         model: Optional[str],
         api_key: Optional[str],
         extra_payload: Optional[dict[str, Any]] = None,
@@ -196,7 +196,7 @@ class TaskProviderHelper:
                 normalized_headers["content-type"] = "application/json"
         return normalized_headers
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> dict[str, Any]:
+    def _prepare_headers(self, headers: dict, api_key: str) -> dict[str, Any]:
         """Return the headers to use for the request.
 
         Override this method in subclasses for customized headers.
@@ -231,7 +231,7 @@ class TaskProviderHelper:
         return ""
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         """Return the payload to use for the request, as a dict.
 
@@ -243,7 +243,7 @@ class TaskProviderHelper:
     def _prepare_payload_as_bytes(
         self,
         inputs: Any,
-        parameters: Dict,
+        parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
         extra_payload: Optional[dict],
     ) -> Optional[MimeBytes]:
@@ -269,8 +269,8 @@ class BaseConversationalTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self,
-        inputs: list[Union[Dict, ChatCompletionInputMessage]],
-        parameters: Dict,
+        inputs: list[Union[dict, ChatCompletionInputMessage]],
+        parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
     ) -> Optional[dict]:
         return filter_none({"messages": inputs, **parameters, "model": provider_mapping_info.provider_id})
@@ -289,7 +289,7 @@ class BaseTextGenerationTask(TaskProviderHelper):
         return "/v1/completions"
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         return filter_none({"prompt": inputs, **parameters, "model": provider_mapping_info.provider_id})
 
@@ -308,7 +308,7 @@ def _fetch_inference_provider_mapping(model: str) -> list["InferenceProviderMapp
     return provider_mapping
 
 
-def recursive_merge(dict1: Dict, dict2: dict) -> Dict:
+def recursive_merge(dict1: dict, dict2: dict) -> dict:
     return {
         **dict1,
         **{

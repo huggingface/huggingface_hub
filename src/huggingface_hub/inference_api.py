@@ -1,5 +1,5 @@
 import io
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 from . import constants
 from .hf_api import HfApi
@@ -157,7 +157,7 @@ class InferenceApi:
 
     def __call__(
         self,
-        inputs: Optional[Union[str, Dict, list[str], list[list[str]]]] = None,
+        inputs: Optional[Union[str, dict, list[str], list[list[str]]]] = None,
         params: Optional[dict] = None,
         data: Optional[bytes] = None,
         raw_response: bool = False,
@@ -165,9 +165,9 @@ class InferenceApi:
         """Make a call to the Inference API.
 
         Args:
-            inputs (`str` or `Dict` or `list[str]` or `list[list[str]]`, *optional*):
+            inputs (`str` or `dict` or `list[str]` or `list[list[str]]`, *optional*):
                 Inputs for the prediction.
-            params (`Dict`, *optional*):
+            params (`dict`, *optional*):
                 Additional parameters for the models. Will be sent as `parameters` in the
                 payload.
             data (`bytes`, *optional*):

@@ -21,19 +21,7 @@ import logging
 import mimetypes
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    AsyncIterable,
-    BinaryIO,
-    Dict,
-    Iterable,
-    Literal,
-    NoReturn,
-    Optional,
-    Union,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, AsyncIterable, BinaryIO, Iterable, Literal, NoReturn, Optional, Union, overload
 
 import httpx
 
@@ -70,7 +58,7 @@ class RequestParameters:
     url: str
     task: str
     model: Optional[str]
-    json: Optional[Union[str, Dict, list]]
+    json: Optional[Union[str, dict, list]]
     data: Optional[bytes]
     headers: dict[str, Any]
 
@@ -250,7 +238,7 @@ def _bytes_to_list(content: bytes) -> list:
     return json.loads(content.decode())
 
 
-def _bytes_to_dict(content: bytes) -> Dict:
+def _bytes_to_dict(content: bytes) -> dict:
     """Parse bytes from a Response object into a Python dictionary.
 
     Expects the response body to be JSON-encoded data.
@@ -270,7 +258,7 @@ def _bytes_to_image(content: bytes) -> "Image":
     return Image.open(io.BytesIO(content))
 
 
-def _as_dict(response: Union[bytes, dict]) -> Dict:
+def _as_dict(response: Union[bytes, dict]) -> dict:
     return json.loads(response) if isinstance(response, bytes) else response
 
 

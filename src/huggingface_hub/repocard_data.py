@@ -424,7 +424,7 @@ class DatasetCardData(CardData):
             ID of the dataset on PapersWithCode.
         pretty_name (`str`, *optional*):
             A more human-readable name for the dataset. (ex. "Cats vs. Dogs")
-        train_eval_index (`Dict`, *optional*):
+        train_eval_index (`dict`, *optional*):
             A dictionary that describes the necessary spec for doing evaluation on the Hub.
             If not provided, it will be gathered from the 'train-eval-index' key of the kwargs.
         config_names (`Union[str, list[str]]`, *optional*):

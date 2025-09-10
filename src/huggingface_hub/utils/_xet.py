@@ -67,7 +67,7 @@ def parse_xet_connection_info_from_headers(headers: dict[str, str]) -> Optional[
     """
     Parse XET connection info from the HTTP headers or return None if not found.
     Args:
-        headers (`Dict`):
+        headers (`dict`):
            HTTP headers to extract the XET metadata from.
     Returns:
         `XetConnectionInfo` or `None`:
