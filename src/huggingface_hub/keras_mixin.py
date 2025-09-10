@@ -5,7 +5,7 @@ import warnings
 from functools import wraps
 from pathlib import Path
 from shutil import copytree
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from huggingface_hub import ModelHubMixin, snapshot_download
 from huggingface_hub.utils import (
@@ -157,7 +157,7 @@ def _create_model_card(
 def save_pretrained_keras(
     model,
     save_directory: Union[str, Path],
-    config: Optional[Dict[str, Any]] = None,
+    config: Optional[dict[str, Any]] = None,
     include_optimizer: bool = False,
     plot_model: bool = True,
     tags: Optional[Union[list, str]] = None,
@@ -276,7 +276,7 @@ def from_pretrained_keras(*args, **kwargs) -> "KerasModelHubMixin":
         local_files_only(`bool`, *optional*, defaults to `False`):
             Whether to only look at local files (i.e., do not try to download
             the model).
-        model_kwargs (`Dict`, *optional*):
+        model_kwargs (`dict`, *optional*):
             model_kwargs will be passed to the model during initialization
 
     <Tip>
@@ -302,9 +302,9 @@ def push_to_hub_keras(
     token: Optional[str] = None,
     branch: Optional[str] = None,
     create_pr: Optional[bool] = None,
-    allow_patterns: Optional[Union[List[str], str]] = None,
-    ignore_patterns: Optional[Union[List[str], str]] = None,
-    delete_patterns: Optional[Union[List[str], str]] = None,
+    allow_patterns: Optional[Union[list[str], str]] = None,
+    ignore_patterns: Optional[Union[list[str], str]] = None,
+    delete_patterns: Optional[Union[list[str], str]] = None,
     log_dir: Optional[str] = None,
     include_optimizer: bool = False,
     tags: Optional[Union[list, str]] = None,
@@ -344,11 +344,11 @@ def push_to_hub_keras(
             Defaults to `False`.
         config (`dict`, *optional*):
             Configuration object to be saved alongside the model weights.
-        allow_patterns (`List[str]` or `str`, *optional*):
+        allow_patterns (`list[str]` or `str`, *optional*):
             If provided, only files matching at least one pattern are pushed.
-        ignore_patterns (`List[str]` or `str`, *optional*):
+        ignore_patterns (`list[str]` or `str`, *optional*):
             If provided, files matching any of the patterns are not pushed.
-        delete_patterns (`List[str]` or `str`, *optional*):
+        delete_patterns (`list[str]` or `str`, *optional*):
             If provided, remote files matching any of the patterns will be deleted from the repo.
         log_dir (`str`, *optional*):
             TensorBoard logging directory to be pushed. The Hub automatically
@@ -462,7 +462,7 @@ class KerasModelHubMixin(ModelHubMixin):
         resume_download,
         local_files_only,
         token,
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
         **model_kwargs,
     ):
         """Here we just call [`from_pretrained_keras`] function so both the mixin and

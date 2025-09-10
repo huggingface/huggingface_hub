@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 在开始之前，您需要通过安装适当的软件包来设置您的环境
 
-huggingface_hub 在 Python 3.8 或更高版本上进行了测试，可以保证在这些版本上正常运行。如果您使用的是 Python 3.7 或更低版本，可能会出现兼容性问题
+huggingface_hub 在 Python 3.9 或更高版本上进行了测试，可以保证在这些版本上正常运行。如果您使用的是 Python 3.7 或更低版本，可能会出现兼容性问题
 
 ## 使用 pip 安装
 

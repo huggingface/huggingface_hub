@@ -1,4 +1,4 @@
-from typing import Dict, List, Literal, TypedDict, Union
+from typing import Literal, TypedDict, Union
 
 from typing_extensions import NotRequired
 
@@ -13,24 +13,24 @@ class InputConfig(TypedDict, total=False):
 class StdioServerConfig(TypedDict):
     type: Literal["stdio"]
     command: str
-    args: List[str]
-    env: Dict[str, str]
+    args: list[str]
+    env: dict[str, str]
     cwd: str
-    allowed_tools: NotRequired[List[str]]
+    allowed_tools: NotRequired[list[str]]
 
 
 class HTTPServerConfig(TypedDict):
     type: Literal["http"]
     url: str
-    headers: Dict[str, str]
-    allowed_tools: NotRequired[List[str]]
+    headers: dict[str, str]
+    allowed_tools: NotRequired[list[str]]
 
 
 class SSEServerConfig(TypedDict):
     type: Literal["sse"]
     url: str
-    headers: Dict[str, str]
-    allowed_tools: NotRequired[List[str]]
+    headers: dict[str, str]
+    allowed_tools: NotRequired[list[str]]
 
 
 ServerConfig = Union[StdioServerConfig, HTTPServerConfig, SSEServerConfig]
@@ -41,5 +41,5 @@ class AgentConfig(TypedDict):
     model: str
     provider: str
     apiKey: NotRequired[str]
-    inputs: List[InputConfig]
-    servers: List[ServerConfig]
+    inputs: list[InputConfig]
+    servers: list[ServerConfig]

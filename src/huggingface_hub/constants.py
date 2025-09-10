@@ -1,7 +1,7 @@
 import os
 import re
 import typing
-from typing import Literal, Optional, Tuple
+from typing import Literal, Optional
 
 
 # Possible values for env variables
@@ -118,9 +118,9 @@ REPO_TYPES_MAPPING = {
 }
 
 DiscussionTypeFilter = Literal["all", "discussion", "pull_request"]
-DISCUSSION_TYPES: Tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionTypeFilter)
+DISCUSSION_TYPES: tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionTypeFilter)
 DiscussionStatusFilter = Literal["all", "open", "closed"]
-DISCUSSION_STATUS: Tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionStatusFilter)
+DISCUSSION_STATUS: tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionStatusFilter)
 
 # Webhook subscription types
 WEBHOOK_DOMAIN_T = Literal["repo", "discussions"]

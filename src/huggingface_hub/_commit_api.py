@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, Iterable, Iterator, Literal, Optional, Union
 
 from tqdm.contrib.concurrent import thread_map
 
@@ -307,7 +307,7 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
 CommitOperation = Union[CommitOperationAdd, CommitOperationCopy, CommitOperationDelete]
 
 
-def _warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
+def _warn_on_overwriting_operations(operations: list[CommitOperation]) -> None:
     """
     Warn user when a list of operations is expected to overwrite itself in a single
     commit.
@@ -322,7 +322,7 @@ def _warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
       delete before upload) but can happen if a user deletes an entire folder and then
       add new files to it.
     """
-    nb_additions_per_path: Dict[str, int] = defaultdict(int)
+    nb_additions_per_path: dict[str, int] = defaultdict(int)
     for operation in operations:
         path_in_repo = operation.path_in_repo
         if isinstance(operation, CommitOperationAdd):
@@ -356,10 +356,10 @@ def _warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
 @validate_hf_hub_args
 def _upload_files(
     *,
-    additions: List[CommitOperationAdd],
+    additions: list[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
-    headers: Dict[str, str],
+    headers: dict[str, str],
     endpoint: Optional[str] = None,
     num_threads: int = 5,
     revision: Optional[str] = None,
@@ -368,14 +368,14 @@ def _upload_files(
     """
     Negotiates per-file transfer (LFS vs Xet) and uploads in batches.
     """
-    xet_additions: List[CommitOperationAdd] = []
-    lfs_actions: List[Dict] = []
-    lfs_oid2addop: Dict[str, CommitOperationAdd] = {}
+    xet_additions: list[CommitOperationAdd] = []
+    lfs_actions: list[dict[str, Any]] = []
+    lfs_oid2addop: dict[str, CommitOperationAdd] = {}
 
     for chunk in chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES):
         chunk_list = [op for op in chunk]
 
-        transfers: List[str] = ["basic", "multipart"]
+        transfers: list[str] = ["basic", "multipart"]
         has_buffered_io_data = any(isinstance(op.path_or_fileobj, io.BufferedIOBase) for op in chunk_list)
         if is_xet_available():
             if not has_buffered_io_data:
@@ -438,9 +438,9 @@ def _upload_files(
 @validate_hf_hub_args
 def _upload_lfs_files(
     *,
-    actions: List[Dict],
-    oid2addop: Dict[str, CommitOperationAdd],
-    headers: Dict[str, str],
+    actions: list[dict[str, Any]],
+    oid2addop: dict[str, CommitOperationAdd],
+    headers: dict[str, str],
     endpoint: Optional[str] = None,
     num_threads: int = 5,
 ):
@@ -451,11 +451,11 @@ def _upload_lfs_files(
         - LFS Batch API: https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
 
     Args:
-        actions (`List[Dict]`):
+        actions (`list[dict[str, Any]]`):
             LFS batch actions returned by the server.
-        oid2addop (`Dict[str, CommitOperationAdd]`):
+        oid2addop (`dict[str, CommitOperationAdd]`):
             A dictionary mapping the OID of the file to the corresponding `CommitOperationAdd` object.
-        headers (`Dict[str, str]`):
+        headers (`dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
         endpoint (`str`, *optional*):
             The endpoint to use for the request. Defaults to `constants.ENDPOINT`.
@@ -470,7 +470,7 @@ def _upload_lfs_files(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        headers (`Dict[str, str]`):
+        headers (`dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
         num_threads (`int`, *optional*):
             The number of concurrent threads to use when uploading. Defaults to 5.
@@ -526,10 +526,10 @@ def _upload_lfs_files(
 @validate_hf_hub_args
 def _upload_xet_files(
     *,
-    additions: List[CommitOperationAdd],
+    additions: list[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
-    headers: Dict[str, str],
+    headers: dict[str, str],
     endpoint: Optional[str] = None,
     revision: Optional[str] = None,
     create_pr: Optional[bool] = None,
@@ -539,14 +539,14 @@ def _upload_xet_files(
     This chunks the files and deduplicates the chunks before uploading them to xetcas storage.
 
     Args:
-        additions (`List` of `CommitOperationAdd`):
+        additions (`` of `CommitOperationAdd`):
             The files to be uploaded.
         repo_type (`str`):
             Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        headers (`Dict[str, str]`):
+        headers (`dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
         endpoint: (`str`, *optional*):
             The endpoint to use for the xetcas service. Defaults to `constants.ENDPOINT`.
@@ -615,7 +615,7 @@ def _upload_xet_files(
     xet_endpoint = xet_connection_info.endpoint
     access_token_info = (xet_connection_info.access_token, xet_connection_info.expiration_unix_epoch)
 
-    def token_refresher() -> Tuple[str, int]:
+    def token_refresher() -> tuple[str, int]:
         new_xet_connection = fetch_xet_connection_info_from_repo_info(
             token_type=XetTokenType.WRITE,
             repo_id=repo_id,
@@ -688,7 +688,7 @@ def _fetch_upload_modes(
     additions: Iterable[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
-    headers: Dict[str, str],
+    headers: dict[str, str],
     revision: str,
     endpoint: Optional[str] = None,
     create_pr: bool = False,
@@ -707,7 +707,7 @@ def _fetch_upload_modes(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        headers (`Dict[str, str]`):
+        headers (`dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
@@ -725,12 +725,12 @@ def _fetch_upload_modes(
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
 
     # Fetch upload mode (LFS or regular) chunk by chunk.
-    upload_modes: Dict[str, UploadMode] = {}
-    should_ignore_info: Dict[str, bool] = {}
-    oid_info: Dict[str, Optional[str]] = {}
+    upload_modes: dict[str, UploadMode] = {}
+    should_ignore_info: dict[str, bool] = {}
+    oid_info: dict[str, Optional[str]] = {}
 
     for chunk in chunk_iterable(additions, 256):
-        payload: Dict = {
+        payload: dict = {
             "files": [
                 {
                     "path": op.path_in_repo,
@@ -773,10 +773,10 @@ def _fetch_files_to_copy(
     copies: Iterable[CommitOperationCopy],
     repo_type: str,
     repo_id: str,
-    headers: Dict[str, str],
+    headers: dict[str, str],
     revision: str,
     endpoint: Optional[str] = None,
-) -> Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]]:
+) -> dict[tuple[str, Optional[str]], Union["RepoFile", bytes]]:
     """
     Fetch information about the files to copy.
 
@@ -792,12 +792,12 @@ def _fetch_files_to_copy(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        headers (`Dict[str, str]`):
+        headers (`dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
 
-    Returns: `Dict[Tuple[str, Optional[str]], Union[RepoFile, bytes]]]`
+    Returns: `dict[tuple[str, Optional[str]], Union[RepoFile, bytes]]]`
         Key is the file path and revision of the file to copy.
         Value is the raw content as bytes (for regular files) or the file information as a RepoFile (for LFS files).
 
@@ -810,9 +810,9 @@ def _fetch_files_to_copy(
     from .hf_api import HfApi, RepoFolder
 
     hf_api = HfApi(endpoint=endpoint, headers=headers)
-    files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]] = {}
+    files_to_copy: dict[tuple[str, Optional[str]], Union["RepoFile", bytes]] = {}
     # Store (path, revision) -> oid mapping
-    oid_info: Dict[Tuple[str, Optional[str]], Optional[str]] = {}
+    oid_info: dict[tuple[str, Optional[str]], Optional[str]] = {}
     # 1. Fetch OIDs for destination paths in batches.
     dest_paths = [op.path_in_repo for op in copies]
     for offset in range(0, len(dest_paths), FETCH_LFS_BATCH_SIZE):
@@ -872,11 +872,11 @@ def _fetch_files_to_copy(
 
 def _prepare_commit_payload(
     operations: Iterable[CommitOperation],
-    files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]],
+    files_to_copy: dict[tuple[str, Optional[str]], Union["RepoFile", bytes]],
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
-) -> Iterable[Dict[str, Any]]:
+) -> Iterable[dict[str, Any]]:
     """
     Builds the payload to POST to the `/commit` API of the Hub.
 

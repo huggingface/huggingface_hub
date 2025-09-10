@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Dict, List, Literal, Optional
+from typing import Literal, Optional
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -14,7 +14,7 @@ class TableQuestionAnsweringInputData(BaseInferenceType):
 
     question: str
     """The question to be answered about the table"""
-    table: Dict[str, List[str]]
+    table: dict[str, list[str]]
     """The table to serve as context for the questions"""
 
 
@@ -54,9 +54,9 @@ class TableQuestionAnsweringOutputElement(BaseInferenceType):
     """The answer of the question given the table. If there is an aggregator, the answer will be
     preceded by `AGGREGATOR >`.
     """
-    cells: List[str]
+    cells: list[str]
     """List of strings made up of the answer cell values."""
-    coordinates: List[List[int]]
+    coordinates: list[list[int]]
     """Coordinates of the cells of the answers."""
     aggregator: Optional[str] = None
     """If the model has an aggregator, this returns the aggregator."""

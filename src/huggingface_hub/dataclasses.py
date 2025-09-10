@@ -1,22 +1,7 @@
 import inspect
 from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields
 from functools import wraps
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    ForwardRef,
-    List,
-    Literal,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    get_args,
-    get_origin,
-    overload,
-)
+from typing import Any, Callable, ForwardRef, Literal, Optional, Type, TypeVar, Union, get_args, get_origin, overload
 
 from .errors import (
     StrictDataclassClassValidationError,
@@ -103,7 +88,7 @@ def strict(
             )
 
         # List and store validators
-        field_validators: Dict[str, List[Validator_T]] = {}
+        field_validators: dict[str, list[Validator_T]] = {}
         for f in fields(cls):  # type: ignore [arg-type]
             validators = []
             validators.append(_create_type_validator(f))
@@ -239,14 +224,14 @@ def strict(
 
 
 def validated_field(
-    validator: Union[List[Validator_T], Validator_T],
+    validator: Union[list[Validator_T], Validator_T],
     default: Union[Any, _MISSING_TYPE] = MISSING,
     default_factory: Union[Callable[[], Any], _MISSING_TYPE] = MISSING,
     init: bool = True,
     repr: bool = True,
     hash: Optional[bool] = None,
     compare: bool = True,
-    metadata: Optional[Dict] = None,
+    metadata: Optional[dict] = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -255,7 +240,7 @@ def validated_field(
     Useful to apply several checks to a field. If only applying one rule, check out the [`as_validated_field`] decorator.
 
     Args:
-        validator (`Callable` or `List[Callable]`):
+        validator (`Callable` or `list[Callable]`):
             A method that takes a value as input and raises ValueError/TypeError if the value is invalid.
             Can be a list of validators to apply multiple checks.
         **kwargs:
@@ -297,7 +282,7 @@ def as_validated_field(validator: Validator_T):
         repr: bool = True,
         hash: Optional[bool] = None,
         compare: bool = True,
-        metadata: Optional[Dict] = None,
+        metadata: Optional[dict] = None,
         **kwargs: Any,
     ):
         return validated_field(
@@ -332,7 +317,7 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
         raise TypeError(f"Unsupported type for field '{name}': {expected_type}")
 
 
-def _validate_union(name: str, value: Any, args: Tuple[Any, ...]) -> None:
+def _validate_union(name: str, value: Any, args: tuple[Any, ...]) -> None:
     """Validate that value matches one of the types in a Union."""
     errors = []
     for t in args:
@@ -347,14 +332,14 @@ def _validate_union(name: str, value: Any, args: Tuple[Any, ...]) -> None:
     )
 
 
-def _validate_literal(name: str, value: Any, args: Tuple[Any, ...]) -> None:
+def _validate_literal(name: str, value: Any, args: tuple[Any, ...]) -> None:
     """Validate Literal type."""
     if value not in args:
         raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
 
 
-def _validate_list(name: str, value: Any, args: Tuple[Any, ...]) -> None:
-    """Validate List[T] type."""
+def _validate_list(name: str, value: Any, args: tuple[Any, ...]) -> None:
+    """Validate list[T] type."""
     if not isinstance(value, list):
         raise TypeError(f"Field '{name}' expected a list, got {type(value).__name__}")
 
@@ -367,8 +352,8 @@ def _validate_list(name: str, value: Any, args: Tuple[Any, ...]) -> None:
             raise TypeError(f"Invalid item at index {i} in list '{name}'") from e
 
 
-def _validate_dict(name: str, value: Any, args: Tuple[Any, ...]) -> None:
-    """Validate Dict[K, V] type."""
+def _validate_dict(name: str, value: Any, args: tuple[Any, ...]) -> None:
+    """Validate dict[K, V] type."""
     if not isinstance(value, dict):
         raise TypeError(f"Field '{name}' expected a dict, got {type(value).__name__}")
 
@@ -382,19 +367,19 @@ def _validate_dict(name: str, value: Any, args: Tuple[Any, ...]) -> None:
             raise TypeError(f"Invalid key or value in dict '{name}'") from e
 
 
-def _validate_tuple(name: str, value: Any, args: Tuple[Any, ...]) -> None:
+def _validate_tuple(name: str, value: Any, args: tuple[Any, ...]) -> None:
     """Validate Tuple type."""
     if not isinstance(value, tuple):
         raise TypeError(f"Field '{name}' expected a tuple, got {type(value).__name__}")
 
-    # Handle variable-length tuples: Tuple[T, ...]
+    # Handle variable-length tuples: tuple[T, ...]
     if len(args) == 2 and args[1] is Ellipsis:
         for i, item in enumerate(value):
             try:
                 type_validator(f"{name}[{i}]", item, args[0])
             except TypeError as e:
                 raise TypeError(f"Invalid item at index {i} in tuple '{name}'") from e
-    # Handle fixed-length tuples: Tuple[T1, T2, ...]
+    # Handle fixed-length tuples: tuple[T1, T2, ...]
     elif len(args) != len(value):
         raise TypeError(f"Field '{name}' expected a tuple of length {len(args)}, got {len(value)}")
     else:
@@ -405,8 +390,8 @@ def _validate_tuple(name: str, value: Any, args: Tuple[Any, ...]) -> None:
                 raise TypeError(f"Invalid item at index {i} in tuple '{name}'") from e
 
 
-def _validate_set(name: str, value: Any, args: Tuple[Any, ...]) -> None:
-    """Validate Set[T] type."""
+def _validate_set(name: str, value: Any, args: tuple[Any, ...]) -> None:
+    """Validate set[T] type."""
     if not isinstance(value, set):
         raise TypeError(f"Field '{name}' expected a set, got {type(value).__name__}")
 

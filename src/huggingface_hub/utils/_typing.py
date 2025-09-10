@@ -15,10 +15,10 @@
 """Handle typing imports based on system compatibility."""
 
 import sys
-from typing import Any, Callable, List, Literal, Optional, Set, Type, TypeVar, Union, get_args, get_origin
+from typing import Any, Callable, Literal, Optional, Type, TypeVar, Union, get_args, get_origin
 
 
-UNION_TYPES: List[Any] = [Union]
+UNION_TYPES: list[Any] = [Union]
 if sys.version_info >= (3, 10):
     from types import UnionType
 
@@ -33,7 +33,7 @@ CallableT = TypeVar("CallableT", bound=Callable)
 _JSON_SERIALIZABLE_TYPES = (int, float, str, bool, type(None))
 
 
-def is_jsonable(obj: Any, _visited: Optional[Set[int]] = None) -> bool:
+def is_jsonable(obj: Any, _visited: Optional[set[int]] = None) -> bool:
     """Check if an object is JSON serializable.
 
     This is a weak check, as it does not check for the actual JSON serialization, but only for the types of the object.

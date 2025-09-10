@@ -4,7 +4,7 @@ import struct
 import unittest
 from argparse import Namespace
 from pathlib import Path
-from typing import Any, Dict, Optional, TypeVar
+from typing import Any, Optional, TypeVar
 from unittest.mock import Mock, patch
 
 import pytest
@@ -89,7 +89,7 @@ if is_torch_available():
             self.not_jsonable = not_jsonable
 
     class DummyModelWithConfigAndKwargs(nn.Module, PyTorchModelHubMixin):
-        def __init__(self, num_classes: int = 42, state: str = "layernorm", config: Optional[Dict] = None, **kwargs):
+        def __init__(self, num_classes: int = 42, state: str = "layernorm", config: Optional[dict] = None, **kwargs):
             super().__init__()
 
     class DummyModelWithModelCardAndCustomKwargs(

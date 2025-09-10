@@ -6,7 +6,7 @@ Formatting utilities taken from the JS SDK: https://github.com/huggingface/huggi
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Optional
 
 from huggingface_hub import snapshot_download
 from huggingface_hub.errors import EntryNotFoundError
@@ -36,7 +36,7 @@ def format_result(result: "mcp_types.CallToolResult") -> str:
     if len(content) == 0:
         return "[No content]"
 
-    formatted_parts: List[str] = []
+    formatted_parts: list[str] = []
 
     for item in content:
         if item.type == "text":
@@ -84,10 +84,10 @@ def _get_base64_size(base64_str: str) -> int:
     return (len(base64_str) * 3) // 4 - padding
 
 
-def _load_agent_config(agent_path: Optional[str]) -> Tuple[AgentConfig, Optional[str]]:
+def _load_agent_config(agent_path: Optional[str]) -> tuple[AgentConfig, Optional[str]]:
     """Load server config and prompt."""
 
-    def _read_dir(directory: Path) -> Tuple[AgentConfig, Optional[str]]:
+    def _read_dir(directory: Path) -> tuple[AgentConfig, Optional[str]]:
         cfg_file = directory / FILENAME_CONFIG
         if not cfg_file.exists():
             raise FileNotFoundError(f" Config file not found in {directory}! Please make sure it exists locally")

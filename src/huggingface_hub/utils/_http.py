@@ -24,7 +24,7 @@ import uuid
 from contextlib import contextmanager
 from http import HTTPStatus
 from shlex import quote
-from typing import Any, Callable, Generator, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Generator, Optional, Union
 
 import httpx
 
@@ -260,11 +260,11 @@ def _http_backoff_base(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (
+    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = (
         httpx.TimeoutException,
         httpx.NetworkError,
     ),
-    retry_on_status_codes: Union[int, Tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
+    retry_on_status_codes: Union[int, tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
     stream: bool = False,
     **kwargs,
 ) -> Generator[httpx.Response, None, None]:
@@ -345,11 +345,11 @@ def http_backoff(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (
+    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = (
         httpx.TimeoutException,
         httpx.NetworkError,
     ),
-    retry_on_status_codes: Union[int, Tuple[int, ...]] = (500, 502, 503, 504),
+    retry_on_status_codes: Union[int, tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
     **kwargs,
 ) -> httpx.Response:
     """Wrapper around httpx to retry calls on an endpoint, with exponential backoff.
@@ -375,10 +375,10 @@ def http_backoff(
             `max_wait_time`.
         max_wait_time (`float`, *optional*, defaults to `8`):
             Maximum duration (in seconds) to wait before retrying.
-        retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*):
+        retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
             By default, retry on `httpx.TimeoutException` and `httpx.NetworkError`.
-        retry_on_status_codes (`int` or `Tuple[int]`, *optional*, defaults to `503`):
+        retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `503`):
             Define on which status codes the request must be retried. By default, only
             HTTP 503 Service Unavailable is retried.
         **kwargs (`dict`, *optional*):
@@ -432,11 +432,11 @@ def http_stream_backoff(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (
+    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = (
         httpx.TimeoutException,
         httpx.NetworkError,
     ),
-    retry_on_status_codes: Union[int, Tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
+    retry_on_status_codes: Union[int, tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
     **kwargs,
 ) -> Generator[httpx.Response, None, None]:
     """Wrapper around httpx to retry calls on an endpoint, with exponential backoff.
@@ -462,10 +462,10 @@ def http_stream_backoff(
             `max_wait_time`.
         max_wait_time (`float`, *optional*, defaults to `8`):
             Maximum duration (in seconds) to wait before retrying.
-        retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*):
+        retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
             By default, retry on `httpx.Timeout` and `httpx.NetworkError`.
-        retry_on_status_codes (`int` or `Tuple[int]`, *optional*, defaults to `503`):
+        retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `503`):
             Define on which status codes the request must be retried. By default, only
             HTTP 503 Service Unavailable is retried.
         **kwargs (`dict`, *optional*):
@@ -636,7 +636,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
         raise _format(HfHubHTTPError, str(e), response) from e
 
 
-def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: httpx.Response) -> HfHubHTTPError:
+def _format(error_type: type[HfHubHTTPError], custom_message: str, response: httpx.Response) -> HfHubHTTPError:
     server_errors = []
 
     # Retrieve server error from header
@@ -722,7 +722,7 @@ def _curlify(request: httpx.Request) -> str:
     Implementation vendored from https://github.com/ofw/curlify/blob/master/curlify.py.
     MIT License Copyright (c) 2016 Egor.
     """
-    parts: List[Tuple[Any, Any]] = [
+    parts: list[tuple[Any, Any]] = [
         ("curl", None),
         ("-X", request.method),
     ]
