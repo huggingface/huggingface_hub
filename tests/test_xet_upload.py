@@ -402,7 +402,6 @@ class TestXetE2E:
                 headers=headers,
                 endpoint=api.endpoint,
                 token=TOKEN,
-                proxies=None,
                 etag_timeout=None,
                 local_files_only=False,
             )

@@ -520,6 +520,8 @@ _SUBMOD_ATTRS = {
         "read_dduf_file",
     ],
     "utils": [
+        "ASYNC_CLIENT_FACTORY_T",
+        "CLIENT_FACTORY_T",
         "CacheNotFound",
         "CachedFileInfo",
         "CachedRepoInfo",
@@ -528,13 +530,19 @@ _SUBMOD_ATTRS = {
         "DeleteCacheStrategy",
         "HFCacheInfo",
         "HfFolder",
+        "HfHubAsyncTransport",
+        "HfHubTransport",
         "cached_assets_path",
-        "configure_http_backend",
+        "close_client",
         "dump_environment_info",
+        "get_async_session",
         "get_session",
         "get_token",
+        "hf_raise_for_status",
         "logging",
         "scan_cache_dir",
+        "set_async_client_factory",
+        "set_client_factory",
     ],
 }
 
@@ -550,6 +558,7 @@ _SUBMOD_ATTRS = {
 # ```
 
 __all__ = [
+    "ASYNC_CLIENT_FACTORY_T",
     "Agent",
     "AsyncInferenceClient",
     "AudioClassificationInput",
@@ -564,6 +573,7 @@ __all__ = [
     "AutomaticSpeechRecognitionOutput",
     "AutomaticSpeechRecognitionOutputChunk",
     "AutomaticSpeechRecognitionParameters",
+    "CLIENT_FACTORY_T",
     "CONFIG_NAME",
     "CacheNotFound",
     "CachedFileInfo",
@@ -653,6 +663,8 @@ __all__ = [
     "HfFileSystemResolvedPath",
     "HfFileSystemStreamFile",
     "HfFolder",
+    "HfHubAsyncTransport",
+    "HfHubTransport",
     "ImageClassificationInput",
     "ImageClassificationOutputElement",
     "ImageClassificationOutputTransform",
@@ -824,8 +836,8 @@ __all__ = [
     "cancel_access_request",
     "cancel_job",
     "change_discussion_status",
+    "close_client",
     "comment_discussion",
-    "configure_http_backend",
     "create_branch",
     "create_collection",
     "create_commit",
@@ -863,6 +875,7 @@ __all__ = [
     "file_exists",
     "from_pretrained_fastai",
     "from_pretrained_keras",
+    "get_async_session",
     "get_collection",
     "get_dataset_tags",
     "get_discussion_details",
@@ -886,6 +899,7 @@ __all__ = [
     "grant_access",
     "hf_hub_download",
     "hf_hub_url",
+    "hf_raise_for_status",
     "inspect_job",
     "inspect_scheduled_job",
     "interpreter_login",
@@ -953,6 +967,8 @@ __all__ = [
     "save_torch_state_dict",
     "scale_to_zero_inference_endpoint",
     "scan_cache_dir",
+    "set_async_client_factory",
+    "set_client_factory",
     "set_space_sleep_time",
     "snapshot_download",
     "space_info",
@@ -1530,6 +1546,8 @@ if TYPE_CHECKING:  # pragma: no cover
         read_dduf_file,  # noqa: F401
     )
     from .utils import (
+        ASYNC_CLIENT_FACTORY_T,  # noqa: F401
+        CLIENT_FACTORY_T,  # noqa: F401
         CachedFileInfo,  # noqa: F401
         CachedRepoInfo,  # noqa: F401
         CachedRevisionInfo,  # noqa: F401
@@ -1538,11 +1556,17 @@ if TYPE_CHECKING:  # pragma: no cover
         DeleteCacheStrategy,  # noqa: F401
         HFCacheInfo,  # noqa: F401
         HfFolder,  # noqa: F401
+        HfHubAsyncTransport,  # noqa: F401
+        HfHubTransport,  # noqa: F401
         cached_assets_path,  # noqa: F401
-        configure_http_backend,  # noqa: F401
+        close_client,  # noqa: F401
         dump_environment_info,  # noqa: F401
+        get_async_session,  # noqa: F401
         get_session,  # noqa: F401
         get_token,  # noqa: F401
+        hf_raise_for_status,  # noqa: F401
         logging,  # noqa: F401
         scan_cache_dir,  # noqa: F401
+        set_async_client_factory,  # noqa: F401
+        set_client_factory,  # noqa: F401
     )

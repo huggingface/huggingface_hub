@@ -33,10 +33,9 @@ Usage:
 from argparse import _SubParsersAction
 from typing import List, Optional
 
-from requests.exceptions import HTTPError
-
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.constants import ENDPOINT
+from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.hf_api import HfApi
 
 from .._login import auth_list, auth_switch, login, logout
@@ -202,7 +201,7 @@ class WhoamiCommand(BaseUserCommand):
 
             if ENDPOINT != "https://huggingface.co":
                 print(f"Authenticated through private endpoint: {ENDPOINT}")
-        except HTTPError as e:
+        except HfHubHTTPError as e:
             print(e)
             print(ANSI.red(e.response.text))
             exit(1)

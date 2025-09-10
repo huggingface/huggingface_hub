@@ -14,7 +14,6 @@
 # limitations under the License.
 """Git LFS related type definitions and utilities"""
 
-import inspect
 import io
 import re
 import warnings
@@ -140,7 +139,7 @@ def post_lfs_batch_info(
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an argument is invalid or the server response is malformed.
-        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        [`HfHubHTTPError`]
             If the server returned an error.
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
@@ -222,7 +221,7 @@ def lfs_upload(
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If `lfs_batch_action` is improperly formatted
-        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        [`HfHubHTTPError`]
             If the upload resulted in an error
     """
     # 0. If LFS file is already present, skip upload
@@ -316,11 +315,9 @@ def _upload_single_part(operation: "CommitOperationAdd", upload_url: str) -> Non
         fileobj:
             The file-like object holding the data to upload.
 
-    Returns: `requests.Response`
-
     Raises:
-     [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-        If the upload resulted in an error.
+        [`HfHubHTTPError`]
+            If the upload resulted in an error.
     """
     with operation.as_file(with_tqdm=True) as fileobj:
         # S3 might raise a transient 500 error -> let's retry if that happens
@@ -426,12 +423,6 @@ def _upload_parts_hf_transfer(
             " not available in your environment. Try `pip install hf_transfer`."
         )
 
-    supports_callback = "callback" in inspect.signature(multipart_upload).parameters
-    if not supports_callback:
-        warnings.warn(
-            "You are using an outdated version of `hf_transfer`. Consider upgrading to latest version to enable progress bars using `pip install -U hf_transfer`."
-        )
-
     total = operation.upload_info.size
     desc = operation.path_in_repo
     if len(desc) > 40:
@@ -454,13 +445,11 @@ def _upload_parts_hf_transfer(
                 max_files=128,
                 parallel_failures=127,  # could be removed
                 max_retries=5,
-                **({"callback": progress.update} if supports_callback else {}),
+                callback=progress.update,
             )
         except Exception as e:
             raise RuntimeError(
                 "An error occurred while uploading using `hf_transfer`. Consider disabling HF_HUB_ENABLE_HF_TRANSFER for"
                 " better error handling."
             ) from e
-        if not supports_callback:
-            progress.update(total)
         return output

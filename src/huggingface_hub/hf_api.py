@@ -47,8 +47,7 @@ from typing import (
 )
 from urllib.parse import quote
 
-import requests
-from requests.exceptions import HTTPError
+import httpx
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
@@ -99,9 +98,9 @@ from .constants import (
 )
 from .errors import (
     BadRequestError,
-    EntryNotFoundError,
     GatedRepoError,
     HfHubHTTPError,
+    RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
@@ -1766,7 +1765,7 @@ class HfApi:
         )
         try:
             hf_raise_for_status(r)
-        except HTTPError as e:
+        except HfHubHTTPError as e:
             if e.response.status_code == 401:
                 error_message = "Invalid user token."
                 # Check which token is the effective one and generate the error message accordingly
@@ -1779,7 +1778,7 @@ class HfApi:
                     )
                 elif effective_token == _get_token_from_file():
                     error_message += " The token stored is invalid. Please run `hf auth login` to update it."
-                raise HTTPError(error_message, request=e.request, response=e.response) from e
+                raise HfHubHTTPError(error_message, response=e.response) from e
             raise
         return r.json()
 
@@ -1817,7 +1816,7 @@ class HfApi:
         """
         try:
             return self.whoami(token=token)["auth"]["accessToken"]["role"]
-        except (LocalTokenNotFoundError, HTTPError, KeyError):
+        except (LocalTokenNotFoundError, HfHubHTTPError, KeyError):
             return None
 
     def get_model_tags(self) -> Dict:
@@ -2987,7 +2986,7 @@ class HfApi:
             return True
         except GatedRepoError:  # raise specifically on gated repo
             raise
-        except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
+        except (RepositoryNotFoundError, RemoteEntryNotFoundError, RevisionNotFoundError):
             return False
 
     @validate_hf_hub_args
@@ -3077,7 +3076,7 @@ class HfApi:
                 does not exist.
             [`~utils.RevisionNotFoundError`]:
                 If revision is not found (error 404) on the repo.
-            [`~utils.EntryNotFoundError`]:
+            [`~utils.RemoteEntryNotFoundError`]:
                 If the tree (folder) does not exist (error 404) on the repo.
 
         Examples:
@@ -3726,7 +3725,7 @@ class HfApi:
 
         try:
             hf_raise_for_status(r)
-        except HTTPError as err:
+        except HfHubHTTPError as err:
             if exist_ok and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
@@ -3788,7 +3787,7 @@ class HfApi:
             json["type"] = repo_type
 
         headers = self._build_hf_headers(token=token)
-        r = get_session().delete(path, headers=headers, json=json)
+        r = get_session().request("DELETE", path, headers=headers, json=json)
         try:
             hf_raise_for_status(r)
         except RepositoryNotFoundError:
@@ -4285,12 +4284,12 @@ class HfApi:
         params = {"create_pr": "1"} if create_pr else None
 
         try:
-            commit_resp = get_session().post(url=commit_url, headers=headers, data=data, params=params)
+            commit_resp = get_session().post(url=commit_url, headers=headers, content=data, params=params)
             hf_raise_for_status(commit_resp, endpoint_name="commit")
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
-        except EntryNotFoundError as e:
+        except RemoteEntryNotFoundError as e:
             if nb_deletions > 0 and "A file with this name doesn't exist" in str(e):
                 e.append_to_message(
                     "\nMake sure to differentiate file and folder paths in delete"
@@ -5279,7 +5278,6 @@ class HfApi:
         *,
         url: str,
         token: Union[bool, str, None] = None,
-        proxies: Optional[Dict] = None,
         timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
     ) -> HfFileMetadata:
         """Fetch metadata of a file versioned on the Hub for a given url.
@@ -5292,8 +5290,6 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
-            proxies (`dict`, *optional*):
-                Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
             timeout (`float`, *optional*, defaults to 10):
                 How many seconds to wait for the server to send metadata before giving up.
 
@@ -5307,7 +5303,6 @@ class HfApi:
         return get_hf_file_metadata(
             url=url,
             token=token,
-            proxies=proxies,
             timeout=timeout,
             library_name=self.library_name,
             library_version=self.library_version,
@@ -5327,7 +5322,6 @@ class HfApi:
         cache_dir: Union[str, Path, None] = None,
         local_dir: Union[str, Path, None] = None,
         force_download: bool = False,
-        proxies: Optional[Dict] = None,
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         token: Union[bool, str, None] = None,
         local_files_only: bool = False,
@@ -5391,12 +5385,9 @@ class HfApi:
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether the file should be downloaded even if it already exists in
                 the local cache.
-            proxies (`dict`, *optional*):
-                Dictionary mapping protocol to the URL of the proxy passed to
-                `requests.request`.
             etag_timeout (`float`, *optional*, defaults to `10`):
                 When fetching ETag, how many seconds to wait for the server to send
-                data before giving up which is passed to `requests.request`.
+                data before giving up which is passed to `httpx.request`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -5415,7 +5406,7 @@ class HfApi:
                 or because it is set to `private` and you do not have access.
             [`~utils.RevisionNotFoundError`]
                 If the revision to download from cannot be found.
-            [`~utils.EntryNotFoundError`]
+            [`~utils.RemoteEntryNotFoundError`]
                 If the file to download cannot be found.
             [`~utils.LocalEntryNotFoundError`]
                 If network is disabled or unavailable and file is not found in cache.
@@ -5447,7 +5438,6 @@ class HfApi:
             user_agent=self.user_agent,
             force_download=force_download,
             force_filename=force_filename,
-            proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,
             token=token,
@@ -5464,7 +5454,6 @@ class HfApi:
         revision: Optional[str] = None,
         cache_dir: Union[str, Path, None] = None,
         local_dir: Union[str, Path, None] = None,
-        proxies: Optional[Dict] = None,
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         force_download: bool = False,
         token: Union[bool, str, None] = None,
@@ -5505,12 +5494,9 @@ class HfApi:
                 Path to the folder where cached files are stored.
             local_dir (`str` or `Path`, *optional*):
                 If provided, the downloaded files will be placed under this directory.
-            proxies (`dict`, *optional*):
-                Dictionary mapping protocol to the URL of the proxy passed to
-                `requests.request`.
             etag_timeout (`float`, *optional*, defaults to `10`):
                 When fetching ETag, how many seconds to wait for the server to send
-                data before giving up which is passed to `requests.request`.
+                data before giving up which is passed to `httpx.request`.
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether the file should be downloaded even if it already exists in the local cache.
             token (Union[bool, str, None], optional):
@@ -5568,7 +5554,6 @@ class HfApi:
             library_name=self.library_name,
             library_version=self.library_version,
             user_agent=self.user_agent,
-            proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,
             force_download=force_download,
@@ -6456,7 +6441,7 @@ class HfApi:
         body: Optional[dict] = None,
         token: Union[bool, str, None] = None,
         repo_type: Optional[str] = None,
-    ) -> requests.Response:
+    ) -> httpx.Response:
         """Internal utility to POST changes to a Discussion or Pull Request"""
         if not isinstance(discussion_num, int) or discussion_num <= 0:
             raise ValueError("Invalid discussion_num, must be a positive integer")
@@ -6469,7 +6454,7 @@ class HfApi:
         path = f"{self.endpoint}/api/{repo_id}/discussions/{discussion_num}/{resource}"
 
         headers = self._build_hf_headers(token=token)
-        resp = requests.post(path, headers=headers, json=body)
+        resp = get_session().post(path, headers=headers, json=body)
         hf_raise_for_status(resp)
         return resp
 
@@ -6919,7 +6904,8 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
         """
-        r = get_session().delete(
+        r = get_session().request(
+            "DELETE",
             f"{self.endpoint}/api/spaces/{repo_id}/secrets",
             headers=self._build_hf_headers(token=token),
             json={"key": key},
@@ -7010,7 +6996,8 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
         """
-        r = get_session().delete(
+        r = get_session().request(
+            "DELETE",
             f"{self.endpoint}/api/spaces/{repo_id}/variables",
             headers=self._build_hf_headers(token=token),
             json={"key": key},
@@ -7281,7 +7268,7 @@ class HfApi:
             [`~utils.RepositoryNotFoundError`]:
               If one of `from_id` or `to_id` cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
               If the HuggingFace API returned an error
 
         Example:
@@ -7331,7 +7318,7 @@ class HfApi:
 
         try:
             hf_raise_for_status(r)
-        except HTTPError as err:
+        except HfHubHTTPError as err:
             if exist_ok and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
@@ -8276,7 +8263,7 @@ class HfApi:
         )
         try:
             hf_raise_for_status(r)
-        except HTTPError as err:
+        except HfHubHTTPError as err:
             if exists_ok and err.response.status_code == 409:
                 # Collection already exists and `exists_ok=True`
                 slug = r.json()["slug"]
@@ -8384,7 +8371,7 @@ class HfApi:
         )
         try:
             hf_raise_for_status(r)
-        except HTTPError as err:
+        except HfHubHTTPError as err:
             if missing_ok and err.response.status_code == 404:
                 # Collection doesn't exists and `missing_ok=True`
                 return
@@ -8424,12 +8411,12 @@ class HfApi:
         Returns: [`Collection`]
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the item you try to add to the collection does not exist on the Hub.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 409 if the item you try to add to the collection is already in the collection (and exists_ok=False)
 
         Example:
@@ -8465,7 +8452,7 @@ class HfApi:
         )
         try:
             hf_raise_for_status(r)
-        except HTTPError as err:
+        except HfHubHTTPError as err:
             if exists_ok and err.response.status_code == 409:
                 # Item already exists and `exists_ok=True`
                 return self.get_collection(collection_slug, token=token)
@@ -8571,7 +8558,7 @@ class HfApi:
         )
         try:
             hf_raise_for_status(r)
-        except HTTPError as err:
+        except HfHubHTTPError as err:
             if missing_ok and err.response.status_code == 404:
                 # Item already deleted and `missing_ok=True`
                 return
@@ -8613,9 +8600,9 @@ class HfApi:
             be populated with user's answers.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
@@ -8679,9 +8666,9 @@ class HfApi:
             be populated with user's answers.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
@@ -8741,9 +8728,9 @@ class HfApi:
             be populated with user's answers.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
@@ -8825,16 +8812,16 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user does not exist on the Hub.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user access request cannot be found.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user access request is already in the pending list.
         """
         self._handle_access_request(repo_id, user, "pending", repo_type=repo_type, token=token)
@@ -8867,16 +8854,16 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user does not exist on the Hub.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user access request cannot be found.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user access request is already in the accepted list.
         """
         self._handle_access_request(repo_id, user, "accepted", repo_type=repo_type, token=token)
@@ -8917,16 +8904,16 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user does not exist on the Hub.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user access request cannot be found.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user access request is already in the rejected list.
         """
         self._handle_access_request(
@@ -8990,14 +8977,14 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the user already has access to the repo.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user does not exist on the Hub.
         """
         if repo_type not in constants.REPO_TYPES:
@@ -9654,7 +9641,7 @@ class HfApi:
             `User`: A [`User`] object with the user's overview.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 If the user does not exist on the Hub.
         """
         r = get_session().get(
@@ -9680,7 +9667,7 @@ class HfApi:
             `Iterable[User]`: A list of [`User`] objects with the members of the organization.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 If the organization does not exist on the Hub.
 
         """
@@ -9708,7 +9695,7 @@ class HfApi:
             `Iterable[User]`: A list of [`User`] objects with the followers of the user.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 If the user does not exist on the Hub.
 
         """
@@ -9736,7 +9723,7 @@ class HfApi:
             `Iterable[User]`: A list of [`User`] objects with the users followed by the user.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 If the user does not exist on the Hub.
 
         """
@@ -9805,7 +9792,7 @@ class HfApi:
             `PaperInfo`: A `PaperInfo` object.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 If the paper does not exist on the Hub.
         """
         path = f"{self.endpoint}/api/papers/{id}"
@@ -10013,29 +10000,28 @@ class HfApi:
             time.sleep(sleep_time)
             sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
             try:
-                resp = get_session().get(
+                with get_session().stream(
+                    "GET",
                     f"https://huggingface.co/api/jobs/{namespace}/{job_id}/logs",
                     headers=self._build_hf_headers(token=token),
-                    stream=True,
                     timeout=120,
-                )
-                log = None
-                for line in resp.iter_lines(chunk_size=1):
-                    line = line.decode("utf-8")
-                    if line and line.startswith("data: {"):
-                        data = json.loads(line[len("data: ") :])
-                        # timestamp = data["timestamp"]
-                        if not data["data"].startswith("===== Job started"):
-                            logging_started = True
-                            log = data["data"]
-                            yield log
-                logging_finished = logging_started
-            except requests.exceptions.ChunkedEncodingError:
+                ) as response:
+                    log = None
+                    for line in response.iter_lines():
+                        if line and line.startswith("data: {"):
+                            data = json.loads(line[len("data: ") :])
+                            # timestamp = data["timestamp"]
+                            if not data["data"].startswith("===== Job started"):
+                                logging_started = True
+                                log = data["data"]
+                                yield log
+                    logging_finished = logging_started
+            except httpx.DecodingError:
                 # Response ended prematurely
                 break
             except KeyboardInterrupt:
                 break
-            except requests.exceptions.ConnectionError as err:
+            except httpx.NetworkError as err:
                 is_timeout = err.__context__ and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
                 if logging_started or not is_timeout:
                     raise
