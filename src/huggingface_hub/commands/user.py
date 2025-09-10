@@ -31,7 +31,7 @@ Usage:
 """
 
 from argparse import _SubParsersAction
-from typing import List, Optional
+from typing import Optional
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.constants import ENDPOINT
@@ -163,7 +163,7 @@ class AuthSwitchCommand(BaseUserCommand):
             except ValueError:
                 print("Invalid input. Please enter a number or 'q' to quit.")
 
-    def _select_token_name_tui(self, token_names: List[str]) -> Optional[str]:
+    def _select_token_name_tui(self, token_names: list[str]) -> Optional[str]:
         choices = [Choice(token_name, name=token_name) for token_name in token_names]
         try:
             return inquirer.select(

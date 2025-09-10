@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from math import ceil
 from os.path import getsize
 from pathlib import Path
-from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tuple, TypedDict
+from typing import TYPE_CHECKING, BinaryIO, Iterable, Optional, TypedDict
 from urllib.parse import unquote
 
 from huggingface_hub import constants
@@ -106,8 +106,8 @@ def post_lfs_batch_info(
     repo_id: str,
     revision: Optional[str] = None,
     endpoint: Optional[str] = None,
-    headers: Optional[Dict[str, str]] = None,
-) -> Tuple[List[dict], List[dict]]:
+    headers: Optional[dict[str, str]] = None,
+) -> tuple[list[dict], list[dict]]:
     """
     Requests the LFS batch endpoint to retrieve upload instructions
 
@@ -143,7 +143,7 @@ def post_lfs_batch_info(
     if repo_type in constants.REPO_TYPES_URL_PREFIXES:
         url_prefix = constants.REPO_TYPES_URL_PREFIXES[repo_type]
     batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
-    payload: Dict = {
+    payload: dict = {
         "operation": "upload",
         "transfers": ["basic", "multipart"],
         "objects": [
@@ -186,14 +186,14 @@ class CompletionPayloadT(TypedDict):
     """Payload that will be sent to the Hub when uploading multi-part."""
 
     oid: str
-    parts: List[PayloadPartT]
+    parts: list[PayloadPartT]
 
 
 def lfs_upload(
     operation: "CommitOperationAdd",
-    lfs_batch_action: Dict,
+    lfs_batch_action: dict,
     token: Optional[str] = None,
-    headers: Optional[Dict[str, str]] = None,
+    headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
 ) -> None:
     """
@@ -317,7 +317,7 @@ def _upload_single_part(operation: "CommitOperationAdd", upload_url: str) -> Non
         hf_raise_for_status(response)
 
 
-def _upload_multi_part(operation: "CommitOperationAdd", header: Dict, chunk_size: int, upload_url: str) -> None:
+def _upload_multi_part(operation: "CommitOperationAdd", header: dict, chunk_size: int, upload_url: str) -> None:
     """
     Uploads file using HF multipart LFS transfer protocol.
     """
@@ -352,7 +352,7 @@ def _upload_multi_part(operation: "CommitOperationAdd", header: Dict, chunk_size
     hf_raise_for_status(completion_res)
 
 
-def _get_sorted_parts_urls(header: Dict, upload_info: UploadInfo, chunk_size: int) -> List[str]:
+def _get_sorted_parts_urls(header: dict, upload_info: UploadInfo, chunk_size: int) -> list[str]:
     sorted_part_upload_urls = [
         upload_url
         for _, upload_url in sorted(
@@ -370,8 +370,8 @@ def _get_sorted_parts_urls(header: Dict, upload_info: UploadInfo, chunk_size: in
     return sorted_part_upload_urls
 
 
-def _get_completion_payload(response_headers: List[Dict], oid: str) -> CompletionPayloadT:
-    parts: List[PayloadPartT] = []
+def _get_completion_payload(response_headers: list[dict], oid: str) -> CompletionPayloadT:
+    parts: list[PayloadPartT] = []
     for part_number, header in enumerate(response_headers):
         etag = header.get("etag")
         if etag is None or etag == "":
@@ -386,8 +386,8 @@ def _get_completion_payload(response_headers: List[Dict], oid: str) -> Completio
 
 
 def _upload_parts_iteratively(
-    operation: "CommitOperationAdd", sorted_parts_urls: List[str], chunk_size: int
-) -> List[Dict]:
+    operation: "CommitOperationAdd", sorted_parts_urls: list[str], chunk_size: int
+) -> list[dict]:
     headers = []
     with operation.as_file(with_tqdm=True) as fileobj:
         for part_idx, part_upload_url in enumerate(sorted_parts_urls):
@@ -406,8 +406,8 @@ def _upload_parts_iteratively(
 
 
 def _upload_parts_hf_transfer(
-    operation: "CommitOperationAdd", sorted_parts_urls: List[str], chunk_size: int
-) -> List[Dict]:
+    operation: "CommitOperationAdd", sorted_parts_urls: list[str], chunk_size: int
+) -> list[dict]:
     # Upload file using an external Rust-based package. Upload is faster but support less features (no progress bars).
     try:
         from hf_transfer import multipart_upload

@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Callable, Optional, Type, TypeVar, Union
+from typing import Callable, Optional, TypeVar, Union
 from unittest.mock import Mock, patch
 
 import httpx
@@ -302,7 +302,7 @@ def expect_deprecation(function_name: str):
     return _inner_decorator
 
 
-def xfail_on_windows(reason: str, raises: Optional[Type[Exception]] = None):
+def xfail_on_windows(reason: str, raises: Optional[type[Exception]] = None):
     """
     Decorator to flag tests that we expect to fail on Windows.
 
@@ -312,7 +312,7 @@ def xfail_on_windows(reason: str, raises: Optional[Type[Exception]] = None):
     Args:
         reason (`str`):
             Reason why it should fail.
-        raises (`Type[Exception]`):
+        raises (`type[Exception]`):
             The error type we except to happen.
     """
 

@@ -4,7 +4,7 @@ import os
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Union, get_type_hints
+from typing import Optional, Union, get_type_hints
 from unittest.mock import Mock, patch
 
 import jedi
@@ -58,7 +58,7 @@ class DummyModelConfigAsDataclass(BaseModel, ModelHubMixin):
 
 
 class DummyModelConfigAsDict(BaseModel, ModelHubMixin):
-    def __init__(self, config: Dict):
+    def __init__(self, config: dict):
         pass
 
 
@@ -68,7 +68,7 @@ class DummyModelConfigAsOptionalDataclass(BaseModel, ModelHubMixin):
 
 
 class DummyModelConfigAsOptionalDict(BaseModel, ModelHubMixin):
-    def __init__(self, config: Optional[Dict] = None):
+    def __init__(self, config: Optional[dict] = None):
         pass
 
 
@@ -85,7 +85,7 @@ class DummyModelFromPretrainedExpectsConfig(ModelHubMixin):
     def _from_pretrained(
         cls,
         model_id: Union[str, Path],
-        config: Optional[Dict] = None,
+        config: Optional[dict] = None,
         **kwargs,
     ) -> "BaseModel":
         return cls(**kwargs)

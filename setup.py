@@ -89,7 +89,7 @@ extras["testing"] = (
         "soundfile",
         "Pillow",
         "gradio>=4.0.0",  # to test webhooks # pin to avoid issue on Python3.12
-        "requests", # for gradio
+        "requests",  # for gradio
         "numpy",  # for embeddings
         "fastapi",  # To build the documentation
     ]
@@ -108,8 +108,7 @@ extras["typing"] = [
 
 extras["quality"] = [
     "ruff>=0.9.0",
-    "mypy>=1.14.1,<1.15.0; python_version=='3.8'",
-    "mypy==1.15.0; python_version>='3.9'",
+    "mypy==1.15.0",
     "libcst>=1.4.0",
     "ty",
 ]
@@ -140,7 +139,7 @@ setup(
         ],
         "fsspec.specs": "hf=huggingface_hub.HfFileSystem",
     },
-    python_requires=">=3.8.0",
+    python_requires=">=3.9.0",
     install_requires=install_requires,
     classifiers=[
         "Intended Audience :: Developers",
@@ -150,7 +149,6 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",

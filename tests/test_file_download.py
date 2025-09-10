@@ -19,7 +19,7 @@ import unittest
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable
 from unittest.mock import Mock, patch
 
 import httpx
@@ -1008,7 +1008,7 @@ class TestHttpGet:
             ),
         ],
     )
-    def test_http_get_with_range_headers(self, caplog, initial_range: str, expected_ranges: List[str]):
+    def test_http_get_with_range_headers(self, caplog, initial_range: str, expected_ranges: list[str]):
         def _iter_content_1() -> Iterable[bytes]:
             yield b"0" * 10
             yield b"0" * 10

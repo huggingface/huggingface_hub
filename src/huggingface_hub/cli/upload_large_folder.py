@@ -16,7 +16,7 @@
 
 import os
 from argparse import Namespace, _SubParsersAction
-from typing import List, Optional
+from typing import Optional
 
 from huggingface_hub import logging
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
@@ -76,8 +76,8 @@ class UploadLargeFolderCommand(BaseHuggingfaceCLICommand):
         self.revision: Optional[str] = args.revision
         self.private: bool = args.private
 
-        self.include: Optional[List[str]] = args.include
-        self.exclude: Optional[List[str]] = args.exclude
+        self.include: Optional[list[str]] = args.include
+        self.exclude: Optional[list[str]] = args.exclude
 
         self.api: HfApi = HfApi(token=args.token, library_name="hf")
 

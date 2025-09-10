@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 Before you start, you will need to setup your environment by installing the appropriate packages.
 
-`huggingface_hub` is tested on **Python 3.8+**.
+`huggingface_hub` is tested on **Python 3.9+**.
 
 ## Install with pip
 

@@ -1,7 +1,7 @@
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Type, Union
+from typing import Any, Literal, Optional, Union
 
 import yaml
 
@@ -335,7 +335,7 @@ class RepoCard:
 
 
 class ModelCard(RepoCard):
-    card_data_class = ModelCardData
+    card_data_class = ModelCardData  # type: ignore[assignment]
     default_template_path = TEMPLATE_MODELCARD_PATH
     repo_type = "model"
 
@@ -416,7 +416,7 @@ class ModelCard(RepoCard):
 
 
 class DatasetCard(RepoCard):
-    card_data_class = DatasetCardData
+    card_data_class = DatasetCardData  # type: ignore[assignment]
     default_template_path = TEMPLATE_DATASETCARD_PATH
     repo_type = "dataset"
 
@@ -481,7 +481,7 @@ class DatasetCard(RepoCard):
 
 
 class SpaceCard(RepoCard):
-    card_data_class = SpaceCardData
+    card_data_class = SpaceCardData  # type: ignore[assignment]
     default_template_path = TEMPLATE_MODELCARD_PATH
     repo_type = "space"
 
@@ -507,7 +507,7 @@ def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:  # n
         return "\n"
 
 
-def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
+def metadata_load(local_path: Union[str, Path]) -> Optional[dict]:
     content = Path(local_path).read_text()
     match = REGEX_YAML_BLOCK.search(content)
     if match:
@@ -520,7 +520,7 @@ def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
         return None
 
 
-def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
+def metadata_save(local_path: Union[str, Path], data: dict) -> None:
     """
     Save the metadata dict in the upper YAML part Trying to preserve newlines as
     in the existing file. Docs about open() with newline="" parameter:
@@ -568,7 +568,7 @@ def metadata_eval_result(
     dataset_split: Optional[str] = None,
     dataset_revision: Optional[str] = None,
     metrics_verification_token: Optional[str] = None,
-) -> Dict:
+) -> dict:
     """
     Creates a metadata dict with the result from a model evaluated on a dataset.
 
@@ -683,7 +683,7 @@ def metadata_eval_result(
 @validate_hf_hub_args
 def metadata_update(
     repo_id: str,
-    metadata: Dict,
+    metadata: dict,
     *,
     repo_type: Optional[str] = None,
     overwrite: bool = False,
@@ -751,7 +751,7 @@ def metadata_update(
     commit_message = commit_message if commit_message is not None else "Update metadata with huggingface_hub"
 
     # Card class given repo_type
-    card_class: Type[RepoCard]
+    card_class: type[RepoCard]
     if repo_type is None or repo_type == "model":
         card_class = ModelCard
     elif repo_type == "dataset":

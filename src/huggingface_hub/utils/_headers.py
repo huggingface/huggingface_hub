@@ -14,7 +14,7 @@
 # limitations under the License.
 """Contains utilities to handle headers to send in calls to Huggingface Hub."""
 
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 from huggingface_hub.errors import LocalTokenNotFoundError
 
@@ -47,10 +47,10 @@ def build_hf_headers(
     token: Optional[Union[bool, str]] = None,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
-    user_agent: Union[Dict, str, None] = None,
-    headers: Optional[Dict[str, str]] = None,
+    user_agent: Union[dict, str, None] = None,
+    headers: Optional[dict[str, str]] = None,
     is_write_action: bool = False,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Build headers dictionary to send in a HF Hub call.
 
@@ -90,7 +90,7 @@ def build_hf_headers(
             Ignored and deprecated argument.
 
     Returns:
-        A `Dict` of headers to pass in your API call.
+        A `dict` of headers to pass in your API call.
 
     Example:
     ```py
@@ -176,7 +176,7 @@ def _http_user_agent(
     *,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
-    user_agent: Union[Dict, str, None] = None,
+    user_agent: Union[dict, str, None] = None,
 ) -> str:
     """Format a user-agent string containing information about the installed packages.
 

@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Union, overload
+from typing import Any, Optional, Union, overload
 
 from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
@@ -14,7 +14,7 @@ logger = logging.get_logger(__name__)
 # Dev purposes only.
 # If you want to try to run inference for a new model locally before it's registered on huggingface.co
 # for a given Inference Provider, you can add it to the following dictionary.
-HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, InferenceProviderMapping]] = {
+HARDCODED_MODEL_INFERENCE_MAPPING: dict[str, dict[str, InferenceProviderMapping]] = {
     # "HF model ID" => InferenceProviderMapping object initialized with "Model ID on Inference Provider's side"
     #
     # Example:
@@ -38,14 +38,14 @@ HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, InferenceProviderMapping]
 
 
 @overload
-def filter_none(obj: Dict[str, Any]) -> Dict[str, Any]: ...
+def filter_none(obj: dict[str, Any]) -> dict[str, Any]: ...
 @overload
-def filter_none(obj: List[Any]) -> List[Any]: ...
+def filter_none(obj: list[Any]) -> list[Any]: ...
 
 
-def filter_none(obj: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, Any], List[Any]]:
+def filter_none(obj: Union[dict[str, Any], list[Any]]) -> Union[dict[str, Any], list[Any]]:
     if isinstance(obj, dict):
-        cleaned: Dict[str, Any] = {}
+        cleaned: dict[str, Any] = {}
         for k, v in obj.items():
             if v is None:
                 continue
@@ -72,11 +72,11 @@ class TaskProviderHelper:
         self,
         *,
         inputs: Any,
-        parameters: Dict[str, Any],
-        headers: Dict,
+        parameters: dict[str, Any],
+        headers: dict,
         model: Optional[str],
         api_key: Optional[str],
-        extra_payload: Optional[Dict[str, Any]] = None,
+        extra_payload: Optional[dict[str, Any]] = None,
     ) -> RequestParameters:
         """
         Prepare the request to be sent to the provider.
@@ -123,7 +123,7 @@ class TaskProviderHelper:
 
     def get_response(
         self,
-        response: Union[bytes, Dict],
+        response: Union[bytes, dict],
         request_params: Optional[RequestParameters] = None,
     ) -> Any:
         """
@@ -182,8 +182,8 @@ class TaskProviderHelper:
         return provider_mapping
 
     def _normalize_headers(
-        self, headers: Dict[str, Any], payload: Optional[Dict[str, Any]], data: Optional[MimeBytes]
-    ) -> Dict[str, Any]:
+        self, headers: dict[str, Any], payload: Optional[dict[str, Any]], data: Optional[MimeBytes]
+    ) -> dict[str, Any]:
         """Normalize the headers to use for the request.
 
         Override this method in subclasses for customized headers.
@@ -196,7 +196,7 @@ class TaskProviderHelper:
                 normalized_headers["content-type"] = "application/json"
         return normalized_headers
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
+    def _prepare_headers(self, headers: dict, api_key: str) -> dict[str, Any]:
         """Return the headers to use for the request.
 
         Override this method in subclasses for customized headers.
@@ -231,8 +231,8 @@ class TaskProviderHelper:
         return ""
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[dict]:
         """Return the payload to use for the request, as a dict.
 
         Override this method in subclasses for customized payloads.
@@ -243,9 +243,9 @@ class TaskProviderHelper:
     def _prepare_payload_as_bytes(
         self,
         inputs: Any,
-        parameters: Dict,
+        parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
-        extra_payload: Optional[Dict],
+        extra_payload: Optional[dict],
     ) -> Optional[MimeBytes]:
         """Return the body to use for the request, as bytes.
 
@@ -269,10 +269,10 @@ class BaseConversationalTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self,
-        inputs: List[Union[Dict, ChatCompletionInputMessage]],
-        parameters: Dict,
+        inputs: list[Union[dict, ChatCompletionInputMessage]],
+        parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         return filter_none({"messages": inputs, **parameters, "model": provider_mapping_info.provider_id})
 
 
@@ -289,13 +289,13 @@ class BaseTextGenerationTask(TaskProviderHelper):
         return "/v1/completions"
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[dict]:
         return filter_none({"prompt": inputs, **parameters, "model": provider_mapping_info.provider_id})
 
 
 @lru_cache(maxsize=None)
-def _fetch_inference_provider_mapping(model: str) -> List["InferenceProviderMapping"]:
+def _fetch_inference_provider_mapping(model: str) -> list["InferenceProviderMapping"]:
     """
     Fetch provider mappings for a model from the Hub.
     """
@@ -308,7 +308,7 @@ def _fetch_inference_provider_mapping(model: str) -> List["InferenceProviderMapp
     return provider_mapping
 
 
-def recursive_merge(dict1: Dict, dict2: Dict) -> Dict:
+def recursive_merge(dict1: dict, dict2: dict) -> dict:
     return {
         **dict1,
         **{

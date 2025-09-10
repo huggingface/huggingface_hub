@@ -17,7 +17,7 @@
 import argparse
 import re
 from pathlib import Path
-from typing import Dict, List, Literal, NoReturn, Optional
+from typing import Literal, NoReturn, Optional
 
 import libcst as cst
 from helpers import check_and_update_file_content, format_source_code
@@ -219,12 +219,12 @@ def _make_optional_fields_default_to_none(content: str):
     return "\n".join(lines)
 
 
-def _list_dataclasses(content: str) -> List[str]:
+def _list_dataclasses(content: str) -> list[str]:
     """List all dataclasses defined in the module."""
     return INHERITED_DATACLASS_REGEX.findall(content)
 
 
-def _list_type_aliases(content: str) -> List[str]:
+def _list_type_aliases(content: str) -> list[str]:
     """List all type aliases defined in the module."""
     return [alias_class for alias_class, _ in TYPE_ALIAS_REGEX.findall(content)]
 
@@ -234,7 +234,7 @@ class DeprecatedRemover(cst.CSTTransformer):
         """Check if a docstring contains @deprecated."""
         return docstring is not None and "@deprecated" in docstring.lower()
 
-    def get_docstring(self, body: List[cst.BaseStatement]) -> Optional[str]:
+    def get_docstring(self, body: list[cst.BaseStatement]) -> Optional[str]:
         """Extract docstring from a body of statements."""
         if not body:
             return None
@@ -294,7 +294,7 @@ def fix_inference_classes(content: str, module_name: str) -> str:
     return content
 
 
-def create_init_py(dataclasses: Dict[str, List[str]]):
+def create_init_py(dataclasses: dict[str, list[str]]):
     """Create __init__.py file with all dataclasses."""
     content = INIT_PY_HEADER
     content += "\n"
@@ -304,14 +304,14 @@ def create_init_py(dataclasses: Dict[str, List[str]]):
     return content
 
 
-def add_dataclasses_to_main_init(content: str, dataclasses: Dict[str, List[str]]):
+def add_dataclasses_to_main_init(content: str, dataclasses: dict[str, list[str]]):
     dataclasses_list = sorted({cls for classes in dataclasses.values() for cls in classes})
     dataclasses_str = ", ".join(f"'{cls}'" for cls in dataclasses_list)
 
     return MAIN_INIT_PY_REGEX.sub(f'"inference._generated.types": [{dataclasses_str}]', content)
 
 
-def generate_reference_package(dataclasses: Dict[str, List[str]], language: Literal["en", "ko"]) -> str:
+def generate_reference_package(dataclasses: dict[str, list[str]], language: Literal["en", "ko"]) -> str:
     """Generate the reference package content."""
 
     per_task_docs = []

@@ -24,7 +24,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 from urllib.parse import quote
 
 from . import constants
@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 WAITING_TIME_IF_NO_TASKS = 10  # seconds
 MAX_NB_FILES_FETCH_UPLOAD_MODE = 100
-COMMIT_SIZE_SCALE: List[int] = [20, 50, 75, 100, 125, 200, 250, 400, 600, 1000]
+COMMIT_SIZE_SCALE: list[int] = [20, 50, 75, 100, 125, 200, 250, 400, 600, 1000]
 
 UPLOAD_BATCH_SIZE_XET = 256  # Max 256 files per upload batch for XET-enabled repos
 UPLOAD_BATCH_SIZE_LFS = 1  # Otherwise, batches of 1 for regular LFS upload
@@ -56,7 +56,7 @@ MAX_FILE_SIZE_GB = 50  # Hard limit for individual file size
 RECOMMENDED_FILE_SIZE_GB = 20  # Recommended maximum for individual file size
 
 
-def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
+def _validate_upload_limits(paths_list: list[LocalUploadFilePaths]) -> None:
     """
     Validate upload against repository limits and warn about potential issues.
 
@@ -85,7 +85,7 @@ def _validate_upload_limits(paths_list: List[LocalUploadFilePaths]) -> None:
     # Track immediate children (files and subdirs) for each folder
     from collections import defaultdict
 
-    entries_per_folder: Dict[str, Any] = defaultdict(lambda: {"files": 0, "subdirs": set()})
+    entries_per_folder: dict[str, Any] = defaultdict(lambda: {"files": 0, "subdirs": set()})
 
     for paths in paths_list:
         path = Path(paths.path_in_repo)
@@ -160,8 +160,8 @@ def upload_large_folder_internal(
     repo_type: str,  # Repo type is required!
     revision: Optional[str] = None,
     private: Optional[bool] = None,
-    allow_patterns: Optional[Union[List[str], str]] = None,
-    ignore_patterns: Optional[Union[List[str], str]] = None,
+    allow_patterns: Optional[Union[list[str], str]] = None,
+    ignore_patterns: Optional[Union[list[str], str]] = None,
     num_workers: Optional[int] = None,
     print_report: bool = True,
     print_report_every: int = 60,
@@ -284,13 +284,13 @@ class WorkerJob(enum.Enum):
     WAIT = enum.auto()  # if no tasks are available but we don't want to exit
 
 
-JOB_ITEM_T = Tuple[LocalUploadFilePaths, LocalUploadFileMetadata]
+JOB_ITEM_T = tuple[LocalUploadFilePaths, LocalUploadFileMetadata]
 
 
 class LargeUploadStatus:
     """Contains information, queues and tasks for a large upload process."""
 
-    def __init__(self, items: List[JOB_ITEM_T], upload_batch_size: int = 1):
+    def __init__(self, items: list[JOB_ITEM_T], upload_batch_size: int = 1):
         self.items = items
         self.queue_sha256: "queue.Queue[JOB_ITEM_T]" = queue.Queue()
         self.queue_get_upload_mode: "queue.Queue[JOB_ITEM_T]" = queue.Queue()
@@ -423,7 +423,7 @@ def _worker_job(
     Read `upload_large_folder` docstring for more information on how tasks are prioritized.
     """
     while True:
-        next_job: Optional[Tuple[WorkerJob, List[JOB_ITEM_T]]] = None
+        next_job: Optional[tuple[WorkerJob, list[JOB_ITEM_T]]] = None
 
         # Determine next task
         next_job = _determine_next_job(status)
@@ -516,7 +516,7 @@ def _worker_job(
                 status.nb_workers_waiting -= 1
 
 
-def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, List[JOB_ITEM_T]]]:
+def _determine_next_job(status: LargeUploadStatus) -> Optional[tuple[WorkerJob, list[JOB_ITEM_T]]]:
     with status.lock:
         # 1. Commit if more than 5 minutes since last commit attempt (and at least 1 file)
         if (
@@ -639,7 +639,7 @@ def _compute_sha256(item: JOB_ITEM_T) -> None:
     metadata.save(paths)
 
 
-def _get_upload_mode(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_type: str, revision: str) -> None:
+def _get_upload_mode(items: list[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_type: str, revision: str) -> None:
     """Get upload mode for each file and update metadata.
 
     Also receive info if the file should be ignored.
@@ -661,7 +661,7 @@ def _get_upload_mode(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_t
         metadata.save(paths)
 
 
-def _preupload_lfs(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_type: str, revision: str) -> None:
+def _preupload_lfs(items: list[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_type: str, revision: str) -> None:
     """Preupload LFS files and update metadata."""
     additions = [_build_hacky_operation(item) for item in items]
     api.preupload_lfs_files(
@@ -676,7 +676,7 @@ def _preupload_lfs(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_typ
         metadata.save(paths)
 
 
-def _commit(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_type: str, revision: str) -> None:
+def _commit(items: list[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_type: str, revision: str) -> None:
     """Commit files to the repo."""
     additions = [_build_hacky_operation(item) for item in items]
     api.create_commit(
@@ -721,11 +721,11 @@ def _build_hacky_operation(item: JOB_ITEM_T) -> HackyCommitOperationAdd:
 ####################
 
 
-def _get_one(queue: "queue.Queue[JOB_ITEM_T]") -> List[JOB_ITEM_T]:
+def _get_one(queue: "queue.Queue[JOB_ITEM_T]") -> list[JOB_ITEM_T]:
     return [queue.get()]
 
 
-def _get_n(queue: "queue.Queue[JOB_ITEM_T]", n: int) -> List[JOB_ITEM_T]:
+def _get_n(queue: "queue.Queue[JOB_ITEM_T]", n: int) -> list[JOB_ITEM_T]:
     return [queue.get() for _ in range(min(queue.qsize(), n))]
 
 

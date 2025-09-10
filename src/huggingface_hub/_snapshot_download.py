@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Dict, Iterable, List, Literal, Optional, Type, Union
+from typing import Iterable, Literal, Optional, Union
 
 import httpx
 from tqdm.auto import tqdm as base_tqdm
@@ -35,16 +35,16 @@ def snapshot_download(
     local_dir: Union[str, Path, None] = None,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
-    user_agent: Optional[Union[Dict, str]] = None,
+    user_agent: Optional[Union[dict, str]] = None,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     force_download: bool = False,
     token: Optional[Union[bool, str]] = None,
     local_files_only: bool = False,
-    allow_patterns: Optional[Union[List[str], str]] = None,
-    ignore_patterns: Optional[Union[List[str], str]] = None,
+    allow_patterns: Optional[Union[list[str], str]] = None,
+    ignore_patterns: Optional[Union[list[str], str]] = None,
     max_workers: int = 8,
-    tqdm_class: Optional[Type[base_tqdm]] = None,
-    headers: Optional[Dict[str, str]] = None,
+    tqdm_class: Optional[type[base_tqdm]] = None,
+    headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
     # Deprecated args
     local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
@@ -99,9 +99,9 @@ def snapshot_download(
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
-        allow_patterns (`List[str]` or `str`, *optional*):
+        allow_patterns (`list[str]` or `str`, *optional*):
             If provided, only files matching at least one pattern are downloaded.
-        ignore_patterns (`List[str]` or `str`, *optional*):
+        ignore_patterns (`list[str]` or `str`, *optional*):
             If provided, files matching any of the patterns are not downloaded.
         max_workers (`int`, *optional*):
             Number of concurrent threads to download files (1 thread = 1 file download).

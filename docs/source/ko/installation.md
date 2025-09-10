@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 시작하기 전에 적절한 패키지를 설치하여 환경을 설정해야 합니다.
 
-`huggingface_hub`는 **Python 3.8+**에서 테스트되었습니다.
+`huggingface_hub`는 **Python 3.9+**에서 테스트되었습니다.
 
 ## pip로 설치하기 [[install-with-pip]]
 

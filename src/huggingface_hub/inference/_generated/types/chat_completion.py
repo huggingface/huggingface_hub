@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -40,9 +40,9 @@ class ChatCompletionInputToolCall(BaseInferenceType):
 @dataclass_with_extra
 class ChatCompletionInputMessage(BaseInferenceType):
     role: str
-    content: Optional[Union[List[ChatCompletionInputMessageChunk], str]] = None
+    content: Optional[Union[list[ChatCompletionInputMessageChunk], str]] = None
     name: Optional[str] = None
-    tool_calls: Optional[List[ChatCompletionInputToolCall]] = None
+    tool_calls: Optional[list[ChatCompletionInputToolCall]] = None
 
 
 @dataclass_with_extra
@@ -56,7 +56,7 @@ class ChatCompletionInputJSONSchema(BaseInferenceType):
     A description of what the response format is for, used by the model to determine
     how to respond in the format.
     """
-    schema: Optional[Dict[str, object]] = None
+    schema: Optional[dict[str, object]] = None
     """
     The schema for the response format, described as a JSON Schema object. Learn how
     to build JSON schemas [here](https://json-schema.org/).
@@ -129,14 +129,14 @@ class ChatCompletionInput(BaseInferenceType):
     https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-tgi-import.ts.
     """
 
-    messages: List[ChatCompletionInputMessage]
+    messages: list[ChatCompletionInputMessage]
     """A list of messages comprising the conversation so far."""
     frequency_penalty: Optional[float] = None
     """Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing
     frequency in the text so far,
     decreasing the model's likelihood to repeat the same line verbatim.
     """
-    logit_bias: Optional[List[float]] = None
+    logit_bias: Optional[list[float]] = None
     """UNUSED
     Modify the likelihood of specified tokens appearing in the completion. Accepts a JSON
     object that maps tokens
@@ -172,7 +172,7 @@ class ChatCompletionInput(BaseInferenceType):
     """
     response_format: Optional[ChatCompletionInputGrammarType] = None
     seed: Optional[int] = None
-    stop: Optional[List[str]] = None
+    stop: Optional[list[str]] = None
     """Up to 4 sequences where the API will stop generating further tokens."""
     stream: Optional[bool] = None
     stream_options: Optional[ChatCompletionInputStreamOptions] = None
@@ -185,7 +185,7 @@ class ChatCompletionInput(BaseInferenceType):
     tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None
     tool_prompt: Optional[str] = None
     """A prompt to be appended before the tools"""
-    tools: Optional[List[ChatCompletionInputTool]] = None
+    tools: Optional[list[ChatCompletionInputTool]] = None
     """A list of tools the model may call. Currently, only functions are supported as a tool.
     Use this to provide a list of
     functions the model may generate JSON inputs for.
@@ -213,12 +213,12 @@ class ChatCompletionOutputTopLogprob(BaseInferenceType):
 class ChatCompletionOutputLogprob(BaseInferenceType):
     logprob: float
     token: str
-    top_logprobs: List[ChatCompletionOutputTopLogprob]
+    top_logprobs: list[ChatCompletionOutputTopLogprob]
 
 
 @dataclass_with_extra
 class ChatCompletionOutputLogprobs(BaseInferenceType):
-    content: List[ChatCompletionOutputLogprob]
+    content: list[ChatCompletionOutputLogprob]
 
 
 @dataclass_with_extra
@@ -241,7 +241,7 @@ class ChatCompletionOutputMessage(BaseInferenceType):
     content: Optional[str] = None
     reasoning: Optional[str] = None
     tool_call_id: Optional[str] = None
-    tool_calls: Optional[List[ChatCompletionOutputToolCall]] = None
+    tool_calls: Optional[list[ChatCompletionOutputToolCall]] = None
 
 
 @dataclass_with_extra
@@ -267,7 +267,7 @@ class ChatCompletionOutput(BaseInferenceType):
     https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-tgi-import.ts.
     """
 
-    choices: List[ChatCompletionOutputComplete]
+    choices: list[ChatCompletionOutputComplete]
     created: int
     id: str
     model: str
@@ -295,7 +295,7 @@ class ChatCompletionStreamOutputDelta(BaseInferenceType):
     content: Optional[str] = None
     reasoning: Optional[str] = None
     tool_call_id: Optional[str] = None
-    tool_calls: Optional[List[ChatCompletionStreamOutputDeltaToolCall]] = None
+    tool_calls: Optional[list[ChatCompletionStreamOutputDeltaToolCall]] = None
 
 
 @dataclass_with_extra
@@ -308,12 +308,12 @@ class ChatCompletionStreamOutputTopLogprob(BaseInferenceType):
 class ChatCompletionStreamOutputLogprob(BaseInferenceType):
     logprob: float
     token: str
-    top_logprobs: List[ChatCompletionStreamOutputTopLogprob]
+    top_logprobs: list[ChatCompletionStreamOutputTopLogprob]
 
 
 @dataclass_with_extra
 class ChatCompletionStreamOutputLogprobs(BaseInferenceType):
-    content: List[ChatCompletionStreamOutputLogprob]
+    content: list[ChatCompletionStreamOutputLogprob]
 
 
 @dataclass_with_extra
@@ -339,7 +339,7 @@ class ChatCompletionStreamOutput(BaseInferenceType):
     https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-tgi-import.ts.
     """
 
-    choices: List[ChatCompletionStreamOutputChoice]
+    choices: list[ChatCompletionStreamOutputChoice]
     created: int
     id: str
     model: str

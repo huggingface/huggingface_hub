@@ -1,6 +1,5 @@
 import base64
 import logging
-from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1529,7 +1528,7 @@ class TestBaseTextGenerationTask:
         ),
     ],
 )
-def test_recursive_merge(dict1: Dict, dict2: Dict, expected: Dict):
+def test_recursive_merge(dict1: dict, dict2: dict, expected: dict):
     initial_dict1 = dict1.copy()
     initial_dict2 = dict2.copy()
     assert recursive_merge(dict1, dict2) == expected
@@ -1563,7 +1562,7 @@ def test_recursive_merge(dict1: Dict, dict2: Dict, expected: Dict):
         ({"a": [None, {"x": None}]}, {"a": [None, {}]}),
     ],
 )
-def test_filter_none(data: Dict, expected: Dict):
+def test_filter_none(data: dict, expected: dict):
     """Test that filter_none removes None values from nested dictionaries."""
     assert filter_none(data) == expected
 

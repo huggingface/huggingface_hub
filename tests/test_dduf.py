@@ -1,7 +1,7 @@
 import json
 import zipfile
 from pathlib import Path
-from typing import Iterable, Tuple, Union
+from typing import Iterable, Union
 
 import pytest
 from pytest_mock import MockerFixture
@@ -146,7 +146,7 @@ class TestExportFolder:
 
 class TestExportEntries:
     @pytest.fixture
-    def dummy_entries(self, tmp_path: Path) -> Iterable[Tuple[str, Union[str, Path, bytes]]]:
+    def dummy_entries(self, tmp_path: Path) -> Iterable[tuple[str, Union[str, Path, bytes]]]:
         (tmp_path / "model_index.json").write_text(json.dumps({"foo": "bar"}))
         (tmp_path / "doesnt_have_to_be_same_name.safetensors").write_bytes(b"this is safetensors content")
 
@@ -157,7 +157,7 @@ class TestExportEntries:
         ]
 
     def test_export_entries(
-        self, tmp_path: Path, dummy_entries: Iterable[Tuple[str, Union[str, Path, bytes]]], mocker: MockerFixture
+        self, tmp_path: Path, dummy_entries: Iterable[tuple[str, Union[str, Path, bytes]]], mocker: MockerFixture
     ):
         mock = mocker.patch("huggingface_hub.serialization._dduf._validate_dduf_structure")
         export_entries_as_dduf(tmp_path / "dummy.dduf", dummy_entries)
