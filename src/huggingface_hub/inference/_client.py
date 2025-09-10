@@ -34,14 +34,14 @@
 # - Only the main parameters are publicly exposed. Power users can always read the docs for more options.
 import base64
 import logging
+import os
 import re
 import warnings
+from contextlib import ExitStack
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Union, overload
 
-from requests import HTTPError
-
 from huggingface_hub import constants
-from huggingface_hub.errors import BadRequestError, InferenceTimeoutError
+from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
@@ -101,7 +101,12 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provider_helper
-from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
+from huggingface_hub.utils import (
+    build_hf_headers,
+    get_session,
+    hf_raise_for_status,
+    validate_hf_hub_args,
+)
 from huggingface_hub.utils._auth import get_token
 
 
@@ -147,8 +152,6 @@ class InferenceClient:
             Requests can only be billed to an organization the user is a member of, and which has subscribed to Enterprise Hub.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
-        proxies (`Any`, `optional`):
-            Proxies to use for the request.
         base_url (`str`, `optional`):
             Base URL to run inference. This is a duplicated argument from `model` to make [`InferenceClient`]
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `model` is set. Defaults to None.
@@ -157,6 +160,7 @@ class InferenceClient:
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `token` is set. Defaults to None.
     """
 
+    @validate_hf_hub_args
     def __init__(
         self,
         model: Optional[str] = None,
@@ -166,7 +170,6 @@ class InferenceClient:
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
-        proxies: Optional[Any] = None,
         bill_to: Optional[str] = None,
         # OpenAI compatibility
         base_url: Optional[str] = None,
@@ -228,10 +231,20 @@ class InferenceClient:
 
         self.cookies = cookies
         self.timeout = timeout
-        self.proxies = proxies
+
+        self.exit_stack = ExitStack()
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.exit_stack.close()
+
+    def close(self):
+        self.exit_stack.close()
 
     @overload
     def _inner_post(  # type: ignore[misc]
@@ -241,44 +254,46 @@ class InferenceClient:
     @overload
     def _inner_post(  # type: ignore[misc]
         self, request_parameters: RequestParameters, *, stream: Literal[True] = ...
-    ) -> Iterable[bytes]: ...
+    ) -> Iterable[str]: ...
 
     @overload
     def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, Iterable[bytes]]: ...
+    ) -> Union[bytes, Iterable[str]]: ...
 
     def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, Iterable[bytes]]:
+    ) -> Union[bytes, Iterable[str]]:
         """Make a request to the inference server."""
         # TODO: this should be handled in provider helpers directly
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
         try:
-            response = get_session().post(
-                request_parameters.url,
-                json=request_parameters.json,
-                data=request_parameters.data,
-                headers=request_parameters.headers,
-                cookies=self.cookies,
-                timeout=self.timeout,
-                stream=stream,
-                proxies=self.proxies,
+            response = self.exit_stack.enter_context(
+                get_session().stream(
+                    "POST",
+                    request_parameters.url,
+                    json=request_parameters.json,
+                    content=request_parameters.data,
+                    headers=request_parameters.headers,
+                    cookies=self.cookies,
+                    timeout=self.timeout,
+                )
             )
+            hf_raise_for_status(response)
+            if stream:
+                return response.iter_lines()
+            else:
+                return response.read()
         except TimeoutError as error:
             # Convert any `TimeoutError` to a `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
-
-        try:
-            hf_raise_for_status(response)
-            return response.iter_lines() if stream else response.content
-        except HTTPError as error:
+        except HfHubHTTPError as error:
             if error.response.status_code == 422 and request_parameters.task != "unknown":
                 msg = str(error.args[0])
                 if len(error.response.text) > 0:
-                    msg += f"\n{error.response.text}\n"
+                    msg += f"{os.linesep}{error.response.text}{os.linesep}"
                 error.args = (msg,) + error.args[1:]
             raise
 
@@ -312,7 +327,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -363,7 +378,7 @@ class InferenceClient:
         Raises:
             `InferenceTimeoutError`:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -416,7 +431,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -618,7 +633,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -972,7 +987,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
 
@@ -1047,7 +1062,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1109,7 +1124,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1162,7 +1177,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1221,7 +1236,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1295,7 +1310,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1425,7 +1440,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1474,7 +1489,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
             `ValueError`:
                 If the request output is not a List.
@@ -1550,7 +1565,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1605,7 +1620,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1666,7 +1681,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1731,7 +1746,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1774,7 +1789,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1829,7 +1844,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1890,7 +1905,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2176,7 +2191,7 @@ class InferenceClient:
                 If input values are not valid. No HTTP call is made to the server.
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2365,7 +2380,7 @@ class InferenceClient:
         # Handle errors separately for more precise error messages
         try:
             bytes_output = self._inner_post(request_parameters, stream=stream or False)
-        except HTTPError as e:
+        except HfHubHTTPError as e:
             match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
             if isinstance(e, BadRequestError) and match:
                 unused_params = [kwarg.strip("' ") for kwarg in match.group(1).split(",")]
@@ -2464,7 +2479,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2734,7 +2749,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2884,7 +2899,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2969,7 +2984,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
             `ValueError`:
                 If only one of the `src_lang` and `tgt_lang` arguments are provided.
@@ -3044,7 +3059,7 @@ class InferenceClient:
         Raises:
             `InferenceTimeoutError`:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -3111,7 +3126,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example with `multi_label=False`:
@@ -3213,7 +3228,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:

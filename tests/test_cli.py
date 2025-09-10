@@ -331,7 +331,7 @@ class TestUploadCommand(unittest.TestCase):
     def test_upload_file_with_revision_mock(
         self, create_mock: Mock, upload_mock: Mock, repo_info_mock: Mock, create_branch_mock: Mock
     ) -> None:
-        repo_info_mock.side_effect = RevisionNotFoundError("revision not found")
+        repo_info_mock.side_effect = RevisionNotFoundError("revision not found", response=Mock())
 
         with SoftTemporaryDirectory() as cache_dir:
             file_path = Path(cache_dir) / "file.txt"
@@ -853,8 +853,8 @@ class TestJobsCommand(unittest.TestCase):
         commands_parser = self.parser.add_subparsers()
         JobsCommands.register_subcommand(commands_parser)
 
-    patch_requests_post = patch(
-        "requests.Session.post",
+    patch_httpx_post = patch(
+        "httpx.Client.post",
         return_value=DummyResponse(
             {
                 "id": "my-job-id",
@@ -872,14 +872,14 @@ class TestJobsCommand(unittest.TestCase):
     patch_repo_info = patch("huggingface_hub.hf_api.HfApi.repo_info")
     patch_upload_file = patch("huggingface_hub.hf_api.HfApi.upload_file", return_value=DummyCommit(oid="ae068f"))
 
-    @patch_requests_post
+    @patch_httpx_post
     @patch_whoami
-    def test_run(self, whoami: Mock, requests_post: Mock) -> None:
+    def test_run(self, whoami: Mock, httpx_post: Mock) -> None:
         input_args = ["jobs", "run", "--detach", "ubuntu", "echo", "hello"]
         cmd = RunCommand(self.parser.parse_args(input_args))
         cmd.run()
-        assert requests_post.call_count == 1
-        args, kwargs = requests_post.call_args_list[0]
+        assert httpx_post.call_count == 1
+        args, kwargs = httpx_post.call_args_list[0]
         assert args == ("https://huggingface.co/api/jobs/my-username",)
         assert kwargs["json"] == {
             "command": ["echo", "hello"],
@@ -890,7 +890,7 @@ class TestJobsCommand(unittest.TestCase):
         }
 
     @patch(
-        "requests.Session.post",
+        "httpx.Client.post",
         return_value=DummyResponse(
             {
                 "id": "my-job-id",
@@ -905,12 +905,12 @@ class TestJobsCommand(unittest.TestCase):
         ),
     )
     @patch("huggingface_hub.hf_api.HfApi.whoami", return_value={"name": "my-username"})
-    def test_create_scheduled_job(self, whoami: Mock, requests_post: Mock) -> None:
+    def test_create_scheduled_job(self, whoami: Mock, httpx_mock: Mock) -> None:
         input_args = ["jobs", "scheduled", "run", "@hourly", "ubuntu", "echo", "hello"]
         cmd = ScheduledRunCommand(self.parser.parse_args(input_args))
         cmd.run()
-        assert requests_post.call_count == 1
-        args, kwargs = requests_post.call_args_list[0]
+        assert httpx_mock.call_count == 1
+        args, kwargs = httpx_mock.call_args_list[0]
         assert args == ("https://huggingface.co/api/scheduled-jobs/my-username",)
         assert kwargs["json"] == {
             "jobSpec": {
@@ -923,14 +923,14 @@ class TestJobsCommand(unittest.TestCase):
             "schedule": "@hourly",
         }
 
-    @patch_requests_post
+    @patch_httpx_post
     @patch_whoami
-    def test_uv_command(self, whoami: Mock, requests_post: Mock) -> None:
+    def test_uv_command(self, whoami: Mock, httpx_post: Mock) -> None:
         input_args = ["jobs", "uv", "run", "--detach", "echo", "hello"]
         cmd = UvCommand(self.parser.parse_args(input_args))
         cmd.run()
-        assert requests_post.call_count == 1
-        args, kwargs = requests_post.call_args_list[0]
+        assert httpx_post.call_count == 1
+        args, kwargs = httpx_post.call_args_list[0]
         assert args == ("https://huggingface.co/api/jobs/my-username",)
         assert kwargs["json"] == {
             "command": ["uv", "run", "echo", "hello"],
@@ -940,14 +940,14 @@ class TestJobsCommand(unittest.TestCase):
             "dockerImage": "ghcr.io/astral-sh/uv:python3.12-bookworm",
         }
 
-    @patch_requests_post
+    @patch_httpx_post
     @patch_whoami
-    def test_uv_remote_script(self, whoami: Mock, requests_post: Mock) -> None:
+    def test_uv_remote_script(self, whoami: Mock, httpx_post: Mock) -> None:
         input_args = ["jobs", "uv", "run", "--detach", "https://.../script.py"]
         cmd = UvCommand(self.parser.parse_args(input_args))
         cmd.run()
-        assert requests_post.call_count == 1
-        args, kwargs = requests_post.call_args_list[0]
+        assert httpx_post.call_count == 1
+        args, kwargs = httpx_post.call_args_list[0]
         assert args == ("https://huggingface.co/api/jobs/my-username",)
         assert kwargs["json"] == {
             "command": ["uv", "run", "https://.../script.py"],
@@ -957,19 +957,19 @@ class TestJobsCommand(unittest.TestCase):
             "dockerImage": "ghcr.io/astral-sh/uv:python3.12-bookworm",
         }
 
-    @patch_requests_post
+    @patch_httpx_post
     @patch_whoami
     @patch_get_token
     @patch_repo_info
     @patch_upload_file
     def test_uv_local_script(
-        self, upload_file: Mock, repo_info: Mock, get_token: Mock, whoami: Mock, requests_post: Mock
+        self, upload_file: Mock, repo_info: Mock, get_token: Mock, whoami: Mock, httpx_post: Mock
     ) -> None:
         input_args = ["jobs", "uv", "run", "--detach", __file__]
         cmd = UvCommand(self.parser.parse_args(input_args))
         cmd.run()
-        assert requests_post.call_count == 1
-        args, kwargs = requests_post.call_args_list[0]
+        assert httpx_post.call_count == 1
+        args, kwargs = httpx_post.call_args_list[0]
         assert args == ("https://huggingface.co/api/jobs/my-username",)
         command = kwargs["json"].pop("command")
         assert "UV_SCRIPT_URL" in " ".join(command)

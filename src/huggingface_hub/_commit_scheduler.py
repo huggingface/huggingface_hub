@@ -312,9 +312,12 @@ class PartialFileIO(BytesIO):
         return self._size_limit
 
     def __getattribute__(self, name: str):
-        if name.startswith("_") or name in ("read", "tell", "seek"):  # only 3 public methods supported
+        if name.startswith("_") or name in ("read", "tell", "seek", "fileno"):  # only 4 public methods supported
             return super().__getattribute__(name)
         raise NotImplementedError(f"PartialFileIO does not support '{name}'.")
+
+    def fileno(self):
+        raise AttributeError("PartialFileIO does not have a fileno.")
 
     def tell(self) -> int:
         """Return the current file position."""

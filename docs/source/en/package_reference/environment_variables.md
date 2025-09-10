@@ -179,7 +179,7 @@ Set to disable using `hf-xet`, even if it is available in your Python environmen
 
 Set to `True` for faster uploads and downloads from the Hub using `hf_transfer`.
 
-By default, `huggingface_hub` uses the Python-based `requests.get` and `requests.post` functions.
+By default, `huggingface_hub` uses the Python-based `httpx.get` and `httpx.post` functions.
 Although these are reliable and versatile,
 they may not be the most efficient choice for machines with high bandwidth.
 [`hf_transfer`](https://github.com/huggingface/hf_transfer) is a Rust-based package developed to

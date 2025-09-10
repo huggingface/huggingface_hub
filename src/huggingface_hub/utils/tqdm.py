@@ -248,7 +248,7 @@ def tqdm_stream_file(path: Union[Path, str]) -> Iterator[io.BufferedReader]:
     Example:
     ```py
     >>> with tqdm_stream_file("config.json") as f:
-    >>>     requests.put(url, data=f)
+    >>>     httpx.put(url, data=f)
     config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
     ```
     """

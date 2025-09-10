@@ -16,7 +16,7 @@
 
 from typing import Dict, Iterable, Optional
 
-import requests
+import httpx
 
 from . import get_session, hf_raise_for_status, http_backoff, logging
 
@@ -48,5 +48,5 @@ def paginate(path: str, params: Dict, headers: Dict) -> Iterable:
         next_page = _get_next_page(r)
 
 
-def _get_next_page(response: requests.Response) -> Optional[str]:
+def _get_next_page(response: httpx.Response) -> Optional[str]:
     return response.links.get("next", {}).get("url")
