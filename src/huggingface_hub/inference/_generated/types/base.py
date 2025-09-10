@@ -15,6 +15,7 @@
 
 import inspect
 import json
+import types
 from dataclasses import asdict, dataclass
 from typing import Any, TypeVar, Union, get_args
 
@@ -109,7 +110,9 @@ class BaseInferenceType(dict):
                     else:
                         expected_types = get_args(field_type)
                         for expected_type in expected_types:
-                            if getattr(expected_type, "_name", None) == "List":
+                            if (
+                                isinstance(expected_type, types.GenericAlias) and expected_type.__origin__ is list
+                            ) or getattr(expected_type, "_name", None) == "List":
                                 expected_type = get_args(expected_type)[
                                     0
                                 ]  # assume same type for all items in the list

@@ -1,6 +1,6 @@
 import inspect
 import json
-from typing import Optional, Union, get_args, get_origin
+from typing import List, Optional, Union, get_args, get_origin
 
 import pytest
 
@@ -18,7 +18,7 @@ class DummyType(BaseInferenceType):
 @dataclass_with_extra
 class DummyNestedType(BaseInferenceType):
     item: DummyType
-    items: list[DummyType]
+    items: List[DummyType]  # works both with List and list
     maybe_items: Optional[list[DummyType]] = None
 
 
@@ -97,6 +97,7 @@ def test_parse_nested_class():
 def test_all_fields_are_optional():
     # all fields are optional => silently accept None if server returns less data than expected
     instance = DummyNestedType.parse_obj({"maybe_items": [{}, DUMMY_AS_BYTES]})
+    assert isinstance(instance, DummyNestedType)
     assert instance.item is None
     assert instance.items is None
     assert len(instance.maybe_items) == 2
