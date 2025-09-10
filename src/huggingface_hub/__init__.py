@@ -529,7 +529,6 @@ _SUBMOD_ATTRS = {
         "CorruptedCacheException",
         "DeleteCacheStrategy",
         "HFCacheInfo",
-        "HfFolder",
         "HfHubAsyncTransport",
         "HfHubTransport",
         "cached_assets_path",
@@ -662,7 +661,6 @@ __all__ = [
     "HfFileSystemFile",
     "HfFileSystemResolvedPath",
     "HfFileSystemStreamFile",
-    "HfFolder",
     "HfHubAsyncTransport",
     "HfHubTransport",
     "ImageClassificationInput",
@@ -1555,7 +1553,6 @@ if TYPE_CHECKING:  # pragma: no cover
         CorruptedCacheException,  # noqa: F401
         DeleteCacheStrategy,  # noqa: F401
         HFCacheInfo,  # noqa: F401
-        HfFolder,  # noqa: F401
         HfHubAsyncTransport,  # noqa: F401
         HfHubTransport,  # noqa: F401
         cached_assets_path,  # noqa: F401

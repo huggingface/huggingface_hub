@@ -106,7 +106,6 @@ from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
-    HfFolder,  # noqa: F401 # kept for backward compatibility
     LocalTokenNotFoundError,
     NotASafetensorsRepoError,
     SafetensorsFileMetadata,
