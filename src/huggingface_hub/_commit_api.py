@@ -235,7 +235,7 @@ class CommitOperationAdd:
         config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
 
         >>> with operation.as_file(with_tqdm=True) as file:
-        ...     requests.put(..., data=file)
+        ...     httpx.put(..., data=file)
         config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
         ```
         """
@@ -389,7 +389,7 @@ def _upload_lfs_files(
             If an upload failed for any reason
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the server returns malformed responses
-        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        [`HfHubHTTPError`]
             If the LFS batch endpoint returned an HTTP error.
     """
     # Step 1: retrieve upload instructions from the LFS batch endpoint.
@@ -500,7 +500,7 @@ def _upload_xet_files(
             If an upload failed for any reason.
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the server returns malformed responses or if the user is unauthorized to upload to xet storage.
-        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        [`HfHubHTTPError`]
             If the LFS batch endpoint returned an HTTP error.
 
     **How it works:**
