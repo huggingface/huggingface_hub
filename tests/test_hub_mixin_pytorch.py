@@ -314,10 +314,7 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         # Test config has been pushed to hub
         tmp_config_path = hf_hub_download(
-            repo_id=repo_id,
-            filename="config.json",
-            use_auth_token=TOKEN,
-            cache_dir=self.cache_dir,
+            repo_id=repo_id, filename="config.json", token=TOKEN, cache_dir=self.cache_dir
         )
         with open(tmp_config_path) as f:
             self.assertDictEqual(json.load(f), CONFIG)

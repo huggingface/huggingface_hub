@@ -111,7 +111,7 @@ from ._safetensors import SafetensorsFileMetadata, SafetensorsRepoMetadata, Tens
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess
 from ._telemetry import send_telemetry
 from ._typing import is_jsonable, is_simple_optional_type, unwrap_simple_optional_type
-from ._validators import smoothly_deprecate_use_auth_token, validate_hf_hub_args, validate_repo_id
+from ._validators import validate_hf_hub_args, validate_repo_id
 from ._xet import (
     XetConnectionInfo,
     XetFileData,

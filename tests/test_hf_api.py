@@ -492,9 +492,7 @@ class CommitApiTest(HfApiCommonTest):
         for rpath in ["temp", "nested/file.bin"]:
             local_path = os.path.join(self.tmp_dir, rpath)
             remote_path = f"temp/dir/{rpath}"
-            filepath = hf_hub_download(
-                repo_id=repo_id, filename=remote_path, revision="main", use_auth_token=self._token
-            )
+            filepath = hf_hub_download(repo_id=repo_id, filename=remote_path, revision="main", token=self._token)
             assert filepath is not None
             with open(filepath, "rb") as downloaded_file:
                 content = downloaded_file.read()
@@ -1348,18 +1346,18 @@ class HfApiDeleteFolderTest(HfApiCommonTest):
         )
 
         with self.assertRaises(EntryNotFoundError):
-            hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
+            hf_hub_download(self.repo_id, "1/file_1.md", token=self._token)
 
         with self.assertRaises(EntryNotFoundError):
-            hf_hub_download(self.repo_id, "1/file_2.md", use_auth_token=self._token)
+            hf_hub_download(self.repo_id, "1/file_2.md", token=self._token)
 
         # Still exists
-        hf_hub_download(self.repo_id, "2/file_3.md", use_auth_token=self._token)
+        hf_hub_download(self.repo_id, "2/file_3.md", token=self._token)
 
     def test_create_commit_delete_folder_explicit(self):
         self._api.delete_folder(path_in_repo="1", repo_id=self.repo_id)
         with self.assertRaises(EntryNotFoundError):
-            hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
+            hf_hub_download(self.repo_id, "1/file_1.md", token=self._token)
 
     def test_create_commit_implicit_delete_folder_is_ok(self):
         self._api.create_commit(
@@ -2578,7 +2576,7 @@ class HfApiPrivateTest(HfApiCommonTest):
             ):
                 _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
 
-            model_info = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token)
+            model_info = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}", token=self._token)
             self.assertIsInstance(model_info, ModelInfo)
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=None)
@@ -2594,23 +2592,23 @@ class HfApiPrivateTest(HfApiCommonTest):
             ):
                 _ = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}")
 
-            dataset_info = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token)
+            dataset_info = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}", token=self._token)
             self.assertIsInstance(dataset_info, DatasetInfo)
 
     def test_list_private_datasets(self):
-        orig = len(list(self._api.list_datasets(use_auth_token=False)))
-        new = len(list(self._api.list_datasets(use_auth_token=self._token)))
+        orig = len(list(self._api.list_datasets(token=False)))
+        new = len(list(self._api.list_datasets(token=self._token)))
         self.assertGreater(new, orig)
 
     def test_list_private_models(self):
-        orig = len(list(self._api.list_models(use_auth_token=False)))
-        new = len(list(self._api.list_models(use_auth_token=self._token)))
+        orig = len(list(self._api.list_models(token=False)))
+        new = len(list(self._api.list_models(token=self._token)))
         self.assertGreater(new, orig)
 
     @with_production_testing
     def test_list_private_spaces(self):
-        orig = len(list(self._api.list_spaces(use_auth_token=False)))
-        new = len(list(self._api.list_spaces(use_auth_token=self._token)))
+        orig = len(list(self._api.list_spaces(token=False)))
+        new = len(list(self._api.list_spaces(token=self._token)))
         self.assertGreaterEqual(new, orig)
 
 

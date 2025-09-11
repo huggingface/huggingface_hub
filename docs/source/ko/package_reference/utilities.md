@@ -199,20 +199,6 @@ huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in rep
 
 >>> my_cool_method(repo_id="other..repo..id")
 huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other..repo..id'.
-
->>> @validate_hf_hub_args
-... def my_cool_auth_method(token: str):
-...     print(token)
-
->>> my_cool_auth_method(token="a token")
-"a token"
-
->>> my_cool_auth_method(use_auth_token="a use_auth_token")
-"a use_auth_token"
-
->>> my_cool_auth_method(token="a token", use_auth_token="a use_auth_token")
-UserWarning: Both `token` and `use_auth_token` are passed (...). `use_auth_token` value will be ignored.
-"a token"
 ```
 
 #### validate_hf_hub_args[[huggingface_hub.utils.validate_hf_hub_args]]
@@ -230,9 +216,3 @@ UserWarning: Both `token` and `use_auth_token` are passed (...). `use_auth_token
 #### repo_id[[huggingface_hub.utils.validate_repo_id]]
 
 [[autodoc]] utils.validate_repo_id
-
-#### smoothly_deprecate_use_auth_token[[huggingface_hub.utils.smoothly_deprecate_use_auth_token]]
-
-정확히 검증기는 아니지만, 잘 실행됩니다.
-
-[[autodoc]] utils.smoothly_deprecate_use_auth_token
