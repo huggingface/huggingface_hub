@@ -106,7 +106,6 @@ from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
-    LocalTokenNotFoundError,
     NotASafetensorsRepoError,
     SafetensorsFileMetadata,
     SafetensorsParsingError,
@@ -1790,46 +1789,6 @@ class HfApi:
                 raise HfHubHTTPError(error_message, response=e.response) from e
             raise
         return r.json()
-
-    @_deprecate_method(
-        version="1.0",
-        message=(
-            "Permissions are more complex than when `get_token_permission` was first introduced. "
-            "OAuth and fine-grain tokens allows for more detailed permissions. "
-            "If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key."
-        ),
-    )
-    def get_token_permission(
-        self, token: Union[bool, str, None] = None
-    ) -> Literal["read", "write", "fineGrained", None]:
-        """
-        Check if a given `token` is valid and return its permissions.
-
-        <Tip warning={true}>
-
-        This method is deprecated and will be removed in version 1.0. Permissions are more complex than when
-        `get_token_permission` was first introduced. OAuth and fine-grain tokens allows for more detailed permissions.
-        If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key.
-
-        </Tip>
-
-        For more details about tokens, please refer to https://huggingface.co/docs/hub/security-tokens#what-are-user-access-tokens.
-
-        Args:
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-
-        Returns:
-            `Literal["read", "write", "fineGrained", None]`: Permission granted by the token ("read" or "write"). Returns `None` if no
-            token passed, if token is invalid or if role is not returned by the server. This typically happens when the token is an OAuth token.
-        """
-        try:
-            return self.whoami(token=token)["auth"]["accessToken"]["role"]
-        except (LocalTokenNotFoundError, HfHubHTTPError, KeyError):
-            return None
 
     def get_model_tags(self) -> dict:
         """
@@ -10891,7 +10850,6 @@ api = HfApi()
 
 whoami = api.whoami
 auth_check = api.auth_check
-get_token_permission = api.get_token_permission
 
 list_models = api.list_models
 model_info = api.model_info

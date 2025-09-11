@@ -217,7 +217,6 @@ _SUBMOD_ATTRS = {
         "get_safetensors_metadata",
         "get_space_runtime",
         "get_space_variables",
-        "get_token_permission",
         "get_user_overview",
         "get_webhook",
         "grant_access",
@@ -885,7 +884,6 @@ __all__ = [
     "get_space_variables",
     "get_tf_storage_size",
     "get_token",
-    "get_token_permission",
     "get_torch_storage_id",
     "get_torch_storage_size",
     "get_user_overview",
@@ -1247,7 +1245,6 @@ if TYPE_CHECKING:  # pragma: no cover
         get_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
-        get_token_permission,  # noqa: F401
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
