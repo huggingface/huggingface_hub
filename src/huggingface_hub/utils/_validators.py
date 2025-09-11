@@ -167,9 +167,11 @@ def smoothly_deprecate_legacy_arguments(fn_name: str, kwargs: dict[str, Any]) ->
 
         - `resume_download`: deprecated without replacement. `huggingface_hub` always resumes downloads whenever possible.
         - `force_filename`: deprecated without replacement. Filename is always the same as on the Hub.
+        - `local_dir_use_symlinks`: deprecated without replacement. Downloading to a local directory does not use symlinks anymore.
     """
     new_kwargs = kwargs.copy()  # do not mutate input !
 
+    # proxies
     proxies = new_kwargs.pop("proxies", None)  # remove from kwargs
     if proxies is not None:
         warnings.warn(
@@ -178,6 +180,7 @@ def smoothly_deprecate_legacy_arguments(fn_name: str, kwargs: dict[str, Any]) ->
             " See https://www.python-httpx.org/advanced/proxies/ for more details."
         )
 
+    # resume_download
     resume_download = new_kwargs.pop("resume_download", None)  # remove from kwargs
     if resume_download is not None:
         warnings.warn(
@@ -185,11 +188,20 @@ def smoothly_deprecate_legacy_arguments(fn_name: str, kwargs: dict[str, Any]) ->
             " whenever possible."
         )
 
+    # force_filename
     force_filename = new_kwargs.pop("force_filename", None)  # remove from kwargs
     if force_filename is not None:
         warnings.warn(
             f"The `force_filename` argument is deprecated and ignored in `{fn_name}`. Filename is always the same "
             "as on the Hub."
+        )
+
+    # local_dir_use_symlinks
+    local_dir_use_symlinks = new_kwargs.pop("local_dir_use_symlinks", None)  # remove from kwargs
+    if local_dir_use_symlinks is not None:
+        warnings.warn(
+            f"The `local_dir_use_symlinks` argument is deprecated and ignored in `{fn_name}`. Downloading to a local"
+            " directory does not use symlinks anymore."
         )
 
     return new_kwargs

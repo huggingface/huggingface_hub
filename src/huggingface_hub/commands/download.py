@@ -136,12 +136,6 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         self.quiet: bool = args.quiet
         self.max_workers: int = args.max_workers
 
-        if args.local_dir_use_symlinks is not None:
-            warnings.warn(
-                "Ignoring --local-dir-use-symlinks. Downloading to a local directory does not use symlinks anymore.",
-                FutureWarning,
-            )
-
     def run(self) -> None:
         show_deprecation_warning("huggingface-cli download", "hf download")
 

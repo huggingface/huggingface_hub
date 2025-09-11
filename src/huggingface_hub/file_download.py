@@ -9,7 +9,7 @@ import uuid
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, NoReturn, Optional, Union
+from typing import Any, BinaryIO, NoReturn, Optional, Union
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -806,7 +806,6 @@ def hf_hub_download(
     local_files_only: bool = False,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
-    local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
 ) -> str:
     """Download a given file if it's not already present in the local cache.
 
@@ -937,15 +936,6 @@ def hf_hub_download(
     )
 
     if local_dir is not None:
-        if local_dir_use_symlinks != "auto":
-            warnings.warn(
-                "`local_dir_use_symlinks` parameter is deprecated and will be ignored. "
-                "The process to download files to a local folder has been updated and do "
-                "not rely on symlinks anymore. You only need to pass a destination folder "
-                "as`local_dir`.\n"
-                "For more details, check out https://huggingface.co/docs/huggingface_hub/main/en/guides/download#download-files-to-local-folder."
-            )
-
         return _hf_hub_download_to_local_dir(
             # Destination
             local_dir=local_dir,

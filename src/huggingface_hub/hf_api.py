@@ -5328,8 +5328,6 @@ class HfApi:
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         token: Union[bool, str, None] = None,
         local_files_only: bool = False,
-        # Deprecated args
-        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
     ) -> str:
         """Download a given file if it's not already present in the local cache.
 
@@ -5435,7 +5433,6 @@ class HfApi:
             library_version=self.library_version,
             cache_dir=cache_dir,
             local_dir=local_dir,
-            local_dir_use_symlinks=local_dir_use_symlinks,
             user_agent=self.user_agent,
             force_download=force_download,
             etag_timeout=etag_timeout,
@@ -5461,8 +5458,6 @@ class HfApi:
         ignore_patterns: Optional[Union[list[str], str]] = None,
         max_workers: int = 8,
         tqdm_class: Optional[type[base_tqdm]] = None,
-        # Deprecated args
-        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
     ) -> str:
         """Download repo files.
 
@@ -5548,7 +5543,6 @@ class HfApi:
             endpoint=self.endpoint,
             cache_dir=cache_dir,
             local_dir=local_dir,
-            local_dir_use_symlinks=local_dir_use_symlinks,
             library_name=self.library_name,
             library_version=self.library_version,
             user_agent=self.user_agent,
