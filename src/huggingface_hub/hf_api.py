@@ -410,12 +410,6 @@ class CommitInfo(str):
 
         repo_url (`RepoUrl`):
             Repo URL of the commit containing info like repo_id, repo_type, etc.
-
-        _url (`str`, *optional*):
-            Legacy url for `str` compatibility. Can be the url to the uploaded file on the Hub (if returned by
-            [`upload_file`]), to the uploaded folder on the Hub (if returned by [`upload_folder`]) or to the commit on
-            the Hub (if returned by [`create_commit`]). Defaults to `commit_url`. It is deprecated to use this
-            attribute. Please use `commit_url` instead.
     """
 
     commit_url: str
@@ -431,11 +425,8 @@ class CommitInfo(str):
     pr_revision: Optional[str] = field(init=False)
     pr_num: Optional[str] = field(init=False)
 
-    # legacy url for `str` compatibility (ex: url to uploaded file, url to uploaded folder, url to PR, etc.)
-    _url: str = field(repr=False, default=None)  # type: ignore  # defaults to `commit_url`
-
-    def __new__(cls, *args, commit_url: str, _url: Optional[str] = None, **kwargs):
-        return str.__new__(cls, _url or commit_url)
+    def __new__(cls, *args, commit_url: str, **kwargs):
+        return str.__new__(cls, commit_url)
 
     def __post_init__(self):
         """Populate pr-related fields after initialization.
@@ -4557,7 +4548,6 @@ class HfApi:
         ...         repo_type="dataset",
         ...         token="my_token",
         ...     )
-        "https://huggingface.co/datasets/username/my-dataset/blob/main/remote/file/path.h5"
 
         >>> upload_file(
         ...     path_or_fileobj=".\\\\local\\\\file\\\\path",
@@ -4565,7 +4555,6 @@ class HfApi:
         ...     repo_id="username/my-model",
         ...     token="my_token",
         ... )
-        "https://huggingface.co/username/my-model/blob/main/remote/file/path.h5"
 
         >>> upload_file(
         ...     path_or_fileobj=".\\\\local\\\\file\\\\path",
@@ -4574,7 +4563,6 @@ class HfApi:
         ...     token="my_token",
         ...     create_pr=True,
         ... )
-        "https://huggingface.co/username/my-model/blob/refs%2Fpr%2F1/remote/file/path.h5"
         ```
         """
         if repo_type not in constants.REPO_TYPES:
@@ -4588,7 +4576,7 @@ class HfApi:
             path_in_repo=path_in_repo,
         )
 
-        commit_info = self.create_commit(
+        return self.create_commit(
             repo_id=repo_id,
             repo_type=repo_type,
             operations=[operation],
@@ -4598,23 +4586,6 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
             parent_commit=parent_commit,
-        )
-
-        if commit_info.pr_url is not None:
-            revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
-        if repo_type in constants.REPO_TYPES_URL_PREFIXES:
-            repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-        revision = revision if revision is not None else constants.DEFAULT_REVISION
-
-        return CommitInfo(
-            commit_url=commit_info.commit_url,
-            commit_message=commit_info.commit_message,
-            commit_description=commit_info.commit_description,
-            oid=commit_info.oid,
-            pr_url=commit_info.pr_url,
-            # Similar to `hf_hub_url` but it's "blob" instead of "resolve"
-            # TODO: remove this in v1.0
-            _url=f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}",
         )
 
     @overload
@@ -4792,7 +4763,6 @@ class HfApi:
         ...     token="my_token",
         ...     ignore_patterns="**/logs/*.txt",
         ... )
-        # "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 
         # Upload checkpoints folder including logs while deleting existing logs from the repo
         # Useful if you don't know exactly which log files have already being pushed
@@ -4804,7 +4774,6 @@ class HfApi:
         ...     token="my_token",
         ...     delete_patterns="**/logs/*.txt",
         ... )
-        "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 
         # Upload checkpoints folder while creating a PR
         >>> upload_folder(
@@ -4815,8 +4784,6 @@ class HfApi:
         ...     token="my_token",
         ...     create_pr=True,
         ... )
-        "https://huggingface.co/datasets/username/my-dataset/tree/refs%2Fpr%2F1/remote/experiment/checkpoints"
-
         ```
         """
         if repo_type not in constants.REPO_TYPES:
@@ -4860,7 +4827,7 @@ class HfApi:
 
         commit_message = commit_message or "Upload folder using huggingface_hub"
 
-        commit_info = self.create_commit(
+        return self.create_commit(
             repo_type=repo_type,
             repo_id=repo_id,
             operations=commit_operations,
@@ -4870,24 +4837,6 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
             parent_commit=parent_commit,
-        )
-
-        # Create url to uploaded folder (for legacy return value)
-        if create_pr and commit_info.pr_url is not None:
-            revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
-        if repo_type in constants.REPO_TYPES_URL_PREFIXES:
-            repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-        revision = revision if revision is not None else constants.DEFAULT_REVISION
-
-        return CommitInfo(
-            commit_url=commit_info.commit_url,
-            commit_message=commit_info.commit_message,
-            commit_description=commit_info.commit_description,
-            oid=commit_info.oid,
-            pr_url=commit_info.pr_url,
-            # Similar to `hf_hub_url` but it's "tree" instead of "resolve"
-            # TODO: remove this in v1.0
-            _url=f"{self.endpoint}/{repo_id}/tree/{revision}/{path_in_repo}",
         )
 
     @validate_hf_hub_args
