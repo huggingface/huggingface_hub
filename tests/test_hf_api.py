@@ -27,7 +27,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Optional, Union, get_args
 from unittest.mock import Mock, patch
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 import pytest
 
