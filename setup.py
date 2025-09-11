@@ -1,3 +1,5 @@
+import sys
+
 from setuptools import find_packages, setup
 
 
@@ -77,7 +79,7 @@ extras["testing"] = (
     + [
         "jedi",
         "Jinja2",
-        "pytest>=8.1.1,<8.2.2",  # at least until 8.2.3 is released with https://github.com/pytest-dev/pytest/pull/12436
+        "pytest>=8.4.2",  # we need https://github.com/pytest-dev/pytest/pull/12436
         "pytest-cov",
         "pytest-env",
         "pytest-xdist",
@@ -88,12 +90,17 @@ extras["testing"] = (
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
         "Pillow",
-        "gradio>=4.0.0",  # to test webhooks # pin to avoid issue on Python3.12
         "requests",  # for gradio
         "numpy",  # for embeddings
         "fastapi",  # To build the documentation
     ]
 )
+
+if sys.version_info >= (3, 10):
+    # We need gradio to test webhooks server
+    # But gradio 5.0+ only supports python 3.10+ so we don't want to test earlier versions
+    extras["testing"].append("gradio>=5.0.0")
+    extras["testing"].append("requests")  # see https://github.com/gradio-app/gradio/pull/11830
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
 # Please make sure to update the list there when adding a new typing dependency.
