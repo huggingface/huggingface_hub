@@ -1,8 +1,6 @@
-import sys
 import unittest
 from unittest.mock import patch
 
-import pytest
 from fastapi import Request
 
 from huggingface_hub.utils import capture_output, is_gradio_available
@@ -137,7 +135,6 @@ def test_deserialize_payload_example_with_updated_refs() -> None:
 
 
 @requires("gradio")
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="Test requires Gradio 5.0+ which requires Python 3.10+")
 class TestWebhooksServerDontRun(unittest.TestCase):
     def test_add_webhook_implicit_path(self):
         # Test adding a webhook
