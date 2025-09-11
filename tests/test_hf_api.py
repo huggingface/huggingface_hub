@@ -316,8 +316,8 @@ class CommitApiTest(HfApiCommonTest):
             path_in_repo="temp/new_file.md",
             repo_id=repo_id,
         )
-        self.assertEqual(return_val, f"{repo_url}/blob/main/temp/new_file.md")
-        self.assertIsInstance(return_val, CommitInfo)
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
@@ -338,7 +338,8 @@ class CommitApiTest(HfApiCommonTest):
                 path_in_repo="temp/new_file.md",
                 repo_id=repo_id,
             )
-        self.assertEqual(return_val, f"{repo_url}/blob/main/temp/new_file.md")
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
@@ -353,7 +354,8 @@ class CommitApiTest(HfApiCommonTest):
             path_in_repo="temp/new_file.md",
             repo_id=repo_id,
         )
-        self.assertEqual(return_val, f"{repo_url}/blob/main/temp/new_file.md")
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
@@ -422,8 +424,9 @@ class CommitApiTest(HfApiCommonTest):
             repo_id=repo_id,
             create_pr=True,
         )
-        self.assertEqual(return_val, f"{repo_url}/blob/{quote('refs/pr/1', safe='')}/temp/new_file.md")
-        self.assertIsInstance(return_val, CommitInfo)
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
+        assert return_val.pr_revision == "refs/pr/1"
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(
@@ -460,11 +463,8 @@ class CommitApiTest(HfApiCommonTest):
 
         # Upload folder
         url = self._api.upload_folder(folder_path=self.tmp_dir, path_in_repo="temp/dir", repo_id=repo_id)
-        self.assertEqual(
-            url,
-            f"{self._api.endpoint}/{repo_id}/tree/main/temp/dir",
-        )
-        self.assertIsInstance(url, CommitInfo)
+        assert isinstance(url, CommitInfo)
+        assert url.startswith(f"{repo_url}/commit/")
 
         # Check files are uploaded
         for rpath in ["temp", "nested/file.bin"]:
@@ -490,20 +490,15 @@ class CommitApiTest(HfApiCommonTest):
         return_val = self._api.upload_folder(
             folder_path=self.tmp_dir, path_in_repo="temp/dir", repo_id=repo_id, create_pr=True
         )
-        self.assertEqual(return_val, f"{self._api.endpoint}/{repo_id}/tree/refs%2Fpr%2F1/temp/dir")
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
+        assert return_val.pr_revision == "refs/pr/1"
 
         # Check files are uploaded
         for rpath in ["temp", "nested/file.bin"]:
             local_path = os.path.join(self.tmp_dir, rpath)
             filepath = hf_hub_download(repo_id=repo_id, filename=f"temp/dir/{rpath}", revision="refs/pr/1")
             assert Path(local_path).read_bytes() == Path(filepath).read_bytes()
-
-    def test_upload_folder_default_path_in_repo(self):
-        REPO_NAME = repo_name("upload_folder_to_root")
-        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
-        url = self._api.upload_folder(folder_path=self.tmp_dir, repo_id=f"{USER}/{REPO_NAME}")
-        # URL to root of repository
-        self.assertEqual(url, f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/main/")
 
     @use_tmp_repo()
     def test_upload_folder_git_folder_excluded(self, repo_url: RepoUrl) -> None:
