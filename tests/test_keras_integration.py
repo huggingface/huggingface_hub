@@ -120,9 +120,7 @@ class HubMixinTestKeras(CommonKerasTest):
         assert self._api.model_info(repo_id).id == repo_id
 
         # Test config has been pushed to hub
-        config_path = hf_hub_download(
-            repo_id=repo_id, filename="config.json", use_auth_token=TOKEN, cache_dir=self.cache_dir
-        )
+        config_path = hf_hub_download(repo_id=repo_id, filename="config.json", token=TOKEN, cache_dir=self.cache_dir)
         with open(config_path) as f:
             assert json.load(f) == {"num": 7, "act": "gelu_fast"}
 

@@ -81,7 +81,7 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
 - `token`: 개인 리포지토리에서 다운로드하기 위한 토큰
 - `revision`: 특정 브랜치에서 다운로드하기 위한 리비전
 - `cache_dir`: 특정 디렉터리에 파일을 캐시하기 위한 디렉터리
-- `force_download`/`resume_download`/`local_files_only`: 캐시를 재사용할 것인지 여부를 결정하는 매개변수
+- `force_download`/`local_files_only`: 캐시를 재사용할 것인지 여부를 결정하는 매개변수
 - `proxies`: HTTP 세션 구성
 
 모델을 푸시할 때는 유사한 매개변수가 지원됩니다:
@@ -212,7 +212,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
       cache_dir: str,
       force_download: bool,
       proxies: Optional[dict],
-      resume_download: bool,
       local_files_only: bool,
       token: Union[str, bool, None],
       map_location: str = "cpu", # 추가 인자
@@ -232,8 +231,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
             revision=revision,
             cache_dir=cache_dir,
             force_download=force_download,
-            proxies=proxies,
-            resume_download=resume_download,
             token=token,
             local_files_only=local_files_only,
             )

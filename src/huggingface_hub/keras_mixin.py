@@ -459,7 +459,6 @@ class KerasModelHubMixin(ModelHubMixin):
         revision,
         cache_dir,
         force_download,
-        resume_download,
         local_files_only,
         token,
         config: Optional[dict[str, Any]] = None,

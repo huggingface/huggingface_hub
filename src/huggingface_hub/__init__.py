@@ -217,7 +217,6 @@ _SUBMOD_ATTRS = {
         "get_safetensors_metadata",
         "get_space_runtime",
         "get_space_variables",
-        "get_token_permission",
         "get_user_overview",
         "get_webhook",
         "grant_access",
@@ -278,7 +277,6 @@ _SUBMOD_ATTRS = {
         "update_collection_metadata",
         "update_inference_endpoint",
         "update_repo_settings",
-        "update_repo_visibility",
         "update_webhook",
         "upload_file",
         "upload_folder",
@@ -885,7 +883,6 @@ __all__ = [
     "get_space_variables",
     "get_tf_storage_size",
     "get_token",
-    "get_token_permission",
     "get_torch_storage_id",
     "get_torch_storage_size",
     "get_user_overview",
@@ -977,7 +974,6 @@ __all__ = [
     "update_collection_metadata",
     "update_inference_endpoint",
     "update_repo_settings",
-    "update_repo_visibility",
     "update_webhook",
     "upload_file",
     "upload_folder",
@@ -1247,7 +1243,6 @@ if TYPE_CHECKING:  # pragma: no cover
         get_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
-        get_token_permission,  # noqa: F401
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
@@ -1308,7 +1303,6 @@ if TYPE_CHECKING:  # pragma: no cover
         update_collection_metadata,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
         update_repo_settings,  # noqa: F401
-        update_repo_visibility,  # noqa: F401
         update_webhook,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
