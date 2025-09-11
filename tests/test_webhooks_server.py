@@ -111,7 +111,7 @@ WEBHOOK_PAYLOAD_WITH_UPDATED_REFS = {
 
 
 @requires("gradio")
-class TestWebhookPayload:
+class TestWebhookPayload(unittest.TestCase):
     def test_deserialize_payload_example_with_comment(self) -> None:
         """Confirm that the test stub can actually be deserialized."""
         payload = WebhookPayload.model_validate(WEBHOOK_PAYLOAD_CREATE_DISCUSSION)
