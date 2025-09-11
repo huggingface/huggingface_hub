@@ -60,7 +60,7 @@ def login(
     token: Optional[str] = None,
     *,
     add_to_git_credential: bool = False,
-    new_session: bool = True,
+    skip_if_logged_in: bool = False,
 ) -> None:
     """Login the machine to access the Hub.
 
@@ -96,8 +96,8 @@ def login(
             is configured, a warning will be displayed to the user. If `token` is `None`,
             the value of `add_to_git_credential` is ignored and will be prompted again
             to the end user.
-        new_session (`bool`, defaults to `True`):
-            If `True`, will request a token even if one is already saved on the machine.
+        skip_if_logged_in (`bool`, defaults to `False`):
+            If `True`, do not prompt for token if user is already logged in.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an organization token is passed. Only personal account tokens are valid
@@ -117,9 +117,9 @@ def login(
             )
         _login(token, add_to_git_credential=add_to_git_credential)
     elif is_notebook():
-        notebook_login(new_session=new_session)
+        notebook_login(skip_if_logged_in=skip_if_logged_in)
     else:
-        interpreter_login(new_session=new_session)
+        interpreter_login(skip_if_logged_in=skip_if_logged_in)
 
 
 def logout(token_name: Optional[str] = None) -> None:
@@ -235,7 +235,7 @@ def auth_list() -> None:
 
 
 @_deprecate_positional_args(version="1.0")
-def interpreter_login(*, new_session: bool = True) -> None:
+def interpreter_login(*, skip_if_logged_in: bool = False) -> None:
     """
     Displays a prompt to log in to the HF website and store the token.
 
@@ -246,10 +246,10 @@ def interpreter_login(*, new_session: bool = True) -> None:
     For more details, see [`login`].
 
     Args:
-        new_session (`bool`, defaults to `True`):
-            If `True`, will request a token even if one is already saved on the machine.
+        skip_if_logged_in (`bool`, defaults to `False`):
+            If `True`, do not prompt for token if user is already logged in.
     """
-    if not new_session and get_token() is not None:
+    if not skip_if_logged_in and get_token() is not None:
         logger.info("User is already logged in.")
         return
 
@@ -300,7 +300,7 @@ notebooks. </center>"""
 
 
 @_deprecate_positional_args(version="1.0")
-def notebook_login(*, new_session: bool = True) -> None:
+def notebook_login(*, skip_if_logged_in: bool = False) -> None:
     """
     Displays a widget to log in to the HF website and store the token.
 
@@ -311,8 +311,8 @@ def notebook_login(*, new_session: bool = True) -> None:
     For more details, see [`login`].
 
     Args:
-        new_session (`bool`, defaults to `True`):
-            If `True`, will request a token even if one is already saved on the machine.
+        skip_if_logged_in (`bool`, defaults to `False`):
+            If `True`, do not prompt for token if user is already logged in.
     """
     try:
         import ipywidgets.widgets as widgets  # type: ignore
@@ -322,7 +322,7 @@ def notebook_login(*, new_session: bool = True) -> None:
             "The `notebook_login` function can only be used in a notebook (Jupyter or"
             " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
         )
-    if not new_session and get_token() is not None:
+    if not skip_if_logged_in and get_token() is not None:
         logger.info("User is already logged in.")
         return
 
