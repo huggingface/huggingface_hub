@@ -206,17 +206,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
     def test_delete_repo_missing_ok(self) -> None:
         self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
-    def test_update_repo_visibility(self):
-        repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
-
-        self._api.update_repo_settings(repo_id=repo_id, private=True)
-        assert self._api.model_info(repo_id).private
-
-        self._api.update_repo_settings(repo_id=repo_id, private=False)
-        assert not self._api.model_info(repo_id).private
-
-        self._api.delete_repo(repo_id=repo_id)
-
     def test_move_repo_normal_usage(self):
         repo_id = f"{USER}/{repo_name()}"
         new_repo_id = f"{USER}/{repo_name()}"

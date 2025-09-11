@@ -3786,61 +3786,6 @@ class HfApi:
             if not missing_ok:
                 raise
 
-    @_deprecate_method(version="0.32", message="Please use `update_repo_settings` instead.")
-    @validate_hf_hub_args
-    def update_repo_visibility(
-        self,
-        repo_id: str,
-        private: bool = False,
-        *,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-    ) -> dict[str, bool]:
-        """Update the visibility setting of a repository.
-
-        Deprecated. Use `update_repo_settings` instead.
-
-        Args:
-            repo_id (`str`, *optional*):
-                A namespace (user or an organization) and a repo name separated by a `/`.
-            private (`bool`, *optional*, defaults to `False`):
-                Whether the repository should be private.
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-            repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or
-                space, `None` or `"model"` if uploading to a model. Default is
-                `None`.
-
-        Returns:
-            The HTTP response in json.
-
-        <Tip>
-
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
-        """
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
-        if repo_type is None:
-            repo_type = constants.REPO_TYPE_MODEL  # default repo type
-
-        r = get_session().put(
-            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
-            headers=self._build_hf_headers(token=token),
-            json={"private": private},
-        )
-        hf_raise_for_status(r)
-        return r.json()
-
     @validate_hf_hub_args
     def update_repo_settings(
         self,
@@ -10879,7 +10824,6 @@ get_dataset_tags = api.get_dataset_tags
 create_commit = api.create_commit
 create_repo = api.create_repo
 delete_repo = api.delete_repo
-update_repo_visibility = api.update_repo_visibility
 update_repo_settings = api.update_repo_settings
 move_repo = api.move_repo
 upload_file = api.upload_file

@@ -277,7 +277,6 @@ _SUBMOD_ATTRS = {
         "update_collection_metadata",
         "update_inference_endpoint",
         "update_repo_settings",
-        "update_repo_visibility",
         "update_webhook",
         "upload_file",
         "upload_folder",
@@ -975,7 +974,6 @@ __all__ = [
     "update_collection_metadata",
     "update_inference_endpoint",
     "update_repo_settings",
-    "update_repo_visibility",
     "update_webhook",
     "upload_file",
     "upload_folder",
@@ -1305,7 +1303,6 @@ if TYPE_CHECKING:  # pragma: no cover
         update_collection_metadata,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
         update_repo_settings,  # noqa: F401
-        update_repo_visibility,  # noqa: F401
         update_webhook,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
