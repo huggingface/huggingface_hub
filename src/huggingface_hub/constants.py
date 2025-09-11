@@ -135,7 +135,6 @@ HF_HOME = os.path.expandvars(
         )
     )
 )
-hf_cache_home = HF_HOME  # for backward compatibility. TODO: remove this in 1.0.0
 
 default_cache_path = os.path.join(HF_HOME, "hub")
 default_assets_cache_path = os.path.join(HF_HOME, "assets")

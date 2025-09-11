@@ -126,7 +126,6 @@ class DummyModelThatIsAlsoADataclass(ModelHubMixin):
         revision: Optional[str],
         cache_dir: Optional[Union[str, Path]],
         force_download: bool,
-        resume_download: bool,
         local_files_only: bool,
         token: Optional[Union[str, bool]],
         **model_kwargs,
@@ -340,7 +339,6 @@ class HubMixinTest(unittest.TestCase):
             revision="123456789",  # Revision is passed correctly!
             cache_dir=None,
             force_download=False,
-            resume_download=None,
             local_files_only=False,
             token=None,
         )
@@ -374,10 +372,7 @@ class HubMixinTest(unittest.TestCase):
 
         # Test config has been pushed to hub
         tmp_config_path = hf_hub_download(
-            repo_id=repo_id,
-            filename="config.json",
-            use_auth_token=TOKEN,
-            cache_dir=self.cache_dir,
+            repo_id=repo_id, filename="config.json", token=TOKEN, cache_dir=self.cache_dir
         )
         with open(tmp_config_path) as f:
             assert json.load(f) == CONFIG_AS_DICT

@@ -209,7 +209,6 @@ class PytorchHubMixinTest(unittest.TestCase):
             revision=None,
             cache_dir=None,
             force_download=False,
-            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -237,7 +236,6 @@ class PytorchHubMixinTest(unittest.TestCase):
             revision=None,
             cache_dir=None,
             force_download=False,
-            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -247,7 +245,6 @@ class PytorchHubMixinTest(unittest.TestCase):
             revision=None,
             cache_dir=None,
             force_download=False,
-            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -263,7 +260,6 @@ class PytorchHubMixinTest(unittest.TestCase):
             revision="123456789",  # Revision is passed correctly!
             cache_dir=None,
             force_download=False,
-            resume_download=None,
             local_files_only=False,
             token=None,
         )
@@ -314,10 +310,7 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         # Test config has been pushed to hub
         tmp_config_path = hf_hub_download(
-            repo_id=repo_id,
-            filename="config.json",
-            use_auth_token=TOKEN,
-            cache_dir=self.cache_dir,
+            repo_id=repo_id, filename="config.json", token=TOKEN, cache_dir=self.cache_dir
         )
         with open(tmp_config_path) as f:
             self.assertDictEqual(json.load(f), CONFIG)

@@ -20,28 +20,28 @@ NO_AUTH_HEADER = {"user-agent": DEFAULT_USER_AGENT}
 
 
 class TestAuthHeadersUtil(unittest.TestCase):
-    def test_use_auth_token_str(self) -> None:
-        self.assertEqual(build_hf_headers(use_auth_token=FAKE_TOKEN), FAKE_TOKEN_HEADER)
+    def test_token_str(self) -> None:
+        self.assertEqual(build_hf_headers(token=FAKE_TOKEN), FAKE_TOKEN_HEADER)
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=None)
-    def test_use_auth_token_true_no_cached_token(self, mock_get_token: Mock) -> None:
+    def test_token_true_no_cached_token(self, mock_get_token: Mock) -> None:
         with self.assertRaises(EnvironmentError):
-            build_hf_headers(use_auth_token=True)
+            build_hf_headers(token=True)
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=FAKE_TOKEN)
-    def test_use_auth_token_true_has_cached_token(self, mock_get_token: Mock) -> None:
-        self.assertEqual(build_hf_headers(use_auth_token=True), FAKE_TOKEN_HEADER)
+    def test_token_true_has_cached_token(self, mock_get_token: Mock) -> None:
+        self.assertEqual(build_hf_headers(token=True), FAKE_TOKEN_HEADER)
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=FAKE_TOKEN)
-    def test_use_auth_token_false(self, mock_get_token: Mock) -> None:
-        self.assertEqual(build_hf_headers(use_auth_token=False), NO_AUTH_HEADER)
+    def test_token_false(self, mock_get_token: Mock) -> None:
+        self.assertEqual(build_hf_headers(token=False), NO_AUTH_HEADER)
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=None)
-    def test_use_auth_token_none_no_cached_token(self, mock_get_token: Mock) -> None:
+    def test_token_none_no_cached_token(self, mock_get_token: Mock) -> None:
         self.assertEqual(build_hf_headers(), NO_AUTH_HEADER)
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=FAKE_TOKEN)
-    def test_use_auth_token_none_has_cached_token(self, mock_get_token: Mock) -> None:
+    def test_token_none_has_cached_token(self, mock_get_token: Mock) -> None:
         self.assertEqual(build_hf_headers(), FAKE_TOKEN_HEADER)
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=FAKE_TOKEN)
@@ -57,7 +57,7 @@ class TestAuthHeadersUtil(unittest.TestCase):
             "huggingface_hub.constants.HF_HUB_DISABLE_IMPLICIT_TOKEN", True
         ):
             # This is not an implicit use so we still send it
-            self.assertEqual(build_hf_headers(use_auth_token=True), FAKE_TOKEN_HEADER)
+            self.assertEqual(build_hf_headers(token=True), FAKE_TOKEN_HEADER)
 
 
 class TestUserAgentHeadersUtil(unittest.TestCase):

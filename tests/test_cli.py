@@ -558,7 +558,6 @@ class TestDownloadCommand(unittest.TestCase):
             include=["*.json"],
             exclude=["data/*"],
             force_download=True,
-            resume_download=True,
             cache_dir=None,
             quiet=False,
             local_dir=None,

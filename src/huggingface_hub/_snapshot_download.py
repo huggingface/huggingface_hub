@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Iterable, Literal, Optional, Union
+from typing import Iterable, Optional, Union
 
 import httpx
 from tqdm.auto import tqdm as base_tqdm
@@ -46,9 +46,6 @@ def snapshot_download(
     tqdm_class: Optional[type[base_tqdm]] = None,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
-    # Deprecated args
-    local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
-    resume_download: Optional[bool] = None,
 ) -> str:
     """Download repo files.
 
@@ -303,12 +300,10 @@ def snapshot_download(
             endpoint=endpoint,
             cache_dir=cache_dir,
             local_dir=local_dir,
-            local_dir_use_symlinks=local_dir_use_symlinks,
             library_name=library_name,
             library_version=library_version,
             user_agent=user_agent,
             etag_timeout=etag_timeout,
-            resume_download=resume_download,
             force_download=force_download,
             token=token,
             headers=headers,

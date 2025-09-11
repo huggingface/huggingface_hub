@@ -82,7 +82,7 @@ Obwohl dieser Ansatz flexibel ist, hat er einige Nachteile, insbesondere in Bezu
 - `token`: zum Herunterladen aus einem privaten Repository
 - `revision`: zum Herunterladen von einem spezifischen Branch
 - `cache_dir`: um Dateien in einem spezifischen Verzeichnis zu cachen
-- `force_download`/`resume_download`/`local_files_only`: um den Cache wieder zu verwenden oder nicht
+- `force_download`/`local_files_only`: um den Cache wieder zu verwenden oder nicht
 - `api_endpoint`/`proxies`: HTTP-Session konfigurieren
 
 Beim Pushen von Modellen werden ähnliche Parameter unterstützt:
@@ -203,7 +203,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
       cache_dir: str,
       force_download: bool,
       proxies: Optional[dict],
-      resume_download: bool,
       local_files_only: bool,
       token: Union[str, bool, None],
       map_location: str = "cpu", # zusätzliches Argument
@@ -221,8 +220,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
             revision=revision,
             cache_dir=cache_dir,
             force_download=force_download,
-            proxies=proxies,
-            resume_download=resume_download,
             token=token,
             local_files_only=local_files_only,
          )
@@ -242,9 +239,9 @@ Und das war's! Ihre Bibliothek ermöglicht es Benutzern nun, Dateien vom und zum
 Lassen Sie uns die beiden Ansätze, die wir gesehen haben, schnell mit ihren Vor- und Nachteilen zusammenfassen. Die untenstehende Tabelle ist nur indikativ. Ihr Framework könnte einige Besonderheiten haben, die Sie berücksichtigen müssen. Dieser Leitfaden soll nur Richtlinien und Ideen geben, wie Sie die Integration handhaben können. Kontaktieren Sie uns in jedem Fall, wenn Sie Fragen haben!
 
 <!-- Generated using https://www.tablesgenerator.com/markdown_tables -->
-| Integration | Mit Helfern | Mit [`ModelHubMixin`] |
-|:---:|:---:|:---:|
-| Benutzererfahrung | `model = load_from_hub(...)`<br>`push_to_hub(model, ...)` | `model = MyModel.from_pretrained(...)`<br>`model.push_to_hub(...)` |
-| Flexibilität | Sehr flexibel.<br>Sie haben die volle Kontrolle über die Implementierung. | Weniger flexibel.<br>Ihr Framework muss eine Modellklasse haben. |
-| Wartung | Mehr Wartung, um Unterstützung für Konfiguration und neue Funktionen hinzuzufügen. Könnte auch das Beheben von Benutzerproblemen erfordern. | Weniger Wartung, da die meisten Interaktionen mit dem Hub in `huggingface_hub` implementiert sind. |
-| Dokumentation/Typ-Annotation| Manuell zu schreiben. | Teilweise durch `huggingface_hub` behandelt. |
+|         Integration          |                                                                 Mit Helfern                                                                 |                                       Mit [`ModelHubMixin`]                                        |
+| :--------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------: |
+|      Benutzererfahrung       |                                          `model = load_from_hub(...)`<br>`push_to_hub(model, ...)`                                          |                 `model = MyModel.from_pretrained(...)`<br>`model.push_to_hub(...)`                 |
+|         Flexibilität         |                                  Sehr flexibel.<br>Sie haben die volle Kontrolle über die Implementierung.                                  |                  Weniger flexibel.<br>Ihr Framework muss eine Modellklasse haben.                  |
+|           Wartung            | Mehr Wartung, um Unterstützung für Konfiguration und neue Funktionen hinzuzufügen. Könnte auch das Beheben von Benutzerproblemen erfordern. | Weniger Wartung, da die meisten Interaktionen mit dem Hub in `huggingface_hub` implementiert sind. |
+| Dokumentation/Typ-Annotation |                                                            Manuell zu schreiben.                                                            |                            Teilweise durch `huggingface_hub` behandelt.                            |
