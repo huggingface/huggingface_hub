@@ -27,7 +27,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Optional, Union, get_args
 from unittest.mock import Mock, patch
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 import pytest
 
@@ -206,17 +206,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
     def test_delete_repo_missing_ok(self) -> None:
         self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
-    def test_update_repo_visibility(self):
-        repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
-
-        self._api.update_repo_settings(repo_id=repo_id, private=True)
-        assert self._api.model_info(repo_id).private
-
-        self._api.update_repo_settings(repo_id=repo_id, private=False)
-        assert not self._api.model_info(repo_id).private
-
-        self._api.delete_repo(repo_id=repo_id)
-
     def test_move_repo_normal_usage(self):
         repo_id = f"{USER}/{repo_name()}"
         new_repo_id = f"{USER}/{repo_name()}"
@@ -280,17 +269,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
         info = self._api.model_info(repo_id, expand="xetEnabled")
         assert info.xet_enabled
 
-    @expect_deprecation("get_token_permission")
-    def test_get_token_permission_on_oauth_token(self):
-        whoami = {
-            "type": "user",
-            "auth": {"type": "oauth", "expiresAt": "2024-10-24T19:43:43.000Z"},
-            # ...
-            # other values are ignored as we only need to check the "auth" value
-        }
-        with patch.object(self._api, "whoami", return_value=whoami):
-            assert self._api.get_token_permission() is None
-
 
 class CommitApiTest(HfApiCommonTest):
     def setUp(self) -> None:
@@ -338,8 +316,8 @@ class CommitApiTest(HfApiCommonTest):
             path_in_repo="temp/new_file.md",
             repo_id=repo_id,
         )
-        self.assertEqual(return_val, f"{repo_url}/blob/main/temp/new_file.md")
-        self.assertIsInstance(return_val, CommitInfo)
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
@@ -360,7 +338,8 @@ class CommitApiTest(HfApiCommonTest):
                 path_in_repo="temp/new_file.md",
                 repo_id=repo_id,
             )
-        self.assertEqual(return_val, f"{repo_url}/blob/main/temp/new_file.md")
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
@@ -375,7 +354,8 @@ class CommitApiTest(HfApiCommonTest):
             path_in_repo="temp/new_file.md",
             repo_id=repo_id,
         )
-        self.assertEqual(return_val, f"{repo_url}/blob/main/temp/new_file.md")
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
@@ -444,8 +424,9 @@ class CommitApiTest(HfApiCommonTest):
             repo_id=repo_id,
             create_pr=True,
         )
-        self.assertEqual(return_val, f"{repo_url}/blob/{quote('refs/pr/1', safe='')}/temp/new_file.md")
-        self.assertIsInstance(return_val, CommitInfo)
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
+        assert return_val.pr_revision == "refs/pr/1"
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(
@@ -482,19 +463,14 @@ class CommitApiTest(HfApiCommonTest):
 
         # Upload folder
         url = self._api.upload_folder(folder_path=self.tmp_dir, path_in_repo="temp/dir", repo_id=repo_id)
-        self.assertEqual(
-            url,
-            f"{self._api.endpoint}/{repo_id}/tree/main/temp/dir",
-        )
-        self.assertIsInstance(url, CommitInfo)
+        assert isinstance(url, CommitInfo)
+        assert url.startswith(f"{repo_url}/commit/")
 
         # Check files are uploaded
         for rpath in ["temp", "nested/file.bin"]:
             local_path = os.path.join(self.tmp_dir, rpath)
             remote_path = f"temp/dir/{rpath}"
-            filepath = hf_hub_download(
-                repo_id=repo_id, filename=remote_path, revision="main", use_auth_token=self._token
-            )
+            filepath = hf_hub_download(repo_id=repo_id, filename=remote_path, revision="main", token=self._token)
             assert filepath is not None
             with open(filepath, "rb") as downloaded_file:
                 content = downloaded_file.read()
@@ -514,20 +490,15 @@ class CommitApiTest(HfApiCommonTest):
         return_val = self._api.upload_folder(
             folder_path=self.tmp_dir, path_in_repo="temp/dir", repo_id=repo_id, create_pr=True
         )
-        self.assertEqual(return_val, f"{self._api.endpoint}/{repo_id}/tree/refs%2Fpr%2F1/temp/dir")
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
+        assert return_val.pr_revision == "refs/pr/1"
 
         # Check files are uploaded
         for rpath in ["temp", "nested/file.bin"]:
             local_path = os.path.join(self.tmp_dir, rpath)
             filepath = hf_hub_download(repo_id=repo_id, filename=f"temp/dir/{rpath}", revision="refs/pr/1")
             assert Path(local_path).read_bytes() == Path(filepath).read_bytes()
-
-    def test_upload_folder_default_path_in_repo(self):
-        REPO_NAME = repo_name("upload_folder_to_root")
-        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
-        url = self._api.upload_folder(folder_path=self.tmp_dir, repo_id=f"{USER}/{REPO_NAME}")
-        # URL to root of repository
-        self.assertEqual(url, f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/main/")
 
     @use_tmp_repo()
     def test_upload_folder_git_folder_excluded(self, repo_url: RepoUrl) -> None:
@@ -1348,18 +1319,18 @@ class HfApiDeleteFolderTest(HfApiCommonTest):
         )
 
         with self.assertRaises(EntryNotFoundError):
-            hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
+            hf_hub_download(self.repo_id, "1/file_1.md", token=self._token)
 
         with self.assertRaises(EntryNotFoundError):
-            hf_hub_download(self.repo_id, "1/file_2.md", use_auth_token=self._token)
+            hf_hub_download(self.repo_id, "1/file_2.md", token=self._token)
 
         # Still exists
-        hf_hub_download(self.repo_id, "2/file_3.md", use_auth_token=self._token)
+        hf_hub_download(self.repo_id, "2/file_3.md", token=self._token)
 
     def test_create_commit_delete_folder_explicit(self):
         self._api.delete_folder(path_in_repo="1", repo_id=self.repo_id)
         with self.assertRaises(EntryNotFoundError):
-            hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
+            hf_hub_download(self.repo_id, "1/file_1.md", token=self._token)
 
     def test_create_commit_implicit_delete_folder_is_ok(self):
         self._api.create_commit(
@@ -2283,38 +2254,34 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(author="muellerzr", model_name="testme"))
         assert len(models) == 0
 
-    @expect_deprecation("list_models")
     def test_filter_models_with_library(self):
-        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", library="tensorflow"))
+        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", filter="tensorflow"))
         assert len(models) == 0
 
-        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", library="pytorch"))
+        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", filter="pytorch"))
         assert len(models) > 0
 
-    @expect_deprecation("list_models")
     def test_filter_models_with_task(self):
-        models = list(self._api.list_models(task="fill-mask", model_name="albert-base-v2"))
+        models = list(self._api.list_models(filter="fill-mask", model_name="albert-base-v2"))
         assert models[0].pipeline_tag == "fill-mask"
         assert "albert" in models[0].id
         assert "base" in models[0].id
         assert "v2" in models[0].id
 
-        models = list(self._api.list_models(task="dummytask"))
+        models = list(self._api.list_models(filter="dummytask"))
         assert len(models) == 0
 
-    @expect_deprecation("list_models")
     def test_filter_models_by_language(self):
         for language in ["en", "fr", "zh"]:
-            for model in self._api.list_models(language=language, limit=5):
+            for model in self._api.list_models(filter=language, limit=5):
                 assert language in model.tags
 
-    @expect_deprecation("list_models")
     def test_filter_models_with_tag(self):
-        models = list(self._api.list_models(author="HuggingFaceBR4", tags=["tensorboard"]))
+        models = list(self._api.list_models(author="HuggingFaceBR4", filter=["tensorboard"]))
         assert models[0].id.startswith("HuggingFaceBR4/")
         assert "tensorboard" in models[0].tags
 
-        models = list(self._api.list_models(tags="dummytag"))
+        models = list(self._api.list_models(filter=["dummytag"]))
         assert len(models) == 0
 
     def test_filter_models_with_card_data(self):
@@ -2578,7 +2545,7 @@ class HfApiPrivateTest(HfApiCommonTest):
             ):
                 _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
 
-            model_info = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token)
+            model_info = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}", token=self._token)
             self.assertIsInstance(model_info, ModelInfo)
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=None)
@@ -2594,23 +2561,23 @@ class HfApiPrivateTest(HfApiCommonTest):
             ):
                 _ = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}")
 
-            dataset_info = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token)
+            dataset_info = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}", token=self._token)
             self.assertIsInstance(dataset_info, DatasetInfo)
 
     def test_list_private_datasets(self):
-        orig = len(list(self._api.list_datasets(use_auth_token=False)))
-        new = len(list(self._api.list_datasets(use_auth_token=self._token)))
+        orig = len(list(self._api.list_datasets(token=False)))
+        new = len(list(self._api.list_datasets(token=self._token)))
         self.assertGreater(new, orig)
 
     def test_list_private_models(self):
-        orig = len(list(self._api.list_models(use_auth_token=False)))
-        new = len(list(self._api.list_models(use_auth_token=self._token)))
+        orig = len(list(self._api.list_models(token=False)))
+        new = len(list(self._api.list_models(token=self._token)))
         self.assertGreater(new, orig)
 
     @with_production_testing
     def test_list_private_spaces(self):
-        orig = len(list(self._api.list_spaces(use_auth_token=False)))
-        new = len(list(self._api.list_spaces(use_auth_token=self._token)))
+        orig = len(list(self._api.list_spaces(token=False)))
+        new = len(list(self._api.list_spaces(token=self._token)))
         self.assertGreaterEqual(new, orig)
 
 
@@ -3451,11 +3418,8 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             revision=None,
             cache_dir=None,
             local_dir=None,
-            local_dir_use_symlinks="auto",
             force_download=False,
-            force_filename=None,
             etag_timeout=10,
-            resume_download=None,
             local_files_only=False,
             headers=None,
         )
@@ -3477,9 +3441,7 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             revision=None,
             cache_dir=None,
             local_dir=None,
-            local_dir_use_symlinks="auto",
             etag_timeout=10,
-            resume_download=None,
             force_download=False,
             local_files_only=False,
             allow_patterns=None,
