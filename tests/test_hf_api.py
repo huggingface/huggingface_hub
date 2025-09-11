@@ -2254,38 +2254,34 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(author="muellerzr", model_name="testme"))
         assert len(models) == 0
 
-    @expect_deprecation("list_models")
     def test_filter_models_with_library(self):
-        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", library="tensorflow"))
+        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", filter="tensorflow"))
         assert len(models) == 0
 
-        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", library="pytorch"))
+        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", filter="pytorch"))
         assert len(models) > 0
 
-    @expect_deprecation("list_models")
     def test_filter_models_with_task(self):
-        models = list(self._api.list_models(task="fill-mask", model_name="albert-base-v2"))
+        models = list(self._api.list_models(filter="fill-mask", model_name="albert-base-v2"))
         assert models[0].pipeline_tag == "fill-mask"
         assert "albert" in models[0].id
         assert "base" in models[0].id
         assert "v2" in models[0].id
 
-        models = list(self._api.list_models(task="dummytask"))
+        models = list(self._api.list_models(filter="dummytask"))
         assert len(models) == 0
 
-    @expect_deprecation("list_models")
     def test_filter_models_by_language(self):
         for language in ["en", "fr", "zh"]:
-            for model in self._api.list_models(language=language, limit=5):
+            for model in self._api.list_models(filter=language, limit=5):
                 assert language in model.tags
 
-    @expect_deprecation("list_models")
     def test_filter_models_with_tag(self):
-        models = list(self._api.list_models(author="HuggingFaceBR4", tags=["tensorboard"]))
+        models = list(self._api.list_models(author="HuggingFaceBR4", filter=["tensorboard"]))
         assert models[0].id.startswith("HuggingFaceBR4/")
         assert "tensorboard" in models[0].tags
 
-        models = list(self._api.list_models(tags="dummytag"))
+        models = list(self._api.list_models(filter=["dummytag"]))
         assert len(models) == 0
 
     def test_filter_models_with_card_data(self):
