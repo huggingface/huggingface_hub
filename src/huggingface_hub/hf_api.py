@@ -130,7 +130,7 @@ from .utils._auth import (
     _get_token_from_file,
     _get_token_from_google_colab,
 )
-from .utils._deprecation import _deprecate_arguments, _deprecate_method
+from .utils._deprecation import _deprecate_arguments
 from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
