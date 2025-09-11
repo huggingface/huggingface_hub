@@ -104,7 +104,6 @@ from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
-    LocalTokenNotFoundError,
     NotASafetensorsRepoError,
     SafetensorsFileMetadata,
     SafetensorsParsingError,
@@ -125,7 +124,7 @@ from .utils import (
 )
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
-from .utils._deprecation import _deprecate_arguments, _deprecate_method
+from .utils._deprecation import _deprecate_arguments
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
 
@@ -404,12 +403,6 @@ class CommitInfo(str):
 
         repo_url (`RepoUrl`):
             Repo URL of the commit containing info like repo_id, repo_type, etc.
-
-        _url (`str`, *optional*):
-            Legacy url for `str` compatibility. Can be the url to the uploaded file on the Hub (if returned by
-            [`upload_file`]), to the uploaded folder on the Hub (if returned by [`upload_folder`]) or to the commit on
-            the Hub (if returned by [`create_commit`]). Defaults to `commit_url`. It is deprecated to use this
-            attribute. Please use `commit_url` instead.
     """
 
     commit_url: str
@@ -425,11 +418,8 @@ class CommitInfo(str):
     pr_revision: Optional[str] = field(init=False)
     pr_num: Optional[str] = field(init=False)
 
-    # legacy url for `str` compatibility (ex: url to uploaded file, url to uploaded folder, url to PR, etc.)
-    _url: str = field(repr=False, default=None)  # type: ignore  # defaults to `commit_url`
-
-    def __new__(cls, *args, commit_url: str, _url: Optional[str] = None, **kwargs):
-        return str.__new__(cls, _url or commit_url)
+    def __new__(cls, *args, commit_url: str, **kwargs):
+        return str.__new__(cls, commit_url)
 
     def __post_init__(self):
         """Populate pr-related fields after initialization.
@@ -1777,43 +1767,6 @@ class HfApi:
             raise
         return r.json()
 
-    @_deprecate_method(
-        version="1.0",
-        message=(
-            "Permissions are more complex than when `get_token_permission` was first introduced. "
-            "OAuth and fine-grain tokens allows for more detailed permissions. "
-            "If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key."
-        ),
-    )
-    def get_token_permission(
-        self, token: Union[bool, str, None] = None
-    ) -> Literal["read", "write", "fineGrained", None]:
-        """
-        Check if a given `token` is valid and return its permissions.
-
-        > [!WARNING]
-        > This method is deprecated and will be removed in version 1.0. Permissions are more complex than when
-        > `get_token_permission` was first introduced. OAuth and fine-grain tokens allows for more detailed permissions.
-        > If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key.
-
-        For more details about tokens, please refer to https://huggingface.co/docs/hub/security-tokens#what-are-user-access-tokens.
-
-        Args:
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-
-        Returns:
-            `Literal["read", "write", "fineGrained", None]`: Permission granted by the token ("read" or "write"). Returns `None` if no
-            token passed, if token is invalid or if role is not returned by the server. This typically happens when the token is an OAuth token.
-        """
-        try:
-            return self.whoami(token=token)["auth"]["accessToken"]["role"]
-        except (LocalTokenNotFoundError, HfHubHTTPError, KeyError):
-            return None
-
     def get_model_tags(self) -> dict:
         """
         List all valid model tags as a nested namespace object
@@ -1832,9 +1785,6 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
-    @_deprecate_arguments(
-        version="1.0", deprecated_args=["language", "library", "task", "tags"], custom_message="Use `filter` instead."
-    )
     @validate_hf_hub_args
     def list_models(
         self,
@@ -1861,11 +1811,6 @@ class HfApi:
         cardData: bool = False,
         fetch_config: bool = False,
         token: Union[bool, str, None] = None,
-        # Deprecated arguments - use `filter` instead
-        language: Optional[Union[str, list[str]]] = None,
-        library: Optional[Union[str, list[str]]] = None,
-        tags: Optional[Union[str, list[str]]] = None,
-        task: Optional[Union[str, list[str]]] = None,
     ) -> Iterable[ModelInfo]:
         """
         List models hosted on the Huggingface Hub, given some filters.
@@ -1889,20 +1834,12 @@ class HfApi:
             inference_provider (`Literal["all"]` or `str`, *optional*):
                 A string to filter models on the Hub that are served by a specific provider.
                 Pass `"all"` to get all models served by at least one provider.
-            library (`str` or `List`, *optional*):
-                Deprecated. Pass a library name in `filter` to filter models by library.
-            language (`str` or `List`, *optional*):
-                Deprecated. Pass a language in `filter` to filter models by language.
             model_name (`str`, *optional*):
                 A string that contain complete or partial names for models on the
                 Hub, such as "bert" or "bert-base-cased"
-            task (`str` or `List`, *optional*):
-                Deprecated. Pass a task in `filter` to filter models by task.
             trained_dataset (`str` or `List`, *optional*):
                 A string tag or a list of string tags of the trained dataset for a
                 model on the Hub.
-            tags (`str` or `List`, *optional*):
-                Deprecated. Pass tags in `filter` to filter models by tags.
             search (`str`, *optional*):
                 A string that will be contained in the returned model ids.
             pipeline_tag (`str`, *optional*):
@@ -1984,21 +1921,9 @@ class HfApi:
         filter_list: list[str] = []
         if filter:
             filter_list.extend([filter] if isinstance(filter, str) else filter)
-        if library:
-            filter_list.extend([library] if isinstance(library, str) else library)
-        if task:
-            filter_list.extend([task] if isinstance(task, str) else task)
         if trained_dataset:
-            if isinstance(trained_dataset, str):
-                trained_dataset = [trained_dataset]
-            for dataset in trained_dataset:
-                if not dataset.startswith("dataset:"):
-                    dataset = f"dataset:{dataset}"
-                filter_list.append(dataset)
-        if language:
-            filter_list.extend([language] if isinstance(language, str) else language)
-        if tags:
-            filter_list.extend([tags] if isinstance(tags, str) else tags)
+            datasets = [trained_dataset] if isinstance(trained_dataset, str) else trained_dataset
+            filter_list.extend(f"dataset:{d}" if not d.startswith("dataset:") else d for d in datasets)
         if len(filter_list) > 0:
             params["filter"] = filter_list
 
@@ -3789,58 +3714,6 @@ class HfApi:
             if not missing_ok:
                 raise
 
-    @_deprecate_method(version="0.32", message="Please use `update_repo_settings` instead.")
-    @validate_hf_hub_args
-    def update_repo_visibility(
-        self,
-        repo_id: str,
-        private: bool = False,
-        *,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-    ) -> dict[str, bool]:
-        """Update the visibility setting of a repository.
-
-        Deprecated. Use `update_repo_settings` instead.
-
-        Args:
-            repo_id (`str`, *optional*):
-                A namespace (user or an organization) and a repo name separated by a `/`.
-            private (`bool`, *optional*, defaults to `False`):
-                Whether the repository should be private.
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-            repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or
-                space, `None` or `"model"` if uploading to a model. Default is
-                `None`.
-
-        Returns:
-            The HTTP response in json.
-
-        > [!TIP]
-        > Raises the following errors:
-        >
-        >     - [`~utils.RepositoryNotFoundError`]
-        >       If the repository to download from cannot be found. This may be because it doesn't exist,
-        >       or because it is set to `private` and you do not have access.
-        """
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
-        if repo_type is None:
-            repo_type = constants.REPO_TYPE_MODEL  # default repo type
-
-        r = get_session().put(
-            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
-            headers=self._build_hf_headers(token=token),
-            json={"private": private},
-        )
-        hf_raise_for_status(r)
-        return r.json()
-
     @validate_hf_hub_args
     def update_repo_settings(
         self,
@@ -4595,7 +4468,6 @@ class HfApi:
         ...         repo_type="dataset",
         ...         token="my_token",
         ...     )
-        "https://huggingface.co/datasets/username/my-dataset/blob/main/remote/file/path.h5"
 
         >>> upload_file(
         ...     path_or_fileobj=".\\\\local\\\\file\\\\path",
@@ -4603,7 +4475,6 @@ class HfApi:
         ...     repo_id="username/my-model",
         ...     token="my_token",
         ... )
-        "https://huggingface.co/username/my-model/blob/main/remote/file/path.h5"
 
         >>> upload_file(
         ...     path_or_fileobj=".\\\\local\\\\file\\\\path",
@@ -4612,7 +4483,6 @@ class HfApi:
         ...     token="my_token",
         ...     create_pr=True,
         ... )
-        "https://huggingface.co/username/my-model/blob/refs%2Fpr%2F1/remote/file/path.h5"
         ```
         """
         if repo_type not in constants.REPO_TYPES:
@@ -4626,7 +4496,7 @@ class HfApi:
             path_in_repo=path_in_repo,
         )
 
-        commit_info = self.create_commit(
+        return self.create_commit(
             repo_id=repo_id,
             repo_type=repo_type,
             operations=[operation],
@@ -4636,23 +4506,6 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
             parent_commit=parent_commit,
-        )
-
-        if commit_info.pr_url is not None:
-            revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
-        if repo_type in constants.REPO_TYPES_URL_PREFIXES:
-            repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-        revision = revision if revision is not None else constants.DEFAULT_REVISION
-
-        return CommitInfo(
-            commit_url=commit_info.commit_url,
-            commit_message=commit_info.commit_message,
-            commit_description=commit_info.commit_description,
-            oid=commit_info.oid,
-            pr_url=commit_info.pr_url,
-            # Similar to `hf_hub_url` but it's "blob" instead of "resolve"
-            # TODO: remove this in v1.0
-            _url=f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}",
         )
 
     @overload
@@ -4821,7 +4674,6 @@ class HfApi:
         ...     token="my_token",
         ...     ignore_patterns="**/logs/*.txt",
         ... )
-        # "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 
         # Upload checkpoints folder including logs while deleting existing logs from the repo
         # Useful if you don't know exactly which log files have already being pushed
@@ -4833,7 +4685,6 @@ class HfApi:
         ...     token="my_token",
         ...     delete_patterns="**/logs/*.txt",
         ... )
-        "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 
         # Upload checkpoints folder while creating a PR
         >>> upload_folder(
@@ -4844,8 +4695,6 @@ class HfApi:
         ...     token="my_token",
         ...     create_pr=True,
         ... )
-        "https://huggingface.co/datasets/username/my-dataset/tree/refs%2Fpr%2F1/remote/experiment/checkpoints"
-
         ```
         """
         if repo_type not in constants.REPO_TYPES:
@@ -4889,7 +4738,7 @@ class HfApi:
 
         commit_message = commit_message or "Upload folder using huggingface_hub"
 
-        commit_info = self.create_commit(
+        return self.create_commit(
             repo_type=repo_type,
             repo_id=repo_id,
             operations=commit_operations,
@@ -4899,24 +4748,6 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
             parent_commit=parent_commit,
-        )
-
-        # Create url to uploaded folder (for legacy return value)
-        if create_pr and commit_info.pr_url is not None:
-            revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
-        if repo_type in constants.REPO_TYPES_URL_PREFIXES:
-            repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-        revision = revision if revision is not None else constants.DEFAULT_REVISION
-
-        return CommitInfo(
-            commit_url=commit_info.commit_url,
-            commit_message=commit_info.commit_message,
-            commit_description=commit_info.commit_description,
-            oid=commit_info.oid,
-            pr_url=commit_info.pr_url,
-            # Similar to `hf_hub_url` but it's "tree" instead of "resolve"
-            # TODO: remove this in v1.0
-            _url=f"{self.endpoint}/{repo_id}/tree/{revision}/{path_in_repo}",
         )
 
     @validate_hf_hub_args
@@ -5320,10 +5151,6 @@ class HfApi:
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         token: Union[bool, str, None] = None,
         local_files_only: bool = False,
-        # Deprecated args
-        resume_download: Optional[bool] = None,
-        force_filename: Optional[str] = None,
-        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
     ) -> str:
         """Download a given file if it's not already present in the local cache.
 
@@ -5429,12 +5256,9 @@ class HfApi:
             library_version=self.library_version,
             cache_dir=cache_dir,
             local_dir=local_dir,
-            local_dir_use_symlinks=local_dir_use_symlinks,
             user_agent=self.user_agent,
             force_download=force_download,
-            force_filename=force_filename,
             etag_timeout=etag_timeout,
-            resume_download=resume_download,
             token=token,
             headers=self.headers,
             local_files_only=local_files_only,
@@ -5457,9 +5281,6 @@ class HfApi:
         ignore_patterns: Optional[Union[list[str], str]] = None,
         max_workers: int = 8,
         tqdm_class: Optional[type[base_tqdm]] = None,
-        # Deprecated args
-        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
-        resume_download: Optional[bool] = None,
     ) -> str:
         """Download repo files.
 
@@ -5545,12 +5366,10 @@ class HfApi:
             endpoint=self.endpoint,
             cache_dir=cache_dir,
             local_dir=local_dir,
-            local_dir_use_symlinks=local_dir_use_symlinks,
             library_name=self.library_name,
             library_version=self.library_version,
             user_agent=self.user_agent,
             etag_timeout=etag_timeout,
-            resume_download=resume_download,
             force_download=force_download,
             token=token,
             local_files_only=local_files_only,
@@ -10804,7 +10623,6 @@ api = HfApi()
 
 whoami = api.whoami
 auth_check = api.auth_check
-get_token_permission = api.get_token_permission
 
 list_models = api.list_models
 model_info = api.model_info
@@ -10834,7 +10652,6 @@ get_dataset_tags = api.get_dataset_tags
 create_commit = api.create_commit
 create_repo = api.create_repo
 delete_repo = api.delete_repo
-update_repo_visibility = api.update_repo_visibility
 update_repo_settings = api.update_repo_settings
 move_repo = api.move_repo
 upload_file = api.upload_file

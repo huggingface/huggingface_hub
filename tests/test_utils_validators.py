@@ -4,7 +4,6 @@ from unittest.mock import Mock, patch
 
 from huggingface_hub.utils import (
     HFValidationError,
-    smoothly_deprecate_use_auth_token,
     validate_hf_hub_args,
     validate_repo_id,
 )
@@ -58,61 +57,3 @@ class TestRepoIdValidator(unittest.TestCase):
         for repo_id in self.NOT_VALID_VALUES:
             with self.assertRaises(HFValidationError, msg=f"'{repo_id}' must not be valid"):
                 validate_repo_id(repo_id)
-
-
-class TestSmoothlyDeprecateUseAuthToken(unittest.TestCase):
-    def test_token_normal_usage_as_arg(self) -> None:
-        self.assertEqual(
-            self.dummy_token_function("this_is_a_token"),
-            ("this_is_a_token", {}),
-        )
-
-    def test_token_normal_usage_as_kwarg(self) -> None:
-        self.assertEqual(
-            self.dummy_token_function(token="this_is_a_token"),
-            ("this_is_a_token", {}),
-        )
-
-    def test_token_normal_usage_with_more_kwargs(self) -> None:
-        self.assertEqual(
-            self.dummy_token_function(token="this_is_a_token", foo="bar"),
-            ("this_is_a_token", {"foo": "bar"}),
-        )
-
-    def test_token_with_smoothly_deprecated_use_auth_token(self) -> None:
-        self.assertEqual(
-            self.dummy_token_function(use_auth_token="this_is_a_use_auth_token"),
-            ("this_is_a_use_auth_token", {}),
-        )
-
-    def test_input_kwargs_not_mutated_by_smooth_deprecation(self) -> None:
-        initial_kwargs = {"a": "b", "use_auth_token": "token"}
-        kwargs = smoothly_deprecate_use_auth_token(fn_name="name", has_token=False, kwargs=initial_kwargs)
-        self.assertEqual(kwargs, {"a": "b", "token": "token"})
-        self.assertEqual(initial_kwargs, {"a": "b", "use_auth_token": "token"})  # not mutated!
-
-    def test_with_both_token_and_use_auth_token(self) -> None:
-        with self.assertWarns(UserWarning):
-            # `use_auth_token` is ignored !
-            self.assertEqual(
-                self.dummy_token_function(token="this_is_a_token", use_auth_token="this_is_a_use_auth_token"),
-                ("this_is_a_token", {}),
-            )
-
-    def test_not_deprecated_use_auth_token(self) -> None:
-        # `use_auth_token` is accepted by `dummy_use_auth_token_function`
-        # => `smoothly_deprecate_use_auth_token` is not called
-        self.assertEqual(
-            self.dummy_use_auth_token_function(use_auth_token="this_is_a_use_auth_token"),
-            ("this_is_a_use_auth_token", {}),
-        )
-
-    @staticmethod
-    @validate_hf_hub_args
-    def dummy_token_function(token: str, **kwargs) -> None:
-        return token, kwargs
-
-    @staticmethod
-    @validate_hf_hub_args
-    def dummy_use_auth_token_function(use_auth_token: str, **kwargs) -> None:
-        return use_auth_token, kwargs

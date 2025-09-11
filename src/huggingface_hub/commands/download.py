@@ -133,15 +133,8 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         self.cache_dir: Optional[str] = args.cache_dir
         self.local_dir: Optional[str] = args.local_dir
         self.force_download: bool = args.force_download
-        self.resume_download: Optional[bool] = args.resume_download or None
         self.quiet: bool = args.quiet
         self.max_workers: int = args.max_workers
-
-        if args.local_dir_use_symlinks is not None:
-            warnings.warn(
-                "Ignoring --local-dir-use-symlinks. Downloading to a local directory does not use symlinks anymore.",
-                FutureWarning,
-            )
 
     def run(self) -> None:
         show_deprecation_warning("huggingface-cli download", "hf download")
@@ -173,7 +166,6 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
                 revision=self.revision,
                 filename=self.filenames[0],
                 cache_dir=self.cache_dir,
-                resume_download=self.resume_download,
                 force_download=self.force_download,
                 token=self.token,
                 local_dir=self.local_dir,
@@ -194,7 +186,6 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             revision=self.revision,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
-            resume_download=self.resume_download,
             force_download=self.force_download,
             cache_dir=self.cache_dir,
             token=self.token,
