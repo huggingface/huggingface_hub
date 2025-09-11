@@ -234,43 +234,6 @@ HF_HUB_DOWNLOAD_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_DOWNLOAD_TIMEOUT")
 # Allows to add information about the requester in the user-agent (eg. partner name)
 HF_HUB_USER_AGENT_ORIGIN: Optional[str] = os.environ.get("HF_HUB_USER_AGENT_ORIGIN")
 
-# List frameworks that are handled by the InferenceAPI service. Useful to scan endpoints and check which models are
-# deployed and running. Since 95% of the models are using the top 4 frameworks listed below, we scan only those by
-# default. We still keep the full list of supported frameworks in case we want to scan all of them.
-MAIN_INFERENCE_API_FRAMEWORKS = [
-    "diffusers",
-    "sentence-transformers",
-    "text-generation-inference",
-    "transformers",
-]
-
-ALL_INFERENCE_API_FRAMEWORKS = MAIN_INFERENCE_API_FRAMEWORKS + [
-    "adapter-transformers",
-    "allennlp",
-    "asteroid",
-    "bertopic",
-    "doctr",
-    "espnet",
-    "fairseq",
-    "fastai",
-    "fasttext",
-    "flair",
-    "k2",
-    "keras",
-    "mindspore",
-    "nemo",
-    "open_clip",
-    "paddlenlp",
-    "peft",
-    "pyannote-audio",
-    "sklearn",
-    "spacy",
-    "span-marker",
-    "speechbrain",
-    "stanza",
-    "timm",
-]
-
 # If OAuth didn't work after 2 redirects, there's likely a third-party cookie issue in the Space iframe view.
 # In this case, we redirect the user to the non-iframe view.
 OAUTH_MAX_REDIRECTS = 2

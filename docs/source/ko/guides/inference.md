@@ -8,7 +8,6 @@ rendered properly in your Markdown viewer.
 - [추론 API](https://huggingface.co/docs/api-inference/index): Hugging Face의 인프라에서 가속화된 추론을 실행할 수 있는 서비스로 무료로 제공됩니다. 이 서비스는 추론을 시작하고 다양한 모델을 테스트하며 AI 제품의 프로토타입을 만드는 빠른 방법입니다.
 - [추론 엔드포인트](https://huggingface.co/docs/inference-endpoints/index): 모델을 제품 환경에 쉽게 배포할 수 있는 제품입니다. 사용자가 선택한 클라우드 환경에서 완전 관리되는 전용 인프라에서 Hugging Face를 통해 추론이 실행됩니다.
 
-이러한 서비스들은 [`InferenceClient`] 객체를 사용하여 호출할 수 있습니다. 이는 이전의 [`InferenceApi`] 클라이언트를 대체하는 역할을 하며, 작업에 대한 특별한 지원을 추가하고 [추론 API](https://huggingface.co/docs/api-inference/index) 및 [추론 엔드포인트](https://huggingface.co/docs/inference-endpoints/index)에서 추론 작업을 처리합니다. 새 클라이언트로의 마이그레이션에 대한 자세한 내용은 [레거시 InferenceAPI 클라이언트](#legacy-inferenceapi-client) 섹션을 참조하세요.
 
 > [!TIP]
 > [`InferenceClient`]는 API에 HTTP 호출을 수행하는 Python 클라이언트입니다. HTTP 호출을 원하는 툴을 이용하여 직접 사용하려면 (curl, postman 등) [추론 API](https://huggingface.co/docs/api-inference/index) 또는 [추론 엔드포인트](https://huggingface.co/docs/inference-endpoints/index) 문서 페이지를 참조하세요.
@@ -77,35 +76,35 @@ text-to-image 작업을 시작해보겠습니다.
 
 [`InferenceClient`]의 목표는 Hugging Face 모델에서 추론을 실행하기 위한 가장 쉬운 인터페이스를 제공하는 것입니다. 이는 가장 일반적인 작업들을 지원하는 간단한 API를 가지고 있습니다. 현재 지원되는 작업 목록은 다음과 같습니다:
 
-| 도메인 | 작업                           | 지원 여부    | 문서                             |
-|--------|--------------------------------|--------------|------------------------------------|
-| 오디오 | [오디오 분류](https://huggingface.co/tasks/audio-classification)           | ✅ | [`~InferenceClient.audio_classification`] |
-| 오디오 | [오디오 투 오디오](https://huggingface.co/tasks/audio-to-audio)           | ✅ | [`~InferenceClient.audio_to_audio`] |
-| | [자동 음성 인식](https://huggingface.co/tasks/automatic-speech-recognition)   | ✅ | [`~InferenceClient.automatic_speech_recognition`] |
-| | [텍스트 투 스피치](https://huggingface.co/tasks/text-to-speech)                 | ✅ | [`~InferenceClient.text_to_speech`] |
-| 컴퓨터 비전 | [이미지 분류](https://huggingface.co/tasks/image-classification)           | ✅ | [`~InferenceClient.image_classification`] |
-| | [이미지 분할](https://huggingface.co/tasks/image-segmentation)             | ✅ | [`~InferenceClient.image_segmentation`] |
-| | [이미지 투 이미지](https://huggingface.co/tasks/image-to-image)                 | ✅ | [`~InferenceClient.image_to_image`] |
-| | [이미지 투 텍스트](https://huggingface.co/tasks/image-to-text)                  | ✅ | [`~InferenceClient.image_to_text`] |
-| | [객체 탐지](https://huggingface.co/tasks/object-detection)            | ✅ | [`~InferenceClient.object_detection`] |
-| | [텍스트 투 이미지](https://huggingface.co/tasks/text-to-image)                  | ✅ | [`~InferenceClient.text_to_image`] |
-| | [제로샷 이미지 분류](https://huggingface.co/tasks/zero-shot-image-classification)                  | ✅ | [`~InferenceClient.zero_shot_image_classification`] |
-| 멀티모달 | [문서 질의 응답](https://huggingface.co/tasks/document-question-answering) | ✅ | [`~InferenceClient.document_question_answering`] |
-| | [시각적 질의 응답](https://huggingface.co/tasks/visual-question-answering)      | ✅ | [`~InferenceClient.visual_question_answering`] |
-| 자연어 처리 | [대화형](https://huggingface.co/tasks/conversational)                 | ✅ | [`~InferenceClient.conversational`] |
-| | [특성 추출](https://huggingface.co/tasks/feature-extraction)             | ✅ | [`~InferenceClient.feature_extraction`] |
-| | [마스크 채우기](https://huggingface.co/tasks/fill-mask)                      | ✅ | [`~InferenceClient.fill_mask`] |
-| | [질의 응답](https://huggingface.co/tasks/question-answering)             | ✅ | [`~InferenceClient.question_answering`] |
-| | [문장 유사도](https://huggingface.co/tasks/sentence-similarity)            | ✅ | [`~InferenceClient.sentence_similarity`] |
-| | [요약](https://huggingface.co/tasks/summarization)                  | ✅ | [`~InferenceClient.summarization`] |
-| | [테이블 질의 응답](https://huggingface.co/tasks/table-question-answering)       | ✅ | [`~InferenceClient.table_question_answering`] |
-| | [텍스트 분류](https://huggingface.co/tasks/text-classification)            | ✅ | [`~InferenceClient.text_classification`] |
-| | [텍스트 생성](https://huggingface.co/tasks/text-generation)   | ✅ | [`~InferenceClient.text_generation`] |
-| | [토큰 분류](https://huggingface.co/tasks/token-classification)           | ✅ | [`~InferenceClient.token_classification`] |
-| | [번역](https://huggingface.co/tasks/translation)       | ✅ | [`~InferenceClient.translation`] |
-| | [제로샷 분류](https://huggingface.co/tasks/zero-shot-classification)       | ✅ | [`~InferenceClient.zero_shot_classification`] |
-| 타블로 | [타블로 작업 분류](https://huggingface.co/tasks/tabular-classification)         | ✅ | [`~InferenceClient.tabular_classification`] |
-| | [타블로 회귀](https://huggingface.co/tasks/tabular-regression)             | ✅ | [`~InferenceClient.tabular_regression`] |
+| 도메인      | 작업                                                                              | 지원 여부 | 문서                                                |
+| ----------- | --------------------------------------------------------------------------------- | --------- | --------------------------------------------------- |
+| 오디오      | [오디오 분류](https://huggingface.co/tasks/audio-classification)                  | ✅         | [`~InferenceClient.audio_classification`]           |
+| 오디오      | [오디오 투 오디오](https://huggingface.co/tasks/audio-to-audio)                   | ✅         | [`~InferenceClient.audio_to_audio`]                 |
+|             | [자동 음성 인식](https://huggingface.co/tasks/automatic-speech-recognition)       | ✅         | [`~InferenceClient.automatic_speech_recognition`]   |
+|             | [텍스트 투 스피치](https://huggingface.co/tasks/text-to-speech)                   | ✅         | [`~InferenceClient.text_to_speech`]                 |
+| 컴퓨터 비전 | [이미지 분류](https://huggingface.co/tasks/image-classification)                  | ✅         | [`~InferenceClient.image_classification`]           |
+|             | [이미지 분할](https://huggingface.co/tasks/image-segmentation)                    | ✅         | [`~InferenceClient.image_segmentation`]             |
+|             | [이미지 투 이미지](https://huggingface.co/tasks/image-to-image)                   | ✅         | [`~InferenceClient.image_to_image`]                 |
+|             | [이미지 투 텍스트](https://huggingface.co/tasks/image-to-text)                    | ✅         | [`~InferenceClient.image_to_text`]                  |
+|             | [객체 탐지](https://huggingface.co/tasks/object-detection)                        | ✅         | [`~InferenceClient.object_detection`]               |
+|             | [텍스트 투 이미지](https://huggingface.co/tasks/text-to-image)                    | ✅         | [`~InferenceClient.text_to_image`]                  |
+|             | [제로샷 이미지 분류](https://huggingface.co/tasks/zero-shot-image-classification) | ✅         | [`~InferenceClient.zero_shot_image_classification`] |
+| 멀티모달    | [문서 질의 응답](https://huggingface.co/tasks/document-question-answering)        | ✅         | [`~InferenceClient.document_question_answering`]    |
+|             | [시각적 질의 응답](https://huggingface.co/tasks/visual-question-answering)        | ✅         | [`~InferenceClient.visual_question_answering`]      |
+| 자연어 처리 | [대화형](https://huggingface.co/tasks/conversational)                             | ✅         | [`~InferenceClient.conversational`]                 |
+|             | [특성 추출](https://huggingface.co/tasks/feature-extraction)                      | ✅         | [`~InferenceClient.feature_extraction`]             |
+|             | [마스크 채우기](https://huggingface.co/tasks/fill-mask)                           | ✅         | [`~InferenceClient.fill_mask`]                      |
+|             | [질의 응답](https://huggingface.co/tasks/question-answering)                      | ✅         | [`~InferenceClient.question_answering`]             |
+|             | [문장 유사도](https://huggingface.co/tasks/sentence-similarity)                   | ✅         | [`~InferenceClient.sentence_similarity`]            |
+|             | [요약](https://huggingface.co/tasks/summarization)                                | ✅         | [`~InferenceClient.summarization`]                  |
+|             | [테이블 질의 응답](https://huggingface.co/tasks/table-question-answering)         | ✅         | [`~InferenceClient.table_question_answering`]       |
+|             | [텍스트 분류](https://huggingface.co/tasks/text-classification)                   | ✅         | [`~InferenceClient.text_classification`]            |
+|             | [텍스트 생성](https://huggingface.co/tasks/text-generation)                       | ✅         | [`~InferenceClient.text_generation`]                |
+|             | [토큰 분류](https://huggingface.co/tasks/token-classification)                    | ✅         | [`~InferenceClient.token_classification`]           |
+|             | [번역](https://huggingface.co/tasks/translation)                                  | ✅         | [`~InferenceClient.translation`]                    |
+|             | [제로샷 분류](https://huggingface.co/tasks/zero-shot-classification)              | ✅         | [`~InferenceClient.zero_shot_classification`]       |
+| 타블로      | [타블로 작업 분류](https://huggingface.co/tasks/tabular-classification)           | ✅         | [`~InferenceClient.tabular_classification`]         |
+|             | [타블로 회귀](https://huggingface.co/tasks/tabular-regression)                    | ✅         | [`~InferenceClient.tabular_regression`]             |
 
 > [!TIP]
 > 각 작업에 대해 더 자세히 알고 싶거나 사용 방법 및 각 작업에 대한 가장 인기 있는 모델을 알아보려면 [Tasks](https://huggingface.co/tasks) 페이지를 확인하세요.
@@ -174,71 +173,4 @@ pip install --upgrade huggingface_hub[inference]
 >>> client = InferenceClient()
 >>> client.image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
 [{'score': 0.9779096841812134, 'label': 'Blenheim spaniel'}, ...]
-```
-
-## 레거시 InferenceAPI 클라이언트[[legacy-inferenceapi-client]]
-
-[`InferenceClient`]는 레거시 [`InferenceApi`] 클라이언트를 대체하여 작동합니다. 특정 작업에 대한 지원을 제공하고 [추론 API](https://huggingface.co/docs/api-inference/index) 및 [추론 엔드포인트](https://huggingface.co/docs/inference-endpoints/index)에서 추론을 처리합니다.
-
-아래는 [`InferenceApi`]에서 [`InferenceClient`]로 마이그레이션하는 데 도움이 되는 간단한 가이드입니다.
-
-### 초기화[[initialization]]
-
-변경 전:
-
-```python
->>> from huggingface_hub import InferenceApi
->>> inference = InferenceApi(repo_id="bert-base-uncased", token=API_TOKEN)
-```
-
-변경 후:
-
-```python
->>> from huggingface_hub import InferenceClient
->>> inference = InferenceClient(model="bert-base-uncased", token=API_TOKEN)
-```
-
-### 특정 작업에서 실행하기[[run-on-a-specific-task]]
-
-변경 전:
-
-```python
->>> from huggingface_hub import InferenceApi
->>> inference = InferenceApi(repo_id="paraphrase-xlm-r-multilingual-v1", task="feature-extraction")
->>> inference(...)
-```
-
-변경 후:
-
-```python
->>> from huggingface_hub import InferenceClient
->>> inference = InferenceClient()
->>> inference.feature_extraction(..., model="paraphrase-xlm-r-multilingual-v1")
-```
-
-> [!TIP]
-> 위의 방법은 코드를 [`InferenceClient`]에 맞게 조정하는 권장 방법입니다. 이렇게 하면 `feature_extraction`과 같이 작업에 특화된 메소드를 활용할 수 있습니다.
-
-### 사용자 정의 요청 실행[[run-custom-request]]
-
-변경 전:
-
-```python
->>> from huggingface_hub import InferenceApi
->>> inference = InferenceApi(repo_id="bert-base-uncased")
->>> inference(inputs="The goal of life is [MASK].")
-[{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
-```
-
-### 매개변수와 함께 실행하기[[run-with-parameters]]
-
-변경 전:
-
-```python
->>> from huggingface_hub import InferenceApi
->>> inference = InferenceApi(repo_id="typeform/distilbert-base-uncased-mnli")
->>> inputs = "Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"
->>> params = {"candidate_labels":["refund", "legal", "faq"]}
->>> inference(inputs, params)
-{'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
 ```
