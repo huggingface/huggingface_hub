@@ -274,8 +274,8 @@ validated.
 
 [[autodoc]] utils.validate_repo_id
 
-#### smoothly_deprecate_proxies
+#### smoothly_deprecate_legacy_arguments
 
 Not exactly a validator, but ran as well.
 
-[[autodoc]] utils.smoothly_deprecate_proxies
+[[autodoc]] utils.smoothly_deprecate_legacy_arguments

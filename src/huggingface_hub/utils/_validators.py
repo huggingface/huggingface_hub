@@ -48,7 +48,7 @@ def validate_hf_hub_args(fn: CallableT) -> CallableT:
     Validators:
         - [`~utils.validate_repo_id`]: `repo_id` must be `"repo_name"`
           or `"namespace/repo_name"`. Namespace is a username or an organization.
-        - [`~utils.smoothly_deprecate_proxies`]: Ignore `proxies` when downloading files (should be set globally).
+        - [`~utils.smoothly_deprecate_legacy_arguments`]: Ignore `proxies` when downloading files (should be set globally).
 
     Example:
     ```py
