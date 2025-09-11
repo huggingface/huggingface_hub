@@ -112,20 +112,20 @@ WEBHOOK_PAYLOAD_WITH_UPDATED_REFS = {
 
 @requires("gradio")
 class TestWebhookPayload:
-    def test_deserialize_payload_example_with_comment() -> None:
+    def test_deserialize_payload_example_with_comment(self) -> None:
         """Confirm that the test stub can actually be deserialized."""
         payload = WebhookPayload.model_validate(WEBHOOK_PAYLOAD_CREATE_DISCUSSION)
         assert payload.event.scope == WEBHOOK_PAYLOAD_CREATE_DISCUSSION["event"]["scope"]
         assert payload.comment is not None
         assert payload.comment.content == "Add co2 emissions information to the model card"
 
-    def test_deserialize_payload_example_without_comment() -> None:
+    def test_deserialize_payload_example_without_comment(self) -> None:
         """Confirm that the test stub can actually be deserialized."""
         payload = WebhookPayload.model_validate(WEBHOOK_PAYLOAD_UPDATE_DISCUSSION)
         assert payload.event.scope == WEBHOOK_PAYLOAD_UPDATE_DISCUSSION["event"]["scope"]
         assert payload.comment is None
 
-    def test_deserialize_payload_example_with_updated_refs() -> None:
+    def test_deserialize_payload_example_with_updated_refs(self) -> None:
         """Confirm that the test stub can actually be deserialized."""
         payload = WebhookPayload.model_validate(WEBHOOK_PAYLOAD_WITH_UPDATED_REFS)
         assert payload.updatedRefs is not None
