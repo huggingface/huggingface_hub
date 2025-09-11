@@ -1808,9 +1808,6 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
-    @_deprecate_arguments(
-        version="1.0", deprecated_args=["language", "library", "task", "tags"], custom_message="Use `filter` instead."
-    )
     @validate_hf_hub_args
     def list_models(
         self,
@@ -1837,11 +1834,6 @@ class HfApi:
         cardData: bool = False,
         fetch_config: bool = False,
         token: Union[bool, str, None] = None,
-        # Deprecated arguments - use `filter` instead
-        language: Optional[Union[str, list[str]]] = None,
-        library: Optional[Union[str, list[str]]] = None,
-        tags: Optional[Union[str, list[str]]] = None,
-        task: Optional[Union[str, list[str]]] = None,
     ) -> Iterable[ModelInfo]:
         """
         List models hosted on the Huggingface Hub, given some filters.
@@ -1865,20 +1857,12 @@ class HfApi:
             inference_provider (`Literal["all"]` or `str`, *optional*):
                 A string to filter models on the Hub that are served by a specific provider.
                 Pass `"all"` to get all models served by at least one provider.
-            library (`str` or `List`, *optional*):
-                Deprecated. Pass a library name in `filter` to filter models by library.
-            language (`str` or `List`, *optional*):
-                Deprecated. Pass a language in `filter` to filter models by language.
             model_name (`str`, *optional*):
                 A string that contain complete or partial names for models on the
                 Hub, such as "bert" or "bert-base-cased"
-            task (`str` or `List`, *optional*):
-                Deprecated. Pass a task in `filter` to filter models by task.
             trained_dataset (`str` or `List`, *optional*):
                 A string tag or a list of string tags of the trained dataset for a
                 model on the Hub.
-            tags (`str` or `List`, *optional*):
-                Deprecated. Pass tags in `filter` to filter models by tags.
             search (`str`, *optional*):
                 A string that will be contained in the returned model ids.
             pipeline_tag (`str`, *optional*):
@@ -1960,21 +1944,9 @@ class HfApi:
         filter_list: list[str] = []
         if filter:
             filter_list.extend([filter] if isinstance(filter, str) else filter)
-        if library:
-            filter_list.extend([library] if isinstance(library, str) else library)
-        if task:
-            filter_list.extend([task] if isinstance(task, str) else task)
         if trained_dataset:
-            if isinstance(trained_dataset, str):
-                trained_dataset = [trained_dataset]
-            for dataset in trained_dataset:
-                if not dataset.startswith("dataset:"):
-                    dataset = f"dataset:{dataset}"
-                filter_list.append(dataset)
-        if language:
-            filter_list.extend([language] if isinstance(language, str) else language)
-        if tags:
-            filter_list.extend([tags] if isinstance(tags, str) else tags)
+            datasets = [trained_dataset] if isinstance(trained_dataset, str) else trained_dataset
+            filter_list.extend(f"dataset:{d}" if not d.startswith("dataset:") else d for d in datasets)
         if len(filter_list) > 0:
             params["filter"] = filter_list
 
