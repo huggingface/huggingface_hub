@@ -806,8 +806,6 @@ def hf_hub_download(
     local_files_only: bool = False,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
-    resume_download: Optional[bool] = None,
-    force_filename: Optional[str] = None,
     local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
 ) -> str:
     """Download a given file if it's not already present in the local cache.
@@ -909,20 +907,6 @@ def hf_hub_download(
     if constants.HF_HUB_ETAG_TIMEOUT != constants.DEFAULT_ETAG_TIMEOUT:
         # Respect environment variable above user value
         etag_timeout = constants.HF_HUB_ETAG_TIMEOUT
-
-    if force_filename is not None:
-        warnings.warn(
-            "The `force_filename` parameter is deprecated as a new caching system, "
-            "which keeps the filenames as they are on the Hub, is now in place.",
-            FutureWarning,
-        )
-    if resume_download is not None:
-        warnings.warn(
-            "`resume_download` is deprecated and will be removed in version 1.0.0. "
-            "Downloads always resume when possible. "
-            "If you want to force a new download, use `force_download=True`.",
-            FutureWarning,
-        )
 
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE

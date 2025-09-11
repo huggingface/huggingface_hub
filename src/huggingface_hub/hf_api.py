@@ -5329,8 +5329,6 @@ class HfApi:
         token: Union[bool, str, None] = None,
         local_files_only: bool = False,
         # Deprecated args
-        resume_download: Optional[bool] = None,
-        force_filename: Optional[str] = None,
         local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
     ) -> str:
         """Download a given file if it's not already present in the local cache.
@@ -5440,9 +5438,7 @@ class HfApi:
             local_dir_use_symlinks=local_dir_use_symlinks,
             user_agent=self.user_agent,
             force_download=force_download,
-            force_filename=force_filename,
             etag_timeout=etag_timeout,
-            resume_download=resume_download,
             token=token,
             headers=self.headers,
             local_files_only=local_files_only,
@@ -5467,7 +5463,6 @@ class HfApi:
         tqdm_class: Optional[type[base_tqdm]] = None,
         # Deprecated args
         local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
-        resume_download: Optional[bool] = None,
     ) -> str:
         """Download repo files.
 
@@ -5558,7 +5553,6 @@ class HfApi:
             library_version=self.library_version,
             user_agent=self.user_agent,
             etag_timeout=etag_timeout,
-            resume_download=resume_download,
             force_download=force_download,
             token=token,
             local_files_only=local_files_only,

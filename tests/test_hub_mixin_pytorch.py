@@ -209,7 +209,6 @@ class PytorchHubMixinTest(unittest.TestCase):
             revision=None,
             cache_dir=None,
             force_download=False,
-            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -237,7 +236,6 @@ class PytorchHubMixinTest(unittest.TestCase):
             revision=None,
             cache_dir=None,
             force_download=False,
-            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -247,7 +245,6 @@ class PytorchHubMixinTest(unittest.TestCase):
             revision=None,
             cache_dir=None,
             force_download=False,
-            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -263,7 +260,6 @@ class PytorchHubMixinTest(unittest.TestCase):
             revision="123456789",  # Revision is passed correctly!
             cache_dir=None,
             force_download=False,
-            resume_download=None,
             local_files_only=False,
             token=None,
         )

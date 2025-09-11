@@ -133,7 +133,6 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         self.cache_dir: Optional[str] = args.cache_dir
         self.local_dir: Optional[str] = args.local_dir
         self.force_download: bool = args.force_download
-        self.resume_download: Optional[bool] = args.resume_download or None
         self.quiet: bool = args.quiet
         self.max_workers: int = args.max_workers
 
@@ -173,7 +172,6 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
                 revision=self.revision,
                 filename=self.filenames[0],
                 cache_dir=self.cache_dir,
-                resume_download=self.resume_download,
                 force_download=self.force_download,
                 token=self.token,
                 local_dir=self.local_dir,
@@ -194,7 +192,6 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             revision=self.revision,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
-            resume_download=self.resume_download,
             force_download=self.force_download,
             cache_dir=self.cache_dir,
             token=self.token,

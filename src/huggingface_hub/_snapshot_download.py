@@ -48,7 +48,6 @@ def snapshot_download(
     endpoint: Optional[str] = None,
     # Deprecated args
     local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
-    resume_download: Optional[bool] = None,
 ) -> str:
     """Download repo files.
 
@@ -308,7 +307,6 @@ def snapshot_download(
             library_version=library_version,
             user_agent=user_agent,
             etag_timeout=etag_timeout,
-            resume_download=resume_download,
             force_download=force_download,
             token=token,
             headers=headers,

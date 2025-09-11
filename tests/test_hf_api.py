@@ -3429,9 +3429,7 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             local_dir=None,
             local_dir_use_symlinks="auto",
             force_download=False,
-            force_filename=None,
             etag_timeout=10,
-            resume_download=None,
             local_files_only=False,
             headers=None,
         )
@@ -3455,7 +3453,6 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             local_dir=None,
             local_dir_use_symlinks="auto",
             etag_timeout=10,
-            resume_download=None,
             force_download=False,
             local_files_only=False,
             allow_patterns=None,

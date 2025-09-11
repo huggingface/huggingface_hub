@@ -126,7 +126,6 @@ class DummyModelThatIsAlsoADataclass(ModelHubMixin):
         revision: Optional[str],
         cache_dir: Optional[Union[str, Path]],
         force_download: bool,
-        resume_download: bool,
         local_files_only: bool,
         token: Optional[Union[str, bool]],
         **model_kwargs,
@@ -340,7 +339,6 @@ class HubMixinTest(unittest.TestCase):
             revision="123456789",  # Revision is passed correctly!
             cache_dir=None,
             force_download=False,
-            resume_download=None,
             local_files_only=False,
             token=None,
         )
