@@ -19,8 +19,6 @@ FAKE_TOKEN_HEADER = {
 NO_AUTH_HEADER = {"user-agent": DEFAULT_USER_AGENT}
 
 
-# @patch("huggingface_hub.utils._headers.HfFolder")
-# @handle_injection
 class TestAuthHeadersUtil(unittest.TestCase):
     def test_use_auth_token_str(self) -> None:
         self.assertEqual(build_hf_headers(use_auth_token=FAKE_TOKEN), FAKE_TOKEN_HEADER)
