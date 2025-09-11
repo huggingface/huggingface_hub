@@ -102,8 +102,8 @@ class TestXetUpload:
                 path_in_repo=filename_in_repo,
                 repo_id=repo_id,
             )
+        assert return_val.startswith(f"{api.endpoint}/{repo_id}/commit")
 
-        assert return_val == f"{api.endpoint}/{repo_id}/blob/main/{filename_in_repo}"
         # Download and verify content
         downloaded_file = hf_hub_download(repo_id=repo_id, filename=filename_in_repo, cache_dir=tmp_path)
         with open(downloaded_file, "rb") as f:
@@ -193,7 +193,7 @@ class TestXetUpload:
                 repo_id=repo_id,
             )
 
-        assert return_val == f"{api.endpoint}/{repo_id}/tree/main/{folder_in_repo}"
+        assert return_val.startswith(f"{api.endpoint}/{repo_id}/commit")
         files_in_repo = set(api.list_repo_files(repo_id=repo_id))
         files = {
             f"{folder_in_repo}/text_file.txt",
@@ -220,7 +220,7 @@ class TestXetUpload:
                 create_pr=True,
             )
 
-        assert return_val == f"{api.endpoint}/{repo_id}/tree/refs%2Fpr%2F1/{folder_in_repo}"
+        assert return_val.startswith(f"{api.endpoint}/{repo_id}/commit")
 
         for rpath in ["text_file.txt", "nested/nested_binary.safetensors"]:
             local_path = self.folder_path / rpath
