@@ -471,9 +471,6 @@ _SUBMOD_ATTRS = {
     "inference._mcp.mcp_client": [
         "MCPClient",
     ],
-    "inference_api": [
-        "InferenceApi",
-    ],
     "keras_mixin": [
         "KerasModelHubMixin",
         "from_pretrained_keras",
@@ -529,7 +526,6 @@ _SUBMOD_ATTRS = {
         "CorruptedCacheException",
         "DeleteCacheStrategy",
         "HFCacheInfo",
-        "HfFolder",
         "HfHubAsyncTransport",
         "HfHubTransport",
         "cached_assets_path",
@@ -662,7 +658,6 @@ __all__ = [
     "HfFileSystemFile",
     "HfFileSystemResolvedPath",
     "HfFileSystemStreamFile",
-    "HfFolder",
     "HfHubAsyncTransport",
     "HfHubTransport",
     "ImageClassificationInput",
@@ -686,7 +681,6 @@ __all__ = [
     "ImageToVideoOutput",
     "ImageToVideoParameters",
     "ImageToVideoTargetSize",
-    "InferenceApi",
     "InferenceClient",
     "InferenceEndpoint",
     "InferenceEndpointError",
@@ -1501,7 +1495,6 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .inference._mcp.agent import Agent  # noqa: F401
     from .inference._mcp.mcp_client import MCPClient  # noqa: F401
-    from .inference_api import InferenceApi  # noqa: F401
     from .keras_mixin import (
         KerasModelHubMixin,  # noqa: F401
         from_pretrained_keras,  # noqa: F401
@@ -1555,7 +1548,6 @@ if TYPE_CHECKING:  # pragma: no cover
         CorruptedCacheException,  # noqa: F401
         DeleteCacheStrategy,  # noqa: F401
         HFCacheInfo,  # noqa: F401
-        HfFolder,  # noqa: F401
         HfHubAsyncTransport,  # noqa: F401
         HfHubTransport,  # noqa: F401
         cached_assets_path,  # noqa: F401
