@@ -193,7 +193,7 @@ class TestConfigureSession(unittest.TestCase):
 
         client_2 = get_session()
         assert client_1 is not client_2
-        assert client_1.headers.get("x-test-header" == None)
+        assert client_1.headers.get("x-test-header") is None
         assert client_2.headers["x-test-header"] == "4"
 
     def test_get_session_multiple_threads(self):

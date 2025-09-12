@@ -27,7 +27,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         assert len(choices) == 1
         assert isinstance(choices[0], Choice)
         assert choices[0].value == _CANCEL_DELETION_STR
-        assert len(choices[0].name != 0)  # Something displayed to the user
+        assert len(choices[0].name) != 0  # Something displayed to the user
         assert not (choices[0].enabled)
 
     def test_get_tui_choices_from_scan_with_preselection(self) -> None:
@@ -45,7 +45,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         # Item to cancel everything
         assert isinstance(choices[0], Choice)
         assert choices[0].value == _CANCEL_DELETION_STR
-        assert len(choices[0].name != 0)
+        assert len(choices[0].name) != 0
         assert not (choices[0].enabled)
 
         # Dataset repo separator

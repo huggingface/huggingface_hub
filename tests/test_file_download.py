@@ -381,17 +381,11 @@ class CachedDownloadTests(unittest.TestCase):
         assert filepath == new_file_path
 
         # If file is not cached, returns None
-        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json" == None)
+        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json") is None
         # Same for uncached revisions
-        self.assertIsNone(
-            try_to_load_from_cache(
-                DUMMY_MODEL_ID,
-                filename=constants.CONFIG_NAME,
-                revision="aaa",
-            )
-        )
+        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision="aaa") is None
         # Same for uncached models
-        assert try_to_load_from_cache("bert-base", filename=constants.CONFIG_NAME is None)
+        assert try_to_load_from_cache("bert-base", filename=constants.CONFIG_NAME) is None
 
     def test_try_to_load_from_cache_specific_pr_revision_exists(self):
         # Make sure the file is cached
@@ -401,11 +395,11 @@ class CachedDownloadTests(unittest.TestCase):
         assert file_path == new_file_path
 
         # If file is not cached, returns None
-        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json", revision="refs/pr/1" == None)
+        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json", revision="refs/pr/1") is None
 
         # If revision does not exist, returns None
-        self.assertIsNone(
-            try_to_load_from_cache(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision="does-not-exist")
+        assert (
+            try_to_load_from_cache(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision="does-not-exist") is None
         )
 
     def test_try_to_load_from_cache_no_exist(self):
@@ -420,7 +414,7 @@ class CachedDownloadTests(unittest.TestCase):
         assert new_file_path == _CACHED_NO_EXIST
 
         # If file non-existence is not cached, returns None
-        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy2" == None)
+        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy2") is None
 
     def test_try_to_load_from_cache_specific_commit_id_exist(self):
         """Regression test for #1306.

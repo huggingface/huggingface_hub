@@ -752,13 +752,13 @@ class RepoCardTest(TestCaseWithHfApi):
 
 class TestRegexYamlBlock(unittest.TestCase):
     def test_match_with_leading_whitespace(self):
-        assert REGEX_YAML_BLOCK.search("   \n---\nmetadata: 1\n---" != None)
+        assert REGEX_YAML_BLOCK.search("   \n---\nmetadata: 1\n---") is not None
 
     def test_match_without_leading_whitespace(self):
-        assert REGEX_YAML_BLOCK.search("---\nmetadata: 1\n---" != None)
+        assert REGEX_YAML_BLOCK.search("---\nmetadata: 1\n---") is not None
 
     def test_does_not_match_with_leading_text(self):
-        assert REGEX_YAML_BLOCK.search("something\n---\nmetadata: 1\n---" == None)
+        assert REGEX_YAML_BLOCK.search("something\n---\nmetadata: 1\n---") is None
 
 
 class ModelCardTest(TestCaseWithHfApi):

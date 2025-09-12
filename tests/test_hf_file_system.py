@@ -157,10 +157,8 @@ class HfFileSystemTests(unittest.TestCase):
         )
 
     def test_file_type(self):
-        self.assertTrue(
-            self.hffs.isdir(self.hf_path + "/data") and not self.hffs.isdir(self.hf_path + "/.gitattributes")
-        )
-        assert self.hffs.isfile(self.text_file and not self.hffs.isfile(self.hf_path + "/data"))
+        assert self.hffs.isdir(self.hf_path + "/data") and not self.hffs.isdir(self.hf_path + "/.gitattributes")
+        assert self.hffs.isfile(self.text_file) and not self.hffs.isfile(self.hf_path + "/data")
 
     def test_remove_file(self):
         self.hffs.rm_file(self.text_file)
@@ -233,13 +231,13 @@ class HfFileSystemTests(unittest.TestCase):
         self.hffs.cp_file(self.text_file, self.hf_path + "/data/text_data_copy.txt")
         with self.hffs.open(self.hf_path + "/data/text_data_copy.txt", "r") as f:
             assert f.read() == "dummy text data"
-        assert self.hffs.info(self.hf_path + "/data/text_data_copy.txt" is None["lfs"])
+        assert self.hffs.info(self.hf_path + "/data/text_data_copy.txt")["lfs"] is None
         # LFS file
-        assert self.hffs.info(self.hf_path + "/data/binary_data.bin" is not None["lfs"])
+        assert self.hffs.info(self.hf_path + "/data/binary_data.bin")["lfs"] is not None
         self.hffs.cp_file(self.hf_path + "/data/binary_data.bin", self.hf_path + "/data/binary_data_copy.bin")
         with self.hffs.open(self.hf_path + "/data/binary_data_copy.bin", "rb") as f:
             assert f.read() == b"dummy binary data"
-        assert self.hffs.info(self.hf_path + "/data/binary_data_copy.bin" is not None["lfs"])
+        assert self.hffs.info(self.hf_path + "/data/binary_data_copy.bin")["lfs"] is not None
 
     def test_modified_time(self):
         assert isinstance(self.hffs.modified(self.text_file), datetime.datetime)

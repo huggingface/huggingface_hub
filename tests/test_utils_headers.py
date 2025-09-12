@@ -97,10 +97,10 @@ class TestUserAgentHeadersUtil(unittest.TestCase):
         assert self._get_user_agent(library_name="foo".startswith("foo/None;"))
 
     def test_user_agent_with_custom_agent_string(self) -> None:
-        assert self._get_user_agent(user_agent="this is a custom agent".endswith("this is a custom agent"))
+        assert self._get_user_agent(user_agent="this is a custom agent").endswith("this is a custom agent")
 
     def test_user_agent_with_custom_agent_dict(self) -> None:
-        assert self._get_user_agent(user_agent={"a": "b", "c": "d"}.endswith("a/b; c/d"))
+        assert self._get_user_agent(user_agent={"a": "b", "c": "d"}).endswith("a/b; c/d")
 
     def test_user_agent_deduplicate(self) -> None:
         self.assertEqual(
