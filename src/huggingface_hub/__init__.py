@@ -496,7 +496,6 @@ _SUBMOD_ATTRS = {
         "save_torch_model",
         "save_torch_state_dict",
         "split_state_dict_into_shards_factory",
-        "split_tf_state_dict_into_shards",
         "split_torch_state_dict_into_shards",
     ],
     "serialization._dduf": [
@@ -950,7 +949,6 @@ __all__ = [
     "snapshot_download",
     "space_info",
     "split_state_dict_into_shards_factory",
-    "split_tf_state_dict_into_shards",
     "split_torch_state_dict_into_shards",
     "super_squash_history",
     "suspend_scheduled_job",
@@ -1502,7 +1500,6 @@ if TYPE_CHECKING:  # pragma: no cover
         save_torch_model,  # noqa: F401
         save_torch_state_dict,  # noqa: F401
         split_state_dict_into_shards_factory,  # noqa: F401
-        split_tf_state_dict_into_shards,  # noqa: F401
         split_torch_state_dict_into_shards,  # noqa: F401
     )
     from .serialization._dduf import (

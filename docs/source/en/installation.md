@@ -46,17 +46,13 @@ Some dependencies of `huggingface_hub` are [optional](https://setuptools.pypa.io
 
 You can install optional dependencies via `pip`:
 ```bash
-# Install dependencies for tensorflow-specific features
-# /!\ Warning: this is not equivalent to `pip install tensorflow`
-pip install 'huggingface_hub[tensorflow]'
-
 # Install dependencies for both torch-specific and CLI-specific features.
 pip install 'huggingface_hub[cli,torch]'
 ```
 
 Here is the list of optional dependencies in `huggingface_hub`:
 - `cli`: provide a more convenient CLI interface for `huggingface_hub`.
-- `fastai`, `torch`, `tensorflow`: dependencies to run framework-specific features.
+- `fastai`, `torch`: dependencies to run framework-specific features.
 - `dev`: dependencies to contribute to the lib. Includes `testing` (to run tests), `typing` (to run type checker) and `quality` (to run linters).
 
 

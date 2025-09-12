@@ -21,15 +21,9 @@ from huggingface_hub.errors import LocalTokenNotFoundError
 from .. import constants
 from ._auth import get_token
 from ._runtime import (
-    get_fastai_version,
-    get_fastcore_version,
     get_hf_hub_version,
     get_python_version,
-    get_tf_version,
     get_torch_version,
-    is_fastai_available,
-    is_fastcore_available,
-    is_tf_available,
     is_torch_available,
 )
 from ._validators import validate_hf_hub_args
@@ -56,8 +50,7 @@ def build_hf_headers(
     `None` or token is an organization token (starting with `"api_org***"`).
 
     In addition to the auth header, a user-agent is added to provide information about
-    the installed packages (versions of python, huggingface_hub, torch, tensorflow,
-    fastai and fastcore).
+    the installed packages (versions of python, huggingface_hub, torch).
 
     Args:
         token (`str`, `bool`, *optional*):
@@ -192,12 +185,6 @@ def _http_user_agent(
     if not constants.HF_HUB_DISABLE_TELEMETRY:
         if is_torch_available():
             ua += f"; torch/{get_torch_version()}"
-        if is_tf_available():
-            ua += f"; tensorflow/{get_tf_version()}"
-        if is_fastai_available():
-            ua += f"; fastai/{get_fastai_version()}"
-        if is_fastcore_available():
-            ua += f"; fastcore/{get_fastcore_version()}"
 
     if isinstance(user_agent, dict):
         ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())

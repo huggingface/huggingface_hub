@@ -54,16 +54,6 @@ extras["fastai"] = [
     "fastcore>=1.3.27",
 ]
 
-extras["tensorflow"] = [
-    "tensorflow",
-    "pydot",
-    "graphviz",
-]
-
-extras["tensorflow-testing"] = [
-    "tensorflow",
-]
-
 extras["hf_xet"] = ["hf-xet>=1.1.2,<2.0.0"]
 
 extras["mcp"] = [
