@@ -53,7 +53,7 @@ class TestCommitScheduler(unittest.TestCase):
         file_path = self.cache_dir / "file.txt"
         file_path.write_text("something")
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             CommitScheduler(folder_path=file_path, repo_id=self.repo_name, hf_api=self.api)
 
     def test_missing_folder_is_created(self) -> None:
@@ -219,7 +219,7 @@ class TestPartialFileIO(unittest.TestCase):
         httpx tries to use it to check file size which we don't want for PartialFileIO.
         """
         file = PartialFileIO(self.file_path, size_limit=5)
-        with self.assertRaises(AttributeError):
+        with pytest.raises(AttributeError):
             file.fileno()
 
     def test_partial_file_seek_and_tell(self) -> None:
@@ -246,10 +246,10 @@ class TestPartialFileIO(unittest.TestCase):
         """Test `PartialFileIO` only implements a subset of the `io` interface. This is on-purpose to avoid misuse."""
         file = PartialFileIO(self.file_path, size_limit=5)
 
-        with self.assertRaises(NotImplementedError):
+        with pytest.raises(NotImplementedError):
             file.readline()
 
-        with self.assertRaises(NotImplementedError):
+        with pytest.raises(NotImplementedError):
             file.write(b"123")
 
     def test_append_to_file_then_read(self) -> None:

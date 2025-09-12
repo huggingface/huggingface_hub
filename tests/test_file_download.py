@@ -137,8 +137,8 @@ class StagingDownloadTests(unittest.TestCase):
 
         # Cannot download file as repo is gated
         with SoftTemporaryDirectory() as tmpdir:
-            with self.assertRaisesRegex(
-                GatedRepoError, "Access to model .* is restricted and you are not in the authorized list"
+            with pytest.raises(
+                GatedRepoError, match="Access to model .* is restricted and you are not in the authorized list"
             ):
                 hf_hub_download(
                     repo_id=repo_url.repo_id, filename=".gitattributes", token=OTHER_TOKEN, cache_dir=tmpdir
@@ -284,7 +284,7 @@ class CachedDownloadTests(unittest.TestCase):
         See https://github.com/huggingface/huggingface_hub/issues/1305.
         """
         with SoftTemporaryDirectory() as cache_dir:
-            with self.assertRaises(LocalEntryNotFoundError):
+            with pytest.raises(LocalEntryNotFoundError):
                 hf_hub_download(
                     DUMMY_MODEL_ID,
                     filename=constants.CONFIG_NAME,
@@ -400,7 +400,7 @@ class CachedDownloadTests(unittest.TestCase):
 
     def test_try_to_load_from_cache_no_exist(self):
         # Make sure the file is cached
-        with self.assertRaises(EntryNotFoundError):
+        with pytest.raises(EntryNotFoundError):
             _ = hf_hub_download(DUMMY_MODEL_ID, filename="dummy")
 
         new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy")
@@ -442,7 +442,7 @@ class CachedDownloadTests(unittest.TestCase):
         with SoftTemporaryDirectory() as cache_dir:
             # Cache file from specific commit id (no "refs/"" folder)
             commit_id = HfApi().model_info(DUMMY_MODEL_ID).sha
-            with self.assertRaises(EntryNotFoundError):
+            with pytest.raises(EntryNotFoundError):
                 hf_hub_download(
                     DUMMY_MODEL_ID,
                     filename="missing_file",
@@ -503,7 +503,7 @@ class CachedDownloadTests(unittest.TestCase):
                 )
 
             with patch("huggingface_hub.file_download.get_hf_file_metadata", _mocked_hf_file_metadata):
-                with self.assertRaises(EnvironmentError):
+                with pytest.raises(EnvironmentError):
                     hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
 
     def test_file_consistency_check_fails_LFS_file(self):
@@ -525,7 +525,7 @@ class CachedDownloadTests(unittest.TestCase):
                 )
 
             with patch("huggingface_hub.file_download.get_hf_file_metadata", _mocked_hf_file_metadata):
-                with self.assertRaises(EnvironmentError):
+                with pytest.raises(EnvironmentError):
                     hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=cache_dir)
 
     def test_hf_hub_download_when_tmp_file_is_complete(self):
@@ -687,7 +687,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
 
     def test_local_files_only_and_file_missing(self):
         # must raise
-        with self.assertRaises(LocalEntryNotFoundError):
+        with pytest.raises(LocalEntryNotFoundError):
             self.api.hf_hub_download(
                 self.repo_id, filename=self.file_name, local_dir=self.local_dir, local_files_only=True
             )
@@ -1076,7 +1076,7 @@ class CreateSymlinkTest(unittest.TestCase):
                 return True
 
             mock_are_symlinks_supported.side_effect = _are_symlinks_supported
-            with self.assertRaises(FileExistsError):
+            with pytest.raises(FileExistsError):
                 _create_symlink(src, dst)
 
     def test_create_symlink_relative_src(self) -> None:
@@ -1206,9 +1206,9 @@ class TestExtraLargeFileDownloadPaths(unittest.TestCase):
     @patch("huggingface_hub.file_download.constants.HF_HUB_DISABLE_XET", True)
     def test_large_file_http_path_error(self):
         with SoftTemporaryDirectory() as cache_dir:
-            with self.assertRaises(
+            with pytest.raises(
                 ValueError,
-                msg="The file is too large to be downloaded using the regular download method. Use `hf_transfer` or `xet_get` instead. Try `pip install hf_transfer` or `pip install hf_xet`.",
+                match="The file is too large to be downloaded using the regular download method. Use `hf_transfer` or `xet_get` instead. Try `pip install hf_transfer` or `pip install hf_xet`.",
             ):
                 hf_hub_download(
                     DUMMY_EXTRA_LARGE_FILE_MODEL_ID,
