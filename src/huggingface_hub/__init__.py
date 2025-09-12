@@ -488,7 +488,6 @@ _SUBMOD_ATTRS = {
     ],
     "serialization": [
         "StateDictSplit",
-        "get_tf_storage_size",
         "get_torch_storage_id",
         "get_torch_storage_size",
         "load_state_dict_from_file",
@@ -496,7 +495,6 @@ _SUBMOD_ATTRS = {
         "save_torch_model",
         "save_torch_state_dict",
         "split_state_dict_into_shards_factory",
-        "split_tf_state_dict_into_shards",
         "split_torch_state_dict_into_shards",
     ],
     "serialization._dduf": [
@@ -869,7 +867,6 @@ __all__ = [
     "get_session",
     "get_space_runtime",
     "get_space_variables",
-    "get_tf_storage_size",
     "get_token",
     "get_torch_storage_id",
     "get_torch_storage_size",
@@ -950,7 +947,6 @@ __all__ = [
     "snapshot_download",
     "space_info",
     "split_state_dict_into_shards_factory",
-    "split_tf_state_dict_into_shards",
     "split_torch_state_dict_into_shards",
     "super_squash_history",
     "suspend_scheduled_job",
@@ -1494,7 +1490,6 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .serialization import (
         StateDictSplit,  # noqa: F401
-        get_tf_storage_size,  # noqa: F401
         get_torch_storage_id,  # noqa: F401
         get_torch_storage_size,  # noqa: F401
         load_state_dict_from_file,  # noqa: F401
@@ -1502,7 +1497,6 @@ if TYPE_CHECKING:  # pragma: no cover
         save_torch_model,  # noqa: F401
         save_torch_state_dict,  # noqa: F401
         split_state_dict_into_shards_factory,  # noqa: F401
-        split_tf_state_dict_into_shards,  # noqa: F401
         split_torch_state_dict_into_shards,  # noqa: F401
     )
     from .serialization._dduf import (
