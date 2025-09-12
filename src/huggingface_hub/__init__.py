@@ -516,7 +516,7 @@ _SUBMOD_ATTRS = {
         "HfHubAsyncTransport",
         "HfHubTransport",
         "cached_assets_path",
-        "close_client",
+        "close_session",
         "dump_environment_info",
         "get_async_session",
         "get_session",
@@ -815,7 +815,7 @@ __all__ = [
     "cancel_access_request",
     "cancel_job",
     "change_discussion_status",
-    "close_client",
+    "close_session",
     "comment_discussion",
     "create_branch",
     "create_collection",
@@ -1518,7 +1518,7 @@ if TYPE_CHECKING:  # pragma: no cover
         HfHubAsyncTransport,  # noqa: F401
         HfHubTransport,  # noqa: F401
         cached_assets_path,  # noqa: F401
-        close_client,  # noqa: F401
+        close_session,  # noqa: F401
         dump_environment_info,  # noqa: F401
         get_async_session,  # noqa: F401
         get_session,  # noqa: F401

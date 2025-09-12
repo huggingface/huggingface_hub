@@ -174,7 +174,7 @@ def set_client_factory(client_factory: CLIENT_FACTORY_T) -> None:
     """
     global _GLOBAL_CLIENT_FACTORY
     with _CLIENT_LOCK:
-        close_client()
+        close_session()
         _GLOBAL_CLIENT_FACTORY = client_factory
 
 
@@ -228,9 +228,9 @@ def get_async_session() -> httpx.AsyncClient:
     return _GLOBAL_ASYNC_CLIENT_FACTORY()
 
 
-def close_client() -> None:
+def close_session() -> None:
     """
-    Close the global httpx.Client used by `huggingface_hub`.
+    Close the global `httpx.Client` used by `huggingface_hub`.
 
     If a Client is closed, it will be recreated on the next call to [`get_client`].
 
@@ -250,7 +250,7 @@ def close_client() -> None:
             logger.warning(f"Error closing client: {e}")
 
 
-atexit.register(close_client)
+atexit.register(close_session)
 
 
 def _http_backoff_base(
@@ -325,7 +325,7 @@ def _http_backoff_base(
             logger.warning(f"'{err}' thrown while requesting {method} {url}")
 
             if isinstance(err, httpx.ConnectError):
-                close_client()  # In case of SSLError it's best to close the shared httpx.Client objects
+                close_session()  # In case of SSLError it's best to close the shared httpx.Client objects
 
             if nb_tries > max_retries:
                 raise err
