@@ -21,7 +21,7 @@ NO_AUTH_HEADER = {"user-agent": DEFAULT_USER_AGENT}
 
 class TestAuthHeadersUtil(unittest.TestCase):
     def test_token_str(self) -> None:
-        self.assertEqual(build_hf_headers(token=FAKE_TOKEN), FAKE_TOKEN_HEADER)
+        assert build_hf_headers(token=FAKE_TOKEN) == FAKE_TOKEN_HEADER
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=None)
     def test_token_true_no_cached_token(self, mock_get_token: Mock) -> None:
@@ -30,26 +30,26 @@ class TestAuthHeadersUtil(unittest.TestCase):
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=FAKE_TOKEN)
     def test_token_true_has_cached_token(self, mock_get_token: Mock) -> None:
-        self.assertEqual(build_hf_headers(token=True), FAKE_TOKEN_HEADER)
+        assert build_hf_headers(token=True) == FAKE_TOKEN_HEADER
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=FAKE_TOKEN)
     def test_token_false(self, mock_get_token: Mock) -> None:
-        self.assertEqual(build_hf_headers(token=False), NO_AUTH_HEADER)
+        assert build_hf_headers(token=False) == NO_AUTH_HEADER
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=None)
     def test_token_none_no_cached_token(self, mock_get_token: Mock) -> None:
-        self.assertEqual(build_hf_headers(), NO_AUTH_HEADER)
+        assert build_hf_headers() == NO_AUTH_HEADER
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=FAKE_TOKEN)
     def test_token_none_has_cached_token(self, mock_get_token: Mock) -> None:
-        self.assertEqual(build_hf_headers(), FAKE_TOKEN_HEADER)
+        assert build_hf_headers() == FAKE_TOKEN_HEADER
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=FAKE_TOKEN)
     def test_implicit_use_disabled(self, mock_get_token: Mock) -> None:
         with patch(  # not as decorator to avoid friction with @handle_injection
             "huggingface_hub.constants.HF_HUB_DISABLE_IMPLICIT_TOKEN", True
         ):
-            self.assertEqual(build_hf_headers(), NO_AUTH_HEADER)  # token is not sent
+            assert build_hf_headers() == NO_AUTH_HEADER  # token is not sent
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=FAKE_TOKEN)
     def test_implicit_use_disabled_but_explicit_use(self, mock_get_token: Mock) -> None:
@@ -57,7 +57,7 @@ class TestAuthHeadersUtil(unittest.TestCase):
             "huggingface_hub.constants.HF_HUB_DISABLE_IMPLICIT_TOKEN", True
         ):
             # This is not an implicit use so we still send it
-            self.assertEqual(build_hf_headers(token=True), FAKE_TOKEN_HEADER)
+            assert build_hf_headers(token=True) == FAKE_TOKEN_HEADER
 
 
 class TestUserAgentHeadersUtil(unittest.TestCase):
@@ -83,7 +83,7 @@ class TestUserAgentHeadersUtil(unittest.TestCase):
     @handle_injection_in_test
     def test_user_agent_with_library_name_multiple_missing(self, mock_is_torch_available: Mock) -> None:
         mock_is_torch_available.return_value = False
-        self.assertNotIn("torch", self._get_user_agent())
+        assert "torch" not in self._get_user_agent()
 
     def test_user_agent_with_library_name_and_version(self) -> None:
         self.assertTrue(
@@ -94,13 +94,13 @@ class TestUserAgentHeadersUtil(unittest.TestCase):
         )
 
     def test_user_agent_with_library_name_no_version(self) -> None:
-        self.assertTrue(self._get_user_agent(library_name="foo").startswith("foo/None;"))
+        assert self._get_user_agent(library_name="foo".startswith("foo/None;"))
 
     def test_user_agent_with_custom_agent_string(self) -> None:
-        self.assertTrue(self._get_user_agent(user_agent="this is a custom agent").endswith("this is a custom agent"))
+        assert self._get_user_agent(user_agent="this is a custom agent".endswith("this is a custom agent"))
 
     def test_user_agent_with_custom_agent_dict(self) -> None:
-        self.assertTrue(self._get_user_agent(user_agent={"a": "b", "c": "d"}).endswith("a/b; c/d"))
+        assert self._get_user_agent(user_agent={"a": "b", "c": "d"}.endswith("a/b; c/d"))
 
     def test_user_agent_deduplicate(self) -> None:
         self.assertEqual(
@@ -116,7 +116,7 @@ class TestUserAgentHeadersUtil(unittest.TestCase):
 
     @patch("huggingface_hub.utils._telemetry.constants.HF_HUB_USER_AGENT_ORIGIN", "custom-origin")
     def test_user_agent_with_origin(self) -> None:
-        self.assertTrue(self._get_user_agent().endswith("origin/custom-origin"))
+        assert self._get_user_agent(.endswith("origin/custom-origin"))
 
     @patch("huggingface_hub.utils._telemetry.constants.HF_HUB_USER_AGENT_ORIGIN", "custom-origin")
     def test_user_agent_with_origin_and_user_agent(self) -> None:
@@ -126,4 +126,4 @@ class TestUserAgentHeadersUtil(unittest.TestCase):
 
     @patch("huggingface_hub.utils._telemetry.constants.HF_HUB_USER_AGENT_ORIGIN", "custom-origin")
     def test_user_agent_with_origin_and_user_agent_str(self) -> None:
-        self.assertTrue(self._get_user_agent(user_agent="a/b;c/d").endswith("a/b; c/d; origin/custom-origin"))
+        assert self._get_user_agent(user_agent="a/b;c/d".endswith("a/b; c/d; origin/custom-origin"))

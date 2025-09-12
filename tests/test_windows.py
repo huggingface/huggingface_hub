@@ -16,4 +16,4 @@ def require_windows(test_case):
 @require_windows
 class WindowsTests(unittest.TestCase):
     def test_are_symlink_supported(self) -> None:
-        self.assertFalse(are_symlinks_supported())
+        assert not (are_symlinks_supported())

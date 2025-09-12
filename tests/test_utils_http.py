@@ -43,7 +43,7 @@ class TestHttpBackoff(unittest.TestCase):
         data_mock = Mock()
         response = http_backoff("GET", URL, data=data_mock)
         self.mock_request.assert_called_once_with(method="GET", url=URL, data=data_mock)
-        self.assertIs(response, self.mock_request())
+        assert response is self.mock_request()
 
     def test_backoff_3_calls(self) -> None:
         """Test `http_backoff` with 2 fails."""
@@ -52,7 +52,7 @@ class TestHttpBackoff(unittest.TestCase):
         response = http_backoff(  # retry on ValueError, instant retry
             "GET", URL, retry_on_exceptions=ValueError, base_wait_time=0.0
         )
-        self.assertEqual(self.mock_request.call_count, 3)
+        assert self.mock_request.call_count == 3
         self.mock_request.assert_has_calls(
             calls=[
                 call(method="GET", url=URL),
@@ -60,7 +60,7 @@ class TestHttpBackoff(unittest.TestCase):
                 call(method="GET", url=URL),
             ]
         )
-        self.assertIs(response, response_mock)
+        assert response is response_mock
 
     def test_backoff_on_exception_until_max(self) -> None:
         """Test `http_backoff` until max limit is reached with exceptions."""
@@ -69,7 +69,7 @@ class TestHttpBackoff(unittest.TestCase):
         with self.assertRaises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.0, max_retries=3)
 
-        self.assertEqual(self.mock_request.call_count, 4)
+        assert self.mock_request.call_count == 4
 
     def test_backoff_on_status_code_until_max(self) -> None:
         """Test `http_backoff` until max limit is reached with status codes."""
@@ -89,7 +89,7 @@ class TestHttpBackoff(unittest.TestCase):
                 retry_on_status_codes=(503, 504),
             )
 
-        self.assertEqual(self.mock_request.call_count, 4)
+        assert self.mock_request.call_count == 4
 
     def test_backoff_on_exceptions_and_status_codes(self) -> None:
         """Test `http_backoff` until max limit with status codes and exceptions."""
@@ -100,7 +100,7 @@ class TestHttpBackoff(unittest.TestCase):
         with self.assertRaises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.0, max_retries=1)
 
-        self.assertEqual(self.mock_request.call_count, 2)
+        assert self.mock_request.call_count == 2
 
     def test_backoff_on_valid_status_code(self) -> None:
         """Test `http_backoff` until max limit with a valid status code.
@@ -115,8 +115,8 @@ class TestHttpBackoff(unittest.TestCase):
 
         response = http_backoff("GET", URL, base_wait_time=0.0, max_retries=3, retry_on_status_codes=200)
 
-        self.assertEqual(self.mock_request.call_count, 4)
-        self.assertIs(response, mock_200)
+        assert self.mock_request.call_count == 4
+        assert response is mock_200
 
     def test_backoff_sleep_time(self) -> None:
         """Test `http_backoff` sleep time goes exponential until max limit.
@@ -142,7 +142,7 @@ class TestHttpBackoff(unittest.TestCase):
         with self.assertRaises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=5)
 
-        self.assertEqual(self.mock_request.call_count, 6)
+        assert self.mock_request.call_count == 6
 
         # Assert sleep times are exponential until plateau
         expected_sleep_times = [0.1, 0.2, 0.4, 0.5, 0.5]
@@ -168,23 +168,23 @@ class TestConfigureSession(unittest.TestCase):
     def test_default_configuration(self) -> None:
         client = get_session()
         # Check httpx.Client default configuration
-        self.assertTrue(client.follow_redirects)
-        self.assertIsNotNone(client.timeout)
+        assert client.follow_redirects
+        assert client.timeout is not None
         # Check that it's using the HfHubTransport
-        self.assertIsInstance(client._transport, HfHubTransport)
+        assert isinstance(client._transport, HfHubTransport)
 
     def test_set_configuration(self) -> None:
         set_client_factory(self._factory)
 
         # Check headers have been set correctly
         client = get_session()
-        self.assertNotEqual(client.headers, {"x-test-header": "4"})
-        self.assertEqual(client.headers["x-test-header"], "4")
+        assert client.headers != {"x-test-header": "4"}
+        assert client.headers["x-test-header"] == "4"
 
     def test_get_session_twice(self):
         client_1 = get_session()
         client_2 = get_session()
-        self.assertIs(client_1, client_2)  # exact same instance
+        assert client_1 is client_2  # exact same instance
 
     def test_get_session_twice_but_reconfigure_in_between(self):
         """Reconfiguring the session clears the cache."""
@@ -192,9 +192,9 @@ class TestConfigureSession(unittest.TestCase):
         set_client_factory(self._factory)
 
         client_2 = get_session()
-        self.assertIsNot(client_1, client_2)
-        self.assertIsNone(client_1.headers.get("x-test-header"))
-        self.assertEqual(client_2.headers["x-test-header"], "4")
+        assert client_1 is not client_2
+        assert client_1.headers.get("x-test-header" is None)
+        assert client_2.headers["x-test-header"] == "4"
 
     def test_get_session_multiple_threads(self):
         N = 3
@@ -217,9 +217,9 @@ class TestConfigureSession(unittest.TestCase):
 
         # Check all clients are the same instance (httpx is thread-safe)
         for i in range(N):
-            self.assertIs(main_client, clients[i])
+            assert main_client is clients[i]
             for j in range(N):
-                self.assertIs(clients[i], clients[j])
+                assert clients[i] is clients[j]
 
     @unittest.skipIf(os.name == "nt", "Works differently on Windows.")
     def test_get_session_in_forked_process(self):
@@ -237,7 +237,7 @@ class TestConfigureSession(unittest.TestCase):
         child_client = process_queue.get()
 
         # Check clients are the same instance
-        self.assertEqual(repr(main_client), child_client)
+        assert repr(main_client) == child_client
 
 
 class OfflineModeSessionTest(unittest.TestCase):
@@ -260,8 +260,8 @@ class TestUniqueRequestId(unittest.TestCase):
 
         request_id = response.request.headers.get("X-Amzn-Trace-Id")
         response_id = response.headers.get("x-request-id")
-        self.assertIn(request_id, response_id)
-        self.assertTrue(_is_uuid(request_id))
+        assert request_id in response_id
+        assert _is_uuid(request_id)
 
     def test_request_id_is_unique(self):
         response_1 = get_session().get(self.api_endpoint)
@@ -269,19 +269,19 @@ class TestUniqueRequestId(unittest.TestCase):
 
         request_id_1 = response_1.request.headers["X-Amzn-Trace-Id"]
         request_id_2 = response_2.request.headers["X-Amzn-Trace-Id"]
-        self.assertNotEqual(request_id_1, request_id_2)
+        assert request_id_1 != request_id_2
 
-        self.assertTrue(_is_uuid(request_id_1))
-        self.assertTrue(_is_uuid(request_id_2))
+        assert _is_uuid(request_id_1)
+        assert _is_uuid(request_id_2)
 
     def test_request_id_not_overwritten(self):
         response = get_session().get(self.api_endpoint, headers={"x-request-id": "custom-id"})
 
         request_id = response.request.headers["x-request-id"]
-        self.assertEqual(request_id, "custom-id")
+        assert request_id == "custom-id"
 
         response_id = response.headers["x-request-id"]
-        self.assertEqual(response_id, "custom-id")
+        assert response_id == "custom-id"
 
 
 def _is_uuid(string: str) -> bool:

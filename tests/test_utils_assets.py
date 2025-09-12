@@ -13,7 +13,7 @@ class CacheAssetsTest(unittest.TestCase):
 
     def test_cached_assets_path_with_namespace_and_subfolder(self) -> None:
         expected_path = self.cache_dir / "datasets" / "SQuAD" / "download"
-        self.assertFalse(expected_path.is_dir())
+        assert not (expected_path.is_dir())
 
         path = cached_assets_path(
             library_name="datasets",
@@ -22,23 +22,23 @@ class CacheAssetsTest(unittest.TestCase):
             assets_dir=self.cache_dir,
         )
 
-        self.assertEqual(path, expected_path)  # Path is generated
-        self.assertTrue(path.is_dir())  # And dir is created
+        assert path == expected_path  # Path is generated
+        assert path.is_dir()  # And dir is created
 
     def test_cached_assets_path_without_subfolder(self) -> None:
         path = cached_assets_path(library_name="datasets", namespace="SQuAD", assets_dir=self.cache_dir)
-        self.assertEqual(path, self.cache_dir / "datasets" / "SQuAD" / "default")
-        self.assertTrue(path.is_dir())
+        assert path == self.cache_dir / "datasets" / "SQuAD" / "default"
+        assert path.is_dir()
 
     def test_cached_assets_path_without_namespace(self) -> None:
         path = cached_assets_path(library_name="datasets", subfolder="download", assets_dir=self.cache_dir)
-        self.assertEqual(path, self.cache_dir / "datasets" / "default" / "download")
-        self.assertTrue(path.is_dir())
+        assert path == self.cache_dir / "datasets" / "default" / "download"
+        assert path.is_dir()
 
     def test_cached_assets_path_without_namespace_and_subfolder(self) -> None:
         path = cached_assets_path(library_name="datasets", assets_dir=self.cache_dir)
-        self.assertEqual(path, self.cache_dir / "datasets" / "default" / "default")
-        self.assertTrue(path.is_dir())
+        assert path == self.cache_dir / "datasets" / "default" / "default"
+        assert path.is_dir()
 
     def test_cached_assets_path_forbidden_symbols(self) -> None:
         path = cached_assets_path(
@@ -51,7 +51,7 @@ class CacheAssetsTest(unittest.TestCase):
             path,
             self.cache_dir / "ReAlLy--dumb" / "user--repo_name" / "this--is--not--clever",
         )
-        self.assertTrue(path.is_dir())
+        assert path.is_dir()
 
     def test_cached_assets_path_default_assets_dir(self) -> None:
         with patch(

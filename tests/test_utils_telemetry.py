@@ -24,7 +24,7 @@ class TestSendTelemetry(unittest.TestCase):
         send_telemetry(topic="examples")
         queue.join()  # Wait for the telemetry tasks to be completed
         self.mock_head.assert_called_once()
-        self.assertEqual(self.mock_head.call_args[0][0], f"{ENDPOINT_STAGING}/api/telemetry/examples")
+        assert self.mock_head.call_args[0][0] == f"{ENDPOINT_STAGING}/api/telemetry/examples"
 
     def test_topic_multiple(self, queue: Queue) -> None:
         send_telemetry(topic="example1")
@@ -32,33 +32,33 @@ class TestSendTelemetry(unittest.TestCase):
         send_telemetry(topic="example3")
         queue.join()  # Wait for the telemetry tasks to be completed
 
-        self.assertEqual(self.mock_head.call_count, 3)  # 3 calls and order is preserved
-        self.assertEqual(self.mock_head.call_args_list[0][0][0], f"{ENDPOINT_STAGING}/api/telemetry/example1")
-        self.assertEqual(self.mock_head.call_args_list[1][0][0], f"{ENDPOINT_STAGING}/api/telemetry/example2")
-        self.assertEqual(self.mock_head.call_args_list[2][0][0], f"{ENDPOINT_STAGING}/api/telemetry/example3")
+        assert self.mock_head.call_count == 3  # 3 calls and order is preserved
+        assert self.mock_head.call_args_list[0][0][0] == f"{ENDPOINT_STAGING}/api/telemetry/example1"
+        assert self.mock_head.call_args_list[1][0][0] == f"{ENDPOINT_STAGING}/api/telemetry/example2"
+        assert self.mock_head.call_args_list[2][0][0] == f"{ENDPOINT_STAGING}/api/telemetry/example3"
 
     def test_topic_with_subtopic(self, queue: Queue) -> None:
         send_telemetry(topic="gradio/image/this_one")
         queue.join()  # Wait for the telemetry tasks to be completed
         self.mock_head.assert_called_once()
-        self.assertEqual(self.mock_head.call_args[0][0], f"{ENDPOINT_STAGING}/api/telemetry/gradio/image/this_one")
+        assert self.mock_head.call_args[0][0] == f"{ENDPOINT_STAGING}/api/telemetry/gradio/image/this_one"
 
     def test_topic_quoted(self, queue: Queue) -> None:
         send_telemetry(topic="foo bar")
         queue.join()  # Wait for the telemetry tasks to be completed
         self.mock_head.assert_called_once()
-        self.assertEqual(self.mock_head.call_args[0][0], f"{ENDPOINT_STAGING}/api/telemetry/foo%20bar")
+        assert self.mock_head.call_args[0][0] == f"{ENDPOINT_STAGING}/api/telemetry/foo%20bar"
 
     @patch("huggingface_hub.utils._telemetry.constants.HF_HUB_OFFLINE", True)
     def test_hub_offline(self, queue: Queue) -> None:
         send_telemetry(topic="topic")
-        self.assertTrue(queue.empty())  # no tasks
+        assert queue.empty()  # no tasks
         self.mock_head.assert_not_called()
 
     @patch("huggingface_hub.utils._telemetry.constants.HF_HUB_DISABLE_TELEMETRY", True)
     def test_telemetry_disabled(self, queue: Queue) -> None:
         send_telemetry(topic="topic")
-        self.assertTrue(queue.empty())  # no tasks
+        assert queue.empty()  # no tasks
         self.mock_head.assert_not_called()
 
     @patch("huggingface_hub.utils._telemetry.build_hf_headers")
@@ -67,7 +67,7 @@ class TestSendTelemetry(unittest.TestCase):
         queue.join()  # Wait for the telemetry tasks to be completed
         self.mock_head.assert_called_once()
         mock_headers.assert_called_once()
-        self.assertEqual(self.mock_head.call_args[1]["headers"], mock_headers.return_value)
+        assert self.mock_head.call_args[1]["headers"] == mock_headers.return_value
 
 
 @patch("huggingface_hub.utils._telemetry._TELEMETRY_QUEUE", new_callable=Queue)
@@ -89,7 +89,7 @@ class TestSendTelemetryConnectionError(unittest.TestCase):
             queue.join()
 
         # Assert debug message with traceback for debug purposes
-        self.assertEqual(len(captured.output), 1)
+        assert len(captured.output) == 1
         self.assertEqual(
             captured.output[0],
             "DEBUG:huggingface_hub.utils._telemetry:Error while sending telemetry: whatever",

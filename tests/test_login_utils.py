@@ -32,4 +32,4 @@ class TestSetGlobalStore(unittest.TestCase):
         """
         _set_store_as_git_credential_helper_globally()
         new_config = run_subprocess("git config --global credential.helper").stdout
-        self.assertEqual(new_config, "store\n")
+        assert new_config == "store\n"

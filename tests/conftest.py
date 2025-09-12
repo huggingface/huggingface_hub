@@ -39,7 +39,7 @@ def fx_cache_dir(request: SubRequest) -> Generator[None, None, None]:
         cache_dir: Path
 
         def test_cache_dir(self) -> None:
-            self.assertTrue(self.cache_dir.is_dir())
+            assert self.cache_dir.is_dir()
     ```
     """
     with SoftTemporaryDirectory() as cache_dir:

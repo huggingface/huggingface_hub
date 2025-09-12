@@ -210,39 +210,39 @@ class RepocardMetadataTest(unittest.TestCase):
         self.filepath.write_text(DUMMY_MODELCARD)
         metadata_save(self.filepath, {"meaning_of_life": 42})
         content = self.filepath.read_text()
-        self.assertEqual(content, DUMMY_MODELCARD_TARGET)
+        assert content == DUMMY_MODELCARD_TARGET
 
     def test_metadata_save_with_emoji_character(self):
         self.filepath.write_text(DUMMY_MODELCARD)
         metadata_save(self.filepath, {"emoji": "🎁"})
         content = self.filepath.read_text(encoding="utf-8")
-        self.assertEqual(content, DUMMY_MODELCARD_TARGET_WITH_EMOJI)
+        assert content == DUMMY_MODELCARD_TARGET_WITH_EMOJI
 
     def test_metadata_save_from_file_no_yaml(self):
         self.filepath.write_text("Hello\n")
         metadata_save(self.filepath, {"meaning_of_life": 42})
         content = self.filepath.read_text()
-        self.assertEqual(content, DUMMY_MODELCARD_TARGET_NO_YAML)
+        assert content == DUMMY_MODELCARD_TARGET_NO_YAML
 
     def test_metadata_save_new_file(self):
         metadata_save(self.filepath, {"meaning_of_life": 42})
         content = self.filepath.read_text()
-        self.assertEqual(content, DUMMY_NEW_MODELCARD_TARGET)
+        assert content == DUMMY_NEW_MODELCARD_TARGET
 
     def test_no_metadata_returns_none(self):
         self.filepath.write_text(DUMMY_MODELCARD_TARGET_NO_TAGS)
         data = metadata_load(self.filepath)
-        self.assertEqual(data, None)
+        assert data == None
 
     def test_empty_metadata_returns_none_with_metadata_load(self):
         self.filepath.write_text(DUMMY_MODELCARD_EMPTY_METADATA)
         data = metadata_load(self.filepath)
-        self.assertEqual(data, None)
+        assert data == None
 
     def test_empty_metadata_returns_none_with_repocard_load(self):
         self.filepath.write_text(DUMMY_MODELCARD_EMPTY_METADATA)
-        self.assertIsNone(metadata_load(self.filepath))
-        self.assertEqual(RepoCard.load(self.filepath).data.to_dict(), {})
+        assert metadata_load(self.filepath is None)
+        assert RepoCard.load(self.filepath).data.to_dict() == {}
 
     def test_metadata_eval_result(self):
         data = metadata_eval_result(
@@ -261,7 +261,7 @@ class RepocardMetadataTest(unittest.TestCase):
         )
         metadata_save(self.filepath, data)
         content = self.filepath.read_text().splitlines()
-        self.assertEqual(content, DUMMY_MODELCARD_EVAL_RESULT.splitlines())
+        assert content == DUMMY_MODELCARD_EVAL_RESULT.splitlines()
 
 
 @with_production_testing
@@ -343,8 +343,8 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         path = self._get_remote_card()
         metadata_update(self.repo_id, new_metadata, token=self.token, overwrite=True)
 
-        self.assertNotEqual(metadata_load(path), new_metadata)
-        self.assertEqual(metadata_load(path), self.existing_metadata)
+        assert metadata_load(path) != new_metadata
+        assert metadata_load(path) == self.existing_metadata
 
     def test_update_existing_result_without_overwrite(self):
         new_metadata = copy.deepcopy(self.existing_metadata)
@@ -448,7 +448,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         metadata_update(self.repo_id, new_metadata, token=self.token, overwrite=True)
 
         card_data = ModelCard.load(self.repo_id)
-        self.assertEqual(card_data.data.model_name, self.existing_metadata["model-index"][0]["name"])
+        assert card_data.data.model_name == self.existing_metadata["model-index"][0]["name"]
 
     def test_update_without_existing_name(self):
         # delete existing metadata
@@ -460,7 +460,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         metadata_update(self.repo_id, new_metadata, token=self.token, overwrite=True)
 
         card_data = ModelCard.load(self.repo_id)
-        self.assertEqual(card_data.data.model_name, self.repo_id)
+        assert card_data.data.model_name == self.repo_id
 
     def test_update_with_both_verified_and_unverified_metric(self):
         """Regression test for #1185.
@@ -477,17 +477,17 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         metadata_update(self.repo_id, metadata=metadata, overwrite=True, token=self.token)
 
         new_card = ModelCard.load(self.repo_id)
-        self.assertEqual(len(new_card.data.eval_results), 2)
+        assert len(new_card.data.eval_results) == 2
         first_result = new_card.data.eval_results[0]
         second_result = new_card.data.eval_results[1]
 
         # One is verified, the other not
-        self.assertFalse(first_result.verified)
-        self.assertTrue(second_result.verified)
+        assert not (first_result.verified)
+        assert second_result.verified
 
         # Result values are different
-        self.assertEqual(first_result.metric_value, 0.2662102282047272)
-        self.assertEqual(second_result.metric_value, 0.6666666666666666)
+        assert first_result.metric_value == 0.2662102282047272
+        assert second_result.metric_value == 0.6666666666666666
 
 
 class TestMetadataUpdateOnMissingCard(unittest.TestCase):
@@ -505,8 +505,8 @@ class TestMetadataUpdateOnMissingCard(unittest.TestCase):
         model_card = ModelCard.load(self._repo_id, token=self._token)
 
         # Created a card with default template + metadata
-        self.assertIn("# Model Card for Model ID", str(model_card))
-        self.assertEqual(model_card.data.to_dict(), {"tag": "this_is_a_test"})
+        assert "# Model Card for Model ID" in str(model_card)
+        assert model_card.data.to_dict() == {"tag": "this_is_a_test"}
 
         self._api.delete_repo(self._repo_id)
 
@@ -521,8 +521,8 @@ class TestMetadataUpdateOnMissingCard(unittest.TestCase):
         dataset_card = DatasetCard.load(self._repo_id, token=self._token)
 
         # Created a card with default template + metadata
-        self.assertIn("# Dataset Card for Dataset Name", str(dataset_card))
-        self.assertEqual(dataset_card.data.to_dict(), {"tag": "this is a dataset test"})
+        assert "# Dataset Card for Dataset Name" in str(dataset_card)
+        assert dataset_card.data.to_dict() == {"tag": "this is a dataset test"}
 
         self._api.delete_repo(self._repo_id, repo_type="dataset")
 
@@ -590,7 +590,7 @@ class RepoCardTest(TestCaseWithHfApi):
             ),
             model_id=None,
         )
-        self.assertIsInstance(card, RepoCard)
+        assert isinstance(card, RepoCard)
         self.assertTrue(
             card.text.strip().startswith("# Model Card for Model ID"),
             "Default model name not set correctly",
@@ -660,7 +660,7 @@ class RepoCardTest(TestCaseWithHfApi):
                 for log in warning_logs.output
             )
         )
-        self.assertEqual(card.data, CardData())
+        assert card.data == CardData()
 
     def test_validate_repocard(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
@@ -716,18 +716,18 @@ class RepoCardTest(TestCaseWithHfApi):
         card = RepoCard(content)
 
         discussions = list(self._api.get_repo_discussions(repo_id))
-        self.assertEqual(len(discussions), 0)
+        assert len(discussions) == 0
 
         card.push_to_hub(repo_id, token=TOKEN, create_pr=True)
         discussions = list(self._api.get_repo_discussions(repo_id))
-        self.assertEqual(len(discussions), 1)
+        assert len(discussions) == 1
 
         self._api.delete_repo(repo_id=repo_id)
 
     def test_preserve_windows_linebreaks(self):
         card_path = SAMPLE_CARDS_DIR / "sample_windows_line_breaks.md"
         card = RepoCard.load(card_path)
-        self.assertIn("\r\n", str(card))
+        assert "\r\n" in str(card)
 
     def test_preserve_linebreaks_when_saving(self):
         card_path = SAMPLE_CARDS_DIR / "sample_simple.md"
@@ -736,7 +736,7 @@ class RepoCardTest(TestCaseWithHfApi):
             tmpfile = os.path.join(tmpdir, "readme.md")
             card.save(tmpfile)
             card2 = RepoCard.load(tmpfile)
-        self.assertEqual(str(card), str(card2))
+        assert str(card) == str(card2)
 
     def test_updating_text_updates_content(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
@@ -752,13 +752,13 @@ class RepoCardTest(TestCaseWithHfApi):
 
 class TestRegexYamlBlock(unittest.TestCase):
     def test_match_with_leading_whitespace(self):
-        self.assertIsNotNone(REGEX_YAML_BLOCK.search("   \n---\nmetadata: 1\n---"))
+        assert REGEX_YAML_BLOCK.search("   \n---\nmetadata: 1\n---" is not None)
 
     def test_match_without_leading_whitespace(self):
-        self.assertIsNotNone(REGEX_YAML_BLOCK.search("---\nmetadata: 1\n---"))
+        assert REGEX_YAML_BLOCK.search("---\nmetadata: 1\n---" is not None)
 
     def test_does_not_match_with_leading_text(self):
-        self.assertIsNone(REGEX_YAML_BLOCK.search("something\n---\nmetadata: 1\n---"))
+        assert REGEX_YAML_BLOCK.search("something\n---\nmetadata: 1\n---" is None)
 
 
 class ModelCardTest(TestCaseWithHfApi):
@@ -779,7 +779,7 @@ class ModelCardTest(TestCaseWithHfApi):
         self.assertTrue(
             any("Invalid model-index. Not loading eval results into CardData." in log for log in warning_logs.output)
         )
-        self.assertIsNone(card.data.eval_results)
+        assert card.data.eval_results is None
 
     def test_model_card_with_model_index(self):
         """Test that loading a model card with multiple evaluations is consistent with `metadata_load`.
@@ -794,7 +794,7 @@ class ModelCardTest(TestCaseWithHfApi):
     def test_load_model_card_from_file(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
         card = ModelCard.load(sample_path)
-        self.assertIsInstance(card, ModelCard)
+        assert isinstance(card, ModelCard)
         self.assertEqual(
             card.data.to_dict(),
             {
@@ -826,7 +826,7 @@ class ModelCardTest(TestCaseWithHfApi):
             template_path=template_path,
             some_data="asdf",
         )
-        self.assertIsInstance(card, ModelCard)
+        assert isinstance(card, ModelCard)
         self.assertTrue(
             card.text.endswith("asdf"),
             "Custom template didn't set jinja variable correctly",
@@ -857,15 +857,15 @@ class ModelCardTest(TestCaseWithHfApi):
             template_path=template_path,
             some_data="asdf",
         )
-        self.assertIsInstance(card, ModelCard)
-        self.assertTrue(card.text.endswith("asdf"))
-        self.assertTrue(card.data.to_dict().get("eval_results") is None)
-        self.assertEqual(str(card)[: len(DUMMY_MODELCARD_EVAL_RESULT)], DUMMY_MODELCARD_EVAL_RESULT)
+        assert isinstance(card, ModelCard)
+        assert card.text.endswith("asdf")
+        assert card.data.to_dict(.get("eval_results") is None)
+        assert str(card)[: len(DUMMY_MODELCARD_EVAL_RESULT)] == DUMMY_MODELCARD_EVAL_RESULT
 
     def test_preserve_order_load_save(self):
         model_card = ModelCard(DUMMY_MODELCARD)
         model_card.data.license = "test"
-        self.assertEqual(model_card.content, "---\nlicense: test\ndatasets:\n- foo\n- bar\n---\n\nHello\n")
+        assert model_card.content == "---\nlicense: test\ndatasets:\n- foo\n- bar\n---\n\nHello\n"
 
 
 class DatasetCardTest(TestCaseWithHfApi):
@@ -886,9 +886,9 @@ class DatasetCardTest(TestCaseWithHfApi):
                 "pretty_name": "Sample Segmentation",
             },
         )
-        self.assertIsInstance(card, DatasetCard)
-        self.assertIsInstance(card.data, DatasetCardData)
-        self.assertTrue(card.text.strip().startswith("# Dataset Card for"))
+        assert isinstance(card, DatasetCard)
+        assert isinstance(card.data, DatasetCardData)
+        assert card.text.strip(.startswith("# Dataset Card for"))
 
     @require_jinja
     def test_dataset_card_from_default_template(self):
@@ -899,7 +899,7 @@ class DatasetCardTest(TestCaseWithHfApi):
 
         # Here we check default title when pretty_name not provided.
         card = DatasetCard.from_template(card_data)
-        self.assertTrue(card.text.strip().startswith("# Dataset Card for Dataset Name"))
+        assert card.text.strip(.startswith("# Dataset Card for Dataset Name"))
 
         card_data = DatasetCardData(
             language="en",
@@ -909,9 +909,9 @@ class DatasetCardTest(TestCaseWithHfApi):
 
         # Here we pass the card data as kwargs as well so template picks up pretty_name.
         card = DatasetCard.from_template(card_data, **card_data.to_dict())
-        self.assertTrue(card.text.strip().startswith("# Dataset Card for My Cool Dataset"))
+        assert card.text.strip(.startswith("# Dataset Card for My Cool Dataset"))
 
-        self.assertIsInstance(card, DatasetCard)
+        assert isinstance(card, DatasetCard)
 
     @require_jinja
     def test_dataset_card_from_default_template_with_template_variables(self):
@@ -931,11 +931,11 @@ class DatasetCardTest(TestCaseWithHfApi):
                 "in the dataset card template are working."
             ),
         )
-        self.assertTrue(card.text.strip().startswith("# Dataset Card for My Cool Dataset"))
-        self.assertIsInstance(card, DatasetCard)
+        assert card.text.strip(.startswith("# Dataset Card for My Cool Dataset"))
+        assert isinstance(card, DatasetCard)
 
         matches = re.findall(r"Repository:\*\* https://github\.com/huggingface/huggingface_hub", str(card))
-        self.assertEqual(matches[0], "Repository:** https://github.com/huggingface/huggingface_hub")
+        assert matches[0] == "Repository:** https://github.com/huggingface/huggingface_hub"
 
     @require_jinja
     def test_dataset_card_from_custom_template(self):
@@ -949,20 +949,20 @@ class DatasetCardTest(TestCaseWithHfApi):
             pretty_name="My Cool Dataset",
             some_data="asdf",
         )
-        self.assertIsInstance(card, DatasetCard)
+        assert isinstance(card, DatasetCard)
 
         # Title this time is just # {{ pretty_name }}
-        self.assertTrue(card.text.strip().startswith("# My Cool Dataset"))
+        assert card.text.strip(.startswith("# My Cool Dataset"))
 
         # some_data is at the bottom of the template, so should end with whatever we passed to it
-        self.assertTrue(card.text.strip().endswith("asdf"))
+        assert card.text.strip(.endswith("asdf"))
 
 
 @with_production_testing
 class SpaceCardTest(TestCaseWithHfApi):
     def test_load_spacecard_from_hub(self) -> None:
         card = SpaceCard.load("multimodalart/dreambooth-training")
-        self.assertIsInstance(card, SpaceCard)
-        self.assertIsInstance(card.data, SpaceCardData)
-        self.assertEqual(card.data.title, "Dreambooth Training")
-        self.assertIsNone(card.data.app_port)
+        assert isinstance(card, SpaceCard)
+        assert isinstance(card.data, SpaceCardData)
+        assert card.data.title == "Dreambooth Training"
+        assert card.data.app_port is None

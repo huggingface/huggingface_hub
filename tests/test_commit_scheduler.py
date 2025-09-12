@@ -43,10 +43,10 @@ class TestCommitScheduler(unittest.TestCase):
         time.sleep(0.5)
 
         # Triggered at least twice (at 0.0s and then 0.1s, 0.2s,...)
-        self.assertGreater(len(push_to_hub_mock.call_args_list), 2)
+        assert len(push_to_hub_mock.call_args_list) > 2
 
         # Can get the last upload result
-        self.assertEqual(self.scheduler.last_future.result(), push_to_hub_mock.return_value)
+        assert self.scheduler.last_future.result() == push_to_hub_mock.return_value
 
     def test_invalid_folder_path_is_a_file(self) -> None:
         """Test cannot scheduler upload of a single file."""
@@ -59,7 +59,7 @@ class TestCommitScheduler(unittest.TestCase):
     def test_missing_folder_is_created(self) -> None:
         folder_path = self.cache_dir / "folder" / "subfolder"
         self.scheduler = CommitScheduler(folder_path=folder_path, repo_id=self.repo_name, hf_api=self.api)
-        self.assertTrue(folder_path.is_dir())
+        assert folder_path.is_dir()
 
     def test_sync_local_folder(self) -> None:
         """Test sync local folder to remote repo."""
@@ -108,7 +108,7 @@ class TestCommitScheduler(unittest.TestCase):
         # 4 commits expected (initial commit + 3 push to hub)
         repo_id = self.scheduler.repo_id
         commits = self.api.list_repo_commits(repo_id)
-        self.assertEqual(len(commits), 4)
+        assert len(commits) == 4
         push_1 = commits[2].commit_id  # sorted by last first
         push_2 = commits[1].commit_id
         push_3 = commits[0].commit_id
@@ -121,18 +121,18 @@ class TestCommitScheduler(unittest.TestCase):
         file_push2 = _download(filename="file.txt", revision=push_2)
         file_push3 = _download(filename="file.txt", revision=push_3)
 
-        self.assertEqual(file_push1.read_text(), "first line\n")
-        self.assertEqual(file_push2.read_text(), "first line\nsecond line\n")
-        self.assertEqual(file_push3.read_text(), "first line\nsecond line\n")
+        assert file_push1.read_text() == "first line\n"
+        assert file_push2.read_text() == "first line\nsecond line\n"
+        assert file_push3.read_text() == "first line\nsecond line\n"
 
         # Check lfs.bin consistency
         lfs_push1 = _download(filename="lfs.bin", revision=push_1)
         lfs_push2 = _download(filename="lfs.bin", revision=push_2)
         lfs_push3 = _download(filename="lfs.bin", revision=push_3)
 
-        self.assertEqual(lfs_push1.read_text(), "binary content")
-        self.assertEqual(lfs_push2.read_text(), "binary content")
-        self.assertEqual(lfs_push3.read_text(), "binary content updated")
+        assert lfs_push1.read_text() == "binary content"
+        assert lfs_push2.read_text() == "binary content"
+        assert lfs_push3.read_text() == "binary content updated"
 
     def test_sync_and_squash_history(self) -> None:
         """Test squash history when pushing to the Hub."""
@@ -157,8 +157,8 @@ class TestCommitScheduler(unittest.TestCase):
 
         # Branch history has been squashed
         commits = self.api.list_repo_commits(repo_id=self.scheduler.repo_id)
-        self.assertEqual(len(commits), 1)
-        self.assertEqual(commits[0].title, "Super-squash branch 'main' using huggingface_hub")
+        assert len(commits) == 1
+        assert commits[0].title == "Super-squash branch 'main' using huggingface_hub"
 
     def test_context_manager(self) -> None:
         watched_folder = self.cache_dir / "watched_folder"
@@ -191,27 +191,27 @@ class TestPartialFileIO(unittest.TestCase):
 
     def test_read_partial_file_twice(self) -> None:
         file = PartialFileIO(self.file_path, size_limit=5)
-        self.assertEqual(file.read(), b"12345")
-        self.assertEqual(file.read(), b"")  # End of file
+        assert file.read() == b"12345"
+        assert file.read() == b""  # End of file
 
     def test_read_partial_file_by_chunks(self) -> None:
         file = PartialFileIO(self.file_path, size_limit=5)
-        self.assertEqual(file.read(2), b"12")
-        self.assertEqual(file.read(2), b"34")
-        self.assertEqual(file.read(2), b"5")
-        self.assertEqual(file.read(2), b"")
+        assert file.read(2) == b"12"
+        assert file.read(2) == b"34"
+        assert file.read(2) == b"5"
+        assert file.read(2) == b""
 
     def test_read_partial_file_too_much(self) -> None:
         file = PartialFileIO(self.file_path, size_limit=5)
-        self.assertEqual(file.read(20), b"12345")
+        assert file.read(20) == b"12345"
 
     def test_partial_file_len(self) -> None:
         """Useful for httpx internally."""
         file = PartialFileIO(self.file_path, size_limit=5)
-        self.assertEqual(len(file), 5)
+        assert len(file) == 5
 
         file = PartialFileIO(self.file_path, size_limit=50)
-        self.assertEqual(len(file), 9)
+        assert len(file) == 9
 
     def test_partial_file_fileno(self) -> None:
         """We explicitly do not implement fileno() to avoid misuse.
@@ -225,22 +225,22 @@ class TestPartialFileIO(unittest.TestCase):
     def test_partial_file_seek_and_tell(self) -> None:
         file = PartialFileIO(self.file_path, size_limit=5)
 
-        self.assertEqual(file.tell(), 0)
+        assert file.tell() == 0
 
         file.read(2)
-        self.assertEqual(file.tell(), 2)
+        assert file.tell() == 2
 
         file.seek(0)
-        self.assertEqual(file.tell(), 0)
+        assert file.tell() == 0
 
         file.seek(2)
-        self.assertEqual(file.tell(), 2)
+        assert file.tell() == 2
 
         file.seek(50)
-        self.assertEqual(file.tell(), 5)
+        assert file.tell() == 5
 
         file.seek(-3, SEEK_END)
-        self.assertEqual(file.tell(), 2)  # 5-3
+        assert file.tell() == 2  # 5-3
 
     def test_methods_not_implemented(self) -> None:
         """Test `PartialFileIO` only implements a subset of the `io` interface. This is on-purpose to avoid misuse."""
@@ -259,7 +259,7 @@ class TestPartialFileIO(unittest.TestCase):
             f.write(b"abcdef")
 
         # Output is truncated even if new content appended to the wrapped file
-        self.assertEqual(file.read(), b"123456789")
+        assert file.read() == b"123456789"
 
     def test_high_size_limit(self) -> None:
         file = PartialFileIO(self.file_path, size_limit=20)
@@ -267,29 +267,29 @@ class TestPartialFileIO(unittest.TestCase):
             f.write(b"abcdef")
 
         # File size limit is truncated to the actual file size at instance creation (not on the fly)
-        self.assertEqual(len(file), 9)
-        self.assertEqual(file._size_limit, 9)
+        assert len(file) == 9
+        assert file._size_limit == 9
 
     def test_with_commit_operation_add(self) -> None:
         # Truncated file
         op_truncated = CommitOperationAdd(
             path_or_fileobj=PartialFileIO(self.file_path, size_limit=5), path_in_repo="file.txt"
         )
-        self.assertEqual(op_truncated.upload_info.size, 5)
-        self.assertEqual(op_truncated.upload_info.sample, b"12345")
+        assert op_truncated.upload_info.size == 5
+        assert op_truncated.upload_info.sample == b"12345"
 
         with op_truncated.as_file() as f:
-            self.assertEqual(f.read(), b"12345")
+            assert f.read() == b"12345"
 
         # Full file
         op_full = CommitOperationAdd(
             path_or_fileobj=PartialFileIO(self.file_path, size_limit=9), path_in_repo="file.txt"
         )
-        self.assertEqual(op_full.upload_info.size, 9)
-        self.assertEqual(op_full.upload_info.sample, b"123456789")
+        assert op_full.upload_info.size == 9
+        assert op_full.upload_info.sample == b"123456789"
 
         with op_full.as_file() as f:
-            self.assertEqual(f.read(), b"123456789")
+            assert f.read() == b"123456789"
 
         # Truncated file has a different hash than the full file
-        self.assertNotEqual(op_truncated.upload_info.sha256, op_full.upload_info.sha256)
+        assert op_truncated.upload_info.sha256 != op_full.upload_info.sha256

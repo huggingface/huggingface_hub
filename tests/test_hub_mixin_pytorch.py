@@ -164,7 +164,7 @@ class PytorchHubMixinTest(unittest.TestCase):
         # https://github.com/huggingface/safetensors?tab=readme-ov-file#format
         with open(modelFile, "rb") as f:
             header_size = struct.unpack("<Q", f.read(8))[0]
-            self.assertEqual(header_size, 128)
+            assert header_size == 128
 
     def test_save_pretrained_with_push_to_hub(self):
         repo_id = repo_name("save")
@@ -191,7 +191,7 @@ class PytorchHubMixinTest(unittest.TestCase):
     def test_from_pretrained_model_id_only(self, from_pretrained_mock: Mock) -> None:
         model = DummyModel.from_pretrained("namespace/repo_name")
         from_pretrained_mock.assert_called_once()
-        self.assertIs(model, from_pretrained_mock.return_value)
+        assert model is from_pretrained_mock.return_value
 
     def pretend_file_download(self, **kwargs):
         if kwargs.get("filename") == "config.json":
@@ -212,7 +212,7 @@ class PytorchHubMixinTest(unittest.TestCase):
             token=None,
             local_files_only=False,
         )
-        self.assertIsNotNone(model)
+        assert model is not None
 
     def pretend_file_download_fallback(self, **kwargs):
         filename = kwargs.get("filename")
@@ -248,7 +248,7 @@ class PytorchHubMixinTest(unittest.TestCase):
             token=None,
             local_files_only=False,
         )
-        self.assertIsNotNone(model)
+        assert model is not None
 
     @patch.object(DummyModel, "_from_pretrained")
     def test_from_pretrained_model_id_and_revision(self, from_pretrained_mock: Mock) -> None:
@@ -263,7 +263,7 @@ class PytorchHubMixinTest(unittest.TestCase):
             local_files_only=False,
             token=None,
         )
-        self.assertIs(model, from_pretrained_mock.return_value)
+        assert model is from_pretrained_mock.return_value
 
     def test_from_pretrained_to_relative_path(self):
         with SoftTemporaryDirectory(dir=Path(".")) as tmp_relative_dir:

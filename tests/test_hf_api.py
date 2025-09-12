@@ -144,8 +144,8 @@ class HfApiRepoFileExistsTest(HfApiCommonTest):
 
     def test_repo_exists(self):
         assert self._api.repo_exists(self.repo_id)
-        self.assertFalse(self._api.repo_exists(self.repo_id, token=False))  # private repo
-        self.assertFalse(self._api.repo_exists("repo-that-does-not-exist"))  # missing repo
+        assert not (self._api.repo_exists(self.repo_id, token=False))  # private repo
+        assert not (self._api.repo_exists("repo-that-does-not-exist"))  # missing repo
 
     def test_revision_exists(self):
         assert self._api.revision_exists(self.repo_id, "main")
@@ -160,35 +160,35 @@ class HfApiRepoFileExistsTest(HfApiCommonTest):
     )
     def test_file_exists(self):
         assert self._api.file_exists(self.repo_id, "file.txt")
-        self.assertFalse(self._api.file_exists("repo-that-does-not-exist", "file.txt"))  # missing repo
-        self.assertFalse(self._api.file_exists(self.repo_id, "file-does-not-exist"))  # missing file
+        assert not (self._api.file_exists("repo-that-does-not-exist", "file.txt"))  # missing repo
+        assert not (self._api.file_exists(self.repo_id, "file-does-not-exist"))  # missing file
         self.assertFalse(
             self._api.file_exists(self.repo_id, "file.txt", revision="revision-that-does-not-exist")
         )  # missing revision
-        self.assertFalse(self._api.file_exists(self.repo_id, "file.txt", token=False))  # private repo
+        assert not (self._api.file_exists(self.repo_id, "file.txt", token=False))  # private repo
 
 
 class HfApiEndpointsTest(HfApiCommonTest):
     def test_whoami_with_passing_token(self):
         info = self._api.whoami(token=self._token)
-        self.assertEqual(info["name"], USER)
-        self.assertEqual(info["fullname"], FULL_NAME)
-        self.assertIsInstance(info["orgs"], list)
+        assert info["name"] == USER
+        assert info["fullname"] == FULL_NAME
+        assert isinstance(info["orgs"], list)
         valid_org = [org for org in info["orgs"] if org["name"] == "valid_org"][0]
-        self.assertEqual(valid_org["fullname"], "Dummy Org")
+        assert valid_org["fullname"] == "Dummy Org"
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
     def test_whoami_with_implicit_token_from_login(self, mock_get_token: Mock) -> None:
         """Test using `whoami` after a `hf auth login`."""
         with patch.object(self._api, "token", None):  # no default token
             info = self._api.whoami()
-        self.assertEqual(info["name"], USER)
+        assert info["name"] == USER
 
     @patch("huggingface_hub.utils._headers.get_token")
     def test_whoami_with_implicit_token_from_hf_api(self, mock_get_token: Mock) -> None:
         """Test using `whoami` with token from the HfApi client."""
         info = self._api.whoami()
-        self.assertEqual(info["name"], USER)
+        assert info["name"] == USER
         mock_get_token.assert_not_called()
 
     def test_delete_repo_error_message(self):
@@ -320,13 +320,13 @@ class CommitApiTest(HfApiCommonTest):
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
-                self.assertEqual(f.read(), self.tmp_file_content)
+                assert f.read() == self.tmp_file_content
 
     @use_tmp_repo()
     def test_upload_file_pathlib_path(self, repo_url: RepoUrl) -> None:
         """Regression test for https://github.com/huggingface/huggingface_hub/issues/1246."""
         self._api.upload_file(path_or_fileobj=Path(self.tmp_file), path_in_repo="file.txt", repo_id=repo_url.repo_id)
-        self.assertIn("file.txt", self._api.list_repo_files(repo_id=repo_url.repo_id))
+        assert "file.txt" in self._api.list_repo_files(repo_id=repo_url.repo_id)
 
     @use_tmp_repo()
     def test_upload_file_fileobj(self, repo_url: RepoUrl) -> None:
@@ -342,7 +342,7 @@ class CommitApiTest(HfApiCommonTest):
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
-                self.assertEqual(f.read(), self.tmp_file_content)
+                assert f.read() == self.tmp_file_content
 
     @use_tmp_repo()
     def test_upload_file_bytesio(self, repo_url: RepoUrl) -> None:
@@ -358,7 +358,7 @@ class CommitApiTest(HfApiCommonTest):
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
-                self.assertEqual(f.read(), content.getvalue().decode())
+                assert f.read() == content.getvalue().decode()
 
     @use_tmp_repo()
     def test_upload_data_files_to_model_repo(self, repo_url: RepoUrl) -> None:
@@ -390,9 +390,9 @@ class CommitApiTest(HfApiCommonTest):
     def test_create_repo_return_value(self) -> None:
         REPO_NAME = repo_name("org")
         url = self._api.create_repo(repo_id=REPO_NAME)
-        self.assertIsInstance(url, str)
-        self.assertIsInstance(url, RepoUrl)
-        self.assertEqual(url.repo_id, f"{USER}/{REPO_NAME}")
+        assert isinstance(url, str)
+        assert isinstance(url, RepoUrl)
+        assert url.repo_id == f"{USER}/{REPO_NAME}"
         self._api.delete_repo(repo_id=url.repo_id)
 
     def test_create_repo_already_exists_but_no_write_permission(self):
@@ -433,7 +433,7 @@ class CommitApiTest(HfApiCommonTest):
                     repo_id=repo_id, filename="temp/new_file.md", revision="refs/pr/1", cache_dir=cache_dir
                 )
             ) as f:
-                self.assertEqual(f.read(), self.tmp_file_content)
+                assert f.read() == self.tmp_file_content
 
     @use_tmp_repo()
     def test_delete_file(self, repo_url: RepoUrl) -> None:
@@ -443,7 +443,7 @@ class CommitApiTest(HfApiCommonTest):
             repo_id=repo_url.repo_id,
         )
         return_val = self._api.delete_file(path_in_repo="temp/new_file.md", repo_id=repo_url.repo_id)
-        self.assertIsInstance(return_val, CommitInfo)
+        assert isinstance(return_val, CommitInfo)
 
         with self.assertRaises(EntryNotFoundError):
             # Should raise a 404
@@ -451,10 +451,10 @@ class CommitApiTest(HfApiCommonTest):
 
     def test_get_full_repo_name(self):
         repo_name_with_no_org = self._api.get_full_repo_name("model")
-        self.assertEqual(repo_name_with_no_org, f"{USER}/model")
+        assert repo_name_with_no_org == f"{USER}/model"
 
         repo_name_with_no_org = self._api.get_full_repo_name("model", organization="org")
-        self.assertEqual(repo_name_with_no_org, "org/model")
+        assert repo_name_with_no_org == "org/model"
 
     @use_tmp_repo()
     def test_upload_folder(self, repo_url: RepoUrl) -> None:
@@ -475,11 +475,11 @@ class CommitApiTest(HfApiCommonTest):
                 content = downloaded_file.read()
             with open(local_path, "rb") as local_file:
                 expected_content = local_file.read()
-            self.assertEqual(content, expected_content)
+            assert content == expected_content
 
         # Re-uploading the same folder twice should be fine
         return_val = self._api.upload_folder(folder_path=self.tmp_dir, path_in_repo="temp/dir", repo_id=repo_id)
-        self.assertIsInstance(return_val, CommitInfo)
+        assert isinstance(return_val, CommitInfo)
 
     @use_tmp_repo()
     def test_upload_folder_create_pr(self, repo_url: RepoUrl) -> None:
@@ -562,29 +562,29 @@ class CommitApiTest(HfApiCommonTest):
         )
 
         # Check commit info
-        self.assertIsInstance(resp, CommitInfo)
+        assert isinstance(resp, CommitInfo)
         commit_id = resp.oid
-        self.assertIn("pr_revision='refs/pr/1'", repr(resp))
-        self.assertIsInstance(commit_id, str)
-        self.assertGreater(len(commit_id), 0)
-        self.assertEqual(resp.commit_url, f"{self._api.endpoint}/{repo_id}/commit/{commit_id}")
-        self.assertEqual(resp.commit_message, "Test create_commit")
-        self.assertEqual(resp.commit_description, "")
-        self.assertEqual(resp.pr_url, f"{self._api.endpoint}/{repo_id}/discussions/1")
-        self.assertEqual(resp.pr_num, 1)
-        self.assertEqual(resp.pr_revision, "refs/pr/1")
+        assert "pr_revision='refs/pr/1'" in repr(resp)
+        assert isinstance(commit_id, str)
+        assert len(commit_id) > 0
+        assert resp.commit_url == f"{self._api.endpoint}/{repo_id}/commit/{commit_id}"
+        assert resp.commit_message == "Test create_commit"
+        assert resp.commit_description == ""
+        assert resp.pr_url == f"{self._api.endpoint}/{repo_id}/discussions/1"
+        assert resp.pr_num == 1
+        assert resp.pr_revision == "refs/pr/1"
 
         # File doesn't exist on main...
         with self.assertRaises(HfHubHTTPError) as ctx:
             # Should raise a 404
             self._api.hf_hub_download(repo_id, "buffer")
-            self.assertEqual(ctx.exception.response.status_code, 404)
+            assert ctx.exception.response.status_code == 404
 
         # ...but exists on PR
         filepath = self._api.hf_hub_download(filename="buffer", repo_id=repo_id, revision="refs/pr/1")
         with open(filepath, "rb") as downloaded_file:
             content = downloaded_file.read()
-        self.assertEqual(content, b"Buffer data")
+        assert content == b"Buffer data"
 
     def test_create_commit_create_pr_against_branch(self):
         repo_id = f"{USER}/{repo_name()}"
@@ -604,7 +604,7 @@ class CommitApiTest(HfApiCommonTest):
             revision="test_branch",
             create_pr=True,
         )
-        self.assertIsInstance(resp, CommitInfo)
+        assert isinstance(resp, CommitInfo)
 
         # Create PR against a oid fails
         with self.assertRaises(RevisionNotFoundError):
@@ -671,10 +671,10 @@ class CommitApiTest(HfApiCommonTest):
             ]
             resp = self._api.create_commit(operations=operations, commit_message="Test create_commit", repo_id=repo_id)
             # Check commit info
-            self.assertIsInstance(resp, CommitInfo)
-            self.assertIsNone(resp.pr_url)  # No pr created
-            self.assertIsNone(resp.pr_num)
-            self.assertIsNone(resp.pr_revision)
+            assert isinstance(resp, CommitInfo)
+            assert resp.pr_url is None  # No pr created
+            assert resp.pr_num is None
+            assert resp.pr_revision is None
 
         with self.assertRaises(HfHubHTTPError):
             # Should raise a 404
@@ -690,7 +690,7 @@ class CommitApiTest(HfApiCommonTest):
             assert filepath is not None
             with open(filepath, "rb") as downloaded_file:
                 content = downloaded_file.read()
-            self.assertEqual(content, expected_content)
+            assert content == expected_content
 
     @use_tmp_repo()
     def test_create_commit_conflict(self, repo_url: RepoUrl) -> None:
@@ -712,7 +712,7 @@ class CommitApiTest(HfApiCommonTest):
                 repo_id=repo_id,
                 parent_commit=parent_commit,
             )
-        self.assertEqual(exc_ctx.exception.response.status_code, 412)
+        assert exc_ctx.exception.response.status_code == 412
         self.assertIn(
             # Check the server message is added to the exception
             "A commit has happened since. Please refresh and try again.",
@@ -780,7 +780,7 @@ class CommitApiTest(HfApiCommonTest):
             # Check uploaded as LFS
             info = self._api.model_info(repo_id=repo_id, files_metadata=True)
             siblings = {file.rfilename: file for file in info.siblings}
-            self.assertIsInstance(siblings["image.png"].lfs, dict)  # LFS file
+            assert isinstance(siblings["image.png"].lfs, dict)  # LFS file
 
             # Delete repo
             self._api.delete_repo(repo_id=REPO_NAME)
@@ -838,9 +838,9 @@ class CommitApiTest(HfApiCommonTest):
             endpoint=ENDPOINT_STAGING,
         )
         for operation in operations:
-            self.assertEqual(operation._upload_mode, "lfs")
-            self.assertFalse(operation._is_committed)
-            self.assertFalse(operation._is_uploaded)
+            assert operation._upload_mode == "lfs"
+            assert not (operation._is_committed)
+            assert not (operation._is_uploaded)
 
     def test_create_commit_repo_id_case_insensitive(self):
         """Test create commit but repo_id is lowercased.
@@ -864,8 +864,8 @@ class CommitApiTest(HfApiCommonTest):
             ],
         )
         repo_files = self._api.list_repo_files(repo_id=repo_id)
-        self.assertIn("file.txt", repo_files)
-        self.assertIn("lfs.bin", repo_files)
+        assert "file.txt" in repo_files
+        assert "lfs.bin" in repo_files
 
     @use_tmp_repo()
     def test_commit_copy_file(self, repo_url: RepoUrl) -> None:
@@ -902,15 +902,15 @@ class CommitApiTest(HfApiCommonTest):
 
         # Check repo files
         repo_files = self._api.list_repo_files(repo_id=repo_id)
-        self.assertIn("file.txt", repo_files)
-        self.assertIn("file Copy.txt", repo_files)
-        self.assertIn("lfs.bin", repo_files)
-        self.assertIn("lfs Copy.bin", repo_files)
-        self.assertIn("lfs Copy (1).bin", repo_files)
+        assert "file.txt" in repo_files
+        assert "file Copy.txt" in repo_files
+        assert "lfs.bin" in repo_files
+        assert "lfs Copy.bin" in repo_files
+        assert "lfs Copy (1).bin" in repo_files
 
         # Check same LFS file
         repo_file1, repo_file2 = self._api.get_paths_info(repo_id=repo_id, paths=["lfs.bin", "lfs Copy.bin"])
-        self.assertEqual(repo_file1.lfs["sha256"], repo_file2.lfs["sha256"])
+        assert repo_file1.lfs["sha256"] == repo_file2.lfs["sha256"]
 
     @use_tmp_repo()
     def test_create_commit_mutates_operations(self, repo_url: RepoUrl) -> None:
@@ -928,9 +928,9 @@ class CommitApiTest(HfApiCommonTest):
 
         assert operations[0]._is_committed
         assert operations[0]._is_uploaded  # LFS file
-        self.assertEqual(operations[0].path_or_fileobj, b"content")  # not removed by default
+        assert operations[0].path_or_fileobj == b"content"  # not removed by default
         assert operations[1]._is_committed
-        self.assertEqual(operations[1].path_or_fileobj, b"content")
+        assert operations[1].path_or_fileobj == b"content"
 
     @use_tmp_repo()
     def test_pre_upload_before_commit(self, repo_url: RepoUrl) -> None:
@@ -947,9 +947,9 @@ class CommitApiTest(HfApiCommonTest):
         for operation in operations:
             self._api.preupload_lfs_files(repo_id, [operation])
         assert operations[0]._is_uploaded
-        self.assertEqual(operations[0].path_or_fileobj, b"")  # Freed memory
+        assert operations[0].path_or_fileobj == b""  # Freed memory
         assert operations[2]._is_uploaded
-        self.assertEqual(operations[2].path_or_fileobj, b"")  # Freed memory
+        assert operations[2].path_or_fileobj == b""  # Freed memory
 
         # create commit and capture debug logs
         with self.assertLogs("huggingface_hub", level="DEBUG") as debug_logs:
@@ -1288,8 +1288,8 @@ class HfApiUploadEmptyFileTest(HfApiCommonTest):
         info = self._api.repo_info(repo_id=self.repo_id, files_metadata=True)
 
         repo_file = {file.rfilename: file for file in info.siblings}["empty.pkl"]
-        self.assertEqual(repo_file.size, 0)
-        self.assertIsNone(repo_file.lfs)  # As regular
+        assert repo_file.size == 0
+        assert repo_file.lfs is None  # As regular
 
 
 class HfApiDeleteFolderTest(HfApiCommonTest):
@@ -1402,16 +1402,16 @@ class HfApiListRepoTreeTest(HfApiCommonTest):
 
     def test_list_tree(self):
         tree = list(self._api.list_repo_tree(repo_id=self.repo_id))
-        self.assertEqual(len(tree), 6)
+        assert len(tree) == 6
         self.assertEqual({tree_obj.path for tree_obj in tree}, {"file.md", "lfs.bin", "1", "2", "3", ".gitattributes"})
 
         tree = list(self._api.list_repo_tree(repo_id=self.repo_id, path_in_repo="1"))
-        self.assertEqual(len(tree), 2)
+        assert len(tree) == 2
         self.assertEqual({tree_obj.path for tree_obj in tree}, {"1/file_1.md", "1/2"})
 
     def test_list_tree_recursively(self):
         tree = list(self._api.list_repo_tree(repo_id=self.repo_id, recursive=True))
-        self.assertEqual(len(tree), 11)
+        assert len(tree) == 11
         self.assertEqual(
             {tree_obj.path for tree_obj in tree},
             {
@@ -1460,8 +1460,8 @@ class HfApiListRepoTreeTest(HfApiCommonTest):
 
         # check last_commit is present for a folder
         feature_extractor = next(tree_obj for tree_obj in tree if tree_obj.path == "feature_extractor")
-        self.assertIsNotNone(feature_extractor.last_commit)
-        self.assertEqual(feature_extractor.last_commit["oid"], "47b62b20b20e06b9de610e840282b7e6c3d51190")
+        assert feature_extractor.last_commit is not None
+        assert feature_extractor.last_commit["oid"] == "47b62b20b20e06b9de610e840282b7e6c3d51190"
 
     @with_production_testing
     def test_list_files_without_expand(self):
@@ -1471,16 +1471,16 @@ class HfApiListRepoTreeTest(HfApiCommonTest):
                 revision="c9211c53404dd6f4cfac5f04f33535892260668e",
             )
         )
-        self.assertEqual(len(tree), 11)
+        assert len(tree) == 11
 
         # check last_commit and security are missing for a file
         model_ckpt = next(tree_obj for tree_obj in tree if tree_obj.path == "openjourney-v4.ckpt")
-        self.assertIsNone(model_ckpt.last_commit)
-        self.assertIsNone(model_ckpt.security)
+        assert model_ckpt.last_commit is None
+        assert model_ckpt.security is None
 
         # check last_commit is missing for a folder
         feature_extractor = next(tree_obj for tree_obj in tree if tree_obj.path == "feature_extractor")
-        self.assertIsNone(feature_extractor.last_commit)
+        assert feature_extractor.last_commit is None
 
 
 class HfApiTagEndpointTest(HfApiCommonTest):
@@ -1492,7 +1492,7 @@ class HfApiTagEndpointTest(HfApiCommonTest):
         # Check tag  is on `main`
         tag_info = self._api.model_info(repo_url.repo_id, revision="v0")
         main_info = self._api.model_info(repo_url.repo_id, revision="main")
-        self.assertEqual(tag_info.sha, main_info.sha)
+        assert tag_info.sha == main_info.sha
 
     @use_tmp_repo("model")
     def test_create_tag_on_pr(self, repo_url: RepoUrl) -> None:
@@ -1513,8 +1513,8 @@ class HfApiTagEndpointTest(HfApiCommonTest):
         pr_info = self._api.model_info(repo_url.repo_id, revision=commit_info.pr_revision)
         main_info = self._api.model_info(repo_url.repo_id)
 
-        self.assertEqual(tag_info.sha, pr_info.sha)
-        self.assertNotEqual(tag_info.sha, main_info.sha)
+        assert tag_info.sha == pr_info.sha
+        assert tag_info.sha != main_info.sha
 
     @use_tmp_repo("dataset")
     def test_create_tag_on_commit_oid(self, repo_url: RepoUrl) -> None:
@@ -1554,8 +1554,8 @@ class HfApiTagEndpointTest(HfApiCommonTest):
         tag_1_info = self._api.dataset_info(repo_url.repo_id, revision="commit_1")
         tag_2_info = self._api.dataset_info(repo_url.repo_id, revision="commit_2")
 
-        self.assertEqual(tag_1_info.sha, commit_info_1.oid)
-        self.assertEqual(tag_2_info.sha, commit_info_2.oid)
+        assert tag_1_info.sha == commit_info_1.oid
+        assert tag_2_info.sha == commit_info_2.oid
 
     @use_tmp_repo("model")
     def test_invalid_tag_name(self, repo_url: RepoUrl) -> None:
@@ -1575,7 +1575,7 @@ class HfApiTagEndpointTest(HfApiCommonTest):
         self._api.create_tag(repo_url.repo_id, tag="tag_1")
         with self.assertRaises(HfHubHTTPError) as err:
             self._api.create_tag(repo_url.repo_id, tag="tag_1")
-        self.assertEqual(err.exception.response.status_code, 409)
+        assert err.exception.response.status_code == 409
 
         # exist_ok=True => doesn't fail
         self._api.create_tag(repo_url.repo_id, tag="tag_1", exist_ok=True)
@@ -1854,11 +1854,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_list_models_with_config(self):
         for model in self._api.list_models(filter=("adapter-transformers", "bert"), fetch_config=True, limit=20):
-            self.assertIsNotNone(model.config)
+            assert model.config is not None
 
     def test_list_models_without_config(self):
         for model in self._api.list_models(filter=("adapter-transformers", "bert"), fetch_config=False, limit=20):
-            self.assertIsNone(model.config)
+            assert model.config is None
 
     def test_list_models_expand_author(self):
         # Only the selected field is returned
@@ -1913,14 +1913,14 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_model_info(self):
         model = self._api.model_info(repo_id=DUMMY_MODEL_ID)
-        self.assertIsInstance(model, ModelInfo)
-        self.assertNotEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
-        self.assertEqual(model.created_at, datetime.datetime(2022, 3, 2, 23, 29, 5, tzinfo=datetime.timezone.utc))
+        assert isinstance(model, ModelInfo)
+        assert model.sha != DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT
+        assert model.created_at == datetime.datetime(2022, 3, 2, 23, 29, 5, tzinfo=datetime.timezone.utc)
 
         # One particular commit (not the top of `main`)
         model = self._api.model_info(repo_id=DUMMY_MODEL_ID, revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
-        self.assertIsInstance(model, ModelInfo)
-        self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
+        assert isinstance(model, ModelInfo)
+        assert model.sha == DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT
 
     def test_model_info_with_security(self):
         # Note: this test might break in the future if `security_repo_status` object structure gets updated server-side
@@ -1930,7 +1930,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
             securityStatus=True,
         )
-        self.assertIsNotNone(model.security_repo_status)
+        assert model.security_repo_status is not None
         self.assertEqual(model.security_repo_status, {"scansDone": True, "filesWithIssues": []})
 
     def test_model_info_with_file_metadata(self):
@@ -2035,8 +2035,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_list_datasets_no_filter(self):
         datasets = list(self._api.list_datasets(limit=500))
-        self.assertGreater(len(datasets), 100)
-        self.assertIsInstance(datasets[0], DatasetInfo)
+        assert len(datasets) > 100
+        assert isinstance(datasets[0], DatasetInfo)
 
     def test_filter_datasets_by_author_and_name(self):
         datasets = list(self._api.list_datasets(author="huggingface", dataset_name="DataMeasurementsFiles"))
@@ -2545,7 +2545,7 @@ class HfApiPrivateTest(HfApiCommonTest):
                 _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
 
             model_info = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}", token=self._token)
-            self.assertIsInstance(model_info, ModelInfo)
+            assert isinstance(model_info, ModelInfo)
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=None)
     def test_dataset_info(self, mock_get_token: Mock) -> None:
@@ -2561,23 +2561,23 @@ class HfApiPrivateTest(HfApiCommonTest):
                 _ = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}")
 
             dataset_info = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}", token=self._token)
-            self.assertIsInstance(dataset_info, DatasetInfo)
+            assert isinstance(dataset_info, DatasetInfo)
 
     def test_list_private_datasets(self):
         orig = len(list(self._api.list_datasets(token=False)))
         new = len(list(self._api.list_datasets(token=self._token)))
-        self.assertGreater(new, orig)
+        assert new > orig
 
     def test_list_private_models(self):
         orig = len(list(self._api.list_models(token=False)))
         new = len(list(self._api.list_models(token=self._token)))
-        self.assertGreater(new, orig)
+        assert new > orig
 
     @with_production_testing
     def test_list_private_spaces(self):
         orig = len(list(self._api.list_spaces(token=False)))
         new = len(list(self._api.list_spaces(token=self._token)))
-        self.assertGreaterEqual(new, orig)
+        assert new >= orig
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -2758,8 +2758,8 @@ class HfLargefilesTest(HfApiCommonTest):
             stderr=subprocess.PIPE,
             cwd=self.cache_dir,
         )
-        self.assertEqual(failed_process.returncode, 1)
-        self.assertIn('Run "hf lfs-enable-largefiles ./path/to/your/repo"', failed_process.stderr.decode())
+        assert failed_process.returncode == 1
+        assert 'Run "hf lfs-enable-largefiles ./path/to/your/repo"' in failed_process.stderr.decode()
         # ^ Instructions on how to fix this are included in the error message.
         subprocess.run(["hf", "lfs-enable-largefiles", self.cache_dir], check=True)
 
@@ -2869,10 +2869,10 @@ class HfApiDiscussionsTest(HfApiCommonTest):
 
     def test_create_discussion(self):
         discussion = self._api.create_discussion(repo_id=self.repo_id, title=" Test discussion !  ")
-        self.assertEqual(discussion.num, 3)
-        self.assertEqual(discussion.author, USER)
-        self.assertEqual(discussion.is_pull_request, False)
-        self.assertEqual(discussion.title, "Test discussion !")
+        assert discussion.num == 3
+        assert discussion.author == USER
+        assert discussion.is_pull_request == False
+        assert discussion.title == "Test discussion !"
 
     @use_tmp_repo("dataset")
     def test_create_discussion_space(self, repo_url: RepoUrl):
@@ -2882,58 +2882,58 @@ class HfApiDiscussionsTest(HfApiCommonTest):
         See https://github.com/huggingface/huggingface_hub/issues/1463.
         """
         discussion = self._api.create_discussion(repo_id=repo_url.repo_id, repo_type="dataset", title="title")
-        self.assertEqual(discussion.url, f"{repo_url}/discussions/1")
+        assert discussion.url == f"{repo_url}/discussions/1"
 
     def test_create_pull_request(self):
         discussion = self._api.create_discussion(repo_id=self.repo_id, title=" Test PR !  ", pull_request=True)
-        self.assertEqual(discussion.num, 3)
-        self.assertEqual(discussion.author, USER)
-        self.assertEqual(discussion.is_pull_request, True)
-        self.assertEqual(discussion.title, "Test PR !")
+        assert discussion.num == 3
+        assert discussion.author == USER
+        assert discussion.is_pull_request == True
+        assert discussion.title == "Test PR !"
 
         model_info = self._api.repo_info(repo_id=self.repo_id, revision="refs/pr/1")
-        self.assertIsInstance(model_info, ModelInfo)
+        assert isinstance(model_info, ModelInfo)
 
     def test_get_repo_discussion(self):
         discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id)
-        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        assert isinstance(discussions_generator, types.GeneratorType)
         self.assertListEqual(
             list([d.num for d in discussions_generator]), [self.discussion.num, self.pull_request.num]
         )
 
     def test_get_repo_discussion_by_type(self):
         discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_type="pull_request")
-        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        assert isinstance(discussions_generator, types.GeneratorType)
         self.assertListEqual(list([d.num for d in discussions_generator]), [self.pull_request.num])
 
         discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_type="discussion")
-        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        assert isinstance(discussions_generator, types.GeneratorType)
         self.assertListEqual(list([d.num for d in discussions_generator]), [self.discussion.num])
 
         discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_type="all")
-        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        assert isinstance(discussions_generator, types.GeneratorType)
         self.assertListEqual(
             list([d.num for d in discussions_generator]), [self.discussion.num, self.pull_request.num]
         )
 
     def test_get_repo_discussion_by_author(self):
         discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, author="unknown")
-        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        assert isinstance(discussions_generator, types.GeneratorType)
         self.assertListEqual(list([d.num for d in discussions_generator]), [])
 
     def test_get_repo_discussion_by_status(self):
         self._api.change_discussion_status(self.repo_id, self.discussion.num, "closed")
 
         discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_status="open")
-        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        assert isinstance(discussions_generator, types.GeneratorType)
         self.assertListEqual(list([d.num for d in discussions_generator]), [self.pull_request.num])
 
         discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_status="closed")
-        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        assert isinstance(discussions_generator, types.GeneratorType)
         self.assertListEqual(list([d.num for d in discussions_generator]), [self.discussion.num])
 
         discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_status="all")
-        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        assert isinstance(discussions_generator, types.GeneratorType)
         self.assertListEqual(
             list([d.num for d in discussions_generator]), [self.discussion.num, self.pull_request.num]
         )
@@ -2947,7 +2947,7 @@ class HfApiDiscussionsTest(HfApiCommonTest):
 
     def test_get_discussion_details(self):
         retrieved = self._api.get_discussion_details(repo_id=self.repo_id, discussion_num=2)
-        self.assertEqual(retrieved, self.discussion)
+        assert retrieved == self.discussion
 
     def test_edit_discussion_comment(self):
         def get_first_comment(discussion: DiscussionWithDetails) -> DiscussionComment:
@@ -2960,11 +2960,11 @@ class HfApiDiscussionsTest(HfApiCommonTest):
             new_content="**Edited** comment 🤗",
         )
         retrieved = self._api.get_discussion_details(repo_id=self.repo_id, discussion_num=self.pull_request.num)
-        self.assertEqual(get_first_comment(retrieved).edited, True)
-        self.assertEqual(get_first_comment(retrieved).id, get_first_comment(self.pull_request).id)
-        self.assertEqual(get_first_comment(retrieved).content, "**Edited** comment 🤗")
+        assert get_first_comment(retrieved).edited == True
+        assert get_first_comment(retrieved).id == get_first_comment(self.pull_request).id
+        assert get_first_comment(retrieved).content == "**Edited** comment 🤗"
 
-        self.assertEqual(get_first_comment(retrieved), edited_comment)
+        assert get_first_comment(retrieved) == edited_comment
 
     def test_comment_discussion(self):
         new_comment = self._api.comment_discussion(
@@ -2978,25 +2978,25 @@ class HfApiDiscussionsTest(HfApiCommonTest):
             """,
         )
         retrieved = self._api.get_discussion_details(repo_id=self.repo_id, discussion_num=self.discussion.num)
-        self.assertEqual(len(retrieved.events), 2)
-        self.assertIn(new_comment.id, {event.id for event in retrieved.events})
+        assert len(retrieved.events) == 2
+        assert new_comment.id in {event.id for event in retrieved.events}
 
     def test_rename_discussion(self):
         rename_event = self._api.rename_discussion(
             repo_id=self.repo_id, discussion_num=self.discussion.num, new_title="New title2"
         )
         retrieved = self._api.get_discussion_details(repo_id=self.repo_id, discussion_num=self.discussion.num)
-        self.assertIn(rename_event.id, (event.id for event in retrieved.events))
-        self.assertEqual(rename_event.old_title, self.discussion.title)
-        self.assertEqual(rename_event.new_title, "New title2")
+        assert rename_event.id in (event.id for event in retrieved.events)
+        assert rename_event.old_title == self.discussion.title
+        assert rename_event.new_title == "New title2"
 
     def test_change_discussion_status(self):
         status_change_event = self._api.change_discussion_status(
             repo_id=self.repo_id, discussion_num=self.discussion.num, new_status="closed"
         )
         retrieved = self._api.get_discussion_details(repo_id=self.repo_id, discussion_num=self.discussion.num)
-        self.assertIn(status_change_event.id, (event.id for event in retrieved.events))
-        self.assertEqual(status_change_event.new_status, "closed")
+        assert status_change_event.id in (event.id for event in retrieved.events)
+        assert status_change_event.new_status == "closed"
 
         with self.assertRaises(ValueError):
             self._api.change_discussion_status(
@@ -3016,8 +3016,8 @@ class HfApiDiscussionsTest(HfApiCommonTest):
         self._api.merge_pull_request(self.repo_id, self.pull_request.num)
 
         retrieved = self._api.get_discussion_details(repo_id=self.repo_id, discussion_num=self.pull_request.num)
-        self.assertEqual(retrieved.status, "merged")
-        self.assertIsNotNone(retrieved.merge_commit_oid)
+        assert retrieved.status == "merged"
+        assert retrieved.merge_commit_oid is not None
 
 
 class ActivityApiTest(unittest.TestCase):
@@ -3032,12 +3032,12 @@ class ActivityApiTest(unittest.TestCase):
     def test_list_likes_repos_auth_and_implicit_user(self) -> None:
         # User is implicit
         likes = self.api.list_liked_repos(token=TOKEN)
-        self.assertEqual(likes.user, USER)
+        assert likes.user == USER
 
     def test_list_likes_repos_auth_and_explicit_user(self) -> None:
         # User is explicit even if auth
         likes = self.api.list_liked_repos(user=OTHER_USER, token=TOKEN)
-        self.assertEqual(likes.user, OTHER_USER)
+        assert likes.user == OTHER_USER
 
     @with_production_testing
     def test_list_repo_likers(self) -> None:
@@ -3045,17 +3045,17 @@ class ActivityApiTest(unittest.TestCase):
         all_likers = list(
             HfApi().list_repo_likers(repo_id="open-llm-leaderboard/open_llm_leaderboard", repo_type="space")
         )
-        self.assertIsInstance(all_likers[0], User)
-        self.assertGreater(len(all_likers), 5000)
+        assert isinstance(all_likers[0], User)
+        assert len(all_likers) > 5000
 
     @with_production_testing
     def test_list_likes_on_production(self) -> None:
         # Test julien-c likes a lot of repos !
         likes = HfApi().list_liked_repos("julien-c")
-        self.assertEqual(len(likes.models) + len(likes.datasets) + len(likes.spaces), likes.total)
-        self.assertGreater(len(likes.models), 0)
-        self.assertGreater(len(likes.datasets), 0)
-        self.assertGreater(len(likes.spaces), 0)
+        assert len(likes.models) + len(likes.datasets) + len(likes.spaces) == likes.total
+        assert len(likes.models) > 0
+        assert len(likes.datasets) > 0
+        assert len(likes.spaces) > 0
 
 
 class TestSquashHistory(HfApiCommonTest):
@@ -3269,21 +3269,21 @@ iface.launch()
 
         # Returning all variables created
         variables = self.api.get_space_variables(self.repo_id)
-        self.assertEqual(len(variables), 3)
+        assert len(variables) == 3
 
     def test_space_runtime(self) -> None:
         runtime = self.api.get_space_runtime(self.repo_id)
 
         # Space has just been created: hardware might not be set yet.
-        self.assertIn(runtime.hardware, (None, SpaceHardware.CPU_BASIC))
-        self.assertIn(runtime.requested_hardware, (None, SpaceHardware.CPU_BASIC))
+        assert runtime.hardware in (None, SpaceHardware.CPU_BASIC)
+        assert runtime.requested_hardware in (None, SpaceHardware.CPU_BASIC)
 
         # Space is either "BUILDING" (if not yet done) or "NO_APP_FILE" (if building failed)
-        self.assertIn(runtime.stage, (SpaceStage.NO_APP_FILE, SpaceStage.BUILDING))
-        self.assertIn(runtime.stage, ("NO_APP_FILE", "BUILDING"))  # str works as well
+        assert runtime.stage in (SpaceStage.NO_APP_FILE, SpaceStage.BUILDING)
+        assert runtime.stage in ("NO_APP_FILE", "BUILDING")  # str works as well
 
         # Raw response from Hub
-        self.assertIsInstance(runtime.raw, dict)
+        assert isinstance(runtime.raw, dict)
 
     def test_static_space_runtime(self) -> None:
         """
@@ -3291,7 +3291,7 @@ iface.launch()
         See https://github.com/huggingface/huggingface_hub/pull/1754.
         """
         runtime = self.api.get_space_runtime("victor/static-space")
-        self.assertIsInstance(runtime.raw, dict)
+        assert isinstance(runtime.raw, dict)
 
     @with_production_testing
     def test_pause_and_restart_space(self) -> None:
@@ -3310,13 +3310,13 @@ iface.launch()
 
         # Pause it
         runtime_after_pause = self.api.pause_space(self.repo_id)
-        self.assertEqual(runtime_after_pause.stage, SpaceStage.PAUSED)
+        assert runtime_after_pause.stage == SpaceStage.PAUSED
 
         # Restart
         self.api.restart_space(self.repo_id)
         time.sleep(0.5)
         runtime_after_restart = self.api.get_space_runtime(self.repo_id)
-        self.assertNotEqual(runtime_after_restart.stage, SpaceStage.PAUSED)
+        assert runtime_after_restart.stage != SpaceStage.PAUSED
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -3342,7 +3342,7 @@ class TestCommitInBackground(HfApiCommonTest):
         t1 = time.time()
 
         # all futures are queued instantly
-        self.assertLessEqual(t1 - t0, 0.01)
+        assert t1 - t0 <= 0.01
 
         # wait for the last job to complete
         upload_future_3.result()
@@ -3354,11 +3354,11 @@ class TestCommitInBackground(HfApiCommonTest):
 
         # 4 commits, sorted in reverse order of creation
         commits = self._api.list_repo_commits(repo_id=repo_id)
-        self.assertEqual(len(commits), 4)
-        self.assertEqual(commits[0].title, "Upload folder")
-        self.assertEqual(commits[1].title, "Upload 2")
-        self.assertEqual(commits[2].title, "Upload 1")
-        self.assertEqual(commits[3].title, "initial commit")
+        assert len(commits) == 4
+        assert commits[0].title == "Upload folder"
+        assert commits[1].title == "Upload 2"
+        assert commits[2].title == "Upload 1"
+        assert commits[3].title == "initial commit"
 
     @use_tmp_repo()
     def test_run_as_future(self, repo_url: RepoUrl) -> None:
@@ -3371,20 +3371,20 @@ class TestCommitInBackground(HfApiCommonTest):
         self._api.run_as_future(self._api.update_repo_settings, repo_id=repo_id, private=False)
         future_2 = self._api.run_as_future(self._api.model_info, repo_id=repo_id)
 
-        self.assertIsInstance(future_1, Future)
-        self.assertIsInstance(future_2, Future)
+        assert isinstance(future_1, Future)
+        assert isinstance(future_2, Future)
 
         # Wait for first info future
         info_1 = future_1.result()
-        self.assertFalse(future_2.done())
+        assert not (future_2.done())
 
         # Wait for second info future
         info_2 = future_2.result()
         assert future_2.done()
 
         # Like/unlike is correct
-        self.assertEqual(info_1.private, True)
-        self.assertEqual(info_2.private, False)
+        assert info_1.private == True
+        assert info_2.private == False
 
 
 class TestDownloadHfApiAlias(unittest.TestCase):
@@ -3686,23 +3686,23 @@ class ListGitRefsTest(unittest.TestCase):
 
     def test_list_refs_gpt2(self) -> None:
         refs = self.api.list_repo_refs("gpt2")
-        self.assertGreater(len(refs.branches), 0)
+        assert len(refs.branches) > 0
         main_branch = [branch for branch in refs.branches if branch.name == "main"][0]
-        self.assertEqual(main_branch.ref, "refs/heads/main")
-        self.assertIsNone(refs.pull_requests)
+        assert main_branch.ref == "refs/heads/main"
+        assert refs.pull_requests is None
         # Can get info by revision
         self.api.repo_info("gpt2", revision=main_branch.target_commit)
 
     def test_list_refs_bigcode(self) -> None:
         refs = self.api.list_repo_refs("bigcode/admin", repo_type="dataset")
-        self.assertGreater(len(refs.branches), 0)
-        self.assertGreater(len(refs.converts), 0)
-        self.assertIsNone(refs.pull_requests)
+        assert len(refs.branches) > 0
+        assert len(refs.converts) > 0
+        assert refs.pull_requests is None
         main_branch = [branch for branch in refs.branches if branch.name == "main"][0]
-        self.assertEqual(main_branch.ref, "refs/heads/main")
+        assert main_branch.ref == "refs/heads/main"
 
         convert_branch = [branch for branch in refs.converts if branch.name == "parquet"][0]
-        self.assertEqual(convert_branch.ref, "refs/convert/parquet")
+        assert convert_branch.ref == "refs/convert/parquet"
 
         # Can get info by convert revision
         self.api.repo_info(
@@ -3713,7 +3713,7 @@ class ListGitRefsTest(unittest.TestCase):
 
     def test_list_refs_with_prs(self) -> None:
         refs = self.api.list_repo_refs("openchat/openchat_3.5", include_pull_requests=True)
-        self.assertGreater(len(refs.pull_requests), 1)
+        assert len(refs.pull_requests) > 1
         assert refs.pull_requests[0].ref.startswith("refs/pr/")
 
 
@@ -3743,32 +3743,32 @@ class ListGitCommitsTest(unittest.TestCase):
         commits = self.api.list_repo_commits(self.repo_id)
 
         # "on_pr" commit not returned
-        self.assertEqual(len(commits), 3)
+        assert len(commits) == 3
         assert all("on_pr" not in commit.title for commit in commits)
 
         # USER is always the author
         assert all(commit.authors == [USER] for commit in commits)
 
         # latest commit first
-        self.assertEqual(commits[0].title, "Upload on_main.txt with huggingface_hub")
+        assert commits[0].title == "Upload on_main.txt with huggingface_hub"
 
         # Formatted field not returned by default
         for commit in commits:
-            self.assertIsNone(commit.formatted_title)
-            self.assertIsNone(commit.formatted_message)
+            assert commit.formatted_title is None
+            assert commit.formatted_message is None
 
     def test_list_commits_on_pr(self) -> None:
         commits = self.api.list_repo_commits(self.repo_id, revision="refs/pr/1")
 
         # "on_pr" commit returned but not the "on_main" one
-        self.assertEqual(len(commits), 3)
+        assert len(commits) == 3
         assert all("on_main" not in commit.title for commit in commits)
-        self.assertEqual(commits[0].title, "Upload on_pr.txt with huggingface_hub")
+        assert commits[0].title == "Upload on_pr.txt with huggingface_hub"
 
     def test_list_commits_include_formatted(self) -> None:
         for commit in self.api.list_repo_commits(self.repo_id, formatted=True):
-            self.assertIsNotNone(commit.formatted_title)
-            self.assertIsNotNone(commit.formatted_message)
+            assert commit.formatted_title is not None
+            assert commit.formatted_message is not None
 
     def test_list_commits_on_missing_repo(self) -> None:
         with self.assertRaises(RepositoryNotFoundError):
@@ -3802,26 +3802,26 @@ class HfApiTokenAttributeTest(unittest.TestCase):
         self._assert_token_is(mock_build_hf_headers, None)
 
     def _assert_token_is(self, mock_build_hf_headers: Mock, expected_value: str) -> None:
-        self.assertEqual(mock_build_hf_headers.call_args[1]["token"], expected_value)
+        assert mock_build_hf_headers.call_args[1]["token"] == expected_value
 
     def test_library_name_and_version_are_set(self, mock_build_hf_headers: Mock) -> None:
         HfApi(library_name="a", library_version="b")._build_hf_headers()
-        self.assertEqual(mock_build_hf_headers.call_args[1]["library_name"], "a")
-        self.assertEqual(mock_build_hf_headers.call_args[1]["library_version"], "b")
+        assert mock_build_hf_headers.call_args[1]["library_name"] == "a"
+        assert mock_build_hf_headers.call_args[1]["library_version"] == "b"
 
     def test_library_name_and_version_are_overwritten(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi(library_name="a", library_version="b")
         api._build_hf_headers(library_name="A", library_version="B")
-        self.assertEqual(mock_build_hf_headers.call_args[1]["library_name"], "A")
-        self.assertEqual(mock_build_hf_headers.call_args[1]["library_version"], "B")
+        assert mock_build_hf_headers.call_args[1]["library_name"] == "A"
+        assert mock_build_hf_headers.call_args[1]["library_version"] == "B"
 
     def test_user_agent_is_set(self, mock_build_hf_headers: Mock) -> None:
         HfApi(user_agent={"a": "b"})._build_hf_headers()
-        self.assertEqual(mock_build_hf_headers.call_args[1]["user_agent"], {"a": "b"})
+        assert mock_build_hf_headers.call_args[1]["user_agent"] == {"a": "b"}
 
     def test_user_agent_is_overwritten(self, mock_build_hf_headers: Mock) -> None:
         HfApi(user_agent={"a": "b"})._build_hf_headers(user_agent={"A": "B"})
-        self.assertEqual(mock_build_hf_headers.call_args[1]["user_agent"], {"A": "B"})
+        assert mock_build_hf_headers.call_args[1]["user_agent"] == {"A": "B"}
 
 
 @patch("huggingface_hub.constants.ENDPOINT", ENDPOINT_PRODUCTION)
@@ -3830,15 +3830,15 @@ class RepoUrlTest(unittest.TestCase):
         url = RepoUrl("https://huggingface.co/gpt2")
 
         # RepoUrl Is a string
-        self.assertIsInstance(url, str)
-        self.assertEqual(url, "https://huggingface.co/gpt2")
+        assert isinstance(url, str)
+        assert url == "https://huggingface.co/gpt2"
 
         # Any str-method can be applied
-        self.assertEqual(url.split("/"), "https://huggingface.co/gpt2".split("/"))
+        assert url.split("/") == "https://huggingface.co/gpt2".split("/")
 
         # String formatting and concatenation work
-        self.assertEqual(f"New repo: {url}", "New repo: https://huggingface.co/gpt2")
-        self.assertEqual("New repo: " + url, "New repo: https://huggingface.co/gpt2")
+        assert f"New repo: {url}" == "New repo: https://huggingface.co/gpt2"
+        assert "New repo: " + url == "New repo: https://huggingface.co/gpt2"
 
         # __repr__ is modified for debugging purposes
         self.assertEqual(
@@ -3850,59 +3850,59 @@ class RepoUrlTest(unittest.TestCase):
     def test_repo_url_endpoint(self):
         # Implicit endpoint
         url = RepoUrl("https://huggingface.co/gpt2")
-        self.assertEqual(url.endpoint, ENDPOINT_PRODUCTION)
+        assert url.endpoint == ENDPOINT_PRODUCTION
 
         # Explicit endpoint
         url = RepoUrl("https://example.com/gpt2", endpoint="https://example.com")
-        self.assertEqual(url.endpoint, "https://example.com")
+        assert url.endpoint == "https://example.com"
 
     def test_repo_url_repo_type(self):
         # Explicit repo type
         url = RepoUrl("https://huggingface.co/user/repo_name")
-        self.assertEqual(url.repo_type, "model")
+        assert url.repo_type == "model"
 
         url = RepoUrl("https://huggingface.co/datasets/user/repo_name")
-        self.assertEqual(url.repo_type, "dataset")
+        assert url.repo_type == "dataset"
 
         url = RepoUrl("https://huggingface.co/spaces/user/repo_name")
-        self.assertEqual(url.repo_type, "space")
+        assert url.repo_type == "space"
 
         # Implicit repo type (model)
         url = RepoUrl("https://huggingface.co/user/repo_name")
-        self.assertEqual(url.repo_type, "model")
+        assert url.repo_type == "model"
 
     def test_repo_url_namespace(self):
         # Canonical model (e.g. no username)
         url = RepoUrl("https://huggingface.co/gpt2")
-        self.assertIsNone(url.namespace)
-        self.assertEqual(url.repo_id, "gpt2")
+        assert url.namespace is None
+        assert url.repo_id == "gpt2"
 
         # "Normal" model
         url = RepoUrl("https://huggingface.co/dummy_user/dummy_model")
-        self.assertEqual(url.namespace, "dummy_user")
-        self.assertEqual(url.repo_id, "dummy_user/dummy_model")
+        assert url.namespace == "dummy_user"
+        assert url.repo_id == "dummy_user/dummy_model"
 
     def test_repo_url_url_property(self):
         # RepoUrl.url returns a pure `str` value
         url = RepoUrl("https://huggingface.co/gpt2")
-        self.assertEqual(url, "https://huggingface.co/gpt2")
-        self.assertEqual(url.url, "https://huggingface.co/gpt2")
-        self.assertIsInstance(url, RepoUrl)
-        self.assertNotIsInstance(url.url, RepoUrl)
+        assert url == "https://huggingface.co/gpt2"
+        assert url.url == "https://huggingface.co/gpt2"
+        assert isinstance(url, RepoUrl)
+        assert not isinstance(url.url, RepoUrl)
 
     def test_repo_url_canonical_model(self):
         for _id in ("gpt2", "hf://gpt2", "https://huggingface.co/gpt2"):
             with self.subTest(_id):
                 url = RepoUrl(_id)
-                self.assertEqual(url.repo_id, "gpt2")
-                self.assertEqual(url.repo_type, "model")
+                assert url.repo_id == "gpt2"
+                assert url.repo_type == "model"
 
     def test_repo_url_canonical_dataset(self):
         for _id in ("datasets/squad", "hf://datasets/squad", "https://huggingface.co/datasets/squad"):
             with self.subTest(_id):
                 url = RepoUrl(_id)
-                self.assertEqual(url.repo_id, "squad")
-                self.assertEqual(url.repo_type, "dataset")
+                assert url.repo_id == "squad"
+                assert url.repo_type == "dataset"
 
     def test_repo_url_in_commit_info(self):
         info = CommitInfo(
@@ -3982,11 +3982,11 @@ class CollectionAPITest(HfApiCommonTest):
         collections = HfApi().list_collections(item=f"{item_type}s/{item_id}", limit=limit)
 
         # Check return type
-        self.assertIsInstance(collections, Iterable)
+        assert isinstance(collections, Iterable)
         collections = list(collections)
 
         # Check length
-        self.assertEqual(len(collections), limit)
+        assert len(collections) == limit
 
         # Check all collections contain the item
         for collection in collections:
@@ -3998,12 +3998,12 @@ class CollectionAPITest(HfApiCommonTest):
         collection = self._api.create_collection(self.title, description="Contains a lot of cool stuff")
         self.slug = collection.slug
 
-        self.assertIsInstance(collection, Collection)
-        self.assertEqual(collection.title, self.title)
-        self.assertEqual(collection.description, "Contains a lot of cool stuff")
-        self.assertEqual(collection.items, [])
+        assert isinstance(collection, Collection)
+        assert collection.title == self.title
+        assert collection.description == "Contains a lot of cool stuff"
+        assert collection.items == []
         assert collection.slug.startswith(self.slug_prefix)
-        self.assertEqual(collection.url, f"{ENDPOINT_STAGING}/collections/{collection.slug}")
+        assert collection.url == f"{ENDPOINT_STAGING}/collections/{collection.slug}"
 
     @pytest.mark.skip("Creating duplicated collections work on staging")
     def test_create_collection_exists_ok(self) -> None:
@@ -4018,9 +4018,9 @@ class CollectionAPITest(HfApiCommonTest):
         # Can ignore error
         collection_2 = self._api.create_collection(self.title, description="description", exists_ok=True)
 
-        self.assertEqual(collection_1.slug, collection_2.slug)
-        self.assertIsNone(collection_1.description)
-        self.assertIsNone(collection_2.description)  # Did not got updated!
+        assert collection_1.slug == collection_2.slug
+        assert collection_1.description is None
+        assert collection_2.description is None  # Did not got updated!
 
     def test_create_private_collection(self) -> None:
         collection = self._api.create_collection(self.title, private=True)
@@ -4051,18 +4051,18 @@ class CollectionAPITest(HfApiCommonTest):
             theme="pink",
         )
 
-        self.assertEqual(collection_2.title, new_title)
-        self.assertEqual(collection_2.description, "New description")
-        self.assertEqual(collection_2.private, True)
-        self.assertEqual(collection_2.theme, "pink")
-        self.assertNotEqual(collection_1.slug, collection_2.slug)
+        assert collection_2.title == new_title
+        assert collection_2.description == "New description"
+        assert collection_2.private == True
+        assert collection_2.theme == "pink"
+        assert collection_1.slug != collection_2.slug
 
         # Different slug, same id
-        self.assertEqual(collection_1.slug.split("-")[-1], collection_2.slug.split("-")[-1])
+        assert collection_1.slug.split("-")[-1] == collection_2.slug.split("-")[-1]
 
         # Works with both slugs, same collection returned
-        self.assertEqual(self._api.get_collection(collection_1.slug).slug, collection_2.slug)
-        self.assertEqual(self._api.get_collection(collection_2.slug).slug, collection_2.slug)
+        assert self._api.get_collection(collection_1.slug).slug == collection_2.slug
+        assert self._api.get_collection(collection_2.slug).slug == collection_2.slug
 
     def test_delete_collection(self) -> None:
         collection = self._api.create_collection(self.title)
@@ -4088,14 +4088,14 @@ class CollectionAPITest(HfApiCommonTest):
 
         # Check consistency
         collection = self._api.get_collection(collection.slug)
-        self.assertEqual(len(collection.items), 2)
-        self.assertEqual(collection.items[0].item_id, model_id)
-        self.assertEqual(collection.items[0].item_type, "model")
-        self.assertEqual(collection.items[0].note, "This is my model")
+        assert len(collection.items) == 2
+        assert collection.items[0].item_id == model_id
+        assert collection.items[0].item_type == "model"
+        assert collection.items[0].note == "This is my model"
 
-        self.assertEqual(collection.items[1].item_id, dataset_id)
-        self.assertEqual(collection.items[1].item_type, "dataset")
-        self.assertIsNone(collection.items[1].note)
+        assert collection.items[1].item_id == dataset_id
+        assert collection.items[1].item_type == "dataset"
+        assert collection.items[1].note is None
 
         # Add existing item fails (except if ignore error)
         with self.assertRaises(HfHubHTTPError):
@@ -4113,9 +4113,9 @@ class CollectionAPITest(HfApiCommonTest):
 
         # Check consistency
         collection = self._api.get_collection(collection.slug)
-        self.assertEqual(collection.items[0].item_id, dataset_id)  # position got updated
-        self.assertEqual(collection.items[1].item_id, model_id)
-        self.assertEqual(collection.items[1].note, "New note")  # note got updated
+        assert collection.items[0].item_id == dataset_id  # position got updated
+        assert collection.items[1].item_id == model_id
+        assert collection.items[1].note == "New note"  # note got updated
 
         # Delete last item
         self._api.delete_collection_item(collection.slug, collection.items[1].item_object_id)
@@ -4123,8 +4123,8 @@ class CollectionAPITest(HfApiCommonTest):
 
         # Check consistency
         collection = self._api.get_collection(collection.slug)
-        self.assertEqual(len(collection.items), 1)  # only 1 item remaining
-        self.assertEqual(collection.items[0].item_id, dataset_id)  # position got updated
+        assert len(collection.items) == 1  # only 1 item remaining
+        assert collection.items[0].item_id == dataset_id  # position got updated
 
         # Delete everything
         self._api.delete_repo(model_id)
@@ -4297,9 +4297,9 @@ class WebhookApiTest(HfApiCommonTest):
 
     def test_get_webhook(self) -> None:
         webhook = self._api.get_webhook(self.webhook.id)
-        self.assertIsInstance(webhook, WebhookInfo)
-        self.assertEqual(webhook.id, self.webhook.id)
-        self.assertEqual(webhook.url, self.webhook_url)
+        assert isinstance(webhook, WebhookInfo)
+        assert webhook.id == self.webhook.id
+        assert webhook.url == self.webhook_url
 
     def test_list_webhooks(self) -> None:
         webhooks = self._api.list_webhooks()
@@ -4309,8 +4309,8 @@ class WebhookApiTest(HfApiCommonTest):
         new_webhook = self._api.create_webhook(
             url=self.webhook_url, watched=self.watched_items, domains=self.domains, secret=self.secret
         )
-        self.assertIsInstance(new_webhook, WebhookInfo)
-        self.assertEqual(new_webhook.url, self.webhook_url)
+        assert isinstance(new_webhook, WebhookInfo)
+        assert new_webhook.url == self.webhook_url
 
         # Clean up the newly created webhook
         self._api.delete_webhook(new_webhook.id)
@@ -4320,11 +4320,11 @@ class WebhookApiTest(HfApiCommonTest):
         updated_webhook = self._api.update_webhook(
             self.webhook.id, url=updated_url, watched=self.watched_items, domains=self.domains, secret=self.secret
         )
-        self.assertEqual(updated_webhook.url, updated_url)
+        assert updated_webhook.url == updated_url
 
     def test_enable_webhook(self) -> None:
         enabled_webhook = self._api.enable_webhook(self.webhook.id)
-        self.assertFalse(enabled_webhook.disabled)
+        assert not (enabled_webhook.disabled)
 
     def test_disable_webhook(self) -> None:
         disabled_webhook = self._api.disable_webhook(self.webhook.id)

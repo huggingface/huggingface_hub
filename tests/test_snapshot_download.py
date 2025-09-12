@@ -62,17 +62,17 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 4)
-            self.assertTrue("dummy_file.txt" in folder_contents)
-            self.assertTrue("dummy_file_2.txt" in folder_contents)
-            self.assertTrue(".gitattributes" in folder_contents)
+            assert len(folder_contents) == 4
+            assert "dummy_file.txt" in folder_contents
+            assert "dummy_file_2.txt" in folder_contents
+            assert ".gitattributes" in folder_contents
 
             with open(os.path.join(storage_folder, "dummy_file.txt"), "r") as f:
                 contents = f.read()
-                self.assertEqual(contents, "v2")
+                assert contents == "v2"
 
             # folder name contains the revision's commit sha.
-            self.assertTrue(self.second_commit_hash in storage_folder)
+            assert self.second_commit_hash in storage_folder
 
         # Test with specific revision
         with SoftTemporaryDirectory() as tmpdir:
@@ -84,16 +84,16 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 3)
-            self.assertTrue("dummy_file.txt" in folder_contents)
-            self.assertTrue(".gitattributes" in folder_contents)
+            assert len(folder_contents) == 3
+            assert "dummy_file.txt" in folder_contents
+            assert ".gitattributes" in folder_contents
 
             with open(os.path.join(storage_folder, "dummy_file.txt"), "r") as f:
                 contents = f.read()
-                self.assertEqual(contents, "v1")
+                assert contents == "v1"
 
             # folder name contains the revision's commit sha.
-            self.assertTrue(self.first_commit_hash in storage_folder)
+            assert self.first_commit_hash in storage_folder
 
     def test_download_private_model(self):
         self.api.update_repo_settings(repo_id=self.repo_id, private=True)
@@ -107,12 +107,12 @@ class SnapshotDownloadTests(unittest.TestCase):
         with patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN):
             with SoftTemporaryDirectory() as tmpdir:
                 storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
-                self.assertTrue(self.second_commit_hash in storage_folder)
+                assert self.second_commit_hash in storage_folder
 
         # Test we can download with explicit token
         with SoftTemporaryDirectory() as tmpdir:
             storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir, token=TOKEN)
-            self.assertTrue(self.second_commit_hash in storage_folder)
+            assert self.second_commit_hash in storage_folder
 
         self.api.update_repo_settings(repo_id=self.repo_id, private=False)
 
@@ -123,7 +123,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             snapshot_download(self.repo_id, cache_dir=tmpdir)
             # now load from cache
             storage_folder = snapshot_download(self.repo_id, cache_dir=tmpdir, local_files_only=True)
-            self.assertTrue(self.second_commit_hash in storage_folder)  # has expected revision
+            assert self.second_commit_hash in storage_folder  # has expected revision
 
         # Test with specific revision branch
         with SoftTemporaryDirectory() as tmpdir:
@@ -131,7 +131,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             snapshot_download(self.repo_id, revision="other", cache_dir=tmpdir)
             # now load from cache
             storage_folder = snapshot_download(self.repo_id, revision="other", cache_dir=tmpdir, local_files_only=True)
-            self.assertTrue(self.third_commit_hash in storage_folder)  # has expected revision
+            assert self.third_commit_hash in storage_folder  # has expected revision
 
         # Test with specific revision hash
         with SoftTemporaryDirectory() as tmpdir:
@@ -141,7 +141,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             storage_folder = snapshot_download(
                 self.repo_id, revision=self.first_commit_hash, cache_dir=tmpdir, local_files_only=True
             )
-            self.assertTrue(self.first_commit_hash in storage_folder)  # has expected revision
+            assert self.first_commit_hash in storage_folder  # has expected revision
 
         # Test with local_dir
         with SoftTemporaryDirectory() as tmpdir:
@@ -149,7 +149,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             snapshot_download(self.repo_id, local_dir=tmpdir)
             # now load from local_dir
             storage_folder = snapshot_download(self.repo_id, local_dir=tmpdir, local_files_only=True)
-            self.assertEqual(str(tmpdir), storage_folder)
+            assert str(tmpdir) == storage_folder
 
     def test_download_model_to_local_dir_with_offline_mode(self):
         """Test that an already downloaded folder is returned when there is a connection error"""
@@ -160,7 +160,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             for offline_mode in OfflineSimulationMode:
                 with offline(mode=offline_mode):
                     storage_folder = snapshot_download(self.repo_id, local_dir=tmpdir)
-                    self.assertEqual(str(tmpdir), storage_folder)
+                    assert str(tmpdir) == storage_folder
 
     def test_offline_mode_with_cache_and_empty_local_dir(self):
         """Test that when cache exists but an empty local_dir is specified in offline mode, we raise an error."""
@@ -207,7 +207,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             # now make sure that loading "main" branch gives correct branch
             # folder name contains the 2nd commit sha and not the 3rd
             storage_folder = snapshot_download(self.repo_id, cache_dir=tmpdir, local_files_only=True)
-            self.assertTrue(self.second_commit_hash in storage_folder)
+            assert self.second_commit_hash in storage_folder
 
     def check_download_model_with_pattern(self, pattern, allow=True):
         # Test `main` branch
@@ -225,10 +225,10 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the three text files but not the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 3)
-            self.assertTrue("dummy_file.txt" in folder_contents)
-            self.assertTrue("dummy_file_2.txt" in folder_contents)
-            self.assertTrue(".gitattributes" not in folder_contents)
+            assert len(folder_contents) == 3
+            assert "dummy_file.txt" in folder_contents
+            assert "dummy_file_2.txt" in folder_contents
+            assert ".gitattributes" not in folder_contents
 
     def test_download_model_with_allow_pattern(self):
         self.check_download_model_with_pattern("*.txt")

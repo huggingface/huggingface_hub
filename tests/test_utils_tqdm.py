@@ -85,8 +85,8 @@ class TestTqdmUtils(CapsysBaseTest):
             pass
 
         captured = self.capsys.readouterr()
-        self.assertEqual(captured.out, "")
-        self.assertEqual(captured.err, "")
+        assert captured.out == ""
+        assert captured.err == ""
 
     @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
     def test_tqdm_disabled_cannot_be_forced(self) -> None:
@@ -96,8 +96,8 @@ class TestTqdmUtils(CapsysBaseTest):
             pass
 
         captured = self.capsys.readouterr()
-        self.assertEqual(captured.out, "")
-        self.assertEqual(captured.err, "")
+        assert captured.out == ""
+        assert captured.err == ""
 
     @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
     def test_tqdm_can_be_disabled_when_globally_enabled(self) -> None:
@@ -107,8 +107,8 @@ class TestTqdmUtils(CapsysBaseTest):
             pass
 
         captured = self.capsys.readouterr()
-        self.assertEqual(captured.out, "")
-        self.assertEqual(captured.err, "")
+        assert captured.out == ""
+        assert captured.err == ""
 
     @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
     def test_tqdm_enabled(self) -> None:
@@ -118,8 +118,8 @@ class TestTqdmUtils(CapsysBaseTest):
             pass
 
         captured = self.capsys.readouterr()
-        self.assertEqual(captured.out, "")
-        self.assertIn("10/10", captured.err)  # tqdm log
+        assert captured.out == ""
+        assert "10/10" in captured.err  # tqdm log
 
     def test_tqdm_stream_file(self) -> None:
         with SoftTemporaryDirectory() as tmpdir:
@@ -135,10 +135,10 @@ class TestTqdmUtils(CapsysBaseTest):
                     time.sleep(0.001)  # Simulate a delay between each chunk
 
             captured = self.capsys.readouterr()
-            self.assertEqual(captured.out, "")
-            self.assertIn("config.json: 100%", captured.err)  # log file name
-            self.assertIn("|█████████", captured.err)  # tqdm bar
-            self.assertIn("1.00k/1.00k", captured.err)  # size in B
+            assert captured.out == ""
+            assert "config.json: 100%" in captured.err  # log file name
+            assert "|█████████" in captured.err  # tqdm bar
+            assert "1.00k/1.00k" in captured.err  # size in B
 
 
 class TestTqdmGroup(CapsysBaseTest):

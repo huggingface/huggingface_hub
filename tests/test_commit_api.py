@@ -9,23 +9,23 @@ from huggingface_hub._commit_api import (
 
 class TestCommitOperationDelete(unittest.TestCase):
     def test_implicit_file(self):
-        self.assertFalse(CommitOperationDelete(path_in_repo="path/to/file").is_folder)
-        self.assertFalse(CommitOperationDelete(path_in_repo="path/to/file.md").is_folder)
+        assert not (CommitOperationDelete(path_in_repo="path/to/file").is_folder)
+        assert not (CommitOperationDelete(path_in_repo="path/to/file.md").is_folder)
 
     def test_implicit_folder(self):
-        self.assertTrue(CommitOperationDelete(path_in_repo="path/to/folder/").is_folder)
-        self.assertTrue(CommitOperationDelete(path_in_repo="path/to/folder.md/").is_folder)
+        assert CommitOperationDelete(path_in_repo="path/to/folder/".is_folder)
+        assert CommitOperationDelete(path_in_repo="path/to/folder.md/".is_folder)
 
     def test_explicit_file(self):
         # Weird case: if user explicitly set as file (`is_folder`=False) but path has a
         # trailing "/" => user input has priority
-        self.assertFalse(CommitOperationDelete(path_in_repo="path/to/folder/", is_folder=False).is_folder)
-        self.assertFalse(CommitOperationDelete(path_in_repo="path/to/folder.md/", is_folder=False).is_folder)
+        assert not (CommitOperationDelete(path_in_repo="path/to/folder/", is_folder=False).is_folder)
+        assert not (CommitOperationDelete(path_in_repo="path/to/folder.md/", is_folder=False).is_folder)
 
     def test_explicit_folder(self):
         # No need for the trailing "/" is `is_folder` explicitly passed
-        self.assertTrue(CommitOperationDelete(path_in_repo="path/to/folder", is_folder=True).is_folder)
-        self.assertTrue(CommitOperationDelete(path_in_repo="path/to/folder.md", is_folder=True).is_folder)
+        assert CommitOperationDelete(path_in_repo="path/to/folder", is_folder=True.is_folder)
+        assert CommitOperationDelete(path_in_repo="path/to/folder.md", is_folder=True.is_folder)
 
     def test_is_folder_wrong_value(self):
         with self.assertRaises(ValueError):
@@ -44,8 +44,8 @@ class TestCommitOperationPathInRepo(unittest.TestCase):
     def test_path_in_repo_valid(self) -> None:
         for input, expected in self.valid_values.items():
             with self.subTest(f"Testing with valid input: '{input}'"):
-                self.assertEqual(CommitOperationAdd(path_in_repo=input, path_or_fileobj=b"").path_in_repo, expected)
-                self.assertEqual(CommitOperationDelete(path_in_repo=input).path_in_repo, expected)
+                assert CommitOperationAdd(path_in_repo=input, path_or_fileobj=b"").path_in_repo == expected
+                assert CommitOperationDelete(path_in_repo=input).path_in_repo == expected
 
     def test_path_in_repo_invalid(self) -> None:
         for input in self.invalid_values:

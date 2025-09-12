@@ -144,7 +144,7 @@ class TestWebhooksServerDontRun(unittest.TestCase):
         async def handler():
             pass
 
-        self.assertIn("/webhooks/handler", app.registered_webhooks)
+        assert "/webhooks/handler" in app.registered_webhooks
 
     def test_add_webhook_explicit_path(self):
         # Test adding a webhook
@@ -154,7 +154,7 @@ class TestWebhooksServerDontRun(unittest.TestCase):
         async def handler():
             pass
 
-        self.assertIn("/webhooks/test_webhook", app.registered_webhooks)  # still registered under /webhooks
+        assert "/webhooks/test_webhook" in app.registered_webhooks  # still registered under /webhooks
 
     def test_add_webhook_twice_should_fail(self):
         # Test adding a webhook
@@ -241,32 +241,32 @@ class TestWebhooksServerRun(unittest.TestCase):
         response = self.client.post(
             "/webhooks/test_webhook", headers=self.HEADERS_VALID_SECRET, json=WEBHOOK_PAYLOAD_CREATE_DISCUSSION
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"scope": "discussion"})
+        assert response.status_code == 200
+        assert response.json() == {"scope": "discussion"}
 
     def test_with_webhook_secret_should_succeed(self):
         """Test success if valid secret is sent."""
         for path in ["async_with_request", "sync_with_request", "async_no_request", "sync_no_request"]:
             with self.subTest(path):
                 response = self.client.post(f"/webhooks/{path}", headers=self.HEADERS_VALID_SECRET)
-                self.assertEqual(response.status_code, 200)
-                self.assertEqual(response.json(), {"success": True})
+                assert response.status_code == 200
+                assert response.json() == {"success": True}
 
     def test_no_webhook_secret_should_be_unauthorized(self):
         """Test failure if valid secret is sent."""
         for path in ["async_with_request", "sync_with_request", "async_no_request", "sync_no_request"]:
             with self.subTest(path):
                 response = self.client.post(f"/webhooks/{path}")
-                self.assertEqual(response.status_code, 401)
+                assert response.status_code == 401
 
     def test_wrong_webhook_secret_should_be_forbidden(self):
         """Test failure if valid secret is sent."""
         for path in ["async_with_request", "sync_with_request", "async_no_request", "sync_no_request"]:
             with self.subTest(path):
                 response = self.client.post(f"/webhooks/{path}", headers=self.HEADERS_WRONG_SECRET)
-                self.assertEqual(response.status_code, 403)
+                assert response.status_code == 403
 
     def test_route_with_explicit_path(self):
         """Test that the route with an explicit path is correctly registered."""
         response = self.client.post("/webhooks/explicit_path", headers=self.HEADERS_VALID_SECRET)
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200

@@ -38,10 +38,10 @@ class TestGitCredentials(unittest.TestCase):
 
     def test_list_credential_helpers(self) -> None:
         helpers = list_credential_helpers(folder=self.cache_dir)
-        self.assertIn("cache", helpers)
-        self.assertIn("store", helpers)
-        self.assertIn("git-credential-manager", helpers)
-        self.assertIn("/usr/libexec/git-core/git-credential-libsecret", helpers)
+        assert "cache" in helpers
+        assert "store" in helpers
+        assert "git-credential-manager" in helpers
+        assert "/usr/libexec/git-core/git-credential-libsecret" in helpers
 
     def test_set_and_unset_git_credential(self) -> None:
         username = "hf_test_user_" + str(round(time.time()))  # make username unique
@@ -54,7 +54,7 @@ class TestGitCredentials(unittest.TestCase):
             stdin.write(f"url={ENDPOINT}\nusername={username}\n\n")
             stdin.flush()
             output = stdout.read()
-        self.assertIn("password=hf_test_token", output)
+        assert "password=hf_test_token" in output
 
         # Unset credentials
         unset_git_credential(username=username, folder=self.cache_dir)
@@ -66,7 +66,7 @@ class TestGitCredentials(unittest.TestCase):
             stdin.write(f"url={ENDPOINT}\nusername={username}\n\n")
             stdin.flush()
             output = stdout.read()
-        self.assertEqual("", output)
+        assert "" == output
 
     def test_git_credential_parsing_regex(self) -> None:
         output = """

@@ -67,18 +67,18 @@ class TestFastaiUtils(TestCase):
             _save_pretrained_fastai(dummy_model, tmpdir)
             files = os.listdir(tmpdir)
 
-        self.assertTrue("model.pkl" in files)
-        self.assertTrue("pyproject.toml" in files)
-        self.assertTrue("README.md" in files)
-        self.assertEqual(len(files), 3)
+        assert "model.pkl" in files
+        assert "pyproject.toml" in files
+        assert "README.md" in files
+        assert len(files) == 3
 
     def test_save_pretrained_with_config(self):
         with SoftTemporaryDirectory() as tmpdir:
             _save_pretrained_fastai(dummy_model, tmpdir, config=dummy_config)
             files = os.listdir(tmpdir)
 
-        self.assertTrue("config.json" in files)
-        self.assertEqual(len(files), 4)
+        assert "config.json" in files
+        assert len(files) == 4
 
     def test_push_to_hub_and_from_pretrained_fastai(self):
         api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)

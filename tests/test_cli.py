@@ -1,4 +1,5 @@
 import os
+import re
 import unittest
 import warnings
 from argparse import ArgumentParser, Namespace
@@ -6,6 +7,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator
 from unittest.mock import Mock, patch
+
+import pytest
 
 from huggingface_hub.cli.cache import CacheCommand
 from huggingface_hub.cli.download import DownloadCommand
@@ -122,13 +125,13 @@ class TestUploadCommand(unittest.TestCase):
             assert cmd.path_in_repo == "."
 
             # Test error when using wildcard with --include
-            with self.assertRaises(ValueError):
+            with pytest.raises(ValueError):
                 UploadCommand(
                     self.parser.parse_args(["upload", DUMMY_MODEL_ID, "*.safetensors", "--include", "*.json"])
                 )
 
             # Test error when using wildcard with explicit path_in_repo
-            with self.assertRaises(ValueError):
+            with pytest.raises(ValueError):
                 UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "*.safetensors", "models/"]))
 
     def test_upload_with_all_options(self) -> None:
@@ -213,7 +216,7 @@ class TestUploadCommand(unittest.TestCase):
 
     def test_upload_implicit_local_path_otherwise(self) -> None:
         # No folder or file has the same name as the repo => raise exception
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             with tmp_current_directory():
                 UploadCommand(self.parser.parse_args(["upload", "my-cool-model"]))
 
@@ -240,10 +243,10 @@ class TestUploadCommand(unittest.TestCase):
         assert cmd.path_in_repo == "data/"
 
     def test_every_must_be_positive(self) -> None:
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, ".", "--every", "0"]))
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, ".", "--every", "-10"]))
 
     def test_every_as_int(self) -> None:
@@ -374,7 +377,7 @@ class TestUploadCommand(unittest.TestCase):
     @patch("huggingface_hub.cli.upload.HfApi.create_repo")
     def test_upload_missing_path(self, create_mock: Mock) -> None:
         cmd = UploadCommand(self.parser.parse_args(["upload", "my-model", "/path/to/missing_file", "logs/file.txt"]))
-        with self.assertRaises(FileNotFoundError):
+        with pytest.raises(FileNotFoundError):
             cmd.run()  # File/folder does not exist locally
 
         # Repo creation happens before the check
@@ -467,7 +470,7 @@ class TestDownloadCommand(unittest.TestCase):
         # Output path is printed to terminal once run is completed
         with capture_output() as output:
             DownloadCommand(args).run()
-        self.assertRegex(output.getvalue(), r"<MagicMock name='hf_hub_download\(\)' id='\d+'>")
+        assert re.match(r"<MagicMock name='hf_hub_download\(\)' id='\d+'>", output.getvalue())
 
         mock.assert_called_once_with(
             repo_id="author/dataset",
@@ -564,7 +567,7 @@ class TestDownloadCommand(unittest.TestCase):
             max_workers=8,
         )
 
-        with self.assertWarns(UserWarning):
+        with pytest.warns(UserWarning):
             # warns that patterns are ignored
             DownloadCommand(args).run()
 

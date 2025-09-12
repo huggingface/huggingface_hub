@@ -121,8 +121,8 @@ class TestTextGenerationClientVCR(unittest.TestCase):
 
     def test_generate_non_tgi_endpoint(self):
         text = self.client.text_generation("0 1 2", model="gpt2", max_new_tokens=10)
-        self.assertEqual(text, " 3 4 5 6 7 8 9 10 11 12")
-        self.assertIn("gpt2", _UNSUPPORTED_TEXT_GENERATION_KWARGS)
+        assert text == " 3 4 5 6 7 8 9 10 11 12"
+        assert "gpt2" in _UNSUPPORTED_TEXT_GENERATION_KWARGS
 
         # Watermark is ignored (+ warning)
         with self.assertWarns(UserWarning):
@@ -131,7 +131,7 @@ class TestTextGenerationClientVCR(unittest.TestCase):
         # Return as detail even if details=True (+ warning)
         with self.assertWarns(UserWarning):
             text = self.client.text_generation("0 1 2", model="gpt2", max_new_tokens=10, details=True)
-            self.assertIsInstance(text, str)
+            assert isinstance(text, str)
 
         # Return as stream raises error
         with self.assertRaises(ValueError):

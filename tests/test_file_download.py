@@ -161,7 +161,7 @@ class StagingDownloadTests(unittest.TestCase):
         # Download from private renamed repo
         path = self._api.hf_hub_download(repo_id_before, filename="file.txt")
         with open(path) as f:
-            self.assertEqual(f.read(), "content")
+            assert f.read() == "content"
 
         # Move back (so that auto-cleanup works)
         self._api.move_repo(repo_id_after, repo_id_before)
@@ -239,7 +239,7 @@ class CachedDownloadTests(unittest.TestCase):
             try:
                 filepath = hf_hub_download(DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir)
                 # Permissions are honored (640: u=rw,g=r,o=)
-                self.assertEqual(stat.S_IMODE(os.stat(filepath).st_mode), 0o640)
+                assert stat.S_IMODE(os.stat(filepath).st_mode) == 0o640
             finally:
                 os.umask(previous_umask)
 
@@ -251,7 +251,7 @@ class CachedDownloadTests(unittest.TestCase):
         """
         with SoftTemporaryDirectory() as tmpdir:
             filepath = hf_hub_download(DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir)
-            self.assertTrue(os.path.exists(filepath))
+            assert os.path.exists(filepath)
 
     def test_hf_hub_download_with_empty_subfolder(self):
         """
@@ -270,9 +270,9 @@ class CachedDownloadTests(unittest.TestCase):
 
         # Check file exists and is not in a subfolder in cache
         # e.g: "(...)/snapshots/<commit-id>/config.json"
-        self.assertTrue(filepath.is_file())
-        self.assertEqual(filepath.name, constants.CONFIG_NAME)
-        self.assertEqual(Path(filepath).parent.parent.name, "snapshots")
+        assert filepath.is_file()
+        assert filepath.name == constants.CONFIG_NAME
+        assert Path(filepath).parent.parent.name == "snapshots"
 
     def test_hf_hub_download_offline_no_refs(self):
         """Regression test for #1305.
@@ -375,13 +375,13 @@ class CachedDownloadTests(unittest.TestCase):
         filepath = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME)
 
         new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME)
-        self.assertEqual(filepath, new_file_path)
+        assert filepath == new_file_path
 
         new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision="main")
-        self.assertEqual(filepath, new_file_path)
+        assert filepath == new_file_path
 
         # If file is not cached, returns None
-        self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json"))
+        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json" is None)
         # Same for uncached revisions
         self.assertIsNone(
             try_to_load_from_cache(
@@ -391,17 +391,17 @@ class CachedDownloadTests(unittest.TestCase):
             )
         )
         # Same for uncached models
-        self.assertIsNone(try_to_load_from_cache("bert-base", filename=constants.CONFIG_NAME))
+        assert try_to_load_from_cache("bert-base", filename=constants.CONFIG_NAME is None)
 
     def test_try_to_load_from_cache_specific_pr_revision_exists(self):
         # Make sure the file is cached
         file_path = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision="refs/pr/1")
 
         new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision="refs/pr/1")
-        self.assertEqual(file_path, new_file_path)
+        assert file_path == new_file_path
 
         # If file is not cached, returns None
-        self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json", revision="refs/pr/1"))
+        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json", revision="refs/pr/1" is None)
 
         # If revision does not exist, returns None
         self.assertIsNone(
@@ -414,13 +414,13 @@ class CachedDownloadTests(unittest.TestCase):
             _ = hf_hub_download(DUMMY_MODEL_ID, filename="dummy")
 
         new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy")
-        self.assertEqual(new_file_path, _CACHED_NO_EXIST)
+        assert new_file_path == _CACHED_NO_EXIST
 
         new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy", revision="main")
-        self.assertEqual(new_file_path, _CACHED_NO_EXIST)
+        assert new_file_path == _CACHED_NO_EXIST
 
         # If file non-existence is not cached, returns None
-        self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy2"))
+        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy2" is None)
 
     def test_try_to_load_from_cache_specific_commit_id_exist(self):
         """Regression test for #1306.
@@ -443,7 +443,7 @@ class CachedDownloadTests(unittest.TestCase):
                 revision=commit_id,
                 cache_dir=cache_dir,
             )
-            self.assertEqual(filepath, attempt)
+            assert filepath == attempt
 
     def test_try_to_load_from_cache_specific_commit_id_no_exist(self):
         """Regression test for #1306.
@@ -467,7 +467,7 @@ class CachedDownloadTests(unittest.TestCase):
                 revision=commit_id,
                 cache_dir=cache_dir,
             )
-            self.assertEqual(attempt, _CACHED_NO_EXIST)
+            assert attempt == _CACHED_NO_EXIST
 
     def test_get_hf_file_metadata_basic(self) -> None:
         """Test getting metadata from a file on the Hub."""
@@ -479,9 +479,9 @@ class CachedDownloadTests(unittest.TestCase):
         metadata = get_hf_file_metadata(url)
 
         # Metadata
-        self.assertEqual(metadata.commit_hash, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
-        self.assertIsNotNone(metadata.etag)  # example: "85c2fc2dcdd86563aaa85ef4911..."
-        self.assertEqual(metadata.size, 851)
+        assert metadata.commit_hash == DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT
+        assert metadata.etag is not None  # example: "85c2fc2dcdd86563aaa85ef4911..."
+        assert metadata.size == 851
 
     def test_get_hf_file_metadata_from_a_lfs_file(self) -> None:
         """Test getting metadata from an LFS file.
@@ -491,8 +491,8 @@ class CachedDownloadTests(unittest.TestCase):
         url = hf_hub_url("gpt2", filename="tf_model.h5")
         metadata = get_hf_file_metadata(url)
 
-        self.assertIn("xethub.hf.co", metadata.location)  # Redirection
-        self.assertEqual(metadata.size, 497933648)  # Size of LFS file, not pointer
+        assert "xethub.hf.co" in metadata.location  # Redirection
+        assert metadata.size == 497933648  # Size of LFS file, not pointer
 
     def test_file_consistency_check_fails_regular_file(self):
         """Regression test for #1396 (regular file).
@@ -575,7 +575,7 @@ class CachedDownloadTests(unittest.TestCase):
                     if file.endswith(".lock"):
                         lock_file_exist = True
                         break
-            self.assertTrue(lock_file_exist, "no lock file can be found")
+            assert lock_file_exist, "no lock file can be found"
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -849,7 +849,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
         cls.api.delete_repo(repo_id=cls.repo_url.repo_id)
 
     def test_hf_hub_url_on_awful_filepath(self):
-        self.assertEqual(hf_hub_url(self.repo_url.repo_id, self.filepath), self.expected_resolve_url)
+        assert hf_hub_url(self.repo_url.repo_id, self.filepath) == self.expected_resolve_url
 
     def test_hf_hub_url_on_awful_subfolder_and_filename(self):
         self.assertEqual(
@@ -861,7 +861,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
     def test_hf_hub_download_on_awful_filepath(self):
         local_path = hf_hub_download(self.repo_url.repo_id, self.filepath, cache_dir=self.cache_dir)
         # Local path is not url-encoded
-        self.assertTrue(local_path.endswith(self.filepath))
+        assert local_path.endswith(self.filepath)
 
     @xfail_on_windows(reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_subfolder_and_filename(self):
@@ -872,7 +872,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
             cache_dir=self.cache_dir,
         )
         # Local path is not url-encoded
-        self.assertTrue(local_path.endswith(self.filepath))
+        assert local_path.endswith(self.filepath)
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -1072,7 +1072,7 @@ class CreateSymlinkTest(unittest.TestCase):
             # Normal case: symlink does not exist
             mock_are_symlinks_supported.return_value = True
             _create_symlink(src, dst)
-            self.assertEqual(os.path.realpath(dst), os.path.realpath(src))
+            assert os.path.realpath(dst) == os.path.realpath(src)
 
             # Symlink already exists when it tries to create it (most probably from a
             # concurrent access) but do not raise exception
@@ -1106,9 +1106,9 @@ class CreateSymlinkTest(unittest.TestCase):
         dst = Path(test_dir) / "destination"
 
         _create_symlink(str(src), str(dst))
-        self.assertTrue(dst.resolve().is_file())
+        assert dst.resolve(.is_file())
         if os.name != "nt":
-            self.assertEqual(dst.resolve(), src.resolve())
+            assert dst.resolve() == src.resolve()
         shutil.rmtree(test_dir)
 
 
@@ -1136,7 +1136,7 @@ class TestNormalizeEtag(unittest.TestCase):
     def test_resolve_endpoint_on_regular_file(self):
         url = "https://huggingface.co/gpt2/resolve/e7da7f221d5bf496a48136c0cd264e630fe9fcc8/README.md"
         response = httpx.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
-        self.assertEqual(self._get_etag_and_normalize(response), "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930")
+        assert self._get_etag_and_normalize(response) == "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"
 
     @with_production_testing
     def test_resolve_endpoint_on_lfs_file(self):
@@ -1166,8 +1166,8 @@ class TestEtagTimeoutConfig(unittest.TestCase):
             ) as mock_etag_call:
                 hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
                 kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 10)
+                assert "timeout" in kwargs
+                assert kwargs["timeout"] == 10
 
     @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
     @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 10)
@@ -1180,8 +1180,8 @@ class TestEtagTimeoutConfig(unittest.TestCase):
             ) as mock_etag_call:
                 hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir, etag_timeout=12)
                 kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 12)  # passed as parameter, takes priority
+                assert "timeout" in kwargs
+                assert kwargs["timeout"] == 12  # passed as parameter, takes priority
 
     @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
     @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 15)  # takes priority
@@ -1194,8 +1194,8 @@ class TestEtagTimeoutConfig(unittest.TestCase):
             ) as mock_etag_call:
                 hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
                 kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 15)
+                assert "timeout" in kwargs
+                assert kwargs["timeout"] == 15
 
     @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
     @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 12)  # takes priority
@@ -1208,8 +1208,8 @@ class TestEtagTimeoutConfig(unittest.TestCase):
             ) as mock_etag_call:
                 hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir, etag_timeout=12)
                 kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 12)  # passed value ignored, HF_HUB_ETAG_TIMEOUT takes priority
+                assert "timeout" in kwargs
+                assert kwargs["timeout"] == 12  # passed value ignored, HF_HUB_ETAG_TIMEOUT takes priority
 
 
 @with_production_testing
@@ -1251,7 +1251,7 @@ class TestExtraLargeFileDownloadPaths(unittest.TestCase):
             )
             with open(path, "rb") as f:
                 content = f.read()
-                self.assertEqual(content, b"test\n" * 9)  # the file is 9 lines of "test"
+                assert content == b"test\n" * 9  # the file is 9 lines of "test"
 
 
 def _recursive_chmod(path: str, mode: int) -> None:

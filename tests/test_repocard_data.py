@@ -48,32 +48,32 @@ class BaseCardDataTest(unittest.TestCase):
         metadata = CardData(foo="bar")
 
         # .get and __getitem__
-        self.assertEqual(metadata.get("foo"), "bar")
-        self.assertEqual(metadata.get("FOO"), None)  # case sensitive
-        self.assertEqual(metadata["foo"], "bar")
+        assert metadata.get("foo") == "bar"
+        assert metadata.get("FOO") == None  # case sensitive
+        assert metadata["foo"] == "bar"
         with self.assertRaises(KeyError):  # case sensitive
             _ = metadata["FOO"]
 
         # __setitem__
         metadata["foo"] = "BAR"
-        self.assertEqual(metadata.get("foo"), "BAR")
-        self.assertEqual(metadata["foo"], "BAR")
+        assert metadata.get("foo") == "BAR"
+        assert metadata["foo"] == "BAR"
 
         # __contains__
-        self.assertTrue("foo" in metadata)
-        self.assertFalse("FOO" in metadata)
+        assert "foo" in metadata
+        assert not ("FOO" in metadata)
 
         # default value
         # Should return default when key is not in metadata
-        self.assertEqual(metadata.get("FOO", "default"), "default")
+        assert metadata.get("FOO", "default") == "default"
         # Should return default when key is in metadata but value is None
         metadata.FOO = None
-        self.assertEqual(metadata.get("FOO", "default"), "default")
+        assert metadata.get("FOO", "default") == "default"
         # export
-        self.assertEqual(str(metadata), "foo: BAR")
+        assert str(metadata) == "foo: BAR"
 
         # .pop
-        self.assertEqual(metadata.pop("foo"), "BAR")
+        assert metadata.pop("foo") == "BAR"
 
 
 class ModelCardDataTest(unittest.TestCase):
@@ -94,7 +94,7 @@ class ModelCardDataTest(unittest.TestCase):
 
         model_index = eval_results_to_model_index("my-cool-model", eval_results)
 
-        self.assertEqual(model_index, expected_results["model-index"])
+        assert model_index == expected_results["model-index"]
 
     def test_model_index_to_eval_results(self):
         model_index = [
@@ -146,24 +146,24 @@ class ModelCardDataTest(unittest.TestCase):
         ]
         model_name, eval_results = model_index_to_eval_results(model_index)
 
-        self.assertEqual(len(eval_results), 3)
-        self.assertEqual(model_name, "my-cool-model")
+        assert len(eval_results) == 3
+        assert model_name == "my-cool-model"
 
-        self.assertEqual(eval_results[0].dataset_type, "cats_vs_dogs")
-        self.assertIsNone(eval_results[0].source_name)
-        self.assertIsNone(eval_results[0].source_url)
+        assert eval_results[0].dataset_type == "cats_vs_dogs"
+        assert eval_results[0].source_name is None
+        assert eval_results[0].source_url is None
 
-        self.assertEqual(eval_results[1].metric_type, "f1")
-        self.assertEqual(eval_results[1].metric_value, 0.9)
-        self.assertIsNone(eval_results[1].source_name)
-        self.assertIsNone(eval_results[1].source_url)
+        assert eval_results[1].metric_type == "f1"
+        assert eval_results[1].metric_value == 0.9
+        assert eval_results[1].source_name is None
+        assert eval_results[1].source_url is None
 
-        self.assertEqual(eval_results[2].task_type, "image-classification")
-        self.assertEqual(eval_results[2].dataset_type, "beans")
-        self.assertEqual(eval_results[2].verified, True)
-        self.assertEqual(eval_results[2].verify_token, 1234)
-        self.assertEqual(eval_results[2].source_name, "Open LLM Leaderboard")
-        self.assertEqual(eval_results[2].source_url, OPEN_LLM_LEADERBOARD_URL)
+        assert eval_results[2].task_type == "image-classification"
+        assert eval_results[2].dataset_type == "beans"
+        assert eval_results[2].verified == True
+        assert eval_results[2].verify_token == 1234
+        assert eval_results[2].source_name == "Open LLM Leaderboard"
+        assert eval_results[2].source_url == OPEN_LLM_LEADERBOARD_URL
 
     def test_card_data_requires_model_name_for_eval_results(self):
         with pytest.raises(ValueError, match="`eval_results` requires `model_name` to be set."):
@@ -194,8 +194,8 @@ class ModelCardDataTest(unittest.TestCase):
 
         model_index = eval_results_to_model_index(data.model_name, data.eval_results)
 
-        self.assertEqual(model_index[0]["name"], "my-cool-model")
-        self.assertEqual(model_index[0]["results"][0]["task"]["type"], "image-classification")
+        assert model_index[0]["name"] == "my-cool-model"
+        assert model_index[0]["results"][0]["task"]["type"] == "image-classification"
 
     def test_arbitrary_incoming_card_data(self):
         data = ModelCardData(
@@ -212,10 +212,10 @@ class ModelCardDataTest(unittest.TestCase):
             some_arbitrary_kwarg="some_value",
         )
 
-        self.assertEqual(data.some_arbitrary_kwarg, "some_value")
+        assert data.some_arbitrary_kwarg == "some_value"
 
         data_dict = data.to_dict()
-        self.assertEqual(data_dict["some_arbitrary_kwarg"], "some_value")
+        assert data_dict["some_arbitrary_kwarg"] == "some_value"
 
     def test_eval_result_with_incomplete_source(self):
         # Source url without name: ok
@@ -325,12 +325,12 @@ class DatasetCardDataTest(unittest.TestCase):
             train_eval_index=train_eval_index,
         )
         # The init should have popped this out of kwargs and into train_eval_index attr
-        self.assertEqual(card_data.train_eval_index, train_eval_index)
+        assert card_data.train_eval_index == train_eval_index
         # Underlying train_eval_index gets converted to train-eval-index in DatasetCardData._to_dict.
         # So train_eval_index should be None in the dict
-        self.assertTrue(card_data.to_dict().get("train_eval_index") is None)
+        assert card_data.to_dict(.get("train_eval_index") is None)
         # And train-eval-index should be in the dict
-        self.assertEqual(card_data.to_dict()["train-eval-index"], train_eval_index)
+        assert card_data.to_dict()["train-eval-index"] == train_eval_index
 
 
 class SpaceCardDataTest(unittest.TestCase):
@@ -350,4 +350,4 @@ class SpaceCardDataTest(unittest.TestCase):
                 "duplicated_from": "multimodalart/dreambooth-training",
             },
         )
-        self.assertIsNone(card_data.tags)  # SpaceCardData has some default attributes
+        assert card_data.tags is None  # SpaceCardData has some default attributes
