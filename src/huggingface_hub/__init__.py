@@ -469,12 +469,6 @@ _SUBMOD_ATTRS = {
     "inference._mcp.mcp_client": [
         "MCPClient",
     ],
-    "keras_mixin": [
-        "KerasModelHubMixin",
-        "from_pretrained_keras",
-        "push_to_hub_keras",
-        "save_pretrained_keras",
-    ],
     "repocard": [
         "DatasetCard",
         "ModelCard",
@@ -687,7 +681,6 @@ __all__ = [
     "JobOwner",
     "JobStage",
     "JobStatus",
-    "KerasModelHubMixin",
     "MCPClient",
     "ModelCard",
     "ModelCardData",
@@ -862,7 +855,6 @@ __all__ = [
     "fetch_job_logs",
     "file_exists",
     "from_pretrained_fastai",
-    "from_pretrained_keras",
     "get_async_session",
     "get_collection",
     "get_dataset_tags",
@@ -933,7 +925,6 @@ __all__ = [
     "permanently_delete_lfs_files",
     "preupload_lfs_files",
     "push_to_hub_fastai",
-    "push_to_hub_keras",
     "read_dduf_file",
     "reject_access_request",
     "rename_discussion",
@@ -949,7 +940,6 @@ __all__ = [
     "run_as_future",
     "run_job",
     "run_uv_job",
-    "save_pretrained_keras",
     "save_torch_model",
     "save_torch_state_dict",
     "scale_to_zero_inference_endpoint",
@@ -1485,12 +1475,6 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .inference._mcp.agent import Agent  # noqa: F401
     from .inference._mcp.mcp_client import MCPClient  # noqa: F401
-    from .keras_mixin import (
-        KerasModelHubMixin,  # noqa: F401
-        from_pretrained_keras,  # noqa: F401
-        push_to_hub_keras,  # noqa: F401
-        save_pretrained_keras,  # noqa: F401
-    )
     from .repocard import (
         DatasetCard,  # noqa: F401
         ModelCard,  # noqa: F401
