@@ -64,52 +64,26 @@ class TestUserAgentHeadersUtil(unittest.TestCase):
     def _get_user_agent(self, **kwargs) -> str:
         return build_hf_headers(**kwargs)["user-agent"]
 
-    @patch("huggingface_hub.utils._headers.get_fastai_version")
-    @patch("huggingface_hub.utils._headers.get_fastcore_version")
-    @patch("huggingface_hub.utils._headers.get_tf_version")
     @patch("huggingface_hub.utils._headers.get_torch_version")
-    @patch("huggingface_hub.utils._headers.is_fastai_available")
-    @patch("huggingface_hub.utils._headers.is_fastcore_available")
-    @patch("huggingface_hub.utils._headers.is_tf_available")
     @patch("huggingface_hub.utils._headers.is_torch_available")
     @handle_injection_in_test
     def test_default_user_agent(
         self,
-        mock_get_fastai_version: Mock,
-        mock_get_fastcore_version: Mock,
-        mock_get_tf_version: Mock,
         mock_get_torch_version: Mock,
-        mock_is_fastai_available: Mock,
-        mock_is_fastcore_available: Mock,
-        mock_is_tf_available: Mock,
         mock_is_torch_available: Mock,
     ) -> None:
-        mock_get_fastai_version.return_value = "fastai_version"
-        mock_get_fastcore_version.return_value = "fastcore_version"
-        mock_get_tf_version.return_value = "tf_version"
         mock_get_torch_version.return_value = "torch_version"
-        mock_is_fastai_available.return_value = True
-        mock_is_fastcore_available.return_value = True
-        mock_is_tf_available.return_value = True
         mock_is_torch_available.return_value = True
         self.assertEqual(
             self._get_user_agent(),
-            f"unknown/None; hf_hub/{get_hf_hub_version()};"
-            f" python/{get_python_version()}; torch/torch_version;"
-            " tensorflow/tf_version; fastai/fastai_version;"
-            " fastcore/fastcore_version",
+            f"unknown/None; hf_hub/{get_hf_hub_version()}; python/{get_python_version()}; torch/torch_version",
         )
 
     @patch("huggingface_hub.utils._headers.is_torch_available")
-    @patch("huggingface_hub.utils._headers.is_tf_available")
     @handle_injection_in_test
-    def test_user_agent_with_library_name_multiple_missing(
-        self, mock_is_torch_available: Mock, mock_is_tf_available: Mock
-    ) -> None:
+    def test_user_agent_with_library_name_multiple_missing(self, mock_is_torch_available: Mock) -> None:
         mock_is_torch_available.return_value = False
-        mock_is_tf_available.return_value = False
         self.assertNotIn("torch", self._get_user_agent())
-        self.assertNotIn("tensorflow", self._get_user_agent())
 
     def test_user_agent_with_library_name_and_version(self) -> None:
         self.assertTrue(

@@ -207,11 +207,10 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
     def test_move_repo_normal_usage(self):
-        repo_id = f"{USER}/{repo_name()}"
-        new_repo_id = f"{USER}/{repo_name()}"
-
         # Spaces not tested on staging (error 500)
         for repo_type in [None, constants.REPO_TYPE_MODEL, constants.REPO_TYPE_DATASET]:
+            repo_id = f"{USER}/{repo_name()}"
+            new_repo_id = f"{USER}/{repo_name()}"
             self._api.create_repo(repo_id=repo_id, repo_type=repo_type)
             self._api.move_repo(from_id=repo_id, to_id=new_repo_id, repo_type=repo_type)
             self._api.delete_repo(repo_id=new_repo_id, repo_type=repo_type)
