@@ -355,9 +355,9 @@ class CachedDownloadTests(unittest.TestCase):
             )
         )
 
-    @patch("huggingface_hub.file_download.constants.ENDPOINT", "https://huggingface.co")
+    @patch("huggingface_hub.constants.ENDPOINT", "https://huggingface.co")
     @patch(
-        "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",
+        "huggingface_hub.constants.HUGGINGFACE_CO_URL_TEMPLATE",
         "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}",
     )
     def test_hf_hub_url_with_endpoint(self):
