@@ -22,13 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.9", "3.13"]
-        test_name:
-          [
-            "Repository only",
-            "Everything else",
-            "Inference only",
-            "Xet only"
-          ]
+        test_name: ["Everything else", "Inference only", "Xet only"]
         include:
           - python-version: "3.13" # LFS not ran on 3.9
             test_name: "lfs"
@@ -65,7 +59,7 @@ jobs:
 
           case "${{ matrix.test_name }}" in
 
-            "Repository only" | "Everything else" | "Inference only")
+            "Everything else" | "Inference only")
               sudo apt update
               sudo apt install -y libsndfile1-dev
               ;;
@@ -111,13 +105,6 @@ jobs:
           PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 8 --reruns-delay 2 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504||not less than or equal to 0.01)'"
 
           case "${{ matrix.test_name }}" in
-
-            "Repository only")
-              # Run repo tests concurrently
-              PYTEST="$PYTEST ../tests -k 'TestRepository' -n 4"
-              echo $PYTEST
-              eval $PYTEST
-            ;;
 
             "Inference only")
               # Run inference tests concurrently
