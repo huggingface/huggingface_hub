@@ -14,15 +14,8 @@ from urllib.parse import quote, urlparse
 
 import httpx
 
-from . import (
-    __version__,  # noqa: F401 # for backward compatibility
-    constants,
-)
+from . import constants
 from ._local_folder import get_local_download_paths, read_download_metadata, write_download_metadata
-from .constants import (
-    HUGGINGFACE_CO_URL_TEMPLATE,  # noqa: F401 # for backward compatibility
-    HUGGINGFACE_HUB_CACHE,  # noqa: F401 # for backward compatibility
-)
 from .errors import (
     FileMetadataError,
     GatedRepoError,
@@ -38,21 +31,7 @@ from .utils import (
     WeakFileLock,
     XetFileData,
     build_hf_headers,
-    get_fastai_version,  # noqa: F401 # for backward compatibility
-    get_fastcore_version,  # noqa: F401 # for backward compatibility
-    get_graphviz_version,  # noqa: F401 # for backward compatibility
-    get_jinja_version,  # noqa: F401 # for backward compatibility
-    get_pydot_version,  # noqa: F401 # for backward compatibility
-    get_tf_version,  # noqa: F401 # for backward compatibility
-    get_torch_version,  # noqa: F401 # for backward compatibility
     hf_raise_for_status,
-    is_fastai_available,  # noqa: F401 # for backward compatibility
-    is_fastcore_available,  # noqa: F401 # for backward compatibility
-    is_graphviz_available,  # noqa: F401 # for backward compatibility
-    is_jinja_available,  # noqa: F401 # for backward compatibility
-    is_pydot_available,  # noqa: F401 # for backward compatibility
-    is_tf_available,  # noqa: F401 # for backward compatibility
-    is_torch_available,  # noqa: F401 # for backward compatibility
     logging,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
@@ -60,7 +39,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils._http import _adjust_range_header, http_backoff, http_stream_backoff
-from .utils._runtime import _PY_VERSION, is_xet_available  # noqa: F401 # for backward compatibility
+from .utils._runtime import is_xet_available
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
@@ -250,7 +229,7 @@ def hf_hub_url(
 
     if revision is None:
         revision = constants.DEFAULT_REVISION
-    url = HUGGINGFACE_CO_URL_TEMPLATE.format(
+    url = constants.HUGGINGFACE_CO_URL_TEMPLATE.format(
         repo_id=repo_id, revision=quote(revision, safe=""), filename=quote(filename)
     )
     # Update endpoint if provided
