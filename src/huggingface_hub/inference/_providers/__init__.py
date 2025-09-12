@@ -38,6 +38,7 @@ from .nscale import NscaleConversationalTask, NscaleTextToImageTask
 from .openai import OpenAIConversationalTask
 from .replicate import ReplicateImageToImageTask, ReplicateTask, ReplicateTextToImageTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
+from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
 
 
@@ -61,6 +62,7 @@ PROVIDER_T = Literal[
     "replicate",
     "sambanova",
     "together",
+    "scaleway",
 ]
 
 PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
@@ -158,6 +160,10 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-image": TogetherTextToImageTask(),
         "conversational": TogetherConversationalTask(),
         "text-generation": TogetherTextGenerationTask(),
+    },
+    "scaleway": {
+        "conversational": ScalewayConversationalTask(),
+        "feature-extraction": ScalewayFeatureExtractionTask(),
     },
 }
 
