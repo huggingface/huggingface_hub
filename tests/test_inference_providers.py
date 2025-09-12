@@ -50,6 +50,7 @@ from huggingface_hub.inference._providers.replicate import (
     ReplicateTextToSpeechTask,
 )
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
+from huggingface_hub.inference._providers.scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from huggingface_hub.inference._providers.together import TogetherTextToImageTask
 
 from .testing_utils import assert_in_logs
@@ -1075,6 +1076,75 @@ class TestNovitaProvider:
         helper = NovitaConversationalTask()
         url = helper._prepare_url("novita_token", "username/repo_name")
         assert url == "https://api.novita.ai/v3/openai/chat/completions"
+
+
+class TestScalewayProvider:
+    def test_prepare_hf_url_conversational(self):
+        helper = ScalewayConversationalTask()
+        url = helper._prepare_url("hf_token", "username/repo_name")
+        assert url == "https://router.huggingface.co/scaleway/v1/chat/completions"
+
+    def test_prepare_url_conversational(self):
+        helper = ScalewayConversationalTask()
+        url = helper._prepare_url("scw_token", "username/repo_name")
+        assert url == "https://api.scaleway.ai/v1/chat/completions"
+
+    def test_prepare_payload_as_dict(self):
+        helper = ScalewayConversationalTask()
+        payload = helper._prepare_payload_as_dict(
+            [
+                {"role": "system", "content": "You are a helpful assistant"},
+                {"role": "user", "content": "Hello!"},
+            ],
+            {
+                "max_tokens": 512,
+                "temperature": 0.15,
+                "top_p": 1,
+                "presence_penalty": 0,
+                "stream": True,
+            },
+            InferenceProviderMapping(
+                provider="scaleway",
+                hf_model_id="meta-llama/Llama-3.1-8B-Instruct",
+                providerId="meta-llama/llama-3.1-8B-Instruct",
+                task="conversational",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "max_tokens": 512,
+            "messages": [
+                {"content": "You are a helpful assistant", "role": "system"},
+                {"role": "user", "content": "Hello!"},
+            ],
+            "model": "meta-llama/llama-3.1-8B-Instruct",
+            "presence_penalty": 0,
+            "stream": True,
+            "temperature": 0.15,
+            "top_p": 1,
+        }
+
+    def test_prepare_url_feature_extraction(self):
+        helper = ScalewayFeatureExtractionTask()
+        assert (
+            helper._prepare_url("hf_token", "username/repo_name")
+            == "https://router.huggingface.co/scaleway/v1/embeddings"
+        )
+
+    def test_prepare_payload_as_dict_feature_extraction(self):
+        helper = ScalewayFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict(
+            "Example text to embed",
+            {"truncate": True},
+            InferenceProviderMapping(
+                provider="scaleway",
+                hf_model_id="username/repo_name",
+                providerId="provider-id",
+                task="feature-extraction",
+                status="live",
+            ),
+        )
+        assert payload == {"input": "Example text to embed", "model": "provider-id", "truncate": True}
 
 
 class TestNscaleProvider:
