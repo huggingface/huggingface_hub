@@ -38,6 +38,7 @@ _CANDIDATES = {
     "hf_transfer": {"hf_transfer"},
     "hf_xet": {"hf_xet"},
     "jinja": {"Jinja2"},
+    "httpx": {"httpx"},
     "keras": {"keras"},
     "numpy": {"numpy"},
     "pillow": {"Pillow"},
@@ -150,6 +151,15 @@ def is_hf_transfer_available() -> bool:
 
 def get_hf_transfer_version() -> str:
     return _get_version("hf_transfer")
+
+
+# httpx
+def is_httpx_available() -> bool:
+    return is_package_available("httpx")
+
+
+def get_httpx_version() -> str:
+    return _get_version("httpx")
 
 
 # xet
@@ -357,21 +367,13 @@ def dump_environment_info() -> dict[str, Any]:
         pass
 
     # Installed dependencies
-    info["FastAI"] = get_fastai_version()
-    info["Tensorflow"] = get_tf_version()
     info["Torch"] = get_torch_version()
-    info["Jinja2"] = get_jinja_version()
-    info["Graphviz"] = get_graphviz_version()
-    info["keras"] = get_keras_version()
-    info["Pydot"] = get_pydot_version()
-    info["Pillow"] = get_pillow_version()
+    info["httpx"] = get_httpx_version()
     info["hf_transfer"] = get_hf_transfer_version()
+    info["hf_xet"] = get_xet_version()
     info["gradio"] = get_gradio_version()
     info["tensorboard"] = get_tensorboard_version()
-    info["numpy"] = get_numpy_version()
     info["pydantic"] = get_pydantic_version()
-    info["aiohttp"] = get_aiohttp_version()
-    info["hf_xet"] = get_xet_version()
 
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT
