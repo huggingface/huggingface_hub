@@ -492,9 +492,6 @@ _SUBMOD_ATTRS = {
         "ModelCardData",
         "SpaceCardData",
     ],
-    "repository": [
-        "Repository",
-    ],
     "serialization": [
         "StateDictSplit",
         "get_tf_storage_size",
@@ -715,7 +712,6 @@ __all__ = [
     "REPO_TYPE_SPACE",
     "RepoCard",
     "RepoUrl",
-    "Repository",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
     "SpaceCard",
@@ -1512,7 +1508,6 @@ if TYPE_CHECKING:  # pragma: no cover
         ModelCardData,  # noqa: F401
         SpaceCardData,  # noqa: F401
     )
-    from .repository import Repository  # noqa: F401
     from .serialization import (
         StateDictSplit,  # noqa: F401
         get_tf_storage_size,  # noqa: F401

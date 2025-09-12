@@ -54,8 +54,6 @@
       title: Authentication
     - local: package_reference/environment_variables
       title: Environment variables
-    - local: package_reference/repository
-      title: Managing local and online repositories
     - local: package_reference/hf_api
       title: Hugging Face Hub API
     - local: package_reference/file_download
