@@ -243,7 +243,7 @@ def rmtree_with_retry(path: Union[str, Path]) -> None:
 
 
 def with_production_testing(func):
-    file_download = patch("huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE", ENDPOINT_PRODUCTION_URL_SCHEME)
+    file_download = patch("huggingface_hub.constants.HUGGINGFACE_CO_URL_TEMPLATE", ENDPOINT_PRODUCTION_URL_SCHEME)
     hf_api = patch("huggingface_hub.constants.ENDPOINT", ENDPOINT_PRODUCTION)
     return hf_api(file_download(func))
 
