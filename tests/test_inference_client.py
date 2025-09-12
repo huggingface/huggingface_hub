@@ -118,6 +118,9 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "text-generation": "NousResearch/Nous-Hermes-Llama2-13b",
         "conversational": "meta-llama/Llama-3.1-8B-Instruct",
     },
+    "publicai": {
+        "conversational": "swiss-ai/Apertus-8B-Instruct-2509",
+    },
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",
     },
