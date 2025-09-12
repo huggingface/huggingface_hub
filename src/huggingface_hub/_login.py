@@ -41,7 +41,6 @@ from .utils._auth import (
     _save_token,
     get_stored_tokens,
 )
-from .utils._deprecation import _deprecate_positional_args
 
 
 logger = logging.get_logger(__name__)
@@ -55,7 +54,6 @@ _HF_LOGO_ASCII = """
 """
 
 
-@_deprecate_positional_args(version="1.0")
 def login(
     token: Optional[str] = None,
     *,
@@ -228,7 +226,6 @@ def auth_list() -> None:
 ###
 
 
-@_deprecate_positional_args(version="1.0")
 def interpreter_login(*, skip_if_logged_in: bool = False) -> None:
     """
     Displays a prompt to log in to the HF website and store the token.
@@ -293,7 +290,6 @@ NOTEBOOK_LOGIN_TOKEN_HTML_END = """
 notebooks. </center>"""
 
 
-@_deprecate_positional_args(version="1.0")
 def notebook_login(*, skip_if_logged_in: bool = False) -> None:
     """
     Displays a widget to log in to the HF website and store the token.
