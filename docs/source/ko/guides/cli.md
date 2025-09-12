@@ -443,7 +443,6 @@ Copy-and-paste the text below in your GitHub issue.
 - Who am I ?: Wauplin
 - Configured git credential helpers: store
 - FastAI: N/A
-- Tensorflow: 2.11.0
 - Torch: 1.12.1
 - Jinja2: 3.1.2
 - Graphviz: 0.20.1

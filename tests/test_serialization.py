@@ -9,7 +9,6 @@ from pytest_mock import MockerFixture
 
 from huggingface_hub import constants
 from huggingface_hub.serialization import (
-    get_tf_storage_size,
     get_torch_storage_size,
     load_state_dict_from_file,
     load_torch_model,
@@ -242,14 +241,6 @@ def test_tensor_same_storage():
         "layer_5": "model-00002-of-00002.safetensors",
     }
     assert state_dict_split.metadata == {"total_size": 3}  # count them once
-
-
-@requires("tensorflow")
-def test_get_tf_storage_size():
-    import tensorflow as tf  # type: ignore[import]
-
-    assert get_tf_storage_size(tf.constant([1, 2, 3, 4, 5], dtype=tf.float64)) == 5 * 8
-    assert get_tf_storage_size(tf.constant([1, 2, 3, 4, 5], dtype=tf.float16)) == 5 * 2
 
 
 @requires("torch")
