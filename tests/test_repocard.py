@@ -232,16 +232,16 @@ class RepocardMetadataTest(unittest.TestCase):
     def test_no_metadata_returns_none(self):
         self.filepath.write_text(DUMMY_MODELCARD_TARGET_NO_TAGS)
         data = metadata_load(self.filepath)
-        assert data == None
+        assert data is None
 
     def test_empty_metadata_returns_none_with_metadata_load(self):
         self.filepath.write_text(DUMMY_MODELCARD_EMPTY_METADATA)
         data = metadata_load(self.filepath)
-        assert data == None
+        assert data is None
 
     def test_empty_metadata_returns_none_with_repocard_load(self):
         self.filepath.write_text(DUMMY_MODELCARD_EMPTY_METADATA)
-        assert metadata_load(self.filepath is None)
+        assert metadata_load(self.filepath) is None
         assert RepoCard.load(self.filepath).data.to_dict() == {}
 
     def test_metadata_eval_result(self):
@@ -752,13 +752,13 @@ class RepoCardTest(TestCaseWithHfApi):
 
 class TestRegexYamlBlock(unittest.TestCase):
     def test_match_with_leading_whitespace(self):
-        assert REGEX_YAML_BLOCK.search("   \n---\nmetadata: 1\n---" is not None)
+        assert REGEX_YAML_BLOCK.search("   \n---\nmetadata: 1\n---" != None)
 
     def test_match_without_leading_whitespace(self):
-        assert REGEX_YAML_BLOCK.search("---\nmetadata: 1\n---" is not None)
+        assert REGEX_YAML_BLOCK.search("---\nmetadata: 1\n---" != None)
 
     def test_does_not_match_with_leading_text(self):
-        assert REGEX_YAML_BLOCK.search("something\n---\nmetadata: 1\n---" is None)
+        assert REGEX_YAML_BLOCK.search("something\n---\nmetadata: 1\n---" == None)
 
 
 class ModelCardTest(TestCaseWithHfApi):
@@ -859,7 +859,7 @@ class ModelCardTest(TestCaseWithHfApi):
         )
         assert isinstance(card, ModelCard)
         assert card.text.endswith("asdf")
-        assert card.data.to_dict(.get("eval_results") is None)
+        assert card.data.to_dict().get("eval_results") is None
         assert str(card)[: len(DUMMY_MODELCARD_EVAL_RESULT)] == DUMMY_MODELCARD_EVAL_RESULT
 
     def test_preserve_order_load_save(self):
@@ -888,7 +888,7 @@ class DatasetCardTest(TestCaseWithHfApi):
         )
         assert isinstance(card, DatasetCard)
         assert isinstance(card.data, DatasetCardData)
-        assert card.text.strip(.startswith("# Dataset Card for"))
+        assert card.text.strip().startswith("# Dataset Card for")
 
     @require_jinja
     def test_dataset_card_from_default_template(self):
@@ -899,7 +899,7 @@ class DatasetCardTest(TestCaseWithHfApi):
 
         # Here we check default title when pretty_name not provided.
         card = DatasetCard.from_template(card_data)
-        assert card.text.strip(.startswith("# Dataset Card for Dataset Name"))
+        assert card.text.strip().startswith("# Dataset Card for Dataset Name")
 
         card_data = DatasetCardData(
             language="en",
@@ -909,7 +909,7 @@ class DatasetCardTest(TestCaseWithHfApi):
 
         # Here we pass the card data as kwargs as well so template picks up pretty_name.
         card = DatasetCard.from_template(card_data, **card_data.to_dict())
-        assert card.text.strip(.startswith("# Dataset Card for My Cool Dataset"))
+        assert card.text.strip().startswith("# Dataset Card for My Cool Dataset")
 
         assert isinstance(card, DatasetCard)
 
@@ -931,7 +931,7 @@ class DatasetCardTest(TestCaseWithHfApi):
                 "in the dataset card template are working."
             ),
         )
-        assert card.text.strip(.startswith("# Dataset Card for My Cool Dataset"))
+        assert card.text.strip().startswith("# Dataset Card for My Cool Dataset")
         assert isinstance(card, DatasetCard)
 
         matches = re.findall(r"Repository:\*\* https://github\.com/huggingface/huggingface_hub", str(card))
@@ -952,10 +952,10 @@ class DatasetCardTest(TestCaseWithHfApi):
         assert isinstance(card, DatasetCard)
 
         # Title this time is just # {{ pretty_name }}
-        assert card.text.strip(.startswith("# My Cool Dataset"))
+        assert card.text.strip().startswith("# My Cool Dataset")
 
         # some_data is at the bottom of the template, so should end with whatever we passed to it
-        assert card.text.strip(.endswith("asdf"))
+        assert card.text.strip().endswith("asdf")
 
 
 @with_production_testing

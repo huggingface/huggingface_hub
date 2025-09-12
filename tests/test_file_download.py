@@ -381,7 +381,7 @@ class CachedDownloadTests(unittest.TestCase):
         assert filepath == new_file_path
 
         # If file is not cached, returns None
-        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json" is None)
+        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json" == None)
         # Same for uncached revisions
         self.assertIsNone(
             try_to_load_from_cache(
@@ -401,7 +401,7 @@ class CachedDownloadTests(unittest.TestCase):
         assert file_path == new_file_path
 
         # If file is not cached, returns None
-        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json", revision="refs/pr/1" is None)
+        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json", revision="refs/pr/1" == None)
 
         # If revision does not exist, returns None
         self.assertIsNone(
@@ -420,7 +420,7 @@ class CachedDownloadTests(unittest.TestCase):
         assert new_file_path == _CACHED_NO_EXIST
 
         # If file non-existence is not cached, returns None
-        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy2" is None)
+        assert try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy2" == None)
 
     def test_try_to_load_from_cache_specific_commit_id_exist(self):
         """Regression test for #1306.
@@ -1106,7 +1106,7 @@ class CreateSymlinkTest(unittest.TestCase):
         dst = Path(test_dir) / "destination"
 
         _create_symlink(str(src), str(dst))
-        assert dst.resolve(.is_file())
+        assert dst.resolve().is_file()
         if os.name != "nt":
             assert dst.resolve() == src.resolve()
         shutil.rmtree(test_dir)

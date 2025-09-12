@@ -116,7 +116,7 @@ class TestUserAgentHeadersUtil(unittest.TestCase):
 
     @patch("huggingface_hub.utils._telemetry.constants.HF_HUB_USER_AGENT_ORIGIN", "custom-origin")
     def test_user_agent_with_origin(self) -> None:
-        assert self._get_user_agent(.endswith("origin/custom-origin"))
+        assert self._get_user_agent().endswith("origin/custom-origin")
 
     @patch("huggingface_hub.utils._telemetry.constants.HF_HUB_USER_AGENT_ORIGIN", "custom-origin")
     def test_user_agent_with_origin_and_user_agent(self) -> None:

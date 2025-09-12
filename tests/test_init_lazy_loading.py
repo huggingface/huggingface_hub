@@ -31,7 +31,7 @@ class TestHuggingfaceHubInit(unittest.TestCase):
                 # the help section.
                 signature_list = goto_list[0].get_signatures()
                 assert len(signature_list) == 2  # create_commit has 2 signatures (normal and `run_as_future`)
-                assert signature_list[0].docstring(.startswith("create_commit(repo_id: str,"))
+                assert signature_list[0].docstring().startswith("create_commit(repo_id: str,")
                 break
         else:
             self.fail(

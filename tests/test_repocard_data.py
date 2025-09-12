@@ -49,7 +49,7 @@ class BaseCardDataTest(unittest.TestCase):
 
         # .get and __getitem__
         assert metadata.get("foo") == "bar"
-        assert metadata.get("FOO") == None  # case sensitive
+        assert metadata.get("FOO") is None  # case sensitive
         assert metadata["foo"] == "bar"
         with self.assertRaises(KeyError):  # case sensitive
             _ = metadata["FOO"]
@@ -61,7 +61,7 @@ class BaseCardDataTest(unittest.TestCase):
 
         # __contains__
         assert "foo" in metadata
-        assert not ("FOO" in metadata)
+        assert "FOO" not in metadata
 
         # default value
         # Should return default when key is not in metadata
@@ -160,7 +160,7 @@ class ModelCardDataTest(unittest.TestCase):
 
         assert eval_results[2].task_type == "image-classification"
         assert eval_results[2].dataset_type == "beans"
-        assert eval_results[2].verified == True
+        assert eval_results[2].verified
         assert eval_results[2].verify_token == 1234
         assert eval_results[2].source_name == "Open LLM Leaderboard"
         assert eval_results[2].source_url == OPEN_LLM_LEADERBOARD_URL
@@ -328,7 +328,7 @@ class DatasetCardDataTest(unittest.TestCase):
         assert card_data.train_eval_index == train_eval_index
         # Underlying train_eval_index gets converted to train-eval-index in DatasetCardData._to_dict.
         # So train_eval_index should be None in the dict
-        assert card_data.to_dict(.get("train_eval_index") is None)
+        assert card_data.to_dict().get("train_eval_index") is None
         # And train-eval-index should be in the dict
         assert card_data.to_dict()["train-eval-index"] == train_eval_index
 

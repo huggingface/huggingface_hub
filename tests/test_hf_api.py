@@ -2871,7 +2871,7 @@ class HfApiDiscussionsTest(HfApiCommonTest):
         discussion = self._api.create_discussion(repo_id=self.repo_id, title=" Test discussion !  ")
         assert discussion.num == 3
         assert discussion.author == USER
-        assert discussion.is_pull_request == False
+        assert not discussion.is_pull_request
         assert discussion.title == "Test discussion !"
 
     @use_tmp_repo("dataset")
@@ -2888,7 +2888,7 @@ class HfApiDiscussionsTest(HfApiCommonTest):
         discussion = self._api.create_discussion(repo_id=self.repo_id, title=" Test PR !  ", pull_request=True)
         assert discussion.num == 3
         assert discussion.author == USER
-        assert discussion.is_pull_request == True
+        assert discussion.is_pull_request
         assert discussion.title == "Test PR !"
 
         model_info = self._api.repo_info(repo_id=self.repo_id, revision="refs/pr/1")
@@ -2960,7 +2960,7 @@ class HfApiDiscussionsTest(HfApiCommonTest):
             new_content="**Edited** comment 🤗",
         )
         retrieved = self._api.get_discussion_details(repo_id=self.repo_id, discussion_num=self.pull_request.num)
-        assert get_first_comment(retrieved).edited == True
+        assert get_first_comment(retrieved).edited
         assert get_first_comment(retrieved).id == get_first_comment(self.pull_request).id
         assert get_first_comment(retrieved).content == "**Edited** comment 🤗"
 
@@ -3383,8 +3383,8 @@ class TestCommitInBackground(HfApiCommonTest):
         assert future_2.done()
 
         # Like/unlike is correct
-        assert info_1.private == True
-        assert info_2.private == False
+        assert info_1.private
+        assert not info_2.private
 
 
 class TestDownloadHfApiAlias(unittest.TestCase):
@@ -4053,7 +4053,7 @@ class CollectionAPITest(HfApiCommonTest):
 
         assert collection_2.title == new_title
         assert collection_2.description == "New description"
-        assert collection_2.private == True
+        assert collection_2.private
         assert collection_2.theme == "pink"
         assert collection_1.slug != collection_2.slug
 
