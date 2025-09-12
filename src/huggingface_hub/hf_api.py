@@ -71,27 +71,6 @@ from .community import (
     DiscussionWithDetails,
     deserialize_event,
 )
-from .constants import (
-    DEFAULT_ETAG_TIMEOUT,  # noqa: F401 # kept for backward compatibility
-    DEFAULT_REQUEST_TIMEOUT,  # noqa: F401 # kept for backward compatibility
-    DEFAULT_REVISION,  # noqa: F401 # kept for backward compatibility
-    DISCUSSION_STATUS,  # noqa: F401 # kept for backward compatibility
-    DISCUSSION_TYPES,  # noqa: F401 # kept for backward compatibility
-    ENDPOINT,  # noqa: F401 # kept for backward compatibility
-    INFERENCE_ENDPOINTS_ENDPOINT,  # noqa: F401 # kept for backward compatibility
-    REGEX_COMMIT_OID,  # noqa: F401 # kept for backward compatibility
-    REPO_TYPE_MODEL,  # noqa: F401 # kept for backward compatibility
-    REPO_TYPES,  # noqa: F401 # kept for backward compatibility
-    REPO_TYPES_MAPPING,  # noqa: F401 # kept for backward compatibility
-    REPO_TYPES_URL_PREFIXES,  # noqa: F401 # kept for backward compatibility
-    SAFETENSORS_INDEX_FILE,  # noqa: F401 # kept for backward compatibility
-    SAFETENSORS_MAX_HEADER_LENGTH,  # noqa: F401 # kept for backward compatibility
-    SAFETENSORS_SINGLE_FILE,  # noqa: F401 # kept for backward compatibility
-    SPACES_SDK_TYPES,  # noqa: F401 # kept for backward compatibility
-    WEBHOOK_DOMAIN_T,  # noqa: F401 # kept for backward compatibility
-    DiscussionStatusFilter,  # noqa: F401 # kept for backward compatibility
-    DiscussionTypeFilter,  # noqa: F401 # kept for backward compatibility
-)
 from .errors import (
     BadRequestError,
     GatedRepoError,

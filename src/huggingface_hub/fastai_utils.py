@@ -16,7 +16,6 @@ from huggingface_hub.utils import (
 )
 
 from .utils import logging, validate_hf_hub_args
-from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility...
 
 
 logger = logging.get_logger(__name__)
