@@ -55,11 +55,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         # Only revision of `dummy_dataset`
         assert isinstance(choices[2], Choice)
         assert choices[2].value == "dataset_revision_hash_id"
-        self.assertEqual(
-            choices[2].name,
-            # truncated hash id + detached + last modified
-            "dataset_: (detached) # modified 1 day ago",
-        )
+        assert choices[2].name == "dataset_: (detached) # modified 1 day ago"
         assert choices[2].enabled  # preselected
 
         # Model `dummy_model` separator
@@ -85,7 +81,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         # Only revision of `gpt2`
         assert isinstance(choices[7], Choice)
         assert choices[7].value == "abcdef123456789"
-        self.assertEqual(choices[7].name, "abcdef12: main, refs/pr/1 # modified 2 years ago")
+        assert choices[7].name == "abcdef12: main, refs/pr/1 # modified 2 years ago"
         assert not (choices[7].enabled)
 
     def test_get_tui_choices_from_scan_with_sort_size(self) -> None:
@@ -104,12 +100,12 @@ class TestDeleteCacheHelpers(unittest.TestCase):
 
     def test_get_expectations_str_on_no_deletion_item(self) -> None:
         """Test `_get_instructions` when `_CANCEL_DELETION_STR` is passed."""
-        self.assertEqual(
+        assert (
             _get_expectations_str(
                 hf_cache_info=Mock(),
                 selected_hashes=["hash_1", _CANCEL_DELETION_STR, "hash_2"],
-            ),
-            "Nothing will be deleted.",
+            )
+            == "Nothing will be deleted."
         )
 
     def test_get_expectations_str_with_selection(self) -> None:
@@ -120,12 +116,12 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         cache_mock = Mock()
         cache_mock.delete_revisions.return_value = strategy_mock
 
-        self.assertEqual(
+        assert (
             _get_expectations_str(
                 hf_cache_info=cache_mock,
                 selected_hashes=["hash_1", "hash_2"],
-            ),
-            "2 revisions selected counting for 5.1M.",
+            )
+            == "2 revisions selected counting for 5.1M."
         )
         cache_mock.delete_revisions.assert_called_once_with("hash_1", "hash_2")
 
@@ -154,16 +150,13 @@ class TestDeleteCacheHelpers(unittest.TestCase):
 
             # Only non-commented lines are returned
             # Order is kept and lines are not de-duplicated
-            self.assertListEqual(
-                _read_manual_review_tmp_file(tmp_path),
-                [
-                    "a_revision_hash",
-                    "a_revision_hash_with_a_comment",
-                    "a_revision_hash_after_spaces",
-                    "a_revision_hash_with_a_comment_after_spaces",
-                    "a_revision_hash",
-                ],
-            )
+            assert _read_manual_review_tmp_file(tmp_path) == [
+                "a_revision_hash",
+                "a_revision_hash_with_a_comment",
+                "a_revision_hash_after_spaces",
+                "a_revision_hash_with_a_comment_after_spaces",
+                "a_revision_hash",
+            ]
 
     @patch("huggingface_hub.commands.delete_cache.input")
     @patch("huggingface_hub.commands.delete_cache.mkstemp")
@@ -214,7 +207,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         assert not (os.path.isfile(tmp_path))  # now deleted
 
         # User changed the selection
-        self.assertListEqual(selected_hashes, ["dataset_revision_hash_id", "older_hash_id"])
+        assert selected_hashes == ["dataset_revision_hash_id", "older_hash_id"]
 
         # Check printed instructions
         printed = output.getvalue()
@@ -245,10 +238,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
             value = _ask_for_confirmation_no_tui("custom message 3", default=False)
         mock_input.assert_called_with("custom message 3 (y/N) ")
         assert not (value)
-        self.assertEqual(
-            output.getvalue(),
-            "Invalid input. Must be one of ('y', 'yes', '1', 'n', 'no', '0', '')\n",
-        )
+        assert output.getvalue() == "Invalid input. Must be one of ('y', 'yes', '1', 'n', 'no', '0', '')\n"
 
     def test_get_tui_choices_from_scan_with_different_sorts(self) -> None:
         """Test different sorting modes."""

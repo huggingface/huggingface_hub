@@ -1,4 +1,4 @@
-import unittest
+import pytest
 
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
@@ -7,7 +7,7 @@ from huggingface_hub._commit_api import (
 )
 
 
-class TestCommitOperationDelete(unittest.TestCase):
+class TestCommitOperationDelete:
     def test_implicit_file(self):
         assert not (CommitOperationDelete(path_in_repo="path/to/file").is_folder)
         assert not (CommitOperationDelete(path_in_repo="path/to/file.md").is_folder)
@@ -28,11 +28,11 @@ class TestCommitOperationDelete(unittest.TestCase):
         assert CommitOperationDelete(path_in_repo="path/to/folder.md", is_folder=True).is_folder
 
     def test_is_folder_wrong_value(self):
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             CommitOperationDelete(path_in_repo="path/to/folder", is_folder="any value")
 
 
-class TestCommitOperationPathInRepo(unittest.TestCase):
+class TestCommitOperationPathInRepo:
     valid_values = {  # key is input, value is expected validated output
         "file.txt": "file.txt",
         ".file.txt": ".file.txt",
@@ -43,20 +43,18 @@ class TestCommitOperationPathInRepo(unittest.TestCase):
 
     def test_path_in_repo_valid(self) -> None:
         for input, expected in self.valid_values.items():
-            with self.subTest(f"Testing with valid input: '{input}'"):
-                assert CommitOperationAdd(path_in_repo=input, path_or_fileobj=b"").path_in_repo == expected
-                assert CommitOperationDelete(path_in_repo=input).path_in_repo == expected
+            assert CommitOperationAdd(path_in_repo=input, path_or_fileobj=b"").path_in_repo == expected
+            assert CommitOperationDelete(path_in_repo=input).path_in_repo == expected
 
     def test_path_in_repo_invalid(self) -> None:
         for input in self.invalid_values:
-            with self.subTest(f"Testing with invalid input: '{input}'"):
-                with self.assertRaises(ValueError):
-                    CommitOperationAdd(path_in_repo=input, path_or_fileobj=b"")
-                with self.assertRaises(ValueError):
-                    CommitOperationDelete(path_in_repo=input)
+            with pytest.raises(ValueError):
+                CommitOperationAdd(path_in_repo=input, path_or_fileobj=b"")
+            with pytest.raises(ValueError):
+                CommitOperationDelete(path_in_repo=input)
 
 
-class TestCommitOperationForbiddenPathInRepo(unittest.TestCase):
+class TestCommitOperationForbiddenPathInRepo:
     """Commit operations must throw an error on files in the .git/ or .cache/huggingface/ folders.
 
     Server would error anyway so it's best to prevent early.
@@ -88,22 +86,18 @@ class TestCommitOperationForbiddenPathInRepo(unittest.TestCase):
 
     def test_cannot_update_file_in_git_folder(self):
         for path in self.INVALID_PATHS_IN_REPO:
-            with self.subTest(msg=f"Add: '{path}'"):
-                with self.assertRaises(ValueError):
-                    CommitOperationAdd(path_in_repo=path, path_or_fileobj=b"content")
-            with self.subTest(msg=f"Delete: '{path}'"):
-                with self.assertRaises(ValueError):
-                    CommitOperationDelete(path_in_repo=path)
+            with pytest.raises(ValueError):
+                CommitOperationAdd(path_in_repo=path, path_or_fileobj=b"content")
+            with pytest.raises(ValueError):
+                CommitOperationDelete(path_in_repo=path)
 
     def test_valid_path_in_repo_containing_git(self):
         for path in self.VALID_PATHS_IN_REPO:
-            with self.subTest(msg=f"Add: '{path}'"):
-                CommitOperationAdd(path_in_repo=path, path_or_fileobj=b"content")
-            with self.subTest(msg=f"Delete: '{path}'"):
-                CommitOperationDelete(path_in_repo=path)
+            CommitOperationAdd(path_in_repo=path, path_or_fileobj=b"content")
+            CommitOperationDelete(path_in_repo=path)
 
 
-class TestWarnOnOverwritingOperations(unittest.TestCase):
+class TestWarnOnOverwritingOperations:
     add_file_ab = CommitOperationAdd(path_in_repo="a/b.txt", path_or_fileobj=b"data")
     add_file_abc = CommitOperationAdd(path_in_repo="a/b/c.md", path_or_fileobj=b"data")
     add_file_abd = CommitOperationAdd(path_in_repo="a/b/d.md", path_or_fileobj=b"data")
@@ -123,18 +117,18 @@ class TestWarnOnOverwritingOperations(unittest.TestCase):
         )
 
     def test_add_then_update_file(self) -> None:
-        with self.assertWarns(UserWarning):
+        with pytest.warns(UserWarning):
             _warn_on_overwriting_operations([self.add_file_abc, self.update_file_abc])
 
     def test_add_then_delete_file(self) -> None:
-        with self.assertWarns(UserWarning):
+        with pytest.warns(UserWarning):
             _warn_on_overwriting_operations([self.add_file_abc, self.delete_file_abc])
 
     def test_add_then_delete_folder(self) -> None:
-        with self.assertWarns(UserWarning):
+        with pytest.warns(UserWarning):
             _warn_on_overwriting_operations([self.add_file_abc, self.delete_folder_a])
 
-        with self.assertWarns(UserWarning):
+        with pytest.warns(UserWarning):
             _warn_on_overwriting_operations([self.add_file_ab, self.delete_folder_a])
 
     def test_delete_file_then_add(self) -> None:

@@ -227,7 +227,7 @@ class HfFileSystemTests(unittest.TestCase):
 
     def test_copy_file(self):
         # Non-LFS file
-        assert self.hffs.info(self.text_file is None["lfs"])
+        assert self.hffs.info(self.text_file)["lfs"] is None
         self.hffs.cp_file(self.text_file, self.hf_path + "/data/text_data_copy.txt")
         with self.hffs.open(self.hf_path + "/data/text_data_copy.txt", "r") as f:
             assert f.read() == "dummy text data"
@@ -347,19 +347,18 @@ class HfFileSystemTests(unittest.TestCase):
     def test_list_root_directory_no_revision_no_detail_then_with_detail(self):
         files = self.hffs.ls(self.hf_path, detail=False)
         assert len(files) == 2
-        assert files[0].endswith("/data" and files[1].endswith("/.gitattributes"))
+        assert files[0].endswith("/data") and files[1].endswith("/.gitattributes")
         assert self.hffs.dircache[self.hf_path][0]["last_commit"] is None  # no detail -> no last_commit in cache
 
         files = self.hffs.ls(self.hf_path, detail=True)
         assert len(files) == 2
-        assert files[0]["name"].endswith("/data" and files[1]["name"].endswith("/.gitattributes"))
-        self.assertIsNone(
-            self.hffs.dircache[self.hf_path][0]["last_commit"]
-        )  # no expand_info -> no last_commit in cache
+        assert files[0]["name"].endswith("/data") and files[1]["name"].endswith("/.gitattributes")
+        # no expand_info -> no last_commit in cache
+        assert self.hffs.dircache[self.hf_path][0]["last_commit"] is not None
 
         files = self.hffs.ls(self.hf_path, detail=True, expand_info=True)
         assert len(files) == 2
-        assert files[0]["name"].endswith("/data" and files[1]["name"].endswith("/.gitattributes"))
+        assert files[0]["name"].endswith("/data") and files[1]["name"].endswith("/.gitattributes")
         assert self.hffs.dircache[self.hf_path][0]["last_commit"] is not None
 
     def test_find_root_directory_no_revision(self):

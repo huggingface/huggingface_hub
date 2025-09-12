@@ -348,12 +348,8 @@ class CachedDownloadTests(unittest.TestCase):
             filename=constants.CONFIG_NAME,
             subfolder="",  # Subfolder should be processed as `None`
         )
-        self.assertTrue(
-            url.endswith(
-                # "./resolve/main/config.json" and not "./resolve/main//config.json"
-                f"{DUMMY_MODEL_ID}/resolve/main/config.json",
-            )
-        )
+        # "./resolve/main/config.json" and not "./resolve/main//config.json"
+        assert url.endswith(f"{DUMMY_MODEL_ID}/resolve/main/config.json")
 
     @patch("huggingface_hub.constants.ENDPOINT", "https://huggingface.co")
     @patch(
@@ -361,13 +357,13 @@ class CachedDownloadTests(unittest.TestCase):
         "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}",
     )
     def test_hf_hub_url_with_endpoint(self):
-        self.assertEqual(
+        assert (
             hf_hub_url(
                 DUMMY_MODEL_ID,
                 filename=constants.CONFIG_NAME,
                 endpoint="https://hf-ci.co",
-            ),
-            "https://hf-ci.co/julien-c/dummy-unknown/resolve/main/config.json",
+            )
+            == "https://hf-ci.co/julien-c/dummy-unknown/resolve/main/config.json"
         )
 
     def test_try_to_load_from_cache_exist(self):
@@ -846,10 +842,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
         assert hf_hub_url(self.repo_url.repo_id, self.filepath) == self.expected_resolve_url
 
     def test_hf_hub_url_on_awful_subfolder_and_filename(self):
-        self.assertEqual(
-            hf_hub_url(self.repo_url.repo_id, self.filename, subfolder=self.subfolder),
-            self.expected_resolve_url,
-        )
+        assert hf_hub_url(self.repo_url.repo_id, self.filename, subfolder=self.subfolder) == self.expected_resolve_url
 
     @xfail_on_windows(reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_filepath(self):
@@ -902,15 +895,14 @@ class TestHfHubDownloadRelativePaths(unittest.TestCase):
 
     def test_get_pointer_path_and_valid_relative_filename(self) -> None:
         # Cannot happen because of other protections, but just in case.
-        self.assertEqual(
-            _get_pointer_path("path/to/storage", "abcdef", "path/to/file.txt"),
-            os.path.join("path/to/storage", "snapshots", "abcdef", "path/to/file.txt"),
+        assert _get_pointer_path("path/to/storage", "abcdef", "path/to/file.txt") == os.path.join(
+            "path/to/storage", "snapshots", "abcdef", "path/to/file.txt"
         )
 
     def test_get_pointer_path_but_invalid_relative_filename(self) -> None:
         # Cannot happen because of other protections, but just in case.
         relative_filename = "folder\\..\\..\\..\\file.txt" if os.name == "nt" else "folder/../../../file.txt"
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             _get_pointer_path("path/to/storage", "abcdef", relative_filename)
 
 
@@ -1117,13 +1109,14 @@ class TestNormalizeEtag(unittest.TestCase):
     """
 
     def test_strong_reference(self):
-        self.assertEqual(
-            _normalize_etag('"a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"'), "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"
+        assert (
+            _normalize_etag('"a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"') == "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"
         )
 
     def test_weak_reference(self):
-        self.assertEqual(
-            _normalize_etag('W/"a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"'), "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"
+        assert (
+            _normalize_etag('W/"a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"')
+            == "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"
         )
 
     @with_production_testing
@@ -1136,8 +1129,9 @@ class TestNormalizeEtag(unittest.TestCase):
     def test_resolve_endpoint_on_lfs_file(self):
         url = "https://huggingface.co/gpt2/resolve/e7da7f221d5bf496a48136c0cd264e630fe9fcc8/pytorch_model.bin"
         response = httpx.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
-        self.assertEqual(
-            self._get_etag_and_normalize(response), "7c5d3f4b8b76583b422fcb9189ad6c89d5d97a094541ce8932dce3ecabde1421"
+        assert (
+            self._get_etag_and_normalize(response)
+            == "7c5d3f4b8b76583b422fcb9189ad6c89d5d97a094541ce8932dce3ecabde1421"
         )
 
     @staticmethod
