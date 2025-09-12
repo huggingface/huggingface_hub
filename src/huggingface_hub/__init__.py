@@ -488,7 +488,6 @@ _SUBMOD_ATTRS = {
     ],
     "serialization": [
         "StateDictSplit",
-        "get_tf_storage_size",
         "get_torch_storage_id",
         "get_torch_storage_size",
         "load_state_dict_from_file",
@@ -868,7 +867,6 @@ __all__ = [
     "get_session",
     "get_space_runtime",
     "get_space_variables",
-    "get_tf_storage_size",
     "get_token",
     "get_torch_storage_id",
     "get_torch_storage_size",
@@ -1492,7 +1490,6 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .serialization import (
         StateDictSplit,  # noqa: F401
-        get_tf_storage_size,  # noqa: F401
         get_torch_storage_id,  # noqa: F401
         get_torch_storage_size,  # noqa: F401
         load_state_dict_from_file,  # noqa: F401
