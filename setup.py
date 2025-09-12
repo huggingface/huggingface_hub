@@ -62,7 +62,6 @@ extras["tensorflow"] = [
 
 extras["tensorflow-testing"] = [
     "tensorflow",
-    "keras<3.0",
 ]
 
 extras["hf_xet"] = ["hf-xet>=1.1.2,<2.0.0"]
