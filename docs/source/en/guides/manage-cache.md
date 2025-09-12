@@ -251,6 +251,7 @@ When an upload terminates before the new content has been committed to the repos
 
 So that you do not have to restart from the beginning, the `staging` directory acts as a workspace during uploads, storing metadata for successfully uploaded chunks. The `staging` directory has the following shape:
 
+```
 <CACHE_DIR>
 ├─ xet
 │  ├─ staging
@@ -258,6 +259,7 @@ So that you do not have to restart from the beginning, the `staging` directory a
 │  │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
 │  │  │  ├─ xorb-metadata
 │  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
+```
 
 As files are processed and chunks successfully uploaded, their metadata is stored in `xorb-metadata` as a shard. Upon resuming an upload session, each file is processed again and the shards in this directory are consulted. Any content that was successfully uploaded is skipped, and any new content is uploaded (and its metadata saved). 
 
