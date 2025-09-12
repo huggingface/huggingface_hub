@@ -61,8 +61,8 @@ PROVIDER_T = Literal[
     "openai",
     "replicate",
     "sambanova",
-    "together",
     "scaleway",
+    "together",
 ]
 
 PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
@@ -156,14 +156,14 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "conversational": SambanovaConversationalTask(),
         "feature-extraction": SambanovaFeatureExtractionTask(),
     },
+    "scaleway": {
+        "conversational": ScalewayConversationalTask(),
+        "feature-extraction": ScalewayFeatureExtractionTask(),
+    },
     "together": {
         "text-to-image": TogetherTextToImageTask(),
         "conversational": TogetherConversationalTask(),
         "text-generation": TogetherTextGenerationTask(),
-    },
-    "scaleway": {
-        "conversational": ScalewayConversationalTask(),
-        "feature-extraction": ScalewayFeatureExtractionTask(),
     },
 }
 
