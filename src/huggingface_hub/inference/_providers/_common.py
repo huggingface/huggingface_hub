@@ -22,6 +22,7 @@ HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, InferenceProviderMapping]
     #                                    provider_id="Qwen2.5-Coder-32B-Instruct",
     #                                    task="conversational",
     #                                    status="live")
+    "bagelnet": {},
     "cerebras": {},
     "cohere": {},
     "fal-ai": {},
