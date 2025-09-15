@@ -296,4 +296,4 @@ validated.
 
 Not exactly a validator, but ran as well.
 
-[[autodoc]] utils.smoothly_deprecate_legacy_arguments
+[[autodoc]] utils._validators.smoothly_deprecate_legacy_arguments
