@@ -62,7 +62,7 @@ def require_inquirer_py(fn: Callable) -> Callable:
     return _inner
 
 
-cache_app = typer.Typer(help="Manage local cache directory.")
+cache_app = typer.Typer(help="Manage local cache directory.", rich_markup_mode=None)
 
 
 @cache_app.command("scan", help="Scan the cache directory")

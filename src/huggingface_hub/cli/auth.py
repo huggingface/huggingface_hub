@@ -54,7 +54,7 @@ except ImportError:
     _inquirer_py_available = False
 
 
-auth_app = typer.Typer(help="Manage authentication (login, logout, etc.)")
+auth_app = typer.Typer(help="Manage authentication (login, logout, etc.)", rich_markup_mode=None)
 
 
 def _api() -> HfApi:

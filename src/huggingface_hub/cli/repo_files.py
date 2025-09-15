@@ -47,7 +47,7 @@ from ._cli_utils import validate_repo_type
 logger = logging.get_logger(__name__)
 
 
-repo_files_app = typer.Typer(help="Manage files in a repo on the Hub.")
+repo_files_app = typer.Typer(help="Manage files in a repo on the Hub.", rich_markup_mode=None)
 
 
 @repo_files_app.command("delete")

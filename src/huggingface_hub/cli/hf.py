@@ -29,7 +29,7 @@ from huggingface_hub.cli.upload import upload
 from huggingface_hub.cli.upload_large_folder import upload_large_folder
 
 
-app = typer.Typer(add_completion=False, no_args_is_help=True, help="Hugging Face Hub CLI")
+app = typer.Typer(add_completion=False, no_args_is_help=True, help="Hugging Face Hub CLI", rich_markup_mode=None)
 
 
 # top level single commands (defined in their respective files)
