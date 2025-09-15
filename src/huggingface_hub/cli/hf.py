@@ -12,51 +12,69 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from argparse import ArgumentParser
+import typer
 
-from huggingface_hub.cli.auth import AuthCommands
-from huggingface_hub.cli.cache import CacheCommand
-from huggingface_hub.cli.download import DownloadCommand
-from huggingface_hub.cli.jobs import JobsCommands
-from huggingface_hub.cli.lfs import LfsCommands
-from huggingface_hub.cli.repo import RepoCommands
-from huggingface_hub.cli.repo_files import RepoFilesCommand
-from huggingface_hub.cli.system import EnvironmentCommand, VersionCommand
-from huggingface_hub.cli.upload import UploadCommand
-from huggingface_hub.cli.upload_large_folder import UploadLargeFolderCommand
+from huggingface_hub.cli.auth import auth_app
+from huggingface_hub.cli.cache import cache_app
+from huggingface_hub.cli.download import download
+from huggingface_hub.cli.jobs import jobs_app
+
+# from huggingface_hub.cli.jobs import jobs_app
+from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
+from huggingface_hub.cli.repo import repo_app
+from huggingface_hub.cli.repo_files import repo_files_app
+from huggingface_hub.cli.system import env as env_command
+from huggingface_hub.cli.system import version as version_command
+from huggingface_hub.cli.upload import upload
+from huggingface_hub.cli.upload_large_folder import upload_large_folder
+
+
+app = typer.Typer(add_completion=False, no_args_is_help=True, help="Hugging Face Hub CLI")
+
+
+# top level single commands (defined in their respective files)
+app.command(
+    name="download",
+    help="Download files from the Hub",
+)(download)
+app.command(
+    name="upload",
+    help="Upload a file or a folder to the Hub",
+)(upload)
+app.command(
+    name="upload-large-folder",
+    help="Upload a large folder to the Hub. Recommended for resumable uploads.",
+)(upload_large_folder)
+app.command(
+    name="env",
+    help="Print information about the environment.",
+)(env_command)
+app.command(
+    name="version",
+    help="Print information about the hf version.",
+)(version_command)
+app.command(
+    name="lfs-enable-largefiles",
+    help="Configure your repository to enable upload of files > 5GB.",
+    hidden=True,
+)(lfs_enable_largefiles)
+app.command(
+    name="lfs-multipart-upload",
+    help="Upload large files to the Hub.",
+    hidden=True,
+)(lfs_multipart_upload)
+
+
+# command groups
+app.add_typer(auth_app, name="auth")
+app.add_typer(cache_app, name="cache")
+app.add_typer(repo_app, name="repo")
+app.add_typer(repo_files_app, name="repo-files")
+app.add_typer(jobs_app, name="jobs")
 
 
 def main():
-    parser = ArgumentParser("hf", usage="hf <command> [<args>]")
-    commands_parser = parser.add_subparsers(help="hf command helpers")
-
-    # Register commands
-    AuthCommands.register_subcommand(commands_parser)
-    CacheCommand.register_subcommand(commands_parser)
-    DownloadCommand.register_subcommand(commands_parser)
-    JobsCommands.register_subcommand(commands_parser)
-    RepoCommands.register_subcommand(commands_parser)
-    RepoFilesCommand.register_subcommand(commands_parser)
-    UploadCommand.register_subcommand(commands_parser)
-    UploadLargeFolderCommand.register_subcommand(commands_parser)
-
-    # System commands
-    EnvironmentCommand.register_subcommand(commands_parser)
-    VersionCommand.register_subcommand(commands_parser)
-
-    # LFS commands (hidden in --help)
-    LfsCommands.register_subcommand(commands_parser)
-
-    # Let's go
-    args = parser.parse_args()
-    if not hasattr(args, "func"):
-        parser.print_help()
-        exit(1)
-
-    # Run
-    service = args.func(args)
-    if service is not None:
-        service.run()
+    app()
 
 
 if __name__ == "__main__":

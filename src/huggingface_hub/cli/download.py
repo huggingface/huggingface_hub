@@ -37,145 +37,178 @@ Usage:
 """
 
 import warnings
-from argparse import Namespace, _SubParsersAction
 from typing import Optional
+
+import typer
 
 from huggingface_hub import logging
 from huggingface_hub._snapshot_download import snapshot_download
-from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
+
+from ._cli_utils import validate_repo_type
 
 
 logger = logging.get_logger(__name__)
 
 
-class DownloadCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction):
-        download_parser = parser.add_parser("download", help="Download files from the Hub")
-        download_parser.add_argument(
-            "repo_id", type=str, help="ID of the repo to download from (e.g. `username/repo-name`)."
-        )
-        download_parser.add_argument(
-            "filenames", type=str, nargs="*", help="Files to download (e.g. `config.json`, `data/metadata.jsonl`)."
-        )
-        download_parser.add_argument(
-            "--repo-type",
-            choices=["model", "dataset", "space"],
-            default="model",
-            help="Type of repo to download from (defaults to 'model').",
-        )
-        download_parser.add_argument(
-            "--revision",
-            type=str,
-            help="An optional Git revision id which can be a branch name, a tag, or a commit hash.",
-        )
-        download_parser.add_argument(
-            "--include", nargs="*", type=str, help="Glob patterns to match files to download."
-        )
-        download_parser.add_argument(
-            "--exclude", nargs="*", type=str, help="Glob patterns to exclude from files to download."
-        )
-        download_parser.add_argument(
-            "--cache-dir", type=str, help="Path to the directory where to save the downloaded files."
-        )
-        download_parser.add_argument(
-            "--local-dir",
-            type=str,
-            help=(
-                "If set, the downloaded file will be placed under this directory. Check out"
-                " https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder for more"
-                " details."
-            ),
-        )
-        download_parser.add_argument(
-            "--force-download",
-            action="store_true",
-            help="If True, the files will be downloaded even if they are already cached.",
-        )
-        download_parser.add_argument(
-            "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
-        )
-        download_parser.add_argument(
-            "--quiet",
-            action="store_true",
-            help="If True, progress bars are disabled and only the path to the download files is printed.",
-        )
-        download_parser.add_argument(
-            "--max-workers",
-            type=int,
-            default=8,
-            help="Maximum number of workers to use for downloading files. Default is 8.",
-        )
-        download_parser.set_defaults(func=DownloadCommand)
+def download(
+    repo_id: str = typer.Argument(
+        ...,
+        help="ID of the repo to download from (e.g. `username/repo-name`).",
+    ),
+    filenames: Optional[list[str]] = typer.Argument(
+        None,
+        help="Files to download (e.g. `config.json`, `data/metadata.jsonl`).",
+    ),
+    repo_type: Optional[str] = typer.Option(
+        "model",
+        "--repo-type",
+        help="Type of repo to download from.",
+    ),
+    revision: Optional[str] = typer.Option(
+        None,
+        "--revision",
+        help="Git revision id which can be a branch name, a tag, or a commit hash.",
+    ),
+    include: Optional[list[str]] = typer.Option(
+        None,
+        "--include",
+        help="Glob patterns to include from files to download. eg: *.json",
+    ),
+    exclude: Optional[list[str]] = typer.Option(
+        None,
+        "--exclude",
+        help="Glob patterns to exclude from files to download.",
+    ),
+    cache_dir: Optional[str] = typer.Option(
+        None,
+        "--cache-dir",
+        help="Directory where to save files.",
+    ),
+    local_dir: Optional[str] = typer.Option(
+        None,
+        "--local-dir",
+        help="If set, the downloaded file will be placed under this directory. Check out https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder for more details.",
+    ),
+    force_download: Optional[bool] = typer.Option(
+        False,
+        "--force-download",
+        help="If True, the files will be downloaded even if they are already cached.",
+    ),
+    token: Optional[str] = typer.Option(
+        None,
+        "--token",
+        help="A User Access Token generated from https://huggingface.co/settings/tokens",
+    ),
+    quiet: Optional[bool] = typer.Option(
+        False,
+        "--quiet",
+        help="If True, progress bars are disabled and only the path to the download files is printed.",
+    ),
+    max_workers: Optional[int] = typer.Option(
+        8,
+        "--max-workers",
+        help="Maximum number of workers to use for downloading files. Default is 8.",
+    ),
+) -> None:
+    """Download files from the Hub."""
+    # Validate repo_type if provided
+    repo_type = validate_repo_type(repo_type)
 
-    def __init__(self, args: Namespace) -> None:
-        self.token = args.token
-        self.repo_id: str = args.repo_id
-        self.filenames: list[str] = args.filenames
-        self.repo_type: str = args.repo_type
-        self.revision: Optional[str] = args.revision
-        self.include: Optional[list[str]] = args.include
-        self.exclude: Optional[list[str]] = args.exclude
-        self.cache_dir: Optional[str] = args.cache_dir
-        self.local_dir: Optional[str] = args.local_dir
-        self.force_download: bool = args.force_download
-        self.quiet: bool = args.quiet
-        self.max_workers: int = args.max_workers
-
-    def run(self) -> None:
-        if self.quiet:
-            disable_progress_bars()
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                print(self._download())  # Print path to downloaded files
-            enable_progress_bars()
-        else:
-            logging.set_verbosity_info()
-            print(self._download())  # Print path to downloaded files
-            logging.set_verbosity_warning()
-
-    def _download(self) -> str:
-        # Warn user if patterns are ignored
-        if len(self.filenames) > 0:
-            if self.include is not None and len(self.include) > 0:
-                warnings.warn("Ignoring `--include` since filenames have being explicitly set.")
-            if self.exclude is not None and len(self.exclude) > 0:
-                warnings.warn("Ignoring `--exclude` since filenames have being explicitly set.")
-
-        # Single file to download: use `hf_hub_download`
-        if len(self.filenames) == 1:
-            return hf_hub_download(
-                repo_id=self.repo_id,
-                repo_type=self.repo_type,
-                revision=self.revision,
-                filename=self.filenames[0],
-                cache_dir=self.cache_dir,
-                force_download=self.force_download,
-                token=self.token,
-                local_dir=self.local_dir,
-                library_name="hf",
+    if quiet:
+        disable_progress_bars()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            print(
+                _download_impl(
+                    repo_id=repo_id,
+                    filenames=filenames or [],
+                    repo_type=repo_type,
+                    revision=revision,
+                    include=include,
+                    exclude=exclude,
+                    cache_dir=cache_dir,
+                    local_dir=local_dir,
+                    force_download=force_download,
+                    token=token,
+                    max_workers=max_workers,
+                )
             )
-
-        # Otherwise: use `snapshot_download` to ensure all files comes from same revision
-        elif len(self.filenames) == 0:
-            allow_patterns = self.include
-            ignore_patterns = self.exclude
-        else:
-            allow_patterns = self.filenames
-            ignore_patterns = None
-
-        return snapshot_download(
-            repo_id=self.repo_id,
-            repo_type=self.repo_type,
-            revision=self.revision,
-            allow_patterns=allow_patterns,
-            ignore_patterns=ignore_patterns,
-            force_download=self.force_download,
-            cache_dir=self.cache_dir,
-            token=self.token,
-            local_dir=self.local_dir,
-            library_name="hf",
-            max_workers=self.max_workers,
+        enable_progress_bars()
+    else:
+        logging.set_verbosity_info()
+        print(
+            _download_impl(
+                repo_id=repo_id,
+                filenames=filenames or [],
+                repo_type=repo_type,
+                revision=revision,
+                include=include,
+                exclude=exclude,
+                cache_dir=cache_dir,
+                local_dir=local_dir,
+                force_download=force_download,
+                token=token,
+                max_workers=max_workers,
+            )
         )
+        logging.set_verbosity_warning()
+
+
+def _download_impl(
+    *,
+    repo_id: str,
+    filenames: list[str],
+    repo_type: str,
+    revision: Optional[str],
+    include: Optional[list[str]],
+    exclude: Optional[list[str]],
+    cache_dir: Optional[str],
+    local_dir: Optional[str],
+    force_download: bool,
+    token: Optional[str],
+    max_workers: int,
+) -> str:
+    # Warn user if patterns are ignored
+    if len(filenames) > 0:
+        if include is not None and len(include) > 0:
+            warnings.warn("Ignoring `--include` since filenames have being explicitly set.")
+        if exclude is not None and len(exclude) > 0:
+            warnings.warn("Ignoring `--exclude` since filenames have being explicitly set.")
+
+    # Single file to download: use `hf_hub_download`
+    if len(filenames) == 1:
+        return hf_hub_download(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            filename=filenames[0],
+            cache_dir=cache_dir,
+            force_download=force_download,
+            token=token,
+            local_dir=local_dir,
+            library_name="hf",
+        )
+
+    # Otherwise: use `snapshot_download` to ensure all files comes from same revision
+    elif len(filenames) == 0:
+        allow_patterns = include
+        ignore_patterns = exclude
+    else:
+        allow_patterns = filenames
+        ignore_patterns = None
+
+    return snapshot_download(
+        repo_id=repo_id,
+        repo_type=repo_type,
+        revision=revision,
+        allow_patterns=allow_patterns,
+        ignore_patterns=ignore_patterns,
+        force_download=force_download,
+        cache_dir=cache_dir,
+        token=token,
+        local_dir=local_dir,
+        library_name="hf",
+        max_workers=max_workers,
+    )

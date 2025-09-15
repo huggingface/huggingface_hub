@@ -28,6 +28,7 @@ extras = {}
 
 extras["cli"] = [
     "InquirerPy==0.3.4",  # Note: installs `prompt-toolkit` in the background
+    "typer",
 ]
 
 extras["inference"] = [
