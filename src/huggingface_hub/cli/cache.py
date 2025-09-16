@@ -21,6 +21,7 @@ from tempfile import mkstemp
 from typing import Any, Callable, Iterable, Literal, Optional, Union
 
 import typer
+from typing_extensions import Annotated
 
 from ..utils import CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, scan_cache_dir
 from ._cli_utils import ANSI, tabulate
@@ -67,18 +68,21 @@ cache_app = typer.Typer(help="Manage local cache directory.", rich_markup_mode=N
 
 @cache_app.command("scan", help="Scan the cache directory")
 def cache_scan(
-    dir: Optional[str] = typer.Option(
-        None,
-        "--dir",
-        help="Cache directory to scan (defaults to Hugging Face cache).",
-    ),
-    verbose: int = typer.Option(
-        0,
-        "-v",
-        "--verbose",
-        count=True,
-        help="Increase verbosity (-v, -vv, -vvv).",
-    ),
+    dir: Annotated[
+        str,
+        typer.Option(
+            help="Cache directory to scan (defaults to Hugging Face cache).",
+        ),
+    ] = None,
+    verbose: Annotated[
+        int,
+        typer.Option(
+            "-v",
+            "--verbose",
+            count=True,
+            help="Increase verbosity (-v, -vv, -vvv).",
+        ),
+    ] = 0,
 ) -> None:
     _run_scan(cache_dir=dir, verbosity=verbose)
 
@@ -109,22 +113,25 @@ def _run_scan(cache_dir: Optional[str], verbosity: int) -> None:
 
 @cache_app.command("delete", help="Delete revisions from the cache directory")
 def cache_delete(
-    dir: Optional[str] = typer.Option(
-        None,
-        "--dir",
-        help="Cache directory (defaults to Hugging Face cache).",
-    ),
-    disable_tui: bool = typer.Option(
-        False,
-        "--disable-tui",
-        help="Disable Terminal User Interface (TUI) mode. Useful if your platform/terminal doesn't support the multiselect menu.",
-    ),
-    sort: Optional[str] = typer.Option(
-        None,
-        "--sort",
-        help="Sort repositories by the specified criteria. Options: 'alphabetical' (A-Z), 'lastUpdated' (newest first), 'lastUsed' (most recent first), 'size' (largest first).",
-        case_sensitive=False,
-    ),
+    dir: Annotated[
+        str,
+        typer.Option(
+            help="Cache directory (defaults to Hugging Face cache).",
+        ),
+    ] = None,
+    disable_tui: Annotated[
+        bool,
+        typer.Option(
+            help="Disable Terminal User Interface (TUI) mode. Useful if your platform/terminal doesn't support the multiselect menu.",
+        ),
+    ] = False,
+    sort: Annotated[
+        str,
+        typer.Option(
+            help="Sort repositories by the specified criteria. Options: 'alphabetical' (A-Z), 'lastUpdated' (newest first), 'lastUsed' (most recent first), 'size' (largest first).",
+            case_sensitive=False,
+        ),
+    ] = None,
 ) -> None:
     sort = _validate_sort_option(sort)
     hf_cache_info = scan_cache_dir(dir)

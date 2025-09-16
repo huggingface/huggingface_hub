@@ -33,6 +33,7 @@ Usage:
 from typing import Optional
 
 import typer
+from typing_extensions import Annotated
 
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.errors import HfHubHTTPError
@@ -63,16 +64,18 @@ def _api() -> HfApi:
 
 @auth_app.command("login", help="Login using a token from huggingface.co/settings/tokens")
 def auth_login(
-    token: Optional[str] = typer.Option(
-        None,
-        "--token",
-        help="Token from https://huggingface.co/settings/tokens",
-    ),
-    add_to_git_credential: bool = typer.Option(
-        False,
-        "--add-to-git-credential",
-        help="Save to git credential helper",
-    ),
+    token: Annotated[
+        str,
+        typer.Option(
+            help="Token from https://huggingface.co/settings/tokens",
+        ),
+    ] = None,
+    add_to_git_credential: Annotated[
+        bool,
+        typer.Option(
+            help="Save to git credential helper",
+        ),
+    ] = False,
 ) -> None:
     logging.set_verbosity_info()
     login(token=token, add_to_git_credential=add_to_git_credential)
@@ -83,11 +86,12 @@ def auth_login(
     help="Logout from a specific token",
 )
 def auth_logout(
-    token_name: Optional[str] = typer.Option(
-        None,
-        "--token-name",
-        help="Name of token to logout",
-    ),
+    token_name: Annotated[
+        str,
+        typer.Option(
+            help="Name of token to logout",
+        ),
+    ] = None,
 ) -> None:
     logging.set_verbosity_info()
     logout(token_name=token_name)
@@ -131,16 +135,18 @@ def _select_token_name() -> Optional[str]:
 
 @auth_app.command("switch", help="Switch between accesstokens")
 def auth_switch_cmd(
-    token_name: Optional[str] = typer.Option(
-        None,
-        "--token-name",
-        help="Name of the token to switch to",
-    ),
-    add_to_git_credential: bool = typer.Option(
-        False,
-        "--add-to-git-credential",
-        help="Save to git credential",
-    ),
+    token_name: Annotated[
+        str,
+        typer.Option(
+            help="Name of the token to switch to",
+        ),
+    ] = None,
+    add_to_git_credential: Annotated[
+        bool,
+        typer.Option(
+            help="Save to git credential",
+        ),
+    ] = False,
 ) -> None:
     logging.set_verbosity_info()
     if token_name is None:

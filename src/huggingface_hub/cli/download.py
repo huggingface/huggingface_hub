@@ -40,6 +40,7 @@ import warnings
 from typing import Optional
 
 import typer
+from typing_extensions import Annotated
 
 from huggingface_hub import logging
 from huggingface_hub._snapshot_download import snapshot_download
@@ -53,64 +54,79 @@ logger = logging.get_logger(__name__)
 
 
 def download(
-    repo_id: str = typer.Argument(
-        ...,
-        help="ID of the repo to download from (e.g. `username/repo-name`).",
-    ),
-    filenames: Optional[list[str]] = typer.Argument(
-        None,
-        help="Files to download (e.g. `config.json`, `data/metadata.jsonl`).",
-    ),
-    repo_type: Optional[str] = typer.Option(
-        "model",
-        "--repo-type",
-        help="Type of repo to download from.",
-    ),
-    revision: Optional[str] = typer.Option(
-        None,
-        "--revision",
-        help="Git revision id which can be a branch name, a tag, or a commit hash.",
-    ),
-    include: Optional[list[str]] = typer.Option(
-        None,
-        "--include",
-        help="Glob patterns to include from files to download. eg: *.json",
-    ),
-    exclude: Optional[list[str]] = typer.Option(
-        None,
-        "--exclude",
-        help="Glob patterns to exclude from files to download.",
-    ),
-    cache_dir: Optional[str] = typer.Option(
-        None,
-        "--cache-dir",
-        help="Directory where to save files.",
-    ),
-    local_dir: Optional[str] = typer.Option(
-        None,
-        "--local-dir",
-        help="If set, the downloaded file will be placed under this directory. Check out https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder for more details.",
-    ),
-    force_download: Optional[bool] = typer.Option(
-        False,
-        "--force-download",
-        help="If True, the files will be downloaded even if they are already cached.",
-    ),
-    token: Optional[str] = typer.Option(
-        None,
-        "--token",
-        help="A User Access Token generated from https://huggingface.co/settings/tokens",
-    ),
-    quiet: Optional[bool] = typer.Option(
-        False,
-        "--quiet",
-        help="If True, progress bars are disabled and only the path to the download files is printed.",
-    ),
-    max_workers: Optional[int] = typer.Option(
-        8,
-        "--max-workers",
-        help="Maximum number of workers to use for downloading files. Default is 8.",
-    ),
+    repo_id: Annotated[
+        str,
+        typer.Argument(
+            ...,
+            help="ID of the repo to download from (e.g. `username/repo-name`).",
+        ),
+    ],
+    filenames: Annotated[
+        list[str],
+        typer.Argument(
+            help="Files to download (e.g. `config.json`, `data/metadata.jsonl`).",
+        ),
+    ] = None,
+    repo_type: Annotated[
+        str,
+        typer.Option(
+            help="Type of repo to download from.",
+        ),
+    ] = "model",
+    revision: Annotated[
+        str,
+        typer.Option(
+            help="Git revision id which can be a branch name, a tag, or a commit hash.",
+        ),
+    ] = None,
+    include: Annotated[
+        list[str],
+        typer.Option(
+            help="Glob patterns to include from files to download. eg: *.json",
+        ),
+    ] = None,
+    exclude: Annotated[
+        list[str],
+        typer.Option(
+            help="Glob patterns to exclude from files to download.",
+        ),
+    ] = None,
+    cache_dir: Annotated[
+        str,
+        typer.Option(
+            help="Directory where to save files.",
+        ),
+    ] = None,
+    local_dir: Annotated[
+        str,
+        typer.Option(
+            help="If set, the downloaded file will be placed under this directory. Check out https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder for more details.",
+        ),
+    ] = None,
+    force_download: Annotated[
+        bool,
+        typer.Option(
+            help="If True, the files will be downloaded even if they are already cached.",
+        ),
+    ] = False,
+    token: Annotated[
+        str,
+        typer.Option(
+            help="A User Access Token generated from https://huggingface.co/settings/tokens",
+        ),
+    ] = None,
+    quiet: Annotated[
+        bool,
+        typer.Option(
+            help="If True, progress bars are disabled and only the path to the download files is printed.",
+        ),
+    ] = False,
+    max_workers: Annotated[
+        int,
+        typer.Option(
+            help="Maximum number of workers to use for downloading files. Default is 8.",
+        ),
+    ] = 8,
 ) -> None:
     """Download files from the Hub."""
     # Validate repo_type if provided

@@ -23,6 +23,7 @@ import sys
 from typing import Optional
 
 import typer
+from typing_extensions import Annotated
 
 from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
@@ -43,7 +44,13 @@ Commands:
 
 
 def lfs_enable_largefiles(
-    path: str = typer.Argument(..., help="Local path to repository you want to configure."),
+    path: Annotated[
+        str,
+        typer.Argument(
+            ...,
+            help="Local path to repository you want to configure.",
+        ),
+    ],
 ) -> None:
     local_path = os.path.abspath(path)
     if not os.path.isdir(local_path):

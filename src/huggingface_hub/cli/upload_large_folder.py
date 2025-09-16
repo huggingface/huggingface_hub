@@ -15,9 +15,9 @@
 """Contains command to upload a large folder with the CLI."""
 
 import os
-from typing import Optional
 
 import typer
+from typing_extensions import Annotated
 
 from huggingface_hub import logging
 from huggingface_hub.hf_api import HfApi
@@ -30,59 +30,74 @@ logger = logging.get_logger(__name__)
 
 
 def upload_large_folder(
-    repo_id: str = typer.Argument(
-        ...,
-        help="The ID of the repo to upload to (e.g. `username/repo-name`).",
-    ),
-    local_path: str = typer.Argument(
-        ...,
-        help="Local path to the folder to upload.",
-    ),
-    repo_type: Optional[str] = typer.Option(
-        None,
-        "--repo-type",
-        help="Type of the repo to upload to (model, dataset, space).",
-    ),
-    revision: Optional[str] = typer.Option(
-        None,
-        "--revision",
-        help="Git revision to push to. It can be a branch name or a PR reference.",
-    ),
-    private: bool = typer.Option(
-        False,
-        "--private",
-        help="Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.",
-    ),
-    include: Optional[list[str]] = typer.Option(
-        None,
-        "--include",
-        help="Glob patterns to match files to upload.",
-    ),
-    exclude: Optional[list[str]] = typer.Option(
-        None,
-        "--exclude",
-        help="Glob patterns to exclude from files to upload.",
-    ),
-    token: Optional[str] = typer.Option(
-        None,
-        "--token",
-        help="User Access Token generated from https://huggingface.co/settings/tokens",
-    ),
-    num_workers: Optional[int] = typer.Option(
-        None,
-        "--num-workers",
-        help="Number of workers to use to hash, upload and commit files.",
-    ),
-    no_report: bool = typer.Option(
-        False,
-        "--no-report",
-        help="Whether to disable regular status report.",
-    ),
-    no_bars: bool = typer.Option(
-        False,
-        "--no-bars",
-        help="Whether to disable progress bars.",
-    ),
+    repo_id: Annotated[
+        str,
+        typer.Argument(
+            ...,
+            help="The ID of the repo to upload to (e.g. `username/repo-name`).",
+        ),
+    ],
+    local_path: Annotated[
+        str,
+        typer.Argument(
+            ...,
+            help="Local path to the folder to upload.",
+        ),
+    ],
+    repo_type: Annotated[
+        str,
+        typer.Option(
+            help="Type of the repo to upload to (model, dataset, space).",
+        ),
+    ] = None,
+    revision: Annotated[
+        str,
+        typer.Option(
+            help="Git revision to push to. It can be a branch name or a PR reference.",
+        ),
+    ] = None,
+    private: Annotated[
+        bool,
+        typer.Option(
+            help="Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.",
+        ),
+    ] = False,
+    include: Annotated[
+        list[str],
+        typer.Option(
+            help="Glob patterns to match files to upload.",
+        ),
+    ] = None,
+    exclude: Annotated[
+        list[str],
+        typer.Option(
+            help="Glob patterns to exclude from files to upload.",
+        ),
+    ] = None,
+    token: Annotated[
+        str,
+        typer.Option(
+            help="User Access Token generated from https://huggingface.co/settings/tokens",
+        ),
+    ] = None,
+    num_workers: Annotated[
+        int,
+        typer.Option(
+            help="Number of workers to use to hash, upload and commit files.",
+        ),
+    ] = None,
+    no_report: Annotated[
+        bool,
+        typer.Option(
+            help="Whether to disable regular status report.",
+        ),
+    ] = False,
+    no_bars: Annotated[
+        bool,
+        typer.Option(
+            help="Whether to disable progress bars.",
+        ),
+    ] = False,
 ) -> None:
     """Upload a large folder to the Hub. Recommended for resumable uploads."""
     if not os.path.isdir(local_path):

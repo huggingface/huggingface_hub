@@ -52,6 +52,7 @@ import warnings
 from typing import Optional
 
 import typer
+from typing_extensions import Annotated
 
 from huggingface_hub import logging
 from huggingface_hub._commit_scheduler import CommitScheduler
@@ -68,78 +69,97 @@ logger = logging.get_logger(__name__)
 
 
 def upload(
-    repo_id: str = typer.Argument(
-        ...,
-        help="The ID of the repo to upload to (e.g. `username/repo-name`).",
-    ),
-    local_path: Optional[str] = typer.Argument(
-        None,
-        help="Local path to the file or folder to upload. Wildcard patterns are supported. Defaults to current directory.",
-    ),
-    path_in_repo: Optional[str] = typer.Argument(
-        None,
-        help="Path of the file or folder in the repo. Defaults to the relative path of the file or folder.",
-    ),
-    repo_type: Optional[str] = typer.Option(
-        "model",
-        "--repo-type",
-        help="Type of the repo (model, dataset, space).",
-    ),
-    revision: Optional[str] = typer.Option(
-        None,
-        "--revision",
-        help="An optional Git revision to push to. It can be a branch name or a PR reference. If revision does not An optional Git revision to push to. It can be a branch name or a PR reference. If revision does not exist and `--create-pr` is not set, a branch will be automatically created.",
-    ),
-    private: bool = typer.Option(
-        False,
-        "--private",
-        help="Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.",
-    ),
-    include: Optional[list[str]] = typer.Option(
-        None,
-        "--include",
-        help="Glob patterns to match files to upload.",
-    ),
-    exclude: Optional[list[str]] = typer.Option(
-        None,
-        "--exclude",
-        help="Glob patterns to exclude from files to upload.",
-    ),
-    delete: Optional[list[str]] = typer.Option(
-        None,
-        "--delete",
-        help="Glob patterns for file to be deleted from the repo while committing.",
-    ),
-    commit_message: Optional[str] = typer.Option(
-        None,
-        "--commit-message",
-        help="The summary / title / first line of the generated commit.",
-    ),
-    commit_description: Optional[str] = typer.Option(
-        None,
-        "--commit-description",
-        help="The description of the generated commit.",
-    ),
-    create_pr: bool = typer.Option(
-        False,
-        "--create-pr",
-        help="Whether to upload content as a new Pull Request.",
-    ),
-    every: Optional[float] = typer.Option(
-        None,
-        "--every",
-        help="f set, a background job is scheduled to create commits every `every` minutes.",
-    ),
-    token: Optional[str] = typer.Option(
-        None,
-        "--token",
-        help="A User Access Token generated from https://huggingface.co/settings/tokens",
-    ),
-    quiet: bool = typer.Option(
-        False,
-        "--quiet",
-        help="Disable progress bars and warnings; print only the returned path.",
-    ),
+    repo_id: Annotated[
+        str,
+        typer.Argument(
+            ...,
+            help="The ID of the repo to upload to (e.g. `username/repo-name`).",
+        ),
+    ],
+    local_path: Annotated[
+        str,
+        typer.Argument(
+            help="Local path to the file or folder to upload. Wildcard patterns are supported. Defaults to current directory.",
+        ),
+    ] = None,
+    path_in_repo: Annotated[
+        str,
+        typer.Argument(
+            help="Path of the file or folder in the repo. Defaults to the relative path of the file or folder.",
+        ),
+    ] = None,
+    repo_type: Annotated[
+        str,
+        typer.Option(
+            help="Type of the repo (model, dataset, space).",
+        ),
+    ] = "model",
+    revision: Annotated[
+        str,
+        typer.Option(
+            help="An optional Git revision to push to. It can be a branch name or a PR reference. If revision does not An optional Git revision to push to. It can be a branch name or a PR reference. If revision does not exist and `--create-pr` is not set, a branch will be automatically created.",
+        ),
+    ] = None,
+    private: Annotated[
+        bool,
+        typer.Option(
+            help="Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.",
+        ),
+    ] = False,
+    include: Annotated[
+        list[str],
+        typer.Option(
+            help="Glob patterns to match files to upload.",
+        ),
+    ] = None,
+    exclude: Annotated[
+        list[str],
+        typer.Option(
+            help="Glob patterns to exclude from files to upload.",
+        ),
+    ] = None,
+    delete: Annotated[
+        list[str],
+        typer.Option(
+            help="Glob patterns for file to be deleted from the repo while committing.",
+        ),
+    ] = None,
+    commit_message: Annotated[
+        str,
+        typer.Option(
+            help="The summary / title / first line of the generated commit.",
+        ),
+    ] = None,
+    commit_description: Annotated[
+        str,
+        typer.Option(
+            help="The description of the generated commit.",
+        ),
+    ] = None,
+    create_pr: Annotated[
+        bool,
+        typer.Option(
+            help="Whether to upload content as a new Pull Request.",
+        ),
+    ] = False,
+    every: Annotated[
+        float,
+        typer.Option(
+            help="f set, a background job is scheduled to create commits every `every` minutes.",
+        ),
+    ] = None,
+    token: Annotated[
+        str,
+        typer.Option(
+            help="A User Access Token generated from https://huggingface.co/settings/tokens",
+        ),
+    ] = None,
+    quiet: Annotated[
+        bool,
+        typer.Option(
+            help="Disable progress bars and warnings; print only the returned path.",
+        ),
+    ] = False,
 ) -> None:
     """Upload a file or a folder to the Hub. Recommended for single-commit uploads."""
 

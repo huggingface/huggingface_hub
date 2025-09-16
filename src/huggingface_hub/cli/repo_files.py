@@ -34,9 +34,8 @@ Usage:
     hf repo-files delete <repo_id> file.txt --revision=refs/pr/1 --repo-type=dataset
 """
 
-from typing import Optional
-
 import typer
+from typing_extensions import Annotated
 
 from huggingface_hub import logging
 from huggingface_hub.hf_api import HfApi
@@ -52,36 +51,58 @@ repo_files_app = typer.Typer(help="Manage files in a repo on the Hub.", rich_mar
 
 @repo_files_app.command("delete")
 def repo_files_delete(
-    repo_id: str = typer.Argument(
-        ...,
-        help="The ID of the repo (e.g. username/repo-name).",
-    ),
-    patterns: list[str] = typer.Argument(
-        ...,
-        help="Glob patterns to match files to delete.",
-    ),
-    repo_type: Optional[str] = typer.Option(
-        "model",
-        "--repo-type",
-        help="Type of the repo to upload to (e.g. `dataset`).",
-    ),
-    revision: Optional[str] = typer.Option(
-        None,
-        "--revision",
-        help="An optional Git revision to push to. It can be a branch name or a PR reference. If revision does not exist and `--create-pr` is not set, a branch will be automatically created.",
-    ),
-    commit_message: Optional[str] = typer.Option(
-        None, "--commit-message", help="The summary / title / first line of the generated commit."
-    ),
-    commit_description: Optional[str] = typer.Option(
-        None, "--commit-description", help="The description of the generated commit."
-    ),
-    create_pr: bool = typer.Option(
-        False, "--create-pr", help="Whether to create a new Pull Request for these changes."
-    ),
-    token: Optional[str] = typer.Option(
-        None, "--token", help="A User Access Token generated from https://huggingface.co/settings/tokens"
-    ),
+    repo_id: Annotated[
+        str,
+        typer.Argument(
+            ...,
+            help="The ID of the repo (e.g. username/repo-name).",
+        ),
+    ],
+    patterns: Annotated[
+        list[str],
+        typer.Argument(
+            ...,
+            help="Glob patterns to match files to delete.",
+        ),
+    ],
+    repo_type: Annotated[
+        str,
+        typer.Option(
+            help="Type of the repo to upload to (e.g. `dataset`).",
+        ),
+    ] = "model",
+    revision: Annotated[
+        str,
+        typer.Option(
+            help="An optional Git revision to push to. It can be a branch name or a PR reference. If revision does not exist and `--create-pr` is not set, a branch will be automatically created.",
+        ),
+    ] = None,
+    commit_message: Annotated[
+        str,
+        typer.Option(
+            help="The summary / title / first line of the generated commit.",
+        ),
+    ] = None,
+    commit_description: Annotated[
+        str,
+        typer.Option(
+            help="The description of the generated commit.",
+        ),
+    ] = None,
+    create_pr: Annotated[
+        bool,
+        typer.Option(
+            "--create-pr",
+            help="Whether to create a new Pull Request for these changes.",
+        ),
+    ] = False,
+    token: Annotated[
+        str,
+        typer.Option(
+            "--token",
+            help="A User Access Token generated from https://huggingface.co/settings/tokens",
+        ),
+    ] = None,
 ) -> None:
     logging.set_verbosity_info()
     repo_type = validate_repo_type(repo_type)

@@ -21,9 +21,8 @@ Usage:
     hf repo create my-cool-model --private
 """
 
-from typing import Optional
-
 import typer
+from typing_extensions import Annotated
 
 from huggingface_hub.cli._cli_utils import validate_repo_type
 from huggingface_hub.commands._cli_utils import ANSI
@@ -41,41 +40,51 @@ repo_app.add_typer(tag_app, name="tag")
 
 @repo_app.command("create", help="Create a new repo on the Hub.")
 def repo_create(
-    repo_id: str = typer.Argument(
-        ...,
-        help="Repo ID to create (e.g. username/repo-name). Username defaults to current user if omitted.",
-    ),
-    repo_type: Optional[str] = typer.Option(
-        None,
-        "--repo-type",
-        help="set to dataset' or 'space' if creating a dataset or space, default is 'model'.",
-    ),
-    space_sdk: Optional[str] = typer.Option(
-        None,
-        "--space_sdk",
-        help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
-        rich_help_panel=None,
-    ),
-    private: bool = typer.Option(
-        False,
-        "--private",
-        help="Whether to create a private repository. Defaults to public unless the organization's default is private.",
-    ),
-    token: Optional[str] = typer.Option(
-        None,
-        "--token",
-        help="Hugging Face token. Will default to the locally saved token if not provided.",
-    ),
-    exist_ok: bool = typer.Option(
-        False,
-        "--exist-ok",
-        help="Do not raise an error if repo already exists.",
-    ),
-    resource_group_id: Optional[str] = typer.Option(
-        None,
-        "--resource-group-id",
-        help="Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.",
-    ),
+    repo_id: Annotated[
+        str,
+        typer.Argument(
+            ...,
+            help="Repo ID to create (e.g. username/repo-name). Username defaults to current user if omitted.",
+        ),
+    ],
+    repo_type: Annotated[
+        str,
+        typer.Option(
+            help="set to dataset' or 'space' if creating a dataset or space, default is 'model'.",
+        ),
+    ] = None,
+    space_sdk: Annotated[
+        str,
+        typer.Option(
+            help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
+            rich_help_panel=None,
+        ),
+    ] = None,
+    private: Annotated[
+        bool,
+        typer.Option(
+            "--private",
+            help="Whether to create a private repository. Defaults to public unless the organization's default is private.",
+        ),
+    ] = False,
+    token: Annotated[
+        str,
+        typer.Option(
+            help="Hugging Face token. Will default to the locally saved token if not provided.",
+        ),
+    ] = None,
+    exist_ok: Annotated[
+        bool,
+        typer.Option(
+            help="Do not raise an error if repo already exists.",
+        ),
+    ] = False,
+    resource_group_id: Annotated[
+        str,
+        typer.Option(
+            help="Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.",
+        ),
+    ] = None,
 ) -> None:
     repo_type = validate_repo_type(repo_type)
     api = HfApi()
@@ -94,35 +103,46 @@ def repo_create(
 
 @tag_app.command("create", help="Create a tag for a repo.")
 def tag_create(
-    repo_id: str = typer.Argument(
-        ...,
-        help="The ID of the repo to tag (e.g. `username/repo-name`).",
-    ),
-    tag: str = typer.Argument(
-        ...,
-        help="The name of the tag to create.",
-    ),
-    message: Optional[str] = typer.Option(
-        None,
-        "-m",
-        "--message",
-        help="The description of the tag to create.",
-    ),
-    revision: Optional[str] = typer.Option(
-        None,
-        "--revision",
-        help="Git revision to tag",
-    ),
-    token: Optional[str] = typer.Option(
-        None,
-        "--token",
-        help="A User Access Token generated from https://huggingface.co/settings/tokens.",
-    ),
-    repo_type: Optional[str] = typer.Option(
-        "model",
-        "--repo-type",
-        help="Set the type of repository (model, dataset, or space).",
-    ),
+    repo_id: Annotated[
+        str,
+        typer.Argument(
+            ...,
+            help="The ID of the repo to tag (e.g. `username/repo-name`).",
+        ),
+    ],
+    tag: Annotated[
+        str,
+        typer.Argument(
+            ...,
+            help="The name of the tag to create.",
+        ),
+    ],
+    message: Annotated[
+        str,
+        typer.Option(
+            "-m",
+            "--message",
+            help="The description of the tag to create.",
+        ),
+    ] = None,
+    revision: Annotated[
+        str,
+        typer.Option(
+            help="Git revision to tag",
+        ),
+    ] = None,
+    token: Annotated[
+        str,
+        typer.Option(
+            help="A User Access Token generated from https://huggingface.co/settings/tokens.",
+        ),
+    ] = None,
+    repo_type: Annotated[
+        str,
+        typer.Option(
+            help="Set the type of repository (model, dataset, or space).",
+        ),
+    ] = "model",
 ) -> None:
     repo_type = validate_repo_type(repo_type)
     api = HfApi(token=token)
@@ -145,20 +165,25 @@ def tag_create(
 
 @tag_app.command("list", help="List tags for a repo.")
 def tag_list(
-    repo_id: str = typer.Argument(
-        ...,
-        help="The ID of the repo to list tags for (e.g. `username/repo-name`",
-    ),
-    token: Optional[str] = typer.Option(
-        None,
-        "--token",
-        help="A User Access Token generated from https://huggingface.co/settings/tokens.",
-    ),
-    repo_type: Optional[str] = typer.Option(
-        "model",
-        "--repo-type",
-        help="Set the type of repository (model, dataset, or space).",
-    ),
+    repo_id: Annotated[
+        str,
+        typer.Argument(
+            ...,
+            help="The ID of the repo to list tags for (e.g. `username/repo-name`",
+        ),
+    ],
+    token: Annotated[
+        str,
+        typer.Option(
+            help="A User Access Token generated from https://huggingface.co/settings/tokens.",
+        ),
+    ] = None,
+    repo_type: Annotated[
+        str,
+        typer.Option(
+            help="Set the type of repository (model, dataset, or space).",
+        ),
+    ] = "model",
 ) -> None:
     repo_type = validate_repo_type(repo_type)
     api = HfApi(token=token)
@@ -181,27 +206,37 @@ def tag_list(
 
 @tag_app.command("delete", help="Delete a tag for a repo.")
 def tag_delete(
-    repo_id: str = typer.Argument(
-        ...,
-        help="The ID of the repo to delete the tag from (e.g. `username/repo-name`).",
-    ),
-    tag: str = typer.Argument(..., help="The name of the tag to delete."),
-    yes: bool = typer.Option(
-        False,
-        "-y",
-        "--yes",
-        help="Answer Yes to prompt automatically",
-    ),
-    token: Optional[str] = typer.Option(
-        None,
-        "--token",
-        help="A User Access Token generated from https://huggingface.co/settings/tokens.",
-    ),
-    repo_type: Optional[str] = typer.Option(
-        "model",
-        "--repo-type",
-        help="Set the type of repository (model, dataset, or space).",
-    ),
+    repo_id: Annotated[
+        str,
+        typer.Argument(
+            ...,
+            help="The ID of the repo to delete the tag from (e.g. `username/repo-name`).",
+        ),
+    ],
+    tag: Annotated[
+        str,
+        typer.Argument(..., help="The name of the tag to delete."),
+    ],
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "-y",
+            "--yes",
+            help="Answer Yes to prompt automatically",
+        ),
+    ] = False,
+    token: Annotated[
+        str,
+        typer.Option(
+            help="A User Access Token generated from https://huggingface.co/settings/tokens.",
+        ),
+    ] = None,
+    repo_type: Annotated[
+        str,
+        typer.Option(
+            help="Set the type of repository (model, dataset, or space).",
+        ),
+    ] = "model",
 ) -> None:
     repo_type = validate_repo_type(repo_type)
     print(f"You are about to delete tag {ANSI.bold(tag)} on {repo_type} {ANSI.bold(repo_id)}")

@@ -18,13 +18,12 @@ from huggingface_hub.cli.auth import auth_app
 from huggingface_hub.cli.cache import cache_app
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.jobs import jobs_app
-
-# from huggingface_hub.cli.jobs import jobs_app
 from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
 from huggingface_hub.cli.repo import repo_app
 from huggingface_hub.cli.repo_files import repo_files_app
-from huggingface_hub.cli.system import env as env_command
-from huggingface_hub.cli.system import version as version_command
+from huggingface_hub.cli.system import env, version
+
+# from huggingface_hub.cli.jobs import jobs_app
 from huggingface_hub.cli.upload import upload
 from huggingface_hub.cli.upload_large_folder import upload_large_folder
 
@@ -48,11 +47,11 @@ app.command(
 app.command(
     name="env",
     help="Print information about the environment.",
-)(env_command)
+)(env)
 app.command(
     name="version",
     help="Print information about the hf version.",
-)(version_command)
+)(version)
 app.command(
     name="lfs-enable-largefiles",
     help="Configure your repository to enable upload of files > 5GB.",
