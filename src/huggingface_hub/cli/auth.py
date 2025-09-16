@@ -37,7 +37,7 @@ from typing_extensions import Annotated
 
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.errors import HfHubHTTPError
-from huggingface_hub.hf_api import HfApi
+from huggingface_hub.hf_api import whoami
 
 from .._login import auth_list, auth_switch, login, logout
 from ..utils import get_stored_tokens, get_token, logging
@@ -56,10 +56,6 @@ except ImportError:
 
 
 auth_cli = typer.Typer(help="Manage authentication (login, logout, etc.).", rich_markup_mode=None)
-
-
-def _api() -> HfApi:
-    return HfApi()
 
 
 @auth_cli.command("login", help="Login using a token from huggingface.co/settings/tokens")
@@ -167,7 +163,7 @@ def auth_whoami() -> None:
         print("Not logged in")
         raise typer.Exit()
     try:
-        info = _api().whoami(token)
+        info = whoami(token)
         print(ANSI.bold("user: "), info["name"])
         orgs = [org["name"] for org in info["orgs"]]
         if orgs:
