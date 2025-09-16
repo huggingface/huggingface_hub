@@ -36,6 +36,7 @@ from .nebius import (
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .nscale import NscaleConversationalTask, NscaleTextToImageTask
 from .openai import OpenAIConversationalTask
+from .publicai import PublicAIConversationalTask
 from .replicate import ReplicateImageToImageTask, ReplicateTask, ReplicateTextToImageTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
@@ -59,6 +60,7 @@ PROVIDER_T = Literal[
     "novita",
     "nscale",
     "openai",
+    "publicai",
     "replicate",
     "sambanova",
     "scaleway",
@@ -145,6 +147,9 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     },
     "openai": {
         "conversational": OpenAIConversationalTask(),
+    },
+    "publicai": {
+        "conversational": PublicAIConversationalTask(),
     },
     "replicate": {
         "image-to-image": ReplicateImageToImageTask(),
