@@ -35,12 +35,12 @@ from huggingface_hub.utils import logging
 
 logger = logging.get_logger(__name__)
 
-repo_app = typer.Typer(help="Manage repos on the Hub.", rich_markup_mode=None)
+repo_cli = typer.Typer(help="Manage repos on the Hub.", rich_markup_mode=None)
 tag_app = typer.Typer(help="Manage tags for a repo on the Hub.", rich_markup_mode=None)
-repo_app.add_typer(tag_app, name="tag")
+repo_cli.add_typer(tag_app, name="tag")
 
 
-@repo_app.command("create", help="Create a new repo on the Hub.")
+@repo_cli.command("create", help="Create a new repo on the Hub.")
 def repo_create(
     repo_id: Annotated[
         str,

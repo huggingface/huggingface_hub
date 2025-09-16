@@ -55,14 +55,14 @@ except ImportError:
     _inquirer_py_available = False
 
 
-auth_app = typer.Typer(help="Manage authentication (login, logout, etc.)", rich_markup_mode=None)
+auth_cli = typer.Typer(help="Manage authentication (login, logout, etc.)", rich_markup_mode=None)
 
 
 def _api() -> HfApi:
     return HfApi()
 
 
-@auth_app.command("login", help="Login using a token from huggingface.co/settings/tokens")
+@auth_cli.command("login", help="Login using a token from huggingface.co/settings/tokens")
 def auth_login(
     token: Annotated[
         Optional[str],
@@ -81,10 +81,7 @@ def auth_login(
     login(token=token, add_to_git_credential=add_to_git_credential)
 
 
-@auth_app.command(
-    "logout",
-    help="Logout from a specific token",
-)
+@auth_cli.command("logout", help="Logout from a specific token")
 def auth_logout(
     token_name: Annotated[
         Optional[str],
@@ -133,7 +130,7 @@ def _select_token_name() -> Optional[str]:
             print("Invalid input. Please enter a number or 'q' to quit.")
 
 
-@auth_app.command("switch", help="Switch between accesstokens")
+@auth_cli.command("switch", help="Switch between access tokens")
 def auth_switch_cmd(
     token_name: Annotated[
         Optional[str],
@@ -157,13 +154,13 @@ def auth_switch_cmd(
     auth_switch(token_name, add_to_git_credential=add_to_git_credential)
 
 
-@auth_app.command("list", help="List all stored access tokens")
+@auth_cli.command("list", help="List all stored access tokens")
 def auth_list_cmd() -> None:
     logging.set_verbosity_info()
     auth_list()
 
 
-@auth_app.command("whoami", help="Find out which huggingface.co account you are logged in as.")
+@auth_cli.command("whoami", help="Find out which huggingface.co account you are logged in as.")
 def auth_whoami() -> None:
     token = get_token()
     if token is None:

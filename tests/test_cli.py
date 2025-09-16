@@ -12,9 +12,9 @@ import typer
 from typer.testing import CliRunner
 
 from huggingface_hub.cli.cache import _CANCEL_DELETION_STR
-from huggingface_hub.cli.download import _download_impl
+from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
-from huggingface_hub.cli.upload import _resolve_upload_paths, _upload_impl, upload
+from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import RevisionNotFoundError
 from huggingface_hub.utils import SoftTemporaryDirectory
 
@@ -68,15 +68,20 @@ class TestCacheCommand:
 
 class TestUploadCommand:
     def test_upload_basic(self, runner: CliRunner) -> None:
-        with (
-            patch(
-                "huggingface_hub.cli.upload._resolve_upload_paths", return_value=("my-folder", ".", None)
-            ) as resolve_mock,
-            patch("huggingface_hub.cli.upload._upload_impl", return_value="uploaded") as upload_mock,
-            patch("huggingface_hub.cli.upload.HfApi") as api_cls,
-        ):
-            api = api_cls.return_value
-            result = runner.invoke(app, ["upload", DUMMY_MODEL_ID, "my-folder"])
+        with SoftTemporaryDirectory() as tmp_dir:
+            folder = Path(tmp_dir) / "my-folder"
+            folder.mkdir()
+            with (
+                patch(
+                    "huggingface_hub.cli.upload._resolve_upload_paths",
+                    return_value=(folder.as_posix(), ".", None),
+                ) as resolve_mock,
+                patch("huggingface_hub.cli.upload.HfApi") as api_cls,
+            ):
+                api = api_cls.return_value
+                api.create_repo.return_value = Mock(repo_id=DUMMY_MODEL_ID)
+                api.upload_folder.return_value = "uploaded"
+                result = runner.invoke(app, ["upload", DUMMY_MODEL_ID, "my-folder"])
         assert result.exit_code == 0
         assert "uploaded" in result.stdout
         resolve_mock.assert_called_once_with(
@@ -85,89 +90,102 @@ class TestUploadCommand:
             path_in_repo=None,
             include=None,
         )
-        upload_mock.assert_called_once()
-        kwargs = upload_mock.call_args.kwargs
-        assert kwargs["repo_id"] == DUMMY_MODEL_ID
-        assert kwargs["local_path"] == "my-folder"
-        assert kwargs["path_in_repo"] == "."
-        assert kwargs["repo_type"] == "model"
-        assert kwargs["revision"] is None
-        assert kwargs["include"] is None
-        assert kwargs["exclude"] is None
-        assert kwargs["delete"] is None
-        assert kwargs["commit_message"] is None
-        assert kwargs["commit_description"] is None
-        assert kwargs["create_pr"] is False
-        assert kwargs["every"] is None
-        assert kwargs["api"] is api
         api_cls.assert_called_once_with(token=None, library_name="hf")
+        api.create_repo.assert_called_once_with(
+            repo_id=DUMMY_MODEL_ID,
+            repo_type="model",
+            exist_ok=True,
+            private=False,
+            space_sdk=None,
+        )
+        api.upload_folder.assert_called_once_with(
+            folder_path=folder.as_posix(),
+            path_in_repo=".",
+            repo_id=DUMMY_MODEL_ID,
+            repo_type="model",
+            revision=None,
+            commit_message=None,
+            commit_description=None,
+            create_pr=False,
+            allow_patterns=None,
+            ignore_patterns=None,
+            delete_patterns=None,
+        )
 
     def test_upload_with_all_options(self, runner: CliRunner) -> None:
-        returned_paths = ("my-file", "data/", ["*.json", "*.yaml"])
-        with (
-            patch("huggingface_hub.cli.upload._resolve_upload_paths", return_value=returned_paths) as resolve_mock,
-            patch("huggingface_hub.cli.upload._upload_impl", return_value="done") as upload_mock,
-            patch("huggingface_hub.cli.upload.HfApi") as api_cls,
-        ):
-            api = api_cls.return_value
-            result = runner.invoke(
-                app,
-                [
-                    "upload",
-                    DUMMY_MODEL_ID,
-                    "my-file",
-                    "data/",
-                    "--repo-type",
-                    "dataset",
-                    "--revision",
-                    "v1.0.0",
-                    "--include",
-                    "*.json",
-                    "--include",
-                    "*.yaml",
-                    "--exclude",
-                    "*.log",
-                    "--exclude",
-                    "*.txt",
-                    "--delete",
-                    "*.config",
-                    "--delete",
-                    "*.secret",
-                    "--commit-message",
-                    "My commit message",
-                    "--commit-description",
-                    "My commit description",
-                    "--create-pr",
-                    "--every",
-                    "5",
-                    "--token",
-                    "my-token",
-                    "--quiet",
-                ],
-            )
+        with SoftTemporaryDirectory() as tmp_dir:
+            folder = Path(tmp_dir) / "my-file"
+            folder.mkdir()
+            returned_paths = (folder.as_posix(), "data/", ["*.json", "*.yaml"])
+            with (
+                patch(
+                    "huggingface_hub.cli.upload._resolve_upload_paths",
+                    return_value=returned_paths,
+                ) as resolve_mock,
+                patch("huggingface_hub.cli.upload.HfApi") as api_cls,
+                patch("huggingface_hub.cli.upload.CommitScheduler") as scheduler_cls,
+                patch("huggingface_hub.cli.upload.time.sleep", side_effect=KeyboardInterrupt),
+            ):
+                api = api_cls.return_value
+                scheduler = scheduler_cls.return_value
+                scheduler.repo_id = DUMMY_MODEL_ID
+                result = runner.invoke(
+                    app,
+                    [
+                        "upload",
+                        DUMMY_MODEL_ID,
+                        "my-file",
+                        "data/",
+                        "--repo-type",
+                        "dataset",
+                        "--revision",
+                        "v1.0.0",
+                        "--include",
+                        "*.json",
+                        "--include",
+                        "*.yaml",
+                        "--exclude",
+                        "*.log",
+                        "--exclude",
+                        "*.txt",
+                        "--delete",
+                        "*.config",
+                        "--delete",
+                        "*.secret",
+                        "--commit-message",
+                        "My commit message",
+                        "--commit-description",
+                        "My commit description",
+                        "--create-pr",
+                        "--every",
+                        "5",
+                        "--token",
+                        "my-token",
+                        "--quiet",
+                    ],
+                )
         assert result.exit_code == 0
-        assert "done" in result.stdout
+        assert "Stopped scheduled commits." in result.stdout
         resolve_mock.assert_called_once_with(
             repo_id=DUMMY_MODEL_ID,
             local_path="my-file",
             path_in_repo="data/",
             include=["*.json", "*.yaml"],
         )
-        kwargs = upload_mock.call_args.kwargs
-        assert kwargs["repo_id"] == DUMMY_MODEL_ID
-        assert kwargs["local_path"] == "my-file"
-        assert kwargs["path_in_repo"] == "data/"
-        assert kwargs["repo_type"] == "dataset"
-        assert kwargs["revision"] == "v1.0.0"
-        assert kwargs["include"] == ["*.json", "*.yaml"]
-        assert kwargs["exclude"] == ["*.log", "*.txt"]
-        assert kwargs["delete"] == ["*.config", "*.secret"]
-        assert kwargs["commit_message"] == "My commit message"
-        assert kwargs["commit_description"] == "My commit description"
-        assert kwargs["create_pr"] is True
-        assert kwargs["every"] == 5
-        assert kwargs["api"] is api
         api_cls.assert_called_once_with(token="my-token", library_name="hf")
+        scheduler_cls.assert_called_once_with(
+            folder_path=folder.as_posix(),
+            repo_id=DUMMY_MODEL_ID,
+            repo_type="dataset",
+            revision="v1.0.0",
+            allow_patterns=["*.json", "*.yaml"],
+            ignore_patterns=["*.log", "*.txt"],
+            path_in_repo="data/",
+            private=False,
+            every=5,
+            hf_api=api,
+        )
+        scheduler.stop.assert_called_once_with()
 
     def test_every_must_be_positive(self) -> None:
         class _PatchedBadParameter(typer.BadParameter):
@@ -186,26 +204,36 @@ class TestUploadCommand:
         api_cls.assert_not_called()
 
     def test_every_as_int(self, runner: CliRunner) -> None:
-        with (
-            patch("huggingface_hub.cli.upload._resolve_upload_paths", return_value=(".", ".", None)),
-            patch("huggingface_hub.cli.upload._upload_impl", return_value="ok") as upload_mock,
-            patch("huggingface_hub.cli.upload.HfApi"),
-        ):
-            result = runner.invoke(app, ["upload", DUMMY_MODEL_ID, ".", "--every", "10"])
+        with SoftTemporaryDirectory() as tmp_dir:
+            folder = Path(tmp_dir)
+            with (
+                patch(
+                    "huggingface_hub.cli.upload._resolve_upload_paths",
+                    return_value=(folder.as_posix(), ".", None),
+                ),
+                patch("huggingface_hub.cli.upload.HfApi"),
+                patch("huggingface_hub.cli.upload.CommitScheduler") as scheduler_cls,
+                patch("huggingface_hub.cli.upload.time.sleep", side_effect=KeyboardInterrupt),
+            ):
+                result = runner.invoke(app, ["upload", DUMMY_MODEL_ID, ".", "--every", "10"])
         assert result.exit_code == 0
-        kwargs = upload_mock.call_args.kwargs
-        assert kwargs["every"] == pytest.approx(10)
+        assert scheduler_cls.call_args.kwargs["every"] == pytest.approx(10)
 
     def test_every_as_float(self, runner: CliRunner) -> None:
-        with (
-            patch("huggingface_hub.cli.upload._resolve_upload_paths", return_value=(".", ".", None)),
-            patch("huggingface_hub.cli.upload._upload_impl", return_value="ok") as upload_mock,
-            patch("huggingface_hub.cli.upload.HfApi"),
-        ):
-            result = runner.invoke(app, ["upload", DUMMY_MODEL_ID, ".", "--every", "0.5"])
+        with SoftTemporaryDirectory() as tmp_dir:
+            folder = Path(tmp_dir)
+            with (
+                patch(
+                    "huggingface_hub.cli.upload._resolve_upload_paths",
+                    return_value=(folder.as_posix(), ".", None),
+                ),
+                patch("huggingface_hub.cli.upload.HfApi"),
+                patch("huggingface_hub.cli.upload.CommitScheduler") as scheduler_cls,
+                patch("huggingface_hub.cli.upload.time.sleep", side_effect=KeyboardInterrupt),
+            ):
+                result = runner.invoke(app, ["upload", DUMMY_MODEL_ID, ".", "--every", "0.5"])
         assert result.exit_code == 0
-        kwargs = upload_mock.call_args.kwargs
-        assert kwargs["every"] == pytest.approx(0.5)
+        assert scheduler_cls.call_args.kwargs["every"] == pytest.approx(0.5)
 
 
 class TestResolveUploadPaths:
@@ -316,26 +344,23 @@ class TestUploadImpl:
     def test_upload_folder_mock(self, *_: object) -> None:
         api = Mock()
         api.create_repo.return_value = Mock(repo_id="my-model")
+        api.upload_folder.return_value = "done"
         with SoftTemporaryDirectory() as cache_dir:
             cache_path = cache_dir.absolute().as_posix()
             local_dir = Path(cache_path)
             (local_dir / "config.json").write_text("{}")
-            result = _upload_impl(
-                api=api,
-                repo_id="my-model",
-                repo_type="model",
-                revision=None,
-                private=True,
-                include=["*.json"],
-                exclude=None,
-                delete=["*.json"],
-                commit_message=None,
-                commit_description=None,
-                create_pr=False,
-                every=None,
-                local_path=cache_path,
-                path_in_repo=".",
-            )
+            with (
+                patch("huggingface_hub.cli.upload.HfApi", return_value=api),
+                patch("builtins.print") as print_mock,
+            ):
+                upload(
+                    repo_id="my-model",
+                    local_path=cache_path,
+                    include=["*.json"],
+                    delete=["*.json"],
+                    private=True,
+                    quiet=True,
+                )
         api.create_repo.assert_called_once_with(
             repo_id="my-model",
             repo_type="model",
@@ -356,32 +381,29 @@ class TestUploadImpl:
             ignore_patterns=None,
             delete_patterns=["*.json"],
         )
-        assert result == api.upload_folder.return_value
+        print_mock.assert_called_once_with("done")
 
     @patch("huggingface_hub.cli.upload.is_xet_available", return_value=True)
     @patch("huggingface_hub.cli.upload.HF_HUB_ENABLE_HF_TRANSFER", False)
     def test_upload_file_mock(self, *_: object) -> None:
         api = Mock()
         api.create_repo.return_value = Mock(repo_id="my-dataset")
+        api.upload_file.return_value = "uploaded"
         with SoftTemporaryDirectory() as cache_dir:
             file_path = Path(cache_dir) / "file.txt"
             file_path.write_text("content")
-            result = _upload_impl(
-                api=api,
-                repo_id="my-dataset",
-                repo_type="dataset",
-                revision=None,
-                private=False,
-                include=None,
-                exclude=None,
-                delete=None,
-                commit_message=None,
-                commit_description=None,
-                create_pr=True,
-                every=None,
-                local_path=str(file_path),
-                path_in_repo="logs/file.txt",
-            )
+            with (
+                patch("huggingface_hub.cli.upload.HfApi", return_value=api),
+                patch("builtins.print") as print_mock,
+            ):
+                upload(
+                    repo_id="my-dataset",
+                    repo_type="dataset",
+                    local_path=str(file_path),
+                    path_in_repo="logs/file.txt",
+                    create_pr=True,
+                    quiet=True,
+                )
         api.create_repo.assert_called_once_with(
             repo_id="my-dataset",
             repo_type="dataset",
@@ -399,7 +421,7 @@ class TestUploadImpl:
             commit_description=None,
             create_pr=True,
         )
-        assert result == api.upload_file.return_value
+        print_mock.assert_called_once_with("uploaded")
 
     @patch("huggingface_hub.cli.upload.is_xet_available", return_value=True)
     @patch("huggingface_hub.cli.upload.HF_HUB_ENABLE_HF_TRANSFER", False)
@@ -409,22 +431,16 @@ class TestUploadImpl:
         with SoftTemporaryDirectory() as cache_dir:
             file_path = Path(cache_dir) / "file.txt"
             file_path.write_text("content")
-            _upload_impl(
-                api=api,
-                repo_id="my-model",
-                repo_type="model",
-                revision=None,
-                private=False,
-                include=None,
-                exclude=None,
-                delete=None,
-                commit_message=None,
-                commit_description=None,
-                create_pr=False,
-                every=None,
-                local_path=str(file_path),
-                path_in_repo="logs/file.txt",
-            )
+            with (
+                patch("huggingface_hub.cli.upload.HfApi", return_value=api),
+                patch("builtins.print"),
+            ):
+                upload(
+                    repo_id="my-model",
+                    local_path=str(file_path),
+                    path_in_repo="logs/file.txt",
+                    quiet=True,
+                )
         api.repo_info.assert_not_called()
 
     @patch("huggingface_hub.cli.upload.is_xet_available", return_value=True)
@@ -436,22 +452,17 @@ class TestUploadImpl:
         with SoftTemporaryDirectory() as cache_dir:
             file_path = Path(cache_dir) / "file.txt"
             file_path.write_text("content")
-            _upload_impl(
-                api=api,
-                repo_id="my-model",
-                repo_type="model",
-                revision="my-branch",
-                private=False,
-                include=None,
-                exclude=None,
-                delete=None,
-                commit_message=None,
-                commit_description=None,
-                create_pr=False,
-                every=None,
-                local_path=str(file_path),
-                path_in_repo="logs/file.txt",
-            )
+            with (
+                patch("huggingface_hub.cli.upload.HfApi", return_value=api),
+                patch("builtins.print"),
+            ):
+                upload(
+                    repo_id="my-model",
+                    revision="my-branch",
+                    local_path=str(file_path),
+                    path_in_repo="logs/file.txt",
+                    quiet=True,
+                )
         api.repo_info.assert_called_once_with(repo_id="my-model", repo_type="model", revision="my-branch")
         api.create_branch.assert_called_once_with(
             repo_id="my-model", repo_type="model", branch="my-branch", exist_ok=True
@@ -465,22 +476,18 @@ class TestUploadImpl:
         with SoftTemporaryDirectory() as cache_dir:
             file_path = Path(cache_dir) / "file.txt"
             file_path.write_text("content")
-            _upload_impl(
-                api=api,
-                repo_id="my-model",
-                repo_type="model",
-                revision="my-branch",
-                private=False,
-                include=None,
-                exclude=None,
-                delete=None,
-                commit_message=None,
-                commit_description=None,
-                create_pr=True,
-                every=None,
-                local_path=str(file_path),
-                path_in_repo="logs/file.txt",
-            )
+            with (
+                patch("huggingface_hub.cli.upload.HfApi", return_value=api),
+                patch("builtins.print"),
+            ):
+                upload(
+                    repo_id="my-model",
+                    revision="my-branch",
+                    local_path=str(file_path),
+                    path_in_repo="logs/file.txt",
+                    create_pr=True,
+                    quiet=True,
+                )
         api.repo_info.assert_not_called()
         api.create_branch.assert_not_called()
 
@@ -489,47 +496,45 @@ class TestUploadImpl:
     def test_upload_missing_path(self, *_: object) -> None:
         api = Mock()
         with pytest.raises(FileNotFoundError):
-            _upload_impl(
-                api=api,
-                repo_id="my-model",
-                repo_type="model",
-                revision=None,
-                private=False,
-                include=None,
-                exclude=None,
-                delete=None,
-                commit_message=None,
-                commit_description=None,
-                create_pr=False,
-                every=None,
-                local_path="/path/to/missing_file",
-                path_in_repo="logs/file.txt",
-            )
+            with patch("huggingface_hub.cli.upload.HfApi", return_value=api):
+                upload(
+                    repo_id="my-model",
+                    local_path="/path/to/missing_file",
+                    path_in_repo="logs/file.txt",
+                    quiet=True,
+                )
         api.create_repo.assert_not_called()
 
 
 class TestDownloadCommand:
     def test_download_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.download._download_impl", return_value="path") as impl_mock:
+        with (
+            patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock,
+            patch("huggingface_hub.cli.download.hf_hub_download") as download_mock,
+        ):
             result = runner.invoke(app, ["download", DUMMY_MODEL_ID])
         assert result.exit_code == 0
         assert "path" in result.stdout
-        impl_mock.assert_called_once()
-        kwargs = impl_mock.call_args.kwargs
+        download_mock.assert_not_called()
+        snapshot_mock.assert_called_once()
+        kwargs = snapshot_mock.call_args.kwargs
         assert kwargs["repo_id"] == DUMMY_MODEL_ID
-        assert kwargs["filenames"] == []
         assert kwargs["repo_type"] == "model"
         assert kwargs["revision"] is None
-        assert kwargs["include"] is None
-        assert kwargs["exclude"] is None
+        assert kwargs["allow_patterns"] is None
+        assert kwargs["ignore_patterns"] is None
+        assert kwargs["force_download"] is False
         assert kwargs["cache_dir"] is None
         assert kwargs["local_dir"] is None
-        assert kwargs["force_download"] is False
         assert kwargs["token"] is None
+        assert kwargs["library_name"] == "hf"
         assert kwargs["max_workers"] == 8
 
     def test_download_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.download._download_impl", return_value="path") as impl_mock:
+        with (
+            patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock,
+            patch("huggingface_hub.cli.download.hf_hub_download") as download_mock,
+        ):
             result = runner.invoke(
                 app,
                 [
@@ -560,37 +565,36 @@ class TestDownloadCommand:
                 ],
             )
         assert result.exit_code == 0
-        kwargs = impl_mock.call_args.kwargs
+        download_mock.assert_not_called()
+        snapshot_mock.assert_called_once()
+        kwargs = snapshot_mock.call_args.kwargs
         assert kwargs["repo_id"] == DUMMY_MODEL_ID
         assert kwargs["repo_type"] == "dataset"
         assert kwargs["revision"] == "v1.0.0"
-        assert kwargs["include"] == ["*.json", "*.yaml"]
-        assert kwargs["exclude"] == ["*.log", "*.txt"]
+        assert kwargs["allow_patterns"] == ["*.json", "*.yaml"]
+        assert kwargs["ignore_patterns"] == ["*.log", "*.txt"]
         assert kwargs["force_download"] is True
         assert kwargs["cache_dir"] == "/tmp"
         assert kwargs["local_dir"] == "."
         assert kwargs["token"] == "my-token"
+        assert kwargs["library_name"] == "hf"
         assert kwargs["max_workers"] == 4
 
 
 class TestDownloadImpl:
+    @patch("huggingface_hub.cli.download.snapshot_download")
     @patch("huggingface_hub.cli.download.hf_hub_download")
-    def test_download_file_from_revision(self, mock_download: Mock) -> None:
+    def test_download_file_from_revision(self, mock_download: Mock, mock_snapshot: Mock) -> None:
         mock_download.return_value = "file-path"
-        result = _download_impl(
-            repo_id="author/model",
-            filenames=["config.json"],
-            repo_type="model",
-            revision="main",
-            include=None,
-            exclude=None,
-            cache_dir=None,
-            local_dir=None,
-            force_download=False,
-            token=None,
-            max_workers=8,
-        )
-        assert result == "file-path"
+        with patch("builtins.print") as print_mock:
+            download(
+                repo_id="author/model",
+                filenames=["config.json"],
+                repo_type="model",
+                revision="main",
+                quiet=True,
+            )
+        print_mock.assert_called_once_with("file-path")
         mock_download.assert_called_once_with(
             repo_id="author/model",
             repo_type="model",
@@ -602,24 +606,23 @@ class TestDownloadImpl:
             local_dir=None,
             library_name="hf",
         )
+        mock_snapshot.assert_not_called()
 
     @patch("huggingface_hub.cli.download.snapshot_download")
-    def test_download_multiple_files(self, mock_snapshot: Mock) -> None:
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_multiple_files(self, mock_download: Mock, mock_snapshot: Mock) -> None:
         mock_snapshot.return_value = "folder-path"
-        result = _download_impl(
-            repo_id="author/model",
-            filenames=["README.md", "config.json"],
-            repo_type="model",
-            revision=None,
-            include=None,
-            exclude=None,
-            cache_dir=None,
-            local_dir=None,
-            force_download=True,
-            token=None,
-            max_workers=4,
-        )
-        assert result == "folder-path"
+        with patch("builtins.print") as print_mock:
+            download(
+                repo_id="author/model",
+                filenames=["README.md", "config.json"],
+                repo_type="model",
+                force_download=True,
+                max_workers=4,
+                quiet=True,
+            )
+        print_mock.assert_called_once_with("folder-path")
+        mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
             repo_type="model",
@@ -636,19 +639,16 @@ class TestDownloadImpl:
 
     @patch("huggingface_hub.cli.download.snapshot_download")
     def test_download_with_patterns(self, mock_snapshot: Mock) -> None:
-        _download_impl(
-            repo_id="author/model",
-            filenames=[],
-            repo_type="model",
-            revision=None,
-            include=["*.json"],
-            exclude=["data/*"],
-            cache_dir=None,
-            local_dir=None,
-            force_download=True,
-            token=None,
-            max_workers=8,
-        )
+        with patch("builtins.print"):
+            download(
+                repo_id="author/model",
+                filenames=[],
+                repo_type="model",
+                include=["*.json"],
+                exclude=["data/*"],
+                force_download=True,
+                quiet=True,
+            )
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
             repo_type="model",
@@ -664,22 +664,26 @@ class TestDownloadImpl:
         )
 
     @patch("huggingface_hub.cli.download.snapshot_download")
-    def test_download_with_ignored_patterns(self, mock_snapshot: Mock) -> None:
-        with warnings.catch_warnings(record=True) as caught:
-            _download_impl(
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_with_ignored_patterns(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        mock_snapshot.return_value = "folder-path"
+        with (
+            patch("builtins.print") as print_mock,
+            patch("huggingface_hub.cli.download.logging.set_verbosity_info"),
+            patch("huggingface_hub.cli.download.logging.set_verbosity_warning"),
+            warnings.catch_warnings(record=True) as caught,
+        ):
+            download(
                 repo_id="author/model",
                 filenames=["README.md", "config.json"],
                 repo_type="model",
-                revision=None,
                 include=["*.json"],
                 exclude=["data/*"],
-                cache_dir=None,
-                local_dir=None,
                 force_download=True,
-                token=None,
-                max_workers=8,
             )
+        print_mock.assert_called_once_with("folder-path")
         assert any("Ignoring" in str(w.message) for w in caught)
+        mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
             repo_type="model",

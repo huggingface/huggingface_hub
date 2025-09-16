@@ -132,99 +132,58 @@ def download(
     # Validate repo_type if provided
     repo_type = validate_repo_type(repo_type)  # ty: ignore[invalid-assignment]
 
+    def run_download() -> str:
+        filenames_list = filenames if filenames is not None else []
+        # Warn user if patterns are ignored
+        if len(filenames_list) > 0:
+            if include is not None and len(include) > 0:
+                warnings.warn("Ignoring `--include` since filenames have being explicitly set.")
+            if exclude is not None and len(exclude) > 0:
+                warnings.warn("Ignoring `--exclude` since filenames have being explicitly set.")
+
+        # Single file to download: use `hf_hub_download`
+        if len(filenames_list) == 1:
+            return hf_hub_download(
+                repo_id=repo_id,
+                repo_type=repo_type,
+                revision=revision,
+                filename=filenames_list[0],
+                cache_dir=cache_dir,
+                force_download=force_download,
+                token=token,
+                local_dir=local_dir,
+                library_name="hf",
+            )
+
+        # Otherwise: use `snapshot_download` to ensure all files comes from same revision
+        if len(filenames_list) == 0:
+            allow_patterns = include
+            ignore_patterns = exclude
+        else:
+            allow_patterns = filenames_list
+            ignore_patterns = None
+
+        return snapshot_download(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+            force_download=force_download,
+            cache_dir=cache_dir,
+            token=token,
+            local_dir=local_dir,
+            library_name="hf",
+            max_workers=max_workers,
+        )
+
     if quiet:
         disable_progress_bars()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            print(
-                _download_impl(
-                    repo_id=repo_id,
-                    filenames=filenames or [],
-                    repo_type=repo_type,
-                    revision=revision,
-                    include=include,
-                    exclude=exclude,
-                    cache_dir=cache_dir,
-                    local_dir=local_dir,
-                    force_download=force_download,
-                    token=token,
-                    max_workers=max_workers,
-                )
-            )
+            print(run_download())
         enable_progress_bars()
     else:
         logging.set_verbosity_info()
-        print(
-            _download_impl(
-                repo_id=repo_id,
-                filenames=filenames or [],
-                repo_type=repo_type,
-                revision=revision,
-                include=include,
-                exclude=exclude,
-                cache_dir=cache_dir,
-                local_dir=local_dir,
-                force_download=force_download,
-                token=token,
-                max_workers=max_workers,
-            )
-        )
+        print(run_download())
         logging.set_verbosity_warning()
-
-
-def _download_impl(
-    *,
-    repo_id: str,
-    filenames: list[str],
-    repo_type: str,
-    revision: Optional[str],
-    include: Optional[list[str]],
-    exclude: Optional[list[str]],
-    cache_dir: Optional[str],
-    local_dir: Optional[str],
-    force_download: bool,
-    token: Optional[str],
-    max_workers: int,
-) -> str:
-    # Warn user if patterns are ignored
-    if len(filenames) > 0:
-        if include is not None and len(include) > 0:
-            warnings.warn("Ignoring `--include` since filenames have being explicitly set.")
-        if exclude is not None and len(exclude) > 0:
-            warnings.warn("Ignoring `--exclude` since filenames have being explicitly set.")
-
-    # Single file to download: use `hf_hub_download`
-    if len(filenames) == 1:
-        return hf_hub_download(
-            repo_id=repo_id,
-            repo_type=repo_type,
-            revision=revision,
-            filename=filenames[0],
-            cache_dir=cache_dir,
-            force_download=force_download,
-            token=token,
-            local_dir=local_dir,
-            library_name="hf",
-        )
-
-    # Otherwise: use `snapshot_download` to ensure all files comes from same revision
-    elif len(filenames) == 0:
-        allow_patterns = include
-        ignore_patterns = exclude
-    else:
-        allow_patterns = filenames
-        ignore_patterns = None
-
-    return snapshot_download(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        revision=revision,
-        allow_patterns=allow_patterns,
-        ignore_patterns=ignore_patterns,
-        force_download=force_download,
-        cache_dir=cache_dir,
-        token=token,
-        local_dir=local_dir,
-        library_name="hf",
-        max_workers=max_workers,
-    )

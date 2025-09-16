@@ -14,13 +14,13 @@
 
 import typer
 
-from huggingface_hub.cli.auth import auth_app
-from huggingface_hub.cli.cache import cache_app
+from huggingface_hub.cli.auth import auth_cli
+from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.download import download
-from huggingface_hub.cli.jobs import jobs_app
+from huggingface_hub.cli.jobs import jobs_cli
 from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
-from huggingface_hub.cli.repo import repo_app
-from huggingface_hub.cli.repo_files import repo_files_app
+from huggingface_hub.cli.repo import repo_cli
+from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.system import env, version
 
 # from huggingface_hub.cli.jobs import jobs_app
@@ -65,11 +65,11 @@ app.command(
 
 
 # command groups
-app.add_typer(auth_app, name="auth")
-app.add_typer(cache_app, name="cache")
-app.add_typer(repo_app, name="repo")
-app.add_typer(repo_files_app, name="repo-files")
-app.add_typer(jobs_app, name="jobs")
+app.add_typer(auth_cli, name="auth")
+app.add_typer(cache_cli, name="cache")
+app.add_typer(repo_cli, name="repo")
+app.add_typer(repo_files_cli, name="repo-files")
+app.add_typer(jobs_cli, name="jobs")
 
 
 def main():

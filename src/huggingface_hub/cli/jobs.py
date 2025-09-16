@@ -73,10 +73,10 @@ logger = logging.get_logger(__name__)
 SUGGESTED_FLAVORS = [item.value for item in SpaceHardware if item.value != "zero-a10g"]
 
 
-jobs_app = typer.Typer(help="Run and manage Jobs on the Hub.", rich_markup_mode=None)
+jobs_cli = typer.Typer(help="Run and manage Jobs on the Hub.", rich_markup_mode=None)
 
 
-@jobs_app.command("run", help="Run a Job")
+@jobs_cli.command("run", help="Run a Job")
 def jobs_run(
     image: Annotated[
         str,
@@ -193,7 +193,7 @@ def jobs_run(
         print(log)
 
 
-@jobs_app.command("logs", help="Fetch the logs of a Job")
+@jobs_cli.command("logs", help="Fetch the logs of a Job")
 def jobs_logs(
     job_id: Annotated[
         str,
@@ -257,7 +257,7 @@ def _print_output(rows: list[list[Union[str, int]]], headers: list[str], fmt: Op
         print(_tabulate(rows, headers=headers))
 
 
-@jobs_app.command("ps", help="List Jobs")
+@jobs_cli.command("ps", help="List Jobs")
 def jobs_ps(
     all: Annotated[
         bool,
@@ -355,7 +355,7 @@ def jobs_ps(
         print(f"Unexpected error - {type(e).__name__}: {e}")
 
 
-@jobs_app.command("inspect", help="Display detailed information on one or more Jobs")
+@jobs_cli.command("inspect", help="Display detailed information on one or more Jobs")
 def jobs_inspect(
     job_ids: Annotated[
         list[str],
@@ -382,7 +382,7 @@ def jobs_inspect(
     print(json.dumps([asdict(job) for job in jobs], indent=4, default=str))
 
 
-@jobs_app.command("cancel", help="Cancel a Job")
+@jobs_cli.command("cancel", help="Cancel a Job")
 def jobs_cancel(
     job_id: Annotated[
         str,
@@ -411,7 +411,7 @@ def jobs_cancel(
 uv_app = typer.Typer(
     help="Run UV scripts (Python with inline dependencies) on HF infrastructure", rich_markup_mode=None
 )
-jobs_app.add_typer(uv_app, name="uv")
+jobs_cli.add_typer(uv_app, name="uv")
 
 
 @uv_app.command("run", help="Run a UV script (local file or URL) on HF infrastructure")
@@ -560,7 +560,7 @@ def jobs_uv_run(
 
 
 scheduled_app = typer.Typer(help="Create and manage scheduled Jobs on the Hub.", rich_markup_mode=None)
-jobs_app.add_typer(scheduled_app, name="scheduled")
+jobs_cli.add_typer(scheduled_app, name="scheduled")
 
 
 @scheduled_app.command("run", help="Schedule a Job")

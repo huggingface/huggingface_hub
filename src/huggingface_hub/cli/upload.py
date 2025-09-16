@@ -176,49 +176,132 @@ def upload(
         repo_id=repo_id, local_path=local_path, path_in_repo=path_in_repo, include=include
     )
 
+    def run_upload() -> str:
+        if os.path.isfile(resolved_local_path):
+            if resolved_include is not None and len(resolved_include) > 0 and isinstance(resolved_include, list):
+                warnings.warn("Ignoring --include since a single file is uploaded.")
+            if exclude is not None and len(exclude) > 0:
+                warnings.warn("Ignoring --exclude since a single file is uploaded.")
+            if delete is not None and len(delete) > 0:
+                warnings.warn("Ignoring --delete since a single file is uploaded.")
+
+        if not is_xet_available() and not HF_HUB_ENABLE_HF_TRANSFER:
+            logger.info(
+                "Consider using `hf_transfer` for faster uploads. This solution comes with some limitations. See"
+                " https://huggingface.co/docs/huggingface_hub/hf_transfer for more details."
+            )
+
+        # Schedule commits if `every` is set
+        if every is not None:
+            if os.path.isfile(resolved_local_path):
+                # If file => watch entire folder + use allow_patterns
+                folder_path = os.path.dirname(resolved_local_path)
+                pi = (
+                    resolved_path_in_repo[: -len(resolved_local_path)]
+                    if resolved_path_in_repo.endswith(resolved_local_path)
+                    else resolved_path_in_repo
+                )
+                allow_patterns = [resolved_local_path]
+                ignore_patterns: list[str] | None = []
+            else:
+                folder_path = resolved_local_path
+                pi = resolved_path_in_repo
+                allow_patterns = (
+                    resolved_include or []
+                    if isinstance(resolved_include, list)
+                    else [resolved_include]
+                    if isinstance(resolved_include, str)
+                    else []
+                )
+                ignore_patterns = exclude or []
+                if delete is not None and len(delete) > 0:
+                    warnings.warn("Ignoring --delete when uploading with scheduled commits.")
+
+            scheduler = CommitScheduler(
+                folder_path=folder_path,
+                repo_id=repo_id,
+                repo_type=repo_type,
+                revision=revision,
+                allow_patterns=allow_patterns,
+                ignore_patterns=ignore_patterns,
+                path_in_repo=pi,
+                private=private,
+                every=every,
+                hf_api=api,
+            )
+            print(f"Scheduling commits every {every} minutes to {scheduler.repo_id}.")
+            try:
+                while True:
+                    time.sleep(100)
+            except KeyboardInterrupt:
+                scheduler.stop()
+                return "Stopped scheduled commits."
+
+        # Otherwise, create repo and proceed with the upload
+        if not os.path.isfile(resolved_local_path) and not os.path.isdir(resolved_local_path):
+            raise FileNotFoundError(f"No such file or directory: '{resolved_local_path}'.")
+        created = api.create_repo(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            exist_ok=True,
+            private=private,
+            space_sdk="gradio" if repo_type == "space" else None,
+            # ^ We don't want it to fail when uploading to a Space => let's set Gradio by default.
+            # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repo create` for that.
+        ).repo_id
+
+        # Check if branch already exists and if not, create it
+        if revision is not None and not create_pr:
+            try:
+                api.repo_info(repo_id=created, repo_type=repo_type, revision=revision)
+            except RevisionNotFoundError:
+                logger.info(f"Branch '{revision}' not found. Creating it...")
+                api.create_branch(repo_id=created, repo_type=repo_type, branch=revision, exist_ok=True)
+                # ^ `exist_ok=True` to avoid race concurrency issues
+
+        # File-based upload
+        if os.path.isfile(resolved_local_path):
+            return api.upload_file(
+                path_or_fileobj=resolved_local_path,
+                path_in_repo=resolved_path_in_repo,
+                repo_id=created,
+                repo_type=repo_type,
+                revision=revision,
+                commit_message=commit_message,
+                commit_description=commit_description,
+                create_pr=create_pr,
+            )
+
+        # Folder-based upload
+        return api.upload_folder(
+            folder_path=resolved_local_path,
+            path_in_repo=resolved_path_in_repo,
+            repo_id=created,
+            repo_type=repo_type,
+            revision=revision,
+            commit_message=commit_message,
+            commit_description=commit_description,
+            create_pr=create_pr,
+            allow_patterns=(
+                resolved_include
+                if isinstance(resolved_include, list)
+                else [resolved_include]
+                if isinstance(resolved_include, str)
+                else None
+            ),
+            ignore_patterns=exclude,
+            delete_patterns=delete,
+        )
+
     if quiet:
         disable_progress_bars()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            print(
-                _upload_impl(
-                    api=api,
-                    repo_id=repo_id,
-                    repo_type=repo_type,
-                    revision=revision,
-                    private=private,
-                    include=resolved_include,
-                    exclude=exclude,
-                    delete=delete,
-                    commit_message=commit_message,
-                    commit_description=commit_description,
-                    create_pr=create_pr,
-                    every=every,
-                    local_path=resolved_local_path,
-                    path_in_repo=resolved_path_in_repo,
-                )
-            )
+            print(run_upload())
         enable_progress_bars()
     else:
         logging.set_verbosity_info()
-        print(
-            _upload_impl(
-                api=api,
-                repo_id=repo_id,
-                repo_type=repo_type,
-                revision=revision,
-                private=private,
-                include=resolved_include,
-                exclude=exclude,
-                delete=delete,
-                commit_message=commit_message,
-                commit_description=commit_description,
-                create_pr=create_pr,
-                every=every,
-                local_path=resolved_local_path,
-                path_in_repo=resolved_path_in_repo,
-            )
-        )
+        print(run_upload())
         logging.set_verbosity_warning()
 
 
@@ -247,127 +330,3 @@ def _resolve_upload_paths(
     if path_in_repo is None:
         return local_path, ".", resolved_include
     return local_path, path_in_repo, resolved_include
-
-
-def _upload_impl(
-    *,
-    api: HfApi,
-    repo_id: str,
-    repo_type: Optional[str],
-    revision: Optional[str],
-    private: bool,
-    include: Optional[list[str]] | str,
-    exclude: Optional[list[str]],
-    delete: Optional[list[str]],
-    commit_message: Optional[str],
-    commit_description: Optional[str],
-    create_pr: bool,
-    every: Optional[float],
-    local_path: str,
-    path_in_repo: str,
-) -> str:
-    # Adjust include when wildcard case was used (we temporarily returned ".", local_path, ".")
-    if local_path == "." and isinstance(include, str):
-        include = include  # keep mypy happy; already str
-
-    if os.path.isfile(local_path):
-        if include is not None and len(include) > 0 and isinstance(include, list):
-            warnings.warn("Ignoring --include since a single file is uploaded.")
-        if exclude is not None and len(exclude) > 0:
-            warnings.warn("Ignoring --exclude since a single file is uploaded.")
-        if delete is not None and len(delete) > 0:
-            warnings.warn("Ignoring --delete since a single file is uploaded.")
-
-    if not is_xet_available() and not HF_HUB_ENABLE_HF_TRANSFER:
-        logger.info(
-            "Consider using `hf_transfer` for faster uploads. This solution comes with some limitations. See"
-            " https://huggingface.co/docs/huggingface_hub/hf_transfer for more details."
-        )
-
-    # Schedule commits if `every` is set
-    if every is not None:
-        if os.path.isfile(local_path):
-            # If file => watch entire folder + use allow_patterns
-            folder_path = os.path.dirname(local_path)
-            pi = path_in_repo[: -len(local_path)] if path_in_repo.endswith(local_path) else path_in_repo
-            allow_patterns = [local_path]
-            ignore_patterns = []
-        else:
-            folder_path = local_path
-            pi = path_in_repo
-            allow_patterns = (
-                include or [] if isinstance(include, list) else [include] if isinstance(include, str) else []
-            )
-            ignore_patterns = exclude or []
-            if delete is not None and len(delete) > 0:
-                warnings.warn("Ignoring --delete when uploading with scheduled commits.")
-
-        scheduler = CommitScheduler(
-            folder_path=folder_path,
-            repo_id=repo_id,
-            repo_type=repo_type,
-            revision=revision,
-            allow_patterns=allow_patterns,
-            ignore_patterns=ignore_patterns,
-            path_in_repo=pi,
-            private=private,
-            every=every,
-            hf_api=api,
-        )
-        print(f"Scheduling commits every {every} minutes to {scheduler.repo_id}.")
-        try:
-            while True:
-                time.sleep(100)
-        except KeyboardInterrupt:
-            scheduler.stop()
-            return "Stopped scheduled commits."
-
-    # Otherwise, create repo and proceed with the upload
-    if not os.path.isfile(local_path) and not os.path.isdir(local_path):
-        raise FileNotFoundError(f"No such file or directory: '{local_path}'.")
-    created = api.create_repo(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        exist_ok=True,
-        private=private,
-        space_sdk="gradio" if repo_type == "space" else None,
-        # ^ We don't want it to fail when uploading to a Space => let's set Gradio by default.
-        # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repo create` for that.
-    ).repo_id
-
-    # Check if branch already exists and if not, create it
-    if revision is not None and not create_pr:
-        try:
-            api.repo_info(repo_id=created, repo_type=repo_type, revision=revision)
-        except RevisionNotFoundError:
-            logger.info(f"Branch '{revision}' not found. Creating it...")
-            api.create_branch(repo_id=created, repo_type=repo_type, branch=revision, exist_ok=True)
-            # ^ `exist_ok=True` to avoid race concurrency issues
-
-    # File-based upload
-    if os.path.isfile(local_path):
-        return api.upload_file(
-            path_or_fileobj=local_path,
-            path_in_repo=path_in_repo,
-            repo_id=created,
-            repo_type=repo_type,
-            revision=revision,
-            commit_message=commit_message,
-            commit_description=commit_description,
-            create_pr=create_pr,
-        )
-
-    # Folder-based upload
-    return api.upload_folder(
-        folder_path=local_path,
-        path_in_repo=path_in_repo,
-        repo_id=created,
-        repo_type=repo_type,
-        revision=revision,
-        commit_message=commit_message,
-        commit_description=commit_description,
-        create_pr=create_pr,
-        allow_patterns=include if isinstance(include, list) else [include] if isinstance(include, str) else None,
-        ignore_patterns=exclude,
-        delete_patterns=delete,
-    )

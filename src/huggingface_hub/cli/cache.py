@@ -63,10 +63,10 @@ def require_inquirer_py(fn: Callable) -> Callable:
     return _inner
 
 
-cache_app = typer.Typer(help="Manage local cache directory.", rich_markup_mode=None)
+cache_cli = typer.Typer(help="Manage local cache directory.", rich_markup_mode=None)
 
 
-@cache_app.command("scan", help="Scan the cache directory")
+@cache_cli.command("scan", help="Scan the cache directory")
 def cache_scan(
     dir: Annotated[
         Optional[str],
@@ -110,7 +110,7 @@ def _run_scan(cache_dir: Optional[str], verbosity: int) -> None:
             print(ANSI.gray(message + " Use -vvv to print details."))
 
 
-@cache_app.command("delete", help="Delete revisions from the cache directory")
+@cache_cli.command("delete", help="Delete revisions from the cache directory")
 def cache_delete(
     dir: Annotated[
         Optional[str],
