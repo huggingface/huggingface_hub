@@ -43,6 +43,10 @@ class RepoCommands(BaseHuggingfaceCLICommand):
     def register_subcommand(parser: _SubParsersAction):
         repo_parser = parser.add_parser("repo", help="Manage repos on the Hub.")
         repo_subparsers = repo_parser.add_subparsers(help="huggingface.co repos related commands")
+
+        # Show help if no subcommand is provided
+        repo_parser.set_defaults(func=lambda args: repo_parser.print_help())
+
         # CREATE
         repo_create_parser = repo_subparsers.add_parser("create", help="Create a new repo on huggingface.co")
         repo_create_parser.add_argument(
@@ -179,7 +183,9 @@ class RepoTagCommand:
 
 class RepoTagCreateCommand(RepoTagCommand):
     def run(self):
-        print(f"You are about to create tag {ANSI.bold(self.args.tag)} on {self.repo_type} {ANSI.bold(self.repo_id)}")
+        print(
+            f"You are about to create tag {ANSI.bold(str(self.args.tag))} on {self.repo_type} {ANSI.bold(self.repo_id)}"
+        )
         try:
             self.api.create_tag(
                 repo_id=self.repo_id,
@@ -192,14 +198,14 @@ class RepoTagCreateCommand(RepoTagCommand):
             print(f"{self.repo_type.capitalize()} {ANSI.bold(self.repo_id)} not found.")
             exit(1)
         except RevisionNotFoundError:
-            print(f"Revision {ANSI.bold(getattr(self.args, 'revision', None))} not found.")
+            print(f"Revision {ANSI.bold(str(getattr(self.args, 'revision', None)))} not found.")
             exit(1)
         except HfHubHTTPError as e:
             if e.response.status_code == 409:
-                print(f"Tag {ANSI.bold(self.args.tag)} already exists on {ANSI.bold(self.repo_id)}")
+                print(f"Tag {ANSI.bold(str(self.args.tag))} already exists on {ANSI.bold(self.repo_id)}")
                 exit(1)
             raise e
-        print(f"Tag {ANSI.bold(self.args.tag)} created on {ANSI.bold(self.repo_id)}")
+        print(f"Tag {ANSI.bold(str(self.args.tag))} created on {ANSI.bold(self.repo_id)}")
 
 
 class RepoTagListCommand(RepoTagCommand):

@@ -1832,6 +1832,12 @@ class HfApiPublicProductionTest(unittest.TestCase):
         for model in models:
             assert model.id.startswith("google/")
 
+    def test_list_models_apps(self):
+        models = list(self._api.list_models(apps="ollama", full=True, limit=500))
+        assert len(models) > 1
+        for model in models:
+            assert any(sibling.rfilename.lower().endswith(".gguf") for sibling in model.siblings)
+
     def test_list_models_search(self):
         models = list(self._api.list_models(search="bert"))
         assert len(models) > 10
@@ -2168,6 +2174,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert any(dataset.card_data is not None for dataset in self._api.list_datasets(full=True, limit=50))
         assert all(dataset.card_data is None for dataset in self._api.list_datasets(full=False, limit=50))
 
+    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_tag(self):
         for dataset in self._api.list_datasets(tags="fiftyone", limit=5):
             assert "fiftyone" in dataset.tags
@@ -2278,6 +2285,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(author="muellerzr", model_name="testme"))
         assert len(models) == 0
 
+    @expect_deprecation("list_models")
     def test_filter_models_with_library(self):
         models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", library="tensorflow"))
         assert len(models) == 0
@@ -2285,6 +2293,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", library="pytorch"))
         assert len(models) > 0
 
+    @expect_deprecation("list_models")
     def test_filter_models_with_task(self):
         models = list(self._api.list_models(task="fill-mask", model_name="albert-base-v2"))
         assert models[0].pipeline_tag == "fill-mask"
@@ -2295,11 +2304,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(task="dummytask"))
         assert len(models) == 0
 
+    @expect_deprecation("list_models")
     def test_filter_models_by_language(self):
         for language in ["en", "fr", "zh"]:
             for model in self._api.list_models(language=language, limit=5):
                 assert language in model.tags
 
+    @expect_deprecation("list_models")
     def test_filter_models_with_tag(self):
         models = list(self._api.list_models(author="HuggingFaceBR4", tags=["tensorboard"]))
         assert models[0].id.startswith("HuggingFaceBR4/")
@@ -2784,7 +2795,7 @@ class HfLargefilesTest(HfApiCommonTest):
             cwd=self.cache_dir,
         )
         self.assertEqual(failed_process.returncode, 1)
-        self.assertIn("cli lfs-enable-largefiles", failed_process.stderr.decode())
+        self.assertIn('Run "hf lfs-enable-largefiles ./path/to/your/repo"', failed_process.stderr.decode())
         # ^ Instructions on how to fix this are included in the error message.
         subprocess.run(["hf", "lfs-enable-largefiles", self.cache_dir], check=True)
 

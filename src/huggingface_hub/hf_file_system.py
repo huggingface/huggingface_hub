@@ -896,7 +896,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     repo_type=resolve_remote_path.repo_type,
                     endpoint=self.endpoint,
                 ),
-                temp_file=outfile,
+                temp_file=outfile,  # type: ignore[arg-type]
                 displayed_filename=rpath,
                 expected_size=expected_size,
                 resume_size=0,
@@ -1069,6 +1069,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             )
             hf_raise_for_status(self.response)
         try:
+            self.response.raw.decode_content = True
             out = self.response.raw.read(*read_args)
         except Exception:
             self.response.close()
@@ -1091,6 +1092,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             )
             hf_raise_for_status(self.response)
             try:
+                self.response.raw.decode_content = True
                 out = self.response.raw.read(*read_args)
             except Exception:
                 self.response.close()

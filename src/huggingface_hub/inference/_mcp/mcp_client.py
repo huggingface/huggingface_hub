@@ -139,20 +139,26 @@ class MCPClient:
                         - args (List[str], optional): Arguments for the command
                         - env (Dict[str, str], optional): Environment variables for the command
                         - cwd (Union[str, Path, None], optional): Working directory for the command
+                        - allowed_tools (List[str], optional): List of tool names to allow from this server
                     - For SSE servers:
                         - url (str): The URL of the SSE server
                         - headers (Dict[str, Any], optional): Headers for the SSE connection
                         - timeout (float, optional): Connection timeout
                         - sse_read_timeout (float, optional): SSE read timeout
+                        - allowed_tools (List[str], optional): List of tool names to allow from this server
                     - For StreamableHTTP servers:
                         - url (str): The URL of the StreamableHTTP server
                         - headers (Dict[str, Any], optional): Headers for the StreamableHTTP connection
                         - timeout (timedelta, optional): Connection timeout
                         - sse_read_timeout (timedelta, optional): SSE read timeout
                         - terminate_on_close (bool, optional): Whether to terminate on close
+                        - allowed_tools (List[str], optional): List of tool names to allow from this server
         """
         from mcp import ClientSession, StdioServerParameters
         from mcp import types as mcp_types
+
+        # Extract allowed_tools configuration if provided
+        allowed_tools = params.pop("allowed_tools", [])
 
         # Determine server type and create appropriate parameters
         if type == "stdio":
@@ -211,7 +217,15 @@ class MCPClient:
         response = await session.list_tools()
         logger.debug("Connected to server with tools:", [tool.name for tool in response.tools])
 
-        for tool in response.tools:
+        # Filter tools based on allowed_tools configuration
+        filtered_tools = [tool for tool in response.tools if tool.name in allowed_tools]
+
+        if allowed_tools:
+            logger.debug(
+                f"Tool filtering applied. Using {len(filtered_tools)} of {len(response.tools)} available tools: {[tool.name for tool in filtered_tools]}"
+            )
+
+        for tool in filtered_tools:
             if tool.name in self.sessions:
                 logger.warning(f"Tool '{tool.name}' already defined by another server. Skipping.")
                 continue
@@ -286,16 +300,19 @@ class MCPClient:
             # Process tool calls
             if delta.tool_calls:
                 for tool_call in delta.tool_calls:
-                    # Aggregate chunks into tool calls
-                    if tool_call.index not in final_tool_calls:
-                        if (
-                            tool_call.function.arguments is None or tool_call.function.arguments == "{}"
-                        ):  # Corner case (depends on provider)
-                            tool_call.function.arguments = ""
-                        final_tool_calls[tool_call.index] = tool_call
+                    idx = tool_call.index
+                    # first chunk for this tool call
+                    if idx not in final_tool_calls:
+                        final_tool_calls[idx] = tool_call
+                        if final_tool_calls[idx].function.arguments is None:
+                            final_tool_calls[idx].function.arguments = ""
+                        continue
+                    # safety before concatenating text to .function.arguments
+                    if final_tool_calls[idx].function.arguments is None:
+                        final_tool_calls[idx].function.arguments = ""
 
-                    elif tool_call.function.arguments:
-                        final_tool_calls[tool_call.index].function.arguments += tool_call.function.arguments
+                    if tool_call.function.arguments:
+                        final_tool_calls[idx].function.arguments += tool_call.function.arguments
 
             # Optionally exit early if no tools in first chunks
             if exit_if_first_chunk_no_tool and num_of_chunks <= 2 and len(final_tool_calls) == 0:

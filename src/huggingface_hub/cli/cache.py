@@ -21,13 +21,7 @@ from functools import wraps
 from tempfile import mkstemp
 from typing import Any, Callable, Iterable, List, Literal, Optional, Union
 
-from ..utils import (
-    CachedRepoInfo,
-    CachedRevisionInfo,
-    CacheNotFound,
-    HFCacheInfo,
-    scan_cache_dir,
-)
+from ..utils import CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
 from ._cli_utils import ANSI, tabulate
 
@@ -52,7 +46,7 @@ def require_inquirer_py(fn: Callable) -> Callable:
         if not _inquirer_py_available:
             raise ImportError(
                 "The 'cache delete' command requires extra dependencies for the TUI.\n"
-                "Please run 'pip install huggingface_hub[cli]' to install them.\n"
+                "Please run 'pip install \"huggingface_hub[cli]\"' to install them.\n"
                 "Otherwise, disable TUI using the '--disable-tui' flag."
             )
         return fn(*args, **kwargs)
@@ -65,6 +59,10 @@ class CacheCommand(BaseHuggingfaceCLICommand):
     def register_subcommand(parser: _SubParsersAction):
         cache_parser = parser.add_parser("cache", help="Manage local cache directory.")
         cache_subparsers = cache_parser.add_subparsers(dest="cache_command", help="Cache subcommands")
+
+        # Show help if no subcommand is provided
+        cache_parser.set_defaults(func=lambda args: cache_parser.print_help())
+
         # Scan subcommand
         scan_parser = cache_subparsers.add_parser("scan", help="Scan cache directory.")
         scan_parser.add_argument(
@@ -145,7 +143,7 @@ class CacheCommand(BaseHuggingfaceCLICommand):
             if self.verbosity >= 3:
                 print(ANSI.gray(message))
                 for warning in hf_cache_info.warnings:
-                    print(ANSI.gray(warning))
+                    print(ANSI.gray(str(warning)))
             else:
                 print(ANSI.gray(message + " Use -vvv to print details."))
 

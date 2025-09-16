@@ -36,9 +36,6 @@ pip install --upgrade huggingface_hub[inference]
 
 대부분의 작업에 대해, 반환 값은 내장된 유형(string, list, image...)을 갖습니다. 보다 복잡한 유형을 위한 목록은 다음과 같습니다.
 
-### 모델 상태[[huggingface_hub.inference._common.ModelStatus]]
-
-[[autodoc]] huggingface_hub.inference._common.ModelStatus
 
 ## 추론 API[[huggingface_hub.InferenceApi]]
 

@@ -30,7 +30,6 @@ from huggingface_hub.errors import InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
-    ModelStatus,
     RequestParameters,
     _async_stream_chat_completion_response,
     _async_stream_text_generation_response,
@@ -41,7 +40,6 @@ from huggingface_hub.inference._common import (
     _bytes_to_list,
     _get_unsupported_text_generation_kwargs,
     _import_numpy,
-    _open_as_binary,
     _set_unsupported_text_generation_kwargs,
     raise_text_generation_error,
 )
@@ -66,6 +64,7 @@ from huggingface_hub.inference._generated.types import (
     ImageSegmentationSubtask,
     ImageToImageTargetSize,
     ImageToTextOutput,
+    ImageToVideoTargetSize,
     ObjectDetectionOutputElement,
     Padding,
     QuestionAnsweringOutputElement,
@@ -87,9 +86,8 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provider_helper
-from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
+from huggingface_hub.utils import build_hf_headers
 from huggingface_hub.utils._auth import get_token
-from huggingface_hub.utils._deprecation import _deprecate_method
 
 from .._common import _async_yield_from, _import_aiohttp
 
@@ -120,7 +118,7 @@ class AsyncInferenceClient:
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
             arguments are mutually exclusive. If a URL is passed as `model` or `base_url` for chat completion, the `(/v1)/chat/completions` suffix path will be appended to the URL.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"openai"`, `"replicate"`, "sambanova"` or `"together"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"openai"`, `publicai`, `"replicate"`, `"sambanova"`, `"scaleway"` or `"together"`.
             Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
@@ -256,39 +254,38 @@ class AsyncInferenceClient:
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        with _open_as_binary(request_parameters.data) as data_as_binary:
-            # Do not use context manager as we don't want to close the connection immediately when returning
-            # a stream
-            session = self._get_client_session(headers=request_parameters.headers)
+        # Do not use context manager as we don't want to close the connection immediately when returning
+        # a stream
+        session = self._get_client_session(headers=request_parameters.headers)
 
-            try:
-                response = await session.post(
-                    request_parameters.url, json=request_parameters.json, data=data_as_binary, proxy=self.proxies
-                )
-                response_error_payload = None
-                if response.status != 200:
-                    try:
-                        response_error_payload = await response.json()  # get payload before connection closed
-                    except Exception:
-                        pass
-                response.raise_for_status()
-                if stream:
-                    return _async_yield_from(session, response)
-                else:
-                    content = await response.read()
-                    await session.close()
-                    return content
-            except asyncio.TimeoutError as error:
+        try:
+            response = await session.post(
+                request_parameters.url, json=request_parameters.json, data=request_parameters.data, proxy=self.proxies
+            )
+            response_error_payload = None
+            if response.status != 200:
+                try:
+                    response_error_payload = await response.json()  # get payload before connection closed
+                except Exception:
+                    pass
+            response.raise_for_status()
+            if stream:
+                return _async_yield_from(session, response)
+            else:
+                content = await response.read()
                 await session.close()
-                # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
-            except aiohttp.ClientResponseError as error:
-                error.response_error_payload = response_error_payload
-                await session.close()
-                raise error
-            except Exception:
-                await session.close()
-                raise
+                return content
+        except asyncio.TimeoutError as error:
+            await session.close()
+            # Convert any `TimeoutError` to a `InferenceTimeoutError`
+            raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
+        except aiohttp.ClientResponseError as error:
+            error.response_error_payload = response_error_payload
+            await session.close()
+            raise error
+        except Exception:
+            await session.close()
+            raise
 
     async def __aenter__(self):
         return self
@@ -1385,6 +1382,86 @@ class AsyncInferenceClient:
         response = provider_helper.get_response(response, request_parameters)
         return _bytes_to_image(response)
 
+    async def image_to_video(
+        self,
+        image: ContentT,
+        *,
+        model: Optional[str] = None,
+        prompt: Optional[str] = None,
+        negative_prompt: Optional[str] = None,
+        num_frames: Optional[float] = None,
+        num_inference_steps: Optional[int] = None,
+        guidance_scale: Optional[float] = None,
+        seed: Optional[int] = None,
+        target_size: Optional[ImageToVideoTargetSize] = None,
+        **kwargs,
+    ) -> bytes:
+        """
+        Generate a video from an input image.
+
+        Args:
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image to generate a video from. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
+            model (`str`, *optional*):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+            prompt (`str`, *optional*):
+                The text prompt to guide the video generation.
+            negative_prompt (`str`, *optional*):
+                One prompt to guide what NOT to include in video generation.
+            num_frames (`float`, *optional*):
+                The num_frames parameter determines how many video frames are generated.
+            num_inference_steps (`int`, *optional*):
+                For diffusion models. The number of denoising steps. More denoising steps usually lead to a higher
+                quality image at the expense of slower inference.
+            guidance_scale (`float`, *optional*):
+                For diffusion models. A higher guidance scale value encourages the model to generate videos closely
+                linked to the text prompt at the expense of lower image quality.
+            seed (`int`, *optional*):
+                The seed to use for the video generation.
+            target_size (`ImageToVideoTargetSize`, *optional*):
+                The size in pixel of the output video frames.
+            num_inference_steps (`int`, *optional*):
+                The number of denoising steps. More denoising steps usually lead to a higher quality video at the
+                expense of slower inference.
+            seed (`int`, *optional*):
+                Seed for the random number generator.
+
+        Returns:
+            `bytes`: The generated video.
+
+        Examples:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> video = await client.image_to_video("cat.jpg", model="Wan-AI/Wan2.2-I2V-A14B", prompt="turn the cat into a tiger")
+        >>> with open("tiger.mp4", "wb") as f:
+        ...     f.write(video)
+        ```
+        """
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="image-to-video", model=model_id)
+        request_parameters = provider_helper.prepare_request(
+            inputs=image,
+            parameters={
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "num_frames": num_frames,
+                "num_inference_steps": num_inference_steps,
+                "guidance_scale": guidance_scale,
+                "seed": seed,
+                "target_size": target_size,
+                **kwargs,
+            },
+            headers=self.headers,
+            model=model_id,
+            api_key=self.token,
+        )
+        response = await self._inner_post(request_parameters)
+        response = provider_helper.get_response(response, request_parameters)
+        return response
+
     async def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> ImageToTextOutput:
         """
         Takes an input image and return text.
@@ -1429,8 +1506,8 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        output = ImageToTextOutput.parse_obj(response)
-        return output[0] if isinstance(output, list) else output
+        output_list: List[ImageToTextOutput] = ImageToTextOutput.parse_obj_as_list(response)
+        return output_list[0]
 
     async def object_detection(
         self, image: ContentT, *, model: Optional[str] = None, threshold: Optional[float] = None
@@ -3257,102 +3334,6 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
-    @_deprecate_method(
-        version="0.35.0",
-        message=(
-            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
-            " Use `HfApi.list_models(..., inference_provider='...')` to list warm models per provider."
-        ),
-    )
-    async def list_deployed_models(
-        self, frameworks: Union[None, str, Literal["all"], List[str]] = None
-    ) -> Dict[str, List[str]]:
-        """
-        List models deployed on the HF Serverless Inference API service.
-
-        This helper checks deployed models framework by framework. By default, it will check the 4 main frameworks that
-        are supported and account for 95% of the hosted models. However, if you want a complete list of models you can
-        specify `frameworks="all"` as input. Alternatively, if you know before-hand which framework you are interested
-        in, you can also restrict to search to this one (e.g. `frameworks="text-generation-inference"`). The more
-        frameworks are checked, the more time it will take.
-
-        <Tip warning={true}>
-
-        This endpoint method does not return a live list of all models available for the HF Inference API service.
-        It searches over a cached list of models that were recently available and the list may not be up to date.
-        If you want to know the live status of a specific model, use [`~InferenceClient.get_model_status`].
-
-        </Tip>
-
-        <Tip>
-
-        This endpoint method is mostly useful for discoverability. If you already know which model you want to use and want to
-        check its availability, you can directly use [`~InferenceClient.get_model_status`].
-
-        </Tip>
-
-        Args:
-            frameworks (`Literal["all"]` or `List[str]` or `str`, *optional*):
-                The frameworks to filter on. By default only a subset of the available frameworks are tested. If set to
-                "all", all available frameworks will be tested. It is also possible to provide a single framework or a
-                custom set of frameworks to check.
-
-        Returns:
-            `Dict[str, List[str]]`: A dictionary mapping task names to a sorted list of model IDs.
-
-        Example:
-        ```py
-        # Must be run in an async contextthon
-        >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient()
-
-        # Discover zero-shot-classification models currently deployed
-        >>> models = await client.list_deployed_models()
-        >>> models["zero-shot-classification"]
-        ['Narsil/deberta-large-mnli-zero-cls', 'facebook/bart-large-mnli', ...]
-
-        # List from only 1 framework
-        >>> await client.list_deployed_models("text-generation-inference")
-        {'text-generation': ['bigcode/starcoder', 'meta-llama/Llama-2-70b-chat-hf', ...], ...}
-        ```
-        """
-        if self.provider != "hf-inference":
-            raise ValueError(f"Listing deployed models is not supported on '{self.provider}'.")
-
-        # Resolve which frameworks to check
-        if frameworks is None:
-            frameworks = constants.MAIN_INFERENCE_API_FRAMEWORKS
-        elif frameworks == "all":
-            frameworks = constants.ALL_INFERENCE_API_FRAMEWORKS
-        elif isinstance(frameworks, str):
-            frameworks = [frameworks]
-        frameworks = list(set(frameworks))
-
-        # Fetch them iteratively
-        models_by_task: Dict[str, List[str]] = {}
-
-        def _unpack_response(framework: str, items: List[Dict]) -> None:
-            for model in items:
-                if framework == "sentence-transformers":
-                    # Model running with the `sentence-transformers` framework can work with both tasks even if not
-                    # branded as such in the API response
-                    models_by_task.setdefault("feature-extraction", []).append(model["model_id"])
-                    models_by_task.setdefault("sentence-similarity", []).append(model["model_id"])
-                else:
-                    models_by_task.setdefault(model["task"], []).append(model["model_id"])
-
-        for framework in frameworks:
-            response = get_session().get(
-                f"{constants.INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
-            )
-            hf_raise_for_status(response)
-            _unpack_response(framework, response.json())
-
-        # Sort alphabetically for discoverability and return
-        for task, models in models_by_task.items():
-            models_by_task[task] = sorted(set(models), key=lambda x: x.lower())
-        return models_by_task
-
     def _get_client_session(self, headers: Optional[Dict] = None) -> "ClientSession":
         aiohttp = _import_aiohttp()
         client_headers = self.headers.copy()
@@ -3459,7 +3440,6 @@ class AsyncInferenceClient:
         Check the health of the deployed endpoint.
 
         Health check is only available with Inference Endpoints powered by Text-Generation-Inference (TGI) or Text-Embedding-Inference (TEI).
-        For Inference API, please use [`InferenceClient.get_model_status`] instead.
 
         Args:
             model (`str`, *optional*):
@@ -3484,77 +3464,12 @@ class AsyncInferenceClient:
         if model is None:
             raise ValueError("Model id not provided.")
         if not model.startswith(("http://", "https://")):
-            raise ValueError(
-                "Model must be an Inference Endpoint URL. For serverless Inference API, please use `InferenceClient.get_model_status`."
-            )
+            raise ValueError("Model must be an Inference Endpoint URL.")
         url = model.rstrip("/") + "/health"
 
         async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
             response = await client.get(url, proxy=self.proxies)
             return response.status == 200
-
-    @_deprecate_method(
-        version="0.35.0",
-        message=(
-            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
-            " Use `HfApi.model_info` to get the model status both with HF Inference API and external providers."
-        ),
-    )
-    async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
-        """
-        Get the status of a model hosted on the HF Inference API.
-
-        <Tip>
-
-        This endpoint is mostly useful when you already know which model you want to use and want to check its
-        availability. If you want to discover already deployed models, you should rather use [`~InferenceClient.list_deployed_models`].
-
-        </Tip>
-
-        Args:
-            model (`str`, *optional*):
-                Identifier of the model for witch the status gonna be checked. If model is not provided,
-                the model associated with this instance of [`InferenceClient`] will be used. Only HF Inference API service can be checked so the
-                identifier cannot be a URL.
-
-
-        Returns:
-            [`ModelStatus`]: An instance of ModelStatus dataclass, containing information,
-                         about the state of the model: load, state, compute type and framework.
-
-        Example:
-        ```py
-        # Must be run in an async context
-        >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient()
-        >>> await client.get_model_status("meta-llama/Meta-Llama-3-8B-Instruct")
-        ModelStatus(loaded=True, state='Loaded', compute_type='gpu', framework='text-generation-inference')
-        ```
-        """
-        if self.provider != "hf-inference":
-            raise ValueError(f"Getting model status is not supported on '{self.provider}'.")
-
-        model = model or self.model
-        if model is None:
-            raise ValueError("Model id not provided.")
-        if model.startswith("https://"):
-            raise NotImplementedError("Model status is only available for Inference API endpoints.")
-        url = f"{constants.INFERENCE_ENDPOINT}/status/{model}"
-
-        async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
-            response.raise_for_status()
-            response_data = await response.json()
-
-        if "error" in response_data:
-            raise ValueError(response_data["error"])
-
-        return ModelStatus(
-            loaded=response_data["loaded"],
-            state=response_data["state"],
-            compute_type=response_data["compute_type"],
-            framework=response_data["framework"],
-        )
 
     @property
     def chat(self) -> "ProxyClientChat":

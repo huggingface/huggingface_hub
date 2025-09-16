@@ -6,7 +6,13 @@ from urllib.parse import urlparse, urlunparse
 
 from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
-from huggingface_hub.inference._common import RequestParameters, _b64_encode, _bytes_to_dict, _open_as_binary
+from huggingface_hub.inference._common import (
+    MimeBytes,
+    RequestParameters,
+    _b64_encode,
+    _bytes_to_dict,
+    _open_as_mime_bytes,
+)
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
 from huggingface_hub.utils import build_hf_headers, get_session, get_token, hf_raise_for_status
 
@@ -75,7 +81,7 @@ class HFInferenceBinaryInputTask(HFInferenceTask):
         parameters: Dict,
         provider_mapping_info: InferenceProviderMapping,
         extra_payload: Optional[Dict],
-    ) -> Optional[bytes]:
+    ) -> Optional[MimeBytes]:
         parameters = filter_none(parameters)
         extra_payload = extra_payload or {}
         has_parameters = len(parameters) > 0 or len(extra_payload) > 0
@@ -86,12 +92,13 @@ class HFInferenceBinaryInputTask(HFInferenceTask):
 
         # Send inputs as raw content when no parameters are provided
         if not has_parameters:
-            with _open_as_binary(inputs) as data:
-                data_as_bytes = data if isinstance(data, bytes) else data.read()
-                return data_as_bytes
+            return _open_as_mime_bytes(inputs)
 
         # Otherwise encode as b64
-        return json.dumps({"inputs": _b64_encode(inputs), "parameters": parameters, **extra_payload}).encode("utf-8")
+        return MimeBytes(
+            json.dumps({"inputs": _b64_encode(inputs), "parameters": parameters, **extra_payload}).encode("utf-8"),
+            mime_type="application/json",
+        )
 
 
 class HFInferenceConversational(HFInferenceTask):
@@ -144,7 +151,8 @@ def _build_chat_completion_url(model_url: str) -> str:
         new_path = path + "/v1/chat/completions"
 
     # Reconstruct the URL with the new path and original query parameters.
-    return urlunparse(parsed._replace(path=new_path))
+    new_parsed = parsed._replace(path=new_path)
+    return str(urlunparse(new_parsed))
 
 
 @lru_cache(maxsize=1)

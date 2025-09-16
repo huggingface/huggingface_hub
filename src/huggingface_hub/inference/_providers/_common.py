@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Union, overload
 
 from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
-from huggingface_hub.inference._common import RequestParameters
+from huggingface_hub.inference._common import MimeBytes, RequestParameters
 from huggingface_hub.inference._generated.types.chat_completion import ChatCompletionInputMessage
 from huggingface_hub.utils import build_hf_headers, get_token, logging
 
@@ -33,6 +33,7 @@ HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, InferenceProviderMapping]
     "nscale": {},
     "replicate": {},
     "sambanova": {},
+    "scaleway": {},
     "together": {},
 }
 
@@ -108,8 +109,17 @@ class TaskProviderHelper:
             raise ValueError("Both payload and data cannot be set in the same request.")
         if payload is None and data is None:
             raise ValueError("Either payload or data must be set in the request.")
+
+        # normalize headers to lowercase and add content-type if not present
+        normalized_headers = self._normalize_headers(headers, payload, data)
+
         return RequestParameters(
-            url=url, task=self.task, model=provider_mapping_info.provider_id, json=payload, data=data, headers=headers
+            url=url,
+            task=self.task,
+            model=provider_mapping_info.provider_id,
+            json=payload,
+            data=data,
+            headers=normalized_headers,
         )
 
     def get_response(
@@ -172,7 +182,22 @@ class TaskProviderHelper:
             )
         return provider_mapping
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+    def _normalize_headers(
+        self, headers: Dict[str, Any], payload: Optional[Dict[str, Any]], data: Optional[MimeBytes]
+    ) -> Dict[str, Any]:
+        """Normalize the headers to use for the request.
+
+        Override this method in subclasses for customized headers.
+        """
+        normalized_headers = {key.lower(): value for key, value in headers.items() if value is not None}
+        if normalized_headers.get("content-type") is None:
+            if data is not None and data.mime_type is not None:
+                normalized_headers["content-type"] = data.mime_type
+            elif payload is not None:
+                normalized_headers["content-type"] = "application/json"
+        return normalized_headers
+
+    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
         """Return the headers to use for the request.
 
         Override this method in subclasses for customized headers.
@@ -222,7 +247,7 @@ class TaskProviderHelper:
         parameters: Dict,
         provider_mapping_info: InferenceProviderMapping,
         extra_payload: Optional[Dict],
-    ) -> Optional[bytes]:
+    ) -> Optional[MimeBytes]:
         """Return the body to use for the request, as bytes.
 
         Override this method in subclasses for customized body data.

@@ -62,6 +62,9 @@ class AuthCommands(BaseHuggingfaceCLICommand):
         auth_parser = parser.add_parser("auth", help="Manage authentication (login, logout, etc.).")
         auth_subparsers = auth_parser.add_subparsers(help="Authentication subcommands")
 
+        # Show help if no subcommand is provided
+        auth_parser.set_defaults(func=lambda args: auth_parser.print_help())
+
         # Add 'login' as a subcommand of 'auth'
         login_parser = auth_subparsers.add_parser(
             "login", help="Log in using a token from huggingface.co/settings/tokens"
@@ -197,7 +200,7 @@ class AuthWhoami(BaseAuthCommand):
             exit()
         try:
             info = self._api.whoami(token)
-            print(info["name"])
+            print(ANSI.bold("user: "), info["name"])
             orgs = [org["name"] for org in info["orgs"]]
             if orgs:
                 print(ANSI.bold("orgs: "), ",".join(orgs))

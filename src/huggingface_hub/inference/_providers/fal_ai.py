@@ -22,7 +22,7 @@ class FalAITask(TaskProviderHelper, ABC):
     def __init__(self, task: str):
         super().__init__(provider="fal-ai", base_url="https://fal.run", task=task)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
         headers = super()._prepare_headers(headers, api_key)
         if not api_key.startswith("hf_"):
             headers["authorization"] = f"Key {api_key}"
@@ -36,7 +36,7 @@ class FalAIQueueTask(TaskProviderHelper, ABC):
     def __init__(self, task: str):
         super().__init__(provider="fal-ai", base_url="https://queue.fal.run", task=task)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
         headers = super()._prepare_headers(headers, api_key)
         if not api_key.startswith("hf_"):
             headers["authorization"] = f"Key {api_key}"
@@ -212,4 +212,35 @@ class FalAIImageToImageTask(FalAIQueueTask):
     ) -> Any:
         output = super().get_response(response, request_params)
         url = _as_dict(output)["images"][0]["url"]
+        return get_session().get(url).content
+
+
+class FalAIImageToVideoTask(FalAIQueueTask):
+    def __init__(self):
+        super().__init__("image-to-video")
+
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[Dict]:
+        image_url = _as_url(inputs, default_mime_type="image/jpeg")
+        payload: Dict[str, Any] = {
+            "image_url": image_url,
+            **filter_none(parameters),
+        }
+        if provider_mapping_info.adapter_weights_path is not None:
+            lora_path = constants.HUGGINGFACE_CO_URL_TEMPLATE.format(
+                repo_id=provider_mapping_info.hf_model_id,
+                revision="main",
+                filename=provider_mapping_info.adapter_weights_path,
+            )
+            payload["loras"] = [{"path": lora_path, "scale": 1}]
+        return payload
+
+    def get_response(
+        self,
+        response: Union[bytes, Dict],
+        request_params: Optional[RequestParameters] = None,
+    ) -> Any:
+        output = super().get_response(response, request_params)
+        url = _as_dict(output)["video"]["url"]
         return get_session().get(url).content

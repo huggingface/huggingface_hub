@@ -611,7 +611,7 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 
 ```bash
 # Directly run Python code
->>> hf jobs run python:3.12 python -c "print('Hello from the cloud!')"
+>>> hf jobs run python:3.12 python -c 'print("Hello from the cloud!")'
 
 # Use GPUs without any setup
 >>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
@@ -635,6 +635,12 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 - 🔐 **Simple Auth**: Just use your HF token
 - 📊 **Live Monitoring**: Stream logs in real-time, just like running locally
 - 💰 **Pay-as-you-go**: Only pay for the seconds you use
+
+<Tip>
+
+**Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
+
+</Tip>
 
 ### Quick Start
 
@@ -714,6 +720,14 @@ You can pass environment variables to your job using
 >>> hf jobs run --secrets-file .env.secrets python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
 ```
 
+<Tip>
+
+Use `--secrets HF_TOKEN` to pass your local Hugging Face token implicitly.
+With this syntax, the secret is retrieved from the environment variable.
+For `HF_TOKEN`, it may read the token file located in the Hugging Face home folder if the environment variable is unset.
+
+</Tip>
+
 ### Hardware
 
 Available `--flavor` options:
@@ -739,10 +753,58 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 >>> hf jobs uv run ml_training.py --flavor gpu-t4-small
 
 # Pass arguments to script
->>> hf jobs uv run process.py input.csv output.parquet --repo data-scripts
+>>> hf jobs uv run process.py input.csv output.parquet
+
+# Add dependencies
+>>> hf jobs uv run --with transformers --with torch train.py
 
 # Run a script directly from a URL
 >>> hf jobs uv run https://huggingface.co/datasets/username/scripts/resolve/main/example.py
+
+# Run a command
+>>> hf jobs uv run --with lighteval python -c "import lighteval"
 ```
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
+
+### Scheduled Jobs
+
+Schedule and manage jobs that will run on HF infrastructure.
+
+The schedule should be one of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`, or a CRON schedule expression (e.g., `"0 9 * * 1"` for 9 AM every Monday).
+
+```bash
+# Schedule a job that runs every hour
+>>> hf jobs scheduled run @hourly python:3.12 python -c 'print("This runs every hour!")'
+
+# Use the CRON syntax
+>>> hf jobs scheduled run "*/5 * * * *" python:3.12 python -c 'print("This runs every 5 minutes!")'
+
+# Schedule with GPU
+>>> hf jobs scheduled run @hourly --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
+... python -c "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"
+
+# Schedule a UV script
+>>> hf jobs scheduled uv run @hourly my_script.py
+```
+
+Use the same parameters as `hf jobs run` to pass environment variables, secrets, timeout, etc.
+
+Manage scheduled jobs using
+
+```bash
+# List your active scheduled jobs
+>>> hf jobs scheduled ps
+
+# Inspect the status of a job
+>>> hf jobs scheduled inspect <scheduled_job_id>
+
+# Suspend (pause) a scheduled job
+>>> hf jobs scheduled suspend <scheduled_job_id>
+
+# Resume a scheduled job
+>>> hf jobs scheduled resume <scheduled_job_id>
+
+# Delete a scheduled job
+>>> hf jobs scheduled delete <scheduled_job_id>
+```

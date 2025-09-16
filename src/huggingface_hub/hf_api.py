@@ -67,7 +67,7 @@ from ._commit_api import (
     _warn_on_overwriting_operations,
 )
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
-from ._jobs_api import JobInfo
+from ._jobs_api import JobInfo, ScheduledJobInfo, _create_job_spec
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
@@ -132,8 +132,12 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
-from .utils._deprecation import _deprecate_method
+from .utils._auth import (
+    _get_token_from_environment,
+    _get_token_from_file,
+    _get_token_from_google_colab,
+)
+from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -1777,18 +1781,20 @@ class HfApi:
         try:
             hf_raise_for_status(r)
         except HTTPError as e:
-            error_message = "Invalid user token."
-            # Check which token is the effective one and generate the error message accordingly
-            if effective_token == _get_token_from_google_colab():
-                error_message += " The token from Google Colab vault is invalid. Please update it from the UI."
-            elif effective_token == _get_token_from_environment():
-                error_message += (
-                    " The token from HF_TOKEN environment variable is invalid. "
-                    "Note that HF_TOKEN takes precedence over `hf auth login`."
-                )
-            elif effective_token == _get_token_from_file():
-                error_message += " The token stored is invalid. Please run `hf auth login` to update it."
-            raise HTTPError(error_message, request=e.request, response=e.response) from e
+            if e.response.status_code == 401:
+                error_message = "Invalid user token."
+                # Check which token is the effective one and generate the error message accordingly
+                if effective_token == _get_token_from_google_colab():
+                    error_message += " The token from Google Colab vault is invalid. Please update it from the UI."
+                elif effective_token == _get_token_from_environment():
+                    error_message += (
+                        " The token from HF_TOKEN environment variable is invalid. "
+                        "Note that HF_TOKEN takes precedence over `hf auth login`."
+                    )
+                elif effective_token == _get_token_from_file():
+                    error_message += " The token stored is invalid. Please run `hf auth login` to update it."
+                raise HTTPError(error_message, request=e.request, response=e.response) from e
+            raise
         return r.json()
 
     @_deprecate_method(
@@ -1849,6 +1855,9 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
+    @_deprecate_arguments(
+        version="1.0", deprecated_args=["language", "library", "task", "tags"], custom_message="Use `filter` instead."
+    )
     @validate_hf_hub_args
     def list_models(
         self,
@@ -1856,15 +1865,12 @@ class HfApi:
         # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
+        apps: Optional[Union[str, List[str]]] = None,
         gated: Optional[bool] = None,
         inference: Optional[Literal["warm"]] = None,
         inference_provider: Optional[Union[Literal["all"], "PROVIDER_T", List["PROVIDER_T"]]] = None,
-        library: Optional[Union[str, List[str]]] = None,
-        language: Optional[Union[str, List[str]]] = None,
         model_name: Optional[str] = None,
-        task: Optional[Union[str, List[str]]] = None,
         trained_dataset: Optional[Union[str, List[str]]] = None,
-        tags: Optional[Union[str, List[str]]] = None,
         search: Optional[str] = None,
         pipeline_tag: Optional[str] = None,
         emissions_thresholds: Optional[Tuple[float, float]] = None,
@@ -1878,6 +1884,11 @@ class HfApi:
         cardData: bool = False,
         fetch_config: bool = False,
         token: Union[bool, str, None] = None,
+        # Deprecated arguments - use `filter` instead
+        language: Optional[Union[str, List[str]]] = None,
+        library: Optional[Union[str, List[str]]] = None,
+        tags: Optional[Union[str, List[str]]] = None,
+        task: Optional[Union[str, List[str]]] = None,
     ) -> Iterable[ModelInfo]:
         """
         List models hosted on the Huggingface Hub, given some filters.
@@ -1885,9 +1896,13 @@ class HfApi:
         Args:
             filter (`str` or `Iterable[str]`, *optional*):
                 A string or list of string to filter models on the Hub.
+                Models can be filtered by library, language, task, tags, and more.
             author (`str`, *optional*):
                 A string which identify the author (user or organization) of the
                 returned models.
+            apps (`str` or `List`, *optional*):
+                A string or list of strings to filter models on the Hub that
+                support the specified apps. Example values include `"ollama"` or `["ollama", "vllm"]`.
             gated (`bool`, *optional*):
                 A boolean to filter models on the Hub that are gated or not. By default, all models are returned.
                 If `gated=True` is passed, only gated models are returned.
@@ -1898,23 +1913,19 @@ class HfApi:
                 A string to filter models on the Hub that are served by a specific provider.
                 Pass `"all"` to get all models served by at least one provider.
             library (`str` or `List`, *optional*):
-                A string or list of strings of foundational libraries models were
-                originally trained from, such as pytorch, tensorflow, or allennlp.
+                Deprecated. Pass a library name in `filter` to filter models by library.
             language (`str` or `List`, *optional*):
-                A string or list of strings of languages, both by name and country
-                code, such as "en" or "English"
+                Deprecated. Pass a language in `filter` to filter models by language.
             model_name (`str`, *optional*):
                 A string that contain complete or partial names for models on the
                 Hub, such as "bert" or "bert-base-cased"
             task (`str` or `List`, *optional*):
-                A string or list of strings of tasks models were designed for, such
-                as: "fill-mask" or "automatic-speech-recognition"
+                Deprecated. Pass a task in `filter` to filter models by task.
             trained_dataset (`str` or `List`, *optional*):
                 A string tag or a list of string tags of the trained dataset for a
                 model on the Hub.
             tags (`str` or `List`, *optional*):
-                A string tag or a list of tags to filter models on the Hub by, such
-                as `text-generation` or `spacy`.
+                Deprecated. Pass tags in `filter` to filter models by tags.
             search (`str`, *optional*):
                 A string that will be contained in the returned model ids.
             pipeline_tag (`str`, *optional*):
@@ -1985,7 +1996,7 @@ class HfApi:
         if expand and (full or cardData or fetch_config):
             raise ValueError("`expand` cannot be used if `full`, `cardData` or `fetch_config` are passed.")
 
-        if emissions_thresholds is not None and cardData is None:
+        if emissions_thresholds is not None and not cardData:
             raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
 
         path = f"{self.endpoint}/api/models"
@@ -2017,6 +2028,10 @@ class HfApi:
         # Handle other query params
         if author:
             params["author"] = author
+        if apps:
+            if isinstance(apps, str):
+                apps = [apps]
+            params["apps"] = apps
         if gated is not None:
             params["gated"] = gated
         if inference is not None:
@@ -2068,6 +2083,7 @@ class HfApi:
             if emissions_thresholds is None or _is_emission_within_threshold(model_info, *emissions_thresholds):
                 yield model_info
 
+    @_deprecate_arguments(version="1.0", deprecated_args=["tags"], custom_message="Use `filter` instead.")
     @validate_hf_hub_args
     def list_datasets(
         self,
@@ -2082,7 +2098,6 @@ class HfApi:
         language: Optional[Union[str, List[str]]] = None,
         multilinguality: Optional[Union[str, List[str]]] = None,
         size_categories: Optional[Union[str, List[str]]] = None,
-        tags: Optional[Union[str, List[str]]] = None,
         task_categories: Optional[Union[str, List[str]]] = None,
         task_ids: Optional[Union[str, List[str]]] = None,
         search: Optional[str] = None,
@@ -2094,6 +2109,8 @@ class HfApi:
         expand: Optional[List[ExpandDatasetProperty_T]] = None,
         full: Optional[bool] = None,
         token: Union[bool, str, None] = None,
+        # Deprecated arguments - use `filter` instead
+        tags: Optional[Union[str, List[str]]] = None,
     ) -> Iterable[DatasetInfo]:
         """
         List datasets hosted on the Huggingface Hub, given some filters.
@@ -2128,7 +2145,7 @@ class HfApi:
                 the Hub by the size of the dataset such as `100K<n<1M` or
                 `1M<n<10M`.
             tags (`str` or `List`, *optional*):
-                A string tag or a list of tags to filter datasets on the Hub.
+                Deprecated. Pass tags in `filter` to filter datasets by tags.
             task_categories (`str` or `List`, *optional*):
                 A string or list of strings that can be used to identify datasets on
                 the Hub by the designed task, such as `audio_classification` or
@@ -5315,14 +5332,18 @@ class HfApi:
             1. (Check parameters and setup.)
             2. Create repo if missing.
             3. List local files to upload.
-            4. Start workers. Workers can perform the following tasks:
+            4. Run validation checks and display warnings if repository limits might be exceeded:
+                - Warns if the total number of files exceeds 100k (recommended limit).
+                - Warns if any folder contains more than 10k files (recommended limit).
+                - Warns about files larger than 20GB (recommended) or 50GB (hard limit).
+            5. Start workers. Workers can perform the following tasks:
                 - Hash a file.
                 - Get upload mode (regular or LFS) for a list of files.
                 - Pre-upload an LFS file.
                 - Commit a bunch of files.
             Once a worker finishes a task, it will move on to the next task based on the priority list (see below) until
             all files are uploaded and committed.
-            5. While workers are up, regularly print a report to sys.stdout.
+            6. While workers are up, regularly print a report to sys.stdout.
 
         Order of priority:
             1. Commit if more than 5 minutes since last commit attempt (and at least 1 file).
@@ -9994,7 +10015,7 @@ class HfApi:
 
             ```python
             >>> from huggingface_hub import run_job
-            >>> run_job("python:3.12", ["python", "-c" ,"print('Hello from HF compute!')"])
+            >>> run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
             ```
 
             Run a GPU Job:
@@ -10003,47 +10024,23 @@ class HfApi:
             >>> from huggingface_hub import run_job
             >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
             >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
-            >>> run_job(image, command, flavor="a10g-small")
+            >>> run_job(image=image, command=command, flavor="a10g-small")
             ```
 
         """
-        if flavor is None:
-            flavor = SpaceHardware.CPU_BASIC
-
-        # prepare payload to send to HF Jobs API
-        input_json: Dict[str, Any] = {
-            "command": command,
-            "arguments": [],
-            "environment": env or {},
-            "flavor": flavor,
-        }
-        # secrets are optional
-        if secrets:
-            input_json["secrets"] = secrets
-        # timeout is optional
-        if timeout:
-            time_units_factors = {"s": 1, "m": 60, "h": 3600, "d": 3600 * 24}
-            if isinstance(timeout, str) and timeout[-1] in time_units_factors:
-                input_json["timeoutSeconds"] = int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
-            else:
-                input_json["timeoutSeconds"] = int(timeout)
-        # input is either from docker hub or from HF spaces
-        for prefix in (
-            "https://huggingface.co/spaces/",
-            "https://hf.co/spaces/",
-            "huggingface.co/spaces/",
-            "hf.co/spaces/",
-        ):
-            if image.startswith(prefix):
-                input_json["spaceId"] = image[len(prefix) :]
-                break
-        else:
-            input_json["dockerImage"] = image
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
+        job_spec = _create_job_spec(
+            image=image,
+            command=command,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+        )
         response = get_session().post(
             f"https://huggingface.co/api/jobs/{namespace}",
-            json=input_json,
+            json=job_spec,
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -10076,8 +10073,8 @@ class HfApi:
 
             ```python
             >>> from huggingface_hub import fetch_job_logs, run_job
-            >>> job = run_job("python:3.12", ["python", "-c" ,"print('Hello from HF compute!')"])
-            >>> for log in fetch_job_logs(job.job_id):
+            >>> job = run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
+            >>> for log in fetch_job_logs(job.id):
             ...     print(log)
             Hello from HF compute!
             ```
@@ -10200,8 +10197,8 @@ class HfApi:
 
             ```python
             >>> from huggingface_hub import inspect_job, run_job
-            >>> job = run_job("python:3.12", ["python", "-c" ,"print('Hello from HF compute!')"])
-            >>> inspect_job(job.job_id)
+            >>> job = run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
+            >>> inspect_job(job.id)
             JobInfo(
                 id='68780d00bbe36d38803f645f',
                 created_at=datetime.datetime(2025, 7, 16, 20, 35, 12, 808000, tzinfo=datetime.timezone.utc),
@@ -10276,10 +10273,10 @@ class HfApi:
 
         Args:
             script (`str`):
-                Path or URL of the UV script.
+                Path or URL of the UV script, or a command.
 
             script_args (`List[str]`, *optional*)
-                Arguments to pass to the script.
+                Arguments to pass to the script or command.
 
             dependencies (`List[str]`, *optional*)
                 Dependencies to use to run the UV script.
@@ -10287,7 +10284,7 @@ class HfApi:
             python (`str`, *optional*)
                 Use a specific Python version. Default is 3.12.
 
-            image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"):
+            image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm"):
                 Use a custom Docker image with `uv` installed.
 
             env (`Dict[str, Any]`, *optional*):
@@ -10314,13 +10311,474 @@ class HfApi:
 
         Example:
 
+            Run a script from a URL:
+
             ```python
             >>> from huggingface_hub import run_uv_job
             >>> script = "https://raw.githubusercontent.com/huggingface/trl/refs/heads/main/trl/scripts/sft.py"
-            >>> run_uv_job(script, dependencies=["trl"], flavor="a10g-small")
+            >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
+            >>> run_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small")
+            ```
+
+            Run a local script:
+
+            ```python
+            >>> from huggingface_hub import run_uv_job
+            >>> script = "my_sft.py"
+            >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
+            >>> run_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small")
+            ```
+
+            Run a command:
+
+            ```python
+            >>> from huggingface_hub import run_uv_job
+            >>> script = "lighteval"
+            >>> script_args= ["endpoint", "inference-providers", "model_name=openai/gpt-oss-20b,provider=auto", "lighteval|gsm8k|0|0"]
+            >>> run_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small")
             ```
         """
-        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"
+        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        env = env or {}
+        secrets = secrets or {}
+
+        # Build command
+        command, env, secrets = self._create_uv_command_env_and_secrets(
+            script=script,
+            script_args=script_args,
+            dependencies=dependencies,
+            python=python,
+            env=env,
+            secrets=secrets,
+            namespace=namespace,
+            token=token,
+            _repo=_repo,
+        )
+        # Create RunCommand args
+        return self.run_job(
+            image=image,
+            command=command,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+            namespace=namespace,
+            token=token,
+        )
+
+    def create_scheduled_job(
+        self,
+        *,
+        image: str,
+        command: List[str],
+        schedule: str,
+        suspend: Optional[bool] = None,
+        concurrency: Optional[bool] = None,
+        env: Optional[Dict[str, Any]] = None,
+        secrets: Optional[Dict[str, Any]] = None,
+        flavor: Optional[SpaceHardware] = None,
+        timeout: Optional[Union[int, float, str]] = None,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> ScheduledJobInfo:
+        """
+        Create scheduled compute Jobs on Hugging Face infrastructure.
+
+        Args:
+            image (`str`):
+                The Docker image to use.
+                Examples: `"ubuntu"`, `"python:3.12"`, `"pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"`.
+                Example with an image from a Space: `"hf.co/spaces/lhoestq/duckdb"`.
+
+            command (`List[str]`):
+                The command to run. Example: `["echo", "hello"]`.
+
+            schedule (`str`):
+                One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
+                CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
+
+            suspend (`bool`, *optional*):
+                If True, the scheduled Job is suspended (paused).  Defaults to False.
+
+            concurrency (`bool`, *optional*):
+                If True, multiple instances of this Job can run concurrently. Defaults to False.
+
+            env (`Dict[str, Any]`, *optional*):
+                Defines the environment variables for the Job.
+
+            secrets (`Dict[str, Any]`, *optional*):
+                Defines the secret environment variables for the Job.
+
+            flavor (`str`, *optional*):
+                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Defaults to `"cpu-basic"`.
+
+            timeout (`Union[int, float, str]`, *optional*):
+                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Example: `300` or `"5m"` for 5 minutes.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job will be created. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+            Create your first scheduled Job:
+
+            ```python
+            >>> from huggingface_hub import create_scheduled_job
+            >>> create_scheduled_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], schedule="@hourly")
+            ```
+
+            Use a CRON schedule expression:
+
+            ```python
+            >>> from huggingface_hub import create_scheduled_job
+            >>> create_scheduled_job(image="python:3.12", command=["python", "-c" ,"print('this runs every 5min')"], schedule="*/5 * * * *")
+            ```
+
+            Create a scheduled GPU Job:
+
+            ```python
+            >>> from huggingface_hub import create_scheduled_job
+            >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
+            >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
+            >>> create_scheduled_job(image, command, flavor="a10g-small", schedule="@hourly")
+            ```
+
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+
+        # prepare payload to send to HF Jobs API
+        job_spec = _create_job_spec(
+            image=image,
+            command=command,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+        )
+        input_json: Dict[str, Any] = {
+            "jobSpec": job_spec,
+            "schedule": schedule,
+        }
+        if concurrency is not None:
+            input_json["concurrency"] = concurrency
+        if suspend is not None:
+            input_json["suspend"] = suspend
+        response = get_session().post(
+            f"https://huggingface.co/api/scheduled-jobs/{namespace}",
+            json=input_json,
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        scheduled_job_info = response.json()
+        return ScheduledJobInfo(**scheduled_job_info)
+
+    def list_scheduled_jobs(
+        self,
+        *,
+        timeout: Optional[int] = None,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> List[ScheduledJobInfo]:
+        """
+        List scheduled compute Jobs on Hugging Face infrastructure.
+
+        Args:
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+            namespace (`str`, *optional*):
+                The namespace from where it lists the jobs. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().get(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}",
+            headers=self._build_hf_headers(token=token),
+            timeout=timeout,
+        )
+        hf_raise_for_status(response)
+        return [ScheduledJobInfo(**scheduled_job_info) for scheduled_job_info in response.json()]
+
+    def inspect_scheduled_job(
+        self,
+        *,
+        scheduled_job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> ScheduledJobInfo:
+        """
+        Inspect a scheduled compute Job on Hugging Face infrastructure.
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import inspect_job, create_scheduled_job
+            >>> scheduled_job = create_scheduled_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], schedule="@hourly")
+            >>> inspect_scheduled_job(scheduled_job.id)
+            ```
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().get(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return ScheduledJobInfo(**response.json())
+
+    def delete_scheduled_job(
+        self,
+        *,
+        scheduled_job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        """
+        Delete a scheduled compute Job on Hugging Face infrastructure.
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().delete(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+    def suspend_scheduled_job(
+        self,
+        *,
+        scheduled_job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        """
+        Suspend (pause) a scheduled compute Job on Hugging Face infrastructure.
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        get_session().post(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/suspend",
+            headers=self._build_hf_headers(token=token),
+        ).raise_for_status()
+
+    def resume_scheduled_job(
+        self,
+        *,
+        scheduled_job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        """
+        Resume (unpause) a scheduled compute Job on Hugging Face infrastructure.
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        get_session().post(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/resume",
+            headers=self._build_hf_headers(token=token),
+        ).raise_for_status()
+
+    @experimental
+    def create_scheduled_uv_job(
+        self,
+        script: str,
+        *,
+        script_args: Optional[List[str]] = None,
+        schedule: str,
+        suspend: Optional[bool] = None,
+        concurrency: Optional[bool] = None,
+        dependencies: Optional[List[str]] = None,
+        python: Optional[str] = None,
+        image: Optional[str] = None,
+        env: Optional[Dict[str, Any]] = None,
+        secrets: Optional[Dict[str, Any]] = None,
+        flavor: Optional[SpaceHardware] = None,
+        timeout: Optional[Union[int, float, str]] = None,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+        _repo: Optional[str] = None,
+    ) -> ScheduledJobInfo:
+        """
+        Run a UV script Job on Hugging Face infrastructure.
+
+        Args:
+            script (`str`):
+                Path or URL of the UV script, or a command.
+
+            script_args (`List[str]`, *optional*)
+                Arguments to pass to the script, or a command.
+
+            schedule (`str`):
+                One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
+                CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
+
+            suspend (`bool`, *optional*):
+                If True, the scheduled Job is suspended (paused).  Defaults to False.
+
+            concurrency (`bool`, *optional*):
+                If True, multiple instances of this Job can run concurrently. Defaults to False.
+
+            dependencies (`List[str]`, *optional*)
+                Dependencies to use to run the UV script.
+
+            python (`str`, *optional*)
+                Use a specific Python version. Default is 3.12.
+
+            image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm"):
+                Use a custom Docker image with `uv` installed.
+
+            env (`Dict[str, Any]`, *optional*):
+                Defines the environment variables for the Job.
+
+            secrets (`Dict[str, Any]`, *optional*):
+                Defines the secret environment variables for the Job.
+
+            flavor (`str`, *optional*):
+                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Defaults to `"cpu-basic"`.
+
+            timeout (`Union[int, float, str]`, *optional*):
+                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Example: `300` or `"5m"` for 5 minutes.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job will be created. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+
+            Schedule a script from a URL:
+
+            ```python
+            >>> from huggingface_hub import create_scheduled_uv_job
+            >>> script = "https://raw.githubusercontent.com/huggingface/trl/refs/heads/main/trl/scripts/sft.py"
+            >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
+            >>> create_scheduled_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="@weekly")
+            ```
+
+            Schedule a local script:
+
+            ```python
+            >>> from huggingface_hub import create_scheduled_uv_job
+            >>> script = "my_sft.py"
+            >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
+            >>> create_scheduled_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="@weekly")
+            ```
+
+            Schedule a command:
+
+            ```python
+            >>> from huggingface_hub import create_scheduled_uv_job
+            >>> script = "lighteval"
+            >>> script_args= ["endpoint", "inference-providers", "model_name=openai/gpt-oss-20b,provider=auto", "lighteval|gsm8k|0|0"]
+            >>> create_scheduled_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small", schedule="@weekly")
+            ```
+        """
+        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        # Build command
+        command, env, secrets = self._create_uv_command_env_and_secrets(
+            script=script,
+            script_args=script_args,
+            dependencies=dependencies,
+            python=python,
+            env=env,
+            secrets=secrets,
+            namespace=namespace,
+            token=token,
+            _repo=_repo,
+        )
+        # Create RunCommand args
+        return self.create_scheduled_job(
+            image=image,
+            command=command,
+            schedule=schedule,
+            suspend=suspend,
+            concurrency=concurrency,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+            namespace=namespace,
+            token=token,
+        )
+
+    def _create_uv_command_env_and_secrets(
+        self,
+        *,
+        script: str,
+        script_args: Optional[List[str]],
+        dependencies: Optional[List[str]],
+        python: Optional[str],
+        env: Optional[Dict[str, Any]],
+        secrets: Optional[Dict[str, Any]],
+        namespace: Optional[str],
+        token: Union[bool, str, None],
+        _repo: Optional[str],
+    ) -> Tuple[List[str], Dict[str, Any], Dict[str, Any]]:
         env = env or {}
         secrets = secrets or {}
 
@@ -10336,8 +10794,9 @@ class HfApi:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
 
-        if script.startswith("http://") or script.startswith("https://"):
-            # Direct URL execution - no upload needed
+        is_url = script.startswith("http://") or script.startswith("https://")
+        if is_url or not Path(script).is_file():
+            # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
         else:
             # Local file - upload to HF
@@ -10348,7 +10807,6 @@ class HfApi:
                 repo_id = _repo
                 if "/" not in repo_id:
                     repo_id = f"{namespace}/{repo_id}"
-                repo_id = _repo
             else:
                 repo_id = f"{namespace}/hf-cli-jobs-uv-run-scripts"
 
@@ -10365,15 +10823,15 @@ class HfApi:
             with open(script_path, "r") as f:
                 script_content = f.read()
 
-            self.upload_file(
+            commit_hash = self.upload_file(
                 path_or_fileobj=script_content.encode(),
                 path_in_repo=filename,
                 repo_id=repo_id,
                 repo_type="dataset",
-            )
+            ).oid
 
-            script_url = f"https://huggingface.co/datasets/{repo_id}/resolve/main/{filename}"
-            repo_url = f"https://huggingface.co/datasets/{repo_id}"
+            script_url = f"{self.endpoint}/datasets/{repo_id}/resolve/{commit_hash}/{filename}"
+            repo_url = f"{self.endpoint}/datasets/{repo_id}"
 
             logger.debug(f"✓ Script uploaded to: {repo_url}/blob/main/{filename}")
 
@@ -10430,18 +10888,7 @@ class HfApi:
             pre_command = ["python", "-c", '"' + "; ".join(pre_command) + '"']
             command = ["uv", "run"] + uv_args + ["/tmp/script.py"] + script_args
             command = ["bash", "-c", " ".join(pre_command) + " && " + " ".join(command)]
-
-        # Create RunCommand args
-        return self.run_job(
-            image=image,
-            command=command,
-            env=env,
-            secrets=secrets,
-            flavor=flavor,
-            timeout=timeout,
-            namespace=namespace,
-            token=token,
-        )
+        return command, env, secrets
 
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
@@ -10607,3 +11054,10 @@ list_jobs = api.list_jobs
 inspect_job = api.inspect_job
 cancel_job = api.cancel_job
 run_uv_job = api.run_uv_job
+create_scheduled_job = api.create_scheduled_job
+list_scheduled_jobs = api.list_scheduled_jobs
+inspect_scheduled_job = api.inspect_scheduled_job
+delete_scheduled_job = api.delete_scheduled_job
+suspend_scheduled_job = api.suspend_scheduled_job
+resume_scheduled_job = api.resume_scheduled_job
+create_scheduled_uv_job = api.create_scheduled_uv_job

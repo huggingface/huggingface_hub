@@ -22,6 +22,7 @@ from huggingface_hub.inference._providers.fal_ai import (
     _POLLING_INTERVAL,
     FalAIAutomaticSpeechRecognitionTask,
     FalAIImageToImageTask,
+    FalAIImageToVideoTask,
     FalAITextToImageTask,
     FalAITextToSpeechTask,
     FalAITextToVideoTask,
@@ -43,12 +44,14 @@ from huggingface_hub.inference._providers.nebius import NebiusFeatureExtractionT
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
+from huggingface_hub.inference._providers.publicai import PublicAIConversationalTask
 from huggingface_hub.inference._providers.replicate import (
     ReplicateImageToImageTask,
     ReplicateTask,
     ReplicateTextToSpeechTask,
 )
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
+from huggingface_hub.inference._providers.scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from huggingface_hub.inference._providers.together import TogetherTextToImageTask
 
 from .testing_utils import assert_in_logs
@@ -476,6 +479,79 @@ class TestFalAIProvider:
         mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
         assert response == b"image_content"
 
+    def test_image_to_video_payload(self):
+        helper = FalAIImageToVideoTask()
+        mapping_info = InferenceProviderMapping(
+            provider="fal-ai",
+            hf_model_id="Wan-AI/Wan2.2-I2V-A14B",
+            providerId="Wan-AI/Wan2.2-I2V-A14B",
+            task="image-to-video",
+            status="live",
+        )
+        payload = helper._prepare_payload_as_dict(
+            "https://example.com/image.png",
+            {"prompt": "a cat"},
+            mapping_info,
+        )
+        assert payload == {"image_url": "https://example.com/image.png", "prompt": "a cat"}
+
+        payload = helper._prepare_payload_as_dict(
+            b"dummy_image_data",
+            {"prompt": "a dog"},
+            mapping_info,
+        )
+        assert payload == {
+            "image_url": f"data:image/jpeg;base64,{base64.b64encode(b'dummy_image_data').decode()}",
+            "prompt": "a dog",
+        }
+
+    def test_image_to_video_response(self, mocker):
+        helper = FalAIImageToVideoTask()
+        mock_session = mocker.patch("huggingface_hub.inference._providers.fal_ai.get_session")
+        mock_sleep = mocker.patch("huggingface_hub.inference._providers.fal_ai.time.sleep")
+        mock_session.return_value.get.side_effect = [
+            # First call: status
+            mocker.Mock(json=lambda: {"status": "COMPLETED"}, headers={"Content-Type": "application/json"}),
+            # Second call: get result
+            mocker.Mock(json=lambda: {"video": {"url": "video_url"}}, headers={"Content-Type": "application/json"}),
+            # Third call: get video content
+            mocker.Mock(content=b"video_content"),
+        ]
+        api_key = helper._prepare_api_key("hf_token")
+        headers = helper._prepare_headers({}, api_key)
+        url = helper._prepare_url(api_key, "username/repo_name")
+
+        request_params = RequestParameters(
+            url=url,
+            headers=headers,
+            task="image-to-video",
+            model="username/repo_name",
+            data=None,
+            json=None,
+        )
+        response = helper.get_response(
+            b'{"request_id": "test_request_id", "status": "PROCESSING", "response_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id", "status_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id/status"}',
+            request_params,
+        )
+
+        # Verify the correct URLs were called
+        assert mock_session.return_value.get.call_count == 3
+        mock_session.return_value.get.assert_has_calls(
+            [
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id/status?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+                mocker.call("video_url"),
+            ]
+        )
+        mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
+        assert response == b"video_content"
+
 
 class TestFeatherlessAIProvider:
     def test_prepare_route_chat_completionurl(self):
@@ -840,6 +916,31 @@ class TestHFInferenceProvider:
         else:
             _check_supported_task("test-model", task)
 
+    def test_prepare_request_from_binary_data(self, mocker, tmp_path):
+        helper = HFInferenceBinaryInputTask("image-classification")
+
+        mock_model_info = mocker.Mock(pipeline_tag="image-classification", tags=[])
+        mocker.patch("huggingface_hub.hf_api.HfApi.model_info", return_value=mock_model_info)
+
+        image_path = tmp_path / "image.jpg"
+        image_path.write_bytes(b"dummy binary input")
+
+        request = helper.prepare_request(
+            inputs=image_path,
+            parameters={},
+            headers={},
+            model="microsoft/resnet-50",
+            api_key="hf_test_token",
+            extra_payload=None,
+        )
+        assert request.url == "https://router.huggingface.co/hf-inference/models/microsoft/resnet-50"
+        assert request.task == "image-classification"
+        assert request.model == "microsoft/resnet-50"
+        assert request.json is None
+        assert isinstance(request.data, bytes)
+        assert request.headers["authorization"] == "Bearer hf_test_token"
+        assert request.headers["content-type"] == "image/jpeg"  # based on filename
+
 
 class TestHyperbolicProvider:
     def test_prepare_route(self):
@@ -976,6 +1077,84 @@ class TestNovitaProvider:
         helper = NovitaConversationalTask()
         url = helper._prepare_url("novita_token", "username/repo_name")
         assert url == "https://api.novita.ai/v3/openai/chat/completions"
+
+
+class TestScalewayProvider:
+    def test_prepare_hf_url_conversational(self):
+        helper = ScalewayConversationalTask()
+        url = helper._prepare_url("hf_token", "username/repo_name")
+        assert url == "https://router.huggingface.co/scaleway/v1/chat/completions"
+
+    def test_prepare_url_conversational(self):
+        helper = ScalewayConversationalTask()
+        url = helper._prepare_url("scw_token", "username/repo_name")
+        assert url == "https://api.scaleway.ai/v1/chat/completions"
+
+    def test_prepare_payload_as_dict(self):
+        helper = ScalewayConversationalTask()
+        payload = helper._prepare_payload_as_dict(
+            [
+                {"role": "system", "content": "You are a helpful assistant"},
+                {"role": "user", "content": "Hello!"},
+            ],
+            {
+                "max_tokens": 512,
+                "temperature": 0.15,
+                "top_p": 1,
+                "presence_penalty": 0,
+                "stream": True,
+            },
+            InferenceProviderMapping(
+                provider="scaleway",
+                hf_model_id="meta-llama/Llama-3.1-8B-Instruct",
+                providerId="meta-llama/llama-3.1-8B-Instruct",
+                task="conversational",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "max_tokens": 512,
+            "messages": [
+                {"content": "You are a helpful assistant", "role": "system"},
+                {"role": "user", "content": "Hello!"},
+            ],
+            "model": "meta-llama/llama-3.1-8B-Instruct",
+            "presence_penalty": 0,
+            "stream": True,
+            "temperature": 0.15,
+            "top_p": 1,
+        }
+
+    def test_prepare_url_feature_extraction(self):
+        helper = ScalewayFeatureExtractionTask()
+        assert (
+            helper._prepare_url("hf_token", "username/repo_name")
+            == "https://router.huggingface.co/scaleway/v1/embeddings"
+        )
+
+    def test_prepare_payload_as_dict_feature_extraction(self):
+        helper = ScalewayFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict(
+            "Example text to embed",
+            {"truncate": True},
+            InferenceProviderMapping(
+                provider="scaleway",
+                hf_model_id="username/repo_name",
+                providerId="provider-id",
+                task="feature-extraction",
+                status="live",
+            ),
+        )
+        assert payload == {"input": "Example text to embed", "model": "provider-id", "truncate": True}
+
+
+class TestPublicAIProvider:
+    def test_prepare_url(self):
+        helper = PublicAIConversationalTask()
+        assert (
+            helper._prepare_url("publicai_token", "username/repo_name")
+            == "https://api.publicai.co/v1/chat/completions"
+        )
 
 
 class TestNscaleProvider:

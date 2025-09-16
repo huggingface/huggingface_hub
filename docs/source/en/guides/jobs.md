@@ -15,6 +15,12 @@ A job runs on Hugging Face infrastructure and are defined with a command to run 
 If you want to run and manage a job on the Hub, your machine must be logged in. If you are not, please refer to
 [this section](../quick-start#authentication). In the rest of this guide, we will assume that your machine is logged in.
 
+<Tip>
+
+**Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
+
+</Tip>
+
 ## Jobs Command Line Interface
 
 Use the [`hf jobs` CLI](./cli#hf-jobs) to run Jobs from the command line, and pass `--flavor` to specify your hardware.
@@ -22,7 +28,7 @@ Use the [`hf jobs` CLI](./cli#hf-jobs) to run Jobs from the command line, and pa
 `hf jobs run` runs Jobs with a Docker image and a command with a familiar Docker-like interface. Think `docker run`, but for running code on any hardware:
 
 ```bash
->>> hf jobs run python:12 -c "print('Hello world!')"
+>>> hf jobs run python:3.12 python -c "print('Hello world!')"
 >>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel python -c "import torch; print(torch.cuda.get_device_name())"
 ```
 
@@ -79,6 +85,11 @@ This feature is pay-as-you-go: you only pay for the seconds you use.
 >>> from huggingface_hub import run_uv_job
 >>> run_uv_job("my_script.py")
 ```
+
+<Tip warning>
+
+**Important**: Jobs have a default timeout (30 minutes), after which they will automatically stop. For long-running tasks like model training, make sure to set a custom timeout using the `timeout` parameter. See [Configure Job Timeout](#configure-job-timeout) for details.
+</Tip>
 
 [`run_job`] returns the [`JobInfo`] which has the URL of the Job on Hugging Face, where you can see the Job status and the logs.
 Save the Job ID from [`JobInfo`] to manage the job:
@@ -179,6 +190,12 @@ Use this to run a fine tuning script like [trl/scripts/sft.py](https://github.co
 ... )
 ```
 
+<Tip>
+
+For comprehensive guidance on running model training jobs with TRL on Hugging Face infrastructure, check out the [TRL Jobs Training documentation](https://huggingface.co/docs/trl/main/en/jobs_training). It covers fine-tuning recipes, hardware selection, and best practices for training models efficiently.
+
+</Tip>
+
 Available `flavor` options:
 
 - CPU: `cpu-basic`, `cpu-upgrade`
@@ -188,6 +205,87 @@ Available `flavor` options:
 (updated in 07/2025 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
 
 That's it! You're now running code on Hugging Face's infrastructure.
+
+## Configure Job Timeout
+
+Jobs have a default timeout (30 minutes), after which they will automatically stop. This is important to know when running long-running tasks like model training.
+
+### Setting a custom timeout
+
+You can specify a custom timeout value using the `timeout` parameter when running a job. The timeout can be specified in two ways:
+
+1. **As a number** (interpreted as seconds):
+```python
+>>> from huggingface_hub import run_job
+>>> job = run_job(
+...     image="pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel",
+...     command=["python", "train_model.py"],
+...     flavor="a10g-large",
+...     timeout=7200,  # 2 hours in seconds
+... )
+```
+
+2. **As a string with time units**:
+```python
+>>> # Using different time units
+>>> job = run_job(
+...     image="pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel",
+...     command=["python", "train_model.py"],
+...     flavor="a10g-large",
+...     timeout="2h",  # 2 hours
+... )
+
+>>> # Other examples:
+>>> # timeout="30m"    # 30 minutes
+>>> # timeout="1.5h"   # 1.5 hours
+>>> # timeout="1d"     # 1 day
+>>> # timeout="3600s"  # 3600 seconds
+```
+
+Supported time units:
+- `s` - seconds
+- `m` - minutes  
+- `h` - hours
+- `d` - days
+
+### Using timeout with UV jobs
+
+For UV jobs, you can also specify the timeout:
+
+```python
+>>> from huggingface_hub import run_uv_job
+>>> job = run_uv_job(
+...     "training_script.py",
+...     flavor="a10g-large",
+...     timeout="90m",  # 90 minutes
+... )
+```
+
+<Tip warning>
+
+If you don't specify a timeout, a default timeout will be applied to your job. For long-running tasks like model training that may take hours, make sure to set an appropriate timeout to avoid unexpected job terminations.
+
+</Tip>
+
+### Monitoring job duration
+
+When running long tasks, it's good practice to:
+- Estimate your job's expected duration and set a timeout with some buffer
+- Monitor your job's progress through the logs
+- Check the job status to ensure it hasn't timed out
+
+```python
+>>> from huggingface_hub import inspect_job, fetch_job_logs
+>>> # Check job status
+>>> job_info = inspect_job(job_id=job.id)
+>>> if job_info.status.stage == "ERROR":
+...     print(f"Job failed: {job_info.status.message}")
+...     # Check logs for more details
+...     for log in fetch_job_logs(job_id=job.id):
+...         print(log)
+```
+
+For more details about the timeout parameter, see the [`run_job` API reference](https://huggingface.co/docs/huggingface_hub/package_reference/hf_api#huggingface_hub.HfApi.run_job.timeout).
 
 ## Pass Environment variables and Secrets
 
@@ -217,6 +315,12 @@ You can pass environment variables to your job using `env` and `secrets`:
 
 ### UV Scripts (Experimental)
 
+<Tip>
+
+Looking for ready-to-use UV scripts? Check out the [uv-scripts organization](https://huggingface.co/uv-scripts) on the Hugging Face Hub, which offers a community collection of UV scripts for tasks like model training, synthetic data generation, data processing, and more.
+
+</Tip>
+
 Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 
 ```python
@@ -232,6 +336,94 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 
 # Run a script directly from a URL
 >>> run_uv_job("https://huggingface.co/datasets/username/scripts/resolve/main/example.py")
+
+# Run a command
+>>> run_uv_job("python", script_args=["-c", "import lighteval"], dependencies=["lighteval"])
 ```
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
+
+
+#### Docker Images for UV Scripts
+
+While UV scripts can specify their dependencies inline, ML workloads often have complex dependencies. Using pre-built Docker images with these libraries already installed can significantly speed up job startup and avoid dependency issues.
+
+By default, when you run `hf jobs uv run` the `astral-sh/uv:python3.12-bookworm` image is used. This image is based on the Python 3.12 Bookworm distribution with uv pre-installed.
+
+You can specify a different image using the `--image` flag:
+
+```bash
+hf jobs uv run \
+ --flavor a10g-large \
+ --image vllm/vllm-openai:latest \
+...
+```
+
+The above command will run using the `vllm/vllm-openai:latest` image. This approach could be useful if you are using vLLM for synthetic data generation.
+
+<Tip>
+
+Many inference frameworks provide optimized docker images. As uv is increasingly adopted in the Python ecosystem more of these will also have uv pre-installed meaning they will work when using hf jobs uv run.
+
+</Tip>
+
+### Scheduled Jobs
+
+Schedule and manage jobs that will run on HF infrastructure.
+
+Use [`create_scheduled_job`] or [`create_scheduled_uv_job`] with a schedule of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`, or a CRON schedule expression (e.g., `"0 9 * * 1"` for 9 AM every Monday):
+
+```python
+# Schedule a job that runs every hour
+>>> from huggingface_hub import create_scheduled_job
+>>> create_scheduled_job(
+...     image="python:3.12",
+...     command=["python",  "-c", "print('This runs every hour!')"],
+...     schedule="@hourly"
+... )
+
+# Use the CRON syntax
+>>> create_scheduled_job(
+...     image="python:3.12",
+...     command=["python",  "-c", "print('This runs every 5 minutes!')"],
+...     schedule="*/5 * * * *"
+... )
+
+# Schedule with GPU
+>>> create_scheduled_job(
+...     image="pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel",
+...     command=["python",  "-c", 'import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")'],
+...     schedule="@hourly",
+...     flavor="a10g-small",
+... )
+
+# Schedule a UV script
+>>> from huggingface_hub import create_scheduled_uv_job
+>>> create_scheduled_uv_job("my_script.py", schedule="@hourly")
+```
+
+Use the same parameters as [`run_job`] and [`run_uv_job`] to pass environment variables, secrets, timeout, etc.
+
+Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], [`suspend_scheduled_job`], [`resume_scheduled_job`], and [`delete_scheduled_job`]:
+
+```python
+# List your active scheduled jobs
+>>> from huggingface_hub import list_scheduled_jobs
+>>> list_scheduled_jobs()
+
+# Inspect the status of a job
+>>> from huggingface_hub import inspect_scheduled_job
+>>> inspect_scheduled_job(scheduled_job_id)
+
+# Suspend (pause) a scheduled job
+>>> from huggingface_hub import suspend_scheduled_job
+>>> suspend_scheduled_job(scheduled_job_id)
+
+# Resume a scheduled job
+>>> from huggingface_hub import resume_scheduled_job
+>>> resume_scheduled_job(scheduled_job_id)
+
+# Delete a scheduled job
+>>> from huggingface_hub import delete_scheduled_job
+>>> delete_scheduled_job(scheduled_job_id)
+```

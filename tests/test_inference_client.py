@@ -43,20 +43,20 @@ from huggingface_hub import (
     TranslationOutput,
     VisualQuestionAnsweringOutputElement,
     ZeroShotClassificationOutputElement,
-    constants,
     hf_hub_download,
 )
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
-from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.inference._common import (
+    MimeBytes,
     _as_url,
+    _open_as_mime_bytes,
     _stream_chat_completion_response,
     _stream_text_generation_response,
 )
 from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.inference._providers.hf_inference import _build_chat_completion_url
 
-from .testing_utils import expect_deprecation, with_production_testing
+from .testing_utils import with_production_testing
 
 
 # Avoid calling APIs in VCRed tests
@@ -770,48 +770,107 @@ class TestInferenceClient(TestBase):
             assert isinstance(item.score, float)
 
 
-class TestOpenAsBinary:
+class TestOpenAsMimeBytes:
     @pytest.fixture(autouse=True)
     def setup(self, audio_file, image_file, document_file):
         self.audio_file = audio_file
         self.image_file = image_file
         self.document_file = document_file
 
-    def test_open_as_binary_with_none(self) -> None:
-        with _open_as_binary(None) as content:
-            assert content is None
+    def test_open_as_mime_bytes_with_none(self) -> None:
+        assert _open_as_mime_bytes(None) is None
 
-    def test_open_as_binary_from_str_path(self) -> None:
-        with _open_as_binary(self.image_file) as content:
-            assert isinstance(content, io.BufferedReader)
+    def test_open_as_mime_bytes_from_str_path(self) -> None:
+        mime_bytes = _open_as_mime_bytes(self.image_file)
+        assert isinstance(mime_bytes, MimeBytes)
+        assert mime_bytes.mime_type == "image/png"
 
-    def test_open_as_binary_from_pathlib_path(self) -> None:
-        with _open_as_binary(Path(self.image_file)) as content:
-            assert isinstance(content, io.BufferedReader)
+    def test_open_as_mime_bytes_from_pathlib_path(self) -> None:
+        mime_bytes = _open_as_mime_bytes(Path(self.image_file))
+        assert isinstance(mime_bytes, MimeBytes)
+        assert mime_bytes.mime_type == "image/png"
 
-    def test_open_as_binary_from_url(self) -> None:
-        with _open_as_binary("https://huggingface.co/datasets/Narsil/image_dummy/resolve/main/tree.png") as content:
-            assert isinstance(content, bytes)
+    def test_open_as_mime_bytes_from_url(self) -> None:
+        mime_bytes = _open_as_mime_bytes("https://huggingface.co/datasets/Narsil/image_dummy/resolve/main/tree.png")
+        assert isinstance(mime_bytes, MimeBytes)
+        assert mime_bytes.mime_type == "image/png"
 
-    def test_open_as_binary_opened_file(self) -> None:
+    def test_open_as_mime_bytes_opened_file(self) -> None:
         with Path(self.image_file).open("rb") as f:
-            with _open_as_binary(f) as content:
-                assert content == f
-                assert isinstance(content, io.BufferedReader)
+            mime_bytes = _open_as_mime_bytes(f)
+        assert isinstance(mime_bytes, MimeBytes)
+        assert mime_bytes.mime_type == "image/png"
 
-    def test_open_as_binary_from_bytes(self) -> None:
+    def test_open_as_mime_bytes_from_bytes(self) -> None:
         content_bytes = Path(self.image_file).read_bytes()
-        with _open_as_binary(content_bytes) as content:
-            assert content == content_bytes
+        mime_bytes = _open_as_mime_bytes(content_bytes)
+        assert mime_bytes == content_bytes
+        assert mime_bytes.mime_type is None
 
-    def test_open_as_binary_from_pil_image(self) -> None:
+    def test_open_as_mime_bytes_from_pil_image(self) -> None:
         pil_image = Image.open(self.image_file)
-        with _open_as_binary(pil_image) as content:
-            assert isinstance(content, bytes)
+        mime_bytes = _open_as_mime_bytes(pil_image)
+        assert isinstance(mime_bytes, MimeBytes)
+        assert mime_bytes.mime_type == "image/png"
 
-            buffer = io.BytesIO()
-            pil_image.save(buffer, format=pil_image.format or "PNG")
-            assert content == buffer.getvalue()
+
+class TestMimeBytes:
+    """Tests for the MimeBytes subclass."""
+
+    def test_mime_bytes_with_mime_type(self):
+        """Test creating MimeBytes with data and mime type."""
+        data = b"hello world"
+        mime_type = "text/plain"
+        mb = MimeBytes(data, mime_type)
+
+        assert isinstance(mb, bytes)
+        assert isinstance(mb, MimeBytes)
+        assert mb == data
+        assert mb.mime_type == mime_type
+
+    def test_mime_bytes_without_mime_type(self):
+        """Test creating MimeBytes without mime type defaults to None."""
+        data = b"test data"
+        mb = MimeBytes(data)
+
+        assert isinstance(mb, MimeBytes)
+        assert mb == data
+        assert mb.mime_type is None
+
+    def test_mime_bytes_with_none_mime_type(self):
+        """Test creating MimeBytes with explicit None mime type."""
+        data = b"test data"
+        mb = MimeBytes(data, None)
+
+        assert isinstance(mb, MimeBytes)
+        assert mb == data
+        assert mb.mime_type is None
+
+    def test_mime_bytes_from_mime_bytes(self):
+        """Test that mime_type is inherited from source MimeBytes when none provided."""
+        original_data = b"original content"
+        original_mime = "text/html"
+        original_mb = MimeBytes(original_data, original_mime)
+
+        # Create new MimeBytes from existing one without specifying mime_type
+        new_mb = MimeBytes(original_mb)
+
+        assert isinstance(new_mb, MimeBytes)
+        assert new_mb == original_data
+        assert new_mb.mime_type == original_mime
+
+    def test_mime_type_override_when_provided(self):
+        """Test that mime_type is overridden when explicitly provided."""
+        original_data = b"original content"
+        original_mime = "text/html"
+        original_mb = MimeBytes(original_data, original_mime)
+
+        new_mime = "application/json"
+        new_mb = MimeBytes(original_mb, new_mime)
+
+        assert isinstance(new_mb, MimeBytes)
+        assert new_mb == original_data
+        assert new_mb.mime_type == new_mime
 
 
 class TestHeadersAndCookies(TestBase):
@@ -837,20 +896,6 @@ class TestHeadersAndCookies(TestBase):
 
         headers = get_session_mock().post.call_args_list[0].kwargs["headers"]
         assert headers["Accept"] == "image/png"
-
-
-class TestListDeployedModels(TestBase):
-    @expect_deprecation("list_deployed_models")
-    @patch("huggingface_hub.inference._client.get_session")
-    def test_list_deployed_models_main_frameworks_mock(self, get_session_mock: MagicMock) -> None:
-        InferenceClient(provider="hf-inference").list_deployed_models()
-        assert len(get_session_mock.return_value.get.call_args_list) == len(constants.MAIN_INFERENCE_API_FRAMEWORKS)
-
-    @expect_deprecation("list_deployed_models")
-    @patch("huggingface_hub.inference._client.get_session")
-    def test_list_deployed_models_all_frameworks_mock(self, get_session_mock: MagicMock) -> None:
-        InferenceClient(provider="hf-inference").list_deployed_models("all")
-        assert len(get_session_mock.return_value.get.call_args_list) == len(constants.ALL_INFERENCE_API_FRAMEWORKS)
 
 
 @with_production_testing
