@@ -202,7 +202,7 @@ def upload(
                     else resolved_path_in_repo
                 )
                 allow_patterns = [resolved_local_path]
-                ignore_patterns: list[str] | None = []
+                ignore_patterns: Optional[list[str]] = []
             else:
                 folder_path = resolved_local_path
                 pi = resolved_path_in_repo
