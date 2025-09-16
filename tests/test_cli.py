@@ -172,7 +172,7 @@ class TestUploadCommand:
     def test_every_must_be_positive(self) -> None:
         class _PatchedBadParameter(typer.BadParameter):
             def __init__(self, message: str, *, param_name: str | None = None, **kwargs: object) -> None:
-                super().__init__(message, param_hint=param_name, **kwargs)
+                super().__init__(message, **kwargs)
 
         with (
             patch("huggingface_hub.cli.upload.typer.BadParameter", _PatchedBadParameter),
@@ -215,14 +215,14 @@ class TestResolveUploadPaths:
         )
         assert local_path == "."
         assert path_in_repo == "*.safetensors"
-        assert include == "."
+        assert include == ["."]
 
         local_path, path_in_repo, include = _resolve_upload_paths(
             repo_id=DUMMY_MODEL_ID, local_path="subdir/*.safetensors", path_in_repo=None, include=None
         )
         assert local_path == "."
         assert path_in_repo == "subdir/*.safetensors"
-        assert include == "."
+        assert include == ["."]
 
         with pytest.raises(ValueError):
             _resolve_upload_paths(
