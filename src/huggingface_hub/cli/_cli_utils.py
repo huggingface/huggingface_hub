@@ -82,5 +82,5 @@ def validate_repo_type(value: Optional[str], param_name: str = "repo_type") -> O
         return value
     raise typer.BadParameter(
         "Invalid value for '--repo-type': must be one of 'model', 'dataset', 'space'.",
-        param_name=param_name,
+        param_hint=param_name,
     )

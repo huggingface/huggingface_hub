@@ -49,7 +49,7 @@ Usage:
 import os
 import time
 import warnings
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import typer
 from typing_extensions import Annotated
@@ -77,25 +77,25 @@ def upload(
         ),
     ],
     local_path: Annotated[
-        str,
+        Optional[str],
         typer.Argument(
             help="Local path to the file or folder to upload. Wildcard patterns are supported. Defaults to current directory.",
         ),
     ] = None,
     path_in_repo: Annotated[
-        str,
+        Optional[str],
         typer.Argument(
             help="Path of the file or folder in the repo. Defaults to the relative path of the file or folder.",
         ),
     ] = None,
     repo_type: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Type of the repo (model, dataset, space).",
         ),
     ] = "model",
     revision: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="An optional Git revision to push to. It can be a branch name or a PR reference. If revision does not An optional Git revision to push to. It can be a branch name or a PR reference. If revision does not exist and `--create-pr` is not set, a branch will be automatically created.",
         ),
@@ -107,31 +107,31 @@ def upload(
         ),
     ] = False,
     include: Annotated[
-        list[str],
+        Optional[List[str]],
         typer.Option(
             help="Glob patterns to match files to upload.",
         ),
     ] = None,
     exclude: Annotated[
-        list[str],
+        Optional[List[str]],
         typer.Option(
             help="Glob patterns to exclude from files to upload.",
         ),
     ] = None,
     delete: Annotated[
-        list[str],
+        Optional[List[str]],
         typer.Option(
             help="Glob patterns for file to be deleted from the repo while committing.",
         ),
     ] = None,
     commit_message: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="The summary / title / first line of the generated commit.",
         ),
     ] = None,
     commit_description: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="The description of the generated commit.",
         ),
@@ -143,13 +143,13 @@ def upload(
         ),
     ] = False,
     every: Annotated[
-        float,
+        Optional[float],
         typer.Option(
             help="f set, a background job is scheduled to create commits every `every` minutes.",
         ),
     ] = None,
     token: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="A User Access Token generated from https://huggingface.co/settings/tokens",
         ),
@@ -164,7 +164,7 @@ def upload(
     """Upload a file or a folder to the Hub. Recommended for single-commit uploads."""
 
     if every is not None and every <= 0:
-        raise typer.BadParameter("--every must be a positive value", param_name="every")
+        raise typer.BadParameter("--every must be a positive value", param_hint="every")
 
     # Validate repo_type if provided
     repo_type = validate_repo_type(repo_type)
@@ -224,7 +224,7 @@ def upload(
 
 def _resolve_upload_paths(
     *, repo_id: str, local_path: Optional[str], path_in_repo: Optional[str], include: Optional[list[str]]
-) -> tuple[str, str, Optional[list[str]]]:
+) -> Tuple[str, str, Optional[List[str]]]:
     repo_name = repo_id.split("/")[-1]
     resolved_include = include
 
@@ -233,7 +233,7 @@ def _resolve_upload_paths(
             raise ValueError("Cannot set --include when local_path contains a wildcard.")
         if path_in_repo is not None and path_in_repo != ".":
             raise ValueError("Cannot set path_in_repo when local_path contains a wildcard.")
-        return ".", local_path, "."  # will be adjusted below; placeholder for type
+        return ".", local_path, ["."]  # will be adjusted below; placeholder for type
 
     if local_path is None and os.path.isfile(repo_name):
         return repo_name, repo_name, resolved_include

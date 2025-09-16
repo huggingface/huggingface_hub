@@ -34,6 +34,8 @@ Usage:
     hf repo-files delete <repo_id> file.txt --revision=refs/pr/1 --repo-type=dataset
 """
 
+from typing import List, Optional
+
 import typer
 from typing_extensions import Annotated
 
@@ -59,32 +61,32 @@ def repo_files_delete(
         ),
     ],
     patterns: Annotated[
-        list[str],
+        List[str],
         typer.Argument(
             ...,
             help="Glob patterns to match files to delete.",
         ),
     ],
     repo_type: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Type of the repo to upload to (e.g. `dataset`).",
         ),
     ] = "model",
     revision: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="An optional Git revision to push to. It can be a branch name or a PR reference. If revision does not exist and `--create-pr` is not set, a branch will be automatically created.",
         ),
     ] = None,
     commit_message: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="The summary / title / first line of the generated commit.",
         ),
     ] = None,
     commit_description: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="The description of the generated commit.",
         ),
@@ -97,7 +99,7 @@ def repo_files_delete(
         ),
     ] = False,
     token: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "--token",
             help="A User Access Token generated from https://huggingface.co/settings/tokens",

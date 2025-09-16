@@ -37,7 +37,7 @@ Usage:
 """
 
 import warnings
-from typing import Optional
+from typing import List, Optional
 
 import typer
 from typing_extensions import Annotated
@@ -62,7 +62,7 @@ def download(
         ),
     ],
     filenames: Annotated[
-        list[str],
+        Optional[List[str]],
         typer.Argument(
             help="Files to download (e.g. `config.json`, `data/metadata.jsonl`).",
         ),
@@ -74,31 +74,31 @@ def download(
         ),
     ] = "model",
     revision: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Git revision id which can be a branch name, a tag, or a commit hash.",
         ),
     ] = None,
     include: Annotated[
-        list[str],
+        Optional[List[str]],
         typer.Option(
             help="Glob patterns to include from files to download. eg: *.json",
         ),
     ] = None,
     exclude: Annotated[
-        list[str],
+        Optional[List[str]],
         typer.Option(
             help="Glob patterns to exclude from files to download.",
         ),
     ] = None,
     cache_dir: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Directory where to save files.",
         ),
     ] = None,
     local_dir: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="If set, the downloaded file will be placed under this directory. Check out https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder for more details.",
         ),
@@ -110,7 +110,7 @@ def download(
         ),
     ] = False,
     token: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="A User Access Token generated from https://huggingface.co/settings/tokens",
         ),
@@ -130,7 +130,7 @@ def download(
 ) -> None:
     """Download files from the Hub."""
     # Validate repo_type if provided
-    repo_type = validate_repo_type(repo_type)
+    repo_type = validate_repo_type(repo_type)  # ty: ignore[invalid-assignment]
 
     if quiet:
         disable_progress_bars()

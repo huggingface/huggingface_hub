@@ -65,7 +65,7 @@ def _api() -> HfApi:
 @auth_app.command("login", help="Login using a token from huggingface.co/settings/tokens")
 def auth_login(
     token: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Token from https://huggingface.co/settings/tokens",
         ),
@@ -87,7 +87,7 @@ def auth_login(
 )
 def auth_logout(
     token_name: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Name of token to logout",
         ),
@@ -136,7 +136,7 @@ def _select_token_name() -> Optional[str]:
 @auth_app.command("switch", help="Switch between accesstokens")
 def auth_switch_cmd(
     token_name: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Name of the token to switch to",
         ),

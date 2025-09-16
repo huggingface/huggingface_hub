@@ -45,7 +45,7 @@ def _validate_sort_option(sort: Optional[str]) -> Optional[str]:
     if sort is None:
         return None
     if sort not in SortingOption_T:
-        raise typer.BadParameter(f"Invalid sort option: {sort}", param_name="sort")
+        raise typer.BadParameter(f"Invalid sort option: {sort}", param_hint="sort")
     return sort
 
 
@@ -69,7 +69,7 @@ cache_app = typer.Typer(help="Manage local cache directory.", rich_markup_mode=N
 @cache_app.command("scan", help="Scan the cache directory")
 def cache_scan(
     dir: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Cache directory to scan (defaults to Hugging Face cache).",
         ),
@@ -93,8 +93,7 @@ def _run_scan(cache_dir: Optional[str], verbosity: int) -> None:
         hf_cache_info = scan_cache_dir(cache_dir)
         t1 = time.time()
     except CacheNotFound as exc:
-        cache_dir = exc.cache_dir
-        print(f"Cache directory not found: {cache_dir}")
+        print(f"Cache directory not found: {str(exc.cache_dir)}")
         return
     print(get_table(hf_cache_info, verbosity=verbosity))
     print(
@@ -114,7 +113,7 @@ def _run_scan(cache_dir: Optional[str], verbosity: int) -> None:
 @cache_app.command("delete", help="Delete revisions from the cache directory")
 def cache_delete(
     dir: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Cache directory (defaults to Hugging Face cache).",
         ),
@@ -126,7 +125,7 @@ def cache_delete(
         ),
     ] = False,
     sort: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Sort repositories by the specified criteria. Options: 'alphabetical' (A-Z), 'lastUpdated' (newest first), 'lastUsed' (most recent first), 'size' (largest first).",
             case_sensitive=False,

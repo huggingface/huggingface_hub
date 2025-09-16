@@ -21,6 +21,8 @@ Usage:
     hf repo create my-cool-model --private
 """
 
+from typing import Optional
+
 import typer
 from typing_extensions import Annotated
 
@@ -48,13 +50,13 @@ def repo_create(
         ),
     ],
     repo_type: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="set to dataset' or 'space' if creating a dataset or space, default is 'model'.",
         ),
     ] = None,
     space_sdk: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
             rich_help_panel=None,
@@ -68,7 +70,7 @@ def repo_create(
         ),
     ] = False,
     token: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Hugging Face token. Will default to the locally saved token if not provided.",
         ),
@@ -80,7 +82,7 @@ def repo_create(
         ),
     ] = False,
     resource_group_id: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.",
         ),
@@ -118,7 +120,7 @@ def tag_create(
         ),
     ],
     message: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "-m",
             "--message",
@@ -126,19 +128,19 @@ def tag_create(
         ),
     ] = None,
     revision: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Git revision to tag",
         ),
     ] = None,
     token: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="A User Access Token generated from https://huggingface.co/settings/tokens.",
         ),
     ] = None,
     repo_type: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Set the type of repository (model, dataset, or space).",
         ),
@@ -173,13 +175,13 @@ def tag_list(
         ),
     ],
     token: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="A User Access Token generated from https://huggingface.co/settings/tokens.",
         ),
     ] = None,
     repo_type: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Set the type of repository (model, dataset, or space).",
         ),
@@ -226,13 +228,13 @@ def tag_delete(
         ),
     ] = False,
     token: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="A User Access Token generated from https://huggingface.co/settings/tokens.",
         ),
     ] = None,
     repo_type: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Set the type of repository (model, dataset, or space).",
         ),

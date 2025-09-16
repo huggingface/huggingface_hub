@@ -15,6 +15,7 @@
 """Contains command to upload a large folder with the CLI."""
 
 import os
+from typing import List, Optional
 
 import typer
 from typing_extensions import Annotated
@@ -45,13 +46,13 @@ def upload_large_folder(
         ),
     ],
     repo_type: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Type of the repo to upload to (model, dataset, space).",
         ),
     ] = None,
     revision: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Git revision to push to. It can be a branch name or a PR reference.",
         ),
@@ -63,25 +64,25 @@ def upload_large_folder(
         ),
     ] = False,
     include: Annotated[
-        list[str],
+        Optional[List[str]],
         typer.Option(
             help="Glob patterns to match files to upload.",
         ),
     ] = None,
     exclude: Annotated[
-        list[str],
+        Optional[List[str]],
         typer.Option(
             help="Glob patterns to exclude from files to upload.",
         ),
     ] = None,
     token: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="User Access Token generated from https://huggingface.co/settings/tokens",
         ),
     ] = None,
     num_workers: Annotated[
-        int,
+        Optional[int],
         typer.Option(
             help="Number of workers to use to hash, upload and commit files.",
         ),
@@ -101,7 +102,7 @@ def upload_large_folder(
 ) -> None:
     """Upload a large folder to the Hub. Recommended for resumable uploads."""
     if not os.path.isdir(local_path):
-        raise typer.BadParameter("Large upload is only supported for folders.", param_name="local_path")
+        raise typer.BadParameter("Large upload is only supported for folders.", param_hint="local_path")
 
     logging.set_verbosity_info()
     repo_type = validate_repo_type(repo_type)
@@ -138,7 +139,7 @@ def upload_large_folder(
     api.upload_large_folder(
         repo_id=repo_id,
         folder_path=local_path,
-        repo_type=repo_type,
+        repo_type=repo_type or "model",
         revision=revision,
         private=private,
         allow_patterns=include,
