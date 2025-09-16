@@ -130,7 +130,7 @@ def download(
 ) -> None:
     """Download files from the Hub."""
     # Validate repo_type if provided
-    repo_type = validate_repo_type(repo_type)  # ty: ignore[invalid-assignment]
+    repo_type = validate_repo_type(repo_type) or "model"
 
     def run_download() -> str:
         filenames_list = filenames if filenames is not None else []

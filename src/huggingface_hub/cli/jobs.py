@@ -731,11 +731,11 @@ def scheduled_ps(
                 print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
 
         for scheduled_job in scheduled_jobs:
-            suspend = scheduled_job.suspend
+            suspend = scheduled_job.suspend or False
             if not all and suspend:
                 continue
             sj_id = scheduled_job.id
-            schedule = scheduled_job.schedule
+            schedule = scheduled_job.schedule or "N/A"
             image_or_space = scheduled_job.job_spec.docker_image or "N/A"
             cmd = scheduled_job.job_spec.command or []
             command_str = " ".join(cmd) if cmd else "N/A"

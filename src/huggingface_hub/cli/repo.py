@@ -146,7 +146,7 @@ def tag_create(
         ),
     ] = "model",
 ) -> None:
-    repo_type = validate_repo_type(repo_type)
+    repo_type = validate_repo_type(repo_type) or "model"
     api = HfApi(token=token)
     print(f"You are about to create tag {ANSI.bold(tag)} on {repo_type} {ANSI.bold(repo_id)}")
     try:
@@ -187,7 +187,7 @@ def tag_list(
         ),
     ] = "model",
 ) -> None:
-    repo_type = validate_repo_type(repo_type)
+    repo_type = validate_repo_type(repo_type) or "model"
     api = HfApi(token=token)
     try:
         refs = api.list_repo_refs(repo_id=repo_id, repo_type=repo_type)
@@ -240,7 +240,7 @@ def tag_delete(
         ),
     ] = "model",
 ) -> None:
-    repo_type = validate_repo_type(repo_type)
+    repo_type = validate_repo_type(repo_type) or "model"
     print(f"You are about to delete tag {ANSI.bold(tag)} on {repo_type} {ANSI.bold(repo_id)}")
     if not yes:
         choice = input("Proceed? [Y/n] ").lower()

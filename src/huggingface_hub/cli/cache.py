@@ -18,7 +18,7 @@ import os
 import time
 from functools import wraps
 from tempfile import mkstemp
-from typing import Any, Callable, Iterable, Literal, Optional, Union
+from typing import Any, Callable, Iterable, Literal, Optional, Union, cast, get_args
 
 import typer
 from typing_extensions import Annotated
@@ -41,12 +41,13 @@ SortingOption_T = Literal["alphabetical", "lastUpdated", "lastUsed", "size"]
 _CANCEL_DELETION_STR = "CANCEL_DELETION"
 
 
-def _validate_sort_option(sort: Optional[str]) -> Optional[str]:
+def _validate_sort_option(sort: Optional[str]) -> Optional[SortingOption_T]:
     if sort is None:
         return None
-    if sort not in SortingOption_T:
+    options = get_args(SortingOption_T)
+    if sort not in options:
         raise typer.BadParameter(f"Invalid sort option: {sort}", param_hint="sort")
-    return sort
+    return cast(SortingOption_T, sort)
 
 
 def require_inquirer_py(fn: Callable) -> Callable:
@@ -132,12 +133,12 @@ def cache_delete(
         ),
     ] = None,
 ) -> None:
-    sort = _validate_sort_option(sort)
+    sort_by = _validate_sort_option(sort)
     hf_cache_info = scan_cache_dir(dir)
     if disable_tui:
-        selected_hashes = _manual_review_no_tui(hf_cache_info, preselected=[], sort_by=sort)
+        selected_hashes = _manual_review_no_tui(hf_cache_info, preselected=[], sort_by=sort_by)
     else:
-        selected_hashes = _manual_review_tui(hf_cache_info, preselected=[], sort_by=sort)
+        selected_hashes = _manual_review_tui(hf_cache_info, preselected=[], sort_by=sort_by)
     if len(selected_hashes) > 0 and _CANCEL_DELETION_STR not in selected_hashes:
         confirm_message = _get_expectations_str(hf_cache_info, selected_hashes) + " Confirm deletion ?"
         if disable_tui:
