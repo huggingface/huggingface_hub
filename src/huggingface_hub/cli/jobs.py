@@ -57,7 +57,7 @@ import os
 import re
 from dataclasses import asdict
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 import typer
 from typing_extensions import Annotated
@@ -93,7 +93,7 @@ def jobs_run(
         ),
     ],
     env: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             "-e",
             "--env",
@@ -101,7 +101,7 @@ def jobs_run(
         ),
     ] = None,
     secrets: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             "-s",
             "--secrets",
@@ -280,7 +280,7 @@ def jobs_ps(
         ),
     ] = None,
     filter: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             "-f",
             "--filter",
@@ -424,7 +424,7 @@ def jobs_uv_run(
         ),
     ],
     script_args: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Argument(
             help="Arguments for the script",
         ),
@@ -448,7 +448,7 @@ def jobs_uv_run(
         ),
     ] = None,
     env: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             "-e",
             "--env",
@@ -456,7 +456,7 @@ def jobs_uv_run(
         ),
     ] = None,
     secrets: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             "-s",
             "--secrets",
@@ -507,7 +507,7 @@ def jobs_uv_run(
         ),
     ] = None,
     with_: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             "--with",
             help="Run with the given packages installed",
@@ -580,7 +580,7 @@ def scheduled_run(
         ),
     ],
     command: Annotated[
-        List[str],
+        list[str],
         typer.Argument(
             ...,
             help="The command to run.",
@@ -599,7 +599,7 @@ def scheduled_run(
         ),
     ] = None,
     env: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             "-e",
             "--env",
@@ -607,7 +607,7 @@ def scheduled_run(
         ),
     ] = None,
     secrets: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             "-s",
             "--secrets",
@@ -702,7 +702,7 @@ def scheduled_ps(
         ),
     ] = None,
     filter: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             "-f",
             "--filter",
@@ -773,7 +773,7 @@ def scheduled_ps(
 @scheduled_app.command("inspect", help="Display detailed information on one or more scheduled Jobs")
 def scheduled_inspect(
     scheduled_job_ids: Annotated[
-        List[str],
+        list[str],
         typer.Argument(
             ...,
             help="The scheduled jobs to inspect",
@@ -907,7 +907,7 @@ def scheduled_uv_run(
         ),
     ],
     script_args: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Argument(
             help="Arguments for the script",
         ),
@@ -946,7 +946,7 @@ def scheduled_uv_run(
         ),
     ] = None,
     env: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             "-e",
             "--env",
@@ -954,7 +954,7 @@ def scheduled_uv_run(
         ),
     ] = None,
     secrets: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             "-s",
             "--secrets",
@@ -993,7 +993,7 @@ def scheduled_uv_run(
         ),
     ] = None,
     with_: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             "--with",
             help="Run with the given packages installed",

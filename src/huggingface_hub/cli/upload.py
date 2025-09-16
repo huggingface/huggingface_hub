@@ -49,7 +49,7 @@ Usage:
 import os
 import time
 import warnings
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import typer
 from typing_extensions import Annotated
@@ -107,19 +107,19 @@ def upload(
         ),
     ] = False,
     include: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             help="Glob patterns to match files to upload.",
         ),
     ] = None,
     exclude: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             help="Glob patterns to exclude from files to upload.",
         ),
     ] = None,
     delete: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             help="Glob patterns for file to be deleted from the repo while committing.",
         ),
@@ -307,7 +307,7 @@ def upload(
 
 def _resolve_upload_paths(
     *, repo_id: str, local_path: Optional[str], path_in_repo: Optional[str], include: Optional[list[str]]
-) -> Tuple[str, str, Optional[List[str]]]:
+) -> tuple[str, str, Optional[list[str]]]:
     repo_name = repo_id.split("/")[-1]
     resolved_include = include
 

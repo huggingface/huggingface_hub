@@ -34,11 +34,11 @@ app = typer.Typer(add_completion=False, no_args_is_help=True, help="Hugging Face
 # top level single commands (defined in their respective files)
 app.command(
     name="download",
-    help="Download files from the Hub",
+    help="Download files from the Hub.",
 )(download)
 app.command(
     name="upload",
-    help="Upload a file or a folder to the Hub",
+    help="Upload a file or a folder to the Hub.",
 )(upload)
 app.command(
     name="upload-large-folder",

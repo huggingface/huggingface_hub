@@ -34,7 +34,7 @@ Usage:
     hf repo-files delete <repo_id> file.txt --revision=refs/pr/1 --repo-type=dataset
 """
 
-from typing import List, Optional
+from typing import Optional
 
 import typer
 from typing_extensions import Annotated
@@ -61,7 +61,7 @@ def repo_files_delete(
         ),
     ],
     patterns: Annotated[
-        List[str],
+        list[str],
         typer.Argument(
             ...,
             help="Glob patterns to match files to delete.",

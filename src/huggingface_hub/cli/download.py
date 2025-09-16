@@ -37,7 +37,7 @@ Usage:
 """
 
 import warnings
-from typing import List, Optional
+from typing import Optional
 
 import typer
 from typing_extensions import Annotated
@@ -62,7 +62,7 @@ def download(
         ),
     ],
     filenames: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Argument(
             help="Files to download (e.g. `config.json`, `data/metadata.jsonl`).",
         ),
@@ -80,13 +80,13 @@ def download(
         ),
     ] = None,
     include: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             help="Glob patterns to include from files to download. eg: *.json",
         ),
     ] = None,
     exclude: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             help="Glob patterns to exclude from files to download.",
         ),

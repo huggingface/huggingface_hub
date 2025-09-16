@@ -15,7 +15,7 @@
 """Contains command to upload a large folder with the CLI."""
 
 import os
-from typing import List, Optional
+from typing import Optional
 
 import typer
 from typing_extensions import Annotated
@@ -64,13 +64,13 @@ def upload_large_folder(
         ),
     ] = False,
     include: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             help="Glob patterns to match files to upload.",
         ),
     ] = None,
     exclude: Annotated[
-        Optional[List[str]],
+        Optional[list[str]],
         typer.Option(
             help="Glob patterns to exclude from files to upload.",
         ),
