@@ -34,10 +34,9 @@ Usage:
     hf repo-files delete <repo_id> file.txt --revision=refs/pr/1 --repo-type=dataset
 """
 
-from typing import Optional
+from typing import Annotated, Optional
 
 import typer
-from typing_extensions import Annotated
 
 from huggingface_hub import logging
 from huggingface_hub.hf_api import HfApi

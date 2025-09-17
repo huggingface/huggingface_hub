@@ -57,10 +57,9 @@ import os
 import re
 from dataclasses import asdict
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Annotated, Dict, Optional, Union
 
 import typer
-from typing_extensions import Annotated
 
 from huggingface_hub import HfApi, SpaceHardware, get_token
 from huggingface_hub.errors import HfHubHTTPError

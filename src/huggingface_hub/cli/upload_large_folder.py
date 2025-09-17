@@ -15,10 +15,9 @@
 """Contains command to upload a large folder with the CLI."""
 
 import os
-from typing import Optional
+from typing import Annotated, Optional
 
 import typer
-from typing_extensions import Annotated
 
 from huggingface_hub import logging
 from huggingface_hub.hf_api import HfApi

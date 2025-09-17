@@ -21,10 +21,9 @@ Usage:
     hf repo create my-cool-model --private
 """
 
-from typing import Optional
+from typing import Annotated, Optional
 
 import typer
-from typing_extensions import Annotated
 
 from huggingface_hub.cli._cli_utils import validate_repo_type
 from huggingface_hub.commands._cli_utils import ANSI

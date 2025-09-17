@@ -20,10 +20,9 @@ import json
 import os
 import subprocess
 import sys
-from typing import Optional
+from typing import Annotated, Optional
 
 import typer
-from typing_extensions import Annotated
 
 from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
 

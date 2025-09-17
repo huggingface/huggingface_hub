@@ -49,10 +49,9 @@ Usage:
 import os
 import time
 import warnings
-from typing import Optional
+from typing import Annotated, Optional
 
 import typer
-from typing_extensions import Annotated
 
 from huggingface_hub import logging
 from huggingface_hub._commit_scheduler import CommitScheduler

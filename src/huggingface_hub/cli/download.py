@@ -37,10 +37,9 @@ Usage:
 """
 
 import warnings
-from typing import Optional
+from typing import Annotated, Optional
 
 import typer
-from typing_extensions import Annotated
 
 from huggingface_hub import logging
 from huggingface_hub._snapshot_download import snapshot_download

@@ -18,10 +18,9 @@ import os
 import time
 from functools import wraps
 from tempfile import mkstemp
-from typing import Any, Callable, Iterable, Literal, Optional, Union, cast, get_args
+from typing import Annotated, Any, Callable, Iterable, Literal, Optional, Union, cast, get_args
 
 import typer
-from typing_extensions import Annotated
 
 from ..utils import CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, scan_cache_dir
 from ._cli_utils import ANSI, tabulate

@@ -30,10 +30,9 @@ Usage:
     hf auth whoami
 """
 
-from typing import Optional
+from typing import Annotated, Optional
 
 import typer
-from typing_extensions import Annotated
 
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.errors import HfHubHTTPError
