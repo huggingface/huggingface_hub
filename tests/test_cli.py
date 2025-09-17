@@ -11,6 +11,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import _CANCEL_DELETION_STR
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
@@ -398,7 +399,7 @@ class TestUploadImpl:
             ):
                 upload(
                     repo_id="my-dataset",
-                    repo_type="dataset",
+                    repo_type=RepoType.dataset,
                     local_path=str(file_path),
                     path_in_repo="logs/file.txt",
                     create_pr=True,
@@ -590,7 +591,7 @@ class TestDownloadImpl:
             download(
                 repo_id="author/model",
                 filenames=["config.json"],
-                repo_type="model",
+                repo_type=RepoType.model,
                 revision="main",
                 quiet=True,
             )
@@ -616,7 +617,7 @@ class TestDownloadImpl:
             download(
                 repo_id="author/model",
                 filenames=["README.md", "config.json"],
-                repo_type="model",
+                repo_type=RepoType.model,
                 force_download=True,
                 max_workers=4,
                 quiet=True,
@@ -643,7 +644,7 @@ class TestDownloadImpl:
             download(
                 repo_id="author/model",
                 filenames=[],
-                repo_type="model",
+                repo_type=RepoType.model,
                 include=["*.json"],
                 exclude=["data/*"],
                 force_download=True,
@@ -676,7 +677,7 @@ class TestDownloadImpl:
             download(
                 repo_id="author/model",
                 filenames=["README.md", "config.json"],
-                repo_type="model",
+                repo_type=RepoType.model,
                 include=["*.json"],
                 exclude=["data/*"],
                 force_download=True,

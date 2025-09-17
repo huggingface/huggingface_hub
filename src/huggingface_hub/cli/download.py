@@ -46,7 +46,7 @@ from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
-from ._cli_utils import validate_repo_type
+from ._cli_utils import RepoType
 
 
 logger = logging.get_logger(__name__)
@@ -67,11 +67,11 @@ def download(
         ),
     ] = None,
     repo_type: Annotated[
-        str,
+        RepoType,
         typer.Option(
             help="Type of repo to download from.",
         ),
-    ] = "model",
+    ] = RepoType.model,
     revision: Annotated[
         Optional[str],
         typer.Option(
@@ -128,8 +128,6 @@ def download(
     ] = 8,
 ) -> None:
     """Download files from the Hub."""
-    # Validate repo_type if provided
-    repo_type = validate_repo_type(repo_type) or "model"
 
     def run_download() -> str:
         filenames_list = filenames if filenames is not None else []
@@ -144,7 +142,7 @@ def download(
         if len(filenames_list) == 1:
             return hf_hub_download(
                 repo_id=repo_id,
-                repo_type=repo_type,
+                repo_type=repo_type.value,
                 revision=revision,
                 filename=filenames_list[0],
                 cache_dir=cache_dir,
@@ -164,7 +162,7 @@ def download(
 
         return snapshot_download(
             repo_id=repo_id,
-            repo_type=repo_type,
+            repo_type=repo_type.value,
             revision=revision,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,

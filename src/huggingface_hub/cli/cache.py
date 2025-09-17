@@ -16,9 +16,10 @@
 
 import os
 import time
+from enum import Enum
 from functools import wraps
 from tempfile import mkstemp
-from typing import Annotated, Any, Callable, Iterable, Literal, Optional, Union, cast, get_args
+from typing import Annotated, Any, Callable, Iterable, Optional, Union
 
 import typer
 
@@ -36,17 +37,14 @@ try:
 except ImportError:
     _inquirer_py_available = False
 
-SortingOption_T = Literal["alphabetical", "lastUpdated", "lastUsed", "size"]
 _CANCEL_DELETION_STR = "CANCEL_DELETION"
 
 
-def _validate_sort_option(sort: Optional[str]) -> Optional[SortingOption_T]:
-    if sort is None:
-        return None
-    options = get_args(SortingOption_T)
-    if sort not in options:
-        raise typer.BadParameter(f"Invalid sort option: {sort}", param_hint="sort")
-    return cast(SortingOption_T, sort)
+class SortingOption(str, Enum):
+    alphabetical = "alphabetical"
+    lastUpdated = "lastUpdated"
+    lastUsed = "lastUsed"
+    size = "size"
 
 
 def require_inquirer_py(fn: Callable) -> Callable:
@@ -125,15 +123,14 @@ def cache_delete(
         ),
     ] = False,
     sort: Annotated[
-        Optional[str],
+        Optional[SortingOption],
         typer.Option(
             help="Sort repositories by the specified criteria. Options: 'alphabetical' (A-Z), 'lastUpdated' (newest first), 'lastUsed' (most recent first), 'size' (largest first).",
-            case_sensitive=False,
         ),
     ] = None,
 ) -> None:
-    sort_by = _validate_sort_option(sort)
     hf_cache_info = scan_cache_dir(dir)
+    sort_by = sort.value if sort is not None else None
     if disable_tui:
         selected_hashes = _manual_review_no_tui(hf_cache_info, preselected=[], sort_by=sort_by)
     else:
@@ -213,7 +210,7 @@ def get_table(hf_cache_info: HFCacheInfo, *, verbosity: int = 0) -> str:
         )
 
 
-def _get_repo_sorting_key(repo: CachedRepoInfo, sort_by: Optional[SortingOption_T] = None):
+def _get_repo_sorting_key(repo: CachedRepoInfo, sort_by: Optional[str] = None):
     if sort_by == "alphabetical":
         return (repo.repo_type, repo.repo_id.lower())
     elif sort_by == "lastUpdated":
@@ -227,9 +224,7 @@ def _get_repo_sorting_key(repo: CachedRepoInfo, sort_by: Optional[SortingOption_
 
 
 @require_inquirer_py
-def _manual_review_tui(
-    hf_cache_info: HFCacheInfo, preselected: list[str], sort_by: Optional[SortingOption_T] = None
-) -> list[str]:
+def _manual_review_tui(hf_cache_info: HFCacheInfo, preselected: list[str], sort_by: Optional[str] = None) -> list[str]:
     choices = _get_tui_choices_from_scan(repos=hf_cache_info.repos, preselected=preselected, sort_by=sort_by)
     checkbox = inquirer.checkbox(
         message="Select revisions to delete:",
@@ -262,7 +257,7 @@ def _ask_for_confirmation_tui(message: str, default: bool = True) -> bool:
 
 
 def _get_tui_choices_from_scan(
-    repos: Iterable[CachedRepoInfo], preselected: list[str], sort_by: Optional[SortingOption_T] = None
+    repos: Iterable[CachedRepoInfo], preselected: list[str], sort_by: Optional[str] = None
 ) -> list:
     choices: list[Union["Choice", "Separator"]] = []
     choices.append(
@@ -291,7 +286,7 @@ def _get_tui_choices_from_scan(
 
 
 def _manual_review_no_tui(
-    hf_cache_info: HFCacheInfo, preselected: list[str], sort_by: Optional[SortingOption_T] = None
+    hf_cache_info: HFCacheInfo, preselected: list[str], sort_by: Optional[str] = None
 ) -> list[str]:
     fd, tmp_path = mkstemp(suffix=".txt")
     os.close(fd)

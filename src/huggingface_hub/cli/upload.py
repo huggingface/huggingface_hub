@@ -61,7 +61,7 @@ from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 from huggingface_hub.utils._runtime import is_xet_available
 
-from ._cli_utils import validate_repo_type
+from ._cli_utils import RepoType
 
 
 logger = logging.get_logger(__name__)
@@ -88,11 +88,11 @@ def upload(
         ),
     ] = None,
     repo_type: Annotated[
-        Optional[str],
+        RepoType,
         typer.Option(
             help="Type of the repo (model, dataset, space).",
         ),
-    ] = "model",
+    ] = RepoType.model,
     revision: Annotated[
         Optional[str],
         typer.Option(
@@ -165,8 +165,7 @@ def upload(
     if every is not None and every <= 0:
         raise typer.BadParameter("--every must be a positive value", param_hint="every")
 
-    # Validate repo_type if provided
-    repo_type = validate_repo_type(repo_type)
+    repo_type_str = repo_type.value
 
     api = HfApi(token=token, library_name="hf")
 
@@ -219,7 +218,7 @@ def upload(
             scheduler = CommitScheduler(
                 folder_path=folder_path,
                 repo_id=repo_id,
-                repo_type=repo_type,
+                repo_type=repo_type_str,
                 revision=revision,
                 allow_patterns=allow_patterns,
                 ignore_patterns=ignore_patterns,
@@ -241,10 +240,10 @@ def upload(
             raise FileNotFoundError(f"No such file or directory: '{resolved_local_path}'.")
         created = api.create_repo(
             repo_id=repo_id,
-            repo_type=repo_type,
+            repo_type=repo_type_str,
             exist_ok=True,
             private=private,
-            space_sdk="gradio" if repo_type == "space" else None,
+            space_sdk="gradio" if repo_type_str == "space" else None,
             # ^ We don't want it to fail when uploading to a Space => let's set Gradio by default.
             # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repo create` for that.
         ).repo_id
@@ -252,10 +251,10 @@ def upload(
         # Check if branch already exists and if not, create it
         if revision is not None and not create_pr:
             try:
-                api.repo_info(repo_id=created, repo_type=repo_type, revision=revision)
+                api.repo_info(repo_id=created, repo_type=repo_type_str, revision=revision)
             except RevisionNotFoundError:
                 logger.info(f"Branch '{revision}' not found. Creating it...")
-                api.create_branch(repo_id=created, repo_type=repo_type, branch=revision, exist_ok=True)
+                api.create_branch(repo_id=created, repo_type=repo_type_str, branch=revision, exist_ok=True)
                 # ^ `exist_ok=True` to avoid race concurrency issues
 
         # File-based upload
@@ -264,7 +263,7 @@ def upload(
                 path_or_fileobj=resolved_local_path,
                 path_in_repo=resolved_path_in_repo,
                 repo_id=created,
-                repo_type=repo_type,
+                repo_type=repo_type_str,
                 revision=revision,
                 commit_message=commit_message,
                 commit_description=commit_description,
@@ -276,7 +275,7 @@ def upload(
             folder_path=resolved_local_path,
             path_in_repo=resolved_path_in_repo,
             repo_id=created,
-            repo_type=repo_type,
+            repo_type=repo_type_str,
             revision=revision,
             commit_message=commit_message,
             commit_description=commit_description,

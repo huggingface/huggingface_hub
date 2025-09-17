@@ -14,9 +14,14 @@
 """Contains CLI utilities (styling, helpers)."""
 
 import os
-from typing import Optional, Union
+from enum import Enum
+from typing import Union
 
-import typer
+
+class RepoType(str, Enum):
+    model = "model"
+    dataset = "dataset"
+    space = "space"
 
 
 class ANSI:
@@ -69,18 +74,3 @@ def tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
     for row in rows:
         lines.append(row_format.format(*row))
     return "\n".join(lines)
-
-
-def validate_repo_type(value: Optional[str], param_name: str = "repo_type") -> Optional[str]:
-    """Validate repo type is one of model|dataset|space when provided.
-
-    Returns the value if valid or None. Raises a Typer BadParameter otherwise.
-    """
-    if value is None:
-        return None
-    if value in ("model", "dataset", "space"):
-        return value
-    raise typer.BadParameter(
-        "Invalid value for '--repo-type': must be one of 'model', 'dataset', 'space'.",
-        param_hint=param_name,
-    )

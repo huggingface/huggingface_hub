@@ -23,7 +23,7 @@ from huggingface_hub import logging
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import disable_progress_bars
 
-from ._cli_utils import ANSI, validate_repo_type
+from ._cli_utils import ANSI, RepoType
 
 
 logger = logging.get_logger(__name__)
@@ -45,11 +45,11 @@ def upload_large_folder(
         ),
     ],
     repo_type: Annotated[
-        Optional[str],
+        RepoType,
         typer.Option(
             help="Type of the repo to upload to (model, dataset, space).",
         ),
-    ] = None,
+    ] = RepoType.model,
     revision: Annotated[
         Optional[str],
         typer.Option(
@@ -104,7 +104,6 @@ def upload_large_folder(
         raise typer.BadParameter("Large upload is only supported for folders.", param_hint="local_path")
 
     logging.set_verbosity_info()
-    repo_type = validate_repo_type(repo_type)
 
     print(
         ANSI.yellow(
@@ -138,7 +137,7 @@ def upload_large_folder(
     api.upload_large_folder(
         repo_id=repo_id,
         folder_path=local_path,
-        repo_type=repo_type or "model",
+        repo_type=repo_type.value,
         revision=revision,
         private=private,
         allow_patterns=include,

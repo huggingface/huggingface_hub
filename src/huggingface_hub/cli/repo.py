@@ -25,11 +25,11 @@ from typing import Annotated, Optional
 
 import typer
 
-from huggingface_hub.cli._cli_utils import validate_repo_type
-from huggingface_hub.commands._cli_utils import ANSI
 from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import logging
+
+from ._cli_utils import ANSI, RepoType
 
 
 logger = logging.get_logger(__name__)
@@ -49,11 +49,11 @@ def repo_create(
         ),
     ],
     repo_type: Annotated[
-        Optional[str],
+        RepoType,
         typer.Option(
             help="set to dataset' or 'space' if creating a dataset or space, default is 'model'.",
         ),
-    ] = None,
+    ] = RepoType.model,
     space_sdk: Annotated[
         Optional[str],
         typer.Option(
@@ -87,11 +87,10 @@ def repo_create(
         ),
     ] = None,
 ) -> None:
-    repo_type = validate_repo_type(repo_type)
     api = HfApi()
     repo_url = api.create_repo(
         repo_id=repo_id,
-        repo_type=repo_type,
+        repo_type=repo_type.value,
         private=private,
         token=token,
         exist_ok=exist_ok,
@@ -139,19 +138,19 @@ def tag_create(
         ),
     ] = None,
     repo_type: Annotated[
-        Optional[str],
+        RepoType,
         typer.Option(
             help="Set the type of repository (model, dataset, or space).",
         ),
-    ] = "model",
+    ] = RepoType.model,
 ) -> None:
-    repo_type = validate_repo_type(repo_type) or "model"
+    repo_type_str = repo_type.value
     api = HfApi(token=token)
-    print(f"You are about to create tag {ANSI.bold(tag)} on {repo_type} {ANSI.bold(repo_id)}")
+    print(f"You are about to create tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
     try:
-        api.create_tag(repo_id=repo_id, tag=tag, tag_message=message, revision=revision, repo_type=repo_type)
+        api.create_tag(repo_id=repo_id, tag=tag, tag_message=message, revision=revision, repo_type=repo_type_str)
     except RepositoryNotFoundError:
-        print(f"{repo_type.capitalize()} {ANSI.bold(repo_id)} not found.")
+        print(f"{repo_type_str.capitalize()} {ANSI.bold(repo_id)} not found.")
         raise typer.Exit(code=1)
     except RevisionNotFoundError:
         print(f"Revision {ANSI.bold(str(revision))} not found.")
@@ -180,18 +179,18 @@ def tag_list(
         ),
     ] = None,
     repo_type: Annotated[
-        Optional[str],
+        RepoType,
         typer.Option(
             help="Set the type of repository (model, dataset, or space).",
         ),
-    ] = "model",
+    ] = RepoType.model,
 ) -> None:
-    repo_type = validate_repo_type(repo_type) or "model"
+    repo_type_str = repo_type.value
     api = HfApi(token=token)
     try:
-        refs = api.list_repo_refs(repo_id=repo_id, repo_type=repo_type)
+        refs = api.list_repo_refs(repo_id=repo_id, repo_type=repo_type_str)
     except RepositoryNotFoundError:
-        print(f"{repo_type.capitalize()} {ANSI.bold(repo_id)} not found.")
+        print(f"{repo_type_str.capitalize()} {ANSI.bold(repo_id)} not found.")
         raise typer.Exit(code=1)
     except HfHubHTTPError as e:
         print(e)
@@ -200,7 +199,7 @@ def tag_list(
     if len(refs.tags) == 0:
         print("No tags found")
         raise typer.Exit(code=0)
-    print(f"Tags for {repo_type} {ANSI.bold(repo_id)}:")
+    print(f"Tags for {repo_type_str} {ANSI.bold(repo_id)}:")
     for t in refs.tags:
         print(t.name)
 
@@ -233,14 +232,14 @@ def tag_delete(
         ),
     ] = None,
     repo_type: Annotated[
-        Optional[str],
+        RepoType,
         typer.Option(
             help="Set the type of repository (model, dataset, or space).",
         ),
-    ] = "model",
+    ] = RepoType.model,
 ) -> None:
-    repo_type = validate_repo_type(repo_type) or "model"
-    print(f"You are about to delete tag {ANSI.bold(tag)} on {repo_type} {ANSI.bold(repo_id)}")
+    repo_type_str = repo_type.value
+    print(f"You are about to delete tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
     if not yes:
         choice = input("Proceed? [Y/n] ").lower()
         if choice not in ("", "y", "yes"):
@@ -248,9 +247,9 @@ def tag_delete(
             raise typer.Exit()
     api = HfApi(token=token)
     try:
-        api.delete_tag(repo_id=repo_id, tag=tag, repo_type=repo_type)
+        api.delete_tag(repo_id=repo_id, tag=tag, repo_type=repo_type_str)
     except RepositoryNotFoundError:
-        print(f"{repo_type.capitalize()} {ANSI.bold(repo_id)} not found.")
+        print(f"{repo_type_str.capitalize()} {ANSI.bold(repo_id)} not found.")
         raise typer.Exit(code=1)
     except RevisionNotFoundError:
         print(f"Tag {ANSI.bold(tag)} not found on {ANSI.bold(repo_id)}")

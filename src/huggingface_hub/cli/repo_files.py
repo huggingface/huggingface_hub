@@ -41,7 +41,7 @@ import typer
 from huggingface_hub import logging
 from huggingface_hub.hf_api import HfApi
 
-from ._cli_utils import validate_repo_type
+from ._cli_utils import RepoType
 
 
 logger = logging.get_logger(__name__)
@@ -67,11 +67,11 @@ def repo_files_delete(
         ),
     ],
     repo_type: Annotated[
-        Optional[str],
+        RepoType,
         typer.Option(
             help="Type of the repo to upload to (e.g. `dataset`).",
         ),
-    ] = "model",
+    ] = RepoType.model,
     revision: Annotated[
         Optional[str],
         typer.Option(
@@ -106,12 +106,11 @@ def repo_files_delete(
     ] = None,
 ) -> None:
     logging.set_verbosity_info()
-    repo_type = validate_repo_type(repo_type)
     api = HfApi(token=token, library_name="hf")
     url = api.delete_files(
         delete_patterns=patterns,
         repo_id=repo_id,
-        repo_type=repo_type,
+        repo_type=repo_type.value,
         revision=revision,
         commit_message=commit_message,
         commit_description=commit_description,
