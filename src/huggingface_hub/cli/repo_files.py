@@ -91,14 +91,12 @@ def repo_files_delete(
     create_pr: Annotated[
         bool,
         typer.Option(
-            "--create-pr",
             help="Whether to create a new Pull Request for these changes.",
         ),
     ] = False,
     token: Annotated[
         Optional[str],
         typer.Option(
-            "--token",
             help="A User Access Token generated from https://huggingface.co/settings/tokens",
         ),
     ] = None,
