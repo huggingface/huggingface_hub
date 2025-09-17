@@ -33,36 +33,13 @@ app = typer_factory(help="Hugging Face Hub CLI")
 
 
 # top level single commands (defined in their respective files)
-app.command(
-    name="download",
-    help="Download files from the Hub.",
-)(download)
-app.command(
-    name="upload",
-    help="Upload a file or a folder to the Hub.",
-)(upload)
-app.command(
-    name="upload-large-folder",
-    help="Upload a large folder to the Hub. Recommended for resumable uploads.",
-)(upload_large_folder)
-app.command(
-    name="env",
-    help="Print information about the environment.",
-)(env)
-app.command(
-    name="version",
-    help="Print information about the hf version.",
-)(version)
-app.command(
-    name="lfs-enable-largefiles",
-    help="Configure your repository to enable upload of files > 5GB.",
-    hidden=True,
-)(lfs_enable_largefiles)
-app.command(
-    name="lfs-multipart-upload",
-    help="Upload large files to the Hub.",
-    hidden=True,
-)(lfs_multipart_upload)
+app.command(help="Download files from the Hub.")(download)
+app.command(help="Upload a file or a folder to the Hub.")(upload)
+app.command(help="Upload a large folder to the Hub. Recommended for resumable uploads.")(upload_large_folder)
+app.command(name="env", help="Print information about the environment.")(env)
+app.command(help="Print information about the hf version.")(version)
+app.command(help="Configure your repository to enable upload of files > 5GB.", hidden=True)(lfs_enable_largefiles)
+app.command(help="Upload large files to the Hub.", hidden=True)(lfs_multipart_upload)
 
 
 # command groups

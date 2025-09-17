@@ -482,7 +482,6 @@ def jobs_uv_run(
         ),
     ] = None,
 ) -> None:
-    logging.set_verbosity(logging.INFO)
     env_map: dict[str, Optional[str]] = {}
     if env_file:
         env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
@@ -919,7 +918,6 @@ def scheduled_uv_run(
         ),
     ] = None,
 ) -> None:
-    logging.set_verbosity(logging.INFO)
     env_map: dict[str, Optional[str]] = {}
     if env_file:
         env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
