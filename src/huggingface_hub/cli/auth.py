@@ -68,7 +68,7 @@ def auth_login(
     add_to_git_credential: Annotated[
         bool,
         typer.Option(
-            help="Save to git credential helper",
+            help="Save to git credential helper. Useful only if you plan to run git commands directly.",
         ),
     ] = False,
 ) -> None:
@@ -134,7 +134,7 @@ def auth_switch_cmd(
     add_to_git_credential: Annotated[
         bool,
         typer.Option(
-            help="Save to git credential",
+            help="Save to git credential helper. Useful only if you plan to run git commands directly.",
         ),
     ] = False,
 ) -> None:
