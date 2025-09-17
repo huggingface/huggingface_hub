@@ -78,7 +78,7 @@ def tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
 def typer_factory(help: str) -> typer.Typer:
     return typer.Typer(
         help=help,
-        add_completion=False,
+        add_completion=True,
         rich_markup_mode=None,
         no_args_is_help=True,
     )
