@@ -41,7 +41,7 @@ import typer
 from huggingface_hub import logging
 from huggingface_hub.hf_api import HfApi
 
-from ._cli_utils import RepoType, typer_factory
+from ._cli_utils import RepoTypeOpt, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -65,11 +65,11 @@ def repo_files_delete(
         ),
     ],
     repo_type: Annotated[
-        RepoType,
+        RepoTypeOpt,
         typer.Option(
             help="Type of the repo to upload to (e.g. `dataset`).",
         ),
-    ] = RepoType.model,
+    ] = RepoTypeOpt.model,
     revision: Annotated[
         Optional[str],
         typer.Option(

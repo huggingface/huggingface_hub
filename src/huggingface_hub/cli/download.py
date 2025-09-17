@@ -46,7 +46,7 @@ from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
-from ._cli_utils import RepoType
+from ._cli_utils import RepoTypeOpt
 
 
 logger = logging.get_logger(__name__)
@@ -66,11 +66,11 @@ def download(
         ),
     ] = None,
     repo_type: Annotated[
-        RepoType,
+        RepoTypeOpt,
         typer.Option(
             help="Type of repo to download from.",
         ),
-    ] = RepoType.model,
+    ] = RepoTypeOpt.model,
     revision: Annotated[
         Optional[str],
         typer.Option(
