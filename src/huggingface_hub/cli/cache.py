@@ -82,25 +82,21 @@ def cache_scan(
         ),
     ] = 0,
 ) -> None:
-    _run_scan(cache_dir=dir, verbosity=verbose)
-
-
-def _run_scan(cache_dir: Optional[str], verbosity: int) -> None:
     try:
         t0 = time.time()
-        hf_cache_info = scan_cache_dir(cache_dir)
+        hf_cache_info = scan_cache_dir(dir)
         t1 = time.time()
     except CacheNotFound as exc:
         print(f"Cache directory not found: {str(exc.cache_dir)}")
         return
-    print(get_table(hf_cache_info, verbosity=verbosity))
+    print(get_table(hf_cache_info, verbosity=verbose))
     print(
         f"\nDone in {round(t1 - t0, 1)}s. Scanned {len(hf_cache_info.repos)} repo(s)"
         f" for a total of {ANSI.red(hf_cache_info.size_on_disk_str)}."
     )
     if len(hf_cache_info.warnings) > 0:
         message = f"Got {len(hf_cache_info.warnings)} warning(s) while scanning."
-        if verbosity >= 3:
+        if verbose >= 3:
             print(ANSI.gray(message))
             for warning in hf_cache_info.warnings:
                 print(ANSI.gray(str(warning)))

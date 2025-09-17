@@ -58,7 +58,6 @@ def repo_create(
         Optional[str],
         typer.Option(
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
-            rich_help_panel=None,
         ),
     ] = None,
     private: Annotated[

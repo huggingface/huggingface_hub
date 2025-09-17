@@ -29,28 +29,36 @@ def runner() -> CliRunner:
 
 class TestCacheCommand:
     def test_scan_cache_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.cache._run_scan") as mock_run:
+        with patch("huggingface_hub.cli.cache.scan_cache_dir") as mock_run:
             result = runner.invoke(app, ["cache", "scan"])
         assert result.exit_code == 0
-        mock_run.assert_called_once_with(cache_dir=None, verbosity=0)
+        mock_run.assert_called_once_with(None)
 
     def test_scan_cache_verbose(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.cache._run_scan") as mock_run:
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir") as mock_run,
+            patch("huggingface_hub.cli.cache.get_table") as get_table_mock,
+        ):
             result = runner.invoke(app, ["cache", "scan", "-v"])
         assert result.exit_code == 0
-        mock_run.assert_called_once_with(cache_dir=None, verbosity=1)
+        mock_run.assert_called_once_with(None)
+        get_table_mock.assert_called_once_with(mock_run.return_value, verbosity=1)
 
     def test_scan_cache_with_dir(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.cache._run_scan") as mock_run:
+        with patch("huggingface_hub.cli.cache.scan_cache_dir") as mock_run:
             result = runner.invoke(app, ["cache", "scan", "--dir", "something"])
         assert result.exit_code == 0
-        mock_run.assert_called_once_with(cache_dir="something", verbosity=0)
+        mock_run.assert_called_once_with("something")
 
     def test_scan_cache_ultra_verbose(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.cache._run_scan") as mock_run:
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir") as mock_run,
+            patch("huggingface_hub.cli.cache.get_table") as get_table_mock,
+        ):
             result = runner.invoke(app, ["cache", "scan", "-vvv"])
         assert result.exit_code == 0
-        mock_run.assert_called_once_with(cache_dir=None, verbosity=3)
+        mock_run.assert_called_once_with(None)
+        get_table_mock.assert_called_once_with(mock_run.return_value, verbosity=3)
 
     def test_delete_cache_with_dir(self, runner: CliRunner) -> None:
         hf_cache_info = Mock()
