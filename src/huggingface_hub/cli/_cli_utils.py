@@ -17,6 +17,7 @@ import os
 from enum import Enum
 from typing import Annotated, Optional, Union
 
+import click
 import typer
 
 
@@ -75,12 +76,23 @@ def tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
 #### TYPER UTILS
 
 
+class AlphabeticalMixedGroup(typer.core.TyperGroup):
+    """
+    Typer Group that lists commands and sub-apps mixed and alphabetically.
+    """
+
+    def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
+        # click.Group stores both commands and sub-groups in `self.commands`
+        return sorted(self.commands.keys())
+
+
 def typer_factory(help: str) -> typer.Typer:
     return typer.Typer(
         help=help,
         add_completion=True,
         rich_markup_mode=None,
         no_args_is_help=True,
+        cls=AlphabeticalMixedGroup,
     )
 
 
