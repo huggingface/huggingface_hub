@@ -46,37 +46,22 @@ from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
-from ._cli_utils import RepoType
+from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
 
 
 logger = logging.get_logger(__name__)
 
 
 def download(
-    repo_id: Annotated[
-        str,
-        typer.Argument(
-            help="ID of the repo to download from (e.g. `username/repo-name`).",
-        ),
-    ],
+    repo_id: RepoIdArg,
     filenames: Annotated[
         Optional[list[str]],
         typer.Argument(
             help="Files to download (e.g. `config.json`, `data/metadata.jsonl`).",
         ),
     ] = None,
-    repo_type: Annotated[
-        RepoType,
-        typer.Option(
-            help="Type of repo to download from.",
-        ),
-    ] = RepoType.model,
-    revision: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Git revision id which can be a branch name, a tag, or a commit hash.",
-        ),
-    ] = None,
+    repo_type: RepoTypeOpt = RepoTypeOpt.model,
+    revision: RevisionOpt = None,
     include: Annotated[
         Optional[list[str]],
         typer.Option(
@@ -107,12 +92,7 @@ def download(
             help="If True, the files will be downloaded even if they are already cached.",
         ),
     ] = False,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
     quiet: Annotated[
         bool,
         typer.Option(

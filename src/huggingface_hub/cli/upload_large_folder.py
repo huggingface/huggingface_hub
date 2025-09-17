@@ -23,43 +23,23 @@ from huggingface_hub import logging
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import disable_progress_bars
 
-from ._cli_utils import ANSI, RepoType
+from ._cli_utils import ANSI, PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt
 
 
 logger = logging.get_logger(__name__)
 
 
 def upload_large_folder(
-    repo_id: Annotated[
-        str,
-        typer.Argument(
-            help="The ID of the repo to upload to (e.g. `username/repo-name`).",
-        ),
-    ],
+    repo_id: RepoIdArg,
     local_path: Annotated[
         str,
         typer.Argument(
             help="Local path to the folder to upload.",
         ),
     ],
-    repo_type: Annotated[
-        RepoType,
-        typer.Option(
-            help="Type of the repo to upload to (model, dataset, space).",
-        ),
-    ] = RepoType.model,
-    revision: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Git revision to push to. It can be a branch name or a PR reference.",
-        ),
-    ] = None,
-    private: Annotated[
-        bool,
-        typer.Option(
-            help="Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.",
-        ),
-    ] = False,
+    repo_type: RepoTypeOpt = RepoType.model,
+    revision: RevisionOpt = None,
+    private: PrivateOpt = False,
     include: Annotated[
         Optional[list[str]],
         typer.Option(
@@ -72,12 +52,7 @@ def upload_large_folder(
             help="Glob patterns to exclude from files to upload.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
     num_workers: Annotated[
         Optional[int],
         typer.Option(

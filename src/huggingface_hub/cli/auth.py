@@ -40,7 +40,7 @@ from huggingface_hub.hf_api import whoami
 
 from .._login import auth_list, auth_switch, login, logout
 from ..utils import get_stored_tokens, get_token, logging
-from ._cli_utils import ANSI, typer_factory
+from ._cli_utils import ANSI, TokenOpt, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -59,12 +59,7 @@ auth_cli = typer_factory(help="Manage authentication (login, logout, etc.).")
 
 @auth_cli.command("login", help="Login using a token from huggingface.co/settings/tokens")
 def auth_login(
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Token from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
     add_to_git_credential: Annotated[
         bool,
         typer.Option(

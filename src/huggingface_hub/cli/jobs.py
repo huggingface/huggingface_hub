@@ -66,7 +66,7 @@ from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._dotenv import load_dotenv
 
-from ._cli_utils import typer_factory
+from ._cli_utils import TokenOpt, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -150,13 +150,7 @@ def jobs_run(
             help="The namespace where the Job will be created. Defaults to the current user's namespace.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            "--token",
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
 ) -> None:
     env_map: dict[str, Optional[str]] = {}
     if env_file:
@@ -207,13 +201,7 @@ def jobs_logs(
             help="The namespace where the job is running. Defaults to the current user's namespace.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            "--token",
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
 ) -> None:
     api = HfApi(token=token)
     for log in api.fetch_job_logs(job_id=job_id, namespace=namespace):
@@ -271,12 +259,7 @@ def jobs_ps(
             help="The namespace from where it lists the jobs. Defaults to the current user's namespace.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
     filter: Annotated[
         Optional[list[str]],
         typer.Option(
@@ -367,12 +350,7 @@ def jobs_inspect(
             help="The namespace where the job is running. Defaults to the current user's namespace.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
 ) -> None:
     api = HfApi(token=token)
     jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
@@ -393,12 +371,7 @@ def jobs_cancel(
             help="The namespace where the job is running. Defaults to the current user's namespace.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
 ) -> None:
     api = HfApi(token=token)
     api.cancel_job(job_id=job_id, namespace=namespace)
@@ -492,13 +465,7 @@ def jobs_uv_run(
             help="The namespace where the Job will be created. Defaults to the current user's namespace.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            "--token",
-            help="HF token",
-        ),
-    ] = None,
+    token: TokenOpt = None,
     with_: Annotated[
         Optional[list[str]],
         typer.Option(
@@ -634,12 +601,7 @@ def scheduled_run(
             help="The namespace where the scheduled Job will be created. Defaults to the current user's namespace.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
 ) -> None:
     env_map: dict[str, Optional[str]] = {}
     if env_file:
@@ -685,12 +647,7 @@ def scheduled_ps(
             help="The namespace from where it lists the jobs. Defaults to the current user's namespace.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
     filter: Annotated[
         Optional[list[str]],
         typer.Option(
@@ -775,13 +732,7 @@ def scheduled_inspect(
             help="The namespace where the scheduled job is. Defaults to the current user's namespace.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            "--token",
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
 ) -> None:
     api = HfApi(token=token)
     scheduled_jobs = [
@@ -805,12 +756,7 @@ def scheduled_delete(
             help="The namespace where the scheduled job is. Defaults to the current user's namespace.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
 ) -> None:
     api = HfApi(token=token)
     api.delete_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
@@ -831,13 +777,7 @@ def scheduled_suspend(
             help="The namespace where the scheduled job is. Defaults to the current user's namespace.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            "--token",
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
 ) -> None:
     api = HfApi(token=token)
     api.suspend_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
@@ -858,13 +798,7 @@ def scheduled_resume(
             help="The namespace where the scheduled job is. Defaults to the current user's namespace.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            "--token",
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
 ) -> None:
     api = HfApi(token=token)
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
@@ -968,12 +902,7 @@ def scheduled_uv_run(
             help="The namespace where the Job will be created. Defaults to the current user's namespace.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="HF token",
-        ),
-    ] = None,
+    token: TokenOpt = None,
     with_: Annotated[
         Optional[list[str]],
         typer.Option(

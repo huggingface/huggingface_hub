@@ -41,7 +41,7 @@ import typer
 from huggingface_hub import logging
 from huggingface_hub.hf_api import HfApi
 
-from ._cli_utils import RepoType, typer_factory
+from ._cli_utils import RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -52,30 +52,15 @@ repo_files_cli = typer_factory(help="Manage files in a repo on the Hub.")
 
 @repo_files_cli.command("delete")
 def repo_files_delete(
-    repo_id: Annotated[
-        str,
-        typer.Argument(
-            help="The ID of the repo (e.g. username/repo-name).",
-        ),
-    ],
+    repo_id: RepoIdArg,
     patterns: Annotated[
         list[str],
         typer.Argument(
             help="Glob patterns to match files to delete.",
         ),
     ],
-    repo_type: Annotated[
-        RepoType,
-        typer.Option(
-            help="Type of the repo to upload to (e.g. `dataset`).",
-        ),
-    ] = RepoType.model,
-    revision: Annotated[
-        Optional[str],
-        typer.Option(
-            help="An optional Git revision to push to. It can be a branch name or a PR reference. If revision does not exist and `--create-pr` is not set, a branch will be automatically created.",
-        ),
-    ] = None,
+    repo_type: RepoTypeOpt = RepoType.model,
+    revision: RevisionOpt = None,
     commit_message: Annotated[
         Optional[str],
         typer.Option(
@@ -94,12 +79,7 @@ def repo_files_delete(
             help="Whether to create a new Pull Request for these changes.",
         ),
     ] = False,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
 ) -> None:
     api = HfApi(token=token, library_name="hf")
     url = api.delete_files(

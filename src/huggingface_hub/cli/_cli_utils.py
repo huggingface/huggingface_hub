@@ -15,15 +15,9 @@
 
 import os
 from enum import Enum
-from typing import Union
+from typing import Annotated, Optional, Union
 
 import typer
-
-
-class RepoType(str, Enum):
-    model = "model"
-    dataset = "dataset"
-    space = "space"
 
 
 class ANSI:
@@ -78,6 +72,9 @@ def tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
     return "\n".join(lines)
 
 
+#### TYPER UTILS
+
+
 def typer_factory(help: str) -> typer.Typer:
     return typer.Typer(
         help=help,
@@ -85,3 +82,46 @@ def typer_factory(help: str) -> typer.Typer:
         rich_markup_mode=None,
         no_args_is_help=True,
     )
+
+
+class RepoType(str, Enum):
+    model = "model"
+    dataset = "dataset"
+    space = "space"
+
+
+RepoIdArg = Annotated[
+    str,
+    typer.Argument(
+        help="The ID of the repo (e.g. `username/repo-name`).",
+    ),
+]
+
+
+RepoTypeOpt = Annotated[
+    RepoType,
+    typer.Option(
+        help="The type of repository (model, dataset, or space).",
+    ),
+]
+
+TokenOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="A User Access Token generated from https://huggingface.co/settings/tokens.",
+    ),
+]
+
+PrivateOpt = Annotated[
+    bool,
+    typer.Option(
+        help="Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.",
+    ),
+]
+
+RevisionOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="Git revision id which can be a branch name, a tag, or a commit hash.",
+    ),
+]

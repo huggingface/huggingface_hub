@@ -61,19 +61,14 @@ from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 from huggingface_hub.utils._runtime import is_xet_available
 
-from ._cli_utils import RepoType
+from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt
 
 
 logger = logging.get_logger(__name__)
 
 
 def upload(
-    repo_id: Annotated[
-        str,
-        typer.Argument(
-            help="The ID of the repo to upload to (e.g. `username/repo-name`).",
-        ),
-    ],
+    repo_id: RepoIdArg,
     local_path: Annotated[
         Optional[str],
         typer.Argument(
@@ -86,24 +81,9 @@ def upload(
             help="Path of the file or folder in the repo. Defaults to the relative path of the file or folder.",
         ),
     ] = None,
-    repo_type: Annotated[
-        RepoType,
-        typer.Option(
-            help="Type of the repo (model, dataset, space).",
-        ),
-    ] = RepoType.model,
-    revision: Annotated[
-        Optional[str],
-        typer.Option(
-            help="An optional Git revision to push to. It can be a branch name or a PR reference. If revision does not An optional Git revision to push to. It can be a branch name or a PR reference. If revision does not exist and `--create-pr` is not set, a branch will be automatically created.",
-        ),
-    ] = None,
-    private: Annotated[
-        bool,
-        typer.Option(
-            help="Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.",
-        ),
-    ] = False,
+    repo_type: RepoTypeOpt = RepoType.model,
+    revision: RevisionOpt = None,
+    private: PrivateOpt = False,
     include: Annotated[
         Optional[list[str]],
         typer.Option(
@@ -146,12 +126,7 @@ def upload(
             help="f set, a background job is scheduled to create commits every `every` minutes.",
         ),
     ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        ),
-    ] = None,
+    token: TokenOpt = None,
     quiet: Annotated[
         bool,
         typer.Option(

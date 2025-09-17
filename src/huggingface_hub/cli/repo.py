@@ -29,7 +29,7 @@ from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, Revi
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import logging
 
-from ._cli_utils import ANSI, RepoType, typer_factory
+from ._cli_utils import ANSI, PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -41,37 +41,16 @@ repo_cli.add_typer(tag_app, name="tag")
 
 @repo_cli.command("create", help="Create a new repo on the Hub.")
 def repo_create(
-    repo_id: Annotated[
-        str,
-        typer.Argument(
-            help="Repo ID to create (e.g. username/repo-name). Username defaults to current user if omitted.",
-        ),
-    ],
-    repo_type: Annotated[
-        RepoType,
-        typer.Option(
-            help="set to dataset' or 'space' if creating a dataset or space, default is 'model'.",
-        ),
-    ] = RepoType.model,
+    repo_id: RepoIdArg,
+    repo_type: RepoTypeOpt = RepoType.model,
     space_sdk: Annotated[
         Optional[str],
         typer.Option(
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
         ),
     ] = None,
-    private: Annotated[
-        bool,
-        typer.Option(
-            "--private",
-            help="Whether to create a private repository. Defaults to public unless the organization's default is private.",
-        ),
-    ] = False,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Hugging Face token. Will default to the locally saved token if not provided.",
-        ),
-    ] = None,
+    private: PrivateOpt = False,
+    token: TokenOpt = None,
     exist_ok: Annotated[
         bool,
         typer.Option(
@@ -101,12 +80,7 @@ def repo_create(
 
 @tag_app.command("create", help="Create a tag for a repo.")
 def tag_create(
-    repo_id: Annotated[
-        str,
-        typer.Argument(
-            help="The ID of the repo to tag (e.g. `username/repo-name`).",
-        ),
-    ],
+    repo_id: RepoIdArg,
     tag: Annotated[
         str,
         typer.Argument(
@@ -121,24 +95,9 @@ def tag_create(
             help="The description of the tag to create.",
         ),
     ] = None,
-    revision: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Git revision to tag",
-        ),
-    ] = None,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="A User Access Token generated from https://huggingface.co/settings/tokens.",
-        ),
-    ] = None,
-    repo_type: Annotated[
-        RepoType,
-        typer.Option(
-            help="Set the type of repository (model, dataset, or space).",
-        ),
-    ] = RepoType.model,
+    revision: RevisionOpt = None,
+    token: TokenOpt = None,
+    repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
     repo_type_str = repo_type.value
     api = HfApi(token=token)
@@ -161,24 +120,9 @@ def tag_create(
 
 @tag_app.command("list", help="List tags for a repo.")
 def tag_list(
-    repo_id: Annotated[
-        str,
-        typer.Argument(
-            help="The ID of the repo to list tags for (e.g. `username/repo-name`",
-        ),
-    ],
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="A User Access Token generated from https://huggingface.co/settings/tokens.",
-        ),
-    ] = None,
-    repo_type: Annotated[
-        RepoType,
-        typer.Option(
-            help="Set the type of repository (model, dataset, or space).",
-        ),
-    ] = RepoType.model,
+    repo_id: RepoIdArg,
+    token: TokenOpt = None,
+    repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
     repo_type_str = repo_type.value
     api = HfApi(token=token)
@@ -201,12 +145,7 @@ def tag_list(
 
 @tag_app.command("delete", help="Delete a tag for a repo.")
 def tag_delete(
-    repo_id: Annotated[
-        str,
-        typer.Argument(
-            help="The ID of the repo to delete the tag from (e.g. `username/repo-name`).",
-        ),
-    ],
+    repo_id: RepoIdArg,
     tag: Annotated[
         str,
         typer.Argument(
@@ -221,18 +160,8 @@ def tag_delete(
             help="Answer Yes to prompt automatically",
         ),
     ] = False,
-    token: Annotated[
-        Optional[str],
-        typer.Option(
-            help="A User Access Token generated from https://huggingface.co/settings/tokens.",
-        ),
-    ] = None,
-    repo_type: Annotated[
-        RepoType,
-        typer.Option(
-            help="Set the type of repository (model, dataset, or space).",
-        ),
-    ] = RepoType.model,
+    token: TokenOpt = None,
+    repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
     repo_type_str = repo_type.value
     print(f"You are about to delete tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
