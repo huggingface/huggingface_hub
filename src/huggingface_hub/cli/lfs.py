@@ -33,15 +33,6 @@ from ..utils._lfs import SliceFileObj
 logger = logging.get_logger(__name__)
 
 
-"""
-Implementation of a custom transfer agent for the transfer type "multipart" for git-lfs.
-
-Commands:
-- hf lfs-enable-largefiles
-- hf lfs-multipart-upload (internal; called by git-lfs)
-"""
-
-
 def lfs_enable_largefiles(
     path: Annotated[
         str,
@@ -50,6 +41,12 @@ def lfs_enable_largefiles(
         ),
     ],
 ) -> None:
+    """
+    Configure a local git repository to use the multipart transfer agent for large files.
+
+    This command sets up git-lfs to use the custom multipart transfer agent
+    which enables efficient uploading of large files in chunks.
+    """
     local_path = os.path.abspath(path)
     if not os.path.isdir(local_path):
         print("This does not look like a valid git repo.")
@@ -90,6 +87,11 @@ def read_msg() -> Optional[dict]:
 
 
 def lfs_multipart_upload() -> None:
+    """Internal git-lfs custom transfer agent for multipart uploads.
+
+    This function implements the custom transfer protocol for git-lfs multipart uploads.
+    Handles chunked uploads of large files to Hugging Face Hub.
+    """
     # Immediately after invoking a custom transfer process, git-lfs
     # sends initiation data to the process over stdin.
     # This tells the process useful information about the configuration.
