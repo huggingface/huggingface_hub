@@ -55,7 +55,7 @@ from ._http import (
     CLIENT_FACTORY_T,
     HfHubAsyncTransport,
     HfHubTransport,
-    close_client,
+    close_session,
     fix_hf_endpoint_in_url,
     get_async_session,
     get_session,
