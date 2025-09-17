@@ -24,7 +24,7 @@ from typing import Annotated, Any, Callable, Iterable, Optional, Union
 import typer
 
 from ..utils import CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, scan_cache_dir
-from ._cli_utils import ANSI, tabulate
+from ._cli_utils import ANSI, tabulate, typer_factory
 
 
 # --- DELETE helpers (from delete_cache.py) ---
@@ -61,7 +61,7 @@ def require_inquirer_py(fn: Callable) -> Callable:
     return _inner
 
 
-cache_cli = typer.Typer(help="Manage local cache directory.", rich_markup_mode=None)
+cache_cli = typer_factory(help="Manage local cache directory.")
 
 
 @cache_cli.command("scan", help="Scan the cache directory")

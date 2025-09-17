@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import typer
 
+from huggingface_hub.cli._cli_utils import typer_factory
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.download import download
@@ -29,7 +29,7 @@ from huggingface_hub.cli.upload_large_folder import upload_large_folder
 from huggingface_hub.utils import logging
 
 
-app = typer.Typer(add_completion=False, no_args_is_help=True, help="Hugging Face Hub CLI", rich_markup_mode=None)
+app = typer_factory(help="Hugging Face Hub CLI")
 
 
 # top level single commands (defined in their respective files)

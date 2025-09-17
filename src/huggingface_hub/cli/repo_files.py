@@ -41,13 +41,13 @@ import typer
 from huggingface_hub import logging
 from huggingface_hub.hf_api import HfApi
 
-from ._cli_utils import RepoType
+from ._cli_utils import RepoType, typer_factory
 
 
 logger = logging.get_logger(__name__)
 
 
-repo_files_cli = typer.Typer(help="Manage files in a repo on the Hub.", rich_markup_mode=None)
+repo_files_cli = typer_factory(help="Manage files in a repo on the Hub.")
 
 
 @repo_files_cli.command("delete")

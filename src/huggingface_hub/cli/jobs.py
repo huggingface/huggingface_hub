@@ -66,13 +66,15 @@ from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._dotenv import load_dotenv
 
+from ._cli_utils import typer_factory
+
 
 logger = logging.get_logger(__name__)
 
 SUGGESTED_FLAVORS = [item.value for item in SpaceHardware if item.value != "zero-a10g"]
 
 
-jobs_cli = typer.Typer(help="Run and manage Jobs on the Hub.", rich_markup_mode=None)
+jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
 
 @jobs_cli.command("run", help="Run a Job")
@@ -407,9 +409,7 @@ def jobs_cancel(
     api.cancel_job(job_id=job_id, namespace=namespace)
 
 
-uv_app = typer.Typer(
-    help="Run UV scripts (Python with inline dependencies) on HF infrastructure", rich_markup_mode=None
-)
+uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure")
 jobs_cli.add_typer(uv_app, name="uv")
 
 
@@ -558,7 +558,7 @@ def jobs_uv_run(
         print(log)
 
 
-scheduled_app = typer.Typer(help="Create and manage scheduled Jobs on the Hub.", rich_markup_mode=None)
+scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.")
 jobs_cli.add_typer(scheduled_app, name="scheduled")
 
 
@@ -883,9 +883,7 @@ def scheduled_resume(
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
-scheduled_uv_app = typer.Typer(
-    help="Schedule UV scripts (Python with inline dependencies) on HF infrastructure", rich_markup_mode=None
-)
+scheduled_uv_app = typer_factory(help="Schedule UV scripts (Python with inline dependencies) on HF infrastructure")
 scheduled_app.add_typer(scheduled_uv_app, name="uv")
 
 

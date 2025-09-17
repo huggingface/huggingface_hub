@@ -29,13 +29,13 @@ from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, Revi
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import logging
 
-from ._cli_utils import ANSI, RepoType
+from ._cli_utils import ANSI, RepoType, typer_factory
 
 
 logger = logging.get_logger(__name__)
 
-repo_cli = typer.Typer(help="Manage repos on the Hub.", rich_markup_mode=None)
-tag_app = typer.Typer(help="Manage tags for a repo on the Hub.", rich_markup_mode=None)
+repo_cli = typer_factory(help="Manage repos on the Hub.")
+tag_app = typer_factory(help="Manage tags for a repo on the Hub.")
 repo_cli.add_typer(tag_app, name="tag")
 
 

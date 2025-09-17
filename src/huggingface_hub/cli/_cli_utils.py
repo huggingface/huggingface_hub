@@ -17,6 +17,8 @@ import os
 from enum import Enum
 from typing import Union
 
+import typer
+
 
 class RepoType(str, Enum):
     model = "model"
@@ -74,3 +76,12 @@ def tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
     for row in rows:
         lines.append(row_format.format(*row))
     return "\n".join(lines)
+
+
+def typer_factory(help: str) -> typer.Typer:
+    return typer.Typer(
+        help=help,
+        add_completion=False,
+        rich_markup_mode=None,
+        no_args_is_help=True,
+    )

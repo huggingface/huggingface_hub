@@ -40,7 +40,7 @@ from huggingface_hub.hf_api import whoami
 
 from .._login import auth_list, auth_switch, login, logout
 from ..utils import get_stored_tokens, get_token, logging
-from ._cli_utils import ANSI
+from ._cli_utils import ANSI, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -54,7 +54,7 @@ except ImportError:
     _inquirer_py_available = False
 
 
-auth_cli = typer.Typer(help="Manage authentication (login, logout, etc.).", rich_markup_mode=None)
+auth_cli = typer_factory(help="Manage authentication (login, logout, etc.).")
 
 
 @auth_cli.command("login", help="Login using a token from huggingface.co/settings/tokens")
