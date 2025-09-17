@@ -46,7 +46,6 @@ def lfs_enable_largefiles(
     path: Annotated[
         str,
         typer.Argument(
-            ...,
             help="Local path to repository you want to configure.",
         ),
     ],

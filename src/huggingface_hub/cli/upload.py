@@ -71,7 +71,6 @@ def upload(
     repo_id: Annotated[
         str,
         typer.Argument(
-            ...,
             help="The ID of the repo to upload to (e.g. `username/repo-name`).",
         ),
     ],

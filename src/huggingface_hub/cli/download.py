@@ -56,7 +56,6 @@ def download(
     repo_id: Annotated[
         str,
         typer.Argument(
-            ...,
             help="ID of the repo to download from (e.g. `username/repo-name`).",
         ),
     ],

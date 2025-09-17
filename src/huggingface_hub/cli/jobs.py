@@ -82,14 +82,12 @@ def jobs_run(
     image: Annotated[
         str,
         typer.Argument(
-            ...,
             help="The Docker image to use.",
         ),
     ],
     command: Annotated[
         list[str],
         typer.Argument(
-            ...,
             help="The command to run.",
         ),
     ],
@@ -199,7 +197,6 @@ def jobs_logs(
     job_id: Annotated[
         str,
         typer.Argument(
-            ...,
             help="Job ID",
         ),
     ],
@@ -361,7 +358,6 @@ def jobs_inspect(
     job_ids: Annotated[
         list[str],
         typer.Argument(
-            ...,
             help="The jobs to inspect",
         ),
     ],
@@ -388,7 +384,6 @@ def jobs_cancel(
     job_id: Annotated[
         str,
         typer.Argument(
-            ...,
             help="Job ID",
         ),
     ],
@@ -418,7 +413,6 @@ def jobs_uv_run(
     script: Annotated[
         str,
         typer.Argument(
-            ...,
             help="UV script to run (local file or URL)",
         ),
     ],
@@ -567,21 +561,18 @@ def scheduled_run(
     schedule: Annotated[
         str,
         typer.Argument(
-            ...,
             help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
         ),
     ],
     image: Annotated[
         str,
         typer.Argument(
-            ...,
             help="The Docker image to use.",
         ),
     ],
     command: Annotated[
         list[str],
         typer.Argument(
-            ...,
             help="The command to run.",
         ),
     ],
@@ -774,7 +765,6 @@ def scheduled_inspect(
     scheduled_job_ids: Annotated[
         list[str],
         typer.Argument(
-            ...,
             help="The scheduled jobs to inspect",
         ),
     ],
@@ -806,7 +796,6 @@ def scheduled_delete(
     scheduled_job_id: Annotated[
         str,
         typer.Argument(
-            ...,
             help="Scheduled Job ID",
         ),
     ],
@@ -832,7 +821,6 @@ def scheduled_suspend(
     scheduled_job_id: Annotated[
         str,
         typer.Argument(
-            ...,
             help="Scheduled Job ID",
         ),
     ],
@@ -860,7 +848,6 @@ def scheduled_resume(
     scheduled_job_id: Annotated[
         str,
         typer.Argument(
-            ...,
             help="Scheduled Job ID",
         ),
     ],
@@ -892,14 +879,12 @@ def scheduled_uv_run(
     schedule: Annotated[
         str,
         typer.Argument(
-            ...,
             help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
         ),
     ],
     script: Annotated[
         str,
         typer.Argument(
-            ...,
             help="UV script to run (local file or URL)",
         ),
     ],

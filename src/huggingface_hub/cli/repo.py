@@ -44,7 +44,6 @@ def repo_create(
     repo_id: Annotated[
         str,
         typer.Argument(
-            ...,
             help="Repo ID to create (e.g. username/repo-name). Username defaults to current user if omitted.",
         ),
     ],
@@ -105,14 +104,12 @@ def tag_create(
     repo_id: Annotated[
         str,
         typer.Argument(
-            ...,
             help="The ID of the repo to tag (e.g. `username/repo-name`).",
         ),
     ],
     tag: Annotated[
         str,
         typer.Argument(
-            ...,
             help="The name of the tag to create.",
         ),
     ],
@@ -167,7 +164,6 @@ def tag_list(
     repo_id: Annotated[
         str,
         typer.Argument(
-            ...,
             help="The ID of the repo to list tags for (e.g. `username/repo-name`",
         ),
     ],
@@ -208,13 +204,14 @@ def tag_delete(
     repo_id: Annotated[
         str,
         typer.Argument(
-            ...,
             help="The ID of the repo to delete the tag from (e.g. `username/repo-name`).",
         ),
     ],
     tag: Annotated[
         str,
-        typer.Argument(..., help="The name of the tag to delete."),
+        typer.Argument(
+            help="The name of the tag to delete.",
+        ),
     ],
     yes: Annotated[
         bool,

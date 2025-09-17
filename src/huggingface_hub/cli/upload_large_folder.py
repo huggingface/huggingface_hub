@@ -33,14 +33,12 @@ def upload_large_folder(
     repo_id: Annotated[
         str,
         typer.Argument(
-            ...,
             help="The ID of the repo to upload to (e.g. `username/repo-name`).",
         ),
     ],
     local_path: Annotated[
         str,
         typer.Argument(
-            ...,
             help="Local path to the folder to upload.",
         ),
     ],

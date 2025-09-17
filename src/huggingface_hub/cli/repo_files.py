@@ -55,14 +55,12 @@ def repo_files_delete(
     repo_id: Annotated[
         str,
         typer.Argument(
-            ...,
             help="The ID of the repo (e.g. username/repo-name).",
         ),
     ],
     patterns: Annotated[
         list[str],
         typer.Argument(
-            ...,
             help="Glob patterns to match files to delete.",
         ),
     ],
