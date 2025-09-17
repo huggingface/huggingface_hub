@@ -105,7 +105,6 @@ def repo_files_delete(
         ),
     ] = None,
 ) -> None:
-    logging.set_verbosity_info()
     api = HfApi(token=token, library_name="hf")
     url = api.delete_files(
         delete_patterns=patterns,

@@ -298,7 +298,6 @@ def upload(
             print(run_upload())
         enable_progress_bars()
     else:
-        logging.set_verbosity_info()
         print(run_upload())
         logging.set_verbosity_warning()
 

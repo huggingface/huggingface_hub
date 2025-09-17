@@ -72,7 +72,6 @@ def auth_login(
         ),
     ] = False,
 ) -> None:
-    logging.set_verbosity_info()
     login(token=token, add_to_git_credential=add_to_git_credential)
 
 
@@ -85,7 +84,6 @@ def auth_logout(
         ),
     ] = None,
 ) -> None:
-    logging.set_verbosity_info()
     logout(token_name=token_name)
 
 
@@ -140,7 +138,6 @@ def auth_switch_cmd(
         ),
     ] = False,
 ) -> None:
-    logging.set_verbosity_info()
     if token_name is None:
         token_name = _select_token_name()
     if token_name is None:
@@ -151,7 +148,6 @@ def auth_switch_cmd(
 
 @auth_cli.command("list", help="List all stored access tokens")
 def auth_list_cmd() -> None:
-    logging.set_verbosity_info()
     auth_list()
 
 

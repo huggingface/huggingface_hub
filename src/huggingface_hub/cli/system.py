@@ -29,5 +29,5 @@ def env() -> None:
 
 
 def version() -> None:
-    """Print information about the hf version."""
+    """Print CLI version."""
     print(f"huggingface_hub version: {__version__}")

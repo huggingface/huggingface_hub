@@ -181,6 +181,5 @@ def download(
             print(run_download())
         enable_progress_bars()
     else:
-        logging.set_verbosity_info()
         print(run_download())
         logging.set_verbosity_warning()

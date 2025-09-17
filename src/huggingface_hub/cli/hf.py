@@ -26,6 +26,7 @@ from huggingface_hub.cli.system import env, version
 # from huggingface_hub.cli.jobs import jobs_app
 from huggingface_hub.cli.upload import upload
 from huggingface_hub.cli.upload_large_folder import upload_large_folder
+from huggingface_hub.utils import logging
 
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="Hugging Face Hub CLI", rich_markup_mode=None)
@@ -73,6 +74,7 @@ app.add_typer(jobs_cli, name="jobs")
 
 
 def main():
+    logging.set_verbosity_info()
     app()
 
 
