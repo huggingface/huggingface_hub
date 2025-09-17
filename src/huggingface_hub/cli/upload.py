@@ -61,7 +61,7 @@ from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 from huggingface_hub.utils._runtime import is_xet_available
 
-from ._cli_utils import RepoTypeOpt
+from ._cli_utils import RepoType
 
 
 logger = logging.get_logger(__name__)
@@ -87,11 +87,11 @@ def upload(
         ),
     ] = None,
     repo_type: Annotated[
-        RepoTypeOpt,
+        RepoType,
         typer.Option(
             help="Type of the repo (model, dataset, space).",
         ),
-    ] = RepoTypeOpt.model,
+    ] = RepoType.model,
     revision: Annotated[
         Optional[str],
         typer.Option(

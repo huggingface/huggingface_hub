@@ -23,7 +23,7 @@ from huggingface_hub import logging
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import disable_progress_bars
 
-from ._cli_utils import ANSI, RepoTypeOpt
+from ._cli_utils import ANSI, RepoType
 
 
 logger = logging.get_logger(__name__)
@@ -43,11 +43,11 @@ def upload_large_folder(
         ),
     ],
     repo_type: Annotated[
-        RepoTypeOpt,
+        RepoType,
         typer.Option(
             help="Type of the repo to upload to (model, dataset, space).",
         ),
-    ] = RepoTypeOpt.model,
+    ] = RepoType.model,
     revision: Annotated[
         Optional[str],
         typer.Option(

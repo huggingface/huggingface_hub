@@ -20,7 +20,7 @@ from typing import Union
 import typer
 
 
-class RepoTypeOpt(str, Enum):
+class RepoType(str, Enum):
     model = "model"
     dataset = "dataset"
     space = "space"

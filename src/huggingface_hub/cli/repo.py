@@ -29,7 +29,7 @@ from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, Revi
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import logging
 
-from ._cli_utils import ANSI, RepoTypeOpt, typer_factory
+from ._cli_utils import ANSI, RepoType, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -48,11 +48,11 @@ def repo_create(
         ),
     ],
     repo_type: Annotated[
-        RepoTypeOpt,
+        RepoType,
         typer.Option(
             help="set to dataset' or 'space' if creating a dataset or space, default is 'model'.",
         ),
-    ] = RepoTypeOpt.model,
+    ] = RepoType.model,
     space_sdk: Annotated[
         Optional[str],
         typer.Option(
@@ -134,11 +134,11 @@ def tag_create(
         ),
     ] = None,
     repo_type: Annotated[
-        RepoTypeOpt,
+        RepoType,
         typer.Option(
             help="Set the type of repository (model, dataset, or space).",
         ),
-    ] = RepoTypeOpt.model,
+    ] = RepoType.model,
 ) -> None:
     repo_type_str = repo_type.value
     api = HfApi(token=token)
@@ -174,11 +174,11 @@ def tag_list(
         ),
     ] = None,
     repo_type: Annotated[
-        RepoTypeOpt,
+        RepoType,
         typer.Option(
             help="Set the type of repository (model, dataset, or space).",
         ),
-    ] = RepoTypeOpt.model,
+    ] = RepoType.model,
 ) -> None:
     repo_type_str = repo_type.value
     api = HfApi(token=token)
@@ -228,11 +228,11 @@ def tag_delete(
         ),
     ] = None,
     repo_type: Annotated[
-        RepoTypeOpt,
+        RepoType,
         typer.Option(
             help="Set the type of repository (model, dataset, or space).",
         ),
-    ] = RepoTypeOpt.model,
+    ] = RepoType.model,
 ) -> None:
     repo_type_str = repo_type.value
     print(f"You are about to delete tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
