@@ -11,6 +11,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from huggingface_hub import __version__
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import _CANCEL_DELETION_STR
 from huggingface_hub.cli.download import download
@@ -99,7 +100,7 @@ class TestUploadCommand:
             path_in_repo=None,
             include=None,
         )
-        api_cls.assert_called_once_with(token=None, library_name="hf")
+        api_cls.assert_called_once_with(token=None, library_name="hf", library_version=__version__)
         api.create_repo.assert_called_once_with(
             repo_id=DUMMY_MODEL_ID,
             repo_type="model",
@@ -181,7 +182,7 @@ class TestUploadCommand:
             path_in_repo="data/",
             include=["*.json", "*.yaml"],
         )
-        api_cls.assert_called_once_with(token="my-token", library_name="hf")
+        api_cls.assert_called_once_with(token="my-token", library_name="hf", library_version=__version__)
         scheduler_cls.assert_called_once_with(
             folder_path=folder.as_posix(),
             repo_id=DUMMY_MODEL_ID,
@@ -717,7 +718,7 @@ class TestTagCommands:
                 ["repo", "tag", "create", DUMMY_MODEL_ID, "1.0", "-m", "My tag message"],
             )
         assert result.exit_code == 0
-        api_cls.assert_called_once_with(token=None)
+        api_cls.assert_called_once_with(token=None, library_name="hf", library_version=__version__)
         api.create_tag.assert_called_once_with(
             repo_id=DUMMY_MODEL_ID,
             tag="1.0",
@@ -748,7 +749,7 @@ class TestTagCommands:
                 ],
             )
         assert result.exit_code == 0
-        api_cls.assert_called_once_with(token="my-token")
+        api_cls.assert_called_once_with(token="my-token", library_name="hf", library_version=__version__)
         api.create_tag.assert_called_once_with(
             repo_id=DUMMY_MODEL_ID,
             tag="1.0",
@@ -764,7 +765,7 @@ class TestTagCommands:
             api.list_repo_refs.return_value = refs
             result = runner.invoke(app, ["repo", "tag", "list", DUMMY_MODEL_ID])
         assert result.exit_code == 0
-        api_cls.assert_called_once_with(token=None)
+        api_cls.assert_called_once_with(token=None, library_name="hf", library_version=__version__)
         api.list_repo_refs.assert_called_once_with(repo_id=DUMMY_MODEL_ID, repo_type="model")
 
     def test_tag_delete_basic(self, runner: CliRunner) -> None:
@@ -776,7 +777,7 @@ class TestTagCommands:
                 input="y\n",
             )
         assert result.exit_code == 0
-        api_cls.assert_called_once_with(token=None)
+        api_cls.assert_called_once_with(token=None, library_name="hf", library_version=__version__)
         api.delete_tag.assert_called_once_with(repo_id=DUMMY_MODEL_ID, tag="1.0", repo_type="model")
 
 

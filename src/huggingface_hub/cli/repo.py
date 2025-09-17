@@ -25,6 +25,7 @@ from typing import Annotated, Optional
 
 import typer
 
+from huggingface_hub import __version__
 from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import logging
@@ -64,7 +65,7 @@ def repo_create(
         ),
     ] = None,
 ) -> None:
-    api = HfApi()
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     repo_url = api.create_repo(
         repo_id=repo_id,
         repo_type=repo_type.value,
@@ -100,7 +101,7 @@ def tag_create(
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
     repo_type_str = repo_type.value
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     print(f"You are about to create tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
     try:
         api.create_tag(repo_id=repo_id, tag=tag, tag_message=message, revision=revision, repo_type=repo_type_str)
@@ -125,7 +126,7 @@ def tag_list(
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
     repo_type_str = repo_type.value
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     try:
         refs = api.list_repo_refs(repo_id=repo_id, repo_type=repo_type_str)
     except RepositoryNotFoundError:
@@ -170,7 +171,7 @@ def tag_delete(
         if choice not in ("", "y", "yes"):
             print("Abort")
             raise typer.Exit()
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     try:
         api.delete_tag(repo_id=repo_id, tag=tag, repo_type=repo_type_str)
     except RepositoryNotFoundError:

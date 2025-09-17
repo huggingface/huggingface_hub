@@ -53,7 +53,7 @@ from typing import Annotated, Optional
 
 import typer
 
-from huggingface_hub import logging
+from huggingface_hub import __version__, logging
 from huggingface_hub._commit_scheduler import CommitScheduler
 from huggingface_hub.constants import HF_HUB_ENABLE_HF_TRANSFER
 from huggingface_hub.errors import RevisionNotFoundError
@@ -141,7 +141,7 @@ def upload(
 
     repo_type_str = repo_type.value
 
-    api = HfApi(token=token, library_name="hf")
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
 
     # Resolve local_path and path_in_repo based on implicit/explicit rules
     resolved_local_path, resolved_path_in_repo, resolved_include = _resolve_upload_paths(

@@ -61,7 +61,7 @@ from typing import Annotated, Dict, Optional, Union
 
 import typer
 
-from huggingface_hub import HfApi, SpaceHardware, get_token
+from huggingface_hub import HfApi, SpaceHardware, __version__, get_token
 from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._dotenv import load_dotenv
@@ -165,7 +165,7 @@ def jobs_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     job = api.run_job(
         image=image,
         command=command,
@@ -203,7 +203,7 @@ def jobs_logs(
     ] = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     for log in api.fetch_job_logs(job_id=job_id, namespace=namespace):
         print(log)
 
@@ -276,7 +276,7 @@ def jobs_ps(
     ] = None,
 ) -> None:
     try:
-        api = HfApi(token=token)
+        api = HfApi(token=token, library_name="hf", library_version=__version__)
         # Fetch jobs data
         jobs = api.list_jobs(namespace=namespace)
         # Define table headers
@@ -352,7 +352,7 @@ def jobs_inspect(
     ] = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
     print(json.dumps([asdict(job) for job in jobs], indent=4, default=str))
 
@@ -373,7 +373,7 @@ def jobs_cancel(
     ] = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     api.cancel_job(job_id=job_id, namespace=namespace)
 
 
@@ -495,7 +495,7 @@ def jobs_uv_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     job = api.run_uv_job(
         script=script,
         script_args=script_args or [],
@@ -615,7 +615,7 @@ def scheduled_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     scheduled_job = api.create_scheduled_job(
         image=image,
         command=command,
@@ -665,7 +665,7 @@ def scheduled_ps(
     ] = None,
 ) -> None:
     try:
-        api = HfApi(token=token)
+        api = HfApi(token=token, library_name="hf", library_version=__version__)
         scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
         table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
         rows: list[list[Union[str, int]]] = []
@@ -734,7 +734,7 @@ def scheduled_inspect(
     ] = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     scheduled_jobs = [
         api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
         for scheduled_job_id in scheduled_job_ids
@@ -758,7 +758,7 @@ def scheduled_delete(
     ] = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     api.delete_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
@@ -779,7 +779,7 @@ def scheduled_suspend(
     ] = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     api.suspend_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
@@ -800,7 +800,7 @@ def scheduled_resume(
     ] = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
@@ -932,7 +932,7 @@ def scheduled_uv_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
-    api = HfApi(token=token)
+    api = HfApi(token=token, library_name="hf", library_version=__version__)
     job = api.create_scheduled_uv_job(
         script=script,
         script_args=script_args or [],
