@@ -24,24 +24,27 @@ Once installed, you can check that the CLI is correctly setup:
 
 ```
 >>> hf --help
-usage: hf <command> [<args>]
+Usage: hf [OPTIONS] COMMAND [ARGS]...
 
-positional arguments:
-  {auth,cache,download,repo,repo-files,upload,upload-large-folder,env,version,lfs-enable-largefiles,lfs-multipart-upload}
-                        hf command helpers
-    auth                Manage authentication (login, logout, etc.).
-    cache               Manage local cache directory.
-    download            Download files from the Hub
-    repo                Manage repos on the Hub.
-    repo-files          Manage files in a repo on the Hub.
-    upload              Upload a file or a folder to the Hub. Recommended for single-commit uploads.
-    upload-large-folder
-                        Upload a large folder to the Hub. Recommended for resumable uploads.
-    env                 Print information about the environment.
-    version             Print information about the hf version.
+  Hugging Face Hub CLI
 
-options:
-  -h, --help            show this help message and exit
+Options:
+  --install-completion  Install completion for the current shell.
+  --show-completion     Show completion for the current shell, to copy it or
+                        customize the installation.
+  --help                Show this message and exit.
+
+Commands:
+  download             Download files from the Hub.
+  upload               Upload a file or a folder to the Hub.
+  upload-large-folder  Upload a large folder to the Hub.
+  env                  Print information about the environment.
+  version              Print information about the hf version.
+  auth                 Manage authentication (login, logout, etc.).
+  cache                Manage local cache directory.
+  repo                 Manage repos on the Hub.
+  repo-files           Manage files in a repo on the Hub.
+  jobs                 Run and manage Jobs on the Hub.
 ```
 
 If the CLI is correctly installed, you should see a list of all the options available in the CLI. If you get an error message such as `command not found: hf`, please refer to the [Installation](../installation) guide.

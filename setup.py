@@ -21,6 +21,7 @@ install_requires = [
     "pyyaml>=5.1",
     "httpx>=0.23.0, <1",
     "tqdm>=4.42.1",
+    "typer-slim",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
 ]
 
@@ -28,6 +29,7 @@ extras = {}
 
 extras["cli"] = [
     "InquirerPy==0.3.4",  # Note: installs `prompt-toolkit` in the background
+    "shellingham",
 ]
 
 extras["inference"] = [
