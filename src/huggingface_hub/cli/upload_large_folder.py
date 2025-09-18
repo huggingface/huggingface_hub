@@ -19,11 +19,10 @@ from typing import Annotated, Optional
 
 import typer
 
-from huggingface_hub import __version__, logging
-from huggingface_hub.hf_api import HfApi
+from huggingface_hub import logging
 from huggingface_hub.utils import disable_progress_bars
 
-from ._cli_utils import ANSI, PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt
+from ._cli_utils import ANSI, PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api
 
 
 logger = logging.get_logger(__name__)
@@ -104,7 +103,7 @@ def upload_large_folder(
     if no_bars:
         disable_progress_bars()
 
-    api = HfApi(token=token, library_name="hf", library_version=__version__)
+    api = get_hf_api(token=token)
     api.upload_large_folder(
         repo_id=repo_id,
         folder_path=local_path,

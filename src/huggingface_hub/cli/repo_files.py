@@ -38,10 +38,9 @@ from typing import Annotated, Optional
 
 import typer
 
-from huggingface_hub import __version__, logging
-from huggingface_hub.hf_api import HfApi
+from huggingface_hub import logging
 
-from ._cli_utils import RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, typer_factory
+from ._cli_utils import RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -81,7 +80,7 @@ def repo_files_delete(
     ] = False,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token, library_name="hf", library_version=__version__)
+    api = get_hf_api(token=token)
     url = api.delete_files(
         delete_patterns=patterns,
         repo_id=repo_id,

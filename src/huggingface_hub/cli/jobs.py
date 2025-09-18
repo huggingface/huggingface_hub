@@ -61,17 +61,175 @@ from typing import Annotated, Dict, Optional, Union
 
 import typer
 
-from huggingface_hub import HfApi, SpaceHardware, __version__, get_token
+from huggingface_hub import SpaceHardware, get_token
 from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._dotenv import load_dotenv
 
-from ._cli_utils import TokenOpt, typer_factory
+from ._cli_utils import TokenOpt, get_hf_api, typer_factory
 
 
 logger = logging.get_logger(__name__)
 
 SUGGESTED_FLAVORS = [item.value for item in SpaceHardware if item.value != "zero-a10g"]
+
+# Common job-related options
+ImageArg = Annotated[
+    str,
+    typer.Argument(
+        help="The Docker image to use.",
+    ),
+]
+
+ImageOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="Use a custom Docker image with `uv` installed.",
+    ),
+]
+
+FlavorOpt = Annotated[
+    Optional[SpaceHardware],
+    typer.Option(
+        help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
+    ),
+]
+
+EnvOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-e",
+        "--env",
+        help="Set environment variables. E.g. --env ENV=value",
+    ),
+]
+
+SecretsOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-s",
+        "--secrets",
+        help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
+    ),
+]
+
+EnvFileOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        "--env-file",
+        help="Read in a file of environment variables.",
+    ),
+]
+
+SecretsFileOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="Read in a file of secret environment variables.",
+    ),
+]
+
+TimeoutOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
+    ),
+]
+
+DetachOpt = Annotated[
+    bool,
+    typer.Option(
+        "-d",
+        "--detach",
+        help="Run the Job in the background and print the Job ID.",
+    ),
+]
+
+NamespaceOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="The namespace where the job will be running. Defaults to the current user's namespace.",
+    ),
+]
+
+WithOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "--with",
+        help="Run with the given packages installed",
+    ),
+]
+
+PythonOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        "-p",
+        "--python",
+        help="The Python interpreter to use for the run environment",
+    ),
+]
+
+SuspendOpt = Annotated[
+    Optional[bool],
+    typer.Option(
+        help="Suspend (pause) the scheduled Job",
+    ),
+]
+
+ConcurrencyOpt = Annotated[
+    Optional[bool],
+    typer.Option(
+        help="Allow multiple instances of this Job to run concurrently",
+    ),
+]
+
+ScheduleArg = Annotated[
+    str,
+    typer.Argument(
+        help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
+    ),
+]
+
+ScriptArg = Annotated[
+    str,
+    typer.Argument(
+        help="UV script to run (local file or URL)",
+    ),
+]
+
+ScriptArgsArg = Annotated[
+    Optional[list[str]],
+    typer.Argument(
+        help="Arguments for the script",
+    ),
+]
+
+CommandArg = Annotated[
+    list[str],
+    typer.Argument(
+        help="The command to run.",
+    ),
+]
+
+JobIdArg = Annotated[
+    str,
+    typer.Argument(
+        help="Job ID",
+    ),
+]
+
+ScheduledJobIdArg = Annotated[
+    str,
+    typer.Argument(
+        help="Scheduled Job ID",
+    ),
+]
+
+RepoOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="Repository name for the script (creates ephemeral if not specified)",
+    ),
+]
 
 
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
@@ -79,77 +237,16 @@ jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
 @jobs_cli.command("run", help="Run a Job")
 def jobs_run(
-    image: Annotated[
-        str,
-        typer.Argument(
-            help="The Docker image to use.",
-        ),
-    ],
-    command: Annotated[
-        list[str],
-        typer.Argument(
-            help="The command to run.",
-        ),
-    ],
-    env: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            "-e",
-            "--env",
-            help="Set environment variables. E.g. --env ENV=value",
-        ),
-    ] = None,
-    secrets: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            "-s",
-            "--secrets",
-            help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
-        ),
-    ] = None,
-    env_file: Annotated[
-        Optional[str],
-        typer.Option(
-            "--env-file",
-            help="Read in a file of environment variables.",
-        ),
-    ] = None,
-    secrets_file: Annotated[
-        Optional[str],
-        typer.Option(
-            "--secrets-file",
-            help="Read in a file of secret environment variables.",
-        ),
-    ] = None,
-    flavor: Annotated[
-        Optional[SpaceHardware],
-        typer.Option(
-            "--flavor",
-            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
-        ),
-    ] = None,
-    timeout: Annotated[
-        Optional[str],
-        typer.Option(
-            "--timeout",
-            help="Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
-        ),
-    ] = None,
-    detach: Annotated[
-        bool,
-        typer.Option(
-            "-d",
-            "--detach",
-            help="Run the Job in the background and print the Job ID.",
-        ),
-    ] = False,
-    namespace: Annotated[
-        Optional[str],
-        typer.Option(
-            "--namespace",
-            help="The namespace where the Job will be created. Defaults to the current user's namespace.",
-        ),
-    ] = None,
+    image: ImageArg,
+    command: CommandArg,
+    env: EnvOpt = None,
+    secrets: SecretsOpt = None,
+    env_file: EnvFileOpt = None,
+    secrets_file: SecretsFileOpt = None,
+    flavor: FlavorOpt = None,
+    timeout: TimeoutOpt = None,
+    detach: DetachOpt = False,
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
     env_map: dict[str, Optional[str]] = {}
@@ -165,7 +262,7 @@ def jobs_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
-    api = HfApi(token=token, library_name="hf", library_version=__version__)
+    api = get_hf_api(token=token)
     job = api.run_job(
         image=image,
         command=command,
@@ -188,22 +285,11 @@ def jobs_run(
 
 @jobs_cli.command("logs", help="Fetch the logs of a Job")
 def jobs_logs(
-    job_id: Annotated[
-        str,
-        typer.Argument(
-            help="Job ID",
-        ),
-    ],
-    namespace: Annotated[
-        Optional[str],
-        typer.Option(
-            "--namespace",
-            help="The namespace where the job is running. Defaults to the current user's namespace.",
-        ),
-    ] = None,
+    job_id: JobIdArg,
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token, library_name="hf", library_version=__version__)
+    api = get_hf_api(token=token)
     for log in api.fetch_job_logs(job_id=job_id, namespace=namespace):
         print(log)
 
@@ -253,12 +339,7 @@ def jobs_ps(
             help="Show all Jobs (default shows just running)",
         ),
     ] = False,
-    namespace: Annotated[
-        Optional[str],
-        typer.Option(
-            help="The namespace from where it lists the jobs. Defaults to the current user's namespace.",
-        ),
-    ] = None,
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
         Optional[list[str]],
@@ -276,7 +357,7 @@ def jobs_ps(
     ] = None,
 ) -> None:
     try:
-        api = HfApi(token=token, library_name="hf", library_version=__version__)
+        api = get_hf_api(token=token)
         # Fetch jobs data
         jobs = api.list_jobs(namespace=namespace)
         # Define table headers
@@ -344,36 +425,21 @@ def jobs_inspect(
             help="The jobs to inspect",
         ),
     ],
-    namespace: Annotated[
-        Optional[str],
-        typer.Option(
-            help="The namespace where the job is running. Defaults to the current user's namespace.",
-        ),
-    ] = None,
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token, library_name="hf", library_version=__version__)
+    api = get_hf_api(token=token)
     jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
     print(json.dumps([asdict(job) for job in jobs], indent=4, default=str))
 
 
 @jobs_cli.command("cancel", help="Cancel a Job")
 def jobs_cancel(
-    job_id: Annotated[
-        str,
-        typer.Argument(
-            help="Job ID",
-        ),
-    ],
-    namespace: Annotated[
-        Optional[str],
-        typer.Option(
-            help="The namespace where the job is running. Defaults to the current user's namespace.",
-        ),
-    ] = None,
+    job_id: JobIdArg,
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token, library_name="hf", library_version=__version__)
+    api = get_hf_api(token=token)
     api.cancel_job(job_id=job_id, namespace=namespace)
 
 
@@ -383,104 +449,21 @@ jobs_cli.add_typer(uv_app, name="uv")
 
 @uv_app.command("run", help="Run a UV script (local file or URL) on HF infrastructure")
 def jobs_uv_run(
-    script: Annotated[
-        str,
-        typer.Argument(
-            help="UV script to run (local file or URL)",
-        ),
-    ],
-    script_args: Annotated[
-        Optional[list[str]],
-        typer.Argument(
-            help="Arguments for the script",
-        ),
-    ] = None,
-    image: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Use a custom Docker image with `uv` installed.",
-        ),
-    ] = None,
-    repo: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Repository name for the script (creates ephemeral if not specified)",
-        ),
-    ] = None,
-    flavor: Annotated[
-        Optional[SpaceHardware],
-        typer.Option(
-            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
-        ),
-    ] = None,
-    env: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            "-e",
-            "--env",
-            help="Environment variables",
-        ),
-    ] = None,
-    secrets: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            "-s",
-            "--secrets",
-            help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
-        ),
-    ] = None,
-    env_file: Annotated[
-        Optional[str],
-        typer.Option(
-            "--env-file",
-            help="Read in a file of environment variables.",
-        ),
-    ] = None,
-    secrets_file: Annotated[
-        Optional[str],
-        typer.Option(
-            "--secrets-file",
-            help="Read in a file of secret environment variables.",
-        ),
-    ] = None,
-    timeout: Annotated[
-        Optional[str],
-        typer.Option(
-            "--timeout",
-            help="Max duration (e.g., 30s, 5m, 1h)",
-        ),
-    ] = None,
-    detach: Annotated[
-        bool,
-        typer.Option(
-            "-d",
-            "--detach",
-            help="Run in background",
-        ),
-    ] = False,
-    namespace: Annotated[
-        Optional[str],
-        typer.Option(
-            "--namespace",
-            help="The namespace where the Job will be created. Defaults to the current user's namespace.",
-        ),
-    ] = None,
+    script: ScriptArg,
+    script_args: ScriptArgsArg = None,
+    image: ImageOpt = None,
+    repo: RepoOpt = None,
+    flavor: FlavorOpt = None,
+    env: EnvOpt = None,
+    secrets: SecretsOpt = None,
+    env_file: EnvFileOpt = None,
+    secrets_file: SecretsFileOpt = None,
+    timeout: TimeoutOpt = None,
+    detach: DetachOpt = False,
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
-    with_: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            "--with",
-            help="Run with the given packages installed",
-        ),
-    ] = None,
-    python: Annotated[
-        Optional[str],
-        typer.Option(
-            "-p",
-            "--python",
-            help="The Python interpreter to use for the run environment",
-        ),
-    ] = None,
+    with_: WithOpt = None,
+    python: PythonOpt = None,
 ) -> None:
     env_map: dict[str, Optional[str]] = {}
     if env_file:
@@ -494,7 +477,7 @@ def jobs_uv_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
-    api = HfApi(token=token, library_name="hf", library_version=__version__)
+    api = get_hf_api(token=token)
     job = api.run_uv_job(
         script=script,
         script_args=script_args or [],
@@ -524,82 +507,18 @@ jobs_cli.add_typer(scheduled_app, name="scheduled")
 
 @scheduled_app.command("run", help="Schedule a Job")
 def scheduled_run(
-    schedule: Annotated[
-        str,
-        typer.Argument(
-            help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
-        ),
-    ],
-    image: Annotated[
-        str,
-        typer.Argument(
-            help="The Docker image to use.",
-        ),
-    ],
-    command: Annotated[
-        list[str],
-        typer.Argument(
-            help="The command to run.",
-        ),
-    ],
-    suspend: Annotated[
-        Optional[bool],
-        typer.Option(
-            help="Suspend (pause) the scheduled Job",
-        ),
-    ] = None,
-    concurrency: Annotated[
-        Optional[bool],
-        typer.Option(
-            help="Allow multiple instances of this Job to run concurrently",
-        ),
-    ] = None,
-    env: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            "-e",
-            "--env",
-            help="Set environment variables. E.g. --env ENV=value",
-        ),
-    ] = None,
-    secrets: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            "-s",
-            "--secrets",
-            help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
-        ),
-    ] = None,
-    env_file: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Read in a file of environment variables.",
-        ),
-    ] = None,
-    secrets_file: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Read in a file of secret environment variables.",
-        ),
-    ] = None,
-    flavor: Annotated[
-        Optional[SpaceHardware],
-        typer.Option(
-            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
-        ),
-    ] = None,
-    timeout: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
-        ),
-    ] = None,
-    namespace: Annotated[
-        Optional[str],
-        typer.Option(
-            help="The namespace where the scheduled Job will be created. Defaults to the current user's namespace.",
-        ),
-    ] = None,
+    schedule: ScheduleArg,
+    image: ImageArg,
+    command: CommandArg,
+    suspend: SuspendOpt = None,
+    concurrency: ConcurrencyOpt = None,
+    env: EnvOpt = None,
+    secrets: SecretsOpt = None,
+    env_file: EnvFileOpt = None,
+    secrets_file: SecretsFileOpt = None,
+    flavor: FlavorOpt = None,
+    timeout: TimeoutOpt = None,
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
     env_map: dict[str, Optional[str]] = {}
@@ -614,7 +533,7 @@ def scheduled_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
-    api = HfApi(token=token, library_name="hf", library_version=__version__)
+    api = get_hf_api(token=token)
     scheduled_job = api.create_scheduled_job(
         image=image,
         command=command,
@@ -640,12 +559,7 @@ def scheduled_ps(
             help="Show all scheduled Jobs (default hides suspended)",
         ),
     ] = False,
-    namespace: Annotated[
-        Optional[str],
-        typer.Option(
-            help="The namespace from where it lists the jobs. Defaults to the current user's namespace.",
-        ),
-    ] = None,
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
         Optional[list[str]],
@@ -664,7 +578,7 @@ def scheduled_ps(
     ] = None,
 ) -> None:
     try:
-        api = HfApi(token=token, library_name="hf", library_version=__version__)
+        api = get_hf_api(token=token)
         scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
         table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
         rows: list[list[Union[str, int]]] = []
@@ -724,16 +638,10 @@ def scheduled_inspect(
             help="The scheduled jobs to inspect",
         ),
     ],
-    namespace: Annotated[
-        Optional[str],
-        typer.Option(
-            "--namespace",
-            help="The namespace where the scheduled job is. Defaults to the current user's namespace.",
-        ),
-    ] = None,
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token, library_name="hf", library_version=__version__)
+    api = get_hf_api(token=token)
     scheduled_jobs = [
         api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
         for scheduled_job_id in scheduled_job_ids
@@ -743,180 +651,57 @@ def scheduled_inspect(
 
 @scheduled_app.command("delete", help="Delete a scheduled Job")
 def scheduled_delete(
-    scheduled_job_id: Annotated[
-        str,
-        typer.Argument(
-            help="Scheduled Job ID",
-        ),
-    ],
-    namespace: Annotated[
-        Optional[str],
-        typer.Option(
-            help="The namespace where the scheduled job is. Defaults to the current user's namespace.",
-        ),
-    ] = None,
+    scheduled_job_id: ScheduledJobIdArg,
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token, library_name="hf", library_version=__version__)
+    api = get_hf_api(token=token)
     api.delete_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
 @scheduled_app.command("suspend", help="Suspend (pause) a scheduled Job")
 def scheduled_suspend(
-    scheduled_job_id: Annotated[
-        str,
-        typer.Argument(
-            help="Scheduled Job ID",
-        ),
-    ],
-    namespace: Annotated[
-        Optional[str],
-        typer.Option(
-            "--namespace",
-            help="The namespace where the scheduled job is. Defaults to the current user's namespace.",
-        ),
-    ] = None,
+    scheduled_job_id: ScheduledJobIdArg,
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token, library_name="hf", library_version=__version__)
+    api = get_hf_api(token=token)
     api.suspend_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
 @scheduled_app.command("resume", help="Resume (unpause) a scheduled Job")
 def scheduled_resume(
-    scheduled_job_id: Annotated[
-        str,
-        typer.Argument(
-            help="Scheduled Job ID",
-        ),
-    ],
-    namespace: Annotated[
-        Optional[str],
-        typer.Option(
-            "--namespace",
-            help="The namespace where the scheduled job is. Defaults to the current user's namespace.",
-        ),
-    ] = None,
+    scheduled_job_id: ScheduledJobIdArg,
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    api = HfApi(token=token, library_name="hf", library_version=__version__)
+    api = get_hf_api(token=token)
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
-scheduled_uv_app = typer_factory(help="Schedule UV scripts (Python with inline dependencies) on HF infrastructure")
+scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure")
 scheduled_app.add_typer(scheduled_uv_app, name="uv")
 
 
 @scheduled_uv_app.command("run", help="Run a UV script (local file or URL) on HF infrastructure")
 def scheduled_uv_run(
-    schedule: Annotated[
-        str,
-        typer.Argument(
-            help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
-        ),
-    ],
-    script: Annotated[
-        str,
-        typer.Argument(
-            help="UV script to run (local file or URL)",
-        ),
-    ],
-    script_args: Annotated[
-        Optional[list[str]],
-        typer.Argument(
-            help="Arguments for the script",
-        ),
-    ] = None,
-    suspend: Annotated[
-        Optional[bool],
-        typer.Option(
-            help="Suspend (pause) the scheduled Job",
-        ),
-    ] = None,
-    concurrency: Annotated[
-        Optional[bool],
-        typer.Option(
-            help="Allow multiple instances of this Job to run concurrently",
-        ),
-    ] = None,
-    image: Annotated[
-        Optional[str],
-        typer.Option(
-            "--image",
-            help="Use a custom Docker image with `uv` installed.",
-        ),
-    ] = None,
-    repo: Annotated[
-        Optional[str],
-        typer.Option(
-            "--repo",
-            help="Repository name for the script (creates ephemeral if not specified)",
-        ),
-    ] = None,
-    flavor: Annotated[
-        Optional[SpaceHardware],
-        typer.Option(
-            "--flavor",
-            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}. ",
-        ),
-    ] = None,
-    env: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            "-e",
-            "--env",
-            help="Environment variables",
-        ),
-    ] = None,
-    secrets: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            "-s",
-            "--secrets",
-            help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
-        ),
-    ] = None,
-    env_file: Annotated[
-        Optional[str],
-        typer.Option(
-            "--env-file",
-            help="Read in a file of environment variables.",
-        ),
-    ] = None,
-    secrets_file: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Read in a file of secret environment variables.",
-        ),
-    ] = None,
-    timeout: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Max duration (e.g., 30s, 5m, 1h)",
-        ),
-    ] = None,
-    namespace: Annotated[
-        Optional[str],
-        typer.Option(
-            help="The namespace where the Job will be created. Defaults to the current user's namespace.",
-        ),
-    ] = None,
+    schedule: ScheduleArg,
+    script: ScriptArg,
+    script_args: ScriptArgsArg = None,
+    suspend: SuspendOpt = None,
+    concurrency: ConcurrencyOpt = None,
+    image: ImageOpt = None,
+    repo: RepoOpt = None,
+    flavor: FlavorOpt = None,
+    env: EnvOpt = None,
+    secrets: SecretsOpt = None,
+    env_file: EnvFileOpt = None,
+    secrets_file: SecretsFileOpt = None,
+    timeout: TimeoutOpt = None,
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
-    with_: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            "--with",
-            help="Run with the given packages installed",
-        ),
-    ] = None,
-    python: Annotated[
-        Optional[str],
-        typer.Option(
-            "-p",
-            "--python",
-            help="The Python interpreter to use for the run environment",
-        ),
-    ] = None,
+    with_: WithOpt = None,
+    python: PythonOpt = None,
 ) -> None:
     env_map: dict[str, Optional[str]] = {}
     if env_file:
@@ -930,7 +715,7 @@ def scheduled_uv_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
-    api = HfApi(token=token, library_name="hf", library_version=__version__)
+    api = get_hf_api(token=token)
     job = api.create_scheduled_uv_job(
         script=script,
         script_args=script_args or [],

@@ -9,7 +9,6 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from huggingface_hub import __version__
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import _CANCEL_DELETION_STR
 from huggingface_hub.cli.download import download
@@ -84,7 +83,7 @@ class TestUploadCommand:
                     "huggingface_hub.cli.upload._resolve_upload_paths",
                     return_value=(folder.as_posix(), ".", None),
                 ) as resolve_mock,
-                patch("huggingface_hub.cli.upload.HfApi") as api_cls,
+                patch("huggingface_hub.cli.upload.get_hf_api") as api_cls,
             ):
                 api = api_cls.return_value
                 api.create_repo.return_value = Mock(repo_id=DUMMY_MODEL_ID)
@@ -98,7 +97,7 @@ class TestUploadCommand:
             path_in_repo=None,
             include=None,
         )
-        api_cls.assert_called_once_with(token=None, library_name="hf", library_version=__version__)
+        api_cls.assert_called_once_with(token=None)
         api.create_repo.assert_called_once_with(
             repo_id=DUMMY_MODEL_ID,
             repo_type="model",
@@ -130,7 +129,7 @@ class TestUploadCommand:
                     "huggingface_hub.cli.upload._resolve_upload_paths",
                     return_value=returned_paths,
                 ) as resolve_mock,
-                patch("huggingface_hub.cli.upload.HfApi") as api_cls,
+                patch("huggingface_hub.cli.upload.get_hf_api") as api_cls,
                 patch("huggingface_hub.cli.upload.CommitScheduler") as scheduler_cls,
                 patch("huggingface_hub.cli.upload.time.sleep", side_effect=KeyboardInterrupt),
             ):
@@ -180,7 +179,7 @@ class TestUploadCommand:
             path_in_repo="data/",
             include=["*.json", "*.yaml"],
         )
-        api_cls.assert_called_once_with(token="my-token", library_name="hf", library_version=__version__)
+        api_cls.assert_called_once_with(token="my-token")
         scheduler_cls.assert_called_once_with(
             folder_path=folder.as_posix(),
             repo_id=DUMMY_MODEL_ID,
@@ -202,7 +201,7 @@ class TestUploadCommand:
 
         with (
             patch("huggingface_hub.cli.upload.typer.BadParameter", _PatchedBadParameter),
-            patch("huggingface_hub.cli.upload.HfApi") as api_cls,
+            patch("huggingface_hub.cli.upload.get_hf_api") as api_cls,
         ):
             with pytest.raises(typer.BadParameter, match="--every must be a positive value"):
                 upload(repo_id=DUMMY_MODEL_ID, every=0)
@@ -219,7 +218,7 @@ class TestUploadCommand:
                     "huggingface_hub.cli.upload._resolve_upload_paths",
                     return_value=(folder.as_posix(), ".", None),
                 ),
-                patch("huggingface_hub.cli.upload.HfApi"),
+                patch("huggingface_hub.cli.upload.get_hf_api"),
                 patch("huggingface_hub.cli.upload.CommitScheduler") as scheduler_cls,
                 patch("huggingface_hub.cli.upload.time.sleep", side_effect=KeyboardInterrupt),
             ):
@@ -235,7 +234,7 @@ class TestUploadCommand:
                     "huggingface_hub.cli.upload._resolve_upload_paths",
                     return_value=(folder.as_posix(), ".", None),
                 ),
-                patch("huggingface_hub.cli.upload.HfApi"),
+                patch("huggingface_hub.cli.upload.get_hf_api"),
                 patch("huggingface_hub.cli.upload.CommitScheduler") as scheduler_cls,
                 patch("huggingface_hub.cli.upload.time.sleep", side_effect=KeyboardInterrupt),
             ):
@@ -358,7 +357,7 @@ class TestUploadImpl:
             local_dir = Path(cache_path)
             (local_dir / "config.json").write_text("{}")
             with (
-                patch("huggingface_hub.cli.upload.HfApi", return_value=api),
+                patch("huggingface_hub.cli.upload.get_hf_api", return_value=api),
                 patch("builtins.print") as print_mock,
             ):
                 upload(
@@ -401,7 +400,7 @@ class TestUploadImpl:
             file_path = Path(cache_dir) / "file.txt"
             file_path.write_text("content")
             with (
-                patch("huggingface_hub.cli.upload.HfApi", return_value=api),
+                patch("huggingface_hub.cli.upload.get_hf_api", return_value=api),
                 patch("builtins.print") as print_mock,
             ):
                 upload(
@@ -440,7 +439,7 @@ class TestUploadImpl:
             file_path = Path(cache_dir) / "file.txt"
             file_path.write_text("content")
             with (
-                patch("huggingface_hub.cli.upload.HfApi", return_value=api),
+                patch("huggingface_hub.cli.upload.get_hf_api", return_value=api),
                 patch("builtins.print"),
             ):
                 upload(
@@ -461,7 +460,7 @@ class TestUploadImpl:
             file_path = Path(cache_dir) / "file.txt"
             file_path.write_text("content")
             with (
-                patch("huggingface_hub.cli.upload.HfApi", return_value=api),
+                patch("huggingface_hub.cli.upload.get_hf_api", return_value=api),
                 patch("builtins.print"),
             ):
                 upload(
@@ -485,7 +484,7 @@ class TestUploadImpl:
             file_path = Path(cache_dir) / "file.txt"
             file_path.write_text("content")
             with (
-                patch("huggingface_hub.cli.upload.HfApi", return_value=api),
+                patch("huggingface_hub.cli.upload.get_hf_api", return_value=api),
                 patch("builtins.print"),
             ):
                 upload(
@@ -504,7 +503,7 @@ class TestUploadImpl:
     def test_upload_missing_path(self, *_: object) -> None:
         api = Mock()
         with pytest.raises(FileNotFoundError):
-            with patch("huggingface_hub.cli.upload.HfApi", return_value=api):
+            with patch("huggingface_hub.cli.upload.get_hf_api", return_value=api):
                 upload(
                     repo_id="my-model",
                     local_path="/path/to/missing_file",
@@ -709,14 +708,14 @@ class TestDownloadImpl:
 
 class TestTagCommands:
     def test_tag_create_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.HfApi") as api_cls:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
                 ["repo", "tag", "create", DUMMY_MODEL_ID, "1.0", "-m", "My tag message"],
             )
         assert result.exit_code == 0
-        api_cls.assert_called_once_with(token=None, library_name="hf", library_version=__version__)
+        api_cls.assert_called_once_with(token=None)
         api.create_tag.assert_called_once_with(
             repo_id=DUMMY_MODEL_ID,
             tag="1.0",
@@ -726,7 +725,7 @@ class TestTagCommands:
         )
 
     def test_tag_create_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.HfApi") as api_cls:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -747,7 +746,7 @@ class TestTagCommands:
                 ],
             )
         assert result.exit_code == 0
-        api_cls.assert_called_once_with(token="my-token", library_name="hf", library_version=__version__)
+        api_cls.assert_called_once_with(token="my-token")
         api.create_tag.assert_called_once_with(
             repo_id=DUMMY_MODEL_ID,
             tag="1.0",
@@ -758,16 +757,16 @@ class TestTagCommands:
 
     def test_tag_list_basic(self, runner: CliRunner) -> None:
         refs = Mock(tags=[Mock(name="v1")])
-        with patch("huggingface_hub.cli.repo.HfApi") as api_cls:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_repo_refs.return_value = refs
             result = runner.invoke(app, ["repo", "tag", "list", DUMMY_MODEL_ID])
         assert result.exit_code == 0
-        api_cls.assert_called_once_with(token=None, library_name="hf", library_version=__version__)
+        api_cls.assert_called_once_with(token=None)
         api.list_repo_refs.assert_called_once_with(repo_id=DUMMY_MODEL_ID, repo_type="model")
 
     def test_tag_delete_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.HfApi") as api_cls:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -775,7 +774,7 @@ class TestTagCommands:
                 input="y\n",
             )
         assert result.exit_code == 0
-        api_cls.assert_called_once_with(token=None, library_name="hf", library_version=__version__)
+        api_cls.assert_called_once_with(token=None)
         api.delete_tag.assert_called_once_with(repo_id=DUMMY_MODEL_ID, tag="1.0", repo_type="model")
 
 
@@ -898,7 +897,7 @@ class TestRepoFilesCommand:
         ],
     )
     def test_delete(self, runner: CliRunner, cli_args: list[str], expected_kwargs: dict[str, object]) -> None:
-        with patch("huggingface_hub.cli.repo_files.HfApi") as api_cls:
+        with patch("huggingface_hub.cli.repo_files.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, cli_args)
         assert result.exit_code == 0
@@ -909,7 +908,7 @@ class TestJobsCommand:
     def test_run(self, runner: CliRunner) -> None:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
         with (
-            patch("huggingface_hub.cli.jobs.HfApi") as api_cls,
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
@@ -930,7 +929,7 @@ class TestJobsCommand:
     def test_create_scheduled_job(self, runner: CliRunner) -> None:
         scheduled_job = Mock(id="my-job-id")
         with (
-            patch("huggingface_hub.cli.jobs.HfApi") as api_cls,
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
@@ -956,7 +955,7 @@ class TestJobsCommand:
     def test_uv_command(self, runner: CliRunner) -> None:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
         with (
-            patch("huggingface_hub.cli.jobs.HfApi") as api_cls,
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
@@ -981,7 +980,7 @@ class TestJobsCommand:
     def test_uv_remote_script(self, runner: CliRunner) -> None:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
         with (
-            patch("huggingface_hub.cli.jobs.HfApi") as api_cls,
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
@@ -1007,7 +1006,7 @@ class TestJobsCommand:
         script_path.write_text("print('hello')")
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
         with (
-            patch("huggingface_hub.cli.jobs.HfApi") as api_cls,
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
             patch("huggingface_hub.cli.jobs.get_token", return_value="hf_xxx"),
         ):

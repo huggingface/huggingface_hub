@@ -20,6 +20,9 @@ from typing import Annotated, Optional, Union
 import click
 import typer
 
+from huggingface_hub import __version__
+from huggingface_hub.hf_api import HfApi
+
 
 class ANSI:
     """
@@ -137,3 +140,7 @@ RevisionOpt = Annotated[
         help="Git revision id which can be a branch name, a tag, or a commit hash.",
     ),
 ]
+
+
+def get_hf_api(token: Optional[str] = None) -> HfApi:
+    return HfApi(token=token, library_name="hf", library_version=__version__)
