@@ -2,7 +2,7 @@ import os
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -196,7 +196,7 @@ class TestUploadCommand:
 
     def test_every_must_be_positive(self) -> None:
         class _PatchedBadParameter(typer.BadParameter):
-            def __init__(self, message: str, *, param_name: str | None = None, **kwargs: object) -> None:
+            def __init__(self, message: str, *, param_name: Optional[str] = None, **kwargs: object) -> None:
                 super().__init__(message, **kwargs)
 
         with (
