@@ -16,14 +16,15 @@
 
 import os
 import time
-from argparse import Namespace, _SubParsersAction
+from enum import Enum
 from functools import wraps
 from tempfile import mkstemp
-from typing import Any, Callable, Iterable, Literal, Optional, Union
+from typing import Annotated, Any, Callable, Iterable, Optional, Union
+
+import typer
 
 from ..utils import CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, scan_cache_dir
-from . import BaseHuggingfaceCLICommand
-from ._cli_utils import ANSI, tabulate
+from ._cli_utils import ANSI, tabulate, typer_factory
 
 
 # --- DELETE helpers (from delete_cache.py) ---
@@ -36,8 +37,14 @@ try:
 except ImportError:
     _inquirer_py_available = False
 
-SortingOption_T = Literal["alphabetical", "lastUpdated", "lastUsed", "size"]
 _CANCEL_DELETION_STR = "CANCEL_DELETION"
+
+
+class SortingOption(str, Enum):
+    alphabetical = "alphabetical"
+    lastUpdated = "lastUpdated"
+    lastUsed = "lastUsed"
+    size = "size"
 
 
 def require_inquirer_py(fn: Callable) -> Callable:
@@ -54,122 +61,93 @@ def require_inquirer_py(fn: Callable) -> Callable:
     return _inner
 
 
-class CacheCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction):
-        cache_parser = parser.add_parser("cache", help="Manage local cache directory.")
-        cache_subparsers = cache_parser.add_subparsers(dest="cache_command", help="Cache subcommands")
+cache_cli = typer_factory(help="Manage local cache directory.")
 
-        # Show help if no subcommand is provided
-        cache_parser.set_defaults(func=lambda args: cache_parser.print_help())
 
-        # Scan subcommand
-        scan_parser = cache_subparsers.add_parser("scan", help="Scan cache directory.")
-        scan_parser.add_argument(
-            "--dir",
-            type=str,
-            default=None,
-            help="cache directory to scan (optional). Default to the default HuggingFace cache.",
-        )
-        scan_parser.add_argument(
+@cache_cli.command("scan", help="Scan the cache directory")
+def cache_scan(
+    dir: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Cache directory to scan (defaults to Hugging Face cache).",
+        ),
+    ] = None,
+    verbose: Annotated[
+        int,
+        typer.Option(
             "-v",
             "--verbose",
-            action="count",
-            default=0,
-            help="show a more verbose output",
-        )
-        scan_parser.set_defaults(func=CacheCommand, cache_command="scan")
-        # Delete subcommand
-        delete_parser = cache_subparsers.add_parser("delete", help="Delete revisions from the cache directory.")
-        delete_parser.add_argument(
-            "--dir",
-            type=str,
-            default=None,
-            help="cache directory (optional). Default to the default HuggingFace cache.",
-        )
-        delete_parser.add_argument(
-            "--disable-tui",
-            action="store_true",
-            help=(
-                "Disable Terminal User Interface (TUI) mode. Useful if your platform/terminal doesn't support the multiselect menu."
-            ),
-        )
-        delete_parser.add_argument(
-            "--sort",
-            nargs="?",
-            choices=["alphabetical", "lastUpdated", "lastUsed", "size"],
-            help=(
-                "Sort repositories by the specified criteria. Options: "
-                "'alphabetical' (A-Z), "
-                "'lastUpdated' (newest first), "
-                "'lastUsed' (most recent first), "
-                "'size' (largest first)."
-            ),
-        )
-        delete_parser.set_defaults(func=CacheCommand, cache_command="delete")
-
-    def __init__(self, args: Namespace) -> None:
-        self.args = args
-        self.verbosity: int = getattr(args, "verbose", 0)
-        self.cache_dir: Optional[str] = getattr(args, "dir", None)
-        self.disable_tui: bool = getattr(args, "disable_tui", False)
-        self.sort_by: Optional[SortingOption_T] = getattr(args, "sort", None)
-        self.cache_command: Optional[str] = getattr(args, "cache_command", None)
-
-    def run(self):
-        if self.cache_command == "scan":
-            self._run_scan()
-        elif self.cache_command == "delete":
-            self._run_delete()
+            count=True,
+            help="Increase verbosity (-v, -vv, -vvv).",
+        ),
+    ] = 0,
+) -> None:
+    try:
+        t0 = time.time()
+        hf_cache_info = scan_cache_dir(dir)
+        t1 = time.time()
+    except CacheNotFound as exc:
+        print(f"Cache directory not found: {str(exc.cache_dir)}")
+        return
+    print(get_table(hf_cache_info, verbosity=verbose))
+    print(
+        f"\nDone in {round(t1 - t0, 1)}s. Scanned {len(hf_cache_info.repos)} repo(s)"
+        f" for a total of {ANSI.red(hf_cache_info.size_on_disk_str)}."
+    )
+    if len(hf_cache_info.warnings) > 0:
+        message = f"Got {len(hf_cache_info.warnings)} warning(s) while scanning."
+        if verbose >= 3:
+            print(ANSI.gray(message))
+            for warning in hf_cache_info.warnings:
+                print(ANSI.gray(str(warning)))
         else:
-            print("Please specify a cache subcommand (scan or delete). Use -h for help.")
+            print(ANSI.gray(message + " Use -vvv to print details."))
 
-    def _run_scan(self):
-        try:
-            t0 = time.time()
-            hf_cache_info = scan_cache_dir(self.cache_dir)
-            t1 = time.time()
-        except CacheNotFound as exc:
-            cache_dir = exc.cache_dir
-            print(f"Cache directory not found: {cache_dir}")
+
+@cache_cli.command("delete", help="Delete revisions from the cache directory")
+def cache_delete(
+    dir: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Cache directory (defaults to Hugging Face cache).",
+        ),
+    ] = None,
+    disable_tui: Annotated[
+        bool,
+        typer.Option(
+            help="Disable Terminal User Interface (TUI) mode. Useful if your platform/terminal doesn't support the multiselect menu.",
+        ),
+    ] = False,
+    sort: Annotated[
+        Optional[SortingOption],
+        typer.Option(
+            help="Sort repositories by the specified criteria. Options: 'alphabetical' (A-Z), 'lastUpdated' (newest first), 'lastUsed' (most recent first), 'size' (largest first).",
+        ),
+    ] = None,
+) -> None:
+    hf_cache_info = scan_cache_dir(dir)
+    sort_by = sort.value if sort is not None else None
+    if disable_tui:
+        selected_hashes = _manual_review_no_tui(hf_cache_info, preselected=[], sort_by=sort_by)
+    else:
+        selected_hashes = _manual_review_tui(hf_cache_info, preselected=[], sort_by=sort_by)
+    if len(selected_hashes) > 0 and _CANCEL_DELETION_STR not in selected_hashes:
+        confirm_message = _get_expectations_str(hf_cache_info, selected_hashes) + " Confirm deletion ?"
+        if disable_tui:
+            confirmed = _ask_for_confirmation_no_tui(confirm_message)
+        else:
+            confirmed = _ask_for_confirmation_tui(confirm_message)
+        if confirmed:
+            strategy = hf_cache_info.delete_revisions(*selected_hashes)
+            print("Start deletion.")
+            strategy.execute()
+            print(
+                f"Done. Deleted {len(strategy.repos)} repo(s) and"
+                f" {len(strategy.snapshots)} revision(s) for a total of"
+                f" {strategy.expected_freed_size_str}."
+            )
             return
-        print(get_table(hf_cache_info, verbosity=self.verbosity))
-        print(
-            f"\nDone in {round(t1 - t0, 1)}s. Scanned {len(hf_cache_info.repos)} repo(s)"
-            f" for a total of {ANSI.red(hf_cache_info.size_on_disk_str)}."
-        )
-        if len(hf_cache_info.warnings) > 0:
-            message = f"Got {len(hf_cache_info.warnings)} warning(s) while scanning."
-            if self.verbosity >= 3:
-                print(ANSI.gray(message))
-                for warning in hf_cache_info.warnings:
-                    print(ANSI.gray(str(warning)))
-            else:
-                print(ANSI.gray(message + " Use -vvv to print details."))
-
-    def _run_delete(self):
-        hf_cache_info = scan_cache_dir(self.cache_dir)
-        if self.disable_tui:
-            selected_hashes = _manual_review_no_tui(hf_cache_info, preselected=[], sort_by=self.sort_by)
-        else:
-            selected_hashes = _manual_review_tui(hf_cache_info, preselected=[], sort_by=self.sort_by)
-        if len(selected_hashes) > 0 and _CANCEL_DELETION_STR not in selected_hashes:
-            confirm_message = _get_expectations_str(hf_cache_info, selected_hashes) + " Confirm deletion ?"
-            if self.disable_tui:
-                confirmed = _ask_for_confirmation_no_tui(confirm_message)
-            else:
-                confirmed = _ask_for_confirmation_tui(confirm_message)
-            if confirmed:
-                strategy = hf_cache_info.delete_revisions(*selected_hashes)
-                print("Start deletion.")
-                strategy.execute()
-                print(
-                    f"Done. Deleted {len(strategy.repos)} repo(s) and"
-                    f" {len(strategy.snapshots)} revision(s) for a total of"
-                    f" {strategy.expected_freed_size_str}."
-                )
-                return
-        print("Deletion is cancelled. Do nothing.")
+    print("Deletion is cancelled. Do nothing.")
 
 
 def get_table(hf_cache_info: HFCacheInfo, *, verbosity: int = 0) -> str:
@@ -228,7 +206,7 @@ def get_table(hf_cache_info: HFCacheInfo, *, verbosity: int = 0) -> str:
         )
 
 
-def _get_repo_sorting_key(repo: CachedRepoInfo, sort_by: Optional[SortingOption_T] = None):
+def _get_repo_sorting_key(repo: CachedRepoInfo, sort_by: Optional[str] = None):
     if sort_by == "alphabetical":
         return (repo.repo_type, repo.repo_id.lower())
     elif sort_by == "lastUpdated":
@@ -242,9 +220,7 @@ def _get_repo_sorting_key(repo: CachedRepoInfo, sort_by: Optional[SortingOption_
 
 
 @require_inquirer_py
-def _manual_review_tui(
-    hf_cache_info: HFCacheInfo, preselected: list[str], sort_by: Optional[SortingOption_T] = None
-) -> list[str]:
+def _manual_review_tui(hf_cache_info: HFCacheInfo, preselected: list[str], sort_by: Optional[str] = None) -> list[str]:
     choices = _get_tui_choices_from_scan(repos=hf_cache_info.repos, preselected=preselected, sort_by=sort_by)
     checkbox = inquirer.checkbox(
         message="Select revisions to delete:",
@@ -277,7 +253,7 @@ def _ask_for_confirmation_tui(message: str, default: bool = True) -> bool:
 
 
 def _get_tui_choices_from_scan(
-    repos: Iterable[CachedRepoInfo], preselected: list[str], sort_by: Optional[SortingOption_T] = None
+    repos: Iterable[CachedRepoInfo], preselected: list[str], sort_by: Optional[str] = None
 ) -> list:
     choices: list[Union["Choice", "Separator"]] = []
     choices.append(
@@ -306,7 +282,7 @@ def _get_tui_choices_from_scan(
 
 
 def _manual_review_no_tui(
-    hf_cache_info: HFCacheInfo, preselected: list[str], sort_by: Optional[SortingOption_T] = None
+    hf_cache_info: HFCacheInfo, preselected: list[str], sort_by: Optional[str] = None
 ) -> list[str]:
     fd, tmp_path = mkstemp(suffix=".txt")
     os.close(fd)
