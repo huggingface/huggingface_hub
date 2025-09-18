@@ -35,16 +35,16 @@ Options:
   --help                Show this message and exit.
 
 Commands:
-  download             Download files from the Hub.
-  upload               Upload a file or a folder to the Hub.
-  upload-large-folder  Upload a large folder to the Hub.
-  env                  Print information about the environment.
-  version              Print information about the hf version.
   auth                 Manage authentication (login, logout, etc.).
   cache                Manage local cache directory.
+  download             Download files from the Hub.
+  env                  Print information about the environment.
+  jobs                 Run and manage Jobs on the Hub.
   repo                 Manage repos on the Hub.
   repo-files           Manage files in a repo on the Hub.
-  jobs                 Run and manage Jobs on the Hub.
+  upload               Upload a file or a folder to the Hub.
+  upload-large-folder  Upload a large folder to the Hub.
+  version              Print information about the hf version.
 ```
 
 If the CLI is correctly installed, you should see a list of all the options available in the CLI. If you get an error message such as `command not found: hf`, please refer to the [Installation](../installation) guide.
