@@ -11,17 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from abc import ABC, abstractmethod
-from argparse import _SubParsersAction
-
-
-class BaseHuggingfaceCLICommand(ABC):
-    @staticmethod
-    @abstractmethod
-    def register_subcommand(parser: _SubParsersAction):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def run(self):
-        raise NotImplementedError()
