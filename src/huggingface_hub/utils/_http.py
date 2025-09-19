@@ -221,7 +221,7 @@ def http_backoff(
         requests.Timeout,
         requests.ConnectionError,
     ),
-    retry_on_status_codes: Union[int, Tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
+    retry_on_status_codes: Union[int, Tuple[int, ...]] = (500, 502, 503, 504),
     **kwargs,
 ) -> Response:
     """Wrapper around requests to retry calls on an endpoint, with exponential backoff.
@@ -250,9 +250,8 @@ def http_backoff(
         retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
             By default, retry on `requests.Timeout` and `requests.ConnectionError`.
-        retry_on_status_codes (`int` or `Tuple[int]`, *optional*, defaults to `503`):
-            Define on which status codes the request must be retried. By default, only
-            HTTP 503 Service Unavailable is retried.
+        retry_on_status_codes (`int` or `Tuple[int]`, *optional*, defaults to `(500, 502, 503, 504)`):
+            Define on which status codes the request must be retried. By default, 5xx errors are retried.
         **kwargs (`dict`, *optional*):
             kwargs to pass to `requests.request`.
 

@@ -306,7 +306,7 @@ def _request_wrapper(
         return response
 
     # Perform request and return if status_code is not in the retry list.
-    response = http_backoff(method=method, url=url, **params, retry_on_status_codes=(500, 502, 503, 504))
+    response = http_backoff(method=method, url=url, **params)
     hf_raise_for_status(response)
     return response
 
