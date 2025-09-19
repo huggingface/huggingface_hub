@@ -316,7 +316,7 @@ def _upload_single_part(operation: "CommitOperationAdd", upload_url: str) -> Non
     """
     with operation.as_file(with_tqdm=True) as fileobj:
         # S3 might raise a transient 500 error -> let's retry if that happens
-        response = http_backoff("PUT", upload_url, data=fileobj, retry_on_status_codes=(500, 502, 503, 504))
+        response = http_backoff("PUT", upload_url, data=fileobj)
         hf_raise_for_status(response)
 
 
@@ -400,9 +400,7 @@ def _upload_parts_iteratively(
                 read_limit=chunk_size,
             ) as fileobj_slice:
                 # S3 might raise a transient 500 error -> let's retry if that happens
-                part_upload_res = http_backoff(
-                    "PUT", part_upload_url, data=fileobj_slice, retry_on_status_codes=(500, 502, 503, 504)
-                )
+                part_upload_res = http_backoff("PUT", part_upload_url, data=fileobj_slice)
                 hf_raise_for_status(part_upload_res)
                 headers.append(part_upload_res.headers)
     return headers  # type: ignore

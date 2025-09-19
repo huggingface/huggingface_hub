@@ -958,13 +958,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             repo_type=self.resolved_path.repo_type,
             endpoint=self.fs.endpoint,
         )
-        r = http_backoff(
-            "GET",
-            url,
-            headers=headers,
-            retry_on_status_codes=(500, 502, 503, 504),
-            timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
-        )
+        r = http_backoff("GET", url, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT)
         hf_raise_for_status(r)
         return r.content
 
@@ -1063,7 +1057,6 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 "GET",
                 url,
                 headers=self.fs._api._build_hf_headers(),
-                retry_on_status_codes=(500, 502, 503, 504),
                 stream=True,
                 timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
             )
@@ -1086,7 +1079,6 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 "GET",
                 url,
                 headers={"Range": "bytes=%d-" % self.loc, **self.fs._api._build_hf_headers()},
-                retry_on_status_codes=(500, 502, 503, 504),
                 stream=True,
                 timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
             )
