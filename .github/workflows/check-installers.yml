@@ -1,0 +1,82 @@
+name: Installer tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "utils/installers/**"
+      - ".github/workflows/installer-tests.yml"
+  pull_request:
+    paths:
+      - "utils/installers/**"
+      - ".github/workflows/installer-tests.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  linux-installer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run installer
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          HF_TEST_ROOT=$(mktemp -d)
+          INSTALL_DIR="$HF_TEST_ROOT/install"
+          BIN_DIR="$HF_TEST_ROOT/bin"
+
+          utils/installers/install.sh --install-dir "$INSTALL_DIR" --bin-dir "$BIN_DIR" --no-modify-path
+
+          export PATH="$BIN_DIR:$PATH"
+          hf version
+          hf --help > /tmp/hf-help.txt
+
+          # basic sanity checks on hf --help
+          grep -q "Hugging Face Hub CLI" /tmp/hf-help.txt
+          grep -q "Usage: hf" /tmp/hf-help.txt
+          grep -q "Commands:" /tmp/hf-help.txt
+
+          rm -rf "$HF_TEST_ROOT"
+
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run installer 
+        shell: pwsh
+        run: |
+          $hfTestRoot = Join-Path $env:TEMP ([System.Guid]::NewGuid().ToString())
+          $installDir = Join-Path $hfTestRoot 'install'
+          $binDir = Join-Path $hfTestRoot 'bin'
+          New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+          New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+
+          & "$PWD/utils/installers/install.ps1" -InstallDir $installDir -BinDir $binDir -NoModifyPath
+
+          $env:PATH = "$binDir;$env:PATH"
+          hf.exe version
+
+          $hfHelpPath = Join-Path $hfTestRoot 'hf-help.txt'
+          hf.exe --help | Out-File -FilePath $hfHelpPath -Encoding UTF8
+
+          $hfHelpContents = Get-Content -Path $hfHelpPath
+          if (-not ($hfHelpContents | Select-String -Quiet 'Hugging Face Hub CLI')) {
+            throw 'hf --help missing heading'
+          }
+          if (-not ($hfHelpContents | Select-String -Quiet '^Usage: hf')) {
+            throw 'hf --help missing usage line'
+          }
+          if (-not ($hfHelpContents | Select-String -Quiet '^Commands:')) {
+            throw 'hf --help missing commands section'
+          }
+
+          Remove-Item -Path $hfTestRoot -Recurse -Force
