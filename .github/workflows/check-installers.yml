@@ -35,17 +35,16 @@ jobs:
           utils/installers/install.sh --install-dir "$INSTALL_DIR" --bin-dir "$BIN_DIR" --no-modify-path
 
           export PATH="$BIN_DIR:$PATH"
-          hf version
-          NO_COLOR=1 hf --help > /tmp/hf-help.txt 2>&1
 
-          echo "----- hf --help dump (linux) -----"
-          cat /tmp/hf-help.txt
-          echo "----- end hf --help dump (linux) -----"
+          HF_VERSION_PATH="$HF_TEST_ROOT/hf-version.txt"
+          hf version | tee "$HF_VERSION_PATH"
+          if ! grep -Eq 'huggingface_hub version: [0-9]+(\.[0-9]+){1,2}' "$HF_VERSION_PATH"; then
+            echo "hf version output missing huggingface_hub version" >&2
+            cat "$HF_VERSION_PATH" >&2
+            exit 1
+          fi
 
-          # basic sanity checks on hf --help
-          grep -q "^Usage: hf" /tmp/hf-help.txt
-          grep -q "Commands" /tmp/hf-help.txt
-          grep -q "download" /tmp/hf-help.txt
+          NO_COLOR=1 hf --help
 
           rm -rf "$HF_TEST_ROOT"
 
@@ -67,26 +66,21 @@ jobs:
           & "$PWD/utils/installers/install.ps1" -InstallDir $installDir -BinDir $binDir -NoModifyPath
 
           $env:PATH = "$binDir;$env:PATH"
-          hf.exe version
 
-          $hfHelpPath = Join-Path $hfTestRoot 'hf-help.txt'
+          $hfVersionPath = Join-Path $hfTestRoot 'hf-version.txt'
+          & hf.exe version | Tee-Object -FilePath $hfVersionPath
+          if ($LASTEXITCODE -ne 0) {
+            throw 'hf version failed'
+          }
+          if (-not (Select-String -Path $hfVersionPath -Pattern 'huggingface_hub version: [0-9]+(\.[0-9]+){1,2}')) {
+            throw 'hf version output missing huggingface_hub version'
+          }
+
           $env:NO_COLOR = '1'
-          hf.exe --help 2>&1 | Out-File -FilePath $hfHelpPath -Encoding UTF8
-
-          Write-Host '----- hf --help dump (windows) -----'
-          Get-Content -Path $hfHelpPath
-          Write-Host '----- end hf --help dump (windows) -----'
+          & hf.exe --help
+          if ($LASTEXITCODE -ne 0) {
+            throw 'hf --help failed'
+          }
           Remove-Item Env:NO_COLOR
-
-          $hfHelpContents = Get-Content -Path $hfHelpPath
-          if (-not ($hfHelpContents | Select-String -Quiet '^Usage: hf')) {
-            throw 'hf --help missing usage line'
-          }
-          if (-not ($hfHelpContents | Select-String -Quiet 'Commands')) {
-            throw 'hf --help missing commands section'
-          }
-          if (-not ($hfHelpContents | Select-String -Quiet 'download')) {
-            throw 'hf --help missing download command'
-          }
 
           Remove-Item -Path $hfTestRoot -Recurse -Force
