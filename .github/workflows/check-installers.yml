@@ -39,9 +39,9 @@ jobs:
           NO_COLOR=1 hf --help > /tmp/hf-help.txt
 
           # basic sanity checks on hf --help
-          grep -q "Hugging Face Hub CLI" /tmp/hf-help.txt
-          grep -q "Usage: hf" /tmp/hf-help.txt
+          grep -q "^Usage: hf" /tmp/hf-help.txt
           grep -q "Commands:" /tmp/hf-help.txt
+          grep -q "download" /tmp/hf-help.txt
 
           rm -rf "$HF_TEST_ROOT"
 
@@ -71,14 +71,14 @@ jobs:
           Remove-Item Env:NO_COLOR
 
           $hfHelpContents = Get-Content -Path $hfHelpPath
-          if (-not ($hfHelpContents | Select-String -Quiet 'Hugging Face Hub CLI')) {
-            throw 'hf --help missing heading'
-          }
           if (-not ($hfHelpContents | Select-String -Quiet '^Usage: hf')) {
             throw 'hf --help missing usage line'
           }
           if (-not ($hfHelpContents | Select-String -Quiet '^Commands:')) {
             throw 'hf --help missing commands section'
+          }
+          if (-not ($hfHelpContents | Select-String -Quiet 'download')) {
+            throw 'hf --help missing download command'
           }
 
           Remove-Item -Path $hfTestRoot -Recurse -Force
