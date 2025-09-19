@@ -1,4 +1,6 @@
 import inspect
+import importlib
+import importlib.util
 from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields
 from functools import wraps
 from typing import (
@@ -15,6 +17,7 @@ from typing import (
     get_args,
     get_origin,
     overload,
+    ForwardRef,
 )
 
 from .errors import (
@@ -325,6 +328,8 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
         validator(name, value, args)
     elif isinstance(expected_type, type):  # simple types
         _validate_simple_type(name, value, expected_type)
+    elif isinstance(expected_type, ForwardRef) or isinstance(expected_type, str):
+        pass
     else:
         raise TypeError(f"Unsupported type for field '{name}': {expected_type}")
 
