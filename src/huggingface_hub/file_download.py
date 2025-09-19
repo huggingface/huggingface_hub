@@ -267,7 +267,7 @@ def _request_wrapper(
     """Wrapper around requests methods to follow relative redirects if `follow_relative_redirects=True` even when
     `allow_redirection=False`.
 
-    A backoff mechanism retries the HTTP call on 429, 503 and 504 errors.
+    A backoff mechanism retries the HTTP call on 5xx errors and network errors.
 
     Args:
         method (`str`):
@@ -306,7 +306,7 @@ def _request_wrapper(
         return response
 
     # Perform request and return if status_code is not in the retry list.
-    response = http_backoff(method=method, url=url, **params, retry_on_exceptions=(), retry_on_status_codes=(429,))
+    response = http_backoff(method=method, url=url, **params, retry_on_status_codes=(500, 502, 503, 504))
     hf_raise_for_status(response)
     return response
 
