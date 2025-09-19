@@ -509,7 +509,7 @@ main() {
     log_success "hf CLI ready!"
     log_info "Binary: $BIN_DIR/hf"
     log_info "Virtualenv: $HF_CLI_DIR"
-    log_info "Requested version: ${REQUESTED_VERSION:-latest}"
+    log_info "CLI version: ${REQUESTED_VERSION:-latest}"
     log_info "Try it now: env PATH=\"$BIN_DIR:\$PATH\" hf --help"
     log_info "Examples:"
     log_info "  hf login"

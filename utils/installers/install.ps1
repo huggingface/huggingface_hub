@@ -408,7 +408,7 @@ function Main {
             Write-Log "hf CLI ready!" "SUCCESS"
             Write-Log "Binary: $hfExecutable"
             Write-Log "Virtualenv: $HF_CLI_DIR"
-            Write-Log "Requested version: $requestedVersion"
+            Write-Log "CLI version: $requestedVersion"
         } else {
             throw "Installation verification failed"
         }
