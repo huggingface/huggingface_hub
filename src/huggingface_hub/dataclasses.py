@@ -1,12 +1,11 @@
 import inspect
-import importlib
-import importlib.util
 from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields
 from functools import wraps
 from typing import (
     Any,
     Callable,
     Dict,
+    ForwardRef,
     List,
     Literal,
     Optional,
@@ -17,7 +16,6 @@ from typing import (
     get_args,
     get_origin,
     overload,
-    ForwardRef,
 )
 
 from .errors import (
