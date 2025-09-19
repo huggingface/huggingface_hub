@@ -46,7 +46,6 @@ if (-not $Version -and $env:HF_CLI_VERSION) {
 }
 
 $script:LogLevel = if ($Verbose) { 2 } else { 1 }
-
 $script:PathUpdated = $false
 
 if ($Verbose) {
@@ -59,7 +58,7 @@ $ErrorActionPreference = "Stop"
 # Colors for output
 $Colors = @{
     Red = 'Red'
-    Green = 'Green' 
+    Green = 'Green'
     Yellow = 'Yellow'
     Blue = 'Blue'
     White = 'White'
@@ -97,21 +96,15 @@ function Write-Log {
 function Resolve-CliPath {
     param([string]$Path)
 
-    if (-not $Path) {
-        return $null
-    }
+    if (-not $Path) { return $null }
 
     $expanded = [Environment]::ExpandEnvironmentVariables($Path)
 
-    if ($expanded -eq '~') {
-        return $env:USERPROFILE
-    }
+    if ($expanded -eq '~') { return $env:USERPROFILE }
 
     if ($expanded -like '~\*') {
         $suffix = $expanded.Substring(2)
-        if ([string]::IsNullOrWhiteSpace($suffix)) {
-            return $env:USERPROFILE
-        }
+        if ([string]::IsNullOrWhiteSpace($suffix)) { return $env:USERPROFILE }
         return (Join-Path $env:USERPROFILE $suffix)
     }
 
@@ -147,38 +140,27 @@ $script:VenvPython = $null
 
 function Test-Command {
     param([string]$Command)
-    
-    try {
-        Get-Command $Command -ErrorAction Stop | Out-Null
-        return $true
-    }
-    catch {
-        return $false
-    }
+    try { Get-Command $Command -ErrorAction Stop | Out-Null; return $true } catch { return $false }
 }
 
 function Test-PythonVersion {
     param([string]$PythonCmd)
-    
     try {
         $version = & $PythonCmd --version 2>&1
         if ($version -match "Python 3\.(\d+)\.") {
             $minorVersion = [int]$matches[1]
-            return $minorVersion -ge 7  # Python 3.7+
+            return $minorVersion -ge 9 # Python 3.9+
         }
         return $false
-    }
-    catch {
-        return $false
-    }
+    } catch { return $false }
 }
 
 function Find-Python {
-    Write-Log "Looking for Python 3.7+ installation..."
-    
+    Write-Log "Looking for Python 3.9+ installation..."
+
     # Try common Python commands
     $pythonCommands = @("python", "python3", "py")
-    
+
     foreach ($cmd in $pythonCommands) {
         if (Test-Command $cmd) {
             if (Test-PythonVersion $cmd) {
@@ -188,47 +170,38 @@ function Find-Python {
             }
         }
     }
-    
+
     # Try Python Launcher for Windows
     if (Test-Command "py") {
         try {
             $version = py -3 --version 2>&1
             if ($version -match "Python 3\.(\d+)\.") {
                 $minorVersion = [int]$matches[1]
-                if ($minorVersion -ge 7) {
+                if ($minorVersion -ge 9) {
                     Write-Log "Found compatible Python: $version using Python Launcher"
                     return "py -3"
                 }
             }
-        }
-        catch {
-            # Continue to error
-        }
+        } catch { }
     }
-    
-    Write-Log "Python 3.7+ is required but not found." "ERROR"
+
+    Write-Log "Python 3.9+ is required but not found." "ERROR"
     Write-Log "Please install Python from https://python.org or Microsoft Store" "ERROR"
     Write-Log "Make sure to check 'Add Python to PATH' during installation" "ERROR"
-    throw "Python 3.7+ not found"
+    throw "Python 3.9+ not found"
 }
 
 function New-Directories {
     Write-Log "Creating directories..."
-    
-    if (-not (Test-Path $HF_CLI_DIR)) {
-        New-Item -ItemType Directory -Path $HF_CLI_DIR -Force | Out-Null
-    }
-    
-    if (-not (Test-Path $BIN_DIR)) {
-        New-Item -ItemType Directory -Path $BIN_DIR -Force | Out-Null
-    }
+    if (-not (Test-Path $HF_CLI_DIR)) { New-Item -ItemType Directory -Path $HF_CLI_DIR -Force | Out-Null }
+    if (-not (Test-Path $BIN_DIR)) { New-Item -ItemType Directory -Path $BIN_DIR -Force | Out-Null }
 }
 
 function New-VirtualEnvironment {
     param([string]$PythonCmd)
-    
+
     Write-Log "Creating virtual environment..."
-    
+
     if (Test-Path $VENV_DIR) {
         if ($Force) {
             Write-Log "Removing existing virtual environment..." "WARNING"
@@ -247,8 +220,7 @@ function New-VirtualEnvironment {
         } else {
             & $PythonCmd -c "import venv" | Out-Null
         }
-    }
-    catch {
+    } catch {
         Write-Log "Python installation is missing the venv module." "ERROR"
         Write-Log "Install the optional venv feature or repair Python before retrying." "ERROR"
         Write-Log "Microsoft Store Python: Repair via Apps settings" "INFO"
@@ -262,19 +234,13 @@ function New-VirtualEnvironment {
     } else {
         & $PythonCmd -m venv $VENV_DIR
     }
-    
-    if (-not $?) {
-        throw "Failed to create virtual environment"
-    }
-    
+    if (-not $?) { throw "Failed to create virtual environment" }
+
     # Use the venv's python -m pip for deterministic upgrades
     $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe"
     Write-Log "Upgrading pip..."
     & $script:VenvPython -m pip install --upgrade pip
-
-    if (-not $?) {
-        throw "Failed to upgrade pip"
-    }
+    if (-not $?) { throw "Failed to upgrade pip" }
 }
 
 function Install-HuggingFaceHub {
@@ -285,9 +251,7 @@ function Install-HuggingFaceHub {
     } else {
         Write-Log "Installing huggingface_hub[cli] (latest)..."
     }
-    if (-not $script:VenvPython) {
-        $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe"
-    }
+    if (-not $script:VenvPython) { $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe" }
 
     # Allow optional pip arguments via HF_CLI_PIP_ARGS/HF_PIP_ARGS env vars
     $extraArgsRaw = if ($env:HF_CLI_PIP_ARGS) { $env:HF_CLI_PIP_ARGS } else { $env:HF_PIP_ARGS }
@@ -303,10 +267,7 @@ function Install-HuggingFaceHub {
     }
 
     & $script:VenvPython @pipArgs
-
-    if (-not $?) {
-        throw "Failed to install huggingface_hub"
-    }
+    if (-not $?) { throw "Failed to install huggingface_hub" }
 }
 
 function Publish-HfCommand {
@@ -326,33 +287,35 @@ function Publish-HfCommand {
     }
 
     Write-Log "hf CLI available at $hfExeTarget"
-    Write-Log "Run without updating PATH: & \"$hfExeTarget\" --help"
+    Write-Log ('Run without updating PATH: & "{0}" --help' -f $hfExeTarget)
 }
 
 function Update-Path {
     Write-Log "Checking PATH configuration..."
-    
+
     # Get current user PATH
     $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
-    
+
     if ($currentPath -notlike "*$BIN_DIR*") {
         Write-Log "Adding $BIN_DIR to user PATH..."
-        
+
         try {
-            $newPath = if ($currentPath) { "$BIN_DIR;$currentPath" } else { $BIN_DIR }
+            $newPath = "$BIN_DIR;" + $currentPath
             [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
-            
+
             # Update PATH for current session
             $env:PATH = "$BIN_DIR;$env:PATH"
-            
+
             Write-Log "Added $BIN_DIR to PATH. Changes will take effect in new terminals." "SUCCESS"
             Write-Log "Current PowerShell session already includes hf after this update." "INFO"
-            Write-Log "Undo later via Settings ▸ Environment Variables, or: [Environment]::SetEnvironmentVariable(\"PATH\", ($([Environment]::GetEnvironmentVariable('PATH','User')) -replace '\\Q$BIN_DIR;\\E',''), 'User')" "INFO"
+            Write-Log "Undo later via Settings ▸ Environment Variables, or: [Environment]::SetEnvironmentVariable(`"PATH`", ($([Environment]::GetEnvironmentVariable('PATH','User')) -replace '`\Q$BIN_DIR;`\E',''), 'User')" "INFO"
             $script:PathUpdated = $true
         }
         catch {
             Write-Log "Failed to update PATH automatically. Please add manually:" "WARNING"
-            Write-Log "Run: [Environment]::SetEnvironmentVariable(\"PATH\", \"$BIN_DIR;$([Environment]::GetEnvironmentVariable('PATH','User'))\", 'User')" "WARNING"
+            Write-Log @"
+Run: [Environment]::SetEnvironmentVariable("PATH", "$BIN_DIR;$([Environment]::GetEnvironmentVariable('PATH','User'))", 'User')
+"@ "WARNING"
         }
     } else {
         Write-Log "PATH already contains $BIN_DIR"
@@ -361,9 +324,9 @@ function Update-Path {
 
 function Test-Installation {
     Write-Log "Verifying installation..."
-    
+
     $hfExecutable = Join-Path $BIN_DIR "hf.exe"
-    
+
     if (Test-Path $hfExecutable) {
         try {
             # Test the CLI
@@ -397,38 +360,27 @@ function Show-UninstallInfo {
     Write-Log ""
     if ($script:PathUpdated) {
         Write-Log "Remove '$BIN_DIR' from your user PATH via Settings ▸ Environment Variables," "INFO"
-        Write-Log "or run: [Environment]::SetEnvironmentVariable(\"PATH\", ($([Environment]::GetEnvironmentVariable('PATH','User')) -replace '\\Q$BIN_DIR;\\E',''), 'User')" "INFO"
+        Write-Log "or run: [Environment]::SetEnvironmentVariable(`"PATH`", ($([Environment]::GetEnvironmentVariable('PATH','User')) -replace '`\Q$BIN_DIR;`\E',''), 'User')" "INFO"
     } elseif ($NoModifyPath) {
-        Write-Log "PATH was not modified (--no-modify-path)." "INFO"
+        Write-Log 'PATH was not modified (--no-modify-path).' 'INFO'
     } else {
         Write-Log "If you added '$BIN_DIR' to PATH manually, remove it when finished." "INFO"
     }
 }
 
 function Show-Usage {
-    Write-Log ""
-            Write-Log "Usage examples:"
-            Write-Log "  hf login"
-            Write-Log "  hf download deepseek-ai/DeepSeek-R1"
-            Write-Log "  hf jobs run python:3.12 python -c 'print(`"Hello from HF CLI!`")'"
-            Write-Log ""
-    Write-Log "Current session already has hf available; open a new terminal to use it elsewhere." "INFO"
-    
-    # Show current version if possible
-    $hfExecutable = Join-Path $BIN_DIR "hf.exe"
-    if (Test-Path $hfExecutable) {
-        try {
-            $version = & $hfExecutable version 2>&1
-            if ($?) {
-                Write-Log "Installed version: $version"
-            } else {
-                Write-Log "Restart your terminal to use the 'hf' command"
-            }
-        }
-        catch {
-            Write-Log "Restart your terminal to use the 'hf' command"
-        }
-    }
+    Write-Log ''
+    Write-Log 'Usage examples:'
+    Write-Log '  hf login'
+    Write-Log '  hf download deepseek-ai/DeepSeek-R1'
+    Write-Log '  hf jobs run python:3.12 python -c ''print("Hello from HF CLI!")'''
+    Write-Log ''
+    Write-Log "The 'hf' command is now available." 'SUCCESS'
+    Write-Log 'Please **close and reopen** your terminal to use it directly, for example: `hf --help`' 'INFO'
+    Write-Log 'Alternatively, you can test it immediately in this session by using the full path:' 'INFO'
+
+    $hfExecutable = Join-Path $BIN_DIR 'hf.exe'
+    Write-Log ('  & "{0}" --help' -f $hfExecutable)
 }
 
 # Main installation process
@@ -436,18 +388,18 @@ function Main {
     try {
         Write-Log "Installing Hugging Face CLI for Windows..."
         Write-Log "PowerShell version: $($PSVersionTable.PSVersion)"
-        
+
         $pythonCmd = Find-Python
         New-Directories
         New-VirtualEnvironment -PythonCmd $pythonCmd
         Install-HuggingFaceHub
         Publish-HfCommand
         if ($NoModifyPath) {
-            Write-Log "Skipping PATH modification (--no-modify-path)."
+            Write-Log 'Skipping PATH modification (--no-modify-path).'
         } else {
             Update-Path
         }
-        
+
         if (Test-Installation) {
             $hfExecutable = Join-Path $BIN_DIR "hf.exe"
             Show-Usage
@@ -457,12 +409,6 @@ function Main {
             Write-Log "Binary: $hfExecutable"
             Write-Log "Virtualenv: $HF_CLI_DIR"
             Write-Log "Requested version: $requestedVersion"
-            Write-Log "Try it now: & \"$hfExecutable\" --help"
-            Write-Log "Examples:"
-            Write-Log "  hf login"
-            Write-Log "  hf download deepseek-ai/DeepSeek-R1"
-            Write-Log "  hf jobs run python:3.12 python -c 'print(`"Hello from HF CLI!`")'"
-            Write-Log ""
         } else {
             throw "Installation verification failed"
         }

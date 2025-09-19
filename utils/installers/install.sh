@@ -208,25 +208,39 @@ detect_os() {
 }
 
 # Install Python if not available
+python_version_supported() {
+    "$1" - <<'PY' >/dev/null 2>&1
+import sys
+sys.exit(0 if sys.version_info >= (3, 9) else 1)
+PY
+}
+
 ensure_python() {
-    if command_exists python3; then
-        PYTHON_CMD="python3"
-    elif command_exists python; then
-        # Check if it's Python 3
-        if python --version 2>&1 | grep -q "Python 3"; then
-            PYTHON_CMD="python"
-        else
-            log_error "Python 3 is required but not found."
-            exit 1
+    local candidates=(python3 python)
+    local chosen=""
+    local version_output=""
+
+    for candidate in "${candidates[@]}"; do
+        if command_exists "$candidate"; then
+            version_output="$($candidate --version 2>&1)"
+            if python_version_supported "$candidate"; then
+                PYTHON_CMD="$candidate"
+                chosen="$candidate"
+                break
+            else
+                log_warning "$candidate detected ($version_output) but Python 3.9+ is required."
+            fi
         fi
-    else
-        log_error "Python 3 is not installed. Please install Python 3 first."
+    done
+
+    if [ -z "$chosen" ]; then
+        log_error "Python 3.9+ is required but was not found."
         log_info "On Ubuntu/Debian: sudo apt update && sudo apt install python3 python3-venv python3-pip"
         log_info "On CentOS/RHEL/Fedora: sudo yum install python3 python3-venv python3-pip"
-        log_info "On macOS: brew install python3 (or install from python.org)"
+        log_info "On macOS: brew install python3 (or download Python 3.9+ from python.org)"
         exit 1
     fi
-    
+
     log_info "Using Python: $($PYTHON_CMD --version)"
 }
 
