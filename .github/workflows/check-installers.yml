@@ -36,7 +36,7 @@ jobs:
 
           export PATH="$BIN_DIR:$PATH"
           hf version
-          hf --help > /tmp/hf-help.txt
+          NO_COLOR=1 hf --help > /tmp/hf-help.txt
 
           # basic sanity checks on hf --help
           grep -q "Hugging Face Hub CLI" /tmp/hf-help.txt
@@ -66,7 +66,9 @@ jobs:
           hf.exe version
 
           $hfHelpPath = Join-Path $hfTestRoot 'hf-help.txt'
+          $env:NO_COLOR = '1'
           hf.exe --help | Out-File -FilePath $hfHelpPath -Encoding UTF8
+          Remove-Item Env:NO_COLOR
 
           $hfHelpContents = Get-Content -Path $hfHelpPath
           if (-not ($hfHelpContents | Select-String -Quiet 'Hugging Face Hub CLI')) {
