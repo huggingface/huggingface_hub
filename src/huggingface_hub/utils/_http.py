@@ -21,7 +21,6 @@ import threading
 import time
 import uuid
 from functools import lru_cache
-from http import HTTPStatus
 from shlex import quote
 from typing import Any, Callable, List, Optional, Tuple, Type, Union
 
