@@ -1663,7 +1663,7 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[float]`: The embedding representing the input text.
+            `List[float]`: The similarity scores between the main sentence and the given comparison sentences.
 
         Raises:
             [`InferenceTimeoutError`]:
