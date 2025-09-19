@@ -1,6 +1,6 @@
 import inspect
 from dataclasses import asdict, astuple, dataclass, is_dataclass
-from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union, get_type_hints
+from typing import Any, Dict, ForwardRef, List, Literal, Optional, Set, Tuple, Union, get_type_hints
 
 import jedi
 import pytest
@@ -31,10 +31,25 @@ def strictly_positive(value: int):
 
 @strict
 @dataclass
+class ConfigForTypeHints:
+    """
+    Utility `typing.get_type_hint` will try to evaluate all typing hints from the dataclass.
+    We do not want to evaluate everything because some hints are not resolvable (e.g. safe guards for `torch`)
+    This config class is needed only for `test_type_annotations_preserved ` which calls `get_type_hint`
+    """
+
+    model_type: str
+    hidden_size: int = validated_field(validator=[positive_int, multiple_of_64])
+    vocab_size: int = strictly_positive(default=16)
+
+
+@strict
+@dataclass
 class Config:
     model_type: str
     hidden_size: int = validated_field(validator=[positive_int, multiple_of_64])
     vocab_size: int = strictly_positive(default=16)
+    dtype: Union[ForwardRef("torch.dtype"), str] = "float32"
 
 
 @strict(accept_kwargs=True)
@@ -42,6 +57,7 @@ class Config:
 class ConfigWithKwargs:
     model_type: str
     vocab_size: int = validated_field(validator=positive_int, default=16)
+    dtype: Union[ForwardRef("torch.dtype"), str] = "float32"
 
 
 class DummyClass:
@@ -306,15 +322,20 @@ def test_is_recognized_as_dataclass():
 def test_behave_as_a_dataclass():
     # Check that dataclasses.asdict works
     config = Config(model_type="bert", hidden_size=768)
-    assert asdict(config) == {"model_type": "bert", "hidden_size": 768, "vocab_size": 16}
+    assert asdict(config) == {
+        "model_type": "bert",
+        "hidden_size": 768,
+        "vocab_size": 16,
+        "dtype": "float32",
+    }
 
     # Check that dataclasses.astuple works
-    assert astuple(config) == ("bert", 768, 16)
+    assert astuple(config) == ("bert", 768, 16, "float32")
 
 
 def test_type_annotations_preserved():
     # Check that type hints are preserved
-    hints = get_type_hints(Config)
+    hints = get_type_hints(ConfigForTypeHints)
     assert hints["model_type"] is str
     assert hints["hidden_size"] is int
     assert hints["vocab_size"] is int
@@ -351,12 +372,12 @@ def test_correct_eq_repr():
     assert config1 != config3
 
     # Test repr
-    assert repr(config1) == "Config(model_type='bert', hidden_size=0, vocab_size=16)"
+    assert repr(config1) == "Config(model_type='bert', hidden_size=0, vocab_size=16, dtype='float32')"
 
 
 def test_repr_if_accept_kwargs():
     config1 = ConfigWithKwargs(foo="bar", model_type="bert")
-    assert repr(config1) == "ConfigWithKwargs(model_type='bert', vocab_size=16, *foo='bar')"
+    assert repr(config1) == "ConfigWithKwargs(model_type='bert', vocab_size=16, dtype='float32', *foo='bar')"
 
 
 def test_autocompletion_attribute_without_kwargs():
