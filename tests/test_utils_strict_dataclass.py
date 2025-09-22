@@ -364,11 +364,10 @@ def test_behave_as_a_dataclass():
         "model_type": "bert",
         "hidden_size": 768,
         "vocab_size": 16,
-        "dtype": "float32",
     }
 
     # Check that dataclasses.astuple works
-    assert astuple(config) == ("bert", 768, 16, "float32")
+    assert astuple(config) == ("bert", 768, 16)
 
 
 def test_type_annotations_preserved():
@@ -410,12 +409,12 @@ def test_correct_eq_repr():
     assert config1 != config3
 
     # Test repr
-    assert repr(config1) == "Config(model_type='bert', hidden_size=0, vocab_size=16, dtype='float32')"
+    assert repr(config1) == "Config(model_type='bert', hidden_size=0, vocab_size=16)"
 
 
 def test_repr_if_accept_kwargs():
     config1 = ConfigWithKwargs(foo="bar", model_type="bert")
-    assert repr(config1) == "ConfigWithKwargs(model_type='bert', vocab_size=16, dtype='float32', *foo='bar')"
+    assert repr(config1) == "ConfigWithKwargs(model_type='bert', vocab_size=16, *foo='bar')"
 
 
 def test_autocompletion_attribute_without_kwargs():
