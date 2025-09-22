@@ -9597,8 +9597,8 @@ class HfApi:
 
         Example:
             ```python
-            >>> from huggingface_hub import create_webhook_job
-            >>> payload = create_webhook_job(
+            >>> from huggingface_hub import create_webhook_uv_job
+            >>> payload = create_webhook_uv_job(
             ...     script="my_script.py"
             ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
             ...     domains=["repo", "discussion"],
@@ -9608,9 +9608,9 @@ class HfApi:
             WebhookJobInfo(
                 id="654bbbc16f2ec14d77f109cc",
                 job=JobSpec(
-                    docker_image='python:3.12',
+                    docker_image='ghcr.io/astral-sh/uv:python3.12-bookworm',
                     space_id=None,
-                    command=['bash', '-c', 'echo An event occured in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD'],
+                    command=[...],
                     arguments=[],
                     environment={},
                     secrets=[],
