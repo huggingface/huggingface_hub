@@ -9599,7 +9599,7 @@ class HfApi:
             ```python
             >>> from huggingface_hub import create_webhook_uv_job
             >>> payload = create_webhook_uv_job(
-            ...     script="my_script.py"
+            ...     script="my_script.py",
             ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
             ...     domains=["repo", "discussion"],
             ...     secret="my-secret",
