@@ -29,16 +29,20 @@ def strictly_positive(value: int):
         raise ValueError(f"Value must be strictly positive, got {value}")
 
 
+def dtype_validation(value):
+    "Torch isn't installed in runners so we will check only for `string`"
+    if not isinstance(value, str):
+        raise ValueError(f"Value must be string ot `torch.dtype` but got {value}")
+
+    if isinstance(value, str) and value not in ["float32", "bfloat16", "float16"]:
+        raise ValueError(f"Value must be one of `[float32, bfloat16, float16] but got {value}")
+
+
 @strict
 @dataclass
-class ConfigForTypeHints:
-    """
-    Utility `typing.get_type_hint` will try to evaluate all typing hints from the dataclass.
-    We do not want to evaluate everything because some hints are not resolvable (e.g. safe guards for `torch`)
-    This config class is needed only for `test_type_annotations_preserved ` which calls `get_type_hint`
-    """
-
+class ConfigForwardRef:
     model_type: str
+    dtype: Union[ForwardRef("torch.dtype"), str] = validated_field(validator=[dtype_validation])
     hidden_size: int = validated_field(validator=[positive_int, multiple_of_64])
     vocab_size: int = strictly_positive(default=16)
 
@@ -49,7 +53,6 @@ class Config:
     model_type: str
     hidden_size: int = validated_field(validator=[positive_int, multiple_of_64])
     vocab_size: int = strictly_positive(default=16)
-    dtype: Union[ForwardRef("torch.dtype"), str] = "float32"
 
 
 @strict(accept_kwargs=True)
@@ -57,7 +60,6 @@ class Config:
 class ConfigWithKwargs:
     model_type: str
     vocab_size: int = validated_field(validator=positive_int, default=16)
-    dtype: Union[ForwardRef("torch.dtype"), str] = "float32"
 
 
 class DummyClass:
@@ -76,6 +78,42 @@ def test_default_values():
     assert config.model_type == "bert"
     assert config.vocab_size == 16
     assert config.hidden_size == 1024
+
+
+def test_forward_ref_validation():
+    config = ConfigForwardRef(model_type="bert", vocab_size=30000, hidden_size=768, dtype="float32")
+    assert config.model_type == "bert"
+    assert config.vocab_size == 30000
+    assert config.hidden_size == 768
+    assert config.dtype == "float32"
+
+    # All field are checked against type hints
+    with pytest.raises(StrictDataclassFieldValidationError):
+        ConfigForwardRef(model_type={"type": "bert"}, vocab_size=30000, hidden_size=768, dtype="float32")
+
+    with pytest.raises(StrictDataclassFieldValidationError):
+        ConfigForwardRef(model_type="bert", vocab_size="30000", hidden_size=768, dtype="float32")
+
+    # The `dtype` field can be of any value and will be skipped due to `ForwardRef`
+    # `ForwardRef` validation has to be added by the end-user in the field-metadata
+    ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype="float32")
+    ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype="float16")
+    ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype="bfloat16")
+
+    with pytest.raises(StrictDataclassFieldValidationError):
+        ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype="bfloat64")
+
+    with pytest.raises(StrictDataclassFieldValidationError):
+        ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype=0)
+
+    with pytest.raises(StrictDataclassFieldValidationError):
+        ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype=10.0)
+
+    with pytest.raises(StrictDataclassFieldValidationError):
+        ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype=["float32"])
+
+    with pytest.raises(StrictDataclassFieldValidationError):
+        ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype={"text_config": "float32"})
 
 
 def test_invalid_type_initialization():
@@ -335,7 +373,7 @@ def test_behave_as_a_dataclass():
 
 def test_type_annotations_preserved():
     # Check that type hints are preserved
-    hints = get_type_hints(ConfigForTypeHints)
+    hints = get_type_hints(Config)
     assert hints["model_type"] is str
     assert hints["hidden_size"] is int
     assert hints["vocab_size"] is int
