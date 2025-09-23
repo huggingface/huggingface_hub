@@ -12,12 +12,6 @@ Downloads and installs the `huggingface_hub[cli]` package into a dedicated virtu
 .PARAMETER Force
 Recreates the virtual environment even if it already exists. Off by default.
 
-.PARAMETER InstallDir
-Overrides the installation directory. Default: "$env:HF_HOME\cli" when `HF_HOME` is set; otherwise "$env:USERPROFILE\.hf-cli".
-
-.PARAMETER BinDir
-Overrides the directory where `hf.exe` is copied. Default: value of `HF_CLI_BIN_DIR` when set; otherwise "$env:USERPROFILE\.local\bin".
-
 .PARAMETER Version
 Installs a specific `huggingface_hub` version when provided (e.g., `0.35.0`). Defaults to latest unless the `HF_CLI_VERSION` environment variable is set.
 
@@ -28,14 +22,11 @@ Enables verbose output, including detailed pip logs.
 Skips PATH modifications; `hf` must be invoked via its full path unless you add it manually.
 
 .EXAMPLE
-powershell -c "irm https://hf.co/install.ps1 | iex" -InstallDir C:\Tools\hf -BinDir C:\Tools\bin -Version 0.35.0
+powershell -c "irm https://hf.co/install.ps1 | iex" -Version 0.35.0
 #>
 
-# Accept optional install/bin directory overrides from parameters
 param(
     [switch]$Force = $false,
-    [string]$InstallDir,
-    [string]$BinDir,
     [string]$Version,
     [switch]$Verbose,
     [switch]$NoModifyPath
@@ -92,7 +83,7 @@ function Write-Log {
     }
 }
 
-# Normalize user-supplied paths and honor HF_HOME/overrides
+# Normalize user-supplied paths
 function Resolve-CliPath {
     param([string]$Path)
 
@@ -116,10 +107,8 @@ function Resolve-CliPath {
     return [System.IO.Path]::GetFullPath((Join-Path $base $expanded))
 }
 
-# Compose installer directories with overrides before invoking functions
-if ($InstallDir) {
-    $HF_CLI_DIR = Resolve-CliPath $InstallDir
-} elseif ($env:HF_HOME) {
+# Compose installer directories using environment variables only
+if ($env:HF_HOME) {
     $HF_CLI_DIR = Resolve-CliPath (Join-Path $env:HF_HOME "cli")
 } else {
     $HF_CLI_DIR = Resolve-CliPath (Join-Path $env:USERPROFILE ".hf-cli")
@@ -127,9 +116,7 @@ if ($InstallDir) {
 
 $VENV_DIR = Join-Path $HF_CLI_DIR "venv"
 
-if ($BinDir) {
-    $BIN_DIR = Resolve-CliPath $BinDir
-} elseif ($env:HF_CLI_BIN_DIR) {
+if ($env:HF_CLI_BIN_DIR) {
     $BIN_DIR = Resolve-CliPath $env:HF_CLI_BIN_DIR
 } else {
     $BIN_DIR = Resolve-CliPath (Join-Path $env:USERPROFILE ".local\bin")

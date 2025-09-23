@@ -37,8 +37,6 @@ LOG_LEVEL=1
 
 # Configuration
 FORCE_REINSTALL="false"
-# allow install dir overrides via flag/env before defaulting to ~/.hf-cli
-INSTALL_DIR_OVERRIDE=""
 BIN_DIR="${HF_CLI_BIN_DIR:-$HOME/.local/bin}"
 UPDATED_RC_FILE=""
 REQUESTED_VERSION="${HF_CLI_VERSION:-}"
@@ -93,12 +91,14 @@ Usage: curl -LsSf https://hf.co/install.sh | sh -s -- [OPTIONS]
 
 Options:
   --force           Recreate the Hugging Face CLI virtual environment if it exists
-  --install-dir     Installation directory (default: $HF_HOME/cli if set, else ~/.hf-cli)
-  --bin-dir         Directory for the hf wrapper (default: $HF_CLI_BIN_DIR if set, else ~/.local/bin)
   --no-modify-path  Skip adding the hf wrapper directory to PATH
   --version         Install a specific huggingface_hub version (default: latest)
   -v, --verbose     Enable verbose output (includes full pip logs)
   --help, -h        Show this message and exit
+
+Environment variables:
+  HF_HOME           Installation base directory; installer uses $HF_HOME/cli when set
+  HF_CLI_BIN_DIR    Directory for the hf wrapper (default: ~/.local/bin)
 EOF
 }
 
@@ -130,22 +130,6 @@ while [ $# -gt 0 ]; do
         --force)
             FORCE_REINSTALL="true"
             ;;
-        --install-dir)
-            if [ $# -lt 2 ]; then
-                log_error "--install-dir requires a path argument"
-                exit 1
-            fi
-            shift
-            INSTALL_DIR_OVERRIDE="$1"
-            ;;
-        --bin-dir)
-            if [ $# -lt 2 ]; then
-                log_error "--bin-dir requires a path argument"
-                exit 1
-            fi
-            shift
-            BIN_DIR="$1"
-            ;;
         --no-modify-path)
             SKIP_PATH_UPDATE="true"
             ;;
@@ -176,13 +160,8 @@ done
 
 # Persist fully resolved paths for downstream use and wrapper creation
 BIN_DIR=$(expand_path "$BIN_DIR")
-if [ -n "$INSTALL_DIR_OVERRIDE" ]; then
-    INSTALL_DIR_OVERRIDE=$(expand_path "$INSTALL_DIR_OVERRIDE")
-fi
 
-if [ -n "$INSTALL_DIR_OVERRIDE" ]; then
-    HF_CLI_DIR="$INSTALL_DIR_OVERRIDE"
-elif [ -n "$HF_HOME" ]; then
+if [ -n "$HF_HOME" ]; then
     HF_CLI_DIR="$HF_HOME/cli"
 else
     HF_CLI_DIR="$HOME/.hf-cli"
