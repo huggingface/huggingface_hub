@@ -181,20 +181,18 @@ class TestXetUpload:
             }
             return ([action], [], "xet")
 
-        with (
-            patch("huggingface_hub._commit_api.post_lfs_batch_info", side_effect=fake_batch) as mock_batch,
-            patch("huggingface_hub._commit_api._upload_lfs_files") as mock_lfs,
-            patch("huggingface_hub._commit_api._upload_xet_files") as mock_xet,
-        ):
-            _upload_files(
-                additions=[addition],
-                repo_type="model",
-                repo_id="dummy/user-repo",
-                headers={},
-                endpoint="https://hub-ci.huggingface.co",
-                revision="main",
-                create_pr=False,
-            )
+        with patch("huggingface_hub._commit_api.post_lfs_batch_info", side_effect=fake_batch) as mock_batch:
+            with patch("huggingface_hub._commit_api._upload_lfs_files") as mock_lfs:
+                with patch("huggingface_hub._commit_api._upload_xet_files") as mock_xet:
+                    _upload_files(
+                        additions=[addition],
+                        repo_type="model",
+                        repo_id="dummy/user-repo",
+                        headers={},
+                        endpoint="https://hub-ci.huggingface.co",
+                        revision="main",
+                        create_pr=False,
+                    )
             assert mock_batch.call_count == 1
             mock_xet.assert_called_once()
             mock_lfs.assert_not_called()
@@ -212,20 +210,18 @@ class TestXetUpload:
             }
             return ([action], [], "xet")
 
-        with (
-            patch("huggingface_hub._commit_api.post_lfs_batch_info", side_effect=fake_batch) as mock_batch,
-            patch("huggingface_hub._commit_api._upload_lfs_files") as mock_lfs,
-            patch("huggingface_hub._commit_api._upload_xet_files") as mock_xet,
-        ):
-            _upload_files(
-                additions=[addition],
-                repo_type="model",
-                repo_id="dummy/user-repo",
-                headers={},
-                endpoint="https://hub-ci.huggingface.co",
-                revision="main",
-                create_pr=False,
-            )
+        with patch("huggingface_hub._commit_api.post_lfs_batch_info", side_effect=fake_batch) as mock_batch:
+            with patch("huggingface_hub._commit_api._upload_lfs_files") as mock_lfs:
+                with patch("huggingface_hub._commit_api._upload_xet_files") as mock_xet:
+                    _upload_files(
+                        additions=[addition],
+                        repo_type="model",
+                        repo_id="dummy/user-repo",
+                        headers={},
+                        endpoint="https://hub-ci.huggingface.co",
+                        revision="main",
+                        create_pr=False,
+                    )
 
             # Ensure we retried negotiation and routed to LFS, not XET
             assert mock_batch.call_count == 1
