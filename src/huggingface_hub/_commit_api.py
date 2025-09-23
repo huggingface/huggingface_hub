@@ -396,7 +396,6 @@ def _upload_files(
             token=None,
             transfers=transfers,
         )
-        print(f"-------- chosen_transfer: {chosen_transfer}")
         if errors_chunk:
             message = "\n".join(
                 [
