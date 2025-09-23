@@ -87,6 +87,27 @@ def repo_create(
     print(f"Your repo is now available at {ANSI.bold(repo_url)}")
 
 
+@repo_cli.command("delete", help="Delete a repo from the Hub. this is an irreversible operation.")
+def repo_delete(
+    repo_id: RepoIdArg,
+    repo_type: RepoTypeOpt = RepoType.model,
+    token: TokenOpt = None,
+    missing_ok: Annotated[
+        Optional[bool],
+        typer.Option(
+            help="If set to True, do not raise an error if repo does not exist.",
+        ),
+    ] = False,
+) -> None:
+    api = get_hf_api(token=token)
+    api.delete_repo(
+        repo_id=repo_id,
+        repo_type=repo_type.value,
+        missing_ok=missing_ok,
+    )
+    print(f"Successfully deleted {ANSI.bold(repo_id)} on the Hub.")
+
+
 @tag_app.command("create", help="Create a tag for a repo.")
 def tag_create(
     repo_id: RepoIdArg,

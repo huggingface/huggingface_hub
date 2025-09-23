@@ -778,6 +778,44 @@ class TestTagCommands:
         api.delete_tag.assert_called_once_with(repo_id=DUMMY_MODEL_ID, tag="1.0", repo_type="model")
 
 
+class TestRepoDeleteCommand:
+    def test_repo_delete_basic(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["repo", "delete", DUMMY_MODEL_ID])
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token=None)
+        api.delete_repo.assert_called_once_with(
+            repo_id=DUMMY_MODEL_ID,
+            repo_type="model",
+            missing_ok=False,
+        )
+
+    def test_repo_delete_with_all_options(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(
+                app,
+                [
+                    "repo",
+                    "delete",
+                    DUMMY_MODEL_ID,
+                    "--repo-type",
+                    "dataset",
+                    "--token",
+                    "my-token",
+                    "--missing-ok",
+                ],
+            )
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token="my-token")
+        api.delete_repo.assert_called_once_with(
+            repo_id=DUMMY_MODEL_ID,
+            repo_type="dataset",
+            missing_ok=True,
+        )
+
+
 @contextmanager
 def tmp_current_directory() -> Generator[str, None, None]:
     with SoftTemporaryDirectory() as tmp_dir:
