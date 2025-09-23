@@ -21,6 +21,7 @@ Usage:
     hf repo create my-cool-model --private
 """
 
+import enum
 from typing import Annotated, Optional
 
 import typer
@@ -44,8 +45,16 @@ from ._cli_utils import (
 logger = logging.get_logger(__name__)
 
 repo_cli = typer_factory(help="Manage repos on the Hub.")
-tag_app = typer_factory(help="Manage tags for a repo on the Hub.")
-repo_cli.add_typer(tag_app, name="tag")
+tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
+branch_cli = typer_factory(help="Manage branches for a repo on the Hub.")
+repo_cli.add_typer(tag_cli, name="tag")
+repo_cli.add_typer(branch_cli, name="branch")
+
+
+class GatedChoices(enum.Enum):
+    auto = "auto"
+    manual = "manual"
+    false = "false"
 
 
 @repo_cli.command("create", help="Create a new repo on the Hub.")
@@ -93,7 +102,7 @@ def repo_delete(
     repo_type: RepoTypeOpt = RepoType.model,
     token: TokenOpt = None,
     missing_ok: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
             help="If set to True, do not raise an error if repo does not exist.",
         ),
@@ -108,7 +117,109 @@ def repo_delete(
     print(f"Successfully deleted {ANSI.bold(repo_id)} on the Hub.")
 
 
-@tag_app.command("create", help="Create a tag for a repo.")
+@repo_cli.command("move", help="Move a repository from a repo to another repo.")
+def repo_move(
+    from_id: RepoIdArg,
+    to_id: RepoIdArg,
+    token: TokenOpt = None,
+    repo_type: RepoTypeOpt = RepoType.model,
+) -> None:
+    api = get_hf_api(token=token)
+    api.move_repo(
+        from_id=from_id,
+        to_id=to_id,
+        repo_type=repo_type.value,
+    )
+    print(f"Successfully moved {ANSI.bold(from_id)} to {ANSI.bold(to_id)} on the Hub.")
+
+
+@repo_cli.command("settings", help="Update the settings of a repository.")
+def repo_settings(
+    repo_id: RepoIdArg,
+    gated: Annotated[
+        Optional[GatedChoices],
+        typer.Option(
+            help="The gated status for the repository.",
+        ),
+    ] = None,
+    private: Annotated[
+        Optional[bool],
+        typer.Option(
+            help="Whether the repository should be private.",
+        ),
+    ] = None,
+    xet_enabled: Annotated[
+        Optional[bool],
+        typer.Option(
+            help=" Whether the repository should be enabled for Xet Storage.",
+        ),
+    ] = None,
+    token: TokenOpt = None,
+    repo_type: RepoTypeOpt = RepoType.model,
+) -> None:
+    api = get_hf_api(token=token)
+    api.update_repo_settings(
+        repo_id=repo_id,
+        gated=(gated.value if gated else None),  # type: ignore [arg-type]
+        private=private,
+        xet_enabled=xet_enabled,
+        repo_type=repo_type.value,
+    )
+    print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")
+
+
+@branch_cli.command("create", help="Create a new branch for a repo on the Hub.")
+def branch_create(
+    repo_id: RepoIdArg,
+    branch: Annotated[
+        str,
+        typer.Argument(
+            help="The name of the branch to create.",
+        ),
+    ],
+    revision: RevisionOpt = None,
+    token: TokenOpt = None,
+    repo_type: RepoTypeOpt = RepoType.model,
+    exist_ok: Annotated[
+        bool,
+        typer.Option(
+            help="If set to True, do not raise an error if branch already exists.",
+        ),
+    ] = False,
+) -> None:
+    api = get_hf_api(token=token)
+    api.create_branch(
+        repo_id=repo_id,
+        branch=branch,
+        revision=revision,
+        repo_type=repo_type.value,
+        exist_ok=exist_ok,
+    )
+    print(f"Successfully created {ANSI.bold(branch)} branch on {repo_type.value} {ANSI.bold(repo_id)}")
+
+
+@branch_cli.command("delete", help="Delete a branch from a repo on the Hub.")
+def branch_delete(
+    repo_id: RepoIdArg,
+    branch: Annotated[
+        str,
+        typer.Argument(
+            help="The name of the branch to delete.",
+        ),
+    ],
+    token: TokenOpt = None,
+    repo_type: RepoTypeOpt = RepoType.model,
+) -> None:
+    api = get_hf_api(token=token)
+    api.delete_branch(
+        repo_id=repo_id,
+        branch=branch,
+        repo_type=repo_type.value,
+    )
+    print(f"Successfully deleted {ANSI.bold(branch)} branch on {repo_type.value} {ANSI.bold(repo_id)}")
+
+
+@tag_cli.command("create", help="Create a tag for a repo.")
 def tag_create(
     repo_id: RepoIdArg,
     tag: Annotated[
@@ -148,7 +259,7 @@ def tag_create(
     print(f"Tag {ANSI.bold(tag)} created on {ANSI.bold(repo_id)}")
 
 
-@tag_app.command("list", help="List tags for a repo.")
+@tag_cli.command("list", help="List tags for a repo.")
 def tag_list(
     repo_id: RepoIdArg,
     token: TokenOpt = None,
@@ -173,7 +284,7 @@ def tag_list(
         print(t.name)
 
 
-@tag_app.command("delete", help="Delete a tag for a repo.")
+@tag_cli.command("delete", help="Delete a tag for a repo.")
 def tag_delete(
     repo_id: RepoIdArg,
     tag: Annotated[

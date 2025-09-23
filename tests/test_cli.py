@@ -778,6 +778,170 @@ class TestTagCommands:
         api.delete_tag.assert_called_once_with(repo_id=DUMMY_MODEL_ID, tag="1.0", repo_type="model")
 
 
+class TestBranchCommands:
+    def test_branch_create_basic(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["repo", "branch", "create", DUMMY_MODEL_ID, "dev"])
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token=None)
+        api.create_branch.assert_called_once_with(
+            repo_id=DUMMY_MODEL_ID,
+            branch="dev",
+            revision=None,
+            repo_type="model",
+            exist_ok=False,
+        )
+
+    def test_branch_create_with_all_options(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(
+                app,
+                [
+                    "repo",
+                    "branch",
+                    "create",
+                    DUMMY_MODEL_ID,
+                    "dev",
+                    "--repo-type",
+                    "dataset",
+                    "--revision",
+                    "v1.0.0",
+                    "--token",
+                    "my-token",
+                    "--exist-ok",
+                ],
+            )
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token="my-token")
+        api.create_branch.assert_called_once_with(
+            repo_id=DUMMY_MODEL_ID,
+            branch="dev",
+            revision="v1.0.0",
+            repo_type="dataset",
+            exist_ok=True,
+        )
+
+    def test_branch_delete_basic(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["repo", "branch", "delete", DUMMY_MODEL_ID, "dev"])
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token=None)
+        api.delete_branch.assert_called_once_with(
+            repo_id=DUMMY_MODEL_ID,
+            branch="dev",
+            repo_type="model",
+        )
+
+    def test_branch_delete_with_all_options(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(
+                app,
+                [
+                    "repo",
+                    "branch",
+                    "delete",
+                    DUMMY_MODEL_ID,
+                    "dev",
+                    "--repo-type",
+                    "dataset",
+                    "--token",
+                    "my-token",
+                ],
+            )
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token="my-token")
+        api.delete_branch.assert_called_once_with(
+            repo_id=DUMMY_MODEL_ID,
+            branch="dev",
+            repo_type="dataset",
+        )
+
+
+class TestRepoMoveCommand:
+    def test_repo_move_basic(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["repo", "move", DUMMY_MODEL_ID, "new-id"])
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token=None)
+        api.move_repo.assert_called_once_with(
+            from_id=DUMMY_MODEL_ID,
+            to_id="new-id",
+            repo_type="model",
+        )
+
+    def test_repo_move_with_all_options(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(
+                app,
+                [
+                    "repo",
+                    "move",
+                    DUMMY_MODEL_ID,
+                    "new-id",
+                    "--repo-type",
+                    "dataset",
+                    "--token",
+                    "my-token",
+                ],
+            )
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token="my-token")
+        api.move_repo.assert_called_once_with(
+            from_id=DUMMY_MODEL_ID,
+            to_id="new-id",
+            repo_type="dataset",
+        )
+
+
+class TestRepoSettingsCommand:
+    def test_repo_settings_basic(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["repo", "settings", DUMMY_MODEL_ID])
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token=None)
+        api.update_repo_settings.assert_called_once_with(
+            repo_id=DUMMY_MODEL_ID,
+            gated=None,
+            private=None,
+            xet_enabled=None,
+            repo_type="model",
+        )
+
+    def test_repo_settings_with_all_options(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(
+                app,
+                [
+                    "repo",
+                    "settings",
+                    DUMMY_MODEL_ID,
+                    "--gated",
+                    "manual",
+                    "--private",
+                    "--repo-type",
+                    "dataset",
+                    "--token",
+                    "my-token",
+                ],
+            )
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token="my-token")
+        kwargs = api.update_repo_settings.call_args.kwargs
+        assert kwargs["repo_id"] == DUMMY_MODEL_ID
+        assert kwargs["repo_type"] == "dataset"
+        assert kwargs["private"] is True
+        assert kwargs["xet_enabled"] is None
+        assert getattr(kwargs["gated"], "value", None) == "manual"
+
+
 class TestRepoDeleteCommand:
     def test_repo_delete_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
