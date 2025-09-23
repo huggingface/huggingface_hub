@@ -36,8 +36,10 @@ from .nebius import (
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .nscale import NscaleConversationalTask, NscaleTextToImageTask
 from .openai import OpenAIConversationalTask
+from .publicai import PublicAIConversationalTask
 from .replicate import ReplicateImageToImageTask, ReplicateTask, ReplicateTextToImageTask, ReplicateTextToSpeechTask
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
+from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
 
 
@@ -58,8 +60,10 @@ PROVIDER_T = Literal[
     "novita",
     "nscale",
     "openai",
+    "publicai",
     "replicate",
     "sambanova",
+    "scaleway",
     "together",
 ]
 
@@ -144,6 +148,9 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     "openai": {
         "conversational": OpenAIConversationalTask(),
     },
+    "publicai": {
+        "conversational": PublicAIConversationalTask(),
+    },
     "replicate": {
         "image-to-image": ReplicateImageToImageTask(),
         "text-to-image": ReplicateTextToImageTask(),
@@ -153,6 +160,10 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     "sambanova": {
         "conversational": SambanovaConversationalTask(),
         "feature-extraction": SambanovaFeatureExtractionTask(),
+    },
+    "scaleway": {
+        "conversational": ScalewayConversationalTask(),
+        "feature-extraction": ScalewayFeatureExtractionTask(),
     },
     "together": {
         "text-to-image": TogetherTextToImageTask(),

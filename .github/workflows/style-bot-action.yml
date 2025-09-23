@@ -165,8 +165,10 @@ jobs:
 
       - name: Run style command
         id: run_style
+        env:
+            STYLECOMMANDTYPE : ${{ inputs.style_command_type }}
         run: |
-          case "${{ inputs.style_command_type }}" in
+          case "$STYLECOMMANDTYPE" in
             "default")
               echo "Running default style and quality checks"
               make style && make quality
@@ -180,7 +182,7 @@ jobs:
               make style
               ;;
             *)
-              echo "Invalid style_command_type: ${{ inputs.style_command_type }}"
+              echo "Invalid style_command_type: $STYLECOMMANDTYPE"
               echo "Valid options are: 'default', 'quality_only', 'style_only'"
               exit 1
               ;;

@@ -18,6 +18,9 @@ class CustomType:
 OBJ_WITH_CIRCULAR_REF = {"hello": "world"}
 OBJ_WITH_CIRCULAR_REF["recursive"] = OBJ_WITH_CIRCULAR_REF
 
+_nested = {"hello": "world"}
+OBJ_WITHOUT_CIRCULAR_REF = {"hello": _nested, "world": [_nested]}
+
 
 @pytest.mark.parametrize(
     "data",
@@ -33,6 +36,7 @@ OBJ_WITH_CIRCULAR_REF["recursive"] = OBJ_WITH_CIRCULAR_REF
         {},
         {"name": "Alice", "age": 30},
         {0: "LABEL_0", 1.0: "LABEL_1"},
+        OBJ_WITHOUT_CIRCULAR_REF,
     ],
 )
 def test_is_jsonable_success(data):

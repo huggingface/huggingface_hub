@@ -108,7 +108,8 @@ def post_lfs_batch_info(
     revision: Optional[str] = None,
     endpoint: Optional[str] = None,
     headers: Optional[Dict[str, str]] = None,
-) -> Tuple[List[dict], List[dict]]:
+    transfers: Optional[List[str]] = None,
+) -> Tuple[List[dict], List[dict], Optional[str]]:
     """
     Requests the LFS batch endpoint to retrieve upload instructions
 
@@ -127,11 +128,14 @@ def post_lfs_batch_info(
             The git revision to upload to.
         headers (`dict`, *optional*):
             Additional headers to include in the request
+        transfers (`list`, *optional*):
+            List of transfer methods to use. Defaults to ["basic", "multipart"].
 
     Returns:
-        `LfsBatchInfo`: 2-tuple:
+        `LfsBatchInfo`: 3-tuple:
             - First element is the list of upload instructions from the server
-            - Second element is an list of errors, if any
+            - Second element is a list of errors, if any
+            - Third element is the chosen transfer adapter if provided by the server (e.g. "basic", "multipart", "xet")
 
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -146,7 +150,7 @@ def post_lfs_batch_info(
     batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
     payload: Dict = {
         "operation": "upload",
-        "transfers": ["basic", "multipart"],
+        "transfers": transfers if transfers is not None else ["basic", "multipart"],
         "objects": [
             {
                 "oid": upload.sha256.hex(),
@@ -172,9 +176,13 @@ def post_lfs_batch_info(
     if not isinstance(objects, list):
         raise ValueError("Malformed response from server")
 
+    chosen_transfer = batch_info.get("transfer")
+    chosen_transfer = chosen_transfer if isinstance(chosen_transfer, str) else None
+
     return (
         [_validate_batch_actions(obj) for obj in objects if "error" not in obj],
         [_validate_batch_error(obj) for obj in objects if "error" in obj],
+        chosen_transfer,
     )
 
 
@@ -316,7 +324,7 @@ def _upload_single_part(operation: "CommitOperationAdd", upload_url: str) -> Non
     """
     with operation.as_file(with_tqdm=True) as fileobj:
         # S3 might raise a transient 500 error -> let's retry if that happens
-        response = http_backoff("PUT", upload_url, data=fileobj, retry_on_status_codes=(500, 502, 503, 504))
+        response = http_backoff("PUT", upload_url, data=fileobj)
         hf_raise_for_status(response)
 
 
@@ -400,9 +408,7 @@ def _upload_parts_iteratively(
                 read_limit=chunk_size,
             ) as fileobj_slice:
                 # S3 might raise a transient 500 error -> let's retry if that happens
-                part_upload_res = http_backoff(
-                    "PUT", part_upload_url, data=fileobj_slice, retry_on_status_codes=(500, 502, 503, 504)
-                )
+                part_upload_res = http_backoff("PUT", part_upload_url, data=fileobj_slice)
                 hf_raise_for_status(part_upload_res)
                 headers.append(part_upload_res.headers)
     return headers  # type: ignore
