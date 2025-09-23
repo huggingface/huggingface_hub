@@ -186,8 +186,6 @@ _SUBMOD_ATTRS = {
         "create_scheduled_uv_job",
         "create_tag",
         "create_webhook",
-        "create_webhook_job",
-        "create_webhook_uv_job",
         "dataset_info",
         "delete_branch",
         "delete_collection",
@@ -840,8 +838,6 @@ __all__ = [
     "create_scheduled_uv_job",
     "create_tag",
     "create_webhook",
-    "create_webhook_job",
-    "create_webhook_uv_job",
     "dataset_info",
     "delete_branch",
     "delete_collection",
@@ -1210,8 +1206,6 @@ if TYPE_CHECKING:  # pragma: no cover
         create_scheduled_uv_job,  # noqa: F401
         create_tag,  # noqa: F401
         create_webhook,  # noqa: F401
-        create_webhook_job,  # noqa: F401
-        create_webhook_uv_job,  # noqa: F401
         dataset_info,  # noqa: F401
         delete_branch,  # noqa: F401
         delete_collection,  # noqa: F401

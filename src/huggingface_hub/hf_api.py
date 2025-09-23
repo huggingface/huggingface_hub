@@ -510,11 +510,15 @@ class WebhookWatchedItem:
 class WebhookInfo:
     """Data structure containing information about a webhook.
 
+    One of `url` or `job` is specified, but not both.
+
     Attributes:
         id (`str`):
             ID of the webhook.
-        url (`str`):
+        url (`str`, *optional*):
             URL of the webhook.
+        job (`JobSpec`, *optional*):
+            Specifications of the Job to trigger.
         watched (`List[WebhookWatchedItem]`):
             List of items watched by the webhook, see [`WebhookWatchedItem`].
         domains (`List[WEBHOOK_DOMAIN_T]`):
@@ -526,34 +530,8 @@ class WebhookInfo:
     """
 
     id: str
-    url: str
-    watched: List[WebhookWatchedItem]
-    domains: List[constants.WEBHOOK_DOMAIN_T]
-    secret: Optional[str]
-    disabled: bool
-
-
-@dataclass
-class WebhookJobInfo:
-    """Data structure containing information about a webhook that triggers a Job.
-
-    Attributes:
-        id (`str`):
-            ID of the webhook.
-        job (`JobSpec`):
-            Specifications of the Job to trigger with the webhook.
-        watched (`List[WebhookWatchedItem]`):
-            List of items watched by the webhook, see [`WebhookWatchedItem`].
-        domains (`List[WEBHOOK_DOMAIN_T]`):
-            List of domains the webhook is watching. Can be one of `["repo", "discussions"]`.
-        secret (`str`, *optional*):
-            Secret of the webhook.
-        disabled (`bool`):
-            Whether the webhook is disabled or not.
-    """
-
-    id: str
-    job: JobSpec
+    url: Optional[str]
+    job: Optional[JobSpec]
     watched: List[WebhookWatchedItem]
     domains: List[constants.WEBHOOK_DOMAIN_T]
     secret: Optional[str]
@@ -9198,9 +9176,7 @@ class HfApi:
     ###################
 
     @validate_hf_hub_args
-    def get_webhook(
-        self, webhook_id: str, *, token: Union[bool, str, None] = None
-    ) -> Union[WebhookInfo, WebhookJobInfo]:
+    def get_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
         """Get a webhook by its id.
 
         Args:
@@ -9212,7 +9188,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            [`Union[WebhookInfo, WebhookJobInfo]`]:
+            [`WebhookInfo`]:
                 Info about the webhook.
 
         Example:
@@ -9222,6 +9198,7 @@ class HfApi:
             >>> print(webhook)
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
+                job=None,
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
                 secret="my-secret",
@@ -9239,30 +9216,20 @@ class HfApi:
 
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
-        webhook = (
-            WebhookInfo(
-                id=webhook_data["id"],
-                url=webhook_data["url"],
-                watched=watched_items,
-                domains=webhook_data["domains"],
-                secret=webhook_data.get("secret"),
-                disabled=webhook_data["disabled"],
-            )
-            if "url" in webhook_data
-            else WebhookJobInfo(
-                id=webhook_data["id"],
-                job=JobSpec(**webhook_data["job"]),
-                watched=[WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]],
-                domains=webhook_data["domains"],
-                secret=webhook_data.get("secret"),
-                disabled=webhook_data["disabled"],
-            )
+        webhook = WebhookInfo(
+            id=webhook_data["id"],
+            url=webhook_data["url"],
+            job=JobSpec(**webhook_data["job"]) if webhook_data["job"] else None,
+            watched=watched_items,
+            domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
+            disabled=webhook_data["disabled"],
         )
 
         return webhook
 
     @validate_hf_hub_args
-    def list_webhooks(self, *, token: Union[bool, str, None] = None) -> List[Union[WebhookInfo, WebhookJobInfo]]:
+    def list_webhooks(self, *, token: Union[bool, str, None] = None) -> List[WebhookInfo]:
         """List all configured webhooks.
 
         Args:
@@ -9272,7 +9239,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[Union[WebhookInfo, WebhookJobInfo]]`:
+            `List[WebhookInfo]`:
                 List of webhook info objects.
 
         Example:
@@ -9302,17 +9269,11 @@ class HfApi:
         return [
             WebhookInfo(
                 id=webhook["id"],
-                url=webhook["url"],
-                watched=[WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook["watched"]],
-                domains=webhook["domains"],
-                secret=webhook.get("secret"),
-                disabled=webhook["disabled"],
-            )
-            if "url" in webhook
-            else WebhookJobInfo(
-                id=webhook["id"],
-                job=JobSpec(**webhook["job"]),
-                watched=[WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook["watched"]],
+                url=webhook.get("url"),
+                job=JobSpec(**webhook["job"]) if webhook.get("job") else None,
+                watched=[
+                    WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhooks_data["watched"]
+                ],
                 domains=webhook["domains"],
                 secret=webhook.get("secret"),
                 disabled=webhook["disabled"],
@@ -9324,7 +9285,8 @@ class HfApi:
     def create_webhook(
         self,
         *,
-        url: str,
+        url: Optional[str] = None,
+        job_id: Optional[str] = None,
         watched: List[Union[Dict, WebhookWatchedItem]],
         domains: Optional[List[constants.WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
@@ -9332,9 +9294,15 @@ class HfApi:
     ) -> WebhookInfo:
         """Create a new webhook.
 
+        The webhook can either send a payload to a URL, or trigger a Job to run on Hugging Face infrastructure.
+        This function should be called with one of `url` or `job_id`, but not both.
+
         Args:
             url (`str`):
                 URL to send the payload to.
+            job_id (`str`):
+                ID of the source Job to trigger with the webhook payload in the environment variable WEBHOOK_PAYLOAD.
+                Additional environment variables are available for convenience: WEBHOOK_REPO_ID, WEBHOOK_REPO_TYPE and WEBHOOK_SECRET.
             watched (`List[WebhookWatchedItem]`):
                 List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets or spaces.
                 Watched items can also be provided as plain dictionaries.
@@ -9352,6 +9320,8 @@ class HfApi:
                 Info about the newly created webhook.
 
         Example:
+
+            Create a webhook that sends a payload to a URL
             ```python
             >>> from huggingface_hub import create_webhook
             >>> payload = create_webhook(
@@ -9364,112 +9334,33 @@ class HfApi:
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                job=None,
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 domains=["repo", "discussion"],
                 secret="my-secret",
                 disabled=False,
             )
             ```
-        """
-        watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
-        response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks",
-            json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
-            headers=self._build_hf_headers(token=token),
-        )
-        hf_raise_for_status(response)
-        webhook_data = response.json()["webhook"]
-        watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
-
-        webhook = WebhookInfo(
-            id=webhook_data["id"],
-            url=webhook_data["url"],
-            watched=watched_items,
-            domains=webhook_data["domains"],
-            secret=webhook_data.get("secret"),
-            disabled=webhook_data["disabled"],
-        )
-
-        return webhook
-
-    def create_webhook_job(
-        self,
-        *,
-        image: str,
-        command: List[str],
-        watched: List[Union[Dict, WebhookWatchedItem]],
-        domains: Optional[List[constants.WEBHOOK_DOMAIN_T]] = None,
-        secret: Optional[str] = None,
-        env: Optional[Dict[str, Any]] = None,
-        secrets: Optional[Dict[str, Any]] = None,
-        flavor: Optional[SpaceHardware] = None,
-        timeout: Optional[Union[int, float, str]] = None,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
-    ) -> WebhookJobInfo:
-        r"""Create a new webhook that triggers a Job running on Hugging Face infrastructure.
-
-        Args:
-            image (`str`):
-                The Docker image to use.
-                Examples: `"ubuntu"`, `"python:3.12"`, `"pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"`.
-                Example with an image from a Space: `"hf.co/spaces/lhoestq/duckdb"`.
-
-            command (`List[str]`):
-                The command to run. Example: `["echo", "hello"]`.
-
-            watched (`List[WebhookWatchedItem]`):
-                List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets or spaces.
-                Watched items can also be provided as plain dictionaries.
-
-            domains (`List[Literal["repo", "discussion"]]`, optional):
-                List of domains to watch. It can be "repo", "discussion" or both.
-
-            secret (`str`, optional):
-                A secret to sign the payload with.
-
-            env (`Dict[str, Any]`, *optional*):
-                Defines the environment variables for the Job.
-
-            secrets (`Dict[str, Any]`, *optional*):
-                Defines the secret environment variables for the Job.
-
-            flavor (`str`, *optional*):
-                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
-                Defaults to `"cpu-basic"`.
-
-            timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
-                Example: `300` or `"5m"` for 5 minutes.
-
-            namespace (`str`, *optional*):
-                The namespace where the Job will be created. Defaults to the current user's namespace.
-
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved token, which is the recommended
-                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-
-        Returns:
-            [`WebhookJobInfo`]:
-                Info about the newly created webhook.
-
-        Example:
+            Run a Job and then create a webhook that triggers this Job
             ```python
-            >>> from huggingface_hub import create_webhook_job
-            >>> payload = create_webhook_job(
-            ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
-            ...     image="python:3.12",
+            >>> from huggingface_hub import create_webhook, run_job
+            >>> job = run_job(
+            ...     image="ubuntu",
             ...     command=["bash", "-c", r"echo An event occured in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD"],
+            ... )
+            >>> payload = create_webhook(
+            ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
+            ...     job_id=job.id,
             ...     domains=["repo", "discussion"],
             ...     secret="my-secret",
             ... )
             >>> print(payload)
-            WebhookJobInfo(
+            WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
+                url=None,
                 job=JobSpec(
-                    docker_image='python:3.12',
+                    docker_image='ubuntu',
                     space_id=None,
                     command=['bash', '-c', 'echo An event occured in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD'],
                     arguments=[],
@@ -9487,33 +9378,31 @@ class HfApi:
             )
             ```
         """
-        if namespace is None:
-            namespace = self.whoami(token=token)["name"]
-
-        # prepare payload to send to HF Jobs API
-        job_spec = _create_job_spec(
-            image=image,
-            command=command,
-            env=env,
-            secrets=secrets,
-            flavor=flavor,
-            timeout=timeout,
-        )
-
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
+
+        post_webhooks_json = {"watched": watched_dicts, "domains": domains, "secret": secret}
+        if url is not None and job_id is not None:
+            raise ValueError("Set `url` or `job_id` but not both.")
+        elif url is not None:
+            post_webhooks_json["url"] = url
+        elif job_id is not None:
+            post_webhooks_json["jobSourceId"] = job_id
+        else:
+            raise ValueError("Missing argument for webhook: `url` or `job_id`.")
 
         response = get_session().post(
             f"{constants.ENDPOINT}/api/settings/webhooks",
-            json={"watched": watched_dicts, "job": job_spec, "domains": domains, "secret": secret},
+            json=post_webhooks_json,
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
         webhook_data = response.json()["webhook"]
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
-        webhook = WebhookJobInfo(
+        webhook = WebhookInfo(
             id=webhook_data["id"],
-            job=JobSpec(**webhook_data["job"]),
+            url=webhook_data.get("url"),
+            job=JobSpec(**webhook_data["job"]) if webhook_data.get("job") else None,
             watched=watched_items,
             domains=webhook_data["domains"],
             secret=webhook_data.get("secret"),
@@ -9521,137 +9410,6 @@ class HfApi:
         )
 
         return webhook
-
-    def create_webhook_uv_job(
-        self,
-        script: str,
-        *,
-        script_args: Optional[List[str]] = None,
-        watched: List[Union[Dict, WebhookWatchedItem]],
-        domains: Optional[List[constants.WEBHOOK_DOMAIN_T]] = None,
-        secret: Optional[str] = None,
-        dependencies: Optional[List[str]] = None,
-        python: Optional[str] = None,
-        image: Optional[str] = None,
-        env: Optional[Dict[str, Any]] = None,
-        secrets: Optional[Dict[str, Any]] = None,
-        flavor: Optional[SpaceHardware] = None,
-        timeout: Optional[Union[int, float, str]] = None,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
-        _repo: Optional[str] = None,
-    ) -> WebhookJobInfo:
-        r"""Create a new webhook that triggers a Job running on Hugging Face infrastructure.
-
-        Args:
-            script (`str`):
-                Path or URL of the UV script, or a command.
-
-            script_args (`List[str]`, *optional*)
-                Arguments to pass to the script, or a command.
-
-            watched (`List[WebhookWatchedItem]`):
-                List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets or spaces.
-                Watched items can also be provided as plain dictionaries.
-
-            domains (`List[Literal["repo", "discussion"]]`, optional):
-                List of domains to watch. It can be "repo", "discussion" or both.
-
-            secret (`str`, optional):
-                A secret to sign the payload with.
-
-            dependencies (`List[str]`, *optional*)
-                Dependencies to use to run the UV script.
-
-            python (`str`, *optional*)
-                Use a specific Python version. Default is 3.12.
-
-            image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm"):
-                Use a custom Docker image with `uv` installed.
-
-            env (`Dict[str, Any]`, *optional*):
-                Defines the environment variables for the Job.
-
-            secrets (`Dict[str, Any]`, *optional*):
-                Defines the secret environment variables for the Job.
-
-            flavor (`str`, *optional*):
-                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
-                Defaults to `"cpu-basic"`.
-
-            timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
-                Example: `300` or `"5m"` for 5 minutes.
-
-            namespace (`str`, *optional*):
-                The namespace where the Job will be created. Defaults to the current user's namespace.
-
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved token, which is the recommended
-                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-
-        Returns:
-            [`WebhookJobInfo`]:
-                Info about the newly created webhook.
-
-        Example:
-            ```python
-            >>> from huggingface_hub import create_webhook_uv_job
-            >>> payload = create_webhook_uv_job(
-            ...     script="my_script.py",
-            ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
-            ...     domains=["repo", "discussion"],
-            ...     secret="my-secret",
-            ... )
-            >>> print(payload)
-            WebhookJobInfo(
-                id="654bbbc16f2ec14d77f109cc",
-                job=JobSpec(
-                    docker_image='ghcr.io/astral-sh/uv:python3.12-bookworm',
-                    space_id=None,
-                    command=[...],
-                    arguments=[],
-                    environment={},
-                    secrets=[],
-                    flavor='cpu-basic',
-                    timeout=None,
-                    tags=None,
-                    arch=None
-                ),
-                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
-                domains=["repo", "discussion"],
-                secret="my-secret",
-                disabled=False,
-            )
-            ```
-        """
-        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
-        # Build command
-        command, env, secrets = self._create_uv_command_env_and_secrets(
-            script=script,
-            script_args=script_args,
-            dependencies=dependencies,
-            python=python,
-            env=env,
-            secrets=secrets,
-            namespace=namespace,
-            token=token,
-            _repo=_repo,
-        )
-        return self.create_webhook_job(
-            image=image,
-            command=command,
-            watched=watched,
-            domains=domains,
-            secret=secret,
-            env=env,
-            secrets=secrets,
-            flavor=flavor,
-            timeout=timeout,
-            namespace=namespace,
-            token=token,
-        )
 
     @validate_hf_hub_args
     def update_webhook(
@@ -9663,7 +9421,7 @@ class HfApi:
         domains: Optional[List[constants.WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> Union[WebhookInfo, WebhookJobInfo]:
+    ) -> WebhookInfo:
         """Update an existing webhook.
 
         Args:
@@ -9684,7 +9442,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            [`Union[WebhookInfo, WebhookJobInfo]`]:
+            [`WebhookInfo`]:
                 Info about the updated webhook.
 
         Example:
@@ -9700,6 +9458,7 @@ class HfApi:
             >>> print(updated_payload)
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
+                job=None,
                 url="https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 domains=["repo"],
@@ -9721,32 +9480,20 @@ class HfApi:
 
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
-        webhook = (
-            WebhookInfo(
-                id=webhook_data["id"],
-                url=webhook_data["url"],
-                watched=watched_items,
-                domains=webhook_data["domains"],
-                secret=webhook_data.get("secret"),
-                disabled=webhook_data["disabled"],
-            )
-            if "url" in webhook_data
-            else WebhookJobInfo(
-                id=webhook_data["id"],
-                job=JobSpec(**webhook_data["job"]),
-                watched=watched_items,
-                domains=webhook_data["domains"],
-                secret=webhook_data.get("secret"),
-                disabled=webhook_data["disabled"],
-            )
+        webhook = WebhookInfo(
+            id=webhook_data["id"],
+            url=webhook_data.get("url"),
+            job=JobSpec(**webhook_data["job"]) if webhook_data.get("job") else None,
+            watched=watched_items,
+            domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
+            disabled=webhook_data["disabled"],
         )
 
         return webhook
 
     @validate_hf_hub_args
-    def enable_webhook(
-        self, webhook_id: str, *, token: Union[bool, str, None] = None
-    ) -> Union[WebhookInfo, WebhookJobInfo]:
+    def enable_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
         """Enable a webhook (makes it "active").
 
         Args:
@@ -9758,7 +9505,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            [`Union[WebhookInfo, WebhookJobInfo]`]:
+            [`WebhookInfo`]:
                 Info about the enabled webhook.
 
         Example:
@@ -9768,6 +9515,7 @@ class HfApi:
             >>> enabled_webhook
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
+                job=None,
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 domains=["repo", "discussion"],
@@ -9785,32 +9533,20 @@ class HfApi:
 
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
-        webhook = (
-            WebhookInfo(
-                id=webhook_data["id"],
-                url=webhook_data["url"],
-                watched=watched_items,
-                domains=webhook_data["domains"],
-                secret=webhook_data.get("secret"),
-                disabled=webhook_data["disabled"],
-            )
-            if "url" in webhook_data
-            else WebhookJobInfo(
-                id=webhook_data["id"],
-                job=JobSpec(**webhook_data["job"]),
-                watched=watched_items,
-                domains=webhook_data["domains"],
-                secret=webhook_data.get("secret"),
-                disabled=webhook_data["disabled"],
-            )
+        webhook = WebhookInfo(
+            id=webhook_data["id"],
+            url=webhook_data.get("url"),
+            job=JobSpec(**webhook_data["job"]) if webhook_data.get("job") else None,
+            watched=watched_items,
+            domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
+            disabled=webhook_data["disabled"],
         )
 
         return webhook
 
     @validate_hf_hub_args
-    def disable_webhook(
-        self, webhook_id: str, *, token: Union[bool, str, None] = None
-    ) -> Union[WebhookInfo, WebhookJobInfo]:
+    def disable_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
         """Disable a webhook (makes it "disabled").
 
         Args:
@@ -9822,7 +9558,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            [`Union[WebhookInfo, WebhookJobInfo]`]:
+            [`WebhookInfo`]:
                 Info about the disabled webhook.
 
         Example:
@@ -9833,6 +9569,7 @@ class HfApi:
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                jon=None,
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 domains=["repo", "discussion"],
                 secret="my-secret",
@@ -9849,24 +9586,14 @@ class HfApi:
 
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
-        webhook = (
-            WebhookInfo(
-                id=webhook_data["id"],
-                url=webhook_data["url"],
-                watched=watched_items,
-                domains=webhook_data["domains"],
-                secret=webhook_data.get("secret"),
-                disabled=webhook_data["disabled"],
-            )
-            if "url" in webhook_data
-            else WebhookJobInfo(
-                id=webhook_data["id"],
-                job=JobSpec(**webhook_data["job"]),
-                watched=watched_items,
-                domains=webhook_data["domains"],
-                secret=webhook_data.get("secret"),
-                disabled=webhook_data["disabled"],
-            )
+        webhook = WebhookInfo(
+            id=webhook_data["id"],
+            url=webhook_data.get("url"),
+            job=JobSpec(**webhook_data["job"]) if webhook_data.get("job") else None,
+            watched=watched_items,
+            domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
+            disabled=webhook_data["disabled"],
         )
 
         return webhook
@@ -11385,8 +11112,6 @@ enable_webhook = api.enable_webhook
 get_webhook = api.get_webhook
 list_webhooks = api.list_webhooks
 update_webhook = api.update_webhook
-create_webhook_job = api.create_webhook_job
-create_webhook_job = api.create_webhook_uv_job
 
 
 # User API

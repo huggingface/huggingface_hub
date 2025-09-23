@@ -28,24 +28,22 @@ webhook = create_webhook(
 )
 ```
 
-A webhook can also run a Job on Hugging face infrastructure instead of sending the payload to an URL.
-In this case you need to pass the Docker image and command in [`create_webhook_job`], or a UV script in [`create_webhook_uv_job`].
+A webhook can also trigger a Job to run on Hugging face infrastructure instead of sending the payload to an URL.
+In this case you need to pass the ID of a source Job.
 
 ```python
 from huggingface_hub import create_webhook
 
-# Example: Run a fine-tuning
-webhook = create_webhook_job(
-    image="huggingface/trl",
-    command=["trl", "sft", ...],
+# Example: Creating a webhook that triggers a Job
+webhook = create_webhook(
+    job_id=job_id,
     watched=[{"type": "user", "name": "your-username"}, {"type": "org", "name": "your-org-name"}],
     domains=["repo", "discussion"],
-    env={"TRACKIO_PROJECT": "trl-jobs"},
-    secrets={"HF_TOKEN": token},
-    flavor="a100-large",
+    secret="your-secret"
 )
 ```
 
+The webhook triggers the Job with the webhook payload in the environment variable WEBHOOK_PAYLOAD.
 For more information on Hugging Face Jobs, available hardware (CPU, GPU) and UV scripts, see the [Jobs documentation](./jobs).
 
 ### Listing Webhooks
