@@ -9218,8 +9218,8 @@ class HfApi:
 
         webhook = WebhookInfo(
             id=webhook_data["id"],
-            url=webhook_data["url"],
-            job=JobSpec(**webhook_data["job"]) if webhook_data["job"] else None,
+            url=webhook_data.get("url"),
+            job=JobSpec(**webhook_data["job"]) if webhook_data.get("job") else None,
             watched=watched_items,
             domains=webhook_data["domains"],
             secret=webhook_data.get("secret"),
@@ -9271,9 +9271,7 @@ class HfApi:
                 id=webhook["id"],
                 url=webhook.get("url"),
                 job=JobSpec(**webhook["job"]) if webhook.get("job") else None,
-                watched=[
-                    WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhooks_data["watched"]
-                ],
+                watched=[WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook["watched"]],
                 domains=webhook["domains"],
                 secret=webhook.get("secret"),
                 disabled=webhook["disabled"],
