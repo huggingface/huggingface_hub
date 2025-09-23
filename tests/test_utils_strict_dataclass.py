@@ -41,10 +41,9 @@ def dtype_validation(value):
 @strict
 @dataclass
 class ConfigForwardRef:
-    model_type: str
-    dtype: Union[ForwardRef("torch.dtype"), str] = validated_field(validator=[dtype_validation])
-    hidden_size: int = validated_field(validator=[positive_int, multiple_of_64])
-    vocab_size: int = strictly_positive(default=16)
+    dtype_ref: ForwardRef("torch.dtype")
+    dtype_str: str
+    dtype_validated: ForwardRef("torch.dtype") = validated_field(validator=[dtype_validation])
 
 
 @strict
@@ -81,39 +80,29 @@ def test_default_values():
 
 
 def test_forward_ref_validation():
-    config = ConfigForwardRef(model_type="bert", vocab_size=30000, hidden_size=768, dtype="float32")
-    assert config.model_type == "bert"
-    assert config.vocab_size == 30000
-    assert config.hidden_size == 768
-    assert config.dtype == "float32"
+    config = ConfigForwardRef(dtype_ref="float32", dtype_str="float32", dtype_validated="float32")
+    assert config.dtype_ref == "float32"  # ideally this will be a torch.dtype object in real-life
+    assert config.dtype_str == "float32"
+    assert config.dtype_validated == "float32"
 
-    # All field are checked against type hints
+    # The `dtype_validated` has proper validation added in field-metadata and will be validated
     with pytest.raises(StrictDataclassFieldValidationError):
-        ConfigForwardRef(model_type={"type": "bert"}, vocab_size=30000, hidden_size=768, dtype="float32")
-
-    with pytest.raises(StrictDataclassFieldValidationError):
-        ConfigForwardRef(model_type="bert", vocab_size="30000", hidden_size=768, dtype="float32")
-
-    # The `dtype` field can be of any value and will be skipped due to `ForwardRef`
-    # `ForwardRef` validation has to be added by the end-user in the field-metadata
-    ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype="float32")
-    ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype="float16")
-    ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype="bfloat16")
+        ConfigForwardRef(dtype_ref="float32", dtype_str="float32", dtype_validated="float64")
 
     with pytest.raises(StrictDataclassFieldValidationError):
-        ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype="bfloat64")
+        ConfigForwardRef(dtype_ref="float32", dtype_str="float32", dtype_validated=-1)
 
     with pytest.raises(StrictDataclassFieldValidationError):
-        ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype=0)
+        ConfigForwardRef(dtype_ref="float32", dtype_str="float32", dtype_validated="not_dtype")
 
+    # The `dtype_str` is a normal case and will be checked for str only
     with pytest.raises(StrictDataclassFieldValidationError):
-        ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype=10.0)
+        ConfigForwardRef(dtype_ref="float32", dtype_str=-1, dtype_validated="float32")
 
-    with pytest.raises(StrictDataclassFieldValidationError):
-        ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype=["float32"])
-
-    with pytest.raises(StrictDataclassFieldValidationError):
-        ConfigForwardRef(model_type="bert", vocab_size=100, hidden_size=768, dtype={"text_config": "float32"})
+    # The `dtype_ref` field can be of any value and will be skipped due to `ForwardRef`
+    ConfigForwardRef(dtype_ref="float64", dtype_str="float32", dtype_validated="float32")
+    ConfigForwardRef(dtype_ref=-100, dtype_str="float32", dtype_validated="float32")
+    ConfigForwardRef(dtype_ref=["float32"], dtype_str="float32", dtype_validated="float32")
 
 
 def test_invalid_type_initialization():
