@@ -939,7 +939,7 @@ class TestRepoSettingsCommand:
         assert kwargs["repo_type"] == "dataset"
         assert kwargs["private"] is True
         assert kwargs["xet_enabled"] is None
-        assert getattr(kwargs["gated"], "value", None) == "manual"
+        assert kwargs["gated"] == "manual"
 
 
 class TestRepoDeleteCommand:
