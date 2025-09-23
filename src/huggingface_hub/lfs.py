@@ -128,6 +128,8 @@ def post_lfs_batch_info(
             The git revision to upload to.
         headers (`dict`, *optional*):
             Additional headers to include in the request
+        transfers (`list`, *optional*):
+            List of transfer methods to use. Defaults to ["basic", "multipart"].
 
     Returns:
         `LfsBatchInfo`: 3-tuple:
