@@ -5,6 +5,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    ForwardRef,
     List,
     Literal,
     Optional,
@@ -325,6 +326,8 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
         validator(name, value, args)
     elif isinstance(expected_type, type):  # simple types
         _validate_simple_type(name, value, expected_type)
+    elif isinstance(expected_type, ForwardRef) or isinstance(expected_type, str):
+        return
     else:
         raise TypeError(f"Unsupported type for field '{name}': {expected_type}")
 
