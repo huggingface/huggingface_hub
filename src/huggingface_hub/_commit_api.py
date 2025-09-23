@@ -393,7 +393,7 @@ def _upload_files(
             revision=revision,
             endpoint=endpoint,
             headers=headers,
-            token=None,
+            token=None,  # already passed in 'headers'
             transfers=transfers,
         )
         if errors_chunk:
@@ -451,7 +451,7 @@ def _upload_lfs_files(
         - LFS Batch API: https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
 
     Args:
-        additions (`Iterable` of `CommitOperationAdd`):
+        actions (`List[Dict]`):
             The files to be uploaded
         oid2addop (`Dict[str, CommitOperationAdd]`):
             A dictionary mapping the OID of the file to the corresponding `CommitOperationAdd` object.

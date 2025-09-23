@@ -175,8 +175,7 @@ def post_lfs_batch_info(
         raise ValueError("Malformed response from server")
 
     chosen_transfer = batch_info.get("transfer")
-    if chosen_transfer is not None and not isinstance(chosen_transfer, str):
-        chosen_transfer = None
+    chosen_transfer = chosen_transfer if isinstance(chosen_transfer, str) else None
 
     return (
         [_validate_batch_actions(obj) for obj in objects if "error" not in obj],
