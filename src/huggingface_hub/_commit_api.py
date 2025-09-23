@@ -451,8 +451,8 @@ def _upload_lfs_files(
         - LFS Batch API: https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
 
     Args:
-        additions (`Iterable` of `CommitOperationAdd`):
-            The files to be uploaded
+        actions (`List[Dict]`):
+            LFS batch actions returned by the server.
         oid2addop (`Dict[str, CommitOperationAdd]`):
             A dictionary mapping the OID of the file to the corresponding `CommitOperationAdd` object.
         headers (`Dict[str, str]`):
