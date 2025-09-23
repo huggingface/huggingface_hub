@@ -1,6 +1,6 @@
 import inspect
 from dataclasses import asdict, astuple, dataclass, is_dataclass
-from typing import Any, Dict, ForwardRef, List, Literal, Optional, Set, Tuple, Union, get_type_hints
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union, get_type_hints
 
 import jedi
 import pytest
@@ -29,21 +29,28 @@ def strictly_positive(value: int):
         raise ValueError(f"Value must be strictly positive, got {value}")
 
 
-def dtype_validation(value):
-    "Torch isn't installed in runners so we will check only for `string`"
+def dtype_validation(value: "ForwardDtype"):
     if not isinstance(value, str):
-        raise ValueError(f"Value must be string ot `torch.dtype` but got {value}")
+        raise ValueError(f"Value must be string, got {value}")
 
     if isinstance(value, str) and value not in ["float32", "bfloat16", "float16"]:
-        raise ValueError(f"Value must be one of `[float32, bfloat16, float16] but got {value}")
+        raise ValueError(f"Value must be one of `[float32, bfloat16, float16]` but got {value}")
 
 
 @strict
 @dataclass
 class ConfigForwardRef:
-    dtype_ref: ForwardRef("torch.dtype")
-    dtype_str: str
-    dtype_validated: ForwardRef("torch.dtype") = validated_field(validator=[dtype_validation])
+    """Test forward reference handling.
+
+    In practice, forward reference types are not validated so a custom validator is highly recommended.
+    """
+
+    forward_ref_validated: "ForwardDtype" = validated_field(validator=dtype_validation)
+    forward_ref: "ForwardDtype" = "float32"  # type is not validated by default
+
+
+class ForwardDtype(str):
+    """Dummy class to simulate a forward reference (e.g. `torch.dtype`)."""
 
 
 @strict
@@ -79,30 +86,24 @@ def test_default_values():
     assert config.hidden_size == 1024
 
 
-def test_forward_ref_validation():
-    config = ConfigForwardRef(dtype_ref="float32", dtype_str="float32", dtype_validated="float32")
-    assert config.dtype_ref == "float32"  # ideally this will be a torch.dtype object in real-life
-    assert config.dtype_str == "float32"
-    assert config.dtype_validated == "float32"
+def test_forward_ref_validation_is_skipped():
+    config = ConfigForwardRef(forward_ref="float32", forward_ref_validated="float32")
+    assert config.forward_ref == "float32"
+    assert config.forward_ref_validated == "float32"
 
-    # The `dtype_validated` has proper validation added in field-metadata and will be validated
+    # The `forward_ref_validated` has proper validation added in field-metadata and will be validated
     with pytest.raises(StrictDataclassFieldValidationError):
-        ConfigForwardRef(dtype_ref="float32", dtype_str="float32", dtype_validated="float64")
-
-    with pytest.raises(StrictDataclassFieldValidationError):
-        ConfigForwardRef(dtype_ref="float32", dtype_str="float32", dtype_validated=-1)
+        ConfigForwardRef(forward_ref_validated="float64")
 
     with pytest.raises(StrictDataclassFieldValidationError):
-        ConfigForwardRef(dtype_ref="float32", dtype_str="float32", dtype_validated="not_dtype")
+        ConfigForwardRef(forward_ref_validated=-1)
 
-    # The `dtype_str` is a normal case and will be checked for str only
     with pytest.raises(StrictDataclassFieldValidationError):
-        ConfigForwardRef(dtype_ref="float32", dtype_str=-1, dtype_validated="float32")
+        ConfigForwardRef(forward_ref_validated="not_dtype")
 
-    # The `dtype_ref` field can be of any value and will be skipped due to `ForwardRef`
-    ConfigForwardRef(dtype_ref="float64", dtype_str="float32", dtype_validated="float32")
-    ConfigForwardRef(dtype_ref=-100, dtype_str="float32", dtype_validated="float32")
-    ConfigForwardRef(dtype_ref=["float32"], dtype_str="float32", dtype_validated="float32")
+    # The `forward_ref` type is not validated => user can input anything
+    ConfigForwardRef(forward_ref=-1, forward_ref_validated="float32")
+    ConfigForwardRef(forward_ref=["float32"], forward_ref_validated="float32")
 
 
 def test_invalid_type_initialization():
@@ -349,11 +350,7 @@ def test_is_recognized_as_dataclass():
 def test_behave_as_a_dataclass():
     # Check that dataclasses.asdict works
     config = Config(model_type="bert", hidden_size=768)
-    assert asdict(config) == {
-        "model_type": "bert",
-        "hidden_size": 768,
-        "vocab_size": 16,
-    }
+    assert asdict(config) == {"model_type": "bert", "hidden_size": 768, "vocab_size": 16}
 
     # Check that dataclasses.astuple works
     assert astuple(config) == ("bert", 768, 16)
