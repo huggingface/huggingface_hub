@@ -393,7 +393,7 @@ def _upload_files(
             revision=revision,
             endpoint=endpoint,
             headers=headers,
-            token=None,
+            token=None,  # already passed in 'headers'
             transfers=transfers,
         )
         if errors_chunk:
