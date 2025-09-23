@@ -32,7 +32,7 @@ jobs:
           INSTALL_DIR="$HF_TEST_ROOT/install"
           BIN_DIR="$HF_TEST_ROOT/bin"
 
-          utils/installers/install.sh --install-dir "$INSTALL_DIR" --bin-dir "$BIN_DIR" --no-modify-path
+          HF_HOME="$INSTALL_DIR" HF_CLI_BIN_DIR="$BIN_DIR" utils/installers/install.sh --no-modify-path
 
           export PATH="$BIN_DIR:$PATH"
 
@@ -63,7 +63,9 @@ jobs:
           New-Item -ItemType Directory -Path $installDir -Force | Out-Null
           New-Item -ItemType Directory -Path $binDir -Force | Out-Null
 
-          & "$PWD/utils/installers/install.ps1" -InstallDir $installDir -BinDir $binDir -NoModifyPath
+          $env:HF_HOME = $installDir
+          $env:HF_CLI_BIN_DIR = $binDir
+          & "$PWD/utils/installers/install.ps1" -NoModifyPath
 
           $env:PATH = "$binDir;$env:PATH"
 
