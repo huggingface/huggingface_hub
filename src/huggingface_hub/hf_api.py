@@ -4495,6 +4495,10 @@ class HfApi:
                 f"Skipped upload for {len(new_lfs_additions) - len(new_lfs_additions_to_upload)} LFS file(s) "
                 "(ignored by gitignore file)."
             )
+        # If no LFS files remain to upload, keep previous behavior and log explicitly
+        if len(new_lfs_additions_to_upload) == 0:
+            logger.debug("No LFS files to upload.")
+            return
         # Prepare upload parameters
         upload_kwargs = {
             "additions": new_lfs_additions_to_upload,

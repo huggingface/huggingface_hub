@@ -495,10 +495,6 @@ def _upload_lfs_files(
         else:
             filtered_actions.append(action)
 
-    if len(filtered_actions) == 0:
-        logger.debug("No LFS files to upload.")
-        return
-
     # Upload according to server-provided actions
     def _wrapped_lfs_upload(batch_action) -> None:
         try:
