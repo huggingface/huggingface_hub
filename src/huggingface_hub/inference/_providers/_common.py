@@ -33,6 +33,7 @@ HARDCODED_MODEL_INFERENCE_MAPPING: dict[str, dict[str, InferenceProviderMapping]
     "nscale": {},
     "replicate": {},
     "sambanova": {},
+    "scaleway": {},
     "together": {},
 }
 

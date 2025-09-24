@@ -37,7 +37,7 @@ class OfflineModeIsEnabled(ConnectionError):
     """Raised when a request is made but `HF_HUB_OFFLINE=1` is set as environment variable."""
 
 
-class HfHubHTTPError(HTTPError):
+class HfHubHTTPError(HTTPError, OSError):
     """
     HTTPError to inherit from for any custom HTTP Error raised in HF Hub.
 

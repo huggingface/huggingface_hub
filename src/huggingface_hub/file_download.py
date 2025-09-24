@@ -243,7 +243,7 @@ def _httpx_follow_relative_redirects(method: HTTP_METHOD_T, url: str, **httpx_kw
 
     This is useful to follow a redirection to a renamed repository without following redirection to a CDN.
 
-    A backoff mechanism retries the HTTP call on 429, 503 and 504 errors.
+    A backoff mechanism retries the HTTP call on 5xx errors and network errors.
 
     Args:
         method (`str`):
