@@ -571,9 +571,12 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             )
         except EntryNotFoundError:
             # Path could be a file
-            if self.info(path, revision=revision, **kwargs)["type"] == "file":
-                out = {path: {}}
-            else:
+            try:
+                if self.info(path, revision=revision, **kwargs)["type"] == "file":
+                    out = {path: {}}
+                else:
+                    out = {}
+            except FileNotFoundError:
                 out = {}
         else:
             if not withdirs:
