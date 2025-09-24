@@ -51,7 +51,7 @@ repo_cli.add_typer(tag_cli, name="tag")
 repo_cli.add_typer(branch_cli, name="branch")
 
 
-class GatedChoices(enum.Enum):
+class GatedChoices(str, enum.Enum):
     auto = "auto"
     manual = "manual"
     false = "false"
@@ -117,7 +117,7 @@ def repo_delete(
     print(f"Successfully deleted {ANSI.bold(repo_id)} on the Hub.")
 
 
-@repo_cli.command("move", help="Move a repository from a repo to another repo.")
+@repo_cli.command("move", help="Move a repository from a namespace to another namespace.")
 def repo_move(
     from_id: RepoIdArg,
     to_id: RepoIdArg,
