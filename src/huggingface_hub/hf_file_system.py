@@ -471,9 +471,10 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 repo_type=resolved_path.repo_type,
             )
             for path_info in tree:
+                path = root_path + "/" + path_info.path
                 if isinstance(path_info, RepoFile):
                     cache_path_info = {
-                        "name": root_path + "/" + path_info.path,
+                        "name": path,
                         "size": path_info.size,
                         "type": "file",
                         "blob_id": path_info.blob_id,
@@ -483,7 +484,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     }
                 else:
                     cache_path_info = {
-                        "name": root_path + "/" + path_info.path,
+                        "name": path,
                         "size": 0,
                         "type": "directory",
                         "tree_id": path_info.tree_id,
@@ -491,7 +492,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     }
                 parent_path = self._parent(cache_path_info["name"])
                 self.dircache.setdefault(parent_path, []).append(cache_path_info)
-                depth = cache_path_info["name"][len(path) :].count("/")
+                depth = path[len(path) :].count("/")
                 if maxdepth is None or depth <= maxdepth:
                     out.append(cache_path_info)
         return out
