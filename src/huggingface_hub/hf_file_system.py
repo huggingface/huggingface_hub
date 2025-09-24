@@ -560,6 +560,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         Returns:
             `Union[List[str], Dict[str, Dict[str, Any]]]`: List of paths or dict of file information.
         """
+        if maxdepth is not None and maxdepth < 1:
+            raise ValueError("maxdepth must be at least 1")
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         try:
