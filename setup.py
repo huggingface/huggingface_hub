@@ -1,4 +1,35 @@
 from setuptools import find_packages, setup
+from setuptools.command.sdist import sdist
+from wheel.bdist_wheel import bdist_wheel
+
+
+class custom_sdist(sdist):
+    def make_archive(self, base_name, format, root_dir=None, base_dir=None, owner=None, group=None):
+        """Override to use canonical package name with hyphens instead of underscores"""
+        # Replace underscores with hyphens in the base name
+        canonical_base_name = base_name.replace("huggingface_hub-", "huggingface-hub-")
+        return super().make_archive(canonical_base_name, format, root_dir, base_dir, owner, group)
+
+
+class custom_bdist_wheel(bdist_wheel):
+    def run(self):
+        """Run the wheel building process and rename the file to use canonical naming"""
+        # Run the normal wheel build process
+        super().run()
+
+        # Rename the generated wheel file to use canonical naming
+        import glob
+        import os
+
+        # Find the generated wheel file
+        wheel_files = glob.glob(os.path.join(self.dist_dir, "huggingface_hub-*.whl"))
+        for wheel_file in wheel_files:
+            if "huggingface_hub-" in wheel_file:
+                # Generate the new canonical filename
+                new_wheel_file = wheel_file.replace("huggingface_hub-", "huggingface-hub-")
+                # Rename the file
+                os.rename(wheel_file, new_wheel_file)
+                print(f"Renamed wheel: {wheel_file} -> {new_wheel_file}")
 
 
 def get_version() -> str:
@@ -119,10 +150,11 @@ extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
 extras["dev"] = extras["all"]
 
 setup(
-    name="huggingface_hub",
+    name="huggingface-hub",
     version=get_version(),
     author="Hugging Face, Inc.",
     author_email="julien@huggingface.co",
+    cmdclass={"sdist": custom_sdist, "bdist_wheel": custom_bdist_wheel},
     description="Client library to download and publish models, datasets and other repos on the huggingface.co hub",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
