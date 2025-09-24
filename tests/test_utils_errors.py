@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import Mock
 
 import pytest
 from httpx import Request, Response
@@ -308,3 +309,9 @@ def test_repo_api_regex(url: str, should_match: bool) -> None:
         assert REPO_API_REGEX.match(url)
     else:
         assert REPO_API_REGEX.match(url) is None
+
+
+def test_hf_hub_http_error_inherits_from_os_error() -> None:
+    """Test HfHubHTTPError inherits from OSError."""
+    with pytest.raises(OSError):
+        raise HfHubHTTPError("this is a message", response=Mock())
