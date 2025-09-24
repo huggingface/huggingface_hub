@@ -12,9 +12,6 @@ Downloads and installs the `huggingface_hub[cli]` package into a dedicated virtu
 .PARAMETER Force
 Recreates the virtual environment even if it already exists. Off by default.
 
-.PARAMETER Version
-Installs a specific `huggingface_hub` version when provided (e.g., `0.35.0`). Defaults to latest unless the `HF_CLI_VERSION` environment variable is set.
-
 .PARAMETER Verbose
 Enables verbose output, including detailed pip logs.
 
@@ -22,19 +19,14 @@ Enables verbose output, including detailed pip logs.
 Skips PATH modifications; `hf` must be invoked via its full path unless you add it manually.
 
 .EXAMPLE
-powershell -c "irm https://hf.co/install.ps1 | iex" -Version 0.35.0
+powershell -c "irm https://hf.co/install.ps1 | iex"
 #>
 
 param(
     [switch]$Force = $false,
-    [string]$Version,
     [switch]$Verbose,
     [switch]$NoModifyPath
 )
-
-if (-not $Version -and $env:HF_CLI_VERSION) {
-    $Version = $env:HF_CLI_VERSION
-}
 
 $script:LogLevel = if ($Verbose) { 2 } else { 1 }
 $script:PathUpdated = $false
@@ -232,9 +224,10 @@ function New-VirtualEnvironment {
 
 function Install-HuggingFaceHub {
     $packageSpec = 'huggingface_hub[cli]'
-    if ($Version) {
-        $packageSpec = "huggingface_hub[cli]==$Version"
-        Write-Log "Installing huggingface_hub[cli] (version $Version)..."
+    $requestedVersion = $env:HF_CLI_VERSION
+    if ($requestedVersion) {
+        $packageSpec = "huggingface_hub[cli]==$requestedVersion"
+        Write-Log "Installing huggingface_hub[cli] (version $requestedVersion)..."
     } else {
         Write-Log "Installing huggingface_hub[cli] (latest)..."
     }
@@ -391,7 +384,7 @@ function Main {
             $hfExecutable = Join-Path $BIN_DIR "hf.exe"
             Show-Usage
             Show-UninstallInfo
-            $requestedVersion = if ($Version) { $Version } else { 'latest' }
+            $requestedVersion = if ($env:HF_CLI_VERSION) { $env:HF_CLI_VERSION } else { 'latest' }
             Write-Log "hf CLI ready!" "SUCCESS"
             Write-Log "Binary: $hfExecutable"
             Write-Log "Virtualenv: $HF_CLI_DIR"

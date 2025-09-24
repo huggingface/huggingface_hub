@@ -92,7 +92,6 @@ Usage: curl -LsSf https://hf.co/install.sh | sh -s -- [OPTIONS]
 Options:
   --force           Recreate the Hugging Face CLI virtual environment if it exists
   --no-modify-path  Skip adding the hf wrapper directory to PATH
-  --version         Install a specific huggingface_hub version (default: latest)
   -v, --verbose     Enable verbose output (includes full pip logs)
   --help, -h        Show this message and exit
 
@@ -132,14 +131,6 @@ while [ $# -gt 0 ]; do
             ;;
         --no-modify-path)
             SKIP_PATH_UPDATE="true"
-            ;;
-        --version)
-            if [ $# -lt 2 ]; then
-                log_error "--version requires a value (e.g. 0.35.0)"
-                exit 1
-            fi
-            shift
-            REQUESTED_VERSION="$1"
             ;;
         -v|--verbose)
             LOG_LEVEL=2
