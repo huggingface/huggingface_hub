@@ -22,6 +22,14 @@ Skips PATH modifications; `hf` must be invoked via its full path unless you add 
 powershell -c "irm https://hf.co/install.ps1 | iex"
 #>
 
+<#
+.NOTES
+Environment variables:
+  HF_HOME           Installation base directory; installer uses $env:HF_HOME\cli when set
+  HF_CLI_BIN_DIR    Directory for the hf wrapper (default: $env:USERPROFILE\.local\bin)
+  HF_CLI_VERSION    Install a specific huggingface_hub version (default: latest)
+#>
+
 param(
     [switch]$Force = $false,
     [switch]$Verbose,

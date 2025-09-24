@@ -98,6 +98,7 @@ Options:
 Environment variables:
   HF_HOME           Installation base directory; installer uses $HF_HOME/cli when set
   HF_CLI_BIN_DIR    Directory for the hf wrapper (default: ~/.local/bin)
+  HF_CLI_VERSION    Install a specific huggingface_hub version (default: latest)
 EOF
 }
 
