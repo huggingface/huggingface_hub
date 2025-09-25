@@ -486,7 +486,7 @@ Datasets and Spaces:
 ```
 
 > [!TIP]
-> All commands accept `--repo-type` (one of `model`, `dataset`, `space`) and `--token` if you need to authenticate explicitly. Use `--help` on > any command to see all options.
+> All commands accept `--repo-type` (one of `model`, `dataset`, `space`) and `--token` if you need to authenticate explicitly. Use `--help` on any command to see all options.
 
 
 ## hf repo-files
