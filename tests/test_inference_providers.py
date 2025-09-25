@@ -53,6 +53,7 @@ from huggingface_hub.inference._providers.replicate import (
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from huggingface_hub.inference._providers.scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from huggingface_hub.inference._providers.together import TogetherTextToImageTask
+from huggingface_hub.inference._providers.zai import ZaiConversationalTask
 
 from .testing_utils import assert_in_logs
 
@@ -1410,6 +1411,42 @@ class TestTogetherProvider:
         helper = TogetherTextToImageTask()
         response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
         assert response == b"image_bytes"
+
+
+class TestZaiProvider:
+    def test_prepare_route(self):
+        helper = ZaiConversationalTask()
+        route = helper._prepare_route("test-model", "zai_token")
+        assert route == "/chat/completions"
+
+    def test_prepare_mapping_info(self):
+        helper = ZaiConversationalTask()
+        
+        # Test with valid model
+        mapping_info = helper._prepare_mapping_info("test-model")
+        assert mapping_info.provider == "zai"
+        assert mapping_info.hf_model_id == "test-model"
+        assert mapping_info.provider_id == "test-model"
+        assert mapping_info.task == "conversational"
+        assert mapping_info.status == "live"
+        
+        # Test with different model name
+        mapping_info = helper._prepare_mapping_info("another-model")
+        assert mapping_info.provider == "zai"
+        assert mapping_info.hf_model_id == "another-model"
+        assert mapping_info.provider_id == "another-model"
+        assert mapping_info.task == "conversational"
+        assert mapping_info.status == "live"
+
+    def test_prepare_url(self):
+        helper = ZaiConversationalTask()
+        assert helper.task == "conversational"
+        url = helper._prepare_url("zai_token", "test-model")
+        assert url == "https://api.z.ai/api/paas/v4/chat/completions"
+        
+        # Test with HF token (should route through HF proxy)
+        url = helper._prepare_url("hf_token", "test-model")
+        assert url.startswith("https://router.huggingface.co/zai")
 
 
 class TestBaseConversationalTask:
