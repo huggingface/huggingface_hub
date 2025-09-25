@@ -62,11 +62,8 @@ to get your [User Access Token](https://huggingface.co/docs/hub/security-tokens)
 your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is
 used to authenticate your identity to the Hub.
 
-<Tip>
-
-Tokens can have `read` or `write` permissions. Make sure to have a `write` access token if you want to create or edit a repository. Otherwise, it's best to generate a `read` token to reduce risk in case your token is inadvertently leaked.
-
-</Tip>
+> [!TIP]
+> Tokens can have `read` or `write` permissions. Make sure to have a `write` access token if you want to create or edit a repository. Otherwise, it's best to generate a `read` token to reduce risk in case your token is inadvertently leaked.
 
 ### Login command
 
@@ -87,11 +84,8 @@ Alternatively, you can programmatically login using [`login`] in a notebook or a
 
 You can only be logged in to one account at a time. Logging in to a new account will automatically log you out of the previous one. To determine your currently active account, simply run the `hf auth whoami` command.
 
-<Tip warning={true}>
-
-Once logged in, all requests to the Hub - even methods that don't necessarily require authentication - will use your access token by default. If you want to disable the implicit use of your token, you should set `HF_HUB_DISABLE_IMPLICIT_TOKEN=1` as an environment variable (see [reference](../package_reference/environment_variables#hfhubdisableimplicittoken)).
-
-</Tip>
+> [!WARNING]
+> Once logged in, all requests to the Hub - even methods that don't necessarily require authentication - will use your access token by default. If you want to disable the implicit use of your token, you should set `HF_HUB_DISABLE_IMPLICIT_TOKEN=1` as an environment variable (see [reference](../package_reference/environment_variables#hfhubdisableimplicittoken)).
 
 ### Manage multiple tokens locally
 
@@ -110,11 +104,8 @@ You can list all available access tokens on your machine with `hf auth list`.
 
 The environment variable `HF_TOKEN` can also be used to authenticate yourself. This is especially useful in a Space where you can set `HF_TOKEN` as a [Space secret](https://huggingface.co/docs/hub/spaces-overview#managing-secrets).
 
-<Tip>
-
-**NEW:** Google Colaboratory lets you define [private keys](https://twitter.com/GoogleColab/status/1719798406195867814) for your notebooks. Define a `HF_TOKEN` secret to be automatically authenticated!
-
-</Tip>
+> [!TIP]
+> **NEW:** Google Colaboratory lets you define [private keys](https://twitter.com/GoogleColab/status/1719798406195867814) for your notebooks. Define a `HF_TOKEN` secret to be automatically authenticated!
 
 Authentication via an environment variable or a secret has priority over the token stored on your machine.
 
@@ -130,11 +121,8 @@ user = whoami(token=...)
 
 This is usually discouraged except in an environment where you don't want to store your token permanently or if you need to handle several tokens at once.
 
-<Tip warning={true}>
-
-Please be careful when passing tokens as a parameter. It is always best practice to load the token from a secure vault instead of hardcoding it in your codebase or notebook. Hardcoded tokens present a major leak risk if you share your code inadvertently.
-
-</Tip>
+> [!WARNING]
+> Please be careful when passing tokens as a parameter. It is always best practice to load the token from a secure vault instead of hardcoding it in your codebase or notebook. Hardcoded tokens present a major leak risk if you share your code inadvertently.
 
 ## Create a repository
 
@@ -157,13 +145,10 @@ If you want your repository to be private, then:
 
 Private repositories will not be visible to anyone except yourself.
 
-<Tip>
-
-To create a repository or to push content to the Hub, you must provide a User Access
-Token that has the `write` permission. You can choose the permission when creating the
-token in your [Settings page](https://huggingface.co/settings/tokens).
-
-</Tip>
+> [!TIP]
+> To create a repository or to push content to the Hub, you must provide a User Access
+> Token that has the `write` permission. You can choose the permission when creating the
+> token in your [Settings page](https://huggingface.co/settings/tokens).
 
 ## Upload files
 

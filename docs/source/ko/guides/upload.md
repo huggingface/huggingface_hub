@@ -125,11 +125,8 @@ False
 ...
 ```
 
-<Tip>
-
-`run_as_future=True`를 사용하면 백그라운드 작업이 큐에 대기됩니다. 이는 작업이 올바른 순서로 실행된다는 것을 의미합니다.
-
-</Tip>
+> [!TIP]
+> `run_as_future=True`를 사용하면 백그라운드 작업이 큐에 대기됩니다. 이는 작업이 올바른 순서로 실행된다는 것을 의미합니다.
 
 백그라운드 작업은 주로 데이터를 업로드하거나 커밋을 생성하는 데 유용하지만, 이 외에도 [`run_as_future`]를 사용하여 원하는 메소드를 대기열에 넣을 수 있습니다.
 예를 들어, 해당 기능을 사용하여 백그라운드에서 리포지토리를 만든 다음 그대로 데이터를 업로드할 수 있습니다.
@@ -178,12 +175,9 @@ PR을 계속 열어두고 수동으로 검토하려면 `create_pr=True`를 인�
 
 업로드 전략(즉, 생성되는 커밋)을 더 잘 제어하고 싶으면 로우 레벨의 [`plan_multi_commits`] 와 [`create_commits_on_pr`] 메서드를 살펴보세요.
 
-<Tip warning={true}>
-
-`multi_commits`은 아직 실험적인 기능입니다.
-해당 API와 동작은 향후 사전 고지 없이 변경될 수 있습니다.
-
-</Tip>
+> [!WARNING]
+> `multi_commits`은 아직 실험적인 기능입니다.
+> 해당 API와 동작은 향후 사전 고지 없이 변경될 수 있습니다.
 
 ### 예약된 업로드[[scheduled-uploads]]
 
@@ -303,11 +297,8 @@ class ZipScheduler(CommitScheduler):
 - 리포지토리 매개변수: `repo_id`, `repo_type`, `revision`
 - 스레드 락: `lock`
 
-<Tip>
-
-사용자 정의 스케줄러의 더 많은 예제는 사용 사례에 따른 다양한 구현이 포함된 [데모 스페이스](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)를 참조하세요.
-
-</Tip>
+> [!TIP]
+> 사용자 정의 스케줄러의 더 많은 예제는 사용 사례에 따른 다양한 구현이 포함된 [데모 스페이스](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)를 참조하세요.
 
 ### create_commit[[createcommit]]
 
@@ -373,14 +364,11 @@ class ZipScheduler(CommitScheduler):
 이 문제를 극복하기 위해 파일을 하나씩 S3에 업로드한 다음 마지막에 하나의 커밋을 생성할 수 있습니다.
 이는 [`preupload_lfs_files`]와 [`create_commit`]을 함께 사용하면 됩니다.
 
-<Tip warning={true}>
-
-이 방법은 고급 사용자를 위한 방식입니다.
-사전에 파일을 미리 업로드하는 로우 레벨 로직을 처리하는 대신 [`upload_file`], [`upload_folder`] 또는 [`create_commit`]을 직접 사용하는 것이 대부분의 경우에 적합합니다.
-[`preupload_lfs_files`]의 주요 주의 사항은 커밋이 실제로 이루어질 때까지는 Hub의 리포지토리에서 업로드 파일에 액세스할 수 없다는 것입니다.
-궁금한 점이 있으면 언제든지 Discord나 GitHub 이슈로 문의해 주세요.
-
-</Tip>
+> [!WARNING]
+> 이 방법은 고급 사용자를 위한 방식입니다.
+> 사전에 파일을 미리 업로드하는 로우 레벨 로직을 처리하는 대신 [`upload_file`], [`upload_folder`] 또는 [`create_commit`]을 직접 사용하는 것이 대부분의 경우에 적합합니다.
+> [`preupload_lfs_files`]의 주요 주의 사항은 커밋이 실제로 이루어질 때까지는 Hub의 리포지토리에서 업로드 파일에 액세스할 수 없다는 것입니다.
+> 궁금한 점이 있으면 언제든지 Discord나 GitHub 이슈로 문의해 주세요.
 
 다음은 파일을 미리 업로드하는 방법을 보여주는 간단한 예시입니다:
 
@@ -423,10 +411,7 @@ Hub에서 리포지토리를 구성하는 방법에 대한 모범 사례는 [리
        (예: `pip install huggingface_hub[hf_transfer]`).
     2. 환경 변수로 `HF_HUB_ENABLE_HF_TRANSFER=1`을 설정합니다.
 
-<Tip warning={true}>
-
-`hf_transfer`는 고급 사용자 도구입니다!
-테스트 및 프로덕션 준비가 완료되었지만, 고급 오류 처리나 프록시와 같은 사용자 친화적인 기능이 부족합니다.
-자세한 내용은 [이 섹션](https://huggingface.co/docs/huggingface_hub/hf_transfer)을 참조하세요.
-
-</Tip>
+> [!WARNING]
+> `hf_transfer`는 고급 사용자 도구입니다!
+> 테스트 및 프로덕션 준비가 완료되었지만, 고급 오류 처리나 프록시와 같은 사용자 친화적인 기능이 부족합니다.
+> 자세한 내용은 [이 섹션](https://huggingface.co/docs/huggingface_hub/hf_transfer)을 참조하세요.

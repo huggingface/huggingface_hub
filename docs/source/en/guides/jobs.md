@@ -15,11 +15,8 @@ A job runs on Hugging Face infrastructure and are defined with a command to run 
 If you want to run and manage a job on the Hub, your machine must be logged in. If you are not, please refer to
 [this section](../quick-start#authentication). In the rest of this guide, we will assume that your machine is logged in.
 
-<Tip>
-
-**Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
-
-</Tip>
+> [!TIP]
+> **Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
 
 ## Jobs Command Line Interface
 
@@ -86,10 +83,8 @@ This feature is pay-as-you-go: you only pay for the seconds you use.
 >>> run_uv_job("my_script.py")
 ```
 
-<Tip warning>
-
-**Important**: Jobs have a default timeout (30 minutes), after which they will automatically stop. For long-running tasks like model training, make sure to set a custom timeout using the `timeout` parameter. See [Configure Job Timeout](#configure-job-timeout) for details.
-</Tip>
+> [!WARNING]
+> **Important**: Jobs have a default timeout (30 minutes), after which they will automatically stop. For long-running tasks like model training, make sure to set a custom timeout using the `timeout` parameter. See [Configure Job Timeout](#configure-job-timeout) for details.
 
 [`run_job`] returns the [`JobInfo`] which has the URL of the Job on Hugging Face, where you can see the Job status and the logs.
 Save the Job ID from [`JobInfo`] to manage the job:
@@ -190,11 +185,8 @@ Use this to run a fine tuning script like [trl/scripts/sft.py](https://github.co
 ... )
 ```
 
-<Tip>
-
-For comprehensive guidance on running model training jobs with TRL on Hugging Face infrastructure, check out the [TRL Jobs Training documentation](https://huggingface.co/docs/trl/main/en/jobs_training). It covers fine-tuning recipes, hardware selection, and best practices for training models efficiently.
-
-</Tip>
+> [!TIP]
+> For comprehensive guidance on running model training jobs with TRL on Hugging Face infrastructure, check out the [TRL Jobs Training documentation](https://huggingface.co/docs/trl/main/en/jobs_training). It covers fine-tuning recipes, hardware selection, and best practices for training models efficiently.
 
 Available `flavor` options:
 
@@ -261,11 +253,8 @@ For UV jobs, you can also specify the timeout:
 ... )
 ```
 
-<Tip warning>
-
-If you don't specify a timeout, a default timeout will be applied to your job. For long-running tasks like model training that may take hours, make sure to set an appropriate timeout to avoid unexpected job terminations.
-
-</Tip>
+> [!WARNING]
+> If you don't specify a timeout, a default timeout will be applied to your job. For long-running tasks like model training that may take hours, make sure to set an appropriate timeout to avoid unexpected job terminations.
 
 ### Monitoring job duration
 
@@ -315,11 +304,8 @@ You can pass environment variables to your job using `env` and `secrets`:
 
 ### UV Scripts (Experimental)
 
-<Tip>
-
-Looking for ready-to-use UV scripts? Check out the [uv-scripts organization](https://huggingface.co/uv-scripts) on the Hugging Face Hub, which offers a community collection of UV scripts for tasks like model training, synthetic data generation, data processing, and more.
-
-</Tip>
+> [!TIP]
+> Looking for ready-to-use UV scripts? Check out the [uv-scripts organization](https://huggingface.co/uv-scripts) on the Hugging Face Hub, which offers a community collection of UV scripts for tasks like model training, synthetic data generation, data processing, and more.
 
 Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 
@@ -361,11 +347,8 @@ hf jobs uv run \
 
 The above command will run using the `vllm/vllm-openai:latest` image. This approach could be useful if you are using vLLM for synthetic data generation.
 
-<Tip>
-
-Many inference frameworks provide optimized docker images. As uv is increasingly adopted in the Python ecosystem more of these will also have uv pre-installed meaning they will work when using hf jobs uv run.
-
-</Tip>
+> [!TIP]
+> Many inference frameworks provide optimized docker images. As uv is increasingly adopted in the Python ecosystem more of these will also have uv pre-installed meaning they will work when using hf jobs uv run.
 
 ### Scheduled Jobs
 

@@ -190,12 +190,9 @@ assets_path = cached_assets_path(library_name="datasets", namespace="SQuAD", sub
 something_path = assets_path / "something.json" # Machen Sie, was Sie möchten, in Ihrem Assets-Ordner!
 ```
 
-<Tip>
-
-[`cached_assets_path`] ist der empfohlene Weg, um Assets zu speichern, ist jedoch nicht verpflichtend.
-Wenn Ihre Bibliothek bereits ihren eigenen Cache verwendet, können Sie diesen gerne nutzen!
-
-</Tip>
+> [!TIP]
+> [`cached_assets_path`] ist der empfohlene Weg, um Assets zu speichern, ist jedoch nicht verpflichtend.
+> Wenn Ihre Bibliothek bereits ihren eigenen Cache verwendet, können Sie diesen gerne nutzen!
 
 ### Assets in der Praxis
 
@@ -394,21 +391,15 @@ Die Strategie zur Löschung von Revisionen ist folgende:
 - Wenn eine Revision mit 1 oder mehreren `refs` verknüpft ist, werden die Referenzen gelöscht.
 - Werden alle Revisionen aus einem Repo gelöscht, wird das gesamte zwischengespeicherte Repository gelöscht.
 
-<Tip>
+> [!TIP]
+> Revisions-Hashes sind eindeutig über alle Repositories hinweg. Das bedeutet, dass Sie keine `repo_id` oder `repo_type`
+> angeben müssen, wenn Sie Revisionen entfernen.
 
-Revisions-Hashes sind eindeutig über alle Repositories hinweg. Das bedeutet, dass Sie keine `repo_id` oder `repo_type`
-angeben müssen, wenn Sie Revisionen entfernen.
-
-</Tip>
-
-<Tip warning={true}>
-
-Wenn eine Revision im Cache nicht gefunden wird, wird sie stillschweigend ignoriert. Außerdem wird, wenn eine Datei
-oder ein Ordner beim Versuch, ihn zu löschen, nicht gefunden wird, eine Warnung protokolliert, aber es wird kein
-Fehler ausgelöst. Die Löschung wird für andere Pfade im
-[`DeleteCacheStrategy`] Objekt fortgesetzt.
-
-</Tip>
+> [!WARNING]
+> Wenn eine Revision im Cache nicht gefunden wird, wird sie stillschweigend ignoriert. Außerdem wird, wenn eine Datei
+> oder ein Ordner beim Versuch, ihn zu löschen, nicht gefunden wird, eine Warnung protokolliert, aber es wird kein
+> Fehler ausgelöst. Die Löschung wird für andere Pfade im
+> [`DeleteCacheStrategy`] Objekt fortgesetzt.
 
 ### Cache vom Terminal aus leeren
 

@@ -63,18 +63,12 @@ def save_torch_model(
 
     Before saving the model, the `save_directory` is cleaned from any previous shard files.
 
-    <Tip warning={true}>
+    > [!WARNING]
+    > If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
+    > size greater than `max_shard_size`.
 
-    If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
-    size greater than `max_shard_size`.
-
-    </Tip>
-
-    <Tip warning={true}>
-
-    If your model is a `transformers.PreTrainedModel`, you should pass `model._tied_weights_keys` as `shared_tensors_to_discard` to properly handle shared tensors saving. This ensures the correct duplicate tensors are discarded during saving.
-
-    </Tip>
+    > [!WARNING]
+    > If your model is a `transformers.PreTrainedModel`, you should pass `model._tied_weights_keys` as `shared_tensors_to_discard` to properly handle shared tensors saving. This ensures the correct duplicate tensors are discarded during saving.
 
     Args:
         model (`torch.nn.Module`):
@@ -163,18 +157,12 @@ def save_torch_state_dict(
 
     Before saving the model, the `save_directory` is cleaned from any previous shard files.
 
-    <Tip warning={true}>
+    > [!WARNING]
+    > If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
+    > size greater than `max_shard_size`.
 
-    If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
-    size greater than `max_shard_size`.
-
-    </Tip>
-
-    <Tip warning={true}>
-
-    If your model is a `transformers.PreTrainedModel`, you should pass `model._tied_weights_keys` as `shared_tensors_to_discard` to properly handle shared tensors saving. This ensures the correct duplicate tensors are discarded during saving.
-
-    </Tip>
+    > [!WARNING]
+    > If your model is a `transformers.PreTrainedModel`, you should pass `model._tied_weights_keys` as `shared_tensors_to_discard` to properly handle shared tensors saving. This ensures the correct duplicate tensors are discarded during saving.
 
     Args:
         state_dict (`dict[str, torch.Tensor]`):
@@ -314,19 +302,13 @@ def split_torch_state_dict_into_shards(
     [6+2+2GB], [6+2GB], [6GB].
 
 
-    <Tip>
+    > [!TIP]
+    > To save a model state dictionary to the disk, see [`save_torch_state_dict`]. This helper uses
+    > `split_torch_state_dict_into_shards` under the hood.
 
-    To save a model state dictionary to the disk, see [`save_torch_state_dict`]. This helper uses
-    `split_torch_state_dict_into_shards` under the hood.
-
-    </Tip>
-
-    <Tip warning={true}>
-
-    If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
-    size greater than `max_shard_size`.
-
-    </Tip>
+    > [!WARNING]
+    > If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
+    > size greater than `max_shard_size`.
 
     Args:
         state_dict (`dict[str, torch.Tensor]`):

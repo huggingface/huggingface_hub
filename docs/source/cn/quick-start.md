@@ -65,11 +65,8 @@ hf auth login --token $HUGGINGFACE_TOKEN
 
 您一次只能登录一个帐户。如果您使用另一个帐户登录您的机器，您将会从之前的帐户注销。请确保使用命令 `hf auth whoami`来检查您当前使用的是哪个帐户。如果您想在同一个脚本中处理多个帐户，您可以在调用每个方法时提供您的令牌。这对于您不想在您的机器上存储任何令牌也很有用
 
-<Tip warning={true}>
-
-一旦您登录了，所有对模型库的请求（即使是不需要认证的方法）都将默认使用您的访问令牌。如果您想禁用对令牌的隐式使用，您应该设置`HF_HUB_DISABLE_IMPLICIT_TOKEN`环境变量
-
-</Tip>
+> [!WARNING]
+> 一旦您登录了，所有对模型库的请求（即使是不需要认证的方法）都将默认使用您的访问令牌。如果您想禁用对令牌的隐式使用，您应该设置`HF_HUB_DISABLE_IMPLICIT_TOKEN`环境变量
 
 ## 创建存储库
 
@@ -89,11 +86,8 @@ hf auth login --token $HUGGINGFACE_TOKEN
 ```
 私有存储库将不会对任何人可见，除了您自己
 
-<Tip>
-
-创建存储库或将内容推送到 Hub 时，必须提供具有`写入`权限的用户访问令牌。您可以在创建令牌时在您的[设置页面](https://huggingface.co/settings/tokens)中选择权限
-
-</Tip>
+> [!TIP]
+> 创建存储库或将内容推送到 Hub 时，必须提供具有`写入`权限的用户访问令牌。您可以在创建令牌时在您的[设置页面](https://huggingface.co/settings/tokens)中选择权限
 
 ## 上传文件
 
