@@ -59,13 +59,10 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     """
     Access a remote Hugging Face Hub repository as if were a local file system.
 
-    <Tip warning={true}>
-
-        [`HfFileSystem`] provides fsspec compatibility, which is useful for libraries that require it (e.g., reading
-        Hugging Face datasets directly with `pandas`). However, it introduces additional overhead due to this compatibility
-        layer. For better performance and reliability, it's recommended to use `HfApi` methods when possible.
-
-    </Tip>
+    > [!WARNING]
+    > [`HfFileSystem`] provides fsspec compatibility, which is useful for libraries that require it (e.g., reading
+    >     Hugging Face datasets directly with `pandas`). However, it introduces additional overhead due to this compatibility
+    >     layer. For better performance and reliability, it's recommended to use `HfApi` methods when possible.
 
     Args:
         token (`str` or `bool`, *optional*):
@@ -300,11 +297,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
         For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.rm).
 
-        <Tip warning={true}>
-
-            Note: When possible, use `HfApi.delete_file()` for better performance.
-
-        </Tip>
+        > [!WARNING]
+        > Note: When possible, use `HfApi.delete_file()` for better performance.
 
         Args:
             path (`str`):
@@ -344,11 +338,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
         For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.ls).
 
-        <Tip warning={true}>
-
-            Note: When possible, use `HfApi.list_repo_tree()` for better performance.
-
-        </Tip>
+        > [!WARNING]
+        > Note: When possible, use `HfApi.list_repo_tree()` for better performance.
 
         Args:
             path (`str`):
@@ -579,11 +570,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         """
         Copy a file within or between repositories.
 
-        <Tip warning={true}>
-
-            Note: When possible, use `HfApi.upload_file()` for better performance.
-
-        </Tip>
+        > [!WARNING]
+        > Note: When possible, use `HfApi.upload_file()` for better performance.
 
         Args:
             path1 (`str`):
@@ -656,11 +644,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
         For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.info).
 
-        <Tip warning={true}>
-
-            Note: When possible, use `HfApi.get_paths_info()` or `HfApi.repo_info()`  for better performance.
-
-        </Tip>
+        > [!WARNING]
+        > Note: When possible, use `HfApi.get_paths_info()` or `HfApi.repo_info()`  for better performance.
 
         Args:
             path (`str`):
@@ -757,11 +742,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
         For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.exists).
 
-        <Tip warning={true}>
-
-            Note: When possible, use `HfApi.file_exists()` for better performance.
-
-        </Tip>
+        > [!WARNING]
+        > Note: When possible, use `HfApi.file_exists()` for better performance.
 
         Args:
             path (`str`):
@@ -842,11 +824,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         """
         Copy single remote file to local.
 
-        <Tip warning={true}>
-
-            Note: When possible, use `HfApi.hf_hub_download()` for better performance.
-
-        </Tip>
+        > [!WARNING]
+        > Note: When possible, use `HfApi.hf_hub_download()` for better performance.
 
         Args:
             rpath (`str`):

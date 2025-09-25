@@ -39,12 +39,9 @@ def split_tf_state_dict_into_shards(
     have tensors of sizes [6GB, 6GB, 2GB, 6GB, 2GB, 2GB] they will get sharded as [6GB], [6+2GB], [6+2+2GB] and not
     [6+2+2GB], [6+2GB], [6GB].
 
-    <Tip warning={true}>
-
-    If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
-    size greater than `max_shard_size`.
-
-    </Tip>
+    > [!WARNING]
+    > If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
+    > size greater than `max_shard_size`.
 
     Args:
         state_dict (`Dict[str, Tensor]`):

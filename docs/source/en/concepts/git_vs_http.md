@@ -33,11 +33,8 @@ this may not always be necessary as users may only need to download weights for 
 or convert weights from one format to another without the need to clone the entire
 repository.
 
-<Tip warning={true}>
-
-[`Repository`] is now deprecated in favor of the http-based alternatives. Given its large adoption in legacy code, the complete removal of [`Repository`] will only happen in release `v1.0`.
-
-</Tip>
+> [!WARNING]
+> [`Repository`] is now deprecated in favor of the http-based alternatives. Given its large adoption in legacy code, the complete removal of [`Repository`] will only happen in release `v1.0`.
 
 ## HfApi: a flexible and convenient HTTP client
 

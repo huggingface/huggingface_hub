@@ -176,12 +176,9 @@ Config(foo="abcd", foo_length=3) # Raises StrictDataclassFieldValidationError
 Config(foo="Bar", foo_length=3, upper_case=True) # Raises StrictDataclassFieldValidationError
 ```
 
-<Tip warning={true}>
-
-Method `.validate()` is a reserved name on strict dataclasses.
-To prevent unexpected behaviors, a [`StrictDataclassDefinitionError`] error will be raised if your class already defines one.
-
-</Tip>
+> [!WARNING]
+> Method `.validate()` is a reserved name on strict dataclasses.
+> To prevent unexpected behaviors, a [`StrictDataclassDefinitionError`] error will be raised if your class already defines one.
 
 ## API Reference
 

@@ -43,12 +43,9 @@ def greet_json(request: Request):
     return {"msg": f"Hello, {oauth_info.user_info.preferred_username}!"}
 ```
 
-<Tip>
-    
-You might also be interested in [a practical example that demonstrates OAuth in action](https://huggingface.co/spaces/Wauplin/fastapi-oauth/blob/main/app.py).
-For a more comprehensive implementation, check out [medoidai/GiveBackGPT](https://huggingface.co/spaces/medoidai/GiveBackGPT) Space which implements HF OAuth in a full-scale application.
-
-</Tip>
+> [!TIP]
+> You might also be interested in [a practical example that demonstrates OAuth in action](https://huggingface.co/spaces/Wauplin/fastapi-oauth/blob/main/app.py).
+> For a more comprehensive implementation, check out [medoidai/GiveBackGPT](https://huggingface.co/spaces/medoidai/GiveBackGPT) Space which implements HF OAuth in a full-scale application.
 
 
 ### attach_huggingface_oauth

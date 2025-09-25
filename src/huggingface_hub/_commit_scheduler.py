@@ -205,13 +205,10 @@ class CommitScheduler:
         """
         Push folder to the Hub and return the commit info.
 
-        <Tip warning={true}>
-
-        This method is not meant to be called directly. It is run in the background by the scheduler, respecting a
-        queue mechanism to avoid concurrent commits. Making a direct call to the method might lead to concurrency
-        issues.
-
-        </Tip>
+        > [!WARNING]
+        > This method is not meant to be called directly. It is run in the background by the scheduler, respecting a
+        > queue mechanism to avoid concurrent commits. Making a direct call to the method might lead to concurrency
+        > issues.
 
         The default behavior of `push_to_hub` is to assume an append-only folder. It lists all files in the folder and
         uploads only changed files. If no changes are found, the method returns without committing anything. If you want

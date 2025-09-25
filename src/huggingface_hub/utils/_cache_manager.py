@@ -57,13 +57,10 @@ class CachedFileInfo:
         blob_last_modified (`float`):
             Timestamp of the last time the blob file has been modified/created.
 
-    <Tip warning={true}>
-
-    `blob_last_accessed` and `blob_last_modified` reliability can depend on the OS you
-    are using. See [python documentation](https://docs.python.org/3/library/os.html#os.stat_result)
-    for more details.
-
-    </Tip>
+    > [!WARNING]
+    > `blob_last_accessed` and `blob_last_modified` reliability can depend on the OS you
+    > are using. See [python documentation](https://docs.python.org/3/library/os.html#os.stat_result)
+    > for more details.
     """
 
     file_name: str
@@ -130,20 +127,14 @@ class CachedRevisionInfo:
         last_modified (`float`):
             Timestamp of the last time the revision has been created/modified.
 
-    <Tip warning={true}>
+    > [!WARNING]
+    > `last_accessed` cannot be determined correctly on a single revision as blob files
+    > are shared across revisions.
 
-    `last_accessed` cannot be determined correctly on a single revision as blob files
-    are shared across revisions.
-
-    </Tip>
-
-    <Tip warning={true}>
-
-    `size_on_disk` is not necessarily the sum of all file sizes because of possible
-    duplicated files. Besides, only blobs are taken into account, not the (negligible)
-    size of folders and symlinks.
-
-    </Tip>
+    > [!WARNING]
+    > `size_on_disk` is not necessarily the sum of all file sizes because of possible
+    > duplicated files. Besides, only blobs are taken into account, not the (negligible)
+    > size of folders and symlinks.
     """
 
     commit_hash: str
@@ -203,21 +194,15 @@ class CachedRepoInfo:
         last_modified (`float`):
             Timestamp of the last time a blob file of the repo has been modified/created.
 
-    <Tip warning={true}>
+    > [!WARNING]
+    > `size_on_disk` is not necessarily the sum of all revisions sizes because of
+    > duplicated files. Besides, only blobs are taken into account, not the (negligible)
+    > size of folders and symlinks.
 
-    `size_on_disk` is not necessarily the sum of all revisions sizes because of
-    duplicated files. Besides, only blobs are taken into account, not the (negligible)
-    size of folders and symlinks.
-
-    </Tip>
-
-    <Tip warning={true}>
-
-    `last_accessed` and `last_modified` reliability can depend on the OS you are using.
-    See [python documentation](https://docs.python.org/3/library/os.html#os.stat_result)
-    for more details.
-
-    </Tip>
+    > [!WARNING]
+    > `last_accessed` and `last_modified` reliability can depend on the OS you are using.
+    > See [python documentation](https://docs.python.org/3/library/os.html#os.stat_result)
+    > for more details.
     """
 
     repo_id: str
@@ -305,20 +290,14 @@ class DeleteCacheStrategy:
     def execute(self) -> None:
         """Execute the defined strategy.
 
-        <Tip warning={true}>
+        > [!WARNING]
+        > If this method is interrupted, the cache might get corrupted. Deletion order is
+        > implemented so that references and symlinks are deleted before the actual blob
+        > files.
 
-        If this method is interrupted, the cache might get corrupted. Deletion order is
-        implemented so that references and symlinks are deleted before the actual blob
-        files.
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        This method is irreversible. If executed, cached files are erased and must be
-        downloaded again.
-
-        </Tip>
+        > [!WARNING]
+        > This method is irreversible. If executed, cached files are erased and must be
+        > downloaded again.
         """
         # Deletion order matters. Blobs are deleted in last so that the user can't end
         # up in a state where a `ref`` refers to a missing snapshot or a snapshot
@@ -360,12 +339,9 @@ class HFCacheInfo:
             Those exceptions are captured so that the scan can continue. Corrupted repos
             are skipped from the scan.
 
-    <Tip warning={true}>
-
-    Here `size_on_disk` is equal to the sum of all repo sizes (only blobs). However if
-    some cached repos are corrupted, their sizes are not taken into account.
-
-    </Tip>
+    > [!WARNING]
+    > Here `size_on_disk` is equal to the sum of all repo sizes (only blobs). However if
+    > some cached repos are corrupted, their sizes are not taken into account.
     """
 
     size_on_disk: int
@@ -412,13 +388,10 @@ class HFCacheInfo:
         Cache deletion done. Saved 8.6G.
         ```
 
-        <Tip warning={true}>
-
-        `delete_revisions` returns a [`~utils.DeleteCacheStrategy`] object that needs to
-        be executed. The [`~utils.DeleteCacheStrategy`] is not meant to be modified but
-        allows having a dry run before actually executing the deletion.
-
-        </Tip>
+        > [!WARNING]
+        > `delete_revisions` returns a [`~utils.DeleteCacheStrategy`] object that needs to
+        > be executed. The [`~utils.DeleteCacheStrategy`] is not meant to be modified but
+        > allows having a dry run before actually executing the deletion.
         """
         hashes_to_delete: Set[str] = set(revisions)
 
@@ -652,17 +625,14 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
         cache_dir (`str` or `Path`, `optional`):
             Cache directory to cache. Defaults to the default HF cache directory.
 
-    <Tip warning={true}>
-
-    Raises:
-
-        `CacheNotFound`
-          If the cache directory does not exist.
-
-        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-          If the cache directory is a file, instead of a directory.
-
-    </Tip>
+    > [!WARNING]
+    > Raises:
+    >
+    >     `CacheNotFound`
+    >       If the cache directory does not exist.
+    >
+    >     [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+    >       If the cache directory is a file, instead of a directory.
 
     Returns: a [`~HFCacheInfo`] object.
     """

@@ -90,13 +90,10 @@ vous serez déconnecté du premier compte. Vérifiez toujours le compte que vous
 `hf auth whoami`. Si vous voulez gérer plusieurs compte dans le même script, vous pouvez passer votre
 token à chaque appel de méthode. C'est aussi utile si vous ne voulez pas sauvegarder de token sur votre machine.
 
-<Tip warning={true}>
-
-Une fois que vous êtes connectés, toutes les requêtes vers le Hub (même les méthodes qui ne nécessite pas explicitement
-d'authentification) utiliseront votre token d'authentification par défaut. Si vous voulez supprimer l'utilisation implicite
-de votre token, vous devez définir la variable d'environnement `HF_HUB_DISABLE_IMPLICIT_TOKEN`.
-
-</Tip>
+> [!WARNING]
+> Une fois que vous êtes connectés, toutes les requêtes vers le Hub (même les méthodes qui ne nécessite pas explicitement
+> d'authentification) utiliseront votre token d'authentification par défaut. Si vous voulez supprimer l'utilisation implicite
+> de votre token, vous devez définir la variable d'environnement `HF_HUB_DISABLE_IMPLICIT_TOKEN`.
 
 ## Créer un dépôt
 
@@ -119,13 +116,10 @@ Si vous voulez que votre dépôt soit privé, alors:
 
 Les dépôts privés ne seront visible que par vous.
 
-<Tip>
-
-Pour créer un dépôt ou push du contenu sur le Hub, vous devez fournir un token
-d'authentification qui a les permissions `write`. Vous pouvez choisir la permission
-lorsque vous générez le token dans vos [paramètres](https://huggingface.co/settings/tokens).
-
-</Tip>
+> [!TIP]
+> Pour créer un dépôt ou push du contenu sur le Hub, vous devez fournir un token
+> d'authentification qui a les permissions `write`. Vous pouvez choisir la permission
+> lorsque vous générez le token dans vos [paramètres](https://huggingface.co/settings/tokens).
 
 ## Upload des fichiers
 
