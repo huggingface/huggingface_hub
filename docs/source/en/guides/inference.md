@@ -11,16 +11,13 @@ The `huggingface_hub` library provides a unified interface to run inference acro
 2.  [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index): a product to easily deploy models to production. Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
 3.  Local endpoints: you can also run inference with local inference servers like [llama.cpp](https://github.com/ggerganov/llama.cpp), [Ollama](https://ollama.com/), [vLLM](https://github.com/vllm-project/vllm), [LiteLLM](https://docs.litellm.ai/docs/simple_proxy), or [Text Generation Inference (TGI)](https://github.com/huggingface/text-generation-inference) by connecting the client to these local endpoints.
 
-<Tip>
-
-[`InferenceClient`] is a Python client making HTTP calls to our APIs. If you want to make the HTTP calls directly using
-your preferred tool (curl, postman,...), please refer to the [Inference Providers](https://huggingface.co/docs/inference-providers/index) documentation
-or to the [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) documentation pages.
-
-For web development, a [JS client](https://huggingface.co/docs/huggingface.js/inference/README) has been released.
-If you are interested in game development, you might have a look at our [C# project](https://github.com/huggingface/unity-api).
-
-</Tip>
+> [!TIP]
+> [`InferenceClient`] is a Python client making HTTP calls to our APIs. If you want to make the HTTP calls directly using
+> your preferred tool (curl, postman,...), please refer to the [Inference Providers](https://huggingface.co/docs/inference-providers/index) documentation
+> or to the [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) documentation pages.
+>
+> For web development, a [JS client](https://huggingface.co/docs/huggingface.js/inference/README) has been released.
+> If you are interested in game development, you might have a look at our [C# project](https://github.com/huggingface/unity-api).
 
 ## Getting started
 
@@ -84,13 +81,10 @@ ChatCompletionOutput(
 In the example above, we used a third-party provider ([Together AI](https://www.together.ai/)) and specified which model we want to use (`"meta-llama/Meta-Llama-3-8B-Instruct"`). We then gave a list of messages to complete (here, a single question) and passed an additional parameter to the API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be accessed with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
 
 
-<Tip warning={true}>
-
-The API is designed to be simple. Not all parameters and options are available or described for the end user. Check out
-[this page](https://huggingface.co/docs/api-inference/detailed_parameters) if you are interested in learning more about
-all the parameters available for each task.
-
-</Tip>
+> [!WARNING]
+> The API is designed to be simple. Not all parameters and options are available or described for the end user. Check out
+> [this page](https://huggingface.co/docs/api-inference/detailed_parameters) if you are interested in learning more about
+> all the parameters available for each task.
 
 ### Using a specific provider
 
@@ -115,14 +109,12 @@ What if you want to use a specific model? You can specify it either as a paramet
 >>> client.text_to_image(..., model="meta-llama/Llama-3.1-8B-Instruct")
 ```
 
-<Tip>
-
-When using the "hf-inference" provider, each task comes with a recommended model from the 1M+ models available on the Hub.
-However, this recommendation can change over time, so it's best to explicitly set a model once you've decided which one to use.
-For third-party providers, you must always specify a model that is compatible with that provider.
-
-Visit the [Models](https://huggingface.co/models?inference=warm) page on the Hub to explore models available through Inference Providers.
-</Tip>
+> [!TIP]
+> When using the "hf-inference" provider, each task comes with a recommended model from the 1M+ models available on the Hub.
+> However, this recommendation can change over time, so it's best to explicitly set a model once you've decided which one to use.
+> For third-party providers, you must always specify a model that is compatible with that provider.
+>
+> Visit the [Models](https://huggingface.co/models?inference=warm) page on the Hub to explore models available through Inference Providers.
 
 ### Using Inference Endpoints
 
@@ -159,11 +151,8 @@ You can use [`InferenceClient`] to run chat completion with local inference serv
 >>> print(response.choices[0].message.content)
 ```
 
-<Tip>
-
-Similarily to the OpenAI Python client, [`InferenceClient`] can be used to run Chat Completion inference with any OpenAI REST API-compatible endpoint.
-
-</Tip>
+> [!TIP]
+> Similarily to the OpenAI Python client, [`InferenceClient`] can be used to run Chat Completion inference with any OpenAI REST API-compatible endpoint.
 
 ### Authentication
 
@@ -235,11 +224,8 @@ For more details, refer to the [Inference Providers pricing documentation](https
 | [`~InferenceClient.zero_shot_image_classification`] | ❌                 | ❌        | ❌      | ❌      | ❌              | ❌            | ❌    | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
 | [`~InferenceClient.zero_shot_classification`]       | ❌                 | ❌        | ❌      | ❌      | ❌              | ❌            | ❌    | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        |
 
-<Tip>
-
-Check out the [Tasks](https://huggingface.co/tasks) page to learn more about each task.
-
-</Tip>
+> [!TIP]
+> Check out the [Tasks](https://huggingface.co/tasks) page to learn more about each task.
 
 ## OpenAI compatibility
 
@@ -299,11 +285,8 @@ You might wonder why using [`InferenceClient`] instead of OpenAI's client? There
 2. [`InferenceClient`] is tailored for both Text-Generation-Inference (TGI) and `transformers` frameworks, meaning you are assured it will always be on-par with the latest updates.
 3. [`InferenceClient`] is integrated with our Inference Endpoints service, making it easier to launch an Inference Endpoint, check its status and run inference on it. Check out the [Inference Endpoints](./inference_endpoints.md) guide for more details.
 
-<Tip>
-
-`InferenceClient.chat.completions.create` is simply an alias for `InferenceClient.chat_completion`. Check out the package reference of [`~InferenceClient.chat_completion`] for more details. `base_url` and `api_key` parameters when instantiating the client are also aliases for `model` and `token`. These aliases have been defined to reduce friction when switching from `OpenAI` to `InferenceClient`.
-
-</Tip>
+> [!TIP]
+> `InferenceClient.chat.completions.create` is simply an alias for `InferenceClient.chat_completion`. Check out the package reference of [`~InferenceClient.chat_completion`] for more details. `base_url` and `api_key` parameters when instantiating the client are also aliases for `model` and `token`. These aliases have been defined to reduce friction when switching from `OpenAI` to `InferenceClient`.
 
 ## Function Calling
 
@@ -351,11 +334,8 @@ print(response.choices[0].message.tool_calls[0].function.arguments)
 
 ```
 
-<Tip>
-
-Please refer to the providers' documentation to verify which models are supported by them for Function/Tool Calling.
-
-</Tip>
+> [!TIP]
+> Please refer to the providers' documentation to verify which models are supported by them for Function/Tool Calling.
 
 ## Structured Outputs & JSON Mode
 
@@ -404,11 +384,8 @@ completion = client.chat.completions.create(
 
 print(completion.choices[0].message)
 ```
-<Tip>
-
-Please refer to the providers' documentation to verify which models are supported by them for Structured Outputs and JSON Mode.
-
-</Tip>
+> [!TIP]
+> Please refer to the providers' documentation to verify which models are supported by them for Structured Outputs and JSON Mode.
 
 ## Async client
 

@@ -11,10 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains a utility for good-looking prints."""
+"""Contains CLI utilities (styling, helpers)."""
 
 import os
-from typing import Union
+from enum import Enum
+from typing import Annotated, Optional, Union
+
+import click
+import typer
+
+from huggingface_hub import __version__
+from huggingface_hub.hf_api import HfApi
 
 
 class ANSI:
@@ -67,3 +74,73 @@ def tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
     for row in rows:
         lines.append(row_format.format(*row))
     return "\n".join(lines)
+
+
+#### TYPER UTILS
+
+
+class AlphabeticalMixedGroup(typer.core.TyperGroup):
+    """
+    Typer Group that lists commands and sub-apps mixed and alphabetically.
+    """
+
+    def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
+        # click.Group stores both commands and sub-groups in `self.commands`
+        return sorted(self.commands.keys())
+
+
+def typer_factory(help: str) -> typer.Typer:
+    return typer.Typer(
+        help=help,
+        add_completion=True,
+        rich_markup_mode=None,
+        no_args_is_help=True,
+        cls=AlphabeticalMixedGroup,
+    )
+
+
+class RepoType(str, Enum):
+    model = "model"
+    dataset = "dataset"
+    space = "space"
+
+
+RepoIdArg = Annotated[
+    str,
+    typer.Argument(
+        help="The ID of the repo (e.g. `username/repo-name`).",
+    ),
+]
+
+
+RepoTypeOpt = Annotated[
+    RepoType,
+    typer.Option(
+        help="The type of repository (model, dataset, or space).",
+    ),
+]
+
+TokenOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="A User Access Token generated from https://huggingface.co/settings/tokens.",
+    ),
+]
+
+PrivateOpt = Annotated[
+    bool,
+    typer.Option(
+        help="Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.",
+    ),
+]
+
+RevisionOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="Git revision id which can be a branch name, a tag, or a commit hash.",
+    ),
+]
+
+
+def get_hf_api(token: Optional[str] = None) -> HfApi:
+    return HfApi(token=token, library_name="hf", library_version=__version__)

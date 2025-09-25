@@ -317,12 +317,9 @@ assets_path = cached_assets_path(library_name="datasets", namespace="SQuAD", sub
 something_path = assets_path / "something.json" # Do anything you like in your assets folder !
 ```
 
-<Tip>
-
-[`cached_assets_path`] is the recommended way to store assets but is not mandatory. If
-your library already uses its own cache, feel free to use it!
-
-</Tip>
+> [!TIP]
+> [`cached_assets_path`] is the recommended way to store assets but is not mandatory. If
+> your library already uses its own cache, feel free to use it!
 
 ### Assets in practice
 
@@ -518,21 +515,15 @@ The strategy to delete revisions is the following:
 - if a revision is linked to 1 or more `refs`, references are deleted.
 - if all revisions from a repo are deleted, the entire cached repository is deleted.
 
-<Tip>
+> [!TIP]
+> Revision hashes are unique across all repositories. This means you don't need to
+> provide any `repo_id` or `repo_type` when removing revisions.
 
-Revision hashes are unique across all repositories. This means you don't need to
-provide any `repo_id` or `repo_type` when removing revisions.
-
-</Tip>
-
-<Tip warning={true}>
-
-If a revision is not found in the cache, it will be silently ignored. Besides, if a file
-or folder cannot be found while trying to delete it, a warning will be logged but no
-error is thrown. The deletion continues for other paths contained in the
-[`DeleteCacheStrategy`] object.
-
-</Tip>
+> [!WARNING]
+> If a revision is not found in the cache, it will be silently ignored. Besides, if a file
+> or folder cannot be found while trying to delete it, a warning will be logged but no
+> error is thrown. The deletion continues for other paths contained in the
+> [`DeleteCacheStrategy`] object.
 
 **Clean cache from the terminal**
 

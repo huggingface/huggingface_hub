@@ -14,11 +14,8 @@ class Agent(MCPClient):
     """
     Implementation of a Simple Agent, which is a simple while loop built right on top of an [`MCPClient`].
 
-    <Tip warning={true}>
-
-    This class is experimental and might be subject to breaking changes in the future without prior notice.
-
-    </Tip>
+    > [!WARNING]
+    > This class is experimental and might be subject to breaking changes in the future without prior notice.
 
     Args:
         model (`str`, *optional*):

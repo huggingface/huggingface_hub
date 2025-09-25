@@ -75,11 +75,8 @@ Number of upvotes: 1
 Number of upvotes: 5
 ```
 
-<Tip warning={true}>
-
-当列出集合时，每个集合中返回的条目列表最多会被截断为 4 个。若要检索集合中的所有条目，你必须使用 [`get_collection`].
-
-</Tip>
+> [!WARNING]
+> 当列出集合时，每个集合中返回的条目列表最多会被截断为 4 个。若要检索集合中的所有条目，你必须使用 [`get_collection`].
 
 我们可以进行更高级的过滤。例如，让我们获取所有包含模型 [TheBloke/OpenHermes-2.5-Mistral-7B-GGUF](https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF) 的集合，并按照趋势（trending）进行排序，同时将结果限制为 5 个。
 ```py
@@ -214,11 +211,8 @@ Crataco/favorite-7b-models-651944072b4fffcb41f8b568
 
 可以使用 [`delete_collection`] 来删除集合。
 
-<Tip warning={true}>
-
- 此操作不可逆。删除的集合无法恢复。 
-
-</Tip>
+> [!WARNING]
+> 此操作不可逆。删除的集合无法恢复。
 
 ```py
 >>> from huggingface_hub import delete_collection

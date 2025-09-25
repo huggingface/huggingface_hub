@@ -60,14 +60,12 @@ Geheimnisse und Variablen können auch gelöscht werden:
 >>> api.delete_space_variable(repo_id=repo_id, key="MODEL_REPO_ID")
 ```
 
-<Tip>
-Innerhalb Ihres Space sind Geheimnisse als Umgebungsvariablen verfügbar (oder
-Streamlit Secrets Management, wenn Streamlit verwendet wird). Keine Notwendigkeit, sie über die API abzurufen!
-</Tip>
+> [!TIP]
+> Innerhalb Ihres Space sind Geheimnisse als Umgebungsvariablen verfügbar (oder
+> Streamlit Secrets Management, wenn Streamlit verwendet wird). Keine Notwendigkeit, sie über die API abzurufen!
 
-<Tip warning={true}>
-Jede Änderung in der Konfiguration Ihres Space (Geheimnisse oder Hardware) wird einen Neustart Ihrer App auslösen.
-</Tip>
+> [!WARNING]
+> Jede Änderung in der Konfiguration Ihres Space (Geheimnisse oder Hardware) wird einen Neustart Ihrer App auslösen.
 
 **Bonus: Geheimnisse und Variablen beim Erstellen oder Duplizieren des Space festlegen!**
 
@@ -267,11 +265,10 @@ führen Sie sie auf der richtigen Hardware aus. Ist die Aufgabe erledigt,
 setzen Sie die Hardware zurück auf den kostenlosen CPU-Plan und fordern den Benutzer auf,
 eine neue Aufgabe anzufordern.
 
-<Tip warning={true}>
-Ein solcher Workflow unterstützt keinen gleichzeitigen Zugriff wie normale Demos.
-Insbesondere wird die Schnittstelle deaktiviert, wenn das Training stattfindet.
-Es ist vorzuziehen, Ihr Repo auf privat zu setzen, um sicherzustellen, dass Sie der einzige Benutzer sind.
-</Tip>
+> [!WARNING]
+> Ein solcher Workflow unterstützt keinen gleichzeitigen Zugriff wie normale Demos.
+> Insbesondere wird die Schnittstelle deaktiviert, wenn das Training stattfindet.
+> Es ist vorzuziehen, Ihr Repo auf privat zu setzen, um sicherzustellen, dass Sie der einzige Benutzer sind.
 
 ```py
 # Für den Space wird Ihr Token benötigt, um Hardware anzufordern: Legen Sie es als Geheimnis fest!

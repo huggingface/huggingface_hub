@@ -12,11 +12,8 @@ Hugging Face Hub是一组 Git 存储库。[Git](https://git-scm.com/)是软件�
 - 更新您的存储库可见性
 - 管理存储库的本地副本
 
-<Tip warning={true}>
-
-如果您习惯于使用类似于GitLab/GitHub/Bitbucket等平台，您可能首先想到使用 `git`命令行工具来克隆存储库（`git clone`）、提交更改（`git add` , ` git commit`）并推送它们（`git push`）。在使用 Hugging Face Hub 时，这是有效的。然而，软件工程和机器学习并不具有相同的要求和工作流程。模型存储库可能会维护大量模型权重文件以适应不同的框架和工具，因此克隆存储库会导致您维护大量占用空间的本地文件夹。因此，使用我们的自定义HTTP方法可能更有效。您可以阅读我们的[git与HTTP相比较](../concepts/git_vs_http)解释页面以获取更多详细信息
-
-</Tip>
+> [!WARNING]
+> 如果您习惯于使用类似于GitLab/GitHub/Bitbucket等平台，您可能首先想到使用 `git`命令行工具来克隆存储库（`git clone`）、提交更改（`git add` , ` git commit`）并推送它们（`git push`）。在使用 Hugging Face Hub 时，这是有效的。然而，软件工程和机器学习并不具有相同的要求和工作流程。模型存储库可能会维护大量模型权重文件以适应不同的框架和工具，因此克隆存储库会导致您维护大量占用空间的本地文件夹。因此，使用我们的自定义HTTP方法可能更有效。您可以阅读我们的[git与HTTP相比较](../concepts/git_vs_http)解释页面以获取更多详细信息
 
 如果你想在Hub上创建和管理一个仓库，你的计算机必须处于登录状态。如果尚未登录，请参考[此部分](../quick-start#login)。在本指南的其余部分，我们将假设你的计算机已登录
 

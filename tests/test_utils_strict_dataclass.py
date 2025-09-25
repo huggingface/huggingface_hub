@@ -29,6 +29,30 @@ def strictly_positive(value: int):
         raise ValueError(f"Value must be strictly positive, got {value}")
 
 
+def dtype_validation(value: "ForwardDtype"):
+    if not isinstance(value, str):
+        raise ValueError(f"Value must be string, got {value}")
+
+    if isinstance(value, str) and value not in ["float32", "bfloat16", "float16"]:
+        raise ValueError(f"Value must be one of `[float32, bfloat16, float16]` but got {value}")
+
+
+@strict
+@dataclass
+class ConfigForwardRef:
+    """Test forward reference handling.
+
+    In practice, forward reference types are not validated so a custom validator is highly recommended.
+    """
+
+    forward_ref_validated: "ForwardDtype" = validated_field(validator=dtype_validation)
+    forward_ref: "ForwardDtype" = "float32"  # type is not validated by default
+
+
+class ForwardDtype(str):
+    """Dummy class to simulate a forward reference (e.g. `torch.dtype`)."""
+
+
 @strict
 @dataclass
 class Config:
@@ -60,6 +84,26 @@ def test_default_values():
     assert config.model_type == "bert"
     assert config.vocab_size == 16
     assert config.hidden_size == 1024
+
+
+def test_forward_ref_validation_is_skipped():
+    config = ConfigForwardRef(forward_ref="float32", forward_ref_validated="float32")
+    assert config.forward_ref == "float32"
+    assert config.forward_ref_validated == "float32"
+
+    # The `forward_ref_validated` has proper validation added in field-metadata and will be validated
+    with pytest.raises(StrictDataclassFieldValidationError):
+        ConfigForwardRef(forward_ref_validated="float64")
+
+    with pytest.raises(StrictDataclassFieldValidationError):
+        ConfigForwardRef(forward_ref_validated=-1)
+
+    with pytest.raises(StrictDataclassFieldValidationError):
+        ConfigForwardRef(forward_ref_validated="not_dtype")
+
+    # The `forward_ref` type is not validated => user can input anything
+    ConfigForwardRef(forward_ref=-1, forward_ref_validated="float32")
+    ConfigForwardRef(forward_ref=["float32"], forward_ref_validated="float32")
 
 
 def test_invalid_type_initialization():

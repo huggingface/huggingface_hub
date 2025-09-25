@@ -14,17 +14,14 @@ repositories on the Hub, especially:
 - Update your repository visibility.
 - Manage a local copy of your repository.
 
-<Tip warning={true}>
-
-If you are used to working with platforms such as GitLab/GitHub/Bitbucket, your first instinct
-might be to use `git` CLI to clone your repo (`git clone`), commit changes (`git add, git commit`) and push them
-(`git push`). This is valid when using the Hugging Face Hub. However, software engineering and machine learning do
-not share the same requirements and workflows. Model repositories might maintain large model weight files for different
-frameworks and tools, so cloning the repository can lead to you maintaining large local folders with massive sizes. As
-a result, it may be more efficient to use our custom HTTP methods. You can read our [Git vs HTTP paradigm](../concepts/git_vs_http)
-explanation page for more details.
-
-</Tip>
+> [!WARNING]
+> If you are used to working with platforms such as GitLab/GitHub/Bitbucket, your first instinct
+> might be to use `git` CLI to clone your repo (`git clone`), commit changes (`git add, git commit`) and push them
+> (`git push`). This is valid when using the Hugging Face Hub. However, software engineering and machine learning do
+> not share the same requirements and workflows. Model repositories might maintain large model weight files for different
+> frameworks and tools, so cloning the repository can lead to you maintaining large local folders with massive sizes. As
+> a result, it may be more efficient to use our custom HTTP methods. You can read our [Git vs HTTP paradigm](../concepts/git_vs_http)
+> explanation page for more details.
 
 If you want to create and manage a repository on the Hub, your machine must be logged in. If you are not, please refer to
 [this section](../quick-start#authentication). In the rest of this guide, we will assume that your machine is logged in.
@@ -61,11 +58,8 @@ When you create a repository, you can set your repository visibility with the `p
 
 If you want to change the repository visibility at a later time, you can use the [`update_repo_settings`] function.
 
-<Tip>
-
-If you are part of an organization with an Enterprise plan, you can create a repo in a specific resource group by passing `resource_group_id` as parameter to [`create_repo`]. Resource groups are a security feature to control which members from your org can access a given resource. You can get the resource group ID by copying it from your org settings page url on the Hub (e.g. `"https://huggingface.co/organizations/huggingface/settings/resource-groups/66670e5163145ca562cb1988"` => `"66670e5163145ca562cb1988"`). For more details about resource group, check out this [guide](https://huggingface.co/docs/hub/en/security-resource-groups).
-
-</Tip>
+> [!TIP]
+> If you are part of an organization with an Enterprise plan, you can create a repo in a specific resource group by passing `resource_group_id` as parameter to [`create_repo`]. Resource groups are a security feature to control which members from your org can access a given resource. You can get the resource group ID by copying it from your org settings page url on the Hub (e.g. `"https://huggingface.co/organizations/huggingface/settings/resource-groups/66670e5163145ca562cb1988"` => `"66670e5163145ca562cb1988"`). For more details about resource group, check out this [guide](https://huggingface.co/docs/hub/en/security-resource-groups).
 
 ### Delete a repository
 

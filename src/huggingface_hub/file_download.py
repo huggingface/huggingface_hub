@@ -191,26 +191,23 @@ def hf_hub_url(
     'https://huggingface.co/julien-c/EsperBERTo-small/resolve/main/pytorch_model.bin'
     ```
 
-    <Tip>
-
-    Notes:
-
-        Cloudfront is replicated over the globe so downloads are way faster for
-        the end user (and it also lowers our bandwidth costs).
-
-        Cloudfront aggressively caches files by default (default TTL is 24
-        hours), however this is not an issue here because we implement a
-        git-based versioning system on huggingface.co, which means that we store
-        the files on S3/Cloudfront in a content-addressable way (i.e., the file
-        name is its hash). Using content-addressable filenames means cache can't
-        ever be stale.
-
-        In terms of client-side caching from this library, we base our caching
-        on the objects' entity tag (`ETag`), which is an identifier of a
-        specific version of a resource [1]_. An object's ETag is: its git-sha1
-        if stored in git, or its sha256 if stored in git-lfs.
-
-    </Tip>
+    > [!TIP]
+    > Notes:
+    >
+    >     Cloudfront is replicated over the globe so downloads are way faster for
+    >     the end user (and it also lowers our bandwidth costs).
+    >
+    >     Cloudfront aggressively caches files by default (default TTL is 24
+    >     hours), however this is not an issue here because we implement a
+    >     git-based versioning system on huggingface.co, which means that we store
+    >     the files on S3/Cloudfront in a content-addressable way (i.e., the file
+    >     name is its hash). Using content-addressable filenames means cache can't
+    >     ever be stale.
+    >
+    >     In terms of client-side caching from this library, we base our caching
+    >     on the objects' entity tag (`ETag`), which is an identifier of a
+    >     specific version of a resource [1]_. An object's ETag is: its git-sha1
+    >     if stored in git, or its sha256 if stored in git-lfs.
 
     References:
 
@@ -243,7 +240,7 @@ def _httpx_follow_relative_redirects(method: HTTP_METHOD_T, url: str, **httpx_kw
 
     This is useful to follow a redirection to a renamed repository without following redirection to a CDN.
 
-    A backoff mechanism retries the HTTP call on 429, 503 and 504 errors.
+    A backoff mechanism retries the HTTP call on 5xx errors and network errors.
 
     Args:
         method (`str`):
