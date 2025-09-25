@@ -12,6 +12,8 @@ This guide is intended to help you migrate your existing code to the new version
 
 The `huggingface_hub` library now uses [`httpx`](https://www.python-httpx.org/) instead of `requests` for HTTP requests. This change was made to improve performance and to support both synchronous and asynchronous requests the same way. We therefore dropped both `requests` and `aiohttp` dependencies.
 
+### Breaking changes
+
 This is a major change that affects the entire library. While we have tried to make this change as transparent as possible, you may need to update your code in some cases. Here is a list of breaking changes introduced in the process:
 
 - **Proxy configuration**: "per method" proxies are no longer supported. Proxies must be configured globally using the `HTTP_PROXY` and `HTTPS_PROXY` environment variables.
@@ -23,6 +25,26 @@ This is a major change that affects the entire library. While we have tried to m
 - **`AsyncInferenceClient`**: The `trust_env` parameter has been removed from the `AsyncInferenceClient`'s constructor. Environment variables are trusted by default by `httpx`. If you explicitly don't want to trust the environment, you must configure it with [`set_client_factory`].
 
 For more details, you can check [PR #3328](https://github.com/huggingface/huggingface_hub/pull/3328) that introduced `httpx`.
+
+### Why `httpx`?
+
+## Why `httpx`?
+
+The migration from `requests` to `httpx` brings several key improvements that enhance the library's performance, reliability, and maintainability:
+
+**Thread Safety and Connection Reuse**: `httpx` is thread-safe by design, allowing us to safely reuse the same client across multiple threads. This connection reuse reduces the overhead of establishing new connections for each HTTP request, improving performance especially when making frequent requests to the Hub.
+
+**HTTP/2 Support**: `httpx` provides native HTTP/2 support, which offers better efficiency when making multiple requests to the same server (exactly our use case). This translates to lower latency and reduced resource consumption compared to HTTP/1.1.
+
+**Unified Sync/Async API**: Unlike our previous setup with separate `requests` (sync) and `aiohttp` (async) dependencies, `httpx` provides both synchronous and asynchronous clients with identical behavior. This ensures that `InferenceClient` and `AsyncInferenceClient` have consistent functionality and eliminates subtle behavioral differences that previously existed between the two implementations.
+
+**Improved SSL Error Handling**: `httpx` handles SSL errors more gracefully, making debugging connection issues easier and more reliable.
+
+**Future-Proof Architecture**: `httpx` is actively maintained and designed for modern Python applications. In contrast, `requests` is in maintenance mode and won't receive major updates like thread-safety improvements or HTTP/2 support.
+
+**Better Environment Variable Handling**: `httpx` provides more consistent handling of environment variables across both sync and async contexts, eliminating previous inconsistencies where `requests` would read local environment variables by default while `aiohttp` would not.
+
+The transition to `httpx` positions `huggingface_hub` with a modern, efficient, and maintainable HTTP backend. While most users should experience seamless operation, the underlying improvements provide better performance and reliability for all Hub interactions.
 
 ## `Repository` class
 
