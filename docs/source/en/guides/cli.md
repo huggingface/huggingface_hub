@@ -426,6 +426,69 @@ By default, the `hf upload` command will be verbose. It will print details such 
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
+## hf repo
+
+`hf repo` lets you create, delete, move repositories and update their settings on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
+
+### Create a repo
+
+```bash
+>>> hf repo create Wauplin/my-cool-model
+Successfully created Wauplin/my-cool-model on the Hub.
+Your repo is now available at https://huggingface.co/Wauplin/my-cool-model
+```
+
+Create a private dataset or a Space:
+
+```bash
+>>> hf repo create my-cool-dataset --repo-type dataset --private
+>>> hf repo create my-gradio-space --repo-type space --space-sdk gradio
+```
+
+Use `--exist-ok` if the repo may already exist, and `--resource-group-id` to target an Enterprise resource group.
+
+### Delete a repo
+
+```bash
+>>> hf repo delete Wauplin/my-cool-model
+```
+
+Datasets and Spaces:
+
+```bash
+>>> hf repo delete my-cool-dataset --repo-type dataset
+>>> hf repo delete my-gradio-space --repo-type space
+```
+
+### Move a repo
+
+```bash
+>>> hf repo move old-namespace/my-model new-namespace/my-model
+```
+
+### Update repo settings
+
+```bash
+>>> hf repo settings Wauplin/my-cool-model --gated auto
+>>> hf repo settings Wauplin/my-cool-model --private true
+>>> hf repo settings Wauplin/my-cool-model --private false
+```
+
+- `--gated`: one of `auto`, `manual`, `false`
+- `--private true|false`: set repository privacy
+
+### Manage branches
+
+```bash
+>>> hf repo branch create Wauplin/my-cool-model dev
+>>> hf repo branch create Wauplin/my-cool-model release-1 --revision refs/pr/104
+>>> hf repo branch delete Wauplin/my-cool-model dev
+```
+
+> [!TIP]
+> All commands accept `--repo-type` (one of `model`, `dataset`, `space`) and `--token` if you need to authenticate explicitly. Use `--help` on > any command to see all options.
+
+
 ## hf repo-files
 
 If you want to delete files from a Hugging Face repository, use the `hf repo-files` command.
