@@ -267,17 +267,14 @@ def http_backoff(
     >>> response.raise_for_status()
     ```
 
-    <Tip warning={true}>
-
-    When using `requests` it is possible to stream data by passing an iterator to the
-    `data` argument. On http backoff this is a problem as the iterator is not reset
-    after a failed call. This issue is mitigated for file objects or any IO streams
-    by saving the initial position of the cursor (with `data.tell()`) and resetting the
-    cursor between each call (with `data.seek()`). For arbitrary iterators, http backoff
-    will fail. If this is a hard constraint for you, please let us know by opening an
-    issue on [Github](https://github.com/huggingface/huggingface_hub).
-
-    </Tip>
+    > [!WARNING]
+    > When using `requests` it is possible to stream data by passing an iterator to the
+    > `data` argument. On http backoff this is a problem as the iterator is not reset
+    > after a failed call. This issue is mitigated for file objects or any IO streams
+    > by saving the initial position of the cursor (with `data.tell()`) and resetting the
+    > cursor between each call (with `data.seek()`). For arbitrary iterators, http backoff
+    > will fail. If this is a hard constraint for you, please let us know by opening an
+    > issue on [Github](https://github.com/huggingface/huggingface_hub).
     """
     if isinstance(retry_on_exceptions, type):  # Tuple from single exception type
         retry_on_exceptions = (retry_on_exceptions,)
@@ -380,28 +377,25 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
             Name of the endpoint that has been called. If provided, the error message
             will be more complete.
 
-    <Tip warning={true}>
-
-    Raises when the request has failed:
-
-        - [`~utils.RepositoryNotFoundError`]
-            If the repository to download from cannot be found. This may be because it
-            doesn't exist, because `repo_type` is not set correctly, or because the repo
-            is `private` and you do not have access.
-        - [`~utils.GatedRepoError`]
-            If the repository exists but is gated and the user is not on the authorized
-            list.
-        - [`~utils.RevisionNotFoundError`]
-            If the repository exists but the revision couldn't be find.
-        - [`~utils.EntryNotFoundError`]
-            If the repository exists but the entry (e.g. the requested file) couldn't be
-            find.
-        - [`~utils.BadRequestError`]
-            If request failed with a HTTP 400 BadRequest error.
-        - [`~utils.HfHubHTTPError`]
-            If request failed for a reason not listed above.
-
-    </Tip>
+    > [!WARNING]
+    > Raises when the request has failed:
+    >
+    >     - [`~utils.RepositoryNotFoundError`]
+    >         If the repository to download from cannot be found. This may be because it
+    >         doesn't exist, because `repo_type` is not set correctly, or because the repo
+    >         is `private` and you do not have access.
+    >     - [`~utils.GatedRepoError`]
+    >         If the repository exists but is gated and the user is not on the authorized
+    >         list.
+    >     - [`~utils.RevisionNotFoundError`]
+    >         If the repository exists but the revision couldn't be find.
+    >     - [`~utils.EntryNotFoundError`]
+    >         If the repository exists but the entry (e.g. the requested file) couldn't be
+    >         find.
+    >     - [`~utils.BadRequestError`]
+    >         If request failed with a HTTP 400 BadRequest error.
+    >     - [`~utils.HfHubHTTPError`]
+    >         If request failed for a reason not listed above.
     """
     try:
         response.raise_for_status()

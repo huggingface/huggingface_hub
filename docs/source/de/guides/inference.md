@@ -10,13 +10,10 @@ Inferenz ist der Prozess, bei dem ein trainiertes Modell verwendet wird, um Vorh
 
 Diese Dienste können mit dem [`InferenceClient`] Objekt aufgerufen werden. Dieser fungiert als Ersatz für den älteren [`InferenceApi`] Client und fügt spezielle Unterstützung für Aufgaben und das Ausführen von Inferenz hinzu, sowohl auf [Inferenz API](https://huggingface.co/docs/api-inference/index) als auch auf [Inferenz Endpunkten](https://huggingface.co/docs/inference-endpoints/index). Im Abschnitt [Legacy InferenceAPI client](#legacy-inferenceapi-client) erfahren Sie, wie Sie zum neuen Client migrieren können.
 
-<Tip>
-
-[`InferenceClient`] ist ein Python-Client, der HTTP-Anfragen an unsere APIs stellt. Wenn Sie die HTTP-Anfragen direkt mit Ihrem bevorzugten Tool (curl, postman,...) durchführen möchten, lesen Sie bitte die Dokumentationsseiten der [Inferenz API](https://huggingface.co/docs/api-inference/index) oder der [Inferenz Endpunkte](https://huggingface.co/docs/inference-endpoints/index).
-
-Für die Webentwicklung wurde ein [JS-Client](https://huggingface.co/docs/huggingface.js/inference/README) veröffentlicht. Wenn Sie sich für die Spieleentwicklung interessieren, sollten Sie einen Blick auf unser [C#-Projekt](https://github.com/huggingface/unity-api) werfen.
-
-</Tip>
+> [!TIP]
+> [`InferenceClient`] ist ein Python-Client, der HTTP-Anfragen an unsere APIs stellt. Wenn Sie die HTTP-Anfragen direkt mit Ihrem bevorzugten Tool (curl, postman,...) durchführen möchten, lesen Sie bitte die Dokumentationsseiten der [Inferenz API](https://huggingface.co/docs/api-inference/index) oder der [Inferenz Endpunkte](https://huggingface.co/docs/inference-endpoints/index).
+>
+> Für die Webentwicklung wurde ein [JS-Client](https://huggingface.co/docs/huggingface.js/inference/README) veröffentlicht. Wenn Sie sich für die Spieleentwicklung interessieren, sollten Sie einen Blick auf unser [C#-Projekt](https://github.com/huggingface/unity-api) werfen.
 
 ## Erste Schritte
 
@@ -32,11 +29,8 @@ Los geht's mit einer Text-zu-Bild-Aufgabe:
 
 Wir haben einen [`InferenceClient`] mit den Standardparametern initialisiert. Das Einzige, was Sie wissen müssen, ist die [Aufgabe](#unterstützte-aufgaben), die Sie ausführen möchten. Standardmäßig wird der Client sich mit der Inferenz API verbinden und ein Modell auswählen, um die Aufgabe abzuschließen. In unserem Beispiel haben wir ein Bild aus einem Textprompt generiert. Der zurückgegebene Wert ist ein `PIL.Image`-Objekt, das in eine Datei gespeichert werden kann.
 
-<Tip warning={true}>
-
-Die API ist darauf ausgelegt, einfach zu sein. Nicht alle Parameter und Optionen sind für den Endbenutzer verfügbar oder beschrieben. Schauen Sie auf [dieser Seite](https://huggingface.co/docs/api-inference/detailed_parameters) nach, wenn Sie mehr über alle verfügbaren Parameter für jede Aufgabe erfahren möchten.
-
-</Tip>
+> [!WARNING]
+> Die API ist darauf ausgelegt, einfach zu sein. Nicht alle Parameter und Optionen sind für den Endbenutzer verfügbar oder beschrieben. Schauen Sie auf [dieser Seite](https://huggingface.co/docs/api-inference/detailed_parameters) nach, wenn Sie mehr über alle verfügbaren Parameter für jede Aufgabe erfahren möchten.
 
 ### Verwendung eines spezifischen Modells
 
@@ -52,11 +46,8 @@ Was ist, wenn Sie ein bestimmtes Modell verwenden möchten? Sie können es entwe
 >>> client.text_to_image(..., model="prompthero/openjourney-v4")
 ```
 
-<Tip>
-
-Es gibt mehr als 200k Modelle im Hugging Face Hub! Jede Aufgabe im [`InferenceClient`] kommt mit einem empfohlenen Modell. Beachten Sie, dass die HF-Empfehlung sich im Laufe der Zeit ohne vorherige Ankündigung ändern kann. Daher ist es am besten, ein Modell explizit festzulegen, sobald Sie sich entschieden haben. In den meisten Fällen werden Sie daran interessiert sein, ein Modell zu finden, das speziell auf _Ihre_ Bedürfnisse zugeschnitten ist. Besuchen Sie die [Modelle](https://huggingface.co/models)-Seite im Hub, um Ihre Möglichkeiten zu erkunden.
-
-</Tip>
+> [!TIP]
+> Es gibt mehr als 200k Modelle im Hugging Face Hub! Jede Aufgabe im [`InferenceClient`] kommt mit einem empfohlenen Modell. Beachten Sie, dass die HF-Empfehlung sich im Laufe der Zeit ohne vorherige Ankündigung ändern kann. Daher ist es am besten, ein Modell explizit festzulegen, sobald Sie sich entschieden haben. In den meisten Fällen werden Sie daran interessiert sein, ein Modell zu finden, das speziell auf _Ihre_ Bedürfnisse zugeschnitten ist. Besuchen Sie die [Modelle](https://huggingface.co/models)-Seite im Hub, um Ihre Möglichkeiten zu erkunden.
 
 ### Verwendung einer spezifischen URL
 
@@ -79,11 +70,8 @@ Aufrufe, die mit dem [`InferenceClient`] gemacht werden, können mit einem [User
 >>> client = InferenceClient(token="hf_***")
 ```
 
-<Tip>
-
-Die Authentifizierung ist NICHT zwingend erforderlich, wenn Sie die Inferenz API verwenden. Authentifizierte Benutzer erhalten jedoch ein höheres kostenloses Kontingent, um mit dem Service zu arbeiten. Ein Token ist auch zwingend erforderlich, wenn Sie Inferenz auf Ihren privaten Modellen oder auf privaten Endpunkten ausführen möchten.
-
-</Tip>
+> [!TIP]
+> Die Authentifizierung ist NICHT zwingend erforderlich, wenn Sie die Inferenz API verwenden. Authentifizierte Benutzer erhalten jedoch ein höheres kostenloses Kontingent, um mit dem Service zu arbeiten. Ein Token ist auch zwingend erforderlich, wenn Sie Inferenz auf Ihren privaten Modellen oder auf privaten Endpunkten ausführen möchten.
 
 ## Unterstützte Aufgaben
 
@@ -119,11 +107,8 @@ Das Ziel von [`InferenceClient`] ist es, die einfachste Schnittstelle zum Ausfü
 | | [Tabular Regression](https://huggingface.co/tasks/tabular-regression)             | ✅ | [`~InferenceClient.tabular_regression`] |
 
 
-<Tip>
-
-Schauen Sie sich die [Aufgaben](https://huggingface.co/tasks)-Seite an, um mehr über jede Aufgabe zu erfahren, wie man sie verwendet und die beliebtesten Modelle für jede Aufgabe.
-
-</Tip>
+> [!TIP]
+> Schauen Sie sich die [Aufgaben](https://huggingface.co/tasks)-Seite an, um mehr über jede Aufgabe zu erfahren, wie man sie verwendet und die beliebtesten Modelle für jede Aufgabe.
 
 ## Asynchroner Client
 
@@ -230,11 +215,8 @@ zu
 >>> inference.feature_extraction(..., model="paraphrase-xlm-r-multilingual-v1")
 ```
 
-<Tip>
-
-Dies ist der empfohlene Weg, um Ihren Code an [`InferenceClient`] anzupassen. Dadurch können Sie von den aufgabenspezifischen Methoden wie `feature_extraction` profitieren.
-
-</Tip>
+> [!TIP]
+> Dies ist der empfohlene Weg, um Ihren Code an [`InferenceClient`] anzupassen. Dadurch können Sie von den aufgabenspezifischen Methoden wie `feature_extraction` profitieren.
 
 ### Eigene Anfragen ausführen
 

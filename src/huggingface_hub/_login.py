@@ -78,21 +78,15 @@ def login(
     To log in from outside of a script, one can also use `hf auth login` which is
     a cli command that wraps [`login`].
 
-    <Tip>
+    > [!TIP]
+    > [`login`] is a drop-in replacement method for [`notebook_login`] as it wraps and
+    > extends its capabilities.
 
-    [`login`] is a drop-in replacement method for [`notebook_login`] as it wraps and
-    extends its capabilities.
-
-    </Tip>
-
-    <Tip>
-
-    When the token is not passed, [`login`] will automatically detect if the script runs
-    in a notebook or not. However, this detection might not be accurate due to the
-    variety of notebooks that exists nowadays. If that is the case, you can always force
-    the UI by using [`notebook_login`] or [`interpreter_login`].
-
-    </Tip>
+    > [!TIP]
+    > When the token is not passed, [`login`] will automatically detect if the script runs
+    > in a notebook or not. However, this detection might not be accurate due to the
+    > variety of notebooks that exists nowadays. If that is the case, you can always force
+    > the UI by using [`notebook_login`] or [`interpreter_login`].
 
     Args:
         token (`str`, *optional*):

@@ -12,11 +12,8 @@ Hugging Face Hub는 Git 리포지토리 모음입니다. [Git](https://git-scm.c
 - 리포지토리 공개 여부.
 - 리포지토리 복사본 관리.
 
-<Tip warning={true}>
-
-GitLab/GitHub/Bitbucket과 같은 플랫폼을 사용해 본 경험이 있다면, 모델 리포지토리를 관리하기 위해 `git` CLI를 사용해 git 리포지토리를 클론(`git clone`)하고 변경 사항을 커밋(`git add, git commit`)하고 커밋한 내용을 푸시(`git push`) 하는것이 가장 먼저 떠오를 것입니다. 이 명령어들은 Hugging Face Hub에서도 사용할 수 있습니다. 하지만 소프트웨어 엔지니어링과 머신러닝은 동일한 요구 사항과 워크플로우를 공유하지 않습니다. 모델 리포지토리는 다양한 프레임워크와 도구를 위한 대규모 모델 가중치 파일을 유지관리 할 수 있으므로, 리포지토리를 복제하면 대규모 로컬 폴더를 유지관리하고 막대한 크기의 파일을 다루게 될 수 있습니다. 결과적으로 Hugging Face의 커스텀 HTTP 방법을 사용하는 것이 더욱 효율적일 수 있습니다. 더 자세한 내용은 [Git vs HTTP paradigm](../concepts/git_vs_http) 문서를 참조하세요.
-
-</Tip>
+> [!WARNING]
+> GitLab/GitHub/Bitbucket과 같은 플랫폼을 사용해 본 경험이 있다면, 모델 리포지토리를 관리하기 위해 `git` CLI를 사용해 git 리포지토리를 클론(`git clone`)하고 변경 사항을 커밋(`git add, git commit`)하고 커밋한 내용을 푸시(`git push`) 하는것이 가장 먼저 떠오를 것입니다. 이 명령어들은 Hugging Face Hub에서도 사용할 수 있습니다. 하지만 소프트웨어 엔지니어링과 머신러닝은 동일한 요구 사항과 워크플로우를 공유하지 않습니다. 모델 리포지토리는 다양한 프레임워크와 도구를 위한 대규모 모델 가중치 파일을 유지관리 할 수 있으므로, 리포지토리를 복제하면 대규모 로컬 폴더를 유지관리하고 막대한 크기의 파일을 다루게 될 수 있습니다. 결과적으로 Hugging Face의 커스텀 HTTP 방법을 사용하는 것이 더욱 효율적일 수 있습니다. 더 자세한 내용은 [Git vs HTTP paradigm](../concepts/git_vs_http) 문서를 참조하세요.
 
 Hub에 리포지토리를 생성하고 관리하려면, 로그인이 되어 있어야 합니다. 로그인이 안 되어있다면 [이 문서](../quick-start#authentication)를 참고해 주세요. 이 가이드에서는 로그인이 되어있다는 가정하에 진행됩니다.
 
@@ -147,11 +144,8 @@ Spaces를 위한 특정 설정들(하드웨어, 환경변수 등)을 구성하�
 
 [`Repository`] 클래스는 Git 명령어와 유사한 기능을 제공하는 함수를 사용하여 Hub의 파일 및 리포지토리와 상호 작용할 수 있습니다. 이는 이미 알고 있고 좋아하는 Git 및 Git-LFS 방법을 사용하는 래퍼(wrapper)입니다. 시작하기 전에 Git-LFS가 설치되어 있는지 확인하세요([여기서](https://git-lfs.github.com/) 설치 지침을 확인할 수 있습니다).
 
-<Tip warning={true}>
-
-[`Repository`]는 [`HfApi`]에 구현된 HTTP 기반 대안을 선호하여 중단되었습니다. 아직 많은 레거시 코드에서 사용되고 있기 때문에 [`Repository`]가 완전히 제거되는 건 `v1.0` 릴리스에서만 이루어집니다. 자세한 내용은 [해당 설명 페이지](./concepts/git_vs_http)를 참조하세요.
-
-</Tip>
+> [!WARNING]
+> [`Repository`]는 [`HfApi`]에 구현된 HTTP 기반 대안을 선호하여 중단되었습니다. 아직 많은 레거시 코드에서 사용되고 있기 때문에 [`Repository`]가 완전히 제거되는 건 `v1.0` 릴리스에서만 이루어집니다. 자세한 내용은 [해당 설명 페이지](./concepts/git_vs_http)를 참조하세요.
 
 ### 로컬 리포지토리 사용[[use-a-local-repository]]
 

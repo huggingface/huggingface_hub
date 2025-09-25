@@ -8,20 +8,14 @@ Webhooks are a foundation for MLOps-related features. They allow you to listen f
 all repos belonging to particular users/organizations you're interested in following. To learn
 more about webhooks on the Huggingface Hub, you can read the Webhooks [guide](https://huggingface.co/docs/hub/webhooks).
 
-<Tip>
+> [!TIP]
+> Check out this [guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your webhooks server and
+> deploy it as a Space.
 
-Check out this [guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your webhooks server and
-deploy it as a Space.
-
-</Tip>
-
-<Tip warning={true}>
-
-This is an experimental feature. This means that we are still working on improving the API. Breaking changes might be
-introduced in the future without prior notice. Make sure to pin the version of `huggingface_hub` in your requirements.
-A warning is triggered when you use an experimental feature. You can disable it by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as an environment variable.
-
-</Tip>
+> [!WARNING]
+> This is an experimental feature. This means that we are still working on improving the API. Breaking changes might be
+> introduced in the future without prior notice. Make sure to pin the version of `huggingface_hub` in your requirements.
+> A warning is triggered when you use an experimental feature. You can disable it by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as an environment variable.
 
 ## Server
 

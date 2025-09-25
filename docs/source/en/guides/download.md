@@ -18,13 +18,10 @@ guide will show you how to:
 The [`hf_hub_download`] function is the main function for downloading files from the Hub.
 It downloads the remote file, caches it on disk (in a version-aware way), and returns its local file path.
 
-<Tip>
-
-The returned filepath is a pointer to the HF local cache. Therefore, it is important to not modify the file to avoid
-having a corrupted cache. If you are interested in getting to know more about how files are cached, please refer to our
-[caching guide](./manage-cache).
-
-</Tip>
+> [!TIP]
+> The returned filepath is a pointer to the HF local cache. Therefore, it is important to not modify the file to avoid
+> having a corrupted cache. If you are interested in getting to know more about how files are cached, please refer to our
+> [caching guide](./manage-cache).
 
 ### From latest version
 
@@ -136,11 +133,8 @@ A `.cache/huggingface/` folder is created at the root of your local directory co
 
 After completing the download, you can safely remove the `.cache/huggingface/` folder if you no longer need it. However, be aware that re-running your script without this folder may result in longer recovery times, as metadata will be lost. Rest assured that your local data will remain intact and unaffected.
 
-<Tip>
-
-Don't worry about the `.cache/huggingface/` folder when committing changes to the Hub! This folder is automatically ignored by both `git` and [`upload_folder`].
-
-</Tip>
+> [!TIP]
+> Don't worry about the `.cache/huggingface/` folder when committing changes to the Hub! This folder is automatically ignored by both `git` and [`upload_folder`].
 
 ## Download from the CLI
 
@@ -201,11 +195,8 @@ To enable it:
    (e.g. `pip install huggingface_hub[hf_transfer]`).
 2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
-<Tip warning={true}>
-
-`hf_transfer` is a power user tool!
-It is tested and production-ready,
-but it lacks user-friendly features like advanced error handling or proxies.
-For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
-
-</Tip>
+> [!WARNING]
+> `hf_transfer` is a power user tool!
+> It is tested and production-ready,
+> but it lacks user-friendly features like advanced error handling or proxies.
+> For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).

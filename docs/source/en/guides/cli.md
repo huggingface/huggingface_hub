@@ -14,11 +14,8 @@ First of all, let's install the CLI:
 >>> pip install -U "huggingface_hub[cli]"
 ```
 
-<Tip>
-
-In the snippet above, we also installed the `[cli]` extra dependencies to make the user experience better, especially when using the `cache delete` command.
-
-</Tip>
+> [!TIP]
+> In the snippet above, we also installed the `[cli]` extra dependencies to make the user experience better, especially when using the `cache delete` command.
 
 Once installed, you can check that the CLI is correctly setup:
 
@@ -46,11 +43,8 @@ options:
 
 If the CLI is correctly installed, you should see a list of all the options available in the CLI. If you get an error message such as `command not found: hf`, please refer to the [Installation](../installation) guide.
 
-<Tip>
-
-The `--help` option is very convenient for getting more details about a command. You can use it anytime to list all available options and their details. For example, `hf upload --help` provides more information on how to upload files using the CLI.
-
-</Tip>
+> [!TIP]
+> The `--help` option is very convenient for getting more details about a command. You can use it anytime to list all available options and their details. For example, `hf upload --help` provides more information on how to upload files using the CLI.
 
 ### Alternative install
 
@@ -234,11 +228,8 @@ The recommended (and default) way to download files from the Hub is to use the c
 
 A `.cache/huggingface/` folder is created at the root of your local directory containing metadata about the downloaded files. This prevents re-downloading files if they're already up-to-date. If the metadata has changed, then the new file version is downloaded. This makes the `local-dir` optimized for pulling only the latest changes.
 
-<Tip>
-
-For more details on how downloading to a local file works, check out the [download](./download#download-files-to-a-local-folder) guide.
-
-</Tip>
+> [!TIP]
+> For more details on how downloading to a local file works, check out the [download](./download#download-files-to-a-local-folder) guide.
 
 ```bash
 >>> hf download adept/fuyu-8b model-00001-of-00002.safetensors --local-dir fuyu
@@ -311,11 +302,8 @@ To upload the current directory at the root of the repo, use:
 https://huggingface.co/Wauplin/my-cool-model/tree/main/
 ```
 
-<Tip>
-
-If the repo doesn't exist yet, it will be created automatically.
-
-</Tip>
+> [!TIP]
+> If the repo doesn't exist yet, it will be created automatically.
 
 You can also upload a specific folder:
 
@@ -636,11 +624,8 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 - 📊 **Live Monitoring**: Stream logs in real-time, just like running locally
 - 💰 **Pay-as-you-go**: Only pay for the seconds you use
 
-<Tip>
-
-**Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
-
-</Tip>
+> [!TIP]
+> **Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
 
 ### Quick Start
 
@@ -720,13 +705,10 @@ You can pass environment variables to your job using
 >>> hf jobs run --secrets-file .env.secrets python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
 ```
 
-<Tip>
-
-Use `--secrets HF_TOKEN` to pass your local Hugging Face token implicitly.
-With this syntax, the secret is retrieved from the environment variable.
-For `HF_TOKEN`, it may read the token file located in the Hugging Face home folder if the environment variable is unset.
-
-</Tip>
+> [!TIP]
+> Use `--secrets HF_TOKEN` to pass your local Hugging Face token implicitly.
+> With this syntax, the secret is retrieved from the environment variable.
+> For `HF_TOKEN`, it may read the token file located in the Hugging Face home folder if the environment variable is unset.
 
 ### Hardware
 

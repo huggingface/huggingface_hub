@@ -283,12 +283,9 @@ def from_pretrained_keras(*args, **kwargs) -> "KerasModelHubMixin":
         model_kwargs (`Dict`, *optional*):
             model_kwargs will be passed to the model during initialization
 
-    <Tip>
-
-    Passing `token=True` is required when you want to use a private
-    model.
-
-    </Tip>
+    > [!TIP]
+    > Passing `token=True` is required when you want to use a private
+    > model.
     """
     return KerasModelHubMixin.from_pretrained(*args, **kwargs)
 
