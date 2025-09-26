@@ -206,9 +206,25 @@ ensure_python() {
 
     if [ -z "$chosen" ]; then
         log_error "Python 3.9+ is required but was not found."
-        log_info "On Ubuntu/Debian: sudo apt update && sudo apt install python3 python3-venv python3-pip"
-        log_info "On CentOS/RHEL/Fedora: sudo yum install python3 python3-venv python3-pip"
-        log_info "On macOS: brew install python3 (or download Python 3.9+ from python.org)"
+        case "$(detect_os)" in
+            macos)
+                log_info "On macOS: brew install python (or download Python 3.9+ from python.org)"
+                ;;
+            linux)
+                if command_exists apt-get || command_exists apt; then
+                    log_info "On Debian/Ubuntu: sudo apt update && sudo apt install python3 python3-pip"
+                elif command_exists dnf; then
+                    log_info "On Fedora/RHEL: sudo dnf install python3 python3-pip"
+                elif command_exists yum; then
+                    log_info "On CentOS/RHEL: sudo yum install python3 python3-pip"
+                else
+                    log_info "Install Python 3.9+ with your distro's package manager."
+                fi
+                ;;
+            *)
+                log_info "Install Python 3.9+ from https://www.python.org/downloads/"
+                ;;
+        esac
         exit 1
     fi
 
