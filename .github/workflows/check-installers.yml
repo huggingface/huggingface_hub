@@ -1,4 +1,4 @@
-name: Installer tests
+name: Check CLI installers
 
 on:
   push:
@@ -6,11 +6,11 @@ on:
       - main
     paths:
       - "utils/installers/**"
-      - ".github/workflows/installer-tests.yml"
+      - ".github/workflows/check-installers.yml"
   pull_request:
     paths:
       - "utils/installers/**"
-      - ".github/workflows/installer-tests.yml"
+      - ".github/workflows/check-installers.yml"
   workflow_dispatch: {}
 
 permissions:

@@ -296,7 +296,7 @@ function Update-Path {
 
             Write-Log "Added $BIN_DIR to PATH. Changes will take effect in new terminals." "SUCCESS"
             Write-Log "Current PowerShell session already includes hf after this update." "INFO"
-            Write-Log "Undo later via Settings ▸ Environment Variables, or: [Environment]::SetEnvironmentVariable(`"PATH`", ($([Environment]::GetEnvironmentVariable('PATH','User')) -replace '`\Q$BIN_DIR;`\E',''), 'User')" "INFO"
+            Write-Log "Undo later via Settings ▸ Environment Variables, or: [Environment]::SetEnvironmentVariable(`"PATH`", ($([Environment]::GetEnvironmentVariable('PATH','User')) -replace [regex]::Escape(`"$BIN_DIR;`"), ''), 'User')" "INFO"
             $script:PathUpdated = $true
         }
         catch {
@@ -348,7 +348,7 @@ function Show-UninstallInfo {
     Write-Log ""
     if ($script:PathUpdated) {
         Write-Log "Remove '$BIN_DIR' from your user PATH via Settings ▸ Environment Variables," "INFO"
-        Write-Log "or run: [Environment]::SetEnvironmentVariable(`"PATH`", ($([Environment]::GetEnvironmentVariable('PATH','User')) -replace '`\Q$BIN_DIR;`\E',''), 'User')" "INFO"
+        Write-Log "or run: [Environment]::SetEnvironmentVariable(`"PATH`", ($([Environment]::GetEnvironmentVariable('PATH','User')) -replace [regex]::Escape(`"$BIN_DIR;`"), ''), 'User')" "INFO"
     } elseif ($NoModifyPath) {
         Write-Log 'PATH was not modified (--no-modify-path).' 'INFO'
     } else {
