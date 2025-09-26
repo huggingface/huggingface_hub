@@ -41,6 +41,14 @@ Create an empty repository with [`create_repo`] and give it a name with the `rep
 'https://huggingface.co/lysandre/test-model'
 ```
 
+Or via CLI:
+
+```bash
+>>> hf repo create lysandre/test-model
+Successfully created lysandre/test-model on the Hub.
+Your repo is now available at https://huggingface.co/lysandre/test-model
+```
+
 By default, [`create_repo`] creates a model repository. But you can use the `repo_type` parameter to specify another repository type. For example, if you want to create a dataset repository:
 
 ```py
@@ -49,11 +57,23 @@ By default, [`create_repo`] creates a model repository. But you can use the `rep
 'https://huggingface.co/datasets/lysandre/test-dataset'
 ```
 
+Or via CLI:
+
+```bash
+>>> hf repo create lysandre/test-dataset --repo-type dataset
+```
+
 When you create a repository, you can set your repository visibility with the `private` parameter.
 
 ```py
 >>> from huggingface_hub import create_repo
 >>> create_repo("lysandre/test-private", private=True)
+```
+
+Or via CLI:
+
+```bash
+>>> hf repo create lysandre/test-private --private
 ```
 
 If you want to change the repository visibility at a later time, you can use the [`update_repo_settings`] function.
@@ -69,6 +89,12 @@ Specify the `repo_id` of the repository you want to delete:
 
 ```py
 >>> delete_repo(repo_id="lysandre/my-corrupted-dataset", repo_type="dataset")
+```
+
+Or via CLI:
+
+```bash
+>>> hf repo delete lysandre/my-corrupted-dataset --repo-type dataset
 ```
 
 ### Duplicate a repository (only for Spaces)
@@ -111,7 +137,15 @@ You can create new branch and tags using [`create_branch`] and [`create_tag`]:
 >>> create_tag("bigcode/the-stack", repo_type="dataset", revision="v0.1-release", tag="v0.1.1", tag_message="Bump release version.")
 ```
 
-You can use the [`delete_branch`] and [`delete_tag`] functions in the same way to delete a branch or a tag.
+Or via CLI:
+
+```bash
+>>> hf repo branch create Matthijs/speecht5-tts-demo handle-dog-speaker --repo-type space
+>>> hf repo tag create bigcode/the-stack v0.1.1 --repo-type dataset --revision v0.1-release -m "Bump release version."
+```
+
+You can use the [`delete_branch`] and [`delete_tag`] functions in the same way to delete a branch or a tag, or `hf repo branch delete` and `hf repo tag delete` respectively in CLI.
+
 
 ### List all branches and tags
 
@@ -149,6 +183,12 @@ A repository can be public or private. A private repository is only visible to y
 >>> update_repo_settings(repo_id=repo_id, private=True)
 ```
 
+Or via CLI:
+
+```bash
+>>> hf repo settings lysandre/test-private --private true
+```
+
 ### Setup gated access
 
 To give more control over how repos are used, the Hub allows repo authors to enable **access requests** for their repos. User must agree to share their contact information (username and email address) with the repo authors to access the files when enabled. A repo with access requests enabled is called a **gated repo**.
@@ -162,6 +202,12 @@ You can set a repo as gated using [`update_repo_settings`]:
 >>> api.update_repo_settings(repo_id=repo_id, gated="auto")  # Set automatic gating for a model
 ```
 
+Or via CLI:
+
+```bash
+>>> hf repo settings lysandre/test-private --gated auto
+```
+
 ### Rename your repository
 
 You can rename your repository on the Hub using [`move_repo`]. Using this method, you can also move the repo from a user to
@@ -171,4 +217,10 @@ that you should be aware of. For example, you can't transfer your repo to anothe
 ```py
 >>> from huggingface_hub import move_repo
 >>> move_repo(from_id="Wauplin/cool-model", to_id="huggingface/cool-model")
+```
+
+Or via CLI:
+
+```bash
+>>> hf repo move Wauplin/cool-model huggingface/cool-model
 ```
