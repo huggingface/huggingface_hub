@@ -17,6 +17,20 @@ First of all, let's install the CLI:
 > [!TIP]
 > In the snippet above, we also installed the `[cli]` extra dependencies to make the user experience better, especially when using the `cache delete` command.
 
+Alternatively, you can install the `hf` CLI with a single command:
+
+On macOS and Linux:
+
+```bash
+>>> curl -LsSf https://hf.co/install.sh | sh
+```
+
+On Windows:
+
+```powershell
+>>> powershell -c "irm https://hf.co/install.ps1 | iex"
+```
+
 Once installed, you can check that the CLI is correctly setup:
 
 ```
