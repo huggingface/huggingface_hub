@@ -457,7 +457,7 @@ show_uninstall_info() {
     log_info "  rm -f $BIN_DIR/hf"
     log_info ""
     if [ -n "$UPDATED_RC_FILE" ]; then
-        log_info "  (shell) Undo PATH entry: sed -i.bak '/Hugging Face CLI installer/d' $UPDATED_RC_FILE && rm -f ${UPDATED_RC_FILE}.bak"
+        log_info "  (shell) Undo PATH entry: sed -i.bak '/Added by Hugging Face CLI installer/d' $UPDATED_RC_FILE && rm -f ${UPDATED_RC_FILE}.bak"
     elif [ "$UPDATED_FISH_PATH" = "true" ]; then
         log_info "  (fish) Undo PATH entry: fish -c 'set -Ux fish_user_paths (string match -v \"$BIN_DIR\" \$fish_user_paths)'"
     elif [ "$SKIP_PATH_UPDATE" = "true" ]; then
