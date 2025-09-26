@@ -35,7 +35,7 @@ HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, InferenceProviderMapping]
     "sambanova": {},
     "scaleway": {},
     "together": {},
-    "zai": {},
+    "zai-org": {},
 }
 
 

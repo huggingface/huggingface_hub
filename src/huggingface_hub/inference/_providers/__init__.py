@@ -66,7 +66,7 @@ PROVIDER_T = Literal[
     "sambanova",
     "scaleway",
     "together",
-    "zai",
+    "zai-org",
 ]
 
 PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
@@ -172,7 +172,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "conversational": TogetherConversationalTask(),
         "text-generation": TogetherTextGenerationTask(),
     },
-    "zai": {
+    "zai-org": {
         "conversational": ZaiConversationalTask(),
     },
 }

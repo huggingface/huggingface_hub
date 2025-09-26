@@ -1417,7 +1417,7 @@ class TestZaiProvider:
     def test_prepare_route(self):
         helper = ZaiConversationalTask()
         route = helper._prepare_route("test-model", "zai_token")
-        assert route == "/chat/completions"
+        assert route == "/api/paas/v4/chat/completions"
 
     def test_prepare_mapping_info(self):
         helper = ZaiConversationalTask()
@@ -1446,7 +1446,7 @@ class TestZaiProvider:
         
         # Test with HF token (should route through HF proxy)
         url = helper._prepare_url("hf_token", "test-model")
-        assert url.startswith("https://router.huggingface.co/zai")
+        assert url.startswith("https://router.huggingface.co/zai-org")
 
 
 class TestBaseConversationalTask:
