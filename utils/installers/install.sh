@@ -388,7 +388,7 @@ update_path() {
             return
         fi
 
-        log_warning "$BIN_DIR is not in your PATH"
+        log_info "$BIN_DIR is not in your PATH"
 
             if [ "${#shell_rc_candidates[@]}" -gt 0 ]; then
                 for candidate in "${shell_rc_candidates[@]}"; do
