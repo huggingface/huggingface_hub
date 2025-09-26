@@ -377,6 +377,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         refresh: bool = False,
         revision: Optional[str] = None,
         expand_info: bool = False,
+        maxdepth: Optional[int] = None,
     ):
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
@@ -396,19 +397,25 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             if recursive:
                 # Use BFS to traverse the cache and build the "recursive "output
                 # (The Hub uses a so-called "tree first" strategy for the tree endpoint but we sort the output to follow the spec so the result is (eventually) the same)
+                depth = 2
                 dirs_to_visit = deque(
-                    [path_info for path_info in cached_path_infos if path_info["type"] == "directory"]
+                    [(depth, path_info) for path_info in cached_path_infos if path_info["type"] == "directory"]
                 )
                 while dirs_to_visit:
-                    dir_info = dirs_to_visit.popleft()
-                    if dir_info["name"] not in self.dircache:
-                        dirs_not_in_dircache.append(dir_info["name"])
-                    else:
-                        cached_path_infos = self.dircache[dir_info["name"]]
-                        out.extend(cached_path_infos)
-                        dirs_to_visit.extend(
-                            [path_info for path_info in cached_path_infos if path_info["type"] == "directory"]
-                        )
+                    depth, dir_info = dirs_to_visit.popleft()
+                    if maxdepth is None or depth <= maxdepth:
+                        if dir_info["name"] not in self.dircache:
+                            dirs_not_in_dircache.append(dir_info["name"])
+                        else:
+                            cached_path_infos = self.dircache[dir_info["name"]]
+                            out.extend(cached_path_infos)
+                            dirs_to_visit.extend(
+                                [
+                                    (depth + 1, path_info)
+                                    for path_info in cached_path_infos
+                                    if path_info["type"] == "directory"
+                                ]
+                            )
 
             dirs_not_expanded = []
             if expand_info:
@@ -427,6 +434,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     or common_prefix in chain(dirs_not_in_dircache, dirs_not_expanded)
                     else self._parent(common_prefix)
                 )
+                if maxdepth is not None:
+                    common_path_depth = common_path[len(path) :].count("/")
+                    maxdepth -= common_path_depth
                 out = [o for o in out if not o["name"].startswith(common_path + "/")]
                 for cached_path in self.dircache:
                     if cached_path.startswith(common_path + "/"):
@@ -439,6 +449,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                         refresh=True,
                         revision=revision,
                         expand_info=expand_info,
+                        maxdepth=maxdepth,
                     )
                 )
         else:
@@ -451,9 +462,10 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 repo_type=resolved_path.repo_type,
             )
             for path_info in tree:
+                cache_path = root_path + "/" + path_info.path
                 if isinstance(path_info, RepoFile):
                     cache_path_info = {
-                        "name": root_path + "/" + path_info.path,
+                        "name": cache_path,
                         "size": path_info.size,
                         "type": "file",
                         "blob_id": path_info.blob_id,
@@ -463,7 +475,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     }
                 else:
                     cache_path_info = {
-                        "name": root_path + "/" + path_info.path,
+                        "name": cache_path,
                         "size": 0,
                         "type": "directory",
                         "tree_id": path_info.tree_id,
@@ -471,7 +483,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     }
                 parent_path = self._parent(cache_path_info["name"])
                 self.dircache.setdefault(parent_path, []).append(cache_path_info)
-                out.append(cache_path_info)
+                depth = cache_path[len(path) :].count("/")
+                if maxdepth is None or depth <= maxdepth:
+                    out.append(cache_path_info)
         return out
 
     def walk(self, path: str, *args, **kwargs) -> Iterator[Tuple[str, List[str], List[str]]]:
@@ -538,19 +552,22 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         Returns:
             `Union[List[str], Dict[str, Dict[str, Any]]]`: List of paths or dict of file information.
         """
-        if maxdepth:
-            return super().find(
-                path, maxdepth=maxdepth, withdirs=withdirs, detail=detail, refresh=refresh, revision=revision, **kwargs
-            )
+        if maxdepth is not None and maxdepth < 1:
+            raise ValueError("maxdepth must be at least 1")
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         try:
-            out = self._ls_tree(path, recursive=True, refresh=refresh, revision=resolved_path.revision, **kwargs)
+            out = self._ls_tree(
+                path, recursive=True, refresh=refresh, revision=resolved_path.revision, maxdepth=maxdepth, **kwargs
+            )
         except EntryNotFoundError:
             # Path could be a file
-            if self.info(path, revision=revision, **kwargs)["type"] == "file":
-                out = {path: {}}
-            else:
+            try:
+                if self.info(path, revision=revision, **kwargs)["type"] == "file":
+                    out = {path: {}}
+                else:
+                    out = {}
+            except FileNotFoundError:
                 out = {}
         else:
             if not withdirs:
