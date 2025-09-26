@@ -191,7 +191,7 @@ function New-VirtualEnvironment {
 
     if (Test-Path $VENV_DIR) {
         if ($Force) {
-            Write-Log "Removing existing virtual environment..." "WARNING"
+            Write-Log "Virtual environment already exists; removing it since --force was passed" "WARNING"
             Remove-Item -Path $VENV_DIR -Recurse -Force
         } else {
             Write-Log "Virtual environment already exists. Use -Force to recreate." "WARNING"

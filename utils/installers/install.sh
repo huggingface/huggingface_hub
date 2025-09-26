@@ -243,7 +243,7 @@ create_venv() {
     log_info "Creating virtual environment..."
     if [ -d "$VENV_DIR" ]; then
         if [ "$FORCE_REINSTALL" = "true" ]; then
-            log_warning "Virtual environment already exists; due to --force"
+            log_warning "Virtual environment already exists; removing it since --force was passed"
             rm -rf "$VENV_DIR"
         else
             log_info "Virtual environment already exists; reusing (pass --force to recreate)"
