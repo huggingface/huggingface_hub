@@ -46,6 +46,8 @@
   sections:
     - local: concepts/git_vs_http
       title: Git vs HTTP paradigm
+    - local: concepts/migration
+      title: Migrating to huggingface_hub v1.0
 - title: 'Reference'
   sections:
     - local: package_reference/overview
