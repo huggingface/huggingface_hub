@@ -996,6 +996,28 @@ def _hf_hub_download_to_cache_dir(
         if os.path.exists(pointer_path) and not force_download:
             return pointer_path
 
+    # but what if `commit_hash` is not specified? In CI=true, we still want to try local files first, but not to force
+    # it (i.e. not to fail). The goal is to further reduce the calls to the server.
+    # So let's try to get the `commit_hash` locally and use it.
+    else:
+        # at this point, `revision` is a string!
+        if not force_download:
+            commit_hash = None
+            #  `if` branch is not never reachable.
+            if REGEX_COMMIT_HASH.match(revision):
+                commit_hash = revision
+            else:
+                ref_path = os.path.join(storage_folder, "refs", revision)
+                if os.path.isfile(ref_path):
+                    with open(ref_path) as f:
+                        commit_hash = f.read()
+
+            # Return pointer file if exists
+            if commit_hash is not None:
+                pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
+                if os.path.exists(pointer_path) and not force_download:
+                    return pointer_path
+
     # ydshieh: Hub request 1: metadata (counted inside `_get_metadata_or_catch_error`)
     # Try to get metadata (etag, commit_hash, url, size) from the server.
     # If we can't, a HEAD request error is returned.
