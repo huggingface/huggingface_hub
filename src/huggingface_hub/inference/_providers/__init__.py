@@ -41,7 +41,7 @@ from .replicate import ReplicateImageToImageTask, ReplicateTask, ReplicateTextTo
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
-from .zai import ZaiConversationalTask
+from .zai_org import ZaiConversationalTask
 
 
 logger = logging.get_logger(__name__)

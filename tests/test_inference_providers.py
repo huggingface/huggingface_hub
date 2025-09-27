@@ -53,7 +53,7 @@ from huggingface_hub.inference._providers.replicate import (
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from huggingface_hub.inference._providers.scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from huggingface_hub.inference._providers.together import TogetherTextToImageTask
-from huggingface_hub.inference._providers.zai import ZaiConversationalTask
+from huggingface_hub.inference._providers.zai_org import ZaiConversationalTask
 
 from .testing_utils import assert_in_logs
 
@@ -1419,24 +1419,10 @@ class TestZaiProvider:
         route = helper._prepare_route("test-model", "zai_token")
         assert route == "/api/paas/v4/chat/completions"
 
-    def test_prepare_mapping_info(self):
+    def test_prepare_headers(self):
         helper = ZaiConversationalTask()
-        
-        # Test with valid model
-        mapping_info = helper._prepare_mapping_info("test-model")
-        assert mapping_info.provider == "zai"
-        assert mapping_info.hf_model_id == "test-model"
-        assert mapping_info.provider_id == "test-model"
-        assert mapping_info.task == "conversational"
-        assert mapping_info.status == "live"
-        
-        # Test with different model name
-        mapping_info = helper._prepare_mapping_info("another-model")
-        assert mapping_info.provider == "zai"
-        assert mapping_info.hf_model_id == "another-model"
-        assert mapping_info.provider_id == "another-model"
-        assert mapping_info.task == "conversational"
-        assert mapping_info.status == "live"
+        headers = helper._prepare_headers({}, "test_key")
+        assert headers["Accept-Language"] == "en-US,en"
 
     def test_prepare_url(self):
         helper = ZaiConversationalTask()
