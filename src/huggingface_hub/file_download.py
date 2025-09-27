@@ -45,6 +45,10 @@ from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
 
 
+META_DATA_DOWNLOAD_COUNT = {}
+REAL_FILE_DOWNLOAD_COUNT = {}
+
+
 logger = logging.get_logger(__name__)
 
 # Return value when trying to load a file from cache but the file does not exist in the distant repo.
@@ -984,12 +988,15 @@ def _hf_hub_download_to_cache_dir(
                 " owner to rename this file."
             )
 
+    # ydshieh: For tiny-random-XXX, we already specific revision.
+    # ydshieh: How many other `from_pretrained` without `revision` argument?
     # if user provides a commit_hash and they already have the file on disk, shortcut everything.
     if REGEX_COMMIT_HASH.match(revision):
         pointer_path = _get_pointer_path(storage_folder, revision, relative_filename)
         if os.path.exists(pointer_path) and not force_download:
             return pointer_path
 
+    # ydshieh: Hub request 1: metadata (counted inside `_get_metadata_or_catch_error`)
     # Try to get metadata (etag, commit_hash, url, size) from the server.
     # If we can't, a HEAD request error is returned.
     (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = _get_metadata_or_catch_error(
@@ -1089,6 +1096,7 @@ def _hf_hub_download_to_cache_dir(
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
     with WeakFileLock(lock_path):
+        # ydshieh: Hub request 2: actual file download (counted inside `_download_to_tmp_and_move`)
         _download_to_tmp_and_move(
             incomplete_path=Path(blob_path + ".incomplete"),
             destination_path=Path(blob_path),
@@ -1147,6 +1155,7 @@ def _hf_hub_download_to_local_dir(
     ):
         return str(paths.file_path)
 
+    aaa
     # Local file doesn't exist or commit_hash doesn't match => we need the etag
     (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = _get_metadata_or_catch_error(
         repo_id=repo_id,
@@ -1442,11 +1451,17 @@ def _get_metadata_or_catch_error(
     head_error_call: Optional[Exception] = None
     xet_file_data: Optional[XetFileData] = None
 
+
     # Try to get metadata from the server.
     # Do not raise yet if the file is not found or not accessible.
     if not local_files_only:
         try:
             try:
+                # ydshieh: Hub request 1: metadata (counted here)
+                pid = os.getpid()
+                if pid not in META_DATA_DOWNLOAD_COUNT:
+                    META_DATA_DOWNLOAD_COUNT[pid] = 0
+                META_DATA_DOWNLOAD_COUNT[pid] += 1
                 metadata = get_hf_file_metadata(
                     url=url, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
                 )
@@ -1617,6 +1632,11 @@ def _download_to_tmp_and_move(
             _check_disk_space(expected_size, incomplete_path.parent)
             _check_disk_space(expected_size, destination_path.parent)
 
+        # ydshieh: Hub request 2: actual file download (counted here)
+        pid = os.getpid()
+        if pid not in REAL_FILE_DOWNLOAD_COUNT:
+            REAL_FILE_DOWNLOAD_COUNT[pid] = 0
+        REAL_FILE_DOWNLOAD_COUNT[pid] += 1
         if xet_file_data is not None and is_xet_available():
             logger.debug("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
             xet_get(
