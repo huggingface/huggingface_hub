@@ -1429,7 +1429,7 @@ class TestZaiProvider:
         assert helper.task == "conversational"
         url = helper._prepare_url("zai_token", "test-model")
         assert url == "https://api.z.ai/api/paas/v4/chat/completions"
-        
+
         # Test with HF token (should route through HF proxy)
         url = helper._prepare_url("hf_token", "test-model")
         assert url.startswith("https://router.huggingface.co/zai-org")
