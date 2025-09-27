@@ -69,11 +69,8 @@ Es ist auch möglich, sich programmatisch anzumelden, ohne aufgefordert zu werde
 
 Sie können nur auf 1 Konto gleichzeitig angemeldet sein. Wenn Sie Ihren Computer mit einem neuen Konto anmelden, werden Sie vom vorherigen abgemeldet. Mit dem Befehl `hf auth whoami` stellen Sie sicher, dass Sie immer wissen, welches Konto Sie gerade verwenden. Wenn Sie mehrere Konten im selben Skript verwalten möchten, können Sie Ihr Token bereitstellen, wenn Sie jede Methode aufrufen. Dies ist auch nützlich, wenn Sie kein Token auf Ihrem Computer speichern möchten.
 
-<Tip warning={true}>
-
-Sobald Sie angemeldet sind, werden alle Anfragen an den Hub - auch Methoden, die nicht unbedingt eine Authentifizierung erfordern - standardmäßig Ihr Zugriffstoken verwenden. Wenn Sie die implizite Verwendung Ihres Tokens deaktivieren möchten, sollten Sie die Umgebungsvariable `HF_HUB_DISABLE_IMPLICIT_TOKEN` setzen.
-
-</Tip>
+> [!WARNING]
+> Sobald Sie angemeldet sind, werden alle Anfragen an den Hub - auch Methoden, die nicht unbedingt eine Authentifizierung erfordern - standardmäßig Ihr Zugriffstoken verwenden. Wenn Sie die implizite Verwendung Ihres Tokens deaktivieren möchten, sollten Sie die Umgebungsvariable `HF_HUB_DISABLE_IMPLICIT_TOKEN` setzen.
 
 ## Eine Repository erstellen
 
@@ -95,11 +92,8 @@ If you want your repository to be private, then:
 
 Private Repositories sind für niemanden außer Ihnen selbst sichtbar.
 
-<Tip>
-
-Um eine Repository zu erstellen oder Inhalte auf den Hub zu pushen, müssen Sie ein "User Access Token" bereitstellen, das die Schreibberechtigung (`write`) hat. Sie können die Berechtigung auswählen, wenn Sie das Token auf Ihrer [Einstellungsseite](https://huggingface.co/settings/tokens) erstellen.
-
-</Tip>
+> [!TIP]
+> Um eine Repository zu erstellen oder Inhalte auf den Hub zu pushen, müssen Sie ein "User Access Token" bereitstellen, das die Schreibberechtigung (`write`) hat. Sie können die Berechtigung auswählen, wenn Sie das Token auf Ihrer [Einstellungsseite](https://huggingface.co/settings/tokens) erstellen.
 
 ## Dateien hochladen
 

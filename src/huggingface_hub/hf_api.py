@@ -592,15 +592,12 @@ class RepoSibling:
     """
     Contains basic information about a repo file inside a repo on the Hub.
 
-    <Tip>
-
-    All attributes of this class are optional except `rfilename`. This is because only the file names are returned when
-    listing repositories on the Hub (with [`list_models`], [`list_datasets`] or [`list_spaces`]). If you need more
-    information like file size, blob id or lfs details, you must request them specifically from one repo at a time
-    (using [`model_info`], [`dataset_info`] or [`space_info`]) as it adds more constraints on the backend server to
-    retrieve these.
-
-    </Tip>
+    > [!TIP]
+    > All attributes of this class are optional except `rfilename`. This is because only the file names are returned when
+    > listing repositories on the Hub (with [`list_models`], [`list_datasets`] or [`list_spaces`]). If you need more
+    > information like file size, blob id or lfs details, you must request them specifically from one repo at a time
+    > (using [`model_info`], [`dataset_info`] or [`space_info`]) as it adds more constraints on the backend server to
+    > retrieve these.
 
     Attributes:
         rfilename (str):
@@ -741,13 +738,10 @@ class ModelInfo:
     """
     Contains information about a model on the Hub. This object is returned by [`model_info`] and [`list_models`].
 
-    <Tip>
-
-    Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
-    In general, the more specific the query, the more information is returned. On the contrary, when listing models
-    using [`list_models`] only a subset of the attributes are returned.
-
-    </Tip>
+    > [!TIP]
+    > Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
+    > In general, the more specific the query, the more information is returned. On the contrary, when listing models
+    > using [`list_models`] only a subset of the attributes are returned.
 
     Attributes:
         id (`str`):
@@ -940,13 +934,10 @@ class DatasetInfo:
     """
     Contains information about a dataset on the Hub. This object is returned by [`dataset_info`] and [`list_datasets`].
 
-    <Tip>
-
-    Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
-    In general, the more specific the query, the more information is returned. On the contrary, when listing datasets
-    using [`list_datasets`] only a subset of the attributes are returned.
-
-    </Tip>
+    > [!TIP]
+    > Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
+    > In general, the more specific the query, the more information is returned. On the contrary, when listing datasets
+    > using [`list_datasets`] only a subset of the attributes are returned.
 
     Attributes:
         id (`str`):
@@ -1059,13 +1050,10 @@ class SpaceInfo:
     """
     Contains information about a Space on the Hub. This object is returned by [`space_info`] and [`list_spaces`].
 
-    <Tip>
-
-    Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
-    In general, the more specific the query, the more information is returned. On the contrary, when listing spaces
-    using [`list_spaces`] only a subset of the attributes are returned.
-
-    </Tip>
+    > [!TIP]
+    > Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
+    > In general, the more specific the query, the more information is returned. On the contrary, when listing spaces
+    > using [`list_spaces`] only a subset of the attributes are returned.
 
     Attributes:
         id (`str`):
@@ -1804,13 +1792,10 @@ class HfApi:
         """
         Check if a given `token` is valid and return its permissions.
 
-        <Tip warning={true}>
-
-        This method is deprecated and will be removed in version 1.0. Permissions are more complex than when
-        `get_token_permission` was first introduced. OAuth and fine-grain tokens allows for more detailed permissions.
-        If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key.
-
-        </Tip>
+        > [!WARNING]
+        > This method is deprecated and will be removed in version 1.0. Permissions are more complex than when
+        > `get_token_permission` was first introduced. OAuth and fine-grain tokens allows for more detailed permissions.
+        > If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key.
 
         For more details about tokens, please refer to https://huggingface.co/docs/hub/security-tokens#what-are-user-access-tokens.
 
@@ -2610,17 +2595,14 @@ class HfApi:
         Returns:
             [`huggingface_hub.hf_api.ModelInfo`]: The model repository information.
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-              If the revision to download from cannot be found.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.RevisionNotFoundError`]
+        >       If the revision to download from cannot be found.
         """
         if expand and (securityStatus or files_metadata):
             raise ValueError("`expand` cannot be used if `securityStatus` or `files_metadata` are set.")
@@ -2684,17 +2666,14 @@ class HfApi:
         Returns:
             [`hf_api.DatasetInfo`]: The dataset repository information.
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-              If the revision to download from cannot be found.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.RevisionNotFoundError`]
+        >       If the revision to download from cannot be found.
         """
         if expand and files_metadata:
             raise ValueError("`expand` cannot be used if `files_metadata` is set.")
@@ -2757,17 +2736,14 @@ class HfApi:
         Returns:
             [`~hf_api.SpaceInfo`]: The space repository information.
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-              If the revision to download from cannot be found.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.RevisionNotFoundError`]
+        >       If the revision to download from cannot be found.
         """
         if expand and files_metadata:
             raise ValueError("`expand` cannot be used if `files_metadata` is set.")
@@ -2834,17 +2810,14 @@ class HfApi:
             [`huggingface_hub.hf_api.DatasetInfo`], [`huggingface_hub.hf_api.ModelInfo`]
             or [`huggingface_hub.hf_api.SpaceInfo`] object.
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-              If the revision to download from cannot be found.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.RevisionNotFoundError`]
+        >       If the revision to download from cannot be found.
         """
         if repo_type is None or repo_type == "model":
             method = self.model_info
@@ -3431,18 +3404,12 @@ class HfApi:
         Squashing the repo history is useful when you know you'll make hundreds of commits and you don't want to
         clutter the history. Squashing commits can only be performed from the head of a branch.
 
-        <Tip warning={true}>
+        > [!WARNING]
+        > Once squashed, the commit history cannot be retrieved. This is a non-revertible operation.
 
-        Once squashed, the commit history cannot be retrieved. This is a non-revertible operation.
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        Once the history of a branch has been squashed, it is not possible to merge it back into another branch since
-        their history will have diverged.
-
-        </Tip>
+        > [!WARNING]
+        > Once the history of a branch has been squashed, it is not possible to merge it back into another branch since
+        > their history will have diverged.
 
         Args:
             repo_id (`str`):
@@ -3569,12 +3536,9 @@ class HfApi:
         """
         Permanently delete LFS files from a repo on the Hub.
 
-        <Tip warning={true}>
-
-        This is a permanent action that will affect all commits referencing the deleted files and might corrupt your
-        repository. This is a non-revertible operation. Use it only if you know what you are doing.
-
-        </Tip>
+        > [!WARNING]
+        > This is a permanent action that will affect all commits referencing the deleted files and might corrupt your
+        > repository. This is a non-revertible operation. Use it only if you know what you are doing.
 
         Args:
             repo_id (`str`):
@@ -3858,15 +3822,12 @@ class HfApi:
         Returns:
             The HTTP response in json.
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
@@ -3994,15 +3955,12 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         if len(from_id.split("/")) != 2:
             raise ValueError(f"Invalid repo_id: {from_id}. It should have a namespace (:namespace:/:repo_name:)")
@@ -4081,27 +4039,18 @@ class HfApi:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
 
-        <Tip warning={true}>
+        > [!WARNING]
+        > The input list of `CommitOperation` will be mutated during the commit process. Do not reuse the same objects
+        > for multiple commits.
 
-        The input list of `CommitOperation` will be mutated during the commit process. Do not reuse the same objects
-        for multiple commits.
+        > [!WARNING]
+        > `create_commit` assumes that the repo already exists on the Hub. If you get a
+        > Client error 404, please make sure you are authenticated and that `repo_id` and
+        > `repo_type` are set correctly. If repo does not exist, create it first using
+        > [`~hf_api.create_repo`].
 
-        </Tip>
-
-        <Tip warning={true}>
-
-        `create_commit` assumes that the repo already exists on the Hub. If you get a
-        Client error 404, please make sure you are authenticated and that `repo_id` and
-        `repo_type` are set correctly. If repo does not exist, create it first using
-        [`~hf_api.create_repo`].
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        `create_commit` is limited to 25k LFS files and a 1GB payload for regular files.
-
-        </Tip>
+        > [!WARNING]
+        > `create_commit` is limited to 25k LFS files and a 1GB payload for regular files.
 
         Args:
             repo_id (`str`):
@@ -4375,21 +4324,15 @@ class HfApi:
         This method is useful if you are generating the files to upload on-the-fly and you don't want to store them
         in memory before uploading them all at once.
 
-        <Tip warning={true}>
+        > [!WARNING]
+        > This is a power-user method. You shouldn't need to call it directly to make a normal commit.
+        > Use [`create_commit`] directly instead.
 
-        This is a power-user method. You shouldn't need to call it directly to make a normal commit.
-        Use [`create_commit`] directly instead.
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        Commit operations will be mutated during the process. In particular, the attached `path_or_fileobj` will be
-        removed after the upload to save memory (and replaced by an empty `bytes` object). Do not reuse the same
-        objects except to pass them to [`create_commit`]. If you don't want to remove the attached content from the
-        commit operation object, pass `free_memory=False`.
-
-        </Tip>
+        > [!WARNING]
+        > Commit operations will be mutated during the process. In particular, the attached `path_or_fileobj` will be
+        > removed after the upload to save memory (and replaced by an empty `bytes` object). Do not reuse the same
+        > objects except to pass them to [`create_commit`]. If you don't want to remove the attached content from the
+        > commit operation object, pass `free_memory=False`.
 
         Args:
             repo_id (`str`):
@@ -4621,30 +4564,24 @@ class HfApi:
                 Instance of [`CommitInfo`] containing information about the newly created commit (commit hash, commit
                 url, pr url, commit message,...). If `run_as_future=True` is passed, returns a Future object which will
                 contain the result when executed.
-        <Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.RevisionNotFoundError`]
+        >       If the revision to download from cannot be found.
 
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-              If the revision to download from cannot be found.
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        `upload_file` assumes that the repo already exists on the Hub. If you get a
-        Client error 404, please make sure you are authenticated and that `repo_id` and
-        `repo_type` are set correctly. If repo does not exist, create it first using
-        [`~hf_api.create_repo`].
-
-        </Tip>
+        > [!WARNING]
+        > `upload_file` assumes that the repo already exists on the Hub. If you get a
+        > Client error 404, please make sure you are authenticated and that `repo_id` and
+        > `repo_type` are set correctly. If repo does not exist, create it first using
+        > [`~hf_api.create_repo`].
 
         Example:
 
@@ -4857,30 +4794,21 @@ class HfApi:
                 url, pr url, commit message,...). If `run_as_future=True` is passed, returns a Future object which will
                 contain the result when executed.
 
-        <Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >     if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >     if some parameter value is invalid
 
-        Raises the following errors:
+        > [!WARNING]
+        > `upload_folder` assumes that the repo already exists on the Hub. If you get a Client error 404, please make
+        > sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist, create
+        > it first using [`~hf_api.create_repo`].
 
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-            if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            if some parameter value is invalid
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        `upload_folder` assumes that the repo already exists on the Hub. If you get a Client error 404, please make
-        sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist, create
-        it first using [`~hf_api.create_repo`].
-
-        </Tip>
-
-        <Tip>
-
-        When dealing with a large folder (thousands of files or hundreds of GB), we recommend using [`~hf_api.upload_large_folder`] instead.
-
-        </Tip>
+        > [!TIP]
+        > When dealing with a large folder (thousands of files or hundreds of GB), we recommend using [`~hf_api.upload_large_folder`] instead.
 
         Example:
 
@@ -5045,23 +4973,20 @@ class HfApi:
                 especially useful if the repo is updated / committed to concurrently.
 
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-              If the revision to download from cannot be found.
-            - [`~utils.EntryNotFoundError`]
-              If the file to download cannot be found.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.RevisionNotFoundError`]
+        >       If the revision to download from cannot be found.
+        >     - [`~utils.EntryNotFoundError`]
+        >       If the file to download cannot be found.
 
         """
         commit_message = (
@@ -5278,25 +5203,19 @@ class HfApi:
             print_report_every (`int`, *optional*):
                 Frequency at which the report is printed. Defaults to 60 seconds.
 
-        <Tip>
+        > [!TIP]
+        > A few things to keep in mind:
+        >     - Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations
+        >     - Do not start several processes in parallel.
+        >     - You can interrupt and resume the process at any time.
+        >     - Do not upload the same folder to several repositories. If you need to do so, you must delete the local `.cache/.huggingface/` folder first.
 
-        A few things to keep in mind:
-            - Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations
-            - Do not start several processes in parallel.
-            - You can interrupt and resume the process at any time.
-            - Do not upload the same folder to several repositories. If you need to do so, you must delete the local `.cache/.huggingface/` folder first.
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        While being much more robust to upload large folders, `upload_large_folder` is more limited than [`upload_folder`] feature-wise. In practice:
-            - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
-            - you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
-            - you cannot delete from the repo while uploading. Please make a separate commit first.
-            - you cannot create a PR directly. Please create a PR first (from the UI or using [`create_pull_request`]) and then commit to it by passing `revision`.
-
-        </Tip>
+        > [!WARNING]
+        > While being much more robust to upload large folders, `upload_large_folder` is more limited than [`upload_folder`] feature-wise. In practice:
+        >     - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
+        >     - you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
+        >     - you cannot delete from the repo while uploading. Please make a separate commit first.
+        >     - you cannot create a PR directly. Please create a PR first (from the UI or using [`create_pull_request`]) and then commit to it by passing `revision`.
 
         **Technical details:**
 
@@ -6329,19 +6248,16 @@ class HfApi:
 
         Returns: [`DiscussionWithDetails`]
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         if not isinstance(discussion_num, int) or discussion_num <= 0:
             raise ValueError("Invalid discussion_num, must be a positive integer")
@@ -6422,19 +6338,16 @@ class HfApi:
 
         Returns: [`DiscussionWithDetails`]
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>"""
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access."""
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
@@ -6510,19 +6423,16 @@ class HfApi:
 
         Returns: [`DiscussionWithDetails`]
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>"""
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access."""
         return self.create_discussion(
             repo_id=repo_id,
             title=title,
@@ -6613,19 +6523,16 @@ class HfApi:
 
             ```
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         resp = self._post_discussion_changes(
             repo_id=repo_id,
@@ -6683,19 +6590,16 @@ class HfApi:
 
             ```
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         resp = self._post_discussion_changes(
             repo_id=repo_id,
@@ -6756,19 +6660,16 @@ class HfApi:
 
             ```
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         if new_status not in ["open", "closed"]:
             raise ValueError("Invalid status, valid statuses are: 'open' and 'closed'")
@@ -6818,19 +6719,16 @@ class HfApi:
         Returns:
             [`DiscussionStatusChange`]: the status change event
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         self._post_discussion_changes(
             repo_id=repo_id,
@@ -6877,19 +6775,16 @@ class HfApi:
         Returns:
             [`DiscussionComment`]: the edited comment
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         resp = self._post_discussion_changes(
             repo_id=repo_id,
@@ -6913,9 +6808,8 @@ class HfApi:
     ) -> DiscussionComment:
         """Hides a comment on a Discussion / Pull Request.
 
-        <Tip warning={true}>
-        Hidden comments' content cannot be retrieved anymore. Hiding a comment is irreversible.
-        </Tip>
+        > [!WARNING]
+        > Hidden comments' content cannot be retrieved anymore. Hiding a comment is irreversible.
 
         Args:
             repo_id (`str`):
@@ -6938,19 +6832,16 @@ class HfApi:
         Returns:
             [`DiscussionComment`]: the hidden comment
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         warnings.warn(
             "Hidden comments' content cannot be retrieved anymore. Hiding a comment is irreversible.",
@@ -7172,11 +7063,8 @@ class HfApi:
         Returns:
             [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
-        <Tip>
-
-        It is also possible to request hardware directly when creating the Space repo! See [`create_repo`] for details.
-
-        </Tip>
+        > [!TIP]
+        > It is also possible to request hardware directly when creating the Space repo! See [`create_repo`] for details.
         """
         if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
             warnings.warn(
@@ -7223,11 +7111,8 @@ class HfApi:
         Returns:
             [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
-        <Tip>
-
-        It is also possible to set a custom sleep time when requesting hardware with [`request_space_hardware`].
-
-        </Tip>
+        > [!TIP]
+        > It is also possible to set a custom sleep time when requesting hardware with [`request_space_hardware`].
         """
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/sleeptime",
@@ -7473,12 +7358,9 @@ class HfApi:
         Returns:
             [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
-        <Tip>
-
-        It is not possible to decrease persistent storage after its granted. To do so, you must delete it
-        via [`delete_space_storage`].
-
-        </Tip>
+        > [!TIP]
+        > It is not possible to decrease persistent storage after its granted. To do so, you must delete it
+        > via [`delete_space_storage`].
         """
         payload: Dict[str, SpaceStorage] = {"tier": storage}
         r = get_session().post(
@@ -7842,12 +7724,9 @@ class HfApi:
         Returns:
             [`InferenceEndpoint`]: information about the new Inference Endpoint.
 
-        <Tip warning={true}>
-
-        `create_inference_endpoint_from_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
-        if you have any suggestions or requests.
-
-        </Tip>
+        > [!WARNING]
+        > `create_inference_endpoint_from_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
+        > if you have any suggestions or requests.
         """
         token = token or self.token or get_token()
         payload: Dict = {
@@ -7885,12 +7764,9 @@ class HfApi:
 
         Returns:
             List[`str`]: A list of model IDs available in the catalog.
-        <Tip warning={true}>
-
-        `list_inference_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
-        if you have any suggestions or requests.
-
-        </Tip>
+        > [!WARNING]
+        > `list_inference_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
+        > if you have any suggestions or requests.
         """
         response = get_session().get(
             f"{constants.INFERENCE_CATALOG_ENDPOINT}/repo-list",
@@ -8253,12 +8129,9 @@ class HfApi:
     ) -> Iterable[Collection]:
         """List collections on the Huggingface Hub, given some filters.
 
-        <Tip warning={true}>
-
-        When listing collections, the item list per collection is truncated to 4 items maximum. To retrieve all items
-        from a collection, you must use [`get_collection`].
-
-        </Tip>
+        > [!WARNING]
+        > When listing collections, the item list per collection is truncated to 4 items maximum. To retrieve all items
+        > from a collection, you must use [`get_collection`].
 
         Args:
             owner (`List[str]` or `str`, *optional*):
@@ -8498,11 +8371,8 @@ class HfApi:
         >>> collection = delete_collection("username/useless-collection-64f9a55bb3115b4f513ec026", missing_ok=True)
         ```
 
-        <Tip warning={true}>
-
-        This is a non-revertible action. A deleted collection cannot be restored.
-
-        </Tip>
+        > [!WARNING]
+        > This is a non-revertible action. A deleted collection cannot be restored.
         """
         r = get_session().delete(
             f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)

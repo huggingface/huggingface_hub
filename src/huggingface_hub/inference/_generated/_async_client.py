@@ -579,18 +579,14 @@ class AsyncInferenceClient:
         """
         A method for completing conversations using a specified language model.
 
-        <Tip>
+        > [!TIP]
+        > The `client.chat_completion` method is aliased as `client.chat.completions.create` for compatibility with OpenAI's client.
+        > Inputs and outputs are strictly the same and using either syntax will yield the same results.
+        > Check out the [Inference guide](https://huggingface.co/docs/huggingface_hub/guides/inference#openai-compatibility)
+        > for more details about OpenAI's compatibility.
 
-        The `client.chat_completion` method is aliased as `client.chat.completions.create` for compatibility with OpenAI's client.
-        Inputs and outputs are strictly the same and using either syntax will yield the same results.
-        Check out the [Inference guide](https://huggingface.co/docs/huggingface_hub/guides/inference#openai-compatibility)
-        for more details about OpenAI's compatibility.
-
-        </Tip>
-
-        <Tip>
-        You can pass provider-specific parameters to the model by using the `extra_body` argument.
-        </Tip>
+        > [!TIP]
+        > You can pass provider-specific parameters to the model by using the `extra_body` argument.
 
         Args:
             messages (List of [`ChatCompletionInputMessage`]):
@@ -1246,11 +1242,8 @@ class AsyncInferenceClient:
         """
         Perform image segmentation on the given image using the specified model.
 
-        <Tip warning={true}>
-
-        You must have `PIL` installed if you want to work with images (`pip install Pillow`).
-
-        </Tip>
+        > [!WARNING]
+        > You must have `PIL` installed if you want to work with images (`pip install Pillow`).
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
@@ -1319,11 +1312,8 @@ class AsyncInferenceClient:
         """
         Perform image-to-image translation using a specified model.
 
-        <Tip warning={true}>
-
-        You must have `PIL` installed if you want to work with images (`pip install Pillow`).
-
-        </Tip>
+        > [!WARNING]
+        > You must have `PIL` installed if you want to work with images (`pip install Pillow`).
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
@@ -1515,11 +1505,8 @@ class AsyncInferenceClient:
         """
         Perform object detection on the given image using the specified model.
 
-        <Tip warning={true}>
-
-        You must have `PIL` installed if you want to work with images (`pip install Pillow`).
-
-        </Tip>
+        > [!WARNING]
+        > You must have `PIL` installed if you want to work with images (`pip install Pillow`).
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
@@ -2169,12 +2156,9 @@ class AsyncInferenceClient:
         """
         Given a prompt, generate the following text.
 
-        <Tip>
-
-        If you want to generate a response from chat messages, you should use the [`InferenceClient.chat_completion`] method.
-        It accepts a list of messages instead of a single text prompt and handles the chat templating for you.
-
-        </Tip>
+        > [!TIP]
+        > If you want to generate a response from chat messages, you should use the [`InferenceClient.chat_completion`] method.
+        > It accepts a list of messages instead of a single text prompt and handles the chat templating for you.
 
         Args:
             prompt (`str`):
@@ -2498,15 +2482,11 @@ class AsyncInferenceClient:
         """
         Generate an image based on a given text using a specified model.
 
-        <Tip warning={true}>
+        > [!WARNING]
+        > You must have `PIL` installed if you want to work with images (`pip install Pillow`).
 
-        You must have `PIL` installed if you want to work with images (`pip install Pillow`).
-
-        </Tip>
-
-        <Tip>
-        You can pass provider-specific parameters to the model by using the `extra_body` argument.
-        </Tip>
+        > [!TIP]
+        > You can pass provider-specific parameters to the model by using the `extra_body` argument.
 
         Args:
             prompt (`str`):
@@ -2640,9 +2620,8 @@ class AsyncInferenceClient:
         """
         Generate a video based on a given text.
 
-        <Tip>
-        You can pass provider-specific parameters to the model by using the `extra_body` argument.
-        </Tip>
+        > [!TIP]
+        > You can pass provider-specific parameters to the model by using the `extra_body` argument.
 
         Args:
             prompt (`str`):
@@ -2748,9 +2727,8 @@ class AsyncInferenceClient:
         """
         Synthesize an audio of a voice pronouncing a given text.
 
-        <Tip>
-        You can pass provider-specific parameters to the model by using the `extra_body` argument.
-        </Tip>
+        > [!TIP]
+        > You can pass provider-specific parameters to the model by using the `extra_body` argument.
 
         Args:
             text (`str`):

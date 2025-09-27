@@ -431,14 +431,11 @@ class Repository:
     dataset repos, though not a lot here (if any) is actually specific to
     huggingface.co.
 
-    <Tip warning={true}>
-
-    [`Repository`] is deprecated in favor of the http-based alternatives implemented in
-    [`HfApi`]. Given its large adoption in legacy code, the complete removal of
-    [`Repository`] will only happen in release `v1.0`. For more details, please read
-    https://huggingface.co/docs/huggingface_hub/concepts/git_vs_http.
-
-    </Tip>
+    > [!WARNING]
+    > [`Repository`] is deprecated in favor of the http-based alternatives implemented in
+    > [`HfApi`]. Given its large adoption in legacy code, the complete removal of
+    > [`Repository`] will only happen in release `v1.0`. For more details, please read
+    > https://huggingface.co/docs/huggingface_hub/concepts/git_vs_http.
     """
 
     command_queue: List[CommandInProgress]
@@ -620,19 +617,16 @@ class Repository:
                 - `None`, which would retrieve the value of
                   `self.huggingface_token`.
 
-        <Tip>
-
-        Raises the following error:
-
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if an organization token (starts with "api_org") is passed. Use must use
-              your own personal access token (see https://hf.co/settings/tokens).
-
-            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-              if you are trying to clone the repository in a non-empty folder, or if the
-              `git` operations raise errors.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following error:
+        >
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if an organization token (starts with "api_org") is passed. Use must use
+        >       your own personal access token (see https://hf.co/settings/tokens).
+        >
+        >     - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+        >       if you are trying to clone the repository in a non-empty folder, or if the
+        >       `git` operations raise errors.
         """
         token = (
             token  # str -> use it

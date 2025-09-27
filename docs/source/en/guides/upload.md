@@ -142,21 +142,15 @@ A command line is also provided. You can define the number of workers and the le
 hf upload-large-folder HuggingFaceM4/Docmatix --repo-type=dataset /path/to/local/docmatix --num-workers=16
 ```
 
-<Tip>
+> [!TIP]
+> For large uploads, you have to set `repo_type="model"` or `--repo-type=model` explicitly. Usually, this information is implicit in all other `HfApi` methods. This is to avoid having data uploaded to a repository with a wrong type. If that's the case, you'll have to re-upload everything.
 
-For large uploads, you have to set `repo_type="model"` or `--repo-type=model` explicitly. Usually, this information is implicit in all other `HfApi` methods. This is to avoid having data uploaded to a repository with a wrong type. If that's the case, you'll have to re-upload everything.
-
-</Tip>
-
-<Tip warning={true}>
-
-While being much more robust to upload large folders, `upload_large_folder` is more limited than [`upload_folder`] feature-wise. In practice:
-- you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
-- you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
-- you cannot delete from the repo while uploading. Please make a separate commit first.
-- you cannot create a PR directly. Please create a PR first (from the UI or using [`create_pull_request`]) and then commit to it by passing `revision`.
-
-</Tip>
+> [!WARNING]
+> While being much more robust to upload large folders, `upload_large_folder` is more limited than [`upload_folder`] feature-wise. In practice:
+> - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
+> - you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
+> - you cannot delete from the repo while uploading. Please make a separate commit first.
+> - you cannot create a PR directly. Please create a PR first (from the UI or using [`create_pull_request`]) and then commit to it by passing `revision`.
 
 ### Tips and tricks for large uploads
 
@@ -172,13 +166,10 @@ Check out our [Repository limitations and recommendations](https://huggingface.c
        (i.e., `pip install huggingface_hub[hf_transfer]`).
     2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
-<Tip warning={true}>
-
-`hf_transfer` is a power user tool for uploading LFS files! It is tested and production-ready, but it is less future-proof and lacks user-friendly features like advanced error handling or proxies. For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
-
-Note that `hf_xet` and `hf_transfer` tools are mutually exclusive. The former is used to upload files to Xet-enabled repos while the later uploads LFS files to regular repos.
-
-</Tip>
+> [!WARNING]
+> `hf_transfer` is a power user tool for uploading LFS files! It is tested and production-ready, but it is less future-proof and lacks user-friendly features like advanced error handling or proxies. For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
+>
+> Note that `hf_xet` and `hf_transfer` tools are mutually exclusive. The former is used to upload files to Xet-enabled repos while the later uploads LFS files to regular repos.
 
 ## Advanced features
 
@@ -189,11 +180,8 @@ However, `huggingface_hub` has more advanced features to make things easier. Let
 
 Take advantage of faster uploads through `hf_xet`, the Python binding to the [`xet-core`](https://github.com/huggingface/xet-core) library that enables chunk-based deduplication for faster uploads and downloads. `hf_xet` integrates seamlessly with `huggingface_hub`, but uses the Rust `xet-core` library and Xet storage instead of LFS. 
 
-<Tip warning={true}>
-
-As of May 23rd, 2025, Xet-enabled repositories [are the default for all new Hugging Face Hub users and organizations](https://huggingface.co/changelog/xet-default-for-new-users). If your user or organization was created before then, you may need Xet enabled on your repo for `hf_xet` to actually upload to the Xet backend. Join the [waitlist](https://huggingface.co/join/xet) to make Xet the default for all your repositories. Also, note that while `hf_xet` works with in-memory bytes or bytearray data, support for BinaryIO streams is still pending.
-
-</Tip>
+> [!WARNING]
+> As of May 23rd, 2025, Xet-enabled repositories [are the default for all new Hugging Face Hub users and organizations](https://huggingface.co/changelog/xet-default-for-new-users). If your user or organization was created before then, you may need Xet enabled on your repo for `hf_xet` to actually upload to the Xet backend. Join the [waitlist](https://huggingface.co/join/xet) to make Xet the default for all your repositories. Also, note that while `hf_xet` works with in-memory bytes or bytearray data, support for BinaryIO streams is still pending.
 
 `hf_xet` uses the Xet storage system, which breaks files down into immutable chunks, storing collections of these chunks (called blocks or xorbs) remotely and retrieving them to reassemble the file when requested. When uploading, after confirming the user is authorized to write to this repo, `hf_xet` will scan the files, breaking them down into their chunks and collecting those chunks into xorbs (and deduplicating across known chunks), and then will be upload these xorbs to the Xet content-addressable service (CAS), which will verify the integrity of the xorbs, register the xorb metadata along with the LFS SHA256 hash (to support lookup/download), and write the xorbs to remote storage.
 
@@ -234,12 +222,9 @@ False
 ...
 ```
 
-<Tip>
-
-Background jobs are queued when using `run_as_future=True`. This means that you are guaranteed that the jobs will be
-executed in the correct order.
-
-</Tip>
+> [!TIP]
+> Background jobs are queued when using `run_as_future=True`. This means that you are guaranteed that the jobs will be
+> executed in the correct order.
 
 Even though background jobs are mostly useful to upload data/create commits, you can queue any method you like using
 [`run_as_future`]. For instance, you can use it to create a repo and then upload data to it in the background. The
@@ -381,12 +366,9 @@ When you overwrite `push_to_hub`, you have access to the attributes of [`CommitS
 - Repo parameters: `repo_id`, `repo_type`, `revision`
 - The thread lock: `lock`
 
-<Tip>
-
-For more examples of custom schedulers, check out our [demo Space](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)
-containing different implementations depending on your use cases.
-
-</Tip>
+> [!TIP]
+> For more examples of custom schedulers, check out our [demo Space](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)
+> containing different implementations depending on your use cases.
 
 ### create_commit
 
@@ -452,14 +434,11 @@ perfectly valid, this solution has the drawback of potentially messing the git h
 To overcome this issue, you can upload your files one by one to S3 and then create a single commit at the end. This
 is possible using [`preupload_lfs_files`] in combination with [`create_commit`].
 
-<Tip warning={true}>
-
-This is a power-user method. Directly using [`upload_file`], [`upload_folder`] or [`create_commit`] instead of handling
-the low-level logic of pre-uploading files is the way to go in the vast majority of cases. The main caveat of
-[`preupload_lfs_files`] is that until the commit is actually made, the upload files are not accessible on the repo on
-the Hub. If you have a question, feel free to ping us on our Discord or in a GitHub issue.
-
-</Tip>
+> [!WARNING]
+> This is a power-user method. Directly using [`upload_file`], [`upload_folder`] or [`create_commit`] instead of handling
+> the low-level logic of pre-uploading files is the way to go in the vast majority of cases. The main caveat of
+> [`preupload_lfs_files`] is that until the commit is actually made, the upload files are not accessible on the repo on
+> the Hub. If you have a question, feel free to ping us on our Discord or in a GitHub issue.
 
 Here is a simple example illustrating how to pre-upload files:
 
@@ -492,13 +471,10 @@ additional operations (add, delete or copy) that have not been processed yet and
 All the methods described above use the Hub's API to upload files. This is the recommended way to upload files to the Hub.
 However, we also provide [`Repository`], a wrapper around the git tool to manage a local repository.
 
-<Tip warning={true}>
-
-Although [`Repository`] is not formally deprecated, we recommend using the HTTP-based methods described above instead.
-For more details about this recommendation, please have a look at [this guide](../concepts/git_vs_http) explaining the
-core differences between HTTP-based and Git-based approaches.
-
-</Tip>
+> [!WARNING]
+> Although [`Repository`] is not formally deprecated, we recommend using the HTTP-based methods described above instead.
+> For more details about this recommendation, please have a look at [this guide](../concepts/git_vs_http) explaining the
+> core differences between HTTP-based and Git-based approaches.
 
 Git LFS automatically handles files larger than 10MB. But for very large files (>5GB), you need to install a custom transfer agent for Git LFS:
 

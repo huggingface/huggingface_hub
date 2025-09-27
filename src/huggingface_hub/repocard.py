@@ -65,13 +65,11 @@ class RepoCard:
             '\\n# My repo\\n'
 
             ```
-        <Tip>
-        Raises the following error:
-
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              when the content of the repo card metadata is not a dictionary.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following error:
+        >
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       when the content of the repo card metadata is not a dictionary.
         """
 
         # Set the content of the RepoCard, as well as underlying .data and .text attributes.
@@ -199,15 +197,13 @@ class RepoCard:
                 The type of Hugging Face repo to push to. Options are "model", "dataset", and "space".
                 If this function is called from a child class, the default will be the child class's `repo_type`.
 
-        <Tip>
-        Raises the following errors:
-
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if the card fails validation checks.
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the request to the Hub API fails for any other reason.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if the card fails validation checks.
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the request to the Hub API fails for any other reason.
         """
 
         # If repo type is provided, otherwise, use the repo type of the card.

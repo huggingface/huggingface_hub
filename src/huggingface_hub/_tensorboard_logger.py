@@ -52,11 +52,8 @@ class HFSummaryWriter(_RuntimeSummaryWriter):
     issue), the main script will not be interrupted. Data is automatically pushed to the Hub every `commit_every`
     minutes (default to every 5 minutes).
 
-    <Tip warning={true}>
-
-    `HFSummaryWriter` is experimental. Its API is subject to change in the future without prior notice.
-
-    </Tip>
+    > [!WARNING]
+    > `HFSummaryWriter` is experimental. Its API is subject to change in the future without prior notice.
 
     Args:
         repo_id (`str`):

@@ -56,11 +56,8 @@ class MCPClient:
     """
     Client for connecting to one or more MCP servers and processing chat completions with tools.
 
-    <Tip warning={true}>
-
-    This class is experimental and might be subject to breaking changes in the future without prior notice.
-
-    </Tip>
+    > [!WARNING]
+    > This class is experimental and might be subject to breaking changes in the future without prior notice.
 
     Args:
         model (`str`, `optional`):

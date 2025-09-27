@@ -35,13 +35,11 @@ def _check_fastai_fastcore_versions(
         fastcore_min_version (`str`, *optional*):
             The minimum fastcore version supported.
 
-    <Tip>
-    Raises the following error:
-
-        - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
-          if the fastai or fastcore libraries are not available or are of an invalid version.
-
-    </Tip>
+    > [!TIP]
+    > Raises the following error:
+    >
+    >     - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
+    >       if the fastai or fastcore libraries are not available or are of an invalid version.
     """
 
     if (get_fastcore_version() or get_fastai_version()) == "N/A":
@@ -89,15 +87,13 @@ def _check_fastai_fastcore_pyproject_versions(
         fastcore_min_version (`str`, *optional*):
             The minimum fastcore version supported.
 
-    <Tip>
-    Raises the following errors:
-
-        - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
-          if the `toml` module is not installed.
-        - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
-          if the `pyproject.toml` indicates a lower than minimum supported version of fastai or fastcore.
-
-    </Tip>
+    > [!TIP]
+    > Raises the following errors:
+    >
+    >     - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
+    >       if the `toml` module is not installed.
+    >     - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
+    >       if the `pyproject.toml` indicates a lower than minimum supported version of fastai or fastcore.
     """
 
     try:
@@ -254,14 +250,11 @@ def _save_pretrained_fastai(
         config (`dict`, *optional*):
             Configuration object. Will be uploaded as a .json file. Example: 'https://huggingface.co/espejelomar/fastai-pet-breeds-classification/blob/main/config.json'.
 
-    <Tip>
-
-    Raises the following error:
-
-        - [`RuntimeError`](https://docs.python.org/3/library/exceptions.html#RuntimeError)
-          if the config file provided is not a dictionary.
-
-    </Tip>
+    > [!TIP]
+    > Raises the following error:
+    >
+    >     - [`RuntimeError`](https://docs.python.org/3/library/exceptions.html#RuntimeError)
+    >       if the config file provided is not a dictionary.
     """
     _check_fastai_fastcore_versions()
 
@@ -395,14 +388,11 @@ def push_to_hub_fastai(
     Returns:
         The url of the commit of your model in the given repository.
 
-    <Tip>
-
-    Raises the following error:
-
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-          if the user is not log on to the Hugging Face Hub.
-
-    </Tip>
+    > [!TIP]
+    > Raises the following error:
+    >
+    >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+    >       if the user is not log on to the Hugging Face Hub.
     """
     _check_fastai_fastcore_versions()
     api = HfApi(endpoint=api_endpoint)

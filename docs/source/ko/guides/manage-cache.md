@@ -144,9 +144,8 @@ assets_path = cached_assets_path(library_name="datasets", namespace="SQuAD", sub
 something_path = assets_path / "something.json" # 자산 폴더에서 원하는 대로 작업하세요!
 ```
 
-<Tip>
-[`cached_assets_path`]는 자산을 저장하는 권장 방법이지만 필수는 아닙니다. 이미 라이브러리가 자체 캐시를 사용하는 경우 해당 캐시를 자유롭게 사용하세요!
-</Tip>
+> [!TIP]
+> [`cached_assets_path`]는 자산을 저장하는 권장 방법이지만 필수는 아닙니다. 이미 라이브러리가 자체 캐시를 사용하는 경우 해당 캐시를 자유롭게 사용하세요!
 
 ### 자산 캐시 구조 예시[[assets-in-practice]]
 
@@ -319,13 +318,11 @@ HFCacheInfo(
 - 수정 버전이 1개 이상의 `refs`에 연결되어 있는 경우, 참조가 삭제됩니다.
 - 리포지토리의 모든 수정 버전이 삭제되는 경우 전체 캐시된 리포지토리가 삭제됩니다.
 
-<Tip>
-수정 버전 해시는 모든 리포지토리를 통틀어 고유합니다. 이는 수정 버전을 제거할 때 `repo_id`나 `repo_type`을 제공할 필요가 없음을 의미합니다.
-</Tip>
+> [!TIP]
+> 수정 버전 해시는 모든 리포지토리를 통틀어 고유합니다. 이는 수정 버전을 제거할 때 `repo_id`나 `repo_type`을 제공할 필요가 없음을 의미합니다.
 
-<Tip warning={true}>
-캐시에서 수정 버전을 찾을 수 없는 경우 무시됩니다. 또한 삭제 중에 파일 또는 폴더를 찾을 수 없는 경우 경고가 기록되지만 오류가 발생하지 않습니다. [`DeleteCacheStrategy`] 객체에 포함된 다른 경로에 대해 삭제가 계속됩니다.
-</Tip>
+> [!WARNING]
+> 캐시에서 수정 버전을 찾을 수 없는 경우 무시됩니다. 또한 삭제 중에 파일 또는 폴더를 찾을 수 없는 경우 경고가 기록되지만 오류가 발생하지 않습니다. [`DeleteCacheStrategy`] 객체에 포함된 다른 경로에 대해 삭제가 계속됩니다.
 
 ### 터미널에서 캐시 정리하기[[clean-cache-from-the-terminal]]
 

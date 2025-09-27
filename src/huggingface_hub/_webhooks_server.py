@@ -53,17 +53,11 @@ class WebhooksServer:
     Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your
     WebhooksServer and deploy it on a Space.
 
-    <Tip warning={true}>
+    > [!WARNING]
+    > `WebhooksServer` is experimental. Its API is subject to change in the future.
 
-    `WebhooksServer` is experimental. Its API is subject to change in the future.
-
-    </Tip>
-
-    <Tip warning={true}>
-
-    You must have `gradio` installed to use `WebhooksServer` (`pip install --upgrade gradio`).
-
-    </Tip>
+    > [!WARNING]
+    > You must have `gradio` installed to use `WebhooksServer` (`pip install --upgrade gradio`).
 
     Args:
         ui (`gradio.Blocks`, optional):
@@ -240,17 +234,11 @@ def webhook_endpoint(path: Optional[str] = None) -> Callable:
     Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your
     server and deploy it on a Space.
 
-    <Tip warning={true}>
+    > [!WARNING]
+    > `webhook_endpoint` is experimental. Its API is subject to change in the future.
 
-    `webhook_endpoint` is experimental. Its API is subject to change in the future.
-
-    </Tip>
-
-    <Tip warning={true}>
-
-    You must have `gradio` installed to use `webhook_endpoint` (`pip install --upgrade gradio`).
-
-    </Tip>
+    > [!WARNING]
+    > You must have `gradio` installed to use `webhook_endpoint` (`pip install --upgrade gradio`).
 
     Args:
         path (`str`, optional):

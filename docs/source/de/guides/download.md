@@ -14,11 +14,8 @@ Die `huggingface_hub`-Bibliothek bietet Funktionen zum Herunterladen von Dateien
 
 Die [`hf_hub_download`]-Funktion ist die Hauptfunktion zum Herunterladen von Dateien aus dem Hub. Sie lädt die Remote-Datei herunter, speichert sie auf der Festplatte (auf eine versionsbewusste Art und Weise) und gibt ihren lokalen Dateipfad zurück.
 
-<Tip>
-
-Der zurückgegebene Dateipfad verweist auf den lokalen Cache von HF. Es ist daher wichtig, die Datei nicht zu ändern, um einen beschädigten Cache zu vermeiden. Wenn Sie mehr darüber erfahren möchten, wie Dateien zwischengespeichert werden, lesen Sie bitte unseren [Caching-Leitfaden](./manage-cache).
-
-</Tip>
+> [!TIP]
+> Der zurückgegebene Dateipfad verweist auf den lokalen Cache von HF. Es ist daher wichtig, die Datei nicht zu ändern, um einen beschädigten Cache zu vermeiden. Wenn Sie mehr darüber erfahren möchten, wie Dateien zwischengespeichert werden, lesen Sie bitte unseren [Caching-Leitfaden](./manage-cache).
 
 ### Von der neuesten Version
 

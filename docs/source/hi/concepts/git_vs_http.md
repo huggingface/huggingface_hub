@@ -12,11 +12,8 @@
 
 [`Repository`] का उपयोग करने का मुख्य फायदा यह है कि यह आपको अपनी मशीन पर संपूर्ण repository की एक local copy बनाए रखने की अनुमति देता है। यह एक नुकसान भी हो सकता है क्योंकि इसके लिए आपको इस local copy को लगातार update और maintain करना होता है। यह पारंपरिक software development के समान है जहां प्रत्येक developer अपनी स्वयं की local copy maintain करता है और feature पर काम करते समय changes push करता है। हालांकि, machine learning के संदर्भ में, यह हमेशा आवश्यक नहीं हो सकता क्योंकि users को केवल inference के लिए weights download करने या weights को एक format से दूसरे में convert करने की आवश्यकता हो सकती है, बिना पूरी repository को clone करने की आवश्यकता के।
 
-<Tip warning={true}>
-
-[`Repository`] अब http-आधारित विकल्पों के पक्ष में deprecated है। legacy code में इसकी बड़ी अपनाई जाने के कारण, [`Repository`] का पूर्ण removal केवल `v1.0` release में होगा।
-
-</Tip>
+> [!WARNING]
+> [`Repository`] अब http-आधारित विकल्पों के पक्ष में deprecated है। legacy code में इसकी बड़ी अपनाई जाने के कारण, [`Repository`] का पूर्ण removal केवल `v1.0` release में होगा।
 
 ## HfApi: एक लचीला और सुविधाजनक HTTP client
 

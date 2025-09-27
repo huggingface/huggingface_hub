@@ -60,7 +60,8 @@ class HfFileSystemTests(unittest.TestCase):
             repo_type="dataset",
         )
 
-        self.text_file = self.hf_path + "/data/text_data.txt"
+        self.text_file_path_in_repo = "data/text_data.txt"
+        self.text_file = self.hf_path + "/" + self.text_file_path_in_repo
 
     def tearDown(self):
         self.api.delete_repo(self.repo_id, repo_type="dataset")
@@ -420,6 +421,16 @@ class HfFileSystemTests(unittest.TestCase):
     def test_find_data_file_no_revision(self):
         files = self.hffs.find(self.text_file, detail=False)
         self.assertEqual(files, [self.text_file])
+
+    def test_find_maxdepth(self):
+        text_file_depth = self.text_file_path_in_repo.count("/") + 1
+        files = self.hffs.find(self.hf_path, detail=False, maxdepth=text_file_depth - 1)
+        self.assertNotIn(self.text_file, files)
+        files = self.hffs.find(self.hf_path, detail=False, maxdepth=text_file_depth)
+        self.assertIn(self.text_file, files)
+        # we do it again once the cache is updated
+        files = self.hffs.find(self.hf_path, detail=False, maxdepth=text_file_depth - 1)
+        self.assertNotIn(self.text_file, files)
 
     def test_read_bytes(self):
         data = self.hffs.read_bytes(self.text_file)

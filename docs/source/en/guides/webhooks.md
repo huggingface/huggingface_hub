@@ -90,20 +90,14 @@ The base class that we will use in this guides section is [`WebhooksServer`]. It
 can receive webhooks from the Huggingface Hub. The server is based on a [Gradio](https://gradio.app/) app. It has a UI
 to display instructions for you or your users and an API to listen to webhooks.
 
-<Tip>
+> [!TIP]
+> To see a running example of a webhook server, check out the [Spaces CI Bot](https://huggingface.co/spaces/spaces-ci-bot/webhook)
+> one. It is a Space that launches ephemeral environments when a PR is opened on a Space.
 
-To see a running example of a webhook server, check out the [Spaces CI Bot](https://huggingface.co/spaces/spaces-ci-bot/webhook)
-one. It is a Space that launches ephemeral environments when a PR is opened on a Space.
-
-</Tip>
-
-<Tip warning={true}>
-
-This is an [experimental feature](../package_reference/environment_variables#hfhubdisableexperimentalwarning). This
-means that we are still working on improving the API. Breaking changes might be introduced in the future without prior
-notice. Make sure to pin the version of `huggingface_hub` in your requirements.
-
-</Tip>
+> [!WARNING]
+> This is an [experimental feature](../package_reference/environment_variables#hfhubdisableexperimentalwarning). This
+> means that we are still working on improving the API. Breaking changes might be introduced in the future without prior
+> notice. Make sure to pin the version of `huggingface_hub` in your requirements.
 
 
 ### Create an endpoint
@@ -154,13 +148,10 @@ debugging your webhook server and quickly iterating before deploying it to a Spa
 4. Finally, the logs also tell you that your server is currently not secured by a secret. This is not problematic for
 local debugging but is to keep in mind for later.
 
-<Tip warning={true}>
-
-By default, the server is started at the end of your script. If you are running it in a notebook, you can start the
-server manually by calling `decorated_function.run()`. Since a unique server is used, you only have to start the server
-once even if you have multiple endpoints.
-
-</Tip>
+> [!WARNING]
+> By default, the server is started at the end of your script. If you are running it in a notebook, you can start the
+> server manually by calling `decorated_function.run()`. Since a unique server is used, you only have to start the server
+> once even if you have multiple endpoints.
 
 
 ### Configure a Webhook

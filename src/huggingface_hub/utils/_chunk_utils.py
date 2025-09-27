@@ -49,9 +49,8 @@ def chunk_iterable(iterable: Iterable[T], chunk_size: int) -> Iterable[Iterable[
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If `chunk_size` <= 0.
 
-    <Tip warning={true}>
-        The last chunk can be smaller than `chunk_size`.
-    </Tip>
+    > [!WARNING]
+    > The last chunk can be smaller than `chunk_size`.
     """
     if not isinstance(chunk_size, int) or chunk_size <= 0:
         raise ValueError("`chunk_size` must be a strictly positive integer (>0).")

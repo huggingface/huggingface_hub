@@ -76,11 +76,8 @@ Number of upvotes: 1
 Number of upvotes: 5
 ```
 
-<Tip warning={true}>
-
-Collections를 나열할 때, 각 Collection의 항목 목록은 최대 4개 항목으로 잘립니다. Collection의 모든 항목을 가져오려면 [`get_collection`]을 사용해야 합니다.
-
-</Tip>
+> [!WARNING]
+> Collections를 나열할 때, 각 Collection의 항목 목록은 최대 4개 항목으로 잘립니다. Collection의 모든 항목을 가져오려면 [`get_collection`]을 사용해야 합니다.
 
 고급 필터링을 수행할 수 있습니다. 예를 들어 모델 [TheBloke/OpenHermes-2.5-Mistral-7B-GGUF](https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF)를 포함하는 트렌딩 순으로 정렬된 Collections를 5개까지만 가져올 수 있습니다.
 
@@ -216,11 +213,8 @@ Collection의 item은 순서가 있습니다. 이 순서는 각 item의 `positio
 
 [`delete_collection`]을 사용하여 Collection을 삭제할 수 있습니다.
 
-<Tip warning={true}>
-
-이 작업은 되돌릴 수 없습니다. 삭제된 Collection은 복구할 수 없습니다.
-
-</Tip>
+> [!WARNING]
+> 이 작업은 되돌릴 수 없습니다. 삭제된 Collection은 복구할 수 없습니다.
 
 ```py
 >>> from huggingface_hub import delete_collection
