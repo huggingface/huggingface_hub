@@ -47,6 +47,11 @@ from .utils.tqdm import _get_progress_bar_context
 
 META_DATA_DOWNLOAD_COUNT = {}
 REAL_FILE_DOWNLOAD_COUNT = {}
+HF_HUB_DOWNLOAD_CALL_COUNT = {}
+HF_HUB_DOWNLOAD_CALLS = {}
+HF_HUB_DOWNLOAD_CALLS_WITH_META_DATA_CALL = {}
+HF_HUB_DOWNLOAD_CALLS_WITH_REAL_FILE_CALL = {}
+CURRENT_HF_HUB_DOWNLOAD_CALL = {}
 
 
 logger = logging.get_logger(__name__)
@@ -883,6 +888,30 @@ def hf_hub_download(
             If some parameter value is invalid.
 
     """
+    pid = os.getpid()
+    if pid not in HF_HUB_DOWNLOAD_CALL_COUNT:
+        HF_HUB_DOWNLOAD_CALL_COUNT[pid] = 0
+    HF_HUB_DOWNLOAD_CALL_COUNT[pid] += 1
+    if pid not in HF_HUB_DOWNLOAD_CALLS:
+        HF_HUB_DOWNLOAD_CALLS[pid] = []
+
+    call = {
+        "repo_id": repo_id,
+        "filename": filename,
+        "subfolder": subfolder,
+        "repo_type": repo_type,
+        "revision": revision,
+        "library_name": library_name,
+        "library_version": library_version,
+        "user_agent": user_agent,
+        "force_download": force_download,
+        "local_files_only": local_files_only,
+        "headers": headers,
+        "endpoint": endpoint,
+    }
+    HF_HUB_DOWNLOAD_CALLS[pid].append(call)
+    CURRENT_HF_HUB_DOWNLOAD_CALL[pid] = call
+
     if constants.HF_HUB_ETAG_TIMEOUT != constants.DEFAULT_ETAG_TIMEOUT:
         # Respect environment variable above user value
         etag_timeout = constants.HF_HUB_ETAG_TIMEOUT
@@ -1484,6 +1513,14 @@ def _get_metadata_or_catch_error(
                 if pid not in META_DATA_DOWNLOAD_COUNT:
                     META_DATA_DOWNLOAD_COUNT[pid] = 0
                 META_DATA_DOWNLOAD_COUNT[pid] += 1
+
+                if pid not in HF_HUB_DOWNLOAD_CALLS_WITH_META_DATA_CALL:
+                    HF_HUB_DOWNLOAD_CALLS_WITH_META_DATA_CALL[pid] = []
+                current_call = None
+                if pid in CURRENT_HF_HUB_DOWNLOAD_CALL:
+                    current_call = CURRENT_HF_HUB_DOWNLOAD_CALL[pid]
+                HF_HUB_DOWNLOAD_CALLS_WITH_META_DATA_CALL[pid].append(current_call)
+
                 metadata = get_hf_file_metadata(
                     url=url, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
                 )
@@ -1659,6 +1696,14 @@ def _download_to_tmp_and_move(
         if pid not in REAL_FILE_DOWNLOAD_COUNT:
             REAL_FILE_DOWNLOAD_COUNT[pid] = 0
         REAL_FILE_DOWNLOAD_COUNT[pid] += 1
+
+        if pid not in HF_HUB_DOWNLOAD_CALLS_WITH_REAL_FILE_CALL:
+            HF_HUB_DOWNLOAD_CALLS_WITH_REAL_FILE_CALL[pid] = []
+        current_call = None
+        if pid in CURRENT_HF_HUB_DOWNLOAD_CALL:
+            current_call = CURRENT_HF_HUB_DOWNLOAD_CALL[pid]
+        HF_HUB_DOWNLOAD_CALLS_WITH_REAL_FILE_CALL[pid].append(current_call)
+
         if xet_file_data is not None and is_xet_available():
             logger.debug("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
             xet_get(
