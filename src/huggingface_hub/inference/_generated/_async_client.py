@@ -1332,7 +1332,7 @@ class AsyncInferenceClient:
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
             target_size (`ImageToImageTargetSize`, *optional*):
-                The size in pixel of the output image.
+                The size in pixel of the output image. This parameter is only supported by some providers and for specific models. It will be ignored when unsupported.
 
         Returns:
             `Image`: The translated image.
