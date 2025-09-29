@@ -22,13 +22,13 @@ Alternatively, you can install the `hf` CLI with a single command:
 On macOS and Linux:
 
 ```bash
->>> curl -LsSf https://hf.co/install.sh | sh
+>>> curl -LsSf https://hf.co/cli/install.sh | sh
 ```
 
 On Windows:
 
 ```powershell
->>> powershell -c "irm https://hf.co/install.ps1 | iex"
+>>> powershell -c "irm https://hf.co/cli/install.ps1 | iex"
 ```
 
 Once installed, you can check that the CLI is correctly setup:
