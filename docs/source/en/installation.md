@@ -103,6 +103,22 @@ Python will now look inside the folder you cloned to in addition to the normal l
 For example, if your Python packages are typically installed in `./.venv/lib/python3.13/site-packages/`,
 Python will also search the folder you cloned `./huggingface_hub/`.
 
+## Install the Hugging Face CLI 
+
+Use our one-liner installers to set up the `hf` CLI without touching your Python environment:
+
+On macOS and Linux:
+
+```bash
+curl -LsSf https://hf.co/install.sh | sh
+```
+
+On Windows:
+
+```powershell
+powershell -c "irm https://hf.co/install.ps1 | iex"
+```
+
 ## Install with conda
 
 If you are more familiar with it, you can install `huggingface_hub` using the [conda-forge channel](https://anaconda.org/conda-forge/huggingface_hub):
