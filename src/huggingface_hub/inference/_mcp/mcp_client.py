@@ -155,7 +155,7 @@ class MCPClient:
         from mcp import types as mcp_types
 
         # Extract allowed_tools configuration if provided
-        allowed_tools = params.pop("allowed_tools", [])
+        allowed_tools = params.pop("allowed_tools", None)
 
         # Determine server type and create appropriate parameters
         if type == "stdio":
@@ -215,9 +215,10 @@ class MCPClient:
         logger.debug("Connected to server with tools:", [tool.name for tool in response.tools])
 
         # Filter tools based on allowed_tools configuration
-        filtered_tools = [tool for tool in response.tools if tool.name in allowed_tools]
+        filtered_tools = response.tools
 
-        if allowed_tools:
+        if allowed_tools is not None:
+            filtered_tools = [tool for tool in response.tools if tool.name in allowed_tools]
             logger.debug(
                 f"Tool filtering applied. Using {len(filtered_tools)} of {len(response.tools)} available tools: {[tool.name for tool in filtered_tools]}"
             )
