@@ -1,6 +1,6 @@
 # Hugging Face CLI Installer for Windows
-# Usage: powershell -c "irm https://hf.co/install.ps1 | iex"
-# Or: curl -LsSf https://hf.co/install.ps1 | pwsh -
+# Usage: powershell -c "irm https://hf.co/cli/install.ps1 | iex"
+# Or: curl -LsSf https://hf.co/cli/install.ps1 | pwsh -
 
 <#
 .SYNOPSIS
@@ -19,7 +19,7 @@ Enables verbose output, including detailed pip logs.
 Skips PATH modifications; `hf` must be invoked via its full path unless you add it manually.
 
 .EXAMPLE
-powershell -c "irm https://hf.co/install.ps1 | iex"
+powershell -c "irm https://hf.co/cli/install.ps1 | iex"
 #>
 
 <#
