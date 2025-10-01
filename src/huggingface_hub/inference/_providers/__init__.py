@@ -41,6 +41,7 @@ from .replicate import ReplicateImageToImageTask, ReplicateTask, ReplicateTextTo
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
+from .zai_org import ZaiConversationalTask
 
 
 logger = logging.get_logger(__name__)
@@ -65,6 +66,7 @@ PROVIDER_T = Literal[
     "sambanova",
     "scaleway",
     "together",
+    "zai-org",
 ]
 
 PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
@@ -169,6 +171,9 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "text-to-image": TogetherTextToImageTask(),
         "conversational": TogetherConversationalTask(),
         "text-generation": TogetherTextGenerationTask(),
+    },
+    "zai-org": {
+        "conversational": ZaiConversationalTask(),
     },
 }
 

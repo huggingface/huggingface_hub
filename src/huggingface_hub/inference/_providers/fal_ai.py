@@ -191,6 +191,8 @@ class FalAIImageToImageTask(FalAIQueueTask):
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
         image_url = _as_url(inputs, default_mime_type="image/jpeg")
+        if "target_size" in parameters:
+            parameters["image_size"] = parameters.pop("target_size")
         payload: dict[str, Any] = {
             "image_url": image_url,
             **filter_none(parameters),

@@ -135,7 +135,7 @@ class InferenceClient:
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
             arguments are mutually exclusive. If a URL is passed as `model` or `base_url` for chat completion, the `(/v1)/chat/completions` suffix path will be appended to the URL.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"openai"`, `publicai`, `"replicate"`, `"sambanova"`, `"scaleway"` or `"together"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"openai"`, `publicai`, `"replicate"`, `"sambanova"`, `"scaleway"`, `"together"` or `"zai-org"`.
             Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
@@ -1302,7 +1302,7 @@ class InferenceClient:
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
             target_size (`ImageToImageTargetSize`, *optional*):
-                The size in pixel of the output image.
+                The size in pixel of the output image. This parameter is only supported by some providers and for specific models. It will be ignored when unsupported.
 
         Returns:
             `Image`: The translated image.
