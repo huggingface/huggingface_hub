@@ -817,6 +817,95 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
             assert call.kwargs["token"] is False
 
 
+@with_production_testing
+class TestFileDownloadDryRun(unittest.TestCase):
+    def test_dry_run_cache_dir(self):
+        with SoftTemporaryDirectory() as tmpdir:
+            # Dry-run a first time => file is not cached
+            dry_run_info = hf_hub_download(
+                DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir, dry_run=True
+            )
+            assert dry_run_info.commit_hash is not None
+            commit_hash = dry_run_info.commit_hash
+            assert dry_run_info.file_size > 0
+            assert not dry_run_info.is_cached
+            assert dry_run_info.will_download
+            expected_path = str(tmpdir / "models--julien-c--dummy-unknown" / "snapshots" / commit_hash / "config.json")
+            assert dry_run_info.local_path == expected_path
+
+            # Download the file => file is cached
+            hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir, local_files_only=False)
+
+            # Dry-run a second time => file is cached
+            dry_run_info = hf_hub_download(
+                DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir, dry_run=True
+            )
+            assert dry_run_info.commit_hash == commit_hash  # same commit hash
+            assert dry_run_info.is_cached
+            assert not dry_run_info.will_download
+
+            # Dry-run with force_download => file is cached but we will still download
+            dry_run_info = hf_hub_download(
+                DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir, dry_run=True, force_download=True
+            )
+            assert dry_run_info.commit_hash == commit_hash  # same commit hash
+            assert dry_run_info.is_cached
+            assert dry_run_info.will_download
+
+            # Delete pointer file => file is still cached (metadata exists) but not the file itself => won't download again
+            # This is different than when using local dir
+            os.remove(expected_path)
+            dry_run_info = hf_hub_download(
+                DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir, dry_run=True
+            )
+            assert dry_run_info.is_cached
+            assert not dry_run_info.will_download
+
+    def test_dry_run_local_dir(self):
+        with SoftTemporaryDirectory() as tmpdir:
+            # Dry-run a first time => file is not cached
+            dry_run_info = hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=constants.CONFIG_NAME,
+                local_dir=tmpdir,
+                dry_run=True,
+            )
+            assert dry_run_info.commit_hash is not None
+            commit_hash = dry_run_info.commit_hash
+            assert dry_run_info.file_size > 0
+            assert not dry_run_info.is_cached
+            assert dry_run_info.will_download
+            expected_path = str(tmpdir / "config.json")  # local dir => not the cache structure
+            assert dry_run_info.local_path == expected_path
+
+            # Download the file => file is cached
+            hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, local_dir=tmpdir, local_files_only=False)
+
+            # Dry-run a second time => file is cached
+            dry_run_info = hf_hub_download(
+                DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, local_dir=tmpdir, dry_run=True
+            )
+            assert dry_run_info.commit_hash == commit_hash
+            assert dry_run_info.is_cached
+            assert not dry_run_info.will_download
+
+            # Dry-run with force_download => file is cached but we will still download
+            dry_run_info = hf_hub_download(
+                DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, local_dir=tmpdir, dry_run=True, force_download=True
+            )
+            assert dry_run_info.is_cached
+            assert dry_run_info.will_download
+
+            # Delete file => not cached anymore even if metadata exists => re-download
+            # This is different than when using cache_dir structure
+            os.remove(expected_path)
+            dry_run_info = hf_hub_download(
+                DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, local_dir=tmpdir, dry_run=True
+            )
+            assert not dry_run_info.is_cached
+            assert dry_run_info.will_download
+
+
 @pytest.mark.usefixtures("fx_cache_dir")
 class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
     """Implement regression tests for #1161.

@@ -37,16 +37,16 @@ Usage:
 """
 
 import warnings
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Union
 
 import typer
 
 from huggingface_hub import logging
 from huggingface_hub._snapshot_download import snapshot_download
-from huggingface_hub.file_download import hf_hub_download
-from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
+from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
+from huggingface_hub.utils import _format_size, disable_progress_bars, enable_progress_bars
 
-from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
+from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, tabulate
 
 
 logger = logging.get_logger(__name__)
@@ -92,6 +92,12 @@ def download(
             help="If True, the files will be downloaded even if they are already cached.",
         ),
     ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            help="If True, perform a dry run without actually downloading the file.",
+        ),
+    ] = False,
     token: TokenOpt = None,
     quiet: Annotated[
         bool,
@@ -108,7 +114,7 @@ def download(
 ) -> None:
     """Download files from the Hub."""
 
-    def run_download() -> str:
+    def run_download() -> Union[str, DryRunFileInfo, list[DryRunFileInfo]]:
         filenames_list = filenames if filenames is not None else []
         # Warn user if patterns are ignored
         if len(filenames_list) > 0:
@@ -129,6 +135,7 @@ def download(
                 token=token,
                 local_dir=local_dir,
                 library_name="hf",
+                dry_run=dry_run,
             )
 
         # Otherwise: use `snapshot_download` to ensure all files comes from same revision
@@ -151,14 +158,32 @@ def download(
             local_dir=local_dir,
             library_name="hf",
             max_workers=max_workers,
+            dry_run=dry_run,
         )
+
+    def _print_result(result: Union[str, DryRunFileInfo, list[DryRunFileInfo]]) -> None:
+        if isinstance(result, str):
+            print(result)
+            return
+
+        # Print dry run info
+        if isinstance(result, DryRunFileInfo):
+            result = [result]
+        print(
+            f"[dry-run] Will download {len([r for r in result if r.will_download])} files (out of {len(result)}) totalling {_format_size(sum(r.file_size for r in result if r.will_download))}."
+        )
+        columns = ["File", "Bytes to download"]
+        items = []
+        for info in result:
+            items.append([info.filename, _format_size(info.file_size) if info.will_download else "-"])
+        print(tabulate(items, headers=columns))
 
     if quiet:
         disable_progress_bars()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            print(run_download())
+            _print_result(run_download())
         enable_progress_bars()
     else:
-        print(run_download())
+        _print_result(run_download())
         logging.set_verbosity_warning()

@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Iterable, Optional, Union
+from typing import Iterable, List, Literal, Optional, Union, overload
 
 import httpx
 from tqdm.auto import tqdm as base_tqdm
@@ -8,13 +8,14 @@ from tqdm.contrib.concurrent import thread_map
 
 from . import constants
 from .errors import (
+    DryRunError,
     GatedRepoError,
     HfHubHTTPError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
+from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, ModelInfo, RepoFile, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
 from .utils import tqdm as hf_tqdm
@@ -23,6 +24,56 @@ from .utils import tqdm as hf_tqdm
 logger = logging.get_logger(__name__)
 
 VERY_LARGE_REPO_THRESHOLD = 50000  # After this limit, we don't consider `repo_info.siblings` to be reliable enough
+
+
+@overload
+def snapshot_download(
+    repo_id: str,
+    *,
+    repo_type: Optional[str] = None,
+    revision: Optional[str] = None,
+    cache_dir: Union[str, Path, None] = None,
+    local_dir: Union[str, Path, None] = None,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    user_agent: Optional[Union[dict, str]] = None,
+    etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+    force_download: bool = False,
+    token: Optional[Union[bool, str]] = None,
+    local_files_only: bool = False,
+    allow_patterns: Optional[Union[list[str], str]] = None,
+    ignore_patterns: Optional[Union[list[str], str]] = None,
+    max_workers: int = 8,
+    tqdm_class: Optional[type[base_tqdm]] = None,
+    headers: Optional[dict[str, str]] = None,
+    endpoint: Optional[str] = None,
+    dry_run: Literal[False] = False,
+) -> str: ...
+
+
+@overload
+def snapshot_download(
+    repo_id: str,
+    *,
+    repo_type: Optional[str] = None,
+    revision: Optional[str] = None,
+    cache_dir: Union[str, Path, None] = None,
+    local_dir: Union[str, Path, None] = None,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    user_agent: Optional[Union[dict, str]] = None,
+    etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+    force_download: bool = False,
+    token: Optional[Union[bool, str]] = None,
+    local_files_only: bool = False,
+    allow_patterns: Optional[Union[list[str], str]] = None,
+    ignore_patterns: Optional[Union[list[str], str]] = None,
+    max_workers: int = 8,
+    tqdm_class: Optional[type[base_tqdm]] = None,
+    headers: Optional[dict[str, str]] = None,
+    endpoint: Optional[str] = None,
+    dry_run: Literal[True],
+) -> List[DryRunFileInfo]: ...
 
 
 @validate_hf_hub_args
@@ -46,7 +97,8 @@ def snapshot_download(
     tqdm_class: Optional[type[base_tqdm]] = None,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
-) -> str:
+    dry_run: bool = False,
+) -> Union[str, List[DryRunFileInfo]]:
     """Download repo files.
 
     Download a whole snapshot of a repo's files at the specified revision. This is useful when you want all files from
@@ -109,9 +161,14 @@ def snapshot_download(
             Note that the `tqdm_class` is not passed to each individual download.
             Defaults to the custom HF progress bar that can be disabled by setting
             `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
+        dry_run (`bool`, *optional*, defaults to `False`):
+            If `True`, perform a dry run without actually downloading the files. Returns a list of
+            [`DryRunFileInfo`] objects containing information about what would be downloaded.
 
     Returns:
-        `str`: folder path of the repo snapshot.
+        `str` or list of [`DryRunFileInfo`]:
+            - If `dry_run=False`: Local snapshot path.
+            - If `dry_run=True`: A list of [`DryRunFileInfo`] objects containing download information.
 
     Raises:
         [`~utils.RepositoryNotFoundError`]
@@ -187,6 +244,11 @@ def snapshot_download(
     #    - f the specified revision is a branch or tag, look inside "refs".
     # => if local_dir is not None, we will return the path to the local folder if it exists.
     if repo_info is None:
+        if dry_run:
+            raise DryRunError(
+                "Dry run cannot be performed as the repository cannot be accessed. Please check your internet connection or authentication token."
+            ) from api_call_error
+
         # Try to get which commit hash corresponds to the specified revision
         commit_hash = None
         if REGEX_COMMIT_HASH.match(revision):
@@ -273,6 +335,8 @@ def snapshot_download(
         tqdm_desc = f"Fetching {len(filtered_repo_files)} files"
     else:
         tqdm_desc = "Fetching ... files"
+    if dry_run:
+        tqdm_desc = "[dry-run] " + tqdm_desc
 
     commit_hash = repo_info.sha
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
@@ -288,28 +352,33 @@ def snapshot_download(
         except OSError as e:
             logger.warning(f"Ignored error while writing commit hash to {ref_path}: {e}.")
 
+    results: List[Union[str, DryRunFileInfo]] = []
+
     # we pass the commit_hash to hf_hub_download
     # so no network call happens if we already
     # have the file locally.
     def _inner_hf_hub_download(repo_file: str):
-        return hf_hub_download(
-            repo_id,
-            filename=repo_file,
-            repo_type=repo_type,
-            revision=commit_hash,
-            endpoint=endpoint,
-            cache_dir=cache_dir,
-            local_dir=local_dir,
-            library_name=library_name,
-            library_version=library_version,
-            user_agent=user_agent,
-            etag_timeout=etag_timeout,
-            force_download=force_download,
-            token=token,
-            headers=headers,
+        results.append(
+            hf_hub_download(
+                repo_id,
+                filename=repo_file,
+                repo_type=repo_type,
+                revision=commit_hash,
+                endpoint=endpoint,
+                cache_dir=cache_dir,
+                local_dir=local_dir,
+                library_name=library_name,
+                library_version=library_version,
+                user_agent=user_agent,
+                etag_timeout=etag_timeout,
+                force_download=force_download,
+                token=token,
+                headers=headers,
+                dry_run=dry_run,
+            )
         )
 
-    if constants.HF_HUB_ENABLE_HF_TRANSFER:
+    if constants.HF_HUB_ENABLE_HF_TRANSFER and not dry_run:
         # when using hf_transfer we don't want extra parallelism
         # from the one hf_transfer provides
         for file in filtered_repo_files:
@@ -323,6 +392,11 @@ def snapshot_download(
             # User can use its own tqdm class or the default one from `huggingface_hub.utils`
             tqdm_class=tqdm_class or hf_tqdm,
         )
+
+    if dry_run:
+        # mypy doesn't know that `results` contains only `DryRunFileInfo` when `dry_run=True`
+        assert all(isinstance(r, DryRunFileInfo) for r in results)
+        return results
 
     if local_dir is not None:
         return str(os.path.realpath(local_dir))
