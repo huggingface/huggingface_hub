@@ -410,3 +410,24 @@ Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], 
 >>> from huggingface_hub import delete_scheduled_job
 >>> delete_scheduled_job(scheduled_job_id)
 ```
+
+### Trigger Jobs with webhooks
+
+Webhooks allow you to listen for new changes on specific repos or to all repos belonging to particular set of users/organizations (not just your repos, but any repo).
+
+Use [`create_webhook`] to create a webhook that triggers a Job when a change happens in a Hugging Face repository:
+
+```python
+from huggingface_hub import create_webhook
+
+# Example: Creating a webhook that triggers a Job
+webhook = create_webhook(
+    job_id=job_id,
+    watched=[{"type": "user", "name": "your-username"}, {"type": "org", "name": "your-org-name"}],
+    domains=["repo", "discussion"],
+    secret="your-secret"
+)
+```
+
+The webhook triggers the Job with the webhook payload in the environment variable `WEBHOOK_PAYLOAD`.
+You can find more information on webhooks in the [Webhooks documentation](./webhooks).
