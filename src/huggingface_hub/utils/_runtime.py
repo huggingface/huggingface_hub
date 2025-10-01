@@ -124,7 +124,7 @@ def get_fastcore_version() -> str:
     return _get_version("fastcore")
 
 
-# FastAI
+# Gradio
 def is_gradio_available() -> bool:
     return is_package_available("gradio")
 
