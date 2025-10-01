@@ -28,7 +28,6 @@ For more details, you can check [PR #3328](https://github.com/huggingface/huggin
 
 ### Why `httpx`?
 
-## Why `httpx`?
 
 The migration from `requests` to `httpx` brings several key improvements that enhance the library's performance, reliability, and maintainability:
 
