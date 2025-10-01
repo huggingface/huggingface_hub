@@ -1,7 +1,7 @@
 import json
 import struct
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List
 from unittest.mock import Mock
 
 import pytest
@@ -26,6 +26,16 @@ from .testing_utils import requires
 
 if TYPE_CHECKING:
     import torch
+
+
+def _load_safetensors_metadata(path: Path) -> Dict[str, Any]:
+    """Return the decoded metadata section from a safetensors file."""
+
+    file_bytes = path.read_bytes()
+    metadata_length = struct.unpack("<Q", file_bytes[:8])[0]
+    metadata_start = 8
+    metadata_end = metadata_start + metadata_length
+    return json.loads(file_bytes[metadata_start:metadata_end].decode())
 
 
 def _dummy_get_storage_id(item):
@@ -416,11 +426,8 @@ def test_save_torch_state_dict_shared_layers_not_sharded(
     assert "shared_2" not in state_dict
 
     # Check shared layer info in metadata
-    file_bytes = safetensors_file.read_bytes()
-    metadata_str = file_bytes[
-        8 : struct.unpack("<Q", file_bytes[:8])[0] + 8
-    ].decode()  # TODO: next time add helper for this
-    assert json.loads(metadata_str)["__metadata__"]["shared_2"] == "shared_1"
+    metadata = _load_safetensors_metadata(safetensors_file)
+    assert metadata["__metadata__"]["shared_2"] == "shared_1"
 
 
 def test_save_torch_state_dict_shared_layers_sharded(
@@ -484,11 +491,8 @@ def test_save_torch_state_dict_discard_selected_not_sharded(
     assert "shared_2" in state_dict
 
     # Check shared layer info in metadata
-    file_bytes = safetensors_file.read_bytes()
-    metadata_str = file_bytes[
-        8 : struct.unpack("<Q", file_bytes[:8])[0] + 8
-    ].decode()  # TODO: next time add helper for this
-    assert json.loads(metadata_str)["__metadata__"]["shared_1"] == "shared_2"
+    metadata = _load_safetensors_metadata(safetensors_file)
+    assert metadata["__metadata__"]["shared_1"] == "shared_2"
 
 
 def test_split_torch_state_dict_into_shards(

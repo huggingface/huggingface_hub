@@ -39,6 +39,7 @@ import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Union, overload
 
 from requests import HTTPError
+from requests.exceptions import Timeout as RequestsTimeout
 
 from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, InferenceTimeoutError
@@ -327,7 +328,7 @@ class InferenceClient:
                     stream=stream,
                     proxies=self.proxies,
                 )
-            except TimeoutError as error:
+            except RequestsTimeout as error:
                 # Convert any `TimeoutError` to a `InferenceTimeoutError`
                 raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
 

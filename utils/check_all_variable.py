@@ -43,7 +43,7 @@ def parse_all_definition(content: str) -> List[str]:
     """
     Extract the current __all__ contents from file content.
 
-    This is prefered over "from huggingface_hub import __all__ as current_items" to handle
+    This is preferred over "from huggingface_hub import __all__ as current_items" to handle
     case where __all__ is not defined or malformed in the file we want to be able to fix
     such issues rather than crash also, we are interested in the file content.
     """
