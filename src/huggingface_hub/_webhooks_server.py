@@ -151,13 +151,12 @@ class WebhooksServer:
             return self.add_webhook()(path)
 
         # Usage: provide a path. Example: `@app.add_webhook(...)`
-        @wraps(FastAPI.post)
-        def _inner_post(*args, **kwargs):
-            func = args[0]
+        def _inner_post(func: Callable) -> Callable:
             abs_path = f"/webhooks/{(path or func.__name__).strip('/')}"
             if abs_path in self.registered_webhooks:
                 raise ValueError(f"Webhook {abs_path} already exists.")
             self.registered_webhooks[abs_path] = func
+            return func
 
         return _inner_post
 
