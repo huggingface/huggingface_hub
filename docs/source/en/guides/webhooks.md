@@ -43,7 +43,7 @@ webhook = create_webhook(
 )
 ```
 
-The webhook triggers the Job with the webhook payload in the environment variable WEBHOOK_PAYLOAD.
+The webhook triggers the Job with the webhook payload in the environment variable `WEBHOOK_PAYLOAD`.
 For more information on Hugging Face Jobs, available hardware (CPU, GPU) and UV scripts, see the [Jobs documentation](./jobs).
 
 ### Listing Webhooks

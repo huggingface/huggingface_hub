@@ -446,5 +446,5 @@ webhook = create_webhook(
 )
 ```
 
-The webhook triggers the Job with the webhook payload in the environment variable WEBHOOK_PAYLOAD.
+The webhook triggers the Job with the webhook payload in the environment variable `WEBHOOK_PAYLOAD`.
 You can find more information on webhooks in the [Webhooks documentation](./webhooks).
