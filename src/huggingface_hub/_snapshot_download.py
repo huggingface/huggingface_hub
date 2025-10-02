@@ -357,9 +357,9 @@ def snapshot_download(
     # we pass the commit_hash to hf_hub_download
     # so no network call happens if we already
     # have the file locally.
-    def _inner_hf_hub_download(repo_file: str):
+    def _inner_hf_hub_download(repo_file: str) -> None:
         results.append(
-            hf_hub_download(
+            hf_hub_download(  # type: ignore[no-matching-overload] # ty not happy, don't know why :/
                 repo_id,
                 filename=repo_file,
                 repo_type=repo_type,
@@ -394,9 +394,8 @@ def snapshot_download(
         )
 
     if dry_run:
-        # mypy doesn't know that `results` contains only `DryRunFileInfo` when `dry_run=True`
         assert all(isinstance(r, DryRunFileInfo) for r in results)
-        return results
+        return results  # type: ignore[invalid-return-type]
 
     if local_dir is not None:
         return str(os.path.realpath(local_dir))
