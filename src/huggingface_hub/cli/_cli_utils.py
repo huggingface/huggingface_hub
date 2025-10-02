@@ -22,6 +22,7 @@ import typer
 
 from huggingface_hub import __version__
 from huggingface_hub.hf_api import HfApi
+from huggingface_hub.utils import send_telemetry
 
 
 class ANSI:
@@ -89,6 +90,34 @@ class AlphabeticalMixedGroup(typer.core.TyperGroup):
         return sorted(self.commands.keys())
 
 
+def telemetry_callback(ctx: typer.Context):
+    """Send telemetry for each command executed.
+
+    Only the command is logged, not its arguments or options.
+    Telemetry is anonymous (no user information or token is sent).
+    Telemetry can be disabled by setting the `HF_HUB_DISABLE_TELEMETRY` environment variable.
+    """
+    if not (
+        # Typer groups are called in cascade, so we only want to log once the subcommand is actually a command and
+        # not a group.
+        isinstance(ctx.command, click.core.Group)
+        and isinstance(ctx.command.commands.get(ctx.invoked_subcommand), click.core.Group)
+    ):
+        # Read full command path in reverse order to build topic
+        topic_parts = []
+        if ctx.invoked_subcommand:
+            topic_parts.append(ctx.invoked_subcommand)
+        while ctx:
+            if ctx.info_name:
+                topic_parts.append(ctx.info_name)
+            ctx = ctx.parent  # type: ignore
+
+        # e.g. "hf auth list" => "hf/auth/list"
+        #      "hf download openai-community/gpt2" => "hf/download"
+        topic = "/".join(reversed(topic_parts))
+        send_telemetry(topic=topic, library_name="hf", library_version=__version__)
+
+
 def typer_factory(help: str) -> typer.Typer:
     return typer.Typer(
         help=help,
@@ -96,6 +125,7 @@ def typer_factory(help: str) -> typer.Typer:
         rich_markup_mode=None,
         no_args_is_help=True,
         cls=AlphabeticalMixedGroup,
+        callback=telemetry_callback,
     )
 
 
