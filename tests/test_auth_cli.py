@@ -38,6 +38,7 @@ def use_tmp_file_paths():
 @pytest.fixture
 def mock_whoami_api_call():
     MOCK_WHOAMI_RESPONSE = {
+        "name": "test_user",
         "auth": {
             "accessToken": {
                 "displayName": "test_token",
@@ -126,7 +127,7 @@ def test_logout_all_tokens(mock_stored_tokens, caplog: LogCaptureFixture):
     assert_in_logs(caplog, "Successfully logged out from all access tokens")
 
 
-def test_switch_token(mock_stored_tokens, caplog: LogCaptureFixture):
+def test_switch_token(mock_whoami_api_call, mock_stored_tokens, caplog: LogCaptureFixture):
     """Test switching between tokens."""
     caplog.set_level(logging.INFO)
 
