@@ -131,7 +131,6 @@ setup(
     extras_require=extras,
     entry_points={
         "console_scripts": [
-            "huggingface-cli=huggingface_hub.commands.huggingface_cli:main",
             "hf=huggingface_hub.cli.hf:main",
             "tiny-agents=huggingface_hub.inference._mcp.cli:app",
         ],

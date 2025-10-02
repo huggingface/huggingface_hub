@@ -7,9 +7,8 @@ from unittest.mock import Mock, patch
 from InquirerPy.base.control import Choice
 from InquirerPy.separator import Separator
 
-from huggingface_hub.commands.delete_cache import (
+from huggingface_hub.cli.cache import (
     _CANCEL_DELETION_STR,
-    DeleteCacheCommand,
     _ask_for_confirmation_no_tui,
     _get_expectations_str,
     _get_tui_choices_from_scan,
@@ -18,17 +17,15 @@ from huggingface_hub.commands.delete_cache import (
 )
 from huggingface_hub.utils import SoftTemporaryDirectory, capture_output
 
-from .testing_utils import handle_injection
-
 
 class TestDeleteCacheHelpers(unittest.TestCase):
     def test_get_tui_choices_from_scan_empty(self) -> None:
         choices = _get_tui_choices_from_scan(repos={}, preselected=[], sort_by=None)
-        self.assertEqual(len(choices), 1)
-        self.assertIsInstance(choices[0], Choice)
-        self.assertEqual(choices[0].value, _CANCEL_DELETION_STR)
-        self.assertTrue(len(choices[0].name) != 0)  # Something displayed to the user
-        self.assertFalse(choices[0].enabled)
+        assert len(choices) == 1
+        assert isinstance(choices[0], Choice)
+        assert choices[0].value == _CANCEL_DELETION_STR
+        assert len(choices[0].name) != 0  # Something displayed to the user
+        assert not choices[0].enabled
 
     def test_get_tui_choices_from_scan_with_preselection(self) -> None:
         choices = _get_tui_choices_from_scan(
@@ -40,76 +37,72 @@ class TestDeleteCacheHelpers(unittest.TestCase):
             ],
             sort_by=None,  # Don't sort to maintain original order
         )
-        self.assertEqual(len(choices), 8)
+        assert len(choices) == 8
 
         # Item to cancel everything
-        self.assertIsInstance(choices[0], Choice)
-        self.assertEqual(choices[0].value, _CANCEL_DELETION_STR)
-        self.assertTrue(len(choices[0].name) != 0)
-        self.assertFalse(choices[0].enabled)
+        assert isinstance(choices[0], Choice)
+        assert choices[0].value == _CANCEL_DELETION_STR
+        assert len(choices[0].name) != 0
+        assert not choices[0].enabled
 
         # Dataset repo separator
-        self.assertIsInstance(choices[1], Separator)
-        self.assertEqual(choices[1]._line, "\nDataset dummy_dataset (8M, used 2 weeks ago)")
+        assert isinstance(choices[1], Separator)
+        assert choices[1]._line == "\nDataset dummy_dataset (8M, used 2 weeks ago)"
 
         # Only revision of `dummy_dataset`
-        self.assertIsInstance(choices[2], Choice)
-        self.assertEqual(choices[2].value, "dataset_revision_hash_id")
-        self.assertEqual(
-            choices[2].name,
-            # truncated hash id + detached + last modified
-            "dataset_: (detached) # modified 1 day ago",
-        )
-        self.assertTrue(choices[2].enabled)  # preselected
+        assert isinstance(choices[2], Choice)
+        assert choices[2].value == "dataset_revision_hash_id"
+        assert choices[2].name == "dataset_: (detached) # modified 1 day ago"
+        assert choices[2].enabled  # preselected
 
         # Model `dummy_model` separator
-        self.assertIsInstance(choices[3], Separator)
-        self.assertEqual(choices[3]._line, "\nModel dummy_model (1.4K, used 2 years ago)")
+        assert isinstance(choices[3], Separator)
+        assert choices[3]._line == "\nModel dummy_model (1.4K, used 2 years ago)"
 
         # Recent revision of `dummy_model` (appears first due to sorting by last_modified)
-        self.assertIsInstance(choices[4], Choice)
-        self.assertEqual(choices[4].value, "recent_hash_id")
-        self.assertEqual(choices[4].name, "recent_h: main # modified 2 years ago")
-        self.assertFalse(choices[4].enabled)
+        assert isinstance(choices[4], Choice)
+        assert choices[4].value == "recent_hash_id"
+        assert choices[4].name == "recent_h: main # modified 2 years ago"
+        assert not choices[4].enabled
 
         # Oldest revision of `dummy_model`
-        self.assertIsInstance(choices[5], Choice)
-        self.assertEqual(choices[5].value, "older_hash_id")
-        self.assertEqual(choices[5].name, "older_ha: (detached) # modified 3 years ago")
-        self.assertTrue(choices[5].enabled)  # preselected
+        assert isinstance(choices[5], Choice)
+        assert choices[5].value == "older_hash_id"
+        assert choices[5].name == "older_ha: (detached) # modified 3 years ago"
+        assert choices[5].enabled  # preselected
 
         # Model `gpt2` separator
-        self.assertIsInstance(choices[6], Separator)
-        self.assertEqual(choices[6]._line, "\nModel gpt2 (3.6G, used 2 hours ago)")
+        assert isinstance(choices[6], Separator)
+        assert choices[6]._line == "\nModel gpt2 (3.6G, used 2 hours ago)"
 
         # Only revision of `gpt2`
-        self.assertIsInstance(choices[7], Choice)
-        self.assertEqual(choices[7].value, "abcdef123456789")
-        self.assertEqual(choices[7].name, "abcdef12: main, refs/pr/1 # modified 2 years ago")
-        self.assertFalse(choices[7].enabled)
+        assert isinstance(choices[7], Choice)
+        assert choices[7].value == "abcdef123456789"
+        assert choices[7].name == "abcdef12: main, refs/pr/1 # modified 2 years ago"
+        assert not choices[7].enabled
 
     def test_get_tui_choices_from_scan_with_sort_size(self) -> None:
         """Test sorting by size."""
         choices = _get_tui_choices_from_scan(repos=_get_cache_mock().repos, preselected=[], sort_by="size")
 
         # Verify repo order: gpt2 (3.6G) -> dummy_dataset (8M) -> dummy_model (1.4K)
-        self.assertIsInstance(choices[1], Separator)
-        self.assertIn("gpt2", choices[1]._line)
+        assert isinstance(choices[1], Separator)
+        assert "gpt2" in choices[1]._line
 
-        self.assertIsInstance(choices[3], Separator)
-        self.assertIn("dummy_dataset", choices[3]._line)
+        assert isinstance(choices[3], Separator)
+        assert "dummy_dataset" in choices[3]._line
 
-        self.assertIsInstance(choices[5], Separator)
-        self.assertIn("dummy_model", choices[5]._line)
+        assert isinstance(choices[5], Separator)
+        assert "dummy_model" in choices[5]._line
 
     def test_get_expectations_str_on_no_deletion_item(self) -> None:
         """Test `_get_instructions` when `_CANCEL_DELETION_STR` is passed."""
-        self.assertEqual(
+        assert (
             _get_expectations_str(
                 hf_cache_info=Mock(),
                 selected_hashes=["hash_1", _CANCEL_DELETION_STR, "hash_2"],
-            ),
-            "Nothing will be deleted.",
+            )
+            == "Nothing will be deleted."
         )
 
     def test_get_expectations_str_with_selection(self) -> None:
@@ -120,12 +113,12 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         cache_mock = Mock()
         cache_mock.delete_revisions.return_value = strategy_mock
 
-        self.assertEqual(
+        assert (
             _get_expectations_str(
                 hf_cache_info=cache_mock,
                 selected_hashes=["hash_1", "hash_2"],
-            ),
-            "2 revisions selected counting for 5.1M.",
+            )
+            == "2 revisions selected counting for 5.1M."
         )
         cache_mock.delete_revisions.assert_called_once_with("hash_1", "hash_2")
 
@@ -154,19 +147,16 @@ class TestDeleteCacheHelpers(unittest.TestCase):
 
             # Only non-commented lines are returned
             # Order is kept and lines are not de-duplicated
-            self.assertListEqual(
-                _read_manual_review_tmp_file(tmp_path),
-                [
-                    "a_revision_hash",
-                    "a_revision_hash_with_a_comment",
-                    "a_revision_hash_after_spaces",
-                    "a_revision_hash_with_a_comment_after_spaces",
-                    "a_revision_hash",
-                ],
-            )
+            assert _read_manual_review_tmp_file(tmp_path) == [
+                "a_revision_hash",
+                "a_revision_hash_with_a_comment",
+                "a_revision_hash_after_spaces",
+                "a_revision_hash_with_a_comment_after_spaces",
+                "a_revision_hash",
+            ]
 
-    @patch("huggingface_hub.commands.delete_cache.input")
-    @patch("huggingface_hub.commands.delete_cache.mkstemp")
+    @patch("huggingface_hub.cli.cache.input")
+    @patch("huggingface_hub.cli.cache.mkstemp")
     def test_manual_review_no_tui(self, mock_mkstemp: Mock, mock_input: Mock) -> None:
         # Mock file creation so that we know the file location in test
         fd, tmp_path = mkstemp()
@@ -183,16 +173,16 @@ class TestDeleteCacheHelpers(unittest.TestCase):
             self.assertTrue(content.startswith("# INSTRUCTIONS"))
 
             # older_hash_id is not commented
-            self.assertIn("\n    older_hash_id # Refs: (detached)", content)
+            self.assertIn("\n   older_hash_id # Refs: (detached)", content)
             # same for abcdef123456789
-            self.assertIn("\n    abcdef123456789 # Refs: main, refs/pr/1", content)
+            self.assertIn("\n   abcdef123456789 # Refs: main, refs/pr/1", content)
             # dataset revision is not preselected
-            self.assertIn("#    dataset_revision_hash_id", content)
+            self.assertIn("#   dataset_revision_hash_id", content)
             # same for recent_hash_id
-            self.assertIn("#    recent_hash_id", content)
+            self.assertIn("#   recent_hash_id", content)
 
             # Select dataset revision
-            content = content.replace("#    dataset_revision_hash_id", "dataset_revision_hash_id")
+            content = content.replace("#   dataset_revision_hash_id", "dataset_revision_hash_id")
             # Deselect abcdef123456789
             content = content.replace("abcdef123456789", "# abcdef123456789")
             with open(tmp_path, "w") as f:
@@ -206,49 +196,48 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         # Run manual review
         with capture_output() as output:
             selected_hashes = _manual_review_no_tui(
-                hf_cache_info=cache_mock, preselected=["abcdef123456789", "older_hash_id"], sort_by=None
+                hf_cache_info=cache_mock,
+                preselected=["abcdef123456789", "older_hash_id"],
+                sort_by=None,
             )
 
         # Tmp file has been created but is now deleted
         mock_mkstemp.assert_called_once_with(suffix=".txt")
-        self.assertFalse(os.path.isfile(tmp_path))  # now deleted
+        assert not os.path.isfile(tmp_path)  # now deleted
 
         # User changed the selection
-        self.assertListEqual(selected_hashes, ["dataset_revision_hash_id", "older_hash_id"])
+        assert selected_hashes == ["dataset_revision_hash_id", "older_hash_id"]
 
         # Check printed instructions
         printed = output.getvalue()
-        self.assertTrue(printed.startswith("TUI is disabled. In order to"))  # ...
-        self.assertIn(tmp_path, printed)
+        assert printed.startswith("TUI is disabled. In order to")
+        assert str(tmp_path) in printed
 
         # Check input called twice
-        self.assertEqual(mock_input.call_count, 2)
+        assert mock_input.call_count == 2
 
-    @patch("huggingface_hub.commands.delete_cache.input")
+    @patch("huggingface_hub.cli.cache.input")
     def test_ask_for_confirmation_no_tui(self, mock_input: Mock) -> None:
         """Test `_ask_for_confirmation_no_tui`."""
         # Answer yes
         mock_input.side_effect = ("y",)
         value = _ask_for_confirmation_no_tui("custom message 1", default=True)
         mock_input.assert_called_with("custom message 1 (Y/n) ")
-        self.assertTrue(value)
+        assert value
 
         # Answer no
         mock_input.side_effect = ("NO",)
         value = _ask_for_confirmation_no_tui("custom message 2", default=True)
         mock_input.assert_called_with("custom message 2 (Y/n) ")
-        self.assertFalse(value)
+        assert not value
 
         # Answer invalid, then default
         mock_input.side_effect = ("foo", "")
         with capture_output() as output:
             value = _ask_for_confirmation_no_tui("custom message 3", default=False)
         mock_input.assert_called_with("custom message 3 (y/N) ")
-        self.assertFalse(value)
-        self.assertEqual(
-            output.getvalue(),
-            "Invalid input. Must be one of ('y', 'yes', '1', 'n', 'no', '0', '')\n",
-        )
+        assert not value
+        assert output.getvalue() == "Invalid input. Must be one of ('y', 'yes', '1', 'n', 'no', '0', '')\n"
 
     def test_get_tui_choices_from_scan_with_different_sorts(self) -> None:
         """Test different sorting modes."""
@@ -257,185 +246,42 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         # Test size sorting (largest first) - order: gpt2 (3.6G) -> dummy_dataset (8M) -> dummy_model (1.4K)
         size_choices = _get_tui_choices_from_scan(cache_mock.repos, [], sort_by="size")
         # Separators at positions 1, 3, 5
-        self.assertIsInstance(size_choices[1], Separator)
-        self.assertIn("gpt2", size_choices[1]._line)
-        self.assertIsInstance(size_choices[3], Separator)
-        self.assertIn("dummy_dataset", size_choices[3]._line)
-        self.assertIsInstance(size_choices[5], Separator)
-        self.assertIn("dummy_model", size_choices[5]._line)
+        assert isinstance(size_choices[1], Separator)
+        assert "gpt2" in size_choices[1]._line
+        assert isinstance(size_choices[3], Separator)
+        assert "dummy_dataset" in size_choices[3]._line
+        assert isinstance(size_choices[5], Separator)
+        assert "dummy_model" in size_choices[5]._line
 
         # Test alphabetical sorting - order: dummy_dataset -> dummy_model -> gpt2
         alpha_choices = _get_tui_choices_from_scan(cache_mock.repos, [], sort_by="alphabetical")
         # Separators at positions 1, 3, 6 (dummy_model has 2 revisions)
-        self.assertIsInstance(alpha_choices[1], Separator)
-        self.assertIn("dummy_dataset", alpha_choices[1]._line)
-        self.assertIsInstance(alpha_choices[3], Separator)
-        self.assertIn("dummy_model", alpha_choices[3]._line)
-        self.assertIsInstance(alpha_choices[6], Separator)
-        self.assertIn("gpt2", alpha_choices[6]._line)
+        assert isinstance(alpha_choices[1], Separator)
+        assert "dummy_dataset" in alpha_choices[1]._line
+        assert isinstance(alpha_choices[3], Separator)
+        assert "dummy_model" in alpha_choices[3]._line
+        assert isinstance(alpha_choices[6], Separator)
+        assert "gpt2" in alpha_choices[6]._line
 
         # Test lastUpdated sorting - order: dummy_dataset (1 day) -> gpt2 (2 years) -> dummy_model (3 years)
         updated_choices = _get_tui_choices_from_scan(cache_mock.repos, [], sort_by="lastUpdated")
         # Separators at positions 1, 3, 5
-        self.assertIsInstance(updated_choices[1], Separator)
-        self.assertIn("dummy_dataset", updated_choices[1]._line)
-        self.assertIsInstance(updated_choices[3], Separator)
-        self.assertIn("gpt2", updated_choices[3]._line)
-        self.assertIsInstance(updated_choices[5], Separator)
-        self.assertIn("dummy_model", updated_choices[5]._line)
+        assert isinstance(updated_choices[1], Separator)
+        assert "dummy_dataset" in updated_choices[1]._line
+        assert isinstance(updated_choices[3], Separator)
+        assert "gpt2" in updated_choices[3]._line
+        assert isinstance(updated_choices[5], Separator)
+        assert "dummy_model" in updated_choices[5]._line
 
         # Test lastUsed sorting - order: gpt2 (2h) -> dummy_dataset (2w) -> dummy_model (2y)
         used_choices = _get_tui_choices_from_scan(cache_mock.repos, [], sort_by="lastUsed")
         # Separators at positions 1, 3, 5
-        self.assertIsInstance(used_choices[1], Separator)
-        self.assertIn("gpt2", used_choices[1]._line)
-        self.assertIsInstance(used_choices[3], Separator)
-        self.assertIn("dummy_dataset", used_choices[3]._line)
-        self.assertIsInstance(used_choices[5], Separator)
-        self.assertIn("dummy_model", used_choices[5]._line)
-
-
-@patch("huggingface_hub.commands.delete_cache._ask_for_confirmation_no_tui")
-@patch("huggingface_hub.commands.delete_cache._get_expectations_str")
-@patch("huggingface_hub.commands.delete_cache.inquirer.confirm")
-@patch("huggingface_hub.commands.delete_cache._manual_review_tui")
-@patch("huggingface_hub.commands.delete_cache._manual_review_no_tui")
-@patch("huggingface_hub.commands.delete_cache.scan_cache_dir")
-@handle_injection
-class TestMockedDeleteCacheCommand(unittest.TestCase):
-    """Test case with a patched `DeleteCacheCommand` to test `.run()` without testing
-    the manual review.
-    """
-
-    args: Mock
-    command: DeleteCacheCommand
-
-    def setUp(self) -> None:
-        self.args = Mock()
-        self.args.sort = None
-        self.command = DeleteCacheCommand(self.args)
-
-    def test_run_and_delete_with_tui(
-        self,
-        mock_scan_cache_dir: Mock,
-        mock__manual_review_tui: Mock,
-        mock__get_expectations_str: Mock,
-        mock_confirm: Mock,
-    ) -> None:
-        """Test command run with a mocked manual review step."""
-        # Mock return values
-        mock__manual_review_tui.return_value = ["hash_1", "hash_2"]
-        mock__get_expectations_str.return_value = "Will delete A and B."
-        mock_confirm.return_value.execute.return_value = True
-        mock_scan_cache_dir.return_value = _get_cache_mock()
-
-        # Run
-        self.command.disable_tui = False
-        with capture_output() as output:
-            self.command.run()
-
-        # Step 1: scan
-        mock_scan_cache_dir.assert_called_once_with(self.args.dir)
-        cache_mock = mock_scan_cache_dir.return_value
-
-        # Step 2: manual review
-        mock__manual_review_tui.assert_called_once_with(cache_mock, preselected=[], sort_by=None)
-
-        # Step 3: ask confirmation
-        mock__get_expectations_str.assert_called_once_with(cache_mock, ["hash_1", "hash_2"])
-        mock_confirm.assert_called_once_with("Will delete A and B. Confirm deletion ?", default=True)
-        mock_confirm().execute.assert_called_once_with()
-
-        # Step 4: delete
-        cache_mock.delete_revisions.assert_called_once_with("hash_1", "hash_2")
-        strategy_mock = cache_mock.delete_revisions.return_value
-        strategy_mock.execute.assert_called_once_with()
-
-        # Check output
-        assert "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n" in output.getvalue()
-
-    def test_run_nothing_selected_with_tui(self, mock__manual_review_tui: Mock) -> None:
-        """Test command run but nothing is selected in manual review."""
-        # Mock return value
-        mock__manual_review_tui.return_value = []
-
-        # Run
-        self.command.disable_tui = False
-        with capture_output() as output:
-            self.command.run()
-
-        # Check output
-        assert "Deletion is cancelled. Do nothing.\n" in output.getvalue()
-
-    def test_run_stuff_selected_but_cancel_item_as_well_with_tui(self, mock__manual_review_tui: Mock) -> None:
-        """Test command run when some are selected but "cancel item" as well."""
-        # Mock return value
-        mock__manual_review_tui.return_value = [
-            "hash_1",
-            "hash_2",
-            _CANCEL_DELETION_STR,
-        ]
-
-        # Run
-        self.command.disable_tui = False
-        with capture_output() as output:
-            self.command.run()
-
-        # Check output
-        assert "Deletion is cancelled. Do nothing.\n" in output.getvalue()
-
-    def test_run_and_delete_no_tui(
-        self,
-        mock_scan_cache_dir: Mock,
-        mock__manual_review_no_tui: Mock,
-        mock__get_expectations_str: Mock,
-        mock__ask_for_confirmation_no_tui: Mock,
-    ) -> None:
-        """Test command run with a mocked manual review step."""
-        # Mock return values
-        mock__manual_review_no_tui.return_value = ["hash_1", "hash_2"]
-        mock__get_expectations_str.return_value = "Will delete A and B."
-        mock__ask_for_confirmation_no_tui.return_value.return_value = True
-        mock_scan_cache_dir.return_value = _get_cache_mock()
-
-        # Run
-        self.command.disable_tui = True
-        with capture_output() as output:
-            self.command.run()
-
-        # Step 1: scan
-        mock_scan_cache_dir.assert_called_once_with(self.args.dir)
-        cache_mock = mock_scan_cache_dir.return_value
-
-        # Step 2: manual review
-        mock__manual_review_no_tui.assert_called_once_with(cache_mock, preselected=[], sort_by=None)
-
-        # Step 3: ask confirmation
-        mock__get_expectations_str.assert_called_once_with(cache_mock, ["hash_1", "hash_2"])
-        mock__ask_for_confirmation_no_tui.assert_called_once_with("Will delete A and B. Confirm deletion ?")
-
-        # Step 4: delete
-        cache_mock.delete_revisions.assert_called_once_with("hash_1", "hash_2")
-        strategy_mock = cache_mock.delete_revisions.return_value
-        strategy_mock.execute.assert_called_once_with()
-
-        # Check output
-        assert "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n" in output.getvalue()
-
-    def test_run_with_sorting(self):
-        """Test command run with sorting enabled."""
-        self.args.sort = "size"
-        self.command = DeleteCacheCommand(self.args)
-
-        mock_scan_cache_dir = Mock()
-        mock_scan_cache_dir.return_value = _get_cache_mock()
-
-        with patch("huggingface_hub.commands.delete_cache.scan_cache_dir", mock_scan_cache_dir):
-            with patch("huggingface_hub.commands.delete_cache._manual_review_tui") as mock_review:
-                self.command.disable_tui = False
-                self.command.run()
-
-                mock_review.assert_called_once_with(mock_scan_cache_dir.return_value, preselected=[], sort_by="size")
+        assert isinstance(used_choices[1], Separator)
+        assert "gpt2" in used_choices[1]._line
+        assert isinstance(used_choices[3], Separator)
+        assert "dummy_dataset" in used_choices[3]._line
+        assert isinstance(used_choices[5], Separator)
+        assert "dummy_model" in used_choices[5]._line
 
 
 def _get_cache_mock() -> Mock:
