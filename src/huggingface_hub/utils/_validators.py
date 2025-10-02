@@ -158,8 +158,8 @@ def validate_repo_id(repo_id: str) -> None:
 
     if not REPO_ID_REGEX.match(repo_id):
         raise HFValidationError(
-            "Repo id must use alphanumeric chars or '-', '_', '.', '--' and '..' are"
-            " forbidden, '-' and '.' cannot start or end the name, max length is 96:"
+            "Repo id must use alphanumeric chars, '-', '_' or '.'."
+            " The name cannot start or end with '-' or '.' and the maximum length is 96:"
             f" '{repo_id}'."
         )
 
