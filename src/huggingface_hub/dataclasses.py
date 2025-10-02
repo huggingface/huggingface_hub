@@ -288,7 +288,7 @@ def validate_typed_dict(schema: type[TypedDictType], data: dict) -> None:
 
 
 @lru_cache
-def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type[T]:
+def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type:
     # Extract type hints from the TypedDict class
     type_hints = {
         # We do not use `get_type_hints` here to avoid evaluating ForwardRefs (which might fail).
