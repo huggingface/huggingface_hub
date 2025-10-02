@@ -72,8 +72,33 @@ def snapshot_download(
     tqdm_class: Optional[type[base_tqdm]] = None,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
-    dry_run: Literal[True],
+    dry_run: Literal[True] = True,
 ) -> List[DryRunFileInfo]: ...
+
+
+@overload
+def snapshot_download(
+    repo_id: str,
+    *,
+    repo_type: Optional[str] = None,
+    revision: Optional[str] = None,
+    cache_dir: Union[str, Path, None] = None,
+    local_dir: Union[str, Path, None] = None,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    user_agent: Optional[Union[dict, str]] = None,
+    etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+    force_download: bool = False,
+    token: Optional[Union[bool, str]] = None,
+    local_files_only: bool = False,
+    allow_patterns: Optional[Union[list[str], str]] = None,
+    ignore_patterns: Optional[Union[list[str], str]] = None,
+    max_workers: int = 8,
+    tqdm_class: Optional[type[base_tqdm]] = None,
+    headers: Optional[dict[str, str]] = None,
+    endpoint: Optional[str] = None,
+    dry_run: bool = False,
+) -> Union[str, List[DryRunFileInfo]]: ...
 
 
 @validate_hf_hub_args
@@ -395,7 +420,7 @@ def snapshot_download(
 
     if dry_run:
         assert all(isinstance(r, DryRunFileInfo) for r in results)
-        return results  # type: ignore[invalid-return-type]
+        return results  # type: ignore
 
     if local_dir is not None:
         return str(os.path.realpath(local_dir))

@@ -833,8 +833,31 @@ def hf_hub_download(
     local_files_only: bool = False,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
-    dry_run: Literal[True],
+    dry_run: Literal[True] = True,
 ) -> DryRunFileInfo: ...
+
+
+@overload
+def hf_hub_download(
+    repo_id: str,
+    filename: str,
+    *,
+    subfolder: Optional[str] = None,
+    repo_type: Optional[str] = None,
+    revision: Optional[str] = None,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    cache_dir: Union[str, Path, None] = None,
+    local_dir: Union[str, Path, None] = None,
+    user_agent: Union[dict, str, None] = None,
+    force_download: bool = False,
+    etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+    token: Union[bool, str, None] = None,
+    local_files_only: bool = False,
+    headers: Optional[dict[str, str]] = None,
+    endpoint: Optional[str] = None,
+    dry_run: bool = False,
+) -> Union[str, DryRunFileInfo]: ...
 
 
 @validate_hf_hub_args

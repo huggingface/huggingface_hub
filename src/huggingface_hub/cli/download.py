@@ -173,7 +173,7 @@ def download(
             f"[dry-run] Will download {len([r for r in result if r.will_download])} files (out of {len(result)}) totalling {_format_size(sum(r.file_size for r in result if r.will_download))}."
         )
         columns = ["File", "Bytes to download"]
-        items = []
+        items: list[list[Union[str, int]]] = []
         for info in sorted(result, key=lambda x: x.filename):
             items.append([info.filename, _format_size(info.file_size) if info.will_download else "-"])
         print(tabulate(items, headers=columns))
