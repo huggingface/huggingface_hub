@@ -80,7 +80,7 @@ class TestLogin:
                     "role": "write",
                     "createdAt": "2024-01-01T00:00:00.000Z",
                 }
-            }
+            },
         },
     )
     def test_login_success(self, mock_whoami):

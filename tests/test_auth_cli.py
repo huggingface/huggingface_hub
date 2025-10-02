@@ -45,7 +45,7 @@ def mock_whoami_api_call():
                 "role": "write",
                 "createdAt": "2024-01-01T00:00:00.000Z",
             }
-        }
+        },
     }
     with patch("huggingface_hub.hf_api.whoami", return_value=MOCK_WHOAMI_RESPONSE):
         yield
