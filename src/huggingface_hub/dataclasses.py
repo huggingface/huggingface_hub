@@ -1,7 +1,20 @@
 import inspect
-from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields
-from functools import wraps
-from typing import Any, Callable, ForwardRef, Literal, Optional, Type, TypeVar, Union, get_args, get_origin, overload
+from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields, make_dataclass
+from functools import lru_cache, wraps
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    ForwardRef,
+    Literal,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+    overload,
+)
 
 from .errors import (
     StrictDataclassClassValidationError,
@@ -12,6 +25,7 @@ from .errors import (
 
 Validator_T = Callable[[Any], None]
 T = TypeVar("T")
+TypedDictType = TypeVar("TypedDictType", bound=dict[str, Any])
 
 
 # The overload decorator helps type checkers understand the different return types
@@ -221,6 +235,79 @@ def strict(
 
     # Return wrapped class or the decorator itself
     return wrap(cls) if cls is not None else wrap
+
+
+def validate_typed_dict(schema: type[TypedDictType], data: dict) -> None:
+    """
+    Validate that a dictionary conforms to the types defined in a TypedDict class.
+
+    Under the hood, the typed dict is converted to a strict dataclass and validated using the `@strict` decorator.
+
+    Args:
+        schema (`type[TypedDictType]`):
+            The TypedDict class defining the expected structure and types.
+        data (`dict`):
+            The dictionary to validate.
+
+    Raises:
+        `StrictDataclassFieldValidationError`:
+            If any field in the dictionary does not conform to the expected type.
+
+    Example:
+    ```py
+    >>> from typing import Annotated, TypedDict
+    >>> from huggingface_hub.dataclasses import validate_typed_dict
+
+    >>> def positive_int(value: int):
+    ...     if not value >= 0:
+    ...         raise ValueError(f"Value must be positive, got {value}")
+
+    >>> class User(TypedDict):
+    ...     name: str
+    ...     age: Annotated[int, positive_int]
+
+    >>> # Valid data
+    >>> validate_typed_dict(User, {"name": "John", "age": 30})
+
+    >>> # Invalid type for age
+    >>> validate_typed_dict(User, {"name": "John", "age": "30"})
+    huggingface_hub.errors.StrictDataclassFieldValidationError: Validation error for field 'age':
+        TypeError: Field 'age' expected int, got str (value: '30')
+
+    >>> # Invalid value for age
+    >>> validate_typed_dict(User, {"name": "John", "age": -1})
+    huggingface_hub.errors.StrictDataclassFieldValidationError: Validation error for field 'age':
+        ValueError: Value must be positive, got -1
+    ```
+    """
+    # Convert typed dict to dataclass
+    strict_cls = _build_strict_cls_from_typed_dict(schema)
+
+    # Validate the data by instantiating the strict dataclass
+    strict_cls(**data)  # will raise if validation fails
+
+
+@lru_cache
+def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type[T]:
+    # Extract type hints from the TypedDict class
+    type_hints = {
+        # We do not use `get_type_hints` here to avoid evaluating ForwardRefs (which might fail).
+        # ForwardRefs are not validated by @strict anyway.
+        name: value if value is not None else type(None)
+        for name, value in schema.__dict__.get("__annotations__", {}).items()
+    }
+
+    # Convert type hints to dataclass fields
+    fields = []
+    for key, value in type_hints.items():
+        if get_origin(value) is Annotated:
+            base, *meta = get_args(value)
+            fields.append((key, base, field(default=None, metadata={"validator": meta[0]})))
+        else:
+            fields.append((key, value, field(default=None)))
+
+    # Create a strict dataclass from the TypedDict fields
+    return strict(make_dataclass(schema.__name__, fields))
 
 
 def validated_field(
@@ -461,6 +548,7 @@ _BASIC_TYPE_VALIDATORS = {
 
 __all__ = [
     "strict",
+    "validate_typed_dict",
     "validated_field",
     "Validator_T",
     "StrictDataclassClassValidationError",
