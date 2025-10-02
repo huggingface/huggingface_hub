@@ -1,1 +1,0 @@
-git+https://github.com/UKPLab/sentence-transformers.git#egg=sentence-transformers
