@@ -182,11 +182,15 @@ def auth_switch(token_name: str, add_to_git_credential: bool = False) -> None:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
             If the access token name is not found.
     """
+    from .hf_api import whoami  # avoid circular import
+
     token = _get_token_by_name(token_name)
     if not token:
         raise ValueError(f"Access token {token_name} not found in {constants.HF_STORED_TOKENS_PATH}")
     # Write token to HF_TOKEN_PATH
-    _set_active_token(token_name, add_to_git_credential)
+    token_info = whoami(token)
+    user_name = token_info["name"]
+    _set_active_token(token_name, add_to_git_credential, user_name)
     logger.info(f"The current active token is: {token_name}")
     token_from_environment = _get_token_from_environment()
     if token_from_environment is not None and token_from_environment != token:
@@ -403,7 +407,8 @@ def _login(
     # Store token locally
     _save_token(token=token, token_name=token_name)
     # Set active token
-    _set_active_token(token_name=token_name, add_to_git_credential=add_to_git_credential)
+    user_name = token_info["name"]
+    _set_active_token(token_name=token_name, add_to_git_credential=add_to_git_credential, user_name=user_name)
     logger.info("Login successful.")
     if _get_token_from_environment():
         logger.warning(
@@ -439,19 +444,24 @@ def _logout_from_token(token_name: str) -> None:
 def _set_active_token(
     token_name: str,
     add_to_git_credential: bool,
+    user_name: str,
 ) -> None:
     """Set the active access token.
 
     Args:
         token_name (`str`):
             The name of the token to set as active.
+        add_to_git_credential (`bool`):
+            If `True`, token will also be set as git credential.
+        user_name (`str`):
+            The user name associated to the token.
     """
     token = _get_token_by_name(token_name)
     if not token:
         raise ValueError(f"Token {token_name} not found in {constants.HF_STORED_TOKENS_PATH}")
     if add_to_git_credential:
         if _is_git_credential_helper_configured():
-            set_git_credential(token)
+            set_git_credential(token, user_name)
             logger.info(
                 "Your token has been saved in your configured git credential helpers"
                 + f" ({','.join(list_credential_helpers())})."
