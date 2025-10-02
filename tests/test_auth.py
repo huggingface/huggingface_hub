@@ -60,19 +60,20 @@ class TestSaveToken:
 class TestSetActiveToken:
     def test_set_active_token_success(self):
         _save_token(TOKEN, "test_token")
-        _set_active_token("test_token", add_to_git_credential=False)
+        _set_active_token("test_token", add_to_git_credential=False, user_name="test_user")
         assert _get_token_from_file() == TOKEN
 
     def test_set_active_token_non_existent(self):
         non_existent_token = "non_existent"
         with pytest.raises(ValueError, match="Token non_existent not found in .*"):
-            _set_active_token(non_existent_token, add_to_git_credential=False)
+            _set_active_token(non_existent_token, add_to_git_credential=False, user_name="non_existent_test_user")
 
 
 class TestLogin:
     @patch(
         "huggingface_hub.hf_api.whoami",
         return_value={
+            "name": "test_user",
             "auth": {
                 "accessToken": {
                     "displayName": "test_token",
@@ -92,7 +93,7 @@ class TestLogin:
 class TestLogout:
     def test_logout_deletes_files(self):
         _save_token(TOKEN, "test_token")
-        _set_active_token("test_token", add_to_git_credential=False)
+        _set_active_token("test_token", add_to_git_credential=False, user_name="test_user")
 
         assert os.path.exists(constants.HF_TOKEN_PATH)
         assert os.path.exists(constants.HF_STORED_TOKENS_PATH)
@@ -117,7 +118,7 @@ class TestLogout:
 
     def test_logout_active_token(self):
         _save_token(TOKEN, "active_token")
-        _set_active_token("active_token", add_to_git_credential=False)
+        _set_active_token("active_token", add_to_git_credential=False, user_name="active_test_user")
 
         logout("active_token")
 
@@ -133,7 +134,7 @@ class TestAuthSwitch:
         _save_token(TOKEN, "test_token_1")
         _save_token(OTHER_TOKEN, "test_token_2")
         # Set `test_token_1` as the active token
-        _set_active_token("test_token_1", add_to_git_credential=False)
+        _set_active_token("test_token_1", add_to_git_credential=False, user_name="test_user_1")
 
         # Switch to `test_token_2`
         auth_switch("test_token_2", add_to_git_credential=False)
