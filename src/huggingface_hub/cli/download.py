@@ -174,7 +174,7 @@ def download(
         )
         columns = ["File", "Bytes to download"]
         items = []
-        for info in result:
+        for info in sorted(result, key=lambda x: x.filename):
             items.append([info.filename, _format_size(info.file_size) if info.will_download else "-"])
         print(tabulate(items, headers=columns))
 
