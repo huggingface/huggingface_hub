@@ -160,6 +160,10 @@ class HFValidationError(ValueError):
 # FILE METADATA ERRORS
 
 
+class DryRunError(OSError):
+    """Error triggered when a dry run is requested but cannot be performed (e.g. invalid repo)."""
+
+
 class FileMetadataError(OSError):
     """Error triggered when the metadata of a file on the Hub cannot be retrieved (missing ETag or commit_hash).
 

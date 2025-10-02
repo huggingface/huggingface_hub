@@ -158,6 +158,89 @@ Fetching 2 files: 100%|███████████████████
 
 For more details about the CLI download command, please refer to the [CLI guide](./cli#hf-download).
 
+## Dry-run mode
+
+In some cases, you would like to check which files would be downloaded before actually downloading them. You can check this using the `--dry-run` parameter. It lists all files to download on the repo and checks whether they are already downloaded or not. This gives an idea of how many files have to be downloaded and their sizes.
+
+Here is an example, checking on a single file:
+
+```sh
+>>> hf download openai-community/gpt2 onnx/decoder_model_merged.onnx --dry-run
+[dry-run] Will download 1 files (out of 1) totalling 655.2M
+File                           Bytes to download
+------------------------------ -----------------
+onnx/decoder_model_merged.onnx 655.2M
+```
+
+And if the file is already cached:
+
+```sh
+>>> hf download openai-community/gpt2 onnx/decoder_model_merged.onnx --dry-run
+[dry-run] Will download 0 files (out of 1) totalling 0.0.
+File                           Bytes to download
+------------------------------ -----------------
+onnx/decoder_model_merged.onnx -
+```
+
+You can also execute a dry-run on an entire repository:
+
+```sh
+>>> hf download openai-community/gpt2 --dry-run
+[dry-run] Fetching 26 files: 100%|█████████████| 26/26 [00:04<00:00,  6.26it/s]
+[dry-run] Will download 11 files (out of 26) totalling 5.6G.
+File                              Bytes to download
+--------------------------------- -----------------
+.gitattributes                    -
+64-8bits.tflite                   125.2M
+64-fp16.tflite                    248.3M
+64.tflite                         495.8M
+README.md                         -
+config.json                       -
+flax_model.msgpack                497.8M
+generation_config.json            -
+merges.txt                        -
+model.safetensors                 548.1M
+onnx/config.json                  -
+onnx/decoder_model.onnx           653.7M
+onnx/decoder_model_merged.onnx    655.2M
+onnx/decoder_with_past_model.onnx 653.7M
+onnx/generation_config.json       -
+onnx/merges.txt                   -
+onnx/special_tokens_map.json      -
+onnx/tokenizer.json               -
+onnx/tokenizer_config.json        -
+onnx/vocab.json                   -
+pytorch_model.bin                 548.1M
+rust_model.ot                     702.5M
+tf_model.h5                       497.9M
+tokenizer.json                    -
+tokenizer_config.json             -
+vocab.json                        -
+```
+
+And with files filtering:
+
+```sh
+>>> hf download openai-community/gpt2 --include "*.json"  --dry-run
+[dry-run] Fetching 11 files: 100%|█████████████| 11/11 [00:00<00:00, 80518.92it/s]
+[dry-run] Will download 0 files (out of 11) totalling 0.0.
+File                         Bytes to download
+---------------------------- -----------------
+config.json                  -
+generation_config.json       -
+onnx/config.json             -
+onnx/generation_config.json  -
+onnx/special_tokens_map.json -
+onnx/tokenizer.json          -
+onnx/tokenizer_config.json   -
+onnx/vocab.json              -
+tokenizer.json               -
+tokenizer_config.json        -
+vocab.json                   -
+```
+
+Finally, you can also make a dry-run programmatically by passing `dry_run=True` to [`hf_hub_download`] and [`snapshot_download`]. It will return a [`DryRunFileInfo`] (respectively a list of [`DryRunFileInfo`]) with for each file, their commit hash, file name and file size, whether the file is cached and whether the file would be downloaded. In practice, the file will be downloaded if not cached or if `force_download=True` is passed.
+
 ## Faster downloads
 
 There are two options to speed up downloads. Both involve installing a Python package written in Rust.

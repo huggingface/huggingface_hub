@@ -232,7 +232,7 @@ def close_session() -> None:
     """
     Close the global `httpx.Client` used by `huggingface_hub`.
 
-    If a Client is closed, it will be recreated on the next call to [`get_client`].
+    If a Client is closed, it will be recreated on the next call to [`get_session`].
 
     Can be useful if e.g. an SSL certificate has been updated.
     """

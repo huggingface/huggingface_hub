@@ -138,6 +138,7 @@ _SUBMOD_ATTRS = {
         "push_to_hub_fastai",
     ],
     "file_download": [
+        "DryRunFileInfo",
         "HfFileMetadata",
         "_CACHED_NO_EXIST",
         "get_hf_file_metadata",
@@ -625,6 +626,7 @@ __all__ = [
     "DocumentQuestionAnsweringInputData",
     "DocumentQuestionAnsweringOutputElement",
     "DocumentQuestionAnsweringParameters",
+    "DryRunFileInfo",
     "EvalResult",
     "FLAX_WEIGHTS_NAME",
     "FeatureExtractionInput",
@@ -1147,6 +1149,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .file_download import (
         _CACHED_NO_EXIST,  # noqa: F401
+        DryRunFileInfo,  # noqa: F401
         HfFileMetadata,  # noqa: F401
         get_hf_file_metadata,  # noqa: F401
         hf_hub_download,  # noqa: F401

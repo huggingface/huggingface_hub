@@ -612,6 +612,7 @@ class TestDownloadImpl:
             token=None,
             local_dir=None,
             library_name="hf",
+            dry_run=False,
         )
         mock_snapshot.assert_not_called()
 
@@ -642,6 +643,7 @@ class TestDownloadImpl:
             local_dir=None,
             library_name="hf",
             max_workers=4,
+            dry_run=False,
         )
 
     @patch("huggingface_hub.cli.download.snapshot_download")
@@ -668,6 +670,7 @@ class TestDownloadImpl:
             local_dir=None,
             library_name="hf",
             max_workers=8,
+            dry_run=False,
         )
 
     @patch("huggingface_hub.cli.download.snapshot_download")
@@ -703,6 +706,7 @@ class TestDownloadImpl:
             local_dir=None,
             library_name="hf",
             max_workers=8,
+            dry_run=False,
         )
 
 

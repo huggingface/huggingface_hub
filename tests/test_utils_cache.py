@@ -10,19 +10,10 @@ import pytest
 
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
-from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, capture_output, scan_cache_dir
-from huggingface_hub.utils._cache_manager import (
-    CacheNotFound,
-    _format_size,
-    _format_timesince,
-    _try_delete_path,
-)
+from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, _format_size, capture_output, scan_cache_dir
+from huggingface_hub.utils._cache_manager import CacheNotFound, _format_timesince, _try_delete_path
 
-from .testing_utils import (
-    rmtree_with_retry,
-    with_production_testing,
-    xfail_on_windows,
-)
+from .testing_utils import rmtree_with_retry, with_production_testing, xfail_on_windows
 
 
 # On production server to avoid recreating them all the time

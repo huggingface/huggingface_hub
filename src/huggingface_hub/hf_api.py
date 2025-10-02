@@ -79,7 +79,7 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
+from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
@@ -5115,6 +5115,42 @@ class HfApi:
             endpoint=self.endpoint,
         )
 
+    @overload
+    def hf_hub_download(
+        self,
+        repo_id: str,
+        filename: str,
+        *,
+        subfolder: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        force_download: bool = False,
+        etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+        token: Union[bool, str, None] = None,
+        local_files_only: bool = False,
+        dry_run: Literal[False] = False,
+    ) -> str: ...
+
+    @overload
+    def hf_hub_download(
+        self,
+        repo_id: str,
+        filename: str,
+        *,
+        subfolder: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        force_download: bool = False,
+        etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+        token: Union[bool, str, None] = None,
+        local_files_only: bool = False,
+        dry_run: Literal[True],
+    ) -> DryRunFileInfo: ...
+
     @validate_hf_hub_args
     def hf_hub_download(
         self,
@@ -5130,7 +5166,8 @@ class HfApi:
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         token: Union[bool, str, None] = None,
         local_files_only: bool = False,
-    ) -> str:
+        dry_run: bool = False,
+    ) -> Union[str, DryRunFileInfo]:
         """Download a given file if it's not already present in the local cache.
 
         The new cache file layout looks like this:
@@ -5197,9 +5234,14 @@ class HfApi:
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the
                 local cached file if it exists.
+            dry_run (`bool`, *optional*, defaults to `False`):
+                If `True`, perform a dry run without actually downloading the file. Returns a
+                [`DryRunFileInfo`] object containing information about what would be downloaded.
 
         Returns:
-            `str`: Local path of file or if networking is off, last version of file cached on disk.
+            `str` or [`DryRunFileInfo`]:
+                - If `dry_run=False`: Local path of file or if networking is off, last version of file cached on disk.
+                - If `dry_run=True`: A [`DryRunFileInfo`] object containing download information.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]
