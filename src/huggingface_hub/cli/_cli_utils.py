@@ -101,7 +101,7 @@ def telemetry_callback(ctx: typer.Context):
         # Typer groups are called in cascade, so we only want to log once the subcommand is actually a command and
         # not a group.
         isinstance(ctx.command, click.core.Group)
-        and isinstance(ctx.command.commands.get(ctx.invoked_subcommand), click.core.Group)
+        and isinstance(ctx.command.commands.get(ctx.invoked_subcommand), click.core.Group)  # type: ignore
     ):
         # Read full command path in reverse order to build topic
         topic_parts = []
