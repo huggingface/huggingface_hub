@@ -61,6 +61,9 @@ from .testing_utils import with_production_testing
 
 # Avoid calling APIs in VCRed tests
 _RECOMMENDED_MODELS_FOR_VCR = {
+    "baseten": {
+        "conversational": "moonshotai/Kimi-K2-Instruct-0905",
+    },
     "black-forest-labs": {
         "text-to-image": "black-forest-labs/FLUX.1-dev",
     },
