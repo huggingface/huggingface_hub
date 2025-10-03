@@ -7,6 +7,7 @@ from huggingface_hub.inference._providers.featherless_ai import (
 from huggingface_hub.utils import logging
 
 from ._common import TaskProviderHelper, _fetch_inference_provider_mapping
+from .baseten import BasetenConversationalTask
 from .black_forest_labs import BlackForestLabsTextToImageTask
 from .cerebras import CerebrasConversationalTask
 from .cohere import CohereConversationalTask
@@ -48,6 +49,7 @@ logger = logging.get_logger(__name__)
 
 
 PROVIDER_T = Literal[
+    "baseten",
     "black-forest-labs",
     "cerebras",
     "cohere",
@@ -72,6 +74,9 @@ PROVIDER_T = Literal[
 PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
 
 PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
+     "baseten": {
+        "conversational": BasetenConversationalTask(),
+    },
     "black-forest-labs": {
         "text-to-image": BlackForestLabsTextToImageTask(),
     },
