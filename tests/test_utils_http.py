@@ -329,3 +329,32 @@ def test_adjust_range_header():
         _adjust_range_header("bytes=0-100", 150)
     with pytest.raises(RuntimeError):
         _adjust_range_header("bytes=-50", 100)
+
+
+def test_proxy_env_is_used(monkeypatch):
+    """Regression test for https://github.com/huggingface/transformers/issues/41301.
+
+    Test is hacky and uses httpx internal attributes, but it works.
+    We just need to test that proxies from env vars are used when creating the client.
+    """
+    monkeypatch.setenv("HTTP_PROXY", "http://proxy.example1.com:8080")
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example2.com:8181")
+
+    client = get_session()
+    mounts = client._mounts
+    url_patterns = list(mounts.keys())
+    assert len(url_patterns) == 2  # http and https
+
+    http_url_pattern = next(url for url in url_patterns if url.pattern == "http://")
+    http_proxy_url = mounts[http_url_pattern]._pool._proxy_url
+    assert http_proxy_url.scheme == b"http"
+    assert http_proxy_url.host == b"proxy.example1.com"
+    assert http_proxy_url.port == 8080
+    assert http_proxy_url.target == b"/"
+
+    https_url_pattern = next(url for url in url_patterns if url.pattern == "https://")
+    https_proxy_url = mounts[https_url_pattern]._pool._proxy_url
+    assert https_proxy_url.scheme == b"http"
+    assert https_proxy_url.host == b"proxy.example2.com"
+    assert https_proxy_url.port == 8181
+    assert https_proxy_url.target == b"/"
