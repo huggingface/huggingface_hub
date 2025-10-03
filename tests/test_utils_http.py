@@ -14,7 +14,6 @@ from httpx import ConnectTimeout, HTTPError
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.errors import OfflineModeIsEnabled
 from huggingface_hub.utils._http import (
-    HfHubTransport,
     _adjust_range_header,
     default_client_factory,
     fix_hf_endpoint_in_url,
@@ -170,8 +169,6 @@ class TestConfigureSession(unittest.TestCase):
         # Check httpx.Client default configuration
         self.assertTrue(client.follow_redirects)
         self.assertIsNotNone(client.timeout)
-        # Check that it's using the HfHubTransport
-        self.assertIsInstance(client._transport, HfHubTransport)
 
     def test_set_configuration(self) -> None:
         set_client_factory(self._factory)
