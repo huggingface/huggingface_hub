@@ -33,7 +33,7 @@ class ImageToImageParameters(BaseInferenceType):
     prompt: Optional[str] = None
     """The text prompt to guide the image generation."""
     target_size: Optional[ImageToImageTargetSize] = None
-    """The size in pixel of the output image. This parameter is only supported by some providers and for specific models. It will be ignored when unsupported."""
+    """The size in pixel of the output image."""
 
 
 @dataclass_with_extra
