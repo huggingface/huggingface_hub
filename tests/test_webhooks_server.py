@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from unittest.mock import patch
 
@@ -146,6 +147,15 @@ class TestWebhooksServerDontRun(unittest.TestCase):
 
         self.assertIn("/webhooks/handler", app.registered_webhooks)
         self.assertIs(handler, app.registered_webhooks["/webhooks/handler"])
+
+    def test_add_webhook_decorator_returns_callable(self):
+        app = WebhooksServer()
+
+        @app.add_webhook
+        async def handler():
+            return "ok"
+
+        self.assertEqual(asyncio.run(handler()), "ok")
 
     def test_add_webhook_explicit_path(self):
         # Test adding a webhook
