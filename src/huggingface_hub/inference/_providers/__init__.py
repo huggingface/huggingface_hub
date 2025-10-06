@@ -74,7 +74,7 @@ PROVIDER_T = Literal[
 PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
 
 PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
-     "baseten": {
+    "baseten": {
         "conversational": BasetenConversationalTask(),
     },
     "black-forest-labs": {
