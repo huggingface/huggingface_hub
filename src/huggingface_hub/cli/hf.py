@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from huggingface_hub.cli._cli_utils import typer_factory
+from huggingface_hub.cli._cli_utils import check_cli_update, typer_factory
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.download import download
@@ -52,6 +52,7 @@ app.add_typer(jobs_cli, name="jobs")
 
 def main():
     logging.set_verbosity_info()
+    check_cli_update()
     app()
 
 

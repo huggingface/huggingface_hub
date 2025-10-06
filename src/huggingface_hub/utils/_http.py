@@ -744,9 +744,9 @@ def _curlify(request: httpx.Request) -> str:
     flat_parts = []
     for k, v in parts:
         if k:
-            flat_parts.append(quote(k))
+            flat_parts.append(quote(str(k)))
         if v:
-            flat_parts.append(quote(v))
+            flat_parts.append(quote(str(v)))
 
     return " ".join(flat_parts)
 

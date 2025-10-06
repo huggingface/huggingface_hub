@@ -86,6 +86,7 @@ from ._runtime import (
     get_tensorboard_version,
     get_tf_version,
     get_torch_version,
+    installation_method,
     is_aiohttp_available,
     is_colab_enterprise,
     is_fastai_available,

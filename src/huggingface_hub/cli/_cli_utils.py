@@ -13,15 +13,21 @@
 # limitations under the License.
 """Contains CLI utilities (styling, helpers)."""
 
+import importlib.metadata
 import os
+import time
 from enum import Enum
 from typing import Annotated, Optional, Union
 
 import click
 import typer
 
-from huggingface_hub import __version__
+from huggingface_hub import __version__, constants
 from huggingface_hub.hf_api import HfApi
+from huggingface_hub.utils import get_session, hf_raise_for_status, installation_method, logging
+
+
+logger = logging.get_logger()
 
 
 class ANSI:
@@ -144,3 +150,79 @@ RevisionOpt = Annotated[
 
 def get_hf_api(token: Optional[str] = None) -> HfApi:
     return HfApi(token=token, library_name="hf", library_version=__version__)
+
+
+### PyPI VERSION CHECKER
+
+
+def check_cli_update() -> None:
+    """
+    Check whether a newer version of `huggingface_hub` is available on PyPI.
+
+    If a newer version is found, notify the user and suggest updating.
+    The latest PyPI version is cached locally in `$HF_HOME/pypi_latest_version` for 24 hours to prevent repeated notifications.
+    If current version is a pre-release (e.g. `1.0.0.rc1`), or a dev version (e.g. `1.0.0.dev1`), no check is performed.
+
+    This function is called at the entry point of the CLI.
+    """
+    try:
+        _check_cli_update()
+    except Exception:
+        # We don't want the CLI to fail on version checks, no matter the reason.
+        logger.debug("Error while checking for CLI update.", exc_info=True)
+
+
+def _check_cli_update() -> None:
+    current_version = importlib.metadata.version("huggingface_hub")
+
+    if any(tag in current_version for tag in ["a", "b", "rc", "dev"]):
+        # Don't check for pre-releases or dev versions
+        return
+
+    cached_version = _get_cached_pypi_version()
+    if cached_version is None:
+        latest_version = _get_pypi_version()
+        _cache_pypi_version(latest_version)
+    else:
+        latest_version = cached_version
+
+    if current_version != latest_version:
+        method = installation_method()
+        if method == "brew":
+            update_command = "brew upgrade huggingface-cli"
+        elif method == "hf_installer" and os.name == "nt":
+            update_command = "curl -LsSf https://hf.co/cli/install.ps1 | pwsh -"
+        elif method == "hf_installer":
+            update_command = "curl -LsSf https://hf.co/cli/install.sh | sh -"
+        else:  # unknown => likely pip
+            update_command = "pip install -U huggingface_hub"
+
+        click.echo(
+            ANSI.yellow(
+                f"A new version of huggingface_hub ({latest_version}) is available! "
+                f"You are using version {current_version}.\n"
+                f"To update, run: {ANSI.bold(update_command)}\n",
+            )
+        )
+
+
+def _get_pypi_version() -> str:
+    response = get_session().get("https://pypi.org/pypi/huggingface_hub/json", timeout=2)
+    hf_raise_for_status(response)
+    data = response.json()
+    return data["info"]["version"]
+
+
+def _get_cached_pypi_version() -> Optional[str]:
+    if os.path.exists(constants.PYPI_LATEST_VERSION_PATH):
+        mtime = os.path.getmtime(constants.PYPI_LATEST_VERSION_PATH)
+        # If the file is older than 24h, we don't use it
+        if (time.time() - mtime) < 24 * 3600:
+            with open(constants.PYPI_LATEST_VERSION_PATH, "r", encoding="utf-8") as f:
+                return f.read().strip()
+    return None
+
+
+def _cache_pypi_version(version: str) -> None:
+    with open(constants.PYPI_LATEST_VERSION_PATH, "w", encoding="utf-8") as f:
+        f.write(version)

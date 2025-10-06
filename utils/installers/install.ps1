@@ -223,6 +223,10 @@ function New-VirtualEnvironment {
     }
     if (-not $?) { throw "Failed to create virtual environment" }
 
+    # Mark this installation as installer-managed
+    $markerFile = Join-Path $VENV_DIR ".hf_installer_marker"
+    New-Item -Path $markerFile -ItemType File -Force | Out-Null
+
     # Use the venv's python -m pip for deterministic upgrades
     $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe"
     Write-Log "Upgrading pip..."
