@@ -175,7 +175,7 @@ def check_cli_update() -> None:
 def _check_cli_update() -> None:
     current_version = importlib.metadata.version("huggingface_hub")
 
-    if any(tag in current_version for tag in ["a", "b", "rc", "dev"]):
+    if any(tag in current_version for tag in ["rc", "dev"]):
         # Don't check for pre-releases or dev versions
         return
 
