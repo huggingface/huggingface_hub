@@ -36,9 +36,6 @@ jobs:
 
           export PATH="$BIN_DIR:$PATH"
 
-      - name: Check installation
-        shell: bash
-        run: |
           HF_VERSION_PATH="$HF_TEST_ROOT/hf-version.txt"
           hf version | tee "$HF_VERSION_PATH"
           if ! grep -Eq 'huggingface_hub version: [0-9]+(\.[0-9]+){1,2}' "$HF_VERSION_PATH"; then
@@ -49,16 +46,13 @@ jobs:
 
           NO_COLOR=1 hf --help
 
-          rm -rf "$HF_TEST_ROOT"
-
-      - name: Check installation method
-        shell: bash
-        run: |
           hf env
           if ! hf env | grep -Fq 'Installation method: hf_installer'; then
             echo "❌ Error: not installed with hf_installer."
             exit 1
           fi
+
+          rm -rf "$HF_TEST_ROOT"
 
   windows-installer:
     runs-on: windows-latest
@@ -97,13 +91,10 @@ jobs:
           }
           Remove-Item Env:NO_COLOR
 
-          Remove-Item -Path $hfTestRoot -Recurse -Force
-
-      - name: Check installation method
-        shell: pwsh
-        run: |
           hf env
           if (-not (hf env | Select-String -SimpleMatch 'Installation method: hf_installer')) {
             Write-Error "❌ Error: not installed with hf_installer."
             exit 1
           }
+
+          Remove-Item -Path $hfTestRoot -Recurse -Force
