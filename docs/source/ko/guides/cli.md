@@ -48,21 +48,26 @@ CLI가 제대로 설치되었다면 CLI에서 사용 가능한 모든 옵션 목
 
 ### 다른 방법으로 설치하기 [[alternative-install]]
 
-#### pkgx 사용하기 [[using-pkgx]]
+#### uv 사용하기 [[using-uv]]
 
-[Pkgx](https://pkgx.sh)는 다양한 플랫폼에서 빠르게 작동하는 패키지 매니저입니다. 다음과 같이 pkgx를 사용하여 huggingface-cli를 설치할 수 있습니다:
-
-```bash
->>> pkgx install huggingface-cli
-```
-
-또는 pkgx를 통해 huggingface-cli를 직접 실행할 수도 있습니다:
+[uv](https://docs.astral.sh/uv/)를 사용하면 `hf` CLI를 설치하거나, 설치 없이 바로 실행할 수 있습니다. 먼저 uv를 설치하세요 (PATH에 `uv`와 `uvx`가 추가됩니다):
 
 ```bash
->>> pkgx huggingface-cli --help
+>>> curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-pkgx huggingface에 대한 자세한 내용은 [여기](https://pkgx.dev/pkgs/huggingface.co/)에서 확인할 수 있습니다.
+영구적으로 도구를 설치해 어디에서나 사용하려면:
+
+```bash
+>>> uv tool install "huggingface_hub[cli]"
+>>> hf --help
+```
+
+전역 설치 없이 일회성으로 실행하려면 `uvx`를 사용하세요:
+
+```bash
+>>> uvx --from huggingface_hub hf --help
+```
 
 #### Homebrew 사용하기 [[using-homebrew]]
 
