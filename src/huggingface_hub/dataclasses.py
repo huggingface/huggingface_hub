@@ -312,6 +312,19 @@ def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type:
         for name, value in schema.__dict__.get("__annotations__", {}).items()
     }
 
+    # If the TypedDict is not total, wrap fields as NotRequired (unless explicitly Required or NotRequired)
+    if not getattr(schema, "__total__", True):
+        for key, value in type_hints.items():
+            origin = get_origin(value)
+
+            if origin is Annotated:
+                base, *meta = get_args(value)
+                if not _is_required_or_notrequired(base):
+                    base = NotRequired[base]
+                type_hints[key] = Annotated[base, *meta]
+            elif not _is_required_or_notrequired(value):
+                type_hints[key] = NotRequired[value]
+
     # Convert type hints to dataclass fields
     fields = []
     for key, value in type_hints.items():
@@ -557,6 +570,11 @@ def _is_validator(validator: Any) -> bool:
         if parameter.default == inspect.Parameter.empty:
             return False
     return True
+
+
+def _is_required_or_notrequired(type_hint: Any) -> bool:
+    """Helper to check if a type is Required/NotRequired."""
+    return type_hint in (Required, NotRequired) or (get_origin(type_hint) in (Required, NotRequired))
 
 
 _BASIC_TYPE_VALIDATORS = {

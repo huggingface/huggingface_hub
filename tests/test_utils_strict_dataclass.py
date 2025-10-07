@@ -759,3 +759,16 @@ class TestConfigDictNotRequired:
     def test_typed_dict_not_required_invalid_data(self, data: dict):
         with pytest.raises(StrictDataclassFieldValidationError):
             validate_typed_dict(self.ConfigDictNotRequired, data)
+
+
+def test_typed_dict_total_true():
+    ConfigDictTotalTrue = TypedDict("ConfigDictTotalTrue", {"value": int}, total=True)
+    validate_typed_dict(ConfigDictTotalTrue, {"value": 1})
+    with pytest.raises(StrictDataclassFieldValidationError):
+        validate_typed_dict(ConfigDictTotalTrue, {})
+
+
+def test_typed_dict_total_false():
+    ConfigDictTotalFalse = TypedDict("ConfigDictTotalFalse", {"value": int}, total=False)
+    validate_typed_dict(ConfigDictTotalFalse, {})
+    validate_typed_dict(ConfigDictTotalFalse, {"value": 1})
