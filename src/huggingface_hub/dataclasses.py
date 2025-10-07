@@ -7,9 +7,7 @@ from typing import (
     Callable,
     ForwardRef,
     Literal,
-    NotRequired,
     Optional,
-    Required,
     Type,
     TypeVar,
     Union,
@@ -17,6 +15,19 @@ from typing import (
     get_origin,
     overload,
 )
+
+
+try:
+    # Python 3.11+
+    from typing import NotRequired, Required
+except ImportError:
+    try:
+        # In case typing_extensions is installed
+        from typing_extensions import NotRequired, Required
+    except ImportError:
+        # Fallback: create dummy types that will never match
+        Required = type("Required", (), {})  # type: ignore
+        NotRequired = type("NotRequired", (), {})  # type: ignore
 
 from .errors import (
     StrictDataclassClassValidationError,
