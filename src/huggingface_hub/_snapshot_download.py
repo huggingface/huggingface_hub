@@ -73,7 +73,7 @@ def snapshot_download(
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
     dry_run: Literal[True] = True,
-) -> List[DryRunFileInfo]: ...
+) -> list[DryRunFileInfo]: ...
 
 
 @overload
@@ -98,7 +98,7 @@ def snapshot_download(
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
     dry_run: bool = False,
-) -> Union[str, List[DryRunFileInfo]]: ...
+) -> Union[str, list[DryRunFileInfo]]: ...
 
 
 @validate_hf_hub_args
@@ -123,7 +123,7 @@ def snapshot_download(
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
     dry_run: bool = False,
-) -> Union[str, List[DryRunFileInfo]]:
+) -> Union[str, list[DryRunFileInfo]]:
     """Download repo files.
 
     Download a whole snapshot of a repo's files at the specified revision. This is useful when you want all files from
