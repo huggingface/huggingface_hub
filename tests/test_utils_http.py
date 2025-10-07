@@ -340,6 +340,7 @@ def test_proxy_env_is_used(monkeypatch):
     monkeypatch.setenv("HTTP_PROXY", "http://proxy.example1.com:8080")
     monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example2.com:8181")
 
+    set_client_factory(default_client_factory)
     client = get_session()
     mounts = client._mounts
     url_patterns = list(mounts.keys())
