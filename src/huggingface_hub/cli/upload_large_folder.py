@@ -20,9 +20,9 @@ from typing import Annotated, Optional
 import typer
 
 from huggingface_hub import logging
-from huggingface_hub.utils import disable_progress_bars
+from huggingface_hub.utils import ANSI, disable_progress_bars
 
-from ._cli_utils import ANSI, PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api
+from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api
 
 
 logger = logging.get_logger(__name__)

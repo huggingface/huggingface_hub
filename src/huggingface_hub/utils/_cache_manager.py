@@ -24,9 +24,9 @@ from typing import Literal, Optional, Union
 
 from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
-from ..cli._cli_utils import tabulate
 from ..constants import HF_HUB_CACHE
 from . import logging
+from ._terminal import tabulate
 
 
 logger = logging.get_logger(__name__)
