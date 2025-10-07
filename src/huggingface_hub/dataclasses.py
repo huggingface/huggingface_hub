@@ -19,11 +19,11 @@ from typing import (
 
 try:
     # Python 3.11+
-    from typing import NotRequired, Required
+    from typing import NotRequired, Required  # type: ignore
 except ImportError:
     try:
         # In case typing_extensions is installed
-        from typing_extensions import NotRequired, Required
+        from typing_extensions import NotRequired, Required  # type: ignore
     except ImportError:
         # Fallback: create dummy types that will never match
         Required = type("Required", (), {})  # type: ignore
