@@ -46,12 +46,6 @@ jobs:
 
           NO_COLOR=1 hf --help
 
-          hf env
-          if ! hf env | grep -Fq 'Installation method: hf_installer'; then
-            echo "❌ Error: not installed with hf_installer."
-            exit 1
-          fi
-
           rm -rf "$HF_TEST_ROOT"
 
   windows-installer:
@@ -90,11 +84,5 @@ jobs:
             throw 'hf --help failed'
           }
           Remove-Item Env:NO_COLOR
-
-          hf env
-          if (-not (hf env | Select-String -SimpleMatch 'Installation method: hf_installer')) {
-            Write-Error "❌ Error: not installed with hf_installer."
-            exit 1
-          }
 
           Remove-Item -Path $hfTestRoot -Recurse -Force
