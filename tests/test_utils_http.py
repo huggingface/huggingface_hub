@@ -359,3 +359,6 @@ def test_proxy_env_is_used(monkeypatch):
     assert https_proxy_url.host == b"proxy.example2.com"
     assert https_proxy_url.port == 8181
     assert https_proxy_url.target == b"/"
+
+    # Reset
+    set_client_factory(default_client_factory)
