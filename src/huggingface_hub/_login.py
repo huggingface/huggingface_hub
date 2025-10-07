@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Optional
 
 from . import constants
-from .commands._cli_utils import ANSI
+from .cli._cli_utils import ANSI
 from .utils import (
     capture_output,
     get_token,
@@ -244,7 +244,7 @@ def interpreter_login(*, skip_if_logged_in: bool = False) -> None:
         logger.info("User is already logged in.")
         return
 
-    from .commands.delete_cache import _ask_for_confirmation_no_tui
+    from .cli.cache import _ask_for_confirmation_no_tui
 
     print(_HF_LOGO_ASCII)
     if get_token() is not None:
