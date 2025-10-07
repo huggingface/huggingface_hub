@@ -17,6 +17,7 @@ import importlib.metadata
 import os
 import time
 from enum import Enum
+from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Optional, Union
 
 import click
@@ -182,17 +183,26 @@ def check_cli_update() -> None:
 def _check_cli_update() -> None:
     current_version = importlib.metadata.version("huggingface_hub")
 
+    # Skip if current version is a pre-release or dev version
     if any(tag in current_version for tag in ["rc", "dev"]):
-        # Don't check for pre-releases or dev versions
         return
 
-    cached_version = _get_cached_pypi_version()
-    if cached_version is None:
-        latest_version = _get_pypi_version()
-        _cache_pypi_version(latest_version)
-    else:
-        latest_version = cached_version
+    # Skip if already checked in the last 24 hours
+    if os.path.exists(constants.CHECK_FOR_UPDATE_DONE_PATH):
+        mtime = os.path.getmtime(constants.CHECK_FOR_UPDATE_DONE_PATH)
+        if (time.time() - mtime) < 24 * 3600:
+            return
 
+    # Touch the file to mark that we did the check now
+    Path(constants.CHECK_FOR_UPDATE_DONE_PATH).touch()
+
+    # Check latest version from PyPI
+    response = get_session().get("https://pypi.org/pypi/huggingface_hub/json", timeout=2)
+    hf_raise_for_status(response)
+    data = response.json()
+    latest_version = data["info"]["version"]
+
+    # If latest version is different from current, notify user
     if current_version != latest_version:
         method = installation_method()
         if method == "brew":
@@ -211,25 +221,3 @@ def _check_cli_update() -> None:
                 f"To update, run: {ANSI.bold(update_command)}\n",
             )
         )
-
-
-def _get_pypi_version() -> str:
-    response = get_session().get("https://pypi.org/pypi/huggingface_hub/json", timeout=2)
-    hf_raise_for_status(response)
-    data = response.json()
-    return data["info"]["version"]
-
-
-def _get_cached_pypi_version() -> Optional[str]:
-    if os.path.exists(constants.PYPI_LATEST_VERSION_PATH):
-        mtime = os.path.getmtime(constants.PYPI_LATEST_VERSION_PATH)
-        # If the file is older than 24h, we don't use it
-        if (time.time() - mtime) < 24 * 3600:
-            with open(constants.PYPI_LATEST_VERSION_PATH, "r", encoding="utf-8") as f:
-                return f.read().strip()
-    return None
-
-
-def _cache_pypi_version(version: str) -> None:
-    with open(constants.PYPI_LATEST_VERSION_PATH, "w", encoding="utf-8") as f:
-        f.write(version)

@@ -163,8 +163,9 @@ HF_ASSETS_CACHE = os.path.expandvars(
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
 
-# Used to check if CLI is up-to-date
-PYPI_LATEST_VERSION_PATH = os.path.join(HF_HOME, "pypi_latest_version")
+# File created to mark that the version check has been done.
+# Check is performed once per 24 hours at most.
+CHECK_FOR_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_update_done")
 
 # If set, log level will be set to DEBUG and all requests made to the Hub will be logged
 # as curl commands for reproducibility.
