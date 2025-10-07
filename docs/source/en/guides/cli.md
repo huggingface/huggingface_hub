@@ -58,7 +58,7 @@ Make sure uv is installed (adds `uv` and `uvx` to your PATH):
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Then install the CLI as a persistent tool and use it anywhere:
+Then install the CLI globally and use it anywhere:
 
 ```bash
 >>> uv tool install "huggingface_hub[cli]"
