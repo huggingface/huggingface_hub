@@ -858,8 +858,14 @@ class TestFileDownloadDryRun(unittest.TestCase):
             dry_run_info = hf_hub_download(
                 DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir, dry_run=True
             )
-            assert dry_run_info.is_cached
-            assert not dry_run_info.will_download
+            if os.name == "nt":
+                # On Windows, symlinks are not supported by default so when we deleted the pointer, we were
+                # deleting the actual file. Hence the file is not cached anymore.
+                assert not dry_run_info.is_cached
+                assert dry_run_info.will_download
+            else:
+                assert dry_run_info.is_cached
+                assert not dry_run_info.will_download
 
     def test_dry_run_local_dir(self):
         with SoftTemporaryDirectory() as tmpdir:
