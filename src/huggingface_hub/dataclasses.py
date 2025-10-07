@@ -7,7 +7,9 @@ from typing import (
     Callable,
     ForwardRef,
     Literal,
+    NotRequired,
     Optional,
+    Required,
     Type,
     TypeVar,
     Union,
@@ -26,6 +28,8 @@ from .errors import (
 Validator_T = Callable[[Any], None]
 T = TypeVar("T")
 TypedDictType = TypeVar("TypedDictType", bound=dict[str, Any])
+
+_TYPED_DICT_DEFAULT_VALUE = object()  # used as default value in TypedDict fields (to distinguish from None)
 
 
 # The overload decorator helps type checkers understand the different return types
@@ -302,9 +306,9 @@ def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type:
     for key, value in type_hints.items():
         if get_origin(value) is Annotated:
             base, *meta = get_args(value)
-            fields.append((key, base, field(default=None, metadata={"validator": meta[0]})))
+            fields.append((key, base, field(default=_TYPED_DICT_DEFAULT_VALUE, metadata={"validator": meta[0]})))
         else:
-            fields.append((key, value, field(default=None)))
+            fields.append((key, value, field(default=_TYPED_DICT_DEFAULT_VALUE)))
 
     # Create a strict dataclass from the TypedDict fields
     return strict(make_dataclass(schema.__name__, fields))
@@ -400,6 +404,14 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
         _validate_simple_type(name, value, expected_type)
     elif isinstance(expected_type, ForwardRef) or isinstance(expected_type, str):
         return
+    elif origin is Required:
+        if value is _TYPED_DICT_DEFAULT_VALUE:
+            raise TypeError(f"Field '{name}' is required but missing.")
+        _validate_simple_type(name, value, args[0])
+    elif origin is NotRequired:
+        if value is _TYPED_DICT_DEFAULT_VALUE:
+            return
+        _validate_simple_type(name, value, args[0])
     else:
         raise TypeError(f"Unsupported type for field '{name}': {expected_type}")
 
