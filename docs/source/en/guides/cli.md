@@ -62,7 +62,7 @@ Then install the CLI globally and use it anywhere:
 
 ```bash
 >>> uv tool install "huggingface_hub[cli]"
->>> hf --help
+>>> hf auth whoami
 ```
 
 Alternatively, run the CLI ephemerally with `uvx` (no global install):
