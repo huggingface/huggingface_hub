@@ -261,6 +261,46 @@ A `.cache/huggingface/` folder is created at the root of your local directory co
 fuyu/model-00001-of-00002.safetensors
 ```
 
+### Dry-run mode
+
+In some cases, you would like to check which files would be downloaded before actually downloading them. You can check this using the `--dry-run` parameter. It lists all files to download on the repo and checks whether they are already downloaded or not. This gives an idea of how many files have to be downloaded and their sizes.
+
+```sh
+>>> hf download openai-community/gpt2 --dry-run
+[dry-run] Fetching 26 files: 100%|█████████████| 26/26 [00:04<00:00,  6.26it/s]
+[dry-run] Will download 11 files (out of 26) totalling 5.6G.
+File                              Bytes to download
+--------------------------------- -----------------
+.gitattributes                    -
+64-8bits.tflite                   125.2M
+64-fp16.tflite                    248.3M
+64.tflite                         495.8M
+README.md                         -
+config.json                       -
+flax_model.msgpack                497.8M
+generation_config.json            -
+merges.txt                        -
+model.safetensors                 548.1M
+onnx/config.json                  -
+onnx/decoder_model.onnx           653.7M
+onnx/decoder_model_merged.onnx    655.2M
+onnx/decoder_with_past_model.onnx 653.7M
+onnx/generation_config.json       -
+onnx/merges.txt                   -
+onnx/special_tokens_map.json      -
+onnx/tokenizer.json               -
+onnx/tokenizer_config.json        -
+onnx/vocab.json                   -
+pytorch_model.bin                 548.1M
+rust_model.ot                     702.5M
+tf_model.h5                       497.9M
+tokenizer.json                    -
+tokenizer_config.json             -
+vocab.json                        -
+```
+
+For more details, check out the [download guide](./download.md#dry-run-mode).
+
 ### Specify cache directory
 
 If not using `--local-dir`, all files will be downloaded by default to the cache directory defined by the `HF_HOME` [environment variable](../package_reference/environment_variables#hfhome). You can specify a custom cache using `--cache-dir`:
