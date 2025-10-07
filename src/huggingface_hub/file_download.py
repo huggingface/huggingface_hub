@@ -9,7 +9,7 @@ import uuid
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, NoReturn, Optional, Union
+from typing import Any, BinaryIO, Literal, NoReturn, Optional, Union, overload
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -147,6 +147,34 @@ class HfFileMetadata:
     location: str
     size: Optional[int]
     xet_file_data: Optional[XetFileData]
+
+
+@dataclass
+class DryRunFileInfo:
+    """Information returned when performing a dry run of a file download.
+
+    Returned by [`hf_hub_download`] when `dry_run=True`.
+
+    Args:
+        commit_hash (`str`):
+            The commit_hash related to the file.
+        file_size (`int`):
+            Size of the file. In case of an LFS file, contains the size of the actual LFS file, not the pointer.
+        filename (`str`):
+            Name of the file in the repo.
+        is_cached (`bool`):
+            Whether the file is already cached locally.
+        will_download (`bool`):
+            Whether the file will be downloaded if `hf_hub_download` is called with `dry_run=False`.
+            In practice, will_download is `True` if the file is not cached or if `force_download=True`.
+    """
+
+    commit_hash: str
+    file_size: int
+    filename: str
+    local_path: str
+    is_cached: bool
+    will_download: bool
 
 
 @validate_hf_hub_args
@@ -763,6 +791,75 @@ def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> None:
             pass
 
 
+@overload
+def hf_hub_download(
+    repo_id: str,
+    filename: str,
+    *,
+    subfolder: Optional[str] = None,
+    repo_type: Optional[str] = None,
+    revision: Optional[str] = None,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    cache_dir: Union[str, Path, None] = None,
+    local_dir: Union[str, Path, None] = None,
+    user_agent: Union[dict, str, None] = None,
+    force_download: bool = False,
+    etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+    token: Union[bool, str, None] = None,
+    local_files_only: bool = False,
+    headers: Optional[dict[str, str]] = None,
+    endpoint: Optional[str] = None,
+    dry_run: Literal[False] = False,
+) -> str: ...
+
+
+@overload
+def hf_hub_download(
+    repo_id: str,
+    filename: str,
+    *,
+    subfolder: Optional[str] = None,
+    repo_type: Optional[str] = None,
+    revision: Optional[str] = None,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    cache_dir: Union[str, Path, None] = None,
+    local_dir: Union[str, Path, None] = None,
+    user_agent: Union[dict, str, None] = None,
+    force_download: bool = False,
+    etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+    token: Union[bool, str, None] = None,
+    local_files_only: bool = False,
+    headers: Optional[dict[str, str]] = None,
+    endpoint: Optional[str] = None,
+    dry_run: Literal[True] = True,
+) -> DryRunFileInfo: ...
+
+
+@overload
+def hf_hub_download(
+    repo_id: str,
+    filename: str,
+    *,
+    subfolder: Optional[str] = None,
+    repo_type: Optional[str] = None,
+    revision: Optional[str] = None,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    cache_dir: Union[str, Path, None] = None,
+    local_dir: Union[str, Path, None] = None,
+    user_agent: Union[dict, str, None] = None,
+    force_download: bool = False,
+    etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+    token: Union[bool, str, None] = None,
+    local_files_only: bool = False,
+    headers: Optional[dict[str, str]] = None,
+    endpoint: Optional[str] = None,
+    dry_run: bool = False,
+) -> Union[str, DryRunFileInfo]: ...
+
+
 @validate_hf_hub_args
 def hf_hub_download(
     repo_id: str,
@@ -782,7 +879,8 @@ def hf_hub_download(
     local_files_only: bool = False,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
-) -> str:
+    dry_run: bool = False,
+) -> Union[str, DryRunFileInfo]:
     """Download a given file if it's not already present in the local cache.
 
     The new cache file layout looks like this:
@@ -857,9 +955,14 @@ def hf_hub_download(
             local cached file if it exists.
         headers (`dict`, *optional*):
             Additional headers to be sent with the request.
+        dry_run (`bool`, *optional*, defaults to `False`):
+            If `True`, perform a dry run without actually downloading the file. Returns a
+            [`DryRunFileInfo`] object containing information about what would be downloaded.
 
     Returns:
-        `str`: Local path of file or if networking is off, last version of file cached on disk.
+        `str` or [`DryRunFileInfo`]:
+            - If `dry_run=False`: Local path of file or if networking is off, last version of file cached on disk.
+            - If `dry_run=True`: A [`DryRunFileInfo`] object containing download information.
 
     Raises:
         [`~utils.RepositoryNotFoundError`]
@@ -929,6 +1032,7 @@ def hf_hub_download(
             cache_dir=cache_dir,
             force_download=force_download,
             local_files_only=local_files_only,
+            dry_run=dry_run,
         )
     else:
         return _hf_hub_download_to_cache_dir(
@@ -947,6 +1051,7 @@ def hf_hub_download(
             # Additional options
             local_files_only=local_files_only,
             force_download=force_download,
+            dry_run=dry_run,
         )
 
 
@@ -967,7 +1072,8 @@ def _hf_hub_download_to_cache_dir(
     # Additional options
     local_files_only: bool,
     force_download: bool,
-) -> str:
+    dry_run: bool,
+) -> Union[str, DryRunFileInfo]:
     """Download a given file to a cache folder, if not already present.
 
     Method should not be called directly. Please use `hf_hub_download` instead.
@@ -987,8 +1093,18 @@ def _hf_hub_download_to_cache_dir(
     # if user provides a commit_hash and they already have the file on disk, shortcut everything.
     if REGEX_COMMIT_HASH.match(revision):
         pointer_path = _get_pointer_path(storage_folder, revision, relative_filename)
-        if os.path.exists(pointer_path) and not force_download:
-            return pointer_path
+        if os.path.exists(pointer_path):
+            if dry_run:
+                return DryRunFileInfo(
+                    commit_hash=revision,
+                    file_size=os.path.getsize(pointer_path),
+                    filename=filename,
+                    is_cached=True,
+                    local_path=pointer_path,
+                    will_download=force_download,
+                )
+            if not force_download:
+                return pointer_path
 
     # Try to get metadata (etag, commit_hash, url, size) from the server.
     # If we can't, a HEAD request error is returned.
@@ -1031,8 +1147,18 @@ def _hf_hub_download_to_cache_dir(
             # Return pointer file if exists
             if commit_hash is not None:
                 pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
-                if os.path.exists(pointer_path) and not force_download:
-                    return pointer_path
+                if os.path.exists(pointer_path):
+                    if dry_run:
+                        return DryRunFileInfo(
+                            commit_hash=commit_hash,
+                            file_size=os.path.getsize(pointer_path),
+                            filename=filename,
+                            is_cached=True,
+                            local_path=pointer_path,
+                            will_download=force_download,
+                        )
+                    if not force_download:
+                        return pointer_path
 
         # Otherwise, raise appropriate error
         _raise_on_head_call_error(head_call_error, force_download, local_files_only)
@@ -1044,6 +1170,17 @@ def _hf_hub_download_to_cache_dir(
     assert expected_size is not None, "expected_size must have been retrieved from server"
     blob_path = os.path.join(storage_folder, "blobs", etag)
     pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
+
+    if dry_run:
+        is_cached = os.path.exists(pointer_path) or os.path.exists(blob_path)
+        return DryRunFileInfo(
+            commit_hash=commit_hash,
+            file_size=expected_size,
+            filename=filename,
+            is_cached=is_cached,
+            local_path=pointer_path,
+            will_download=force_download or not is_cached,
+        )
 
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
@@ -1124,7 +1261,8 @@ def _hf_hub_download_to_local_dir(
     cache_dir: str,
     force_download: bool,
     local_files_only: bool,
-) -> str:
+    dry_run: bool,
+) -> Union[str, DryRunFileInfo]:
     """Download a given file to a local folder, if not already present.
 
     Method should not be called directly. Please use `hf_hub_download` instead.
@@ -1139,13 +1277,23 @@ def _hf_hub_download_to_local_dir(
 
     # Local file exists + metadata exists + commit_hash matches => return file
     if (
-        not force_download
-        and REGEX_COMMIT_HASH.match(revision)
+        REGEX_COMMIT_HASH.match(revision)
         and paths.file_path.is_file()
         and local_metadata is not None
         and local_metadata.commit_hash == revision
     ):
-        return str(paths.file_path)
+        local_file = str(paths.file_path)
+        if dry_run:
+            return DryRunFileInfo(
+                commit_hash=revision,
+                file_size=os.path.getsize(local_file),
+                filename=filename,
+                is_cached=True,
+                local_path=local_file,
+                will_download=force_download,
+            )
+        if not force_download:
+            return local_file
 
     # Local file doesn't exist or commit_hash doesn't match => we need the etag
     (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = _get_metadata_or_catch_error(
@@ -1162,11 +1310,24 @@ def _hf_hub_download_to_local_dir(
 
     if head_call_error is not None:
         # No HEAD call but local file exists => default to local file
-        if not force_download and paths.file_path.is_file():
-            logger.warning(
-                f"Couldn't access the Hub to check for update but local file already exists. Defaulting to existing file. (error: {head_call_error})"
-            )
-            return str(paths.file_path)
+        if paths.file_path.is_file():
+            if dry_run or not force_download:
+                logger.warning(
+                    f"Couldn't access the Hub to check for update but local file already exists. Defaulting to existing file. (error: {head_call_error})"
+                )
+            local_path = str(paths.file_path)
+            if dry_run and local_metadata is not None:
+                return DryRunFileInfo(
+                    commit_hash=local_metadata.commit_hash,
+                    file_size=os.path.getsize(local_path),
+                    filename=filename,
+                    is_cached=True,
+                    local_path=local_path,
+                    will_download=force_download,
+                )
+            if not force_download:
+                return local_path
+
         # Otherwise => raise
         _raise_on_head_call_error(head_call_error, force_download, local_files_only)
 
@@ -1181,6 +1342,15 @@ def _hf_hub_download_to_local_dir(
         # etag matches => update metadata and return file
         if local_metadata is not None and local_metadata.etag == etag:
             write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
+            if dry_run:
+                return DryRunFileInfo(
+                    commit_hash=commit_hash,
+                    file_size=expected_size,
+                    filename=filename,
+                    is_cached=True,
+                    local_path=str(paths.file_path),
+                    will_download=False,
+                )
             return str(paths.file_path)
 
         # metadata is outdated + etag is a sha256
@@ -1192,6 +1362,15 @@ def _hf_hub_download_to_local_dir(
                 file_hash = sha_fileobj(f).hex()
             if file_hash == etag:
                 write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
+                if dry_run:
+                    return DryRunFileInfo(
+                        commit_hash=commit_hash,
+                        file_size=expected_size,
+                        filename=filename,
+                        is_cached=True,
+                        local_path=str(paths.file_path),
+                        will_download=False,
+                    )
                 return str(paths.file_path)
 
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
@@ -1210,7 +1389,27 @@ def _hf_hub_download_to_local_dir(
                 paths.file_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(cached_path, paths.file_path)
             write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
+            if dry_run:
+                return DryRunFileInfo(
+                    commit_hash=commit_hash,
+                    file_size=expected_size,
+                    filename=filename,
+                    is_cached=True,
+                    local_path=str(paths.file_path),
+                    will_download=False,
+                )
             return str(paths.file_path)
+
+    if dry_run:
+        is_cached = paths.file_path.is_file()
+        return DryRunFileInfo(
+            commit_hash=commit_hash,
+            file_size=expected_size,
+            filename=filename,
+            is_cached=is_cached,
+            local_path=str(paths.file_path),
+            will_download=force_download or not is_cached,
+        )
 
     # Otherwise, let's download the file!
     with WeakFileLock(paths.lock_path):

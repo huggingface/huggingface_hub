@@ -42,6 +42,7 @@ from ._cache_manager import (
     CachedRevisionInfo,
     DeleteCacheStrategy,
     HFCacheInfo,
+    _format_size,
     scan_cache_dir,
 )
 from ._chunk_utils import chunk_iterable
