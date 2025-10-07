@@ -138,6 +138,7 @@ _SUBMOD_ATTRS = {
         "push_to_hub_fastai",
     ],
     "file_download": [
+        "DryRunFileInfo",
         "HfFileMetadata",
         "_CACHED_NO_EXIST",
         "get_hf_file_metadata",
@@ -513,8 +514,6 @@ _SUBMOD_ATTRS = {
         "CorruptedCacheException",
         "DeleteCacheStrategy",
         "HFCacheInfo",
-        "HfHubAsyncTransport",
-        "HfHubTransport",
         "cached_assets_path",
         "close_session",
         "dump_environment_info",
@@ -625,6 +624,7 @@ __all__ = [
     "DocumentQuestionAnsweringInputData",
     "DocumentQuestionAnsweringOutputElement",
     "DocumentQuestionAnsweringParameters",
+    "DryRunFileInfo",
     "EvalResult",
     "FLAX_WEIGHTS_NAME",
     "FeatureExtractionInput",
@@ -645,8 +645,6 @@ __all__ = [
     "HfFileSystemFile",
     "HfFileSystemResolvedPath",
     "HfFileSystemStreamFile",
-    "HfHubAsyncTransport",
-    "HfHubTransport",
     "ImageClassificationInput",
     "ImageClassificationOutputElement",
     "ImageClassificationOutputTransform",
@@ -1147,6 +1145,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .file_download import (
         _CACHED_NO_EXIST,  # noqa: F401
+        DryRunFileInfo,  # noqa: F401
         HfFileMetadata,  # noqa: F401
         get_hf_file_metadata,  # noqa: F401
         hf_hub_download,  # noqa: F401
@@ -1515,8 +1514,6 @@ if TYPE_CHECKING:  # pragma: no cover
         CorruptedCacheException,  # noqa: F401
         DeleteCacheStrategy,  # noqa: F401
         HFCacheInfo,  # noqa: F401
-        HfHubAsyncTransport,  # noqa: F401
-        HfHubTransport,  # noqa: F401
         cached_assets_path,  # noqa: F401
         close_session,  # noqa: F401
         dump_environment_info,  # noqa: F401

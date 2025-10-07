@@ -42,6 +42,7 @@ from ._cache_manager import (
     CachedRevisionInfo,
     DeleteCacheStrategy,
     HFCacheInfo,
+    _format_size,
     scan_cache_dir,
 )
 from ._chunk_utils import chunk_iterable
@@ -53,8 +54,6 @@ from ._headers import build_hf_headers, get_token_to_send
 from ._http import (
     ASYNC_CLIENT_FACTORY_T,
     CLIENT_FACTORY_T,
-    HfHubAsyncTransport,
-    HfHubTransport,
     close_session,
     fix_hf_endpoint_in_url,
     get_async_session,

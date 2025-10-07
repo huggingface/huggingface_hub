@@ -17,7 +17,7 @@ import importlib.metadata
 import os
 import time
 from enum import Enum
-from typing import Annotated, Optional, Union
+from typing import TYPE_CHECKING, Annotated, Optional, Union
 
 import click
 import typer
@@ -28,6 +28,17 @@ from huggingface_hub.utils import get_session, hf_raise_for_status, installation
 
 
 logger = logging.get_logger()
+
+
+if TYPE_CHECKING:
+    from huggingface_hub.hf_api import HfApi
+
+
+def get_hf_api(token: Optional[str] = None) -> "HfApi":
+    # Import here to avoid circular import
+    from huggingface_hub.hf_api import HfApi
+
+    return HfApi(token=token, library_name="hf", library_version=__version__)
 
 
 class ANSI:
@@ -146,10 +157,6 @@ RevisionOpt = Annotated[
         help="Git revision id which can be a branch name, a tag, or a commit hash.",
     ),
 ]
-
-
-def get_hf_api(token: Optional[str] = None) -> HfApi:
-    return HfApi(token=token, library_name="hf", library_version=__version__)
 
 
 ### PyPI VERSION CHECKER

@@ -69,49 +69,21 @@ REPO_API_REGEX = re.compile(
 )
 
 
-class HfHubTransport(httpx.HTTPTransport):
+def hf_request_event_hook(request: httpx.Request) -> None:
     """
-    Transport that will be used to make HTTP requests to the Hugging Face Hub.
+    Event hook that will be used to make HTTP requests to the Hugging Face Hub.
 
     What it does:
     - Block requests if offline mode is enabled
     - Add a request ID to the request headers
     - Log the request if debug mode is enabled
     """
+    if constants.HF_HUB_OFFLINE:
+        raise OfflineModeIsEnabled(
+            f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
+        )
 
-    def handle_request(self, request: httpx.Request) -> httpx.Response:
-        if constants.HF_HUB_OFFLINE:
-            raise OfflineModeIsEnabled(
-                f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
-            )
-        request_id = _add_request_id(request)
-        try:
-            return super().handle_request(request)
-        except httpx.RequestError as e:
-            if request_id is not None:
-                # Taken from https://stackoverflow.com/a/58270258
-                e.args = (*e.args, f"(Request ID: {request_id})")
-            raise
-
-
-class HfHubAsyncTransport(httpx.AsyncHTTPTransport):
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        if constants.HF_HUB_OFFLINE:
-            raise OfflineModeIsEnabled(
-                f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
-            )
-        request_id = _add_request_id(request)
-        try:
-            return await super().handle_async_request(request)
-        except httpx.RequestError as e:
-            if request_id is not None:
-                # Taken from https://stackoverflow.com/a/58270258
-                e.args = (*e.args, f"(Request ID: {request_id})")
-            raise
-
-
-def _add_request_id(request: httpx.Request) -> Optional[str]:
-    # Add random request ID => easier for server-side debug
+    # Add random request ID => easier for server-side debugging
     if X_AMZN_TRACE_ID not in request.headers:
         request.headers[X_AMZN_TRACE_ID] = request.headers.get(X_REQUEST_ID) or str(uuid.uuid4())
     request_id = request.headers.get(X_AMZN_TRACE_ID)
@@ -135,7 +107,7 @@ def default_client_factory() -> httpx.Client:
     Factory function to create a `httpx.Client` with the default transport.
     """
     return httpx.Client(
-        transport=HfHubTransport(),
+        event_hooks={"request": [hf_request_event_hook]},
         follow_redirects=True,
         timeout=httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
     )
@@ -146,7 +118,7 @@ def default_async_client_factory() -> httpx.AsyncClient:
     Factory function to create a `httpx.AsyncClient` with the default transport.
     """
     return httpx.AsyncClient(
-        transport=HfHubAsyncTransport(),
+        event_hooks={"request": [hf_request_event_hook]},
         follow_redirects=True,
         timeout=httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
     )
@@ -232,7 +204,7 @@ def close_session() -> None:
     """
     Close the global `httpx.Client` used by `huggingface_hub`.
 
-    If a Client is closed, it will be recreated on the next call to [`get_client`].
+    If a Client is closed, it will be recreated on the next call to [`get_session`].
 
     Can be useful if e.g. an SSL certificate has been updated.
     """

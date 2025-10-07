@@ -24,7 +24,7 @@ from typing import Literal, Optional, Union
 
 from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
-from ..commands._cli_utils import tabulate
+from ..cli._cli_utils import tabulate
 from ..constants import HF_HUB_CACHE
 from . import logging
 

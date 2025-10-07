@@ -9,20 +9,11 @@ from unittest.mock import Mock
 import pytest
 
 from huggingface_hub._snapshot_download import snapshot_download
-from huggingface_hub.commands.scan_cache import ScanCacheCommand
-from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, capture_output, scan_cache_dir
-from huggingface_hub.utils._cache_manager import (
-    CacheNotFound,
-    _format_size,
-    _format_timesince,
-    _try_delete_path,
-)
+from huggingface_hub.cli.cache import cache_scan
+from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, _format_size, capture_output, scan_cache_dir
+from huggingface_hub.utils._cache_manager import CacheNotFound, _format_timesince, _try_delete_path
 
-from .testing_utils import (
-    rmtree_with_retry,
-    with_production_testing,
-    xfail_on_windows,
-)
+from .testing_utils import rmtree_with_retry, with_production_testing, xfail_on_windows
 
 
 # On production server to avoid recreating them all the time
@@ -245,12 +236,8 @@ class TestValidCacheUtils(unittest.TestCase):
 
         End-to-end test just to see if output is in expected format.
         """
-        args = Mock()
-        args.verbose = 0
-        args.dir = self.cache_dir
-
         with capture_output() as output:
-            ScanCacheCommand(args).run()
+            cache_scan(dir=self.cache_dir, verbose=0)
 
         expected_output = f"""
         REPO ID                       REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED     LAST_MODIFIED     REFS            LOCAL PATH
@@ -272,12 +259,8 @@ class TestValidCacheUtils(unittest.TestCase):
 
         End-to-end test just to see if output is in expected format.
         """
-        args = Mock()
-        args.verbose = 1
-        args.dir = self.cache_dir
-
         with capture_output() as output:
-            ScanCacheCommand(args).run()
+            cache_scan(dir=self.cache_dir, verbose=1)
 
         expected_output = f"""
         REPO ID                       REPO TYPE REVISION                                 SIZE ON DISK NB FILES LAST_MODIFIED     REFS      LOCAL PATH
@@ -303,12 +286,8 @@ class TestValidCacheUtils(unittest.TestCase):
         tmp_dir = tempfile.mkdtemp()
         os.rmdir(tmp_dir)
 
-        args = Mock()
-        args.verbose = 0
-        args.dir = tmp_dir
-
         with capture_output() as output:
-            ScanCacheCommand(args).run()
+            cache_scan(dir=tmp_dir, verbose=0)
 
         expected_output = f"""
         Cache directory not found: {Path(tmp_dir).resolve()}
