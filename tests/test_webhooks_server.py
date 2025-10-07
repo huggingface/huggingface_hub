@@ -163,10 +163,11 @@ class TestWebhooksServerDontRun(unittest.TestCase):
 
         @app.add_webhook(path="/test_webhook")
         async def handler():
-            pass
+            return "registered"
 
         self.assertIn("/webhooks/test_webhook", app.registered_webhooks)  # still registered under /webhooks
         self.assertIs(handler, app.registered_webhooks["/webhooks/test_webhook"])
+        self.assertEqual(asyncio.run(handler()), "registered")
 
     def test_add_webhook_direct_call_returns_original_callable(self):
         app = WebhooksServer()
