@@ -10,7 +10,9 @@ from .base import BaseInferenceType, dataclass_with_extra
 
 @dataclass_with_extra
 class ImageToImageTargetSize(BaseInferenceType):
-    """The size in pixel of the output image."""
+    """The size in pixels of the output image. This parameter is only supported by some
+    providers and for specific models. It will be ignored when unsupported.
+    """
 
     height: int
     width: int
@@ -33,7 +35,9 @@ class ImageToImageParameters(BaseInferenceType):
     prompt: Optional[str] = None
     """The text prompt to guide the image generation."""
     target_size: Optional[ImageToImageTargetSize] = None
-    """The size in pixel of the output image. This parameter is only supported by some providers and for specific models. It will be ignored when unsupported."""
+    """The size in pixels of the output image. This parameter is only supported by some
+    providers and for specific models. It will be ignored when unsupported.
+    """
 
 
 @dataclass_with_extra
