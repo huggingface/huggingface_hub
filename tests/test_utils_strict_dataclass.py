@@ -671,6 +671,13 @@ class ConfigDict(TypedDict):
     optional_value: Optional[int]
 
 
+class ConfigDictIncomplete(TypedDict, total=False):
+    str_value: str
+    positive_int_value: Annotated[int, positive_int]
+    forward_ref_value: "ForwardDtype"
+    optional_value: Optional[int]
+
+
 @pytest.mark.parametrize(
     "data",
     [
@@ -680,6 +687,7 @@ class ConfigDict(TypedDict):
 )
 def test_typed_dict_valid_data(data: dict):
     validate_typed_dict(ConfigDict, data)
+    validate_typed_dict(ConfigDictIncomplete, data)
 
 
 @pytest.mark.parametrize(
