@@ -431,11 +431,11 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
     elif origin is Required:
         if value is _TYPED_DICT_DEFAULT_VALUE:
             raise TypeError(f"Field '{name}' is required but missing.")
-        _validate_simple_type(name, value, args[0])
+        type_validator(name, value, args[0])
     elif origin is NotRequired:
         if value is _TYPED_DICT_DEFAULT_VALUE:
             return
-        _validate_simple_type(name, value, args[0])
+        type_validator(name, value, args[0])
     else:
         raise TypeError(f"Unsupported type for field '{name}': {expected_type}")
 
