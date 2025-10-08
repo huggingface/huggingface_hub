@@ -155,7 +155,7 @@ def _check_cli_update() -> None:
         if method == "brew":
             update_command = "brew upgrade huggingface-cli"
         elif method == "hf_installer" and os.name == "nt":
-            update_command = "curl -LsSf https://hf.co/cli/install.ps1 | pwsh -"
+            update_command = 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex"'
         elif method == "hf_installer":
             update_command = "curl -LsSf https://hf.co/cli/install.sh | sh -"
         else:  # unknown => likely pip
