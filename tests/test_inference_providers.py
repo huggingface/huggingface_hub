@@ -17,6 +17,7 @@ from huggingface_hub.inference._providers._common import (
     recursive_merge,
 )
 from huggingface_hub.inference._providers.black_forest_labs import BlackForestLabsTextToImageTask
+from huggingface_hub.inference._providers.clarifai import ClarifaiConversationalTask
 from huggingface_hub.inference._providers.cohere import CohereConversationalTask
 from huggingface_hub.inference._providers.fal_ai import (
     _POLLING_INTERVAL,
@@ -290,6 +291,31 @@ class TestCohereConversationalTask:
         assert payload == {
             "messages": [{"role": "user", "content": "Hello!"}],
             "model": "CohereForAI/command-r7b-12-2024",
+        }
+
+
+class TestClarifaiProvider:
+    def test_prepare_url(self):
+        helper = ClarifaiConversationalTask()
+        assert helper._prepare_url("clarifai_api_key", "username/repo_name") == "https://api.clarifai.com/v2/ext/openai/v1/chat/completions"
+
+    def test_prepare_payload_as_dict(self):
+        helper = ClarifaiConversationalTask()
+        payload = helper._prepare_payload_as_dict(
+            [{"role": "user", "content": "Hello!"}],
+            {},
+            InferenceProviderMapping(
+                provider="clarifai",
+                hf_model_id="meta-llama/llama-3.1-8B-Instruct",
+                providerId="meta-llama/llama-3.1-8B-Instruct",
+                task="conversational",
+                status="live",
+            ),
+        )
+
+        assert payload == {
+            "messages": [{"role": "user", "content": "Hello!"}],
+            "model": "meta-llama/llama-3.1-8B-Instruct",
         }
 
 
