@@ -54,7 +54,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run installer 
+      - name: Run installer
         shell: pwsh
         run: |
           $hfTestRoot = Join-Path $env:TEMP ([System.Guid]::NewGuid().ToString())

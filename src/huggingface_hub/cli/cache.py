@@ -23,8 +23,8 @@ from typing import Annotated, Any, Callable, Iterable, Optional, Union
 
 import typer
 
-from ..utils import CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, scan_cache_dir
-from ._cli_utils import ANSI, tabulate, typer_factory
+from ..utils import ANSI, CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, scan_cache_dir, tabulate
+from ._cli_utils import typer_factory
 
 
 # --- DELETE helpers (from delete_cache.py) ---

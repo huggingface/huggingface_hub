@@ -180,7 +180,7 @@ detect_os() {
 
 # Install Python if not available
 python_version_supported() {
-    "$1" - <<'PY' >/dev/null 2>&1
+    "$1" <<'PY' >/dev/null 2>&1
 import sys
 sys.exit(0 if sys.version_info >= (3, 9) else 1)
 PY
@@ -267,6 +267,9 @@ create_venv() {
     fi
 
     run_command "Failed to create virtual environment at $VENV_DIR" "$PYTHON_CMD" -m venv "$VENV_DIR"
+
+    # Mark this installation as installer-managed
+    touch "$VENV_DIR/.hf_installer_marker"
 
     # Use the venv python for pip management
     log_info "Upgrading pip..."
