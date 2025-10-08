@@ -27,10 +27,9 @@ from typing import Annotated, Optional
 import typer
 
 from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
-from huggingface_hub.utils import logging
+from huggingface_hub.utils import ANSI, logging
 
 from ._cli_utils import (
-    ANSI,
     PrivateOpt,
     RepoIdArg,
     RepoType,

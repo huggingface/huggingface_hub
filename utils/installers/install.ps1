@@ -1,5 +1,5 @@
 # Hugging Face CLI Installer for Windows
-# Usage: powershell -c "irm https://hf.co/cli/install.ps1 | iex"
+# Usage: powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
 # Or: curl -LsSf https://hf.co/cli/install.ps1 | pwsh -
 
 <#
@@ -222,6 +222,10 @@ function New-VirtualEnvironment {
         & $PythonCmd -m venv $VENV_DIR
     }
     if (-not $?) { throw "Failed to create virtual environment" }
+
+    # Mark this installation as installer-managed
+    $markerFile = Join-Path $VENV_DIR ".hf_installer_marker"
+    New-Item -Path $markerFile -ItemType File -Force | Out-Null
 
     # Use the venv's python -m pip for deterministic upgrades
     $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe"

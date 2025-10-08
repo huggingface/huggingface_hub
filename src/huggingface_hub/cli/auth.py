@@ -39,8 +39,8 @@ from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.hf_api import whoami
 
 from .._login import auth_list, auth_switch, login, logout
-from ..utils import get_stored_tokens, get_token, logging
-from ._cli_utils import ANSI, TokenOpt, typer_factory
+from ..utils import ANSI, get_stored_tokens, get_token, logging
+from ._cli_utils import TokenOpt, typer_factory
 
 
 logger = logging.get_logger(__name__)

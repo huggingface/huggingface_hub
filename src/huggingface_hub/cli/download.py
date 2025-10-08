@@ -44,9 +44,9 @@ import typer
 from huggingface_hub import logging
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
-from huggingface_hub.utils import _format_size, disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils import _format_size, disable_progress_bars, enable_progress_bars, tabulate
 
-from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, tabulate
+from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
 
 
 logger = logging.get_logger(__name__)

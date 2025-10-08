@@ -28,7 +28,7 @@ On macOS and Linux:
 On Windows:
 
 ```powershell
->>> powershell -c "irm https://hf.co/cli/install.ps1 | iex"
+>>> powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
 ```
 
 Once installed, you can check that the CLI is correctly setup:

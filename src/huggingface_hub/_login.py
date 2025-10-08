@@ -20,8 +20,8 @@ from pathlib import Path
 from typing import Optional
 
 from . import constants
-from .cli._cli_utils import ANSI
 from .utils import (
+    ANSI,
     capture_output,
     get_token,
     is_google_colab,
