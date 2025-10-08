@@ -91,6 +91,7 @@ from huggingface_hub.utils._auth import get_token
 
 from .._common import _async_yield_from, _import_aiohttp
 
+
 if TYPE_CHECKING:
     import numpy as np
     from aiohttp import ClientResponse, ClientSession

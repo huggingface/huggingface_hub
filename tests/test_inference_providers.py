@@ -297,7 +297,10 @@ class TestCohereConversationalTask:
 class TestClarifaiProvider:
     def test_prepare_url(self):
         helper = ClarifaiConversationalTask()
-        assert helper._prepare_url("clarifai_api_key", "username/repo_name") == "https://api.clarifai.com/v2/ext/openai/v1/chat/completions"
+        assert (
+            helper._prepare_url("clarifai_api_key", "username/repo_name")
+            == "https://api.clarifai.com/v2/ext/openai/v1/chat/completions"
+        )
 
     def test_prepare_payload_as_dict(self):
         helper = ClarifaiConversationalTask()

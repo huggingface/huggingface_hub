@@ -104,6 +104,7 @@ from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provi
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
 from huggingface_hub.utils._auth import get_token
 
+
 if TYPE_CHECKING:
     import numpy as np
     from PIL.Image import Image

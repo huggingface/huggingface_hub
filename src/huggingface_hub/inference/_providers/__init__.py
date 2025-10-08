@@ -44,6 +44,7 @@ from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
 from .zai_org import ZaiConversationalTask
 
+
 logger = logging.get_logger(__name__)
 
 

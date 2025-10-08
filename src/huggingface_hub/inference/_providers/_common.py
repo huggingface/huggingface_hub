@@ -7,6 +7,7 @@ from huggingface_hub.inference._common import MimeBytes, RequestParameters
 from huggingface_hub.inference._generated.types.chat_completion import ChatCompletionInputMessage
 from huggingface_hub.utils import build_hf_headers, get_token, logging
 
+
 logger = logging.get_logger(__name__)
 
 
