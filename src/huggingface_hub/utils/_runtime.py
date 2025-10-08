@@ -359,7 +359,7 @@ def _is_hf_installer_installation() -> bool:
 
     i.e. using one of
         curl -LsSf https://hf.co/cli/install.sh | sh
-        curl -LsSf https://hf.co/cli/install.ps1 | pwsh -
+        powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
     """
     venv = sys.prefix  # points to venv root if active
     marker = Path(venv) / ".hf_installer_marker"

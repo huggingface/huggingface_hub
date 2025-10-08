@@ -1,5 +1,5 @@
 # Hugging Face CLI Installer for Windows
-# Usage: powershell -c "irm https://hf.co/cli/install.ps1 | iex"
+# Usage: powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
 # Or: curl -LsSf https://hf.co/cli/install.ps1 | pwsh -
 
 <#

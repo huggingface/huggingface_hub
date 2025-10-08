@@ -116,7 +116,7 @@ curl -LsSf https://hf.co/cli/install.sh | sh
 On Windows:
 
 ```powershell
-powershell -c "irm https://hf.co/cli/install.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
 ```
 
 ## Install with conda
