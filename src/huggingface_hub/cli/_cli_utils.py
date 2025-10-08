@@ -115,10 +115,10 @@ def check_cli_update() -> None:
     Check whether a newer version of `huggingface_hub` is available on PyPI.
 
     If a newer version is found, notify the user and suggest updating.
-    The latest PyPI version is cached locally in `$HF_HOME/pypi_latest_version` for 24 hours to prevent repeated notifications.
     If current version is a pre-release (e.g. `1.0.0.rc1`), or a dev version (e.g. `1.0.0.dev1`), no check is performed.
 
-    This function is called at the entry point of the CLI.
+    This function is called at the entry point of the CLI. It only performs the check once every 24 hours, and any error
+    during the check is caught and logged, to avoid breaking the CLI.
     """
     try:
         _check_cli_update()
