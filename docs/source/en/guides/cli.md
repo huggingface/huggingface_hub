@@ -63,23 +63,30 @@ If the CLI is correctly installed, you should see a list of all the options avai
 > [!TIP]
 > The `--help` option is very convenient for getting more details about a command. You can use it anytime to list all available options and their details. For example, `hf upload --help` provides more information on how to upload files using the CLI.
 
-### Alternative install
+### Other installation methods
 
-#### Using pkgx
+#### Using uv
 
-[Pkgx](https://pkgx.sh)  is a blazingly fast cross platform package manager that runs anything. You can install huggingface-cli using pkgx as follows:
+You can install and run the `hf` CLI with [uv](https://docs.astral.sh/uv/). 
 
-```bash
->>> pkgx install huggingface-cli
-```
-
-Or you can run huggingface-cli directly:
+Make sure uv is installed (adds `uv` and `uvx` to your PATH):
 
 ```bash
->>> pkgx huggingface-cli --help
+>>> curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Check out the pkgx huggingface page [here](https://pkgx.dev/pkgs/huggingface.co/) for more details.
+Then install the CLI globally and use it anywhere:
+
+```bash
+>>> uv tool install "huggingface_hub[cli]"
+>>> hf auth whoami
+```
+
+Alternatively, run the CLI ephemerally with `uvx` (no global install):
+
+```bash
+>>> uvx --from huggingface_hub hf auth whoami
+```
 
 #### Using Homebrew
 
