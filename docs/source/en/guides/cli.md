@@ -944,4 +944,4 @@ Use `hf inference-endpoints` to list, deploy, describe, and manage Inference End
 ```
 
 > [!TIP]
-> Add `--namespace` to target an organization, `--token` to override authentication, and use `hf inference-endpoints deploy catalog` to launch an endpoint with an optimized configuration from the Model Catalog.
+> Add `--namespace` to target an organization, `--token` to override authentication.
