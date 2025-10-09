@@ -49,9 +49,6 @@ from huggingface_hub.utils import _format_size, disable_progress_bars, enable_pr
 from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
 
 
-logger = logging.get_logger(__name__)
-
-
 def download(
     repo_id: RepoIdArg,
     filenames: Annotated[
