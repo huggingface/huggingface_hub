@@ -30,7 +30,7 @@ def _print_endpoint(endpoint: InferenceEndpoint) -> None:
     typer.echo(json.dumps(endpoint.raw, indent=2, sort_keys=True))
 
 
-@app.command(help="Lists all inference endpoints for the given namespace.")
+@app.command(help="Lists all Inference Endpoints for the given namespace.")
 def list(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
