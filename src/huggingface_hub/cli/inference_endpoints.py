@@ -20,74 +20,10 @@ NameArg = Annotated[
     typer.Argument(help="Endpoint name."),
 ]
 
-RepoArg = Annotated[
-    Optional[str],
-    typer.Option(
-        "--repo", help="The name of the model repository associated with the Inference Endpoint (e.g. 'gpt2')."
-    ),
-]
-
 NamespaceOpt = Annotated[
     Optional[str],
     typer.Option(
-        "--namespace",
         help="The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.",
-    ),
-]
-
-
-FrameworkOpt = Annotated[
-    Optional[str],
-    typer.Option(
-        "--framework",
-        help="The machine learning framework used for the model (e.g. 'custom').",
-    ),
-]
-
-AcceleratorOpt = Annotated[
-    Optional[str],
-    typer.Option(
-        "--accelerator",
-        help="The hardware accelerator to be used for inference (e.g. 'cpu').",
-    ),
-]
-
-InstanceSizeOpt = Annotated[
-    Optional[str],
-    typer.Option(
-        "--instance-size",
-        help="The size or type of the instance to be used for hosting the model (e.g. 'x4').",
-    ),
-]
-
-InstanceTypeOpt = Annotated[
-    Optional[str],
-    typer.Option(
-        "--instance-type",
-        help="The cloud instance type where the Inference Endpoint will be deployed (e.g. 'intel-icl').",
-    ),
-]
-
-RegionOpt = Annotated[
-    Optional[str],
-    typer.Option(
-        "--region",
-        help="The cloud region in which the Inference Endpoint will be created (e.g. 'us-east-1').",
-    ),
-]
-
-TaskOpt = Annotated[
-    Optional[str],
-    typer.Option(
-        "--task",
-        help="The task on which to deploy the model (e.g. 'text-classification').",
-    ),
-]
-VendorOpt = Annotated[
-    Optional[str],
-    typer.Option(
-        "--vendor",
-        help="The cloud provider or vendor where the Inference Endpoint will be hosted (e.g. 'aws').",
     ),
 ]
 
@@ -126,55 +62,53 @@ def deploy_from_hub(
     repo: Annotated[
         str,
         typer.Option(
-            "--repo",
             help="The name of the model repository associated with the Inference Endpoint (e.g. 'gpt2').",
         ),
     ],
     framework: Annotated[
         str,
         typer.Option(
-            "--framework",
             help="The machine learning framework used for the model (e.g. 'custom').",
         ),
     ],
     accelerator: Annotated[
         str,
         typer.Option(
-            "--accelerator",
             help="The hardware accelerator to be used for inference (e.g. 'cpu').",
         ),
     ],
     instance_size: Annotated[
         str,
         typer.Option(
-            "--instance-size",
             help="The size or type of the instance to be used for hosting the model (e.g. 'x4').",
         ),
     ],
     instance_type: Annotated[
         str,
         typer.Option(
-            "--instance-type",
             help="The cloud instance type where the Inference Endpoint will be deployed (e.g. 'intel-icl').",
         ),
     ],
     region: Annotated[
         str,
         typer.Option(
-            "--region",
             help="The cloud region in which the Inference Endpoint will be created (e.g. 'us-east-1').",
         ),
     ],
     vendor: Annotated[
         str,
         typer.Option(
-            "--vendor",
             help="The cloud provider or vendor where the Inference Endpoint will be hosted (e.g. 'aws').",
         ),
     ],
     *,
     namespace: NamespaceOpt = None,
-    task: TaskOpt = None,
+    task: Annotated[
+        Optional[str],
+        typer.Option(
+            help="The task on which to deploy the model (e.g. 'text-classification').",
+        ),
+    ] = None,
     token: TokenOpt = None,
 ) -> None:
     api = get_hf_api(token=token)
@@ -205,11 +139,9 @@ def deploy_from_catalog(
     repo: Annotated[
         str,
         typer.Option(
-            "--repo",
             help="The name of the model repository associated with the Inference Endpoint (e.g. 'gpt2').",
         ),
     ],
-    *,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -250,11 +182,36 @@ def describe(
 @app.command(help="Update an existing endpoint.")
 def update(
     endpoint_name: NameArg,
-    repo: RepoArg = None,
-    accelerator: AcceleratorOpt = None,
-    instance_size: InstanceSizeOpt = None,
-    instance_type: InstanceTypeOpt = None,
-    framework: FrameworkOpt = None,
+    repo: Annotated[
+        Optional[str],
+        typer.Option(
+            help="The name of the model repository associated with the Inference Endpoint (e.g. 'gpt2').",
+        ),
+    ] = None,
+    accelerator: Annotated[
+        Optional[str],
+        typer.Option(
+            help="The hardware accelerator to be used for inference (e.g. 'cpu').",
+        ),
+    ] = None,
+    instance_size: Annotated[
+        Optional[str],
+        typer.Option(
+            help="The size or type of the instance to be used for hosting the model (e.g. 'x4').",
+        ),
+    ] = None,
+    instance_type: Annotated[
+        Optional[str],
+        typer.Option(
+            help="The cloud instance type where the Inference Endpoint will be deployed (e.g. 'intel-icl').",
+        ),
+    ] = None,
+    framework: Annotated[
+        Optional[str],
+        typer.Option(
+            help="The machine learning framework used for the model (e.g. 'custom').",
+        ),
+    ] = None,
     revision: Annotated[
         Optional[str],
         typer.Option(
@@ -318,7 +275,6 @@ def delete(
     yes: Annotated[
         bool,
         typer.Option(
-            "--yes",
             help="Skip confirmation prompts.",
         ),
     ] = False,
