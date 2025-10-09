@@ -33,7 +33,7 @@ The first step is to create an Inference Endpoint using [`create_inference_endpo
 ... )
 ```
 
-CLI equivalent:
+Or via CLI:
 
 ```bash
 hf inference-endpoints deploy hub my-endpoint-name --repo gpt2 --framework pytorch --accelerator cpu --vendor aws --region us-east-1 --instance-size x2 --instance-type intel-icl --task text-generation
@@ -216,7 +216,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 # Endpoint is not 'running' but still has a URL and will restart on first call.
 ```
 
-or via CLI:
+Or via CLI:
 
 ```bash
 hf inference-endpoints pause my-endpoint-name
