@@ -52,7 +52,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 Or via CLI:
 
 ```bash
-hf inference-endpoints inspect my-endpoint-name
+hf inference-endpoints describe my-endpoint-name
 ```
 
 It's a dataclass that holds information about the endpoint. You can access important attributes such as `name`, `repository`, `status`, `task`, `created_at`, `updated_at`, etc. If you need it, you can also access the raw response from the server with `endpoint.raw`.
@@ -117,7 +117,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 Or via CLI: 
 
 ```bash
-hf inference-endpoints inspect my-endpoint-name
+hf inference-endpoints describe my-endpoint-name
 hf inference-endpoints list --namespace huggingface
 hf inference-endpoints list --namespace '*'
 ```

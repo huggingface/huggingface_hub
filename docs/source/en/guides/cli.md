@@ -919,20 +919,21 @@ Manage scheduled jobs using
 
 ## hf inference-endpoints
 
-Use `hf inference-endpoints` to list, deploy, inspect, and manage Inference Endpoints directly from the terminal.
+Use `hf inference-endpoints` to list, deploy, describe, and manage Inference Endpoints directly from the terminal.
 
 ```bash
 # Lists endpoints in your namespace
 >>> hf inference-endpoints list
 
-# Deploy an endpoint
->>> hf inference-endpoints deploy hub my-endpoint --repo gpt2 --framework pytorch --accelerator cpu --instance-size x2 --instance-type intel-icl
 
 # Deploy an endpoint from Model Catalog
 >>> hf inference-endpoints deploy catalog --repo openai/gpt-oss-120b --name my-endpoint
 
-# Inspect status and metadata
->>> hf inference-endpoints inspect my-endpoint
+# Deploy an endpoint from the Hugging Face Hub 
+>>> hf inference-endpoints deploy hub my-endpoint --repo gpt2 --framework pytorch --accelerator cpu --instance-size x2 --instance-type intel-icl
+
+# Show status and metadata
+>>> hf inference-endpoints describe my-endpoint
 
 # Pause the endpoint
 >>> hf inference-endpoints pause my-endpoint

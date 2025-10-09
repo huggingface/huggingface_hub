@@ -1068,16 +1068,16 @@ class TestInferenceEndpointsCommands:
         )
         assert '"name": "catalog"' in result.stdout
 
-    def test_inspect(self, runner: CliRunner) -> None:
-        endpoint = Mock(raw={"name": "inspect"})
+    def test_describe(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "describe"})
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.get_inference_endpoint.return_value = endpoint
-            result = runner.invoke(app, ["inference-endpoints", "inspect", "my-endpoint"])
+            result = runner.invoke(app, ["inference-endpoints", "describe", "my-endpoint"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.get_inference_endpoint.assert_called_once_with(name="my-endpoint", namespace=None, token=None)
-        assert '"name": "inspect"' in result.stdout
+        assert '"name": "describe"' in result.stdout
 
     def test_update(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "updated"})

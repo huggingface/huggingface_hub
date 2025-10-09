@@ -121,7 +121,7 @@ def list(
     )
 
 
-deploy_app = typer_factory(help="Deploy Inference Endpoints from Hub repositories or the Model Catalog.")
+deploy_app = typer_factory(help="Deploy Inference Endpoints from the Hub or the Catalog.")
 
 
 @deploy_app.command(name="hub", help="Deploy an Inference Endpoint from a Hub repository.")
@@ -236,7 +236,7 @@ app.add_typer(deploy_app, name="deploy")
 
 
 @app.command(help="Get information about an Inference Endpoint.")
-def inspect(
+def describe(
     name: NameArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
