@@ -925,7 +925,6 @@ Use `hf inference-endpoints` to list, deploy, describe, and manage Inference End
 # Lists endpoints in your namespace
 >>> hf inference-endpoints list
 
-
 # Deploy an endpoint from Model Catalog
 >>> hf inference-endpoints deploy catalog --repo openai/gpt-oss-120b --name my-endpoint
 
@@ -940,7 +939,6 @@ Use `hf inference-endpoints` to list, deploy, describe, and manage Inference End
 
 # Delete without confirmation prompt
 >>> hf inference-endpoints delete my-endpoint --yes
-
 ```
 
 > [!TIP]
