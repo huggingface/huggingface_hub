@@ -58,9 +58,12 @@ def typer_factory(help: str) -> typer.Typer:
     return typer.Typer(
         help=help,
         add_completion=True,
-        rich_markup_mode=None,
         no_args_is_help=True,
         cls=AlphabeticalMixedGroup,
+        # Disable rich completely for consistent experience
+        rich_markup_mode=None,
+        rich_help_panel=None,
+        pretty_exceptions_enable=False,
     )
 
 
