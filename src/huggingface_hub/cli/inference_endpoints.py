@@ -9,12 +9,8 @@ import typer
 
 from huggingface_hub._inference_endpoints import InferenceEndpoint
 from huggingface_hub.errors import HfHubHTTPError
-from huggingface_hub.utils import logging
 
 from ._cli_utils import TokenOpt, get_hf_api, typer_factory
-
-
-logger = logging.get_logger(__name__)
 
 
 app = typer_factory(help="Manage Hugging Face Inference Endpoints.")
