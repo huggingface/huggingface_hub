@@ -33,6 +33,13 @@ The first step is to create an Inference Endpoint using [`create_inference_endpo
 ... )
 ```
 
+CLI equivalent:
+
+```bash
+hf inference-endpoints deploy hub my-endpoint-name --repo gpt2 --framework pytorch --accelerator cpu --vendor aws --region us-east-1 --instance-size x2 --instance-type intel-icl --task text-generation
+```
+
+
 In this example, we created a `protected` Inference Endpoint named `"my-endpoint-name"`, to serve [gpt2](https://huggingface.co/gpt2) for `text-generation`. A `protected` Inference Endpoint means your token is required to access the API. We also need to provide additional information to configure the hardware requirements, such as vendor, region, accelerator, instance type, and size. You can check out the list of available resources [here](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aprovider/list_vendors). Alternatively, you can create an Inference Endpoint manually using the [Web interface](https://ui.endpoints.huggingface.co/new) for convenience. Refer to this [guide](https://huggingface.co/docs/inference-endpoints/guides/advanced) for details on advanced settings and their usage.
 
 The value returned by [`create_inference_endpoint`] is an [`InferenceEndpoint`] object:
@@ -40,6 +47,12 @@ The value returned by [`create_inference_endpoint`] is an [`InferenceEndpoint`] 
 ```py
 >>> endpoint
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='pending', url=None)
+```
+
+Or via CLI:
+
+```bash
+hf inference-endpoints inspect my-endpoint-name
 ```
 
 It's a dataclass that holds information about the endpoint. You can access important attributes such as `name`, `repository`, `status`, `task`, `created_at`, `updated_at`, etc. If you need it, you can also access the raw response from the server with `endpoint.raw`.
@@ -101,6 +114,14 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 [InferenceEndpoint(name='aws-starchat-beta', namespace='huggingface', repository='HuggingFaceH4/starchat-beta', status='paused', url=None), ...]
 ```
 
+Or via CLI: 
+
+```bash
+hf inference-endpoints inspect my-endpoint-name
+hf inference-endpoints list --namespace huggingface
+hf inference-endpoints list --namespace '*'
+```
+
 ## Check deployment status
 
 In the rest of this guide, we will assume that we have a [`InferenceEndpoint`] object called `endpoint`. You might have noticed that the endpoint has a `status` attribute of type [`InferenceEndpointStatus`]. When the Inference Endpoint is deployed and accessible, the status should be `"running"` and the `url` attribute is set:
@@ -115,6 +136,12 @@ Before reaching a `"running"` state, the Inference Endpoint typically goes throu
 ```py
 >>> endpoint.fetch()
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='pending', url=None)
+```
+
+Or via CLI:
+
+```bash
+hf inference-endpoints inspect my-endpoint-name
 ```
 
 Instead of fetching the Inference Endpoint status while waiting for it to run, you can directly call [`~InferenceEndpoint.wait`]. This helper takes as input a `timeout` and a `fetch_every` parameter (in seconds) and will block the thread until the Inference Endpoint is deployed. Default values are respectively `None` (no timeout) and `5` seconds.
@@ -189,6 +216,14 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 # Endpoint is not 'running' but still has a URL and will restart on first call.
 ```
 
+or via CLI:
+
+```bash
+hf inference-endpoints pause my-endpoint-name
+hf inference-endpoints resume my-endpoint-name
+hf inference-endpoints scale-to-zero my-endpoint-name
+```
+
 ### Update model or hardware requirements
 
 In some cases, you might also want to update your Inference Endpoint without creating a new one. You can either update the hosted model or the hardware requirements to run the model. You can do this using [`~InferenceEndpoint.update`]:
@@ -205,6 +240,14 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 # Update to larger instance
 >>> endpoint.update(accelerator="cpu", instance_size="x4", instance_type="intel-icl")
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
+```
+
+Or via CLI:
+
+```bash
+hf inference-endpoints update my-endpoint-name --repo gpt2-large
+hf inference-endpoints update my-endpoint-name --min-replica 2 --max-replica 6
+hf inference-endpoints update my-endpoint-name --accelerator cpu --instance-size x4 --instance-type intel-icl
 ```
 
 ### Delete the endpoint

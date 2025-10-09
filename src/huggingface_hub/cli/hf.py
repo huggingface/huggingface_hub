@@ -17,6 +17,7 @@ from huggingface_hub.cli._cli_utils import check_cli_update, typer_factory
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.download import download
+from huggingface_hub.cli.inference_endpoints import app as inference_endpoints_cli
 from huggingface_hub.cli.jobs import jobs_cli
 from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
 from huggingface_hub.cli.repo import repo_cli
@@ -48,6 +49,7 @@ app.add_typer(cache_cli, name="cache")
 app.add_typer(repo_cli, name="repo")
 app.add_typer(repo_files_cli, name="repo-files")
 app.add_typer(jobs_cli, name="jobs")
+app.add_typer(inference_endpoints_cli, name="inference-endpoints")
 
 
 def main():
