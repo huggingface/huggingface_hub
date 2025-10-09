@@ -1,7 +1,5 @@
 """CLI commands for Hugging Face Inference Endpoints."""
 
-from __future__ import annotations
-
 import json
 from typing import Annotated, Optional
 
