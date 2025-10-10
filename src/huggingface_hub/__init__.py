@@ -111,6 +111,9 @@ _SUBMOD_ATTRS = {
         "WebhooksServer",
         "webhook_endpoint",
     ],
+    "cli._cli_utils": [
+        "typer_factory",
+    ],
     "community": [
         "Discussion",
         "DiscussionComment",
@@ -949,6 +952,7 @@ __all__ = [
     "super_squash_history",
     "suspend_scheduled_job",
     "try_to_load_from_cache",
+    "typer_factory",
     "unlike",
     "update_collection_item",
     "update_collection_metadata",
@@ -1117,6 +1121,7 @@ if TYPE_CHECKING:  # pragma: no cover
         WebhooksServer,  # noqa: F401
         webhook_endpoint,  # noqa: F401
     )
+    from .cli._cli_utils import typer_factory  # noqa: F401
     from .community import (
         Discussion,  # noqa: F401
         DiscussionComment,  # noqa: F401
