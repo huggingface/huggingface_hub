@@ -219,7 +219,7 @@ def http_backoff(
     retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (
         requests.Timeout,
         requests.ConnectionError,
-        requests.ChunkedEncodingError,
+        requests.exceptions.ChunkedEncodingError,
     ),
     retry_on_status_codes: Union[int, Tuple[int, ...]] = (500, 502, 503, 504),
     **kwargs,
