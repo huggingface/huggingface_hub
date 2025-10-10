@@ -102,6 +102,13 @@ def hf_request_event_hook(request: httpx.Request) -> None:
     return request_id
 
 
+async def async_hf_request_event_hook(request: httpx.Request) -> None:
+    """
+    Async version of `hf_request_event_hook`.
+    """
+    return hf_request_event_hook(request)
+
+
 def default_client_factory() -> httpx.Client:
     """
     Factory function to create a `httpx.Client` with the default transport.
@@ -118,7 +125,7 @@ def default_async_client_factory() -> httpx.AsyncClient:
     Factory function to create a `httpx.AsyncClient` with the default transport.
     """
     return httpx.AsyncClient(
-        event_hooks={"request": [hf_request_event_hook]},
+        event_hooks={"request": [async_hf_request_event_hook]},
         follow_redirects=True,
         timeout=httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
     )

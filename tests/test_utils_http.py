@@ -17,6 +17,7 @@ from huggingface_hub.utils._http import (
     _adjust_range_header,
     default_client_factory,
     fix_hf_endpoint_in_url,
+    get_async_session,
     get_session,
     http_backoff,
     set_client_factory,
@@ -362,3 +363,18 @@ def test_proxy_env_is_used(monkeypatch):
 
     # Reset
     set_client_factory(default_client_factory)
+
+
+def test_client_get_request():
+    # Check that sync client works
+    client = get_session()
+    response = client.get("https://huggingface.co")
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_async_client_get_request():
+    # Check that async client works
+    client = get_async_session()
+    response = await client.get("https://huggingface.co")
+    assert response.status_code == 200
