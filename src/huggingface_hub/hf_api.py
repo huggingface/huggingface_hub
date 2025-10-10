@@ -1404,16 +1404,52 @@ class Organization:
             Name of the organization on the Hub (unique).
         fullname (`str`):
             Organization's full name.
+        id (`str`, *optional*):
+            Unique identifier of the organization on the Hub.
+        details (`str`, *optional*):
+            Organization's description.
+        is_verified (`bool`, *optional*):
+            Whether the organization is verified.
+        is_following (`bool`, *optional*):
+            Whether the authenticated user follows this organization.
+        num_users (`int`, *optional*):
+            Number of members in the organization.
+        num_models (`int`, *optional*):
+            Number of models owned by the organization.
+        num_spaces (`int`, *optional*):
+            Number of Spaces owned by the organization.
+        num_datasets (`int`, *optional*):
+            Number of datasets owned by the organization.
+        num_followers (`int`, *optional*):
+            Number of followers of the organization.
     """
 
     avatar_url: str
     name: str
     fullname: str
+    id: Optional[str] = None
+    details: Optional[str] = None
+    is_verified: Optional[bool] = None
+    is_following: Optional[bool] = None
+    num_users: Optional[int] = None
+    num_models: Optional[int] = None
+    num_spaces: Optional[int] = None
+    num_datasets: Optional[int] = None
+    num_followers: Optional[int] = None
 
     def __init__(self, **kwargs) -> None:
         self.avatar_url = kwargs.pop("avatarUrl", "")
         self.name = kwargs.pop("name", "")
         self.fullname = kwargs.pop("fullname", "")
+        self.id = kwargs.pop("_id", None)
+        self.details = kwargs.pop("details", None)
+        self.is_verified = kwargs.pop("isVerified", None)
+        self.is_following = kwargs.pop("isFollowing", None)
+        self.num_users = kwargs.pop("numUsers", None)
+        self.num_models = kwargs.pop("numModels", None)
+        self.num_spaces = kwargs.pop("numSpaces", None)
+        self.num_datasets = kwargs.pop("numDatasets", None)
+        self.num_followers = kwargs.pop("numFollowers", None)
 
         # forward compatibility
         self.__dict__.update(**kwargs)
@@ -9663,6 +9699,33 @@ class HfApi:
         hf_raise_for_status(r)
         return User(**r.json())
 
+    @validate_hf_hub_args
+    def get_organization_overview(self, organization: str, token: Union[bool, str, None] = None) -> Organization:
+        """
+        Get an overview of an organization on the Hub.
+
+        Args:
+            organization (`str`):
+                Name of the organization to get an overview of.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended method
+                for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Organization`: An [`Organization`] object with the organization's overview.
+
+        Raises:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+                HTTP 404 If the organization does not exist on the Hub.
+        """
+        r = get_session().get(
+            f"{constants.ENDPOINT}/api/organizations/{organization}/overview",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return Organization(**r.json())
+
     def list_organization_members(self, organization: str, token: Union[bool, str, None] = None) -> Iterable[User]:
         """
         List of members of an organization on the Hub.
@@ -10956,6 +11019,7 @@ update_webhook = api.update_webhook
 
 # User API
 get_user_overview = api.get_user_overview
+get_organization_overview = api.get_organization_overview
 list_organization_members = api.list_organization_members
 list_user_followers = api.list_user_followers
 list_user_following = api.list_user_following
