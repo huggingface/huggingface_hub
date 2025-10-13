@@ -21,7 +21,7 @@ NameArg = Annotated[
 NamespaceOpt = Annotated[
     Optional[str],
     typer.Option(
-        help="The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.",
+        help="The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.",
     ),
 ]
 
@@ -51,7 +51,7 @@ def list(
     )
 
 
-deploy_app = typer_factory(help="Deploy Inference Endpoints from the Hub or the Catalog.")
+deploy_app = typer_factory(help="Deploy a new Inference Endpoint.")
 
 
 @deploy_app.command(name="hub", help="Deploy an Inference Endpoint from a Hub repository.")
@@ -66,7 +66,7 @@ def deploy_from_hub(
     framework: Annotated[
         str,
         typer.Option(
-            help="The machine learning framework used for the model (e.g. 'custom').",
+            help="The machine learning framework used for the model (e.g. 'vllm').",
         ),
     ],
     accelerator: Annotated[
@@ -161,7 +161,7 @@ def deploy_from_catalog(
 app.add_typer(deploy_app, name="deploy")
 
 
-@app.command(help="Get information about an Inference Endpoint.")
+@app.command(help="Get information about an existing endpoint.")
 def describe(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -179,7 +179,8 @@ def describe(
 
 @app.command(help="Update an existing endpoint.")
 def update(
-    endpoint_name: NameArg,
+    name: NameArg,
+    namespace: NamespaceOpt = None,
     repo: Annotated[
         Optional[str],
         typer.Option(
@@ -272,9 +273,7 @@ def delete(
     namespace: NamespaceOpt = None,
     yes: Annotated[
         bool,
-        typer.Option(
-            help="Skip confirmation prompts.",
-        ),
+        typer.Option("--yes", help="Skip confirmation prompts."),
     ] = False,
     token: TokenOpt = None,
 ) -> None:

@@ -49,7 +49,7 @@ app.add_typer(cache_cli, name="cache")
 app.add_typer(repo_cli, name="repo")
 app.add_typer(repo_files_cli, name="repo-files")
 app.add_typer(jobs_cli, name="jobs")
-app.add_typer(inference_endpoints_cli, name="inference-endpoints")
+app.add_typer(inference_endpoints_cli, name="endpoints")
 
 
 def main():
