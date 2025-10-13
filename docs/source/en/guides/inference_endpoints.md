@@ -36,7 +36,10 @@ The first step is to create an Inference Endpoint using [`create_inference_endpo
 Or via CLI:
 
 ```bash
-hf inference-endpoints deploy hub my-endpoint-name --repo gpt2 --framework pytorch --accelerator cpu --vendor aws --region us-east-1 --instance-size x2 --instance-type intel-icl --task text-generation
+hf endpoints deploy my-endpoint-name --repo gpt2 --framework pytorch --accelerator cpu --vendor aws --region us-east-1 --instance-size x2 --instance-type intel-icl --task text-generation
+
+# Deploy from the catalog with a single command
+hf endpoints catalog deploy my-endpoint-name --repo openai/gpt-oss-120b
 ```
 
 
@@ -52,7 +55,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 Or via CLI:
 
 ```bash
-hf inference-endpoints describe my-endpoint-name
+hf endpoints describe my-endpoint-name
 ```
 
 It's a dataclass that holds information about the endpoint. You can access important attributes such as `name`, `repository`, `status`, `task`, `created_at`, `updated_at`, etc. If you need it, you can also access the raw response from the server with `endpoint.raw`.
@@ -117,9 +120,9 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 Or via CLI: 
 
 ```bash
-hf inference-endpoints describe my-endpoint-name
-hf inference-endpoints list --namespace huggingface
-hf inference-endpoints list --namespace '*'
+hf endpoints describe my-endpoint-name
+hf endpoints ls --namespace huggingface
+hf endpoints ls --namespace '*'
 ```
 
 ## Check deployment status
@@ -141,7 +144,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 Or via CLI:
 
 ```bash
-hf inference-endpoints inspect my-endpoint-name
+hf endpoints describe my-endpoint-name
 ```
 
 Instead of fetching the Inference Endpoint status while waiting for it to run, you can directly call [`~InferenceEndpoint.wait`]. This helper takes as input a `timeout` and a `fetch_every` parameter (in seconds) and will block the thread until the Inference Endpoint is deployed. Default values are respectively `None` (no timeout) and `5` seconds.
@@ -219,9 +222,9 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 Or via CLI:
 
 ```bash
-hf inference-endpoints pause my-endpoint-name
-hf inference-endpoints resume my-endpoint-name
-hf inference-endpoints scale-to-zero my-endpoint-name
+hf endpoints pause my-endpoint-name
+hf endpoints resume my-endpoint-name
+hf endpoints scale-to-zero my-endpoint-name
 ```
 
 ### Update model or hardware requirements
@@ -245,9 +248,9 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 Or via CLI:
 
 ```bash
-hf inference-endpoints update my-endpoint-name --repo gpt2-large
-hf inference-endpoints update my-endpoint-name --min-replica 2 --max-replica 6
-hf inference-endpoints update my-endpoint-name --accelerator cpu --instance-size x4 --instance-type intel-icl
+hf endpoints update my-endpoint-name --repo gpt2-large
+hf endpoints update my-endpoint-name --min-replica 2 --max-replica 6
+hf endpoints update my-endpoint-name --accelerator cpu --instance-size x4 --instance-type intel-icl
 ```
 
 ### Delete the endpoint

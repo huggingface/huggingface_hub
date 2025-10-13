@@ -990,12 +990,23 @@ class TestInferenceEndpointsCommands:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_inference_endpoints.return_value = [endpoint]
-            result = runner.invoke(app, ["inference-endpoints", "list"])
+            result = runner.invoke(app, ["endpoints", "ls"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.list_inference_endpoints.assert_called_once_with(namespace=None, token=None)
         assert '"items"' in result.stdout
         assert '"name": "demo"' in result.stdout
+
+    def test_inference_endpoints_alias(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "alias"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_inference_endpoints.return_value = [endpoint]
+            result = runner.invoke(app, ["inference-endpoints", "ls"])
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token=None)
+        api.list_inference_endpoints.assert_called_once_with(namespace=None, token=None)
+        assert '"name": "alias"' in result.stdout
 
     def test_deploy_from_hub(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "hub"})
@@ -1005,9 +1016,8 @@ class TestInferenceEndpointsCommands:
             result = runner.invoke(
                 app,
                 [
-                    "inference-endpoints",
+                    "endpoints",
                     "deploy",
-                    "hub",
                     "my-endpoint",
                     "--repo",
                     "my-repo",
@@ -1050,9 +1060,9 @@ class TestInferenceEndpointsCommands:
             result = runner.invoke(
                 app,
                 [
-                    "inference-endpoints",
-                    "deploy",
+                    "endpoints",
                     "catalog",
+                    "deploy",
                     "catalog-endpoint",
                     "--repo",
                     "catalog/model",
@@ -1073,7 +1083,7 @@ class TestInferenceEndpointsCommands:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.get_inference_endpoint.return_value = endpoint
-            result = runner.invoke(app, ["inference-endpoints", "describe", "my-endpoint"])
+            result = runner.invoke(app, ["endpoints", "describe", "my-endpoint"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.get_inference_endpoint.assert_called_once_with(name="my-endpoint", namespace=None, token=None)
@@ -1087,7 +1097,7 @@ class TestInferenceEndpointsCommands:
             result = runner.invoke(
                 app,
                 [
-                    "inference-endpoints",
+                    "endpoints",
                     "update",
                     "my-endpoint",
                     "--repo",
@@ -1120,7 +1130,7 @@ class TestInferenceEndpointsCommands:
     def test_delete(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
-            result = runner.invoke(app, ["inference-endpoints", "delete", "my-endpoint", "--yes"])
+            result = runner.invoke(app, ["endpoints", "delete", "my-endpoint", "--yes"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.delete_inference_endpoint.assert_called_once_with(name="my-endpoint", namespace=None, token=None)
@@ -1131,7 +1141,7 @@ class TestInferenceEndpointsCommands:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.pause_inference_endpoint.return_value = endpoint
-            result = runner.invoke(app, ["inference-endpoints", "pause", "my-endpoint"])
+            result = runner.invoke(app, ["endpoints", "pause", "my-endpoint"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.pause_inference_endpoint.assert_called_once_with(name="my-endpoint", namespace=None, token=None)
@@ -1142,7 +1152,7 @@ class TestInferenceEndpointsCommands:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.resume_inference_endpoint.return_value = endpoint
-            result = runner.invoke(app, ["inference-endpoints", "resume", "my-endpoint"])
+            result = runner.invoke(app, ["endpoints", "resume", "my-endpoint"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.resume_inference_endpoint.assert_called_once_with(
@@ -1153,12 +1163,36 @@ class TestInferenceEndpointsCommands:
         )
         assert '"name": "resumed"' in result.stdout
 
+    def test_resume_fail_if_already_running(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "resumed"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.resume_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "resume",
+                    "my-endpoint",
+                    "--fail-if-already-running",
+                ],
+            )
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token=None)
+        api.resume_inference_endpoint.assert_called_once_with(
+            name="my-endpoint",
+            namespace=None,
+            token=None,
+            running_ok=False,
+        )
+        assert '"name": "resumed"' in result.stdout
+
     def test_scale_to_zero(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "zero"})
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.scale_to_zero_inference_endpoint.return_value = endpoint
-            result = runner.invoke(app, ["inference-endpoints", "scale-to-zero", "my-endpoint"])
+            result = runner.invoke(app, ["endpoints", "scale-to-zero", "my-endpoint"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.scale_to_zero_inference_endpoint.assert_called_once_with(
@@ -1172,7 +1206,7 @@ class TestInferenceEndpointsCommands:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_inference_catalog.return_value = ["model"]
-            result = runner.invoke(app, ["inference-endpoints", "list-catalog"])
+            result = runner.invoke(app, ["endpoints", "catalog", "ls"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.list_inference_catalog.assert_called_once_with(token=None)

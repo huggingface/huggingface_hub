@@ -13,6 +13,8 @@ from ._cli_utils import TokenOpt, get_hf_api, typer_factory
 
 app = typer_factory(help="Manage Hugging Face Inference Endpoints.")
 
+catalog_app = typer_factory(help="Interact with the Inference Endpoints catalog.")
+
 NameArg = Annotated[
     str,
     typer.Argument(help="Endpoint name."),
@@ -31,7 +33,7 @@ def _print_endpoint(endpoint: InferenceEndpoint) -> None:
 
 
 @app.command()
-def list(
+def ls(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -52,16 +54,13 @@ def list(
     )
 
 
-deploy_app = typer_factory(help="Deploy a new Inference Endpoint.")
-
-
-@deploy_app.command(name="hub", help="Deploy an Inference Endpoint from a Hub repository.")
-def deploy_from_hub(
+@app.command(name="deploy", help="Deploy an Inference Endpoint from a Hub repository.")
+def deploy(
     name: NameArg,
     repo: Annotated[
         str,
         typer.Option(
-            help="The name of the model repository associated with the Inference Endpoint (e.g. 'gpt2').",
+            help="The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').",
         ),
     ],
     framework: Annotated[
@@ -132,13 +131,13 @@ def deploy_from_hub(
     _print_endpoint(endpoint)
 
 
-@deploy_app.command(name="catalog", help="Deploy an Inference Endpoint from the Model Catalog.")
+@catalog_app.command(name="deploy", help="Deploy an Inference Endpoint from the Model Catalog.")
 def deploy_from_catalog(
     name: NameArg,
     repo: Annotated[
         str,
         typer.Option(
-            help="The name of the model repository associated with the Inference Endpoint (e.g. 'gpt2').",
+            help="The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').",
         ),
     ],
     namespace: NamespaceOpt = None,
@@ -159,7 +158,25 @@ def deploy_from_catalog(
     _print_endpoint(endpoint)
 
 
-app.add_typer(deploy_app, name="deploy")
+def list_catalog(
+    token: TokenOpt = None,
+) -> None:
+    """List available Catalog models."""
+    api = get_hf_api(token=token)
+    try:
+        models = api.list_inference_catalog(token=token)
+    except HfHubHTTPError as error:
+        typer.echo(f"Catalog fetch failed: {error}")
+        raise typer.Exit(code=error.response.status_code) from error
+
+    typer.echo(json.dumps({"models": models}, indent=2, sort_keys=True))
+
+
+catalog_app.command(name="ls")(list_catalog)
+app.command(name="list-catalog", help="List available Catalog models.", hidden=True)(list_catalog)
+
+
+app.add_typer(catalog_app, name="catalog")
 
 
 @app.command()
@@ -186,7 +203,7 @@ def update(
     repo: Annotated[
         Optional[str],
         typer.Option(
-            help="The name of the model repository associated with the Inference Endpoint (e.g. 'gpt2').",
+            help="The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').",
         ),
     ] = None,
     accelerator: Annotated[
@@ -243,14 +260,13 @@ def update(
             help="The duration in minutes before an inactive endpoint is scaled to zero.",
         ),
     ] = None,
-    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Update an existing endpoint."""
     api = get_hf_api(token=token)
     try:
         endpoint = api.update_inference_endpoint(
-            name=endpoint_name,
+            name=name,
             namespace=namespace,
             repository=repo,
             framework=framework,
@@ -318,12 +334,13 @@ def pause(
 def resume(
     name: NameArg,
     namespace: NamespaceOpt = None,
-    running_ok: Annotated[
+    fail_if_already_running: Annotated[
         bool,
         typer.Option(
-            help="If `True`, the method will not raise an error if the Inference Endpoint is already running."
+            "--fail-if-already-running",
+            help="If `True`, the method will raise an error if the Inference Endpoint is already running.",
         ),
-    ] = True,
+    ] = False,
     token: TokenOpt = None,
 ) -> None:
     """Resume an Inference Endpoint."""
@@ -333,7 +350,7 @@ def resume(
             name=name,
             namespace=namespace,
             token=token,
-            running_ok=running_ok,
+            running_ok=not fail_if_already_running,
         )
     except HfHubHTTPError as error:
         typer.echo(f"Resume failed: {error}")
@@ -356,18 +373,3 @@ def scale_to_zero(
         raise typer.Exit(code=error.response.status_code) from error
 
     _print_endpoint(endpoint)
-
-
-@app.command()
-def list_catalog(
-    token: TokenOpt = None,
-) -> None:
-    """List available Catalog models."""
-    api = get_hf_api(token=token)
-    try:
-        models = api.list_inference_catalog(token=token)
-    except HfHubHTTPError as error:
-        typer.echo(f"Catalog fetch failed: {error}")
-        raise typer.Exit(code=error.response.status_code) from error
-
-    typer.echo(json.dumps({"models": models}, indent=2, sort_keys=True))

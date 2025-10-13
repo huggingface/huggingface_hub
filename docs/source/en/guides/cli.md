@@ -917,28 +917,32 @@ Manage scheduled jobs using
 >>> hf jobs scheduled delete <scheduled_job_id>
 ```
 
-## hf inference-endpoints
+## hf endpoints
 
-Use `hf inference-endpoints` to list, deploy, describe, and manage Inference Endpoints directly from the terminal.
+Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints directly from the terminal. The legacy
+`hf inference-endpoints` alias remains available for compatibility.
 
 ```bash
 # Lists endpoints in your namespace
->>> hf inference-endpoints list
+>>> hf endpoints ls
 
 # Deploy an endpoint from Model Catalog
->>> hf inference-endpoints deploy catalog --repo openai/gpt-oss-120b --name my-endpoint
+>>> hf endpoints catalog deploy --repo openai/gpt-oss-120b --name my-endpoint
 
 # Deploy an endpoint from the Hugging Face Hub 
->>> hf inference-endpoints deploy hub my-endpoint --repo gpt2 --framework pytorch --accelerator cpu --instance-size x2 --instance-type intel-icl
+>>> hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch --accelerator cpu --instance-size x2 --instance-type intel-icl
+
+# List catalog entries
+>>> hf endpoints catalog ls
 
 # Show status and metadata
->>> hf inference-endpoints describe my-endpoint
+>>> hf endpoints describe my-endpoint
 
 # Pause the endpoint
->>> hf inference-endpoints pause my-endpoint
+>>> hf endpoints pause my-endpoint
 
 # Delete without confirmation prompt
->>> hf inference-endpoints delete my-endpoint --yes
+>>> hf endpoints delete my-endpoint --yes
 ```
 
 > [!TIP]
