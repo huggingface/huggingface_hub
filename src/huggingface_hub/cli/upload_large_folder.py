@@ -19,13 +19,9 @@ from typing import Annotated, Optional
 
 import typer
 
-from huggingface_hub import logging
 from huggingface_hub.utils import ANSI, disable_progress_bars
 
 from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api
-
-
-logger = logging.get_logger(__name__)
 
 
 def upload_large_folder(
