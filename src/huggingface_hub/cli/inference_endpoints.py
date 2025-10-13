@@ -30,11 +30,12 @@ def _print_endpoint(endpoint: InferenceEndpoint) -> None:
     typer.echo(json.dumps(endpoint.raw, indent=2, sort_keys=True))
 
 
-@app.command(help="Lists all Inference Endpoints for the given namespace.")
+@app.command()
 def list(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Lists all Inference Endpoints for the given namespace."""
     api = get_hf_api(token=token)
     try:
         endpoints = api.list_inference_endpoints(namespace=namespace, token=token)
@@ -161,12 +162,13 @@ def deploy_from_catalog(
 app.add_typer(deploy_app, name="deploy")
 
 
-@app.command(help="Get information about an existing endpoint.")
+@app.command()
 def describe(
     name: NameArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Get information about an existing endpoint."""
     api = get_hf_api(token=token)
     try:
         endpoint = api.get_inference_endpoint(name=name, namespace=namespace, token=token)
@@ -177,7 +179,7 @@ def describe(
     _print_endpoint(endpoint)
 
 
-@app.command(help="Update an existing endpoint.")
+@app.command()
 def update(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -244,6 +246,7 @@ def update(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Update an existing endpoint."""
     api = get_hf_api(token=token)
     try:
         endpoint = api.update_inference_endpoint(
@@ -267,7 +270,7 @@ def update(
     _print_endpoint(endpoint)
 
 
-@app.command(help="Delete an Inference Endpoint permanently.")
+@app.command()
 def delete(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -277,6 +280,7 @@ def delete(
     ] = False,
     token: TokenOpt = None,
 ) -> None:
+    """Delete an Inference Endpoint permanently."""
     if not yes:
         confirmation = typer.prompt(f"Delete endpoint '{name}'? Type the name to confirm.")
         if confirmation != name:
@@ -293,12 +297,13 @@ def delete(
     typer.echo(f"Deleted '{name}'.")
 
 
-@app.command(help="Pause an Inference Endpoint.")
+@app.command()
 def pause(
     name: NameArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Pause an Inference Endpoint."""
     api = get_hf_api(token=token)
     try:
         endpoint = api.pause_inference_endpoint(name=name, namespace=namespace, token=token)
@@ -309,7 +314,7 @@ def pause(
     _print_endpoint(endpoint)
 
 
-@app.command(help="Resume an Inference Endpoint.")
+@app.command()
 def resume(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -321,6 +326,7 @@ def resume(
     ] = True,
     token: TokenOpt = None,
 ) -> None:
+    """Resume an Inference Endpoint."""
     api = get_hf_api(token=token)
     try:
         endpoint = api.resume_inference_endpoint(
@@ -335,12 +341,13 @@ def resume(
     _print_endpoint(endpoint)
 
 
-@app.command(help="Scale an Inference Endpoint to zero.")
+@app.command()
 def scale_to_zero(
     name: NameArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Scale an Inference Endpoint to zero."""
     api = get_hf_api(token=token)
     try:
         endpoint = api.scale_to_zero_inference_endpoint(name=name, namespace=namespace, token=token)
@@ -351,10 +358,11 @@ def scale_to_zero(
     _print_endpoint(endpoint)
 
 
-@app.command(help="List available Catalog models.")
+@app.command()
 def list_catalog(
     token: TokenOpt = None,
 ) -> None:
+    """List available Catalog models."""
     api = get_hf_api(token=token)
     try:
         models = api.list_inference_catalog(token=token)
