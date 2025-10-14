@@ -21,7 +21,7 @@ import re
 import sys
 import time
 from dataclasses import dataclass
-from enum import Enum, IntEnum
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Callable, Dict, List, Mapping, Optional, Tuple
 
@@ -40,6 +40,7 @@ from huggingface_hub.utils import (
     logging,
     tabulate,
 )
+from huggingface_hub.utils._parsing import parse_duration, parse_size
 
 
 logger = logging.get_logger()
@@ -211,53 +212,6 @@ _FILTER_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)\s*(?P<op>==|!=|>=|<=|>|<|=)\
 _ALLOWED_OPERATORS = {"=", "!=", ">", "<", ">=", "<="}
 
 
-class ByteUnit(IntEnum):
-    BYTE = 1
-    KB = 1_000
-    MB = 1_000**2
-    GB = 1_000**3
-    TB = 1_000**4
-    PB = 1_000**5
-
-    @classmethod
-    def suffixes(cls) -> Dict[str, int]:
-        return {
-            "b": cls.BYTE,
-            "kb": cls.KB,
-            "k": cls.KB,
-            "mb": cls.MB,
-            "m": cls.MB,
-            "gb": cls.GB,
-            "g": cls.GB,
-            "tb": cls.TB,
-            "t": cls.TB,
-            "pb": cls.PB,
-            "p": cls.PB,
-        }
-
-
-class TimeUnit(IntEnum):
-    SECOND = 1
-    MINUTE = 60
-    HOUR = 60 * 60
-    DAY = 24 * 60 * 60
-    WEEK = 7 * 24 * 60 * 60
-    MONTH = 30 * 24 * 60 * 60
-    YEAR = 365 * 24 * 60 * 60
-
-    @classmethod
-    def suffixes(cls) -> Dict[str, int]:
-        return {
-            "s": cls.SECOND,
-            "m": cls.MINUTE,
-            "h": cls.HOUR,
-            "d": cls.DAY,
-            "w": cls.WEEK,
-            "mo": cls.MONTH,
-            "y": cls.YEAR,
-        }
-
-
 @dataclass(frozen=True)
 class CacheDeletionCounts:
     repo_count: int
@@ -269,40 +223,15 @@ CacheEntry = Tuple[CachedRepoInfo, Optional[CachedRevisionInfo]]
 RepoRefsMap = Dict[CachedRepoInfo, frozenset[str]]
 
 
-def parse_cache_size(value: str) -> int:
+
+def _parse_time_expression(value: str) -> Tuple[str, int]:
     stripped = value.strip()
     try:
-        return int(float(stripped))
+        return "absolute", int(stripped)
     except ValueError:
-        pass
+        seconds = parse_duration(stripped)
+        return "relative", seconds
 
-    match = re.fullmatch(r"(?P<number>\d+(?:\.\d+)?)\s*(?P<suffix>[a-zA-Z]+)", stripped)
-    if not match:
-        raise ValueError(f"Invalid size value '{value}'.")
-
-    number = float(match.group("number"))
-    suffix = match.group("suffix").lower()
-
-    multiplier = ByteUnit.suffixes().get(suffix)
-    if multiplier is None:
-        raise ValueError(f"Unknown size suffix '{match.group('suffix')}'.")
-
-    return int(number * multiplier)
-
-
-def parse_cache_duration(value: str) -> float:
-    stripped = value.strip().lower()
-    match = re.fullmatch(r"(?P<number>\d+(?:\.\d+)?)(?P<suffix>s|m|h|d|w|mo|y)", stripped)
-    if not match:
-        raise ValueError(f"Invalid time value '{value}'.")
-
-    number = float(match.group("number"))
-    suffix = match.group("suffix")
-    multiplier = TimeUnit.suffixes().get(suffix)
-    if multiplier is None:
-        raise ValueError(f"Unknown time suffix '{match.group('suffix')}'.")
-
-    return number * multiplier
 
 
 def summarize_cache_deletion_counts(
@@ -397,7 +326,7 @@ def compile_cache_filter(
         raise ValueError(f"Unsupported operator '{op}' in filter '{expr}'.")
 
     if key == "size":
-        size_threshold = parse_cache_size(value_raw)
+        size_threshold = parse_size(value_raw)
         return lambda repo, revision, _: _compare_numeric(
             revision.size_on_disk if revision is not None else repo.size_on_disk,
             op,
@@ -405,18 +334,12 @@ def compile_cache_filter(
         )
 
     if key in {"modified", "accessed"}:
-        stripped = value_raw.strip().lower()
-        if re.fullmatch(r"\d+(?:\.\d+)?", stripped):
-            time_kind, time_value = ("absolute", float(stripped))
-        else:
-            time_kind, time_value = ("relative", parse_cache_duration(value_raw))
+        time_kind, time_value = _parse_time_expression(value_raw)
 
         if key == "modified":
 
             def _time_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], now: float) -> bool:
                 timestamp = revision.last_modified if revision is not None else repo.last_modified
-                if timestamp is None:
-                    return False
                 if time_kind == "relative":
                     return _compare_numeric(now - timestamp, op, time_value)
                 return _compare_numeric(timestamp, op, time_value)
@@ -425,8 +348,6 @@ def compile_cache_filter(
 
             def _time_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], now: float) -> bool:
                 timestamp = repo.last_accessed
-                if timestamp is None:
-                    return False
                 if time_kind == "relative":
                     return _compare_numeric(now - timestamp, op, time_value)
                 return _compare_numeric(timestamp, op, time_value)

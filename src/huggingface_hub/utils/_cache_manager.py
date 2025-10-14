@@ -26,6 +26,7 @@ from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
 from ..constants import HF_HUB_CACHE
 from . import logging
+from ._parsing import format_timesince
 from ._terminal import tabulate
 
 
@@ -79,7 +80,7 @@ class CachedFileInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_timesince(self.blob_last_accessed)
+        return format_timesince(self.blob_last_accessed)
 
     @property
     def blob_last_modified_str(self) -> str:
@@ -89,7 +90,7 @@ class CachedFileInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_timesince(self.blob_last_modified)
+        return format_timesince(self.blob_last_modified)
 
     @property
     def size_on_disk_str(self) -> str:
@@ -153,7 +154,7 @@ class CachedRevisionInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_timesince(self.last_modified)
+        return format_timesince(self.last_modified)
 
     @property
     def size_on_disk_str(self) -> str:
@@ -223,7 +224,7 @@ class CachedRepoInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_timesince(self.last_accessed)
+        return format_timesince(self.last_accessed)
 
     @property
     def last_modified_str(self) -> str:
@@ -233,7 +234,7 @@ class CachedRepoInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_timesince(self.last_modified)
+        return format_timesince(self.last_modified)
 
     @property
     def size_on_disk_str(self) -> str:
@@ -814,34 +815,6 @@ def _format_size(num: int) -> str:
             return f"{num_f:3.1f}{unit}"
         num_f /= 1000.0
     return f"{num_f:.1f}Y"
-
-
-_TIMESINCE_CHUNKS = (
-    # Label, divider, max value
-    ("second", 1, 60),
-    ("minute", 60, 60),
-    ("hour", 60 * 60, 24),
-    ("day", 60 * 60 * 24, 6),
-    ("week", 60 * 60 * 24 * 7, 6),
-    ("month", 60 * 60 * 24 * 30, 11),
-    ("year", 60 * 60 * 24 * 365, None),
-)
-
-
-def _format_timesince(ts: float) -> str:
-    """Format timestamp in seconds into a human-readable string, relative to now.
-
-    Vaguely inspired by Django's `timesince` formatter.
-    """
-    delta = time.time() - ts
-    if delta < 20:
-        return "a few seconds ago"
-    for label, divider, max_value in _TIMESINCE_CHUNKS:  # noqa: B007
-        value = round(delta / divider)
-        if max_value is not None and value <= max_value:
-            break
-    return f"{value} {label}{'s' if value > 1 else ''} ago"
-
 
 def _try_delete_path(path: Path, path_type: str) -> None:
     """Try to delete a local file or folder.
