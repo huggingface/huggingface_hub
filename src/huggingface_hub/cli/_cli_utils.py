@@ -218,11 +218,6 @@ class ByteUnit(IntEnum):
     GB = 1_000**3
     TB = 1_000**4
     PB = 1_000**5
-    KIB = 1_024
-    MIB = 1_024**2
-    GIB = 1_024**3
-    TIB = 1_024**4
-    PIB = 1_024**5
 
     @classmethod
     def suffixes(cls) -> Dict[str, int]:
@@ -238,12 +233,6 @@ class ByteUnit(IntEnum):
             "t": cls.TB,
             "pb": cls.PB,
             "p": cls.PB,
-            # Binary units
-            "kib": cls.KIB,
-            "mib": cls.MIB,
-            "gib": cls.GIB,
-            "tib": cls.TIB,
-            "pib": cls.PIB,
         }
 
 
