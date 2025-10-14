@@ -8,7 +8,13 @@ from shutil import copytree
 from typing import Any, Dict, List, Optional, Union
 
 from huggingface_hub import ModelHubMixin, snapshot_download
-from huggingface_hub.utils import get_tf_version, is_graphviz_available, is_pydot_available, is_tf_available, yaml_dump
+from huggingface_hub.utils import (
+    get_tf_version,
+    is_graphviz_available,
+    is_pydot_available,
+    is_tf_available,
+    yaml_dump,
+)
 
 from . import constants
 from .hf_api import HfApi
