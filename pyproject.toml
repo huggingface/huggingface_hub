@@ -14,8 +14,9 @@ unresolved-attribute = "ignore"
 
 # Be tolerant with framework/typing edge-cases and runtime-validated code paths
 unsupported-base = "ignore"
-possibly-unbound-attribute = "ignore"
 unsupported-operator = "ignore"
+possibly-missing-attribute = "ignore"
+possibly-missing-implicit-call = "ignore"
 non-subscriptable = "ignore"
 call-non-callable = "ignore"
 
