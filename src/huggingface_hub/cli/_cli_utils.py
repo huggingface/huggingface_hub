@@ -287,9 +287,6 @@ def parse_cache_size(value: str) -> int:
     if multiplier is None:
         raise ValueError(f"Unknown size suffix '{match.group('suffix')}'.")
 
-    if number < 0:
-        raise ValueError(f"Size value cannot be negative: {value}")
-
     return int(number * multiplier)
 
 
@@ -304,9 +301,6 @@ def parse_cache_duration(value: str) -> float:
     multiplier = TimeUnit.suffixes().get(suffix)
     if multiplier is None:
         raise ValueError(f"Unknown time suffix '{match.group('suffix')}'.")
-
-    if number < 0:
-        raise ValueError(f"Time value cannot be negative: {value}")
 
     return number * multiplier
 
