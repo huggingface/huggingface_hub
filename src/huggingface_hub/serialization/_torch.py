@@ -266,7 +266,7 @@ def save_torch_state_dict(
     safe_file_kwargs = {"metadata": per_file_metadata} if safe_serialization else {}
     for filename, tensors in state_dict_split.filename_to_tensors.items():
         shard = {tensor: state_dict[tensor] for tensor in tensors}
-        save_file_fn(shard, os.path.join(save_directory, filename), **safe_file_kwargs)
+        save_file_fn(shard, os.path.join(save_directory, filename), **safe_file_kwargs)  # ty: ignore[invalid-argument-type]
         logger.debug(f"Shard saved to {filename}")
 
     # Save the index (if any)
