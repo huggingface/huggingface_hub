@@ -7675,9 +7675,9 @@ class HfApi:
             "type": type,
         }
         if env:
-            payload["model"]["env"] = env  # ty: ignore[possibly-missing-implicit-call]
+            payload["model"]["env"] = env
         if secrets:
-            payload["model"]["secrets"] = secrets  # ty: ignore[possibly-missing-implicit-call]
+            payload["model"]["secrets"] = secrets
         if domain is not None or path is not None:
             payload["route"] = {}
             if domain is not None:

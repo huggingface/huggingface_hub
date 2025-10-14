@@ -16,6 +16,7 @@ unresolved-attribute = "ignore"
 unsupported-base = "ignore"
 unsupported-operator = "ignore"
 possibly-missing-attribute = "ignore"
+possibly-missing-implicit-call = "ignore"
 non-subscriptable = "ignore"
 call-non-callable = "ignore"
 
