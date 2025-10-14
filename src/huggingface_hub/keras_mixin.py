@@ -82,7 +82,7 @@ def _create_hyperparameter_table(model):
         optimizer_params = model.optimizer.get_config()
         # flatten the configuration
         optimizer_params = _flatten_dict(optimizer_params)
-        optimizer_params["training_precision"] = keras.mixed_precision.global_policy().name  # ty: ignore[possibly-missing-attribute]
+        optimizer_params["training_precision"] = keras.mixed_precision.global_policy().name
         table = "| Hyperparameters | Value |\n| :-- | :-- |\n"
         for key, value in optimizer_params.items():
             table += f"| {key} | {value} |\n"
@@ -90,13 +90,13 @@ def _create_hyperparameter_table(model):
 
 
 def _plot_network(model, save_directory):
-    keras.utils.plot_model(  # type: ignore[possibly-missing-attribute]
+    keras.utils.plot_model(
         model,
         to_file=f"{save_directory}/model.png",
         show_shapes=False,
         show_dtype=False,
         show_layer_names=True,
-        rankdir="TB",  # type: ignore[possibly-missing-attribute]
+        rankdir="TB",
         expand_nested=False,
         dpi=96,
         layer_range=None,
