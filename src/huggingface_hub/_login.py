@@ -244,7 +244,7 @@ def interpreter_login(*, skip_if_logged_in: bool = False) -> None:
         logger.info("User is already logged in.")
         return
 
-    from .cli.cache import _ask_for_confirmation_no_tui
+    from .cli._cli_utils import _ask_for_confirmation_no_tui
 
     print(_HF_LOGO_ASCII)
     if get_token() is not None:

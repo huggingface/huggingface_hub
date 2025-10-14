@@ -13,18 +13,33 @@
 # limitations under the License.
 """Contains CLI utilities (styling, helpers)."""
 
+import csv
 import importlib.metadata
+import json
 import os
+import re
+import sys
 import time
-from enum import Enum
+from dataclasses import dataclass
+from enum import Enum, IntEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Optional
+from typing import TYPE_CHECKING, Annotated, Callable, Dict, List, Mapping, Optional, Tuple
 
 import click
 import typer
 
 from huggingface_hub import __version__, constants
-from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging
+from huggingface_hub.utils import (
+    ANSI,
+    CachedRepoInfo,
+    CachedRevisionInfo,
+    HFCacheInfo,
+    get_session,
+    hf_raise_for_status,
+    installation_method,
+    logging,
+    tabulate,
+)
 
 
 logger = logging.get_logger()
@@ -171,3 +186,453 @@ def _check_cli_update() -> None:
                 f"To update, run: {ANSI.bold(update_command)}\n",
             )
         )
+
+
+def _ask_for_confirmation_no_tui(message: str, default: bool = True) -> bool:
+    YES = ("y", "yes", "1")
+    NO = ("n", "no", "0")
+    DEFAULT = ""
+    ALL = YES + NO + (DEFAULT,)
+    full_message = message + (" (Y/n) " if default else " (y/N) ")
+    while True:
+        answer = input(full_message).lower()
+        if answer == DEFAULT:
+            return default
+        if answer in YES:
+            return True
+        if answer in NO:
+            return False
+        print(f"Invalid input. Must be one of {ALL}")
+
+
+#### hf cache utils
+
+_FILTER_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)\s*(?P<op>==|!=|>=|<=|>|<|=)\s*(?P<value>.+)$")
+_ALLOWED_OPERATORS = {"=", "!=", ">", "<", ">=", "<="}
+
+
+class ByteUnit(IntEnum):
+    BYTE = 1
+    KB = 1_000
+    MB = 1_000**2
+    GB = 1_000**3
+    TB = 1_000**4
+    PB = 1_000**5
+    KIB = 1_024
+    MIB = 1_024**2
+    GIB = 1_024**3
+    TIB = 1_024**4
+    PIB = 1_024**5
+
+    @classmethod
+    def suffixes(cls) -> Dict[str, int]:
+        return {
+            "b": cls.BYTE,
+            "kb": cls.KB,
+            "k": cls.KB,
+            "mb": cls.MB,
+            "m": cls.MB,
+            "gb": cls.GB,
+            "g": cls.GB,
+            "tb": cls.TB,
+            "t": cls.TB,
+            "pb": cls.PB,
+            "p": cls.PB,
+            # Binary units
+            "kib": cls.KIB,
+            "mib": cls.MIB,
+            "gib": cls.GIB,
+            "tib": cls.TIB,
+            "pib": cls.PIB,
+        }
+
+
+class TimeUnit(IntEnum):
+    SECOND = 1
+    MINUTE = 60
+    HOUR = 60 * 60
+    DAY = 24 * 60 * 60
+    WEEK = 7 * 24 * 60 * 60
+    MONTH = 30 * 24 * 60 * 60
+    YEAR = 365 * 24 * 60 * 60
+
+    @classmethod
+    def suffixes(cls) -> Dict[str, int]:
+        return {
+            "s": cls.SECOND,
+            "m": cls.MINUTE,
+            "h": cls.HOUR,
+            "d": cls.DAY,
+            "w": cls.WEEK,
+            "mo": cls.MONTH,
+            "y": cls.YEAR,
+        }
+
+
+@dataclass(frozen=True)
+class CacheDeletionCounts:
+    repo_count: int
+    partial_revision_count: int
+    total_revision_count: int
+
+
+CacheEntry = Tuple[CachedRepoInfo, Optional[CachedRevisionInfo]]
+RepoRefsMap = Dict[CachedRepoInfo, frozenset[str]]
+
+
+def parse_cache_size(value: str) -> int:
+    stripped = value.strip()
+    try:
+        return int(float(stripped))
+    except ValueError:
+        pass
+
+    match = re.fullmatch(r"(?P<number>\d+(?:\.\d+)?)\s*(?P<suffix>[a-zA-Z]+)", stripped)
+    if not match:
+        raise ValueError(f"Invalid size value '{value}'.")
+
+    number = float(match.group("number"))
+    suffix = match.group("suffix").lower()
+
+    multiplier = ByteUnit.suffixes().get(suffix)
+    if multiplier is None:
+        raise ValueError(f"Unknown size suffix '{match.group('suffix')}'.")
+
+    if number < 0:
+        raise ValueError(f"Size value cannot be negative: {value}")
+
+    return int(number * multiplier)
+
+
+def parse_cache_duration(value: str) -> float:
+    stripped = value.strip().lower()
+    match = re.fullmatch(r"(?P<number>\d+(?:\.\d+)?)(?P<suffix>s|m|h|d|w|mo|y)", stripped)
+    if not match:
+        raise ValueError(f"Invalid time value '{value}'.")
+
+    number = float(match.group("number"))
+    suffix = match.group("suffix")
+    multiplier = TimeUnit.suffixes().get(suffix)
+    if multiplier is None:
+        raise ValueError(f"Unknown time suffix '{match.group('suffix')}'.")
+
+    if number < 0:
+        raise ValueError(f"Time value cannot be negative: {value}")
+
+    return number * multiplier
+
+
+def summarize_cache_deletion_counts(
+    selected_by_repo: Mapping[CachedRepoInfo, frozenset[CachedRevisionInfo]],
+) -> CacheDeletionCounts:
+    repo_count = 0
+    total_revisions = 0
+    revisions_in_full_repos = 0
+
+    for repo, revisions in selected_by_repo.items():
+        total_revisions += len(revisions)
+        if len(revisions) == len(repo.revisions):
+            repo_count += 1
+            revisions_in_full_repos += len(revisions)
+
+    partial_revision_count = total_revisions - revisions_in_full_repos
+    return CacheDeletionCounts(repo_count, partial_revision_count, total_revisions)
+
+
+def print_cache_selected_revisions(selected_by_repo: Mapping[CachedRepoInfo, frozenset[CachedRevisionInfo]]) -> None:
+    for repo in sorted(selected_by_repo.keys(), key=lambda repo: (repo.repo_type, repo.repo_id.lower())):
+        repo_key = f"{repo.repo_type}/{repo.repo_id}"
+        revisions = sorted(selected_by_repo[repo], key=lambda rev: rev.commit_hash)
+        if len(revisions) == len(repo.revisions):
+            print(f"  - {repo_key} (entire repo)")
+            continue
+
+        print(f"  - {repo_key}:")
+        for revision in revisions:
+            refs = ", ".join(sorted(revision.refs)) or "(detached)"
+            print(f"      {revision.commit_hash} [{refs}] {revision.size_on_disk_str}")
+
+
+def build_cache_index(
+    hf_cache_info: HFCacheInfo,
+) -> Tuple[
+    Dict[str, CachedRepoInfo],
+    Dict[str, Tuple[CachedRepoInfo, CachedRevisionInfo]],
+]:
+    repo_lookup: dict[str, CachedRepoInfo] = {}
+    revision_lookup: dict[str, tuple[CachedRepoInfo, CachedRevisionInfo]] = {}
+    for repo in hf_cache_info.repos:
+        repo_key = f"{repo.repo_type}/{repo.repo_id}".lower()
+        repo_lookup[repo_key] = repo
+        for revision in repo.revisions:
+            revision_lookup[revision.commit_hash.lower()] = (repo, revision)
+    return repo_lookup, revision_lookup
+
+
+def collect_cache_entries(
+    hf_cache_info: HFCacheInfo, *, include_revisions: bool
+) -> Tuple[List[CacheEntry], RepoRefsMap]:
+    entries: List[CacheEntry] = []
+    repo_refs_map: RepoRefsMap = {}
+    sorted_repos = sorted(hf_cache_info.repos, key=lambda repo: (repo.repo_type, repo.repo_id.lower()))
+    for repo in sorted_repos:
+        repo_refs_map[repo] = frozenset({ref for revision in repo.revisions for ref in revision.refs})
+        if include_revisions:
+            for revision in sorted(repo.revisions, key=lambda rev: rev.commit_hash):
+                entries.append((repo, revision))
+        else:
+            entries.append((repo, None))
+    if include_revisions:
+        entries.sort(
+            key=lambda entry: (
+                format_cache_repo_id(entry[0]),
+                entry[1].commit_hash if entry[1] is not None else "",
+            )
+        )
+    else:
+        entries.sort(key=lambda entry: format_cache_repo_id(entry[0]))
+    return entries, repo_refs_map
+
+
+def format_cache_repo_id(repo: CachedRepoInfo) -> str:
+    return f"{repo.repo_type}/{repo.repo_id}"
+
+
+def compile_cache_filter(
+    expr: str, repo_refs_map: RepoRefsMap
+) -> Callable[[CachedRepoInfo, Optional[CachedRevisionInfo], float], bool]:
+    match = _FILTER_PATTERN.match(expr.strip())
+    if not match:
+        raise ValueError(f"Invalid filter expression: '{expr}'.")
+
+    key = match.group("key").lower()
+    op = match.group("op")
+    op = "=" if op == "==" else op
+    value_raw = match.group("value").strip()
+
+    if op not in _ALLOWED_OPERATORS:
+        raise ValueError(f"Unsupported operator '{op}' in filter '{expr}'.")
+
+    if key == "size":
+        size_threshold = parse_cache_size(value_raw)
+        return lambda repo, revision, _: _compare_numeric(
+            revision.size_on_disk if revision is not None else repo.size_on_disk,
+            op,
+            size_threshold,
+        )
+
+    if key in {"modified", "accessed"}:
+        stripped = value_raw.strip().lower()
+        if re.fullmatch(r"\d+(?:\.\d+)?", stripped):
+            time_kind, time_value = ("absolute", float(stripped))
+        else:
+            time_kind, time_value = ("relative", parse_cache_duration(value_raw))
+
+        if key == "modified":
+
+            def _time_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], now: float) -> bool:
+                timestamp = revision.last_modified if revision is not None else repo.last_modified
+                if timestamp is None:
+                    return False
+                if time_kind == "relative":
+                    return _compare_numeric(now - timestamp, op, time_value)
+                return _compare_numeric(timestamp, op, time_value)
+
+        else:
+
+            def _time_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], now: float) -> bool:
+                timestamp = repo.last_accessed
+                if timestamp is None:
+                    return False
+                if time_kind == "relative":
+                    return _compare_numeric(now - timestamp, op, time_value)
+                return _compare_numeric(timestamp, op, time_value)
+
+        return _time_filter
+
+    if key == "type":
+        expected = value_raw.lower()
+
+        if op not in {"=", "!="}:
+            raise ValueError("Only '=' and '!=' are supported for 'type' filters.")
+
+        def _type_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], _: float) -> bool:
+            actual = repo.repo_type.lower()
+            return actual == expected if op == "=" else actual != expected
+
+        return _type_filter
+
+    if key == "id":
+        needle = value_raw.lower()
+
+        if op not in {"=", "!="}:
+            raise ValueError("Only '=' and '!=' are supported for 'id' filters.")
+
+        def _id_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], _: float) -> bool:
+            haystack = format_cache_repo_id(repo).lower()
+            contains = needle in haystack
+            return contains if op == "=" else not contains
+
+        return _id_filter
+
+    if key == "refs":
+        needle = value_raw.lower()
+
+        if op not in {"=", "!="}:
+            raise ValueError("Only '=' and '!=' are supported for 'refs' filters.")
+
+        def _refs_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], _: float) -> bool:
+            refs = revision.refs if revision is not None else repo_refs_map.get(repo, frozenset())
+            refs_lower = [ref.lower() for ref in refs]
+            contains = any(needle in ref for ref in refs_lower)
+            return contains if op == "=" else not contains
+
+        return _refs_filter
+
+    raise ValueError(f"Unsupported filter key '{key}' in '{expr}'.")
+
+
+def print_cache_entries_table(
+    entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
+) -> None:
+    if not entries:
+        message = "No cached revisions found." if include_revisions else "No cached repositories found."
+        print(message)
+        return
+
+    if include_revisions:
+        table_rows: List[List[str]] = []
+        headers = ["ID", "REVISION", "SIZE", "LAST_MODIFIED", "REFS"]
+        table_rows = [
+            [
+                format_cache_repo_id(repo),
+                revision.commit_hash,
+                revision.size_on_disk_str.rjust(8),
+                revision.last_modified_str,
+                ", ".join(sorted(revision.refs)),
+            ]
+            for repo, revision in entries
+            if revision is not None
+        ]
+    else:
+        headers = ["ID", "SIZE", "LAST_ACCESSED", "LAST_MODIFIED", "REFS"]
+        table_rows = [
+            [
+                format_cache_repo_id(repo),
+                repo.size_on_disk_str.rjust(8),
+                repo.last_accessed_str or "",
+                repo.last_modified_str,
+                ", ".join(sorted(repo_refs_map.get(repo, frozenset()))),
+            ]
+            for repo, _ in entries
+        ]
+
+    print(tabulate(table_rows, headers=headers))  # type: ignore[arg-type]
+
+
+def print_cache_entries_json(
+    entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
+) -> None:
+    if include_revisions:
+        payload = [
+            {
+                "id": format_cache_repo_id(repo),
+                "repo_id": repo.repo_id,
+                "repo_type": repo.repo_type,
+                "revision": revision.commit_hash,
+                "size_on_disk": revision.size_on_disk,
+                "size_on_disk_str": revision.size_on_disk_str,
+                "last_accessed": repo.last_accessed,
+                "last_accessed_str": repo.last_accessed_str,
+                "last_modified": revision.last_modified,
+                "last_modified_str": revision.last_modified_str,
+                "refs": sorted(revision.refs),
+                "snapshot_path": str(revision.snapshot_path),
+            }
+            for repo, revision in entries
+            if revision is not None
+        ]
+    else:
+        payload = [
+            {
+                "id": format_cache_repo_id(repo),
+                "repo_id": repo.repo_id,
+                "repo_type": repo.repo_type,
+                "size_on_disk": repo.size_on_disk,
+                "size_on_disk_str": repo.size_on_disk_str,
+                "last_accessed": repo.last_accessed,
+                "last_accessed_str": repo.last_accessed_str,
+                "last_modified": repo.last_modified,
+                "last_modified_str": repo.last_modified_str,
+                "refs": sorted(repo_refs_map.get(repo, frozenset())),
+            }
+            for repo, _ in entries
+        ]
+
+    json.dump(payload, sys.stdout, indent=2)
+    sys.stdout.write("\n")
+
+
+def print_cache_entries_csv(entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap) -> None:
+    writer = csv.writer(sys.stdout)
+    if include_revisions:
+        writer.writerow(
+            ["id", "revision", "repo_type", "size_bytes", "size", "last_modified", "last_modified_str", "refs"]
+        )
+        for repo, revision in entries:
+            if revision is None:
+                continue
+            writer.writerow(
+                [
+                    format_cache_repo_id(repo),
+                    revision.commit_hash,
+                    repo.repo_type,
+                    revision.size_on_disk,
+                    revision.size_on_disk_str,
+                    revision.last_modified,
+                    revision.last_modified_str,
+                    "; ".join(sorted(revision.refs)),
+                ]
+            )
+    else:
+        writer.writerow(
+            [
+                "id",
+                "repo_type",
+                "size_bytes",
+                "size",
+                "last_accessed",
+                "last_accessed_str",
+                "last_modified",
+                "last_modified_str",
+                "refs",
+            ]
+        )
+        for repo, _ in entries:
+            writer.writerow(
+                [
+                    format_cache_repo_id(repo),
+                    repo.repo_type,
+                    repo.size_on_disk,
+                    repo.size_on_disk_str,
+                    repo.last_accessed if repo.last_accessed is not None else "",
+                    repo.last_accessed_str or "",
+                    repo.last_modified,
+                    repo.last_modified_str,
+                    "; ".join(sorted(repo_refs_map.get(repo, frozenset()))),
+                ]
+            )
+
+
+def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
+    if left is None:
+        return False
+
+    return {
+        "=": left == right,
+        "!=": left != right,
+        ">": left > right,
+        "<": left < right,
+        ">=": left >= right,
+        "<=": left <= right,
+    }.get(op, False)

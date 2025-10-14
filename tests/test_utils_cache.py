@@ -1,16 +1,13 @@
 import os
-import tempfile
 import time
 import unittest
 from pathlib import Path
-from typing import Any
 from unittest.mock import Mock
 
 import pytest
 
 from huggingface_hub._snapshot_download import snapshot_download
-from huggingface_hub.cli.cache import cache_scan
-from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, _format_size, capture_output, scan_cache_dir
+from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, _format_size, scan_cache_dir
 from huggingface_hub.utils._cache_manager import CacheNotFound, _format_timesince, _try_delete_path
 
 from .testing_utils import rmtree_with_retry, with_production_testing, xfail_on_windows
@@ -229,71 +226,6 @@ class TestValidCacheUtils(unittest.TestCase):
         self.assertNotEqual(  # Windows-specific: different as well
             pr_1_readme_file.blob_path, main_readme_file.blob_path
         )
-
-    @xfail_on_windows("Size on disk and paths differ on Windows. Not useful to test.")
-    def test_cli_scan_cache_quiet(self) -> None:
-        """Test output from CLI scan cache with non verbose output.
-
-        End-to-end test just to see if output is in expected format.
-        """
-        with capture_output() as output:
-            cache_scan(dir=self.cache_dir, verbose=0)
-
-        expected_output = f"""
-        REPO ID                       REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED     LAST_MODIFIED     REFS            LOCAL PATH
-        ----------------------------- --------- ------------ -------- ----------------- ----------------- --------------- ---------------------------------------------------------
-        {DATASET_ID} dataset           2.3K        1 a few seconds ago a few seconds ago main            {self.cache_dir}/{DATASET_PATH}
-        {MODEL_ID}   model             1.5K        3 a few seconds ago a few seconds ago main, refs/pr/1 {self.cache_dir}/{MODEL_PATH}
-
-        Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.8K\x1b[0m.
-        """
-
-        assert is_sublist(
-            expected_output.replace("-", "").split(),
-            output.getvalue().replace("-", "").split(),
-        )
-
-    @xfail_on_windows("Size on disk and paths differ on Windows. Not useful to test.")
-    def test_cli_scan_cache_verbose(self) -> None:
-        """Test output from CLI scan cache with verbose output.
-
-        End-to-end test just to see if output is in expected format.
-        """
-        with capture_output() as output:
-            cache_scan(dir=self.cache_dir, verbose=1)
-
-        expected_output = f"""
-        REPO ID                       REPO TYPE REVISION                                 SIZE ON DISK NB FILES LAST_MODIFIED     REFS      LOCAL PATH
-        ----------------------------- --------- ---------------------------------------- ------------ -------- ----------------- --------- ------------------------------------------------------------------------------------------------------------
-        {DATASET_ID} dataset   {REPO_B_MAIN_HASH}          2.3K        1 a few seconds ago main      {self.cache_dir}/{DATASET_PATH}/snapshots/{REPO_B_MAIN_HASH}
-        {MODEL_ID}   model     {REPO_A_PR_1_HASH}          1.5K        3 a few seconds ago refs/pr/1 {self.cache_dir}/{MODEL_PATH}/snapshots/{REPO_A_PR_1_HASH}
-        {MODEL_ID}   model     {REPO_A_MAIN_HASH}          1.5K        2 a few seconds ago main      {self.cache_dir}/{MODEL_PATH}/snapshots/{REPO_A_MAIN_HASH}
-        {MODEL_ID}   model     {REPO_A_OTHER_HASH}         1.5K        1 a few seconds ago           {self.cache_dir}/{MODEL_PATH}/snapshots/{REPO_A_OTHER_HASH}
-
-        Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.8K\x1b[0m.
-        """
-
-        assert is_sublist(
-            expected_output.replace("-", "").split(),
-            output.getvalue().replace("-", "").split(),
-        )
-
-    def test_cli_scan_missing_cache(self) -> None:
-        """Test output from CLI scan cache when cache does not exist.
-
-        End-to-end test just to see if output is in expected format.
-        """
-        tmp_dir = tempfile.mkdtemp()
-        os.rmdir(tmp_dir)
-
-        with capture_output() as output:
-            cache_scan(dir=tmp_dir, verbose=0)
-
-        expected_output = f"""
-        Cache directory not found: {Path(tmp_dir).resolve()}
-        """
-
-        assert is_sublist(expected_output.split(), output.getvalue().split())
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -831,8 +763,3 @@ class TestStringFormatters(unittest.TestCase):
                 expected,
                 msg=f"Wrong formatting for {ts} == '{expected}'",
             )
-
-
-def is_sublist(sub: list[Any], full: list[Any]) -> bool:
-    it = iter(full)
-    return all(item in it for item in sub)

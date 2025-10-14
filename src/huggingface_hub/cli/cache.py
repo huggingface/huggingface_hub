@@ -12,368 +12,299 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains the 'hf cache' command group with 'scan' and 'delete' subcommands."""
+"""Contains the 'hf cache' command group with cache management subcommands."""
 
-import os
+import re
 import time
+from collections import defaultdict
+from dataclasses import dataclass
 from enum import Enum
-from functools import wraps
-from tempfile import mkstemp
-from typing import Annotated, Any, Callable, Iterable, Optional, Union
+from typing import Annotated, Optional
 
 import typer
 
-from ..utils import ANSI, CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, scan_cache_dir, tabulate
-from ._cli_utils import typer_factory
-
-
-# --- DELETE helpers (from delete_cache.py) ---
-try:
-    from InquirerPy import inquirer
-    from InquirerPy.base.control import Choice
-    from InquirerPy.separator import Separator
-
-    _inquirer_py_available = True
-except ImportError:
-    _inquirer_py_available = False
-
-_CANCEL_DELETION_STR = "CANCEL_DELETION"
-
-
-class SortingOption(str, Enum):
-    alphabetical = "alphabetical"
-    lastUpdated = "lastUpdated"
-    lastUsed = "lastUsed"
-    size = "size"
-
-
-def require_inquirer_py(fn: Callable) -> Callable:
-    @wraps(fn)
-    def _inner(*args, **kwargs):
-        if not _inquirer_py_available:
-            raise ImportError(
-                "The 'cache delete' command requires extra dependencies for the TUI.\n"
-                "Please run 'pip install \"huggingface_hub[cli]\"' to install them.\n"
-                "Otherwise, disable TUI using the '--disable-tui' flag."
-            )
-        return fn(*args, **kwargs)
-
-    return _inner
+from ..utils import CachedRepoInfo, CachedRevisionInfo, CacheNotFound, DeleteCacheStrategy, HFCacheInfo, scan_cache_dir
+from ._cli_utils import (
+    build_cache_index,
+    collect_cache_entries,
+    compile_cache_filter,
+    format_cache_repo_id,
+    print_cache_entries_csv,
+    print_cache_entries_json,
+    print_cache_entries_table,
+    print_cache_selected_revisions,
+    summarize_cache_deletion_counts,
+    typer_factory,
+)
 
 
 cache_cli = typer_factory(help="Manage local cache directory.")
 
 
-@cache_cli.command("scan", help="Scan the cache directory")
-def cache_scan(
-    dir: Annotated[
+class OutputFormat(str, Enum):
+    table = "table"
+    json = "json"
+    csv = "csv"
+
+
+@dataclass(frozen=True)
+class _DeletionResolution:
+    revisions: frozenset[str]
+    selected: dict[CachedRepoInfo, frozenset[CachedRevisionInfo]]
+    missing: tuple[str, ...]
+
+
+@cache_cli.command(help="List cached repositories or revisions.")
+def ls(
+    cache_dir: Annotated[
         Optional[str],
         typer.Option(
             help="Cache directory to scan (defaults to Hugging Face cache).",
         ),
     ] = None,
-    verbose: Annotated[
-        int,
-        typer.Option(
-            "-v",
-            "--verbose",
-            count=True,
-            help="Increase verbosity (-v, -vv, -vvv).",
-        ),
-    ] = 0,
-) -> None:
-    try:
-        t0 = time.time()
-        hf_cache_info = scan_cache_dir(dir)
-        t1 = time.time()
-    except CacheNotFound as exc:
-        print(f"Cache directory not found: {str(exc.cache_dir)}")
-        return
-    print(get_table(hf_cache_info, verbosity=verbose))
-    print(
-        f"\nDone in {round(t1 - t0, 1)}s. Scanned {len(hf_cache_info.repos)} repo(s)"
-        f" for a total of {ANSI.red(hf_cache_info.size_on_disk_str)}."
-    )
-    if len(hf_cache_info.warnings) > 0:
-        message = f"Got {len(hf_cache_info.warnings)} warning(s) while scanning."
-        if verbose >= 3:
-            print(ANSI.gray(message))
-            for warning in hf_cache_info.warnings:
-                print(ANSI.gray(str(warning)))
-        else:
-            print(ANSI.gray(message + " Use -vvv to print details."))
-
-
-@cache_cli.command("delete", help="Delete revisions from the cache directory")
-def cache_delete(
-    dir: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Cache directory (defaults to Hugging Face cache).",
-        ),
-    ] = None,
-    disable_tui: Annotated[
+    revisions: Annotated[
         bool,
         typer.Option(
-            help="Disable Terminal User Interface (TUI) mode. Useful if your platform/terminal doesn't support the multiselect menu.",
+            help="Include revisions in the output instead of aggregated repositories.",
         ),
     ] = False,
-    sort: Annotated[
-        Optional[SortingOption],
+    filter: Annotated[
+        Optional[list[str]],
         typer.Option(
-            help="Sort repositories by the specified criteria. Options: 'alphabetical' (A-Z), 'lastUpdated' (newest first), 'lastUsed' (most recent first), 'size' (largest first).",
+            "-f",
+            "--filter",
+            help="Filter entries (e.g. size>1GB, type=model, accessed>7d). Can be used multiple times.",
         ),
     ] = None,
-) -> None:
-    hf_cache_info = scan_cache_dir(dir)
-    sort_by = sort.value if sort is not None else None
-    if disable_tui:
-        selected_hashes = _manual_review_no_tui(hf_cache_info, preselected=[], sort_by=sort_by)
-    else:
-        selected_hashes = _manual_review_tui(hf_cache_info, preselected=[], sort_by=sort_by)
-    if len(selected_hashes) > 0 and _CANCEL_DELETION_STR not in selected_hashes:
-        confirm_message = _get_expectations_str(hf_cache_info, selected_hashes) + " Confirm deletion ?"
-        if disable_tui:
-            confirmed = _ask_for_confirmation_no_tui(confirm_message)
-        else:
-            confirmed = _ask_for_confirmation_tui(confirm_message)
-        if confirmed:
-            strategy = hf_cache_info.delete_revisions(*selected_hashes)
-            print("Start deletion.")
-            strategy.execute()
-            print(
-                f"Done. Deleted {len(strategy.repos)} repo(s) and"
-                f" {len(strategy.snapshots)} revision(s) for a total of"
-                f" {strategy.expected_freed_size_str}."
-            )
-            return
-    print("Deletion is cancelled. Do nothing.")
-
-
-def get_table(hf_cache_info: HFCacheInfo, *, verbosity: int = 0) -> str:
-    if verbosity == 0:
-        return tabulate(
-            rows=[
-                [
-                    repo.repo_id,
-                    repo.repo_type,
-                    "{:>12}".format(repo.size_on_disk_str),
-                    repo.nb_files,
-                    repo.last_accessed_str,
-                    repo.last_modified_str,
-                    ", ".join(sorted(repo.refs)),
-                    str(repo.repo_path),
-                ]
-                for repo in sorted(hf_cache_info.repos, key=lambda repo: repo.repo_path)
-            ],
-            headers=[
-                "REPO ID",
-                "REPO TYPE",
-                "SIZE ON DISK",
-                "NB FILES",
-                "LAST_ACCESSED",
-                "LAST_MODIFIED",
-                "REFS",
-                "LOCAL PATH",
-            ],
-        )
-    else:
-        return tabulate(
-            rows=[
-                [
-                    repo.repo_id,
-                    repo.repo_type,
-                    revision.commit_hash,
-                    "{:>12}".format(revision.size_on_disk_str),
-                    revision.nb_files,
-                    revision.last_modified_str,
-                    ", ".join(sorted(revision.refs)),
-                    str(revision.snapshot_path),
-                ]
-                for repo in sorted(hf_cache_info.repos, key=lambda repo: repo.repo_path)
-                for revision in sorted(repo.revisions, key=lambda revision: revision.commit_hash)
-            ],
-            headers=[
-                "REPO ID",
-                "REPO TYPE",
-                "REVISION",
-                "SIZE ON DISK",
-                "NB FILES",
-                "LAST_MODIFIED",
-                "REFS",
-                "LOCAL PATH",
-            ],
-        )
-
-
-def _get_repo_sorting_key(repo: CachedRepoInfo, sort_by: Optional[str] = None):
-    if sort_by == "alphabetical":
-        return (repo.repo_type, repo.repo_id.lower())
-    elif sort_by == "lastUpdated":
-        return -max(rev.last_modified for rev in repo.revisions)
-    elif sort_by == "lastUsed":
-        return -repo.last_accessed
-    elif sort_by == "size":
-        return -repo.size_on_disk
-    else:
-        return (repo.repo_type, repo.repo_id)
-
-
-@require_inquirer_py
-def _manual_review_tui(hf_cache_info: HFCacheInfo, preselected: list[str], sort_by: Optional[str] = None) -> list[str]:
-    choices = _get_tui_choices_from_scan(repos=hf_cache_info.repos, preselected=preselected, sort_by=sort_by)
-    checkbox = inquirer.checkbox(
-        message="Select revisions to delete:",
-        choices=choices,
-        cycle=False,
-        height=100,
-        instruction=_get_expectations_str(
-            hf_cache_info, selected_hashes=[c.value for c in choices if isinstance(c, Choice) and c.enabled]
+    format: Annotated[
+        OutputFormat,
+        typer.Option(
+            help="Output format.",
         ),
-        long_instruction="Press <space> to select, <enter> to validate and <ctrl+c> to quit without modification.",
-        transformer=lambda result: f"{len(result)} revision(s) selected.",
-    )
-
-    def _update_expectations(_):
-        checkbox._instruction = _get_expectations_str(
-            hf_cache_info,
-            selected_hashes=[choice["value"] for choice in checkbox.content_control.choices if choice["enabled"]],
-        )
-
-    checkbox.kb_func_lookup["toggle"].append({"func": _update_expectations})
+    ] = OutputFormat.table,
+    quiet: Annotated[
+        bool,
+        typer.Option(
+            "-q",
+            "--quiet",
+            help="Print only IDs (repo IDs or revision hashes).",
+        ),
+    ] = False,
+) -> None:
     try:
-        return checkbox.execute()
-    except KeyboardInterrupt:
-        return []
+        hf_cache_info = scan_cache_dir(cache_dir)
+    except CacheNotFound as exc:
+        print(f"Cache directory not found: {str(exc.cache_dir)}")
+        raise typer.Exit(code=1)
+
+    filters = filter or []
+
+    entries, repo_refs_map = collect_cache_entries(hf_cache_info, include_revisions=revisions)
+    try:
+        filter_fns = [compile_cache_filter(expr, repo_refs_map) for expr in filters]
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    now = time.time()
+    for fn in filter_fns:
+        entries = [entry for entry in entries if fn(entry[0], entry[1], now)]
+
+    if quiet:
+        for repo, revision in entries:
+            print(revision.commit_hash if revision is not None else format_cache_repo_id(repo))
+        return
+
+    formatters = {
+        OutputFormat.table: print_cache_entries_table,
+        OutputFormat.json: print_cache_entries_json,
+        OutputFormat.csv: print_cache_entries_csv,
+    }
+    return formatters[format](entries, include_revisions=revisions, repo_refs_map=repo_refs_map)
 
 
-@require_inquirer_py
-def _ask_for_confirmation_tui(message: str, default: bool = True) -> bool:
-    return inquirer.confirm(message, default=default).execute()
+@cache_cli.command(help="Remove cached repositories or revisions.")
+def rm(
+    targets: Annotated[
+        list[str],
+        typer.Argument(
+            help="One or more repo IDs (e.g. model/bert-base-uncased) or revision hashes to delete.",
+        ),
+    ],
+    cache_dir: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Cache directory to scan (defaults to Hugging Face cache).",
+        ),
+    ] = None,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "-y",
+            "--yes",
+            help="Skip confirmation prompt.",
+        ),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            help="Preview deletions without removing anything.",
+        ),
+    ] = False,
+) -> None:
+    try:
+        hf_cache_info = scan_cache_dir(cache_dir)
+    except CacheNotFound as exc:
+        print(f"Cache directory not found: {str(exc.cache_dir)}")
+        raise typer.Exit(code=1)
 
+    resolution = _resolve_deletion_targets(hf_cache_info, targets)
 
-def _get_tui_choices_from_scan(
-    repos: Iterable[CachedRepoInfo], preselected: list[str], sort_by: Optional[str] = None
-) -> list:
-    choices: list[Union["Choice", "Separator"]] = []
-    choices.append(
-        Choice(
-            _CANCEL_DELETION_STR, name="None of the following (if selected, nothing will be deleted).", enabled=False
-        )
+    if resolution.missing:
+        print("Could not find the following targets in the cache:")
+        for entry in resolution.missing:
+            print(f"  - {entry}")
+
+    if len(resolution.revisions) == 0:
+        print("Nothing to delete.")
+        raise typer.Exit(code=0)
+
+    strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))
+    _print_deletion_summary(resolution, strategy)
+
+    if dry_run:
+        print("Dry run: no files were deleted.")
+        return
+
+    if not yes and not typer.confirm("Proceed with deletion?", default=False):
+        print("Deletion cancelled.")
+        return
+
+    strategy.execute()
+    counts = summarize_cache_deletion_counts(resolution.selected)
+    print(
+        f"Deleted {counts.repo_count} repo(s) and {counts.total_revision_count} revision(s); freed {strategy.expected_freed_size_str}."
     )
-    sorted_repos = sorted(repos, key=lambda repo: _get_repo_sorting_key(repo, sort_by))
-    for repo in sorted_repos:
-        choices.append(
-            Separator(
-                f"\n{repo.repo_type.capitalize()} {repo.repo_id} ({repo.size_on_disk_str}, used {repo.last_accessed_str})"
-            )
-        )
-        for revision in sorted(repo.revisions, key=_revision_sorting_order):
-            choices.append(
-                Choice(
-                    revision.commit_hash,
-                    name=(
-                        f"{revision.commit_hash[:8]}: {', '.join(sorted(revision.refs)) or '(detached)'} # modified {revision.last_modified_str}"
-                    ),
-                    enabled=revision.commit_hash in preselected,
-                )
-            )
-    return choices
 
 
-def _manual_review_no_tui(
-    hf_cache_info: HFCacheInfo, preselected: list[str], sort_by: Optional[str] = None
-) -> list[str]:
-    fd, tmp_path = mkstemp(suffix=".txt")
-    os.close(fd)
-    lines = []
-    sorted_repos = sorted(hf_cache_info.repos, key=lambda repo: _get_repo_sorting_key(repo, sort_by))
-    for repo in sorted_repos:
-        lines.append(
-            f"\n# {repo.repo_type.capitalize()} {repo.repo_id} ({repo.size_on_disk_str}, used {repo.last_accessed_str})"
-        )
-        for revision in sorted(repo.revisions, key=_revision_sorting_order):
-            lines.append(
-                f"{'' if revision.commit_hash in preselected else '#'}   {revision.commit_hash} # Refs: {', '.join(sorted(revision.refs)) or '(detached)'} # modified {revision.last_modified_str}"
-            )
-    with open(tmp_path, "w") as f:
-        f.write(_MANUAL_REVIEW_NO_TUI_INSTRUCTIONS)
-        f.write("\n".join(lines))
-    instructions = f"""
-    TUI is disabled. In order to select which revisions you want to delete, please edit
-    the following file using the text editor of your choice. Instructions for manual
-    editing are located at the beginning of the file. Edit the file, save it and confirm
-    to continue.
-    File to edit: {ANSI.bold(tmp_path)}
-    """
-    print("\n".join(line.strip() for line in instructions.strip().split("\n")))
-    while True:
-        selected_hashes = _read_manual_review_tmp_file(tmp_path)
-        if _ask_for_confirmation_no_tui(
-            _get_expectations_str(hf_cache_info, selected_hashes) + " Continue ?", default=False
-        ):
-            break
-    os.remove(tmp_path)
-    return sorted(selected_hashes)
+@cache_cli.command(help="Remove detached revisions from the cache.")
+def prune(
+    cache_dir: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Cache directory to scan (defaults to Hugging Face cache).",
+        ),
+    ] = None,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "-y",
+            "--yes",
+            help="Skip confirmation prompt.",
+        ),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            help="Preview deletions without removing anything.",
+        ),
+    ] = False,
+) -> None:
+    try:
+        hf_cache_info = scan_cache_dir(cache_dir)
+    except CacheNotFound as exc:
+        print(f"Cache directory not found: {str(exc.cache_dir)}")
+        raise typer.Exit(code=1)
+
+    selected: dict[CachedRepoInfo, frozenset[CachedRevisionInfo]] = {}
+    revisions: set[str] = set()
+    for repo in hf_cache_info.repos:
+        detached = frozenset(revision for revision in repo.revisions if len(revision.refs) == 0)
+        if not detached:
+            continue
+        selected[repo] = detached
+        revisions.update(revision.commit_hash for revision in detached)
+
+    if len(revisions) == 0:
+        print("No unreferenced revisions found. Nothing to prune.")
+        return
+
+    resolution = _DeletionResolution(
+        revisions=frozenset(revisions),
+        selected=selected,
+        missing=(),
+    )
+    strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))
+    counts = summarize_cache_deletion_counts(selected)
+
+    print(
+        f"About to delete {counts.total_revision_count} unreferenced revision(s) ({strategy.expected_freed_size_str} total)."
+    )
+    print_cache_selected_revisions(selected)
+
+    if dry_run:
+        print("Dry run: no files were deleted.")
+        return
+
+    if not yes and not typer.confirm("Proceed?", default=False):
+        print("Pruning cancelled.")
+        return
+
+    strategy.execute()
+    print(f"Deleted {counts.total_revision_count} unreferenced revision(s); freed {strategy.expected_freed_size_str}.")
 
 
-def _ask_for_confirmation_no_tui(message: str, default: bool = True) -> bool:
-    YES = ("y", "yes", "1")
-    NO = ("n", "no", "0")
-    DEFAULT = ""
-    ALL = YES + NO + (DEFAULT,)
-    full_message = message + (" (Y/n) " if default else " (y/N) ")
-    while True:
-        answer = input(full_message).lower()
-        if answer == DEFAULT:
-            return default
-        if answer in YES:
-            return True
-        if answer in NO:
-            return False
-        print(f"Invalid input. Must be one of {ALL}")
+def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) -> _DeletionResolution:
+    repo_lookup, revision_lookup = build_cache_index(hf_cache_info)
+
+    selected: dict[CachedRepoInfo, set[CachedRevisionInfo]] = defaultdict(set)
+    revisions: set[str] = set()
+    missing: list[str] = []
+
+    for raw_target in targets:
+        target = raw_target.strip()
+        if not target:
+            continue
+        lowered = target.lower()
+
+        if re.fullmatch(r"[0-9a-fA-F]{40}", lowered):
+            match = revision_lookup.get(lowered)
+            if match is None:
+                missing.append(raw_target)
+                continue
+            repo, revision = match
+            selected[repo].add(revision)
+            revisions.add(revision.commit_hash)
+            continue
+
+        matched_repo = repo_lookup.get(lowered)
+        if matched_repo is None:
+            missing.append(raw_target)
+            continue
+
+        for revision in matched_repo.revisions:
+            selected[matched_repo].add(revision)
+            revisions.add(revision.commit_hash)
+
+    frozen_selected = {repo: frozenset(revs) for repo, revs in selected.items()}
+    return _DeletionResolution(
+        revisions=frozenset(revisions),
+        selected=frozen_selected,
+        missing=tuple(missing),
+    )
 
 
-def _get_expectations_str(hf_cache_info: HFCacheInfo, selected_hashes: list[str]) -> str:
-    if _CANCEL_DELETION_STR in selected_hashes:
-        return "Nothing will be deleted."
-    strategy = hf_cache_info.delete_revisions(*selected_hashes)
-    return f"{len(selected_hashes)} revisions selected counting for {strategy.expected_freed_size_str}."
+def _print_deletion_summary(resolution: _DeletionResolution, strategy: DeleteCacheStrategy) -> None:
+    selected_by_repo = resolution.selected
+    counts = summarize_cache_deletion_counts(selected_by_repo)
 
+    summary_parts: list[str] = []
+    if counts.repo_count:
+        summary_parts.append(f"{counts.repo_count} repo(s)")
+    if counts.partial_revision_count:
+        summary_parts.append(f"{counts.partial_revision_count} revision(s)")
+    if not summary_parts:
+        summary_parts.append(f"{counts.total_revision_count} revision(s)")
 
-def _read_manual_review_tmp_file(tmp_path: str) -> list[str]:
-    with open(tmp_path) as f:
-        content = f.read()
-    lines = [line.strip() for line in content.split("\n")]
-    selected_lines = [line for line in lines if not line.startswith("#")]
-    selected_hashes = [line.split("#")[0].strip() for line in selected_lines]
-    return [hash for hash in selected_hashes if len(hash) > 0]
-
-
-_MANUAL_REVIEW_NO_TUI_INSTRUCTIONS = f"""
-# INSTRUCTIONS
-# ------------
-# This is a temporary file created by running `hf cache delete --disable-tui`. It contains a set of revisions that can be deleted from your local cache directory.
-#
-# Please manually review the revisions you want to delete:
-#   - Revision hashes can be commented out with '#'.
-#   - Only non-commented revisions in this file will be deleted.
-#   - Revision hashes that are removed from this file are ignored as well.
-#   - If `{_CANCEL_DELETION_STR}` line is uncommented, the all cache deletion is cancelled and no changes will be applied.
-#
-# Once you've manually reviewed this file, please confirm deletion in the terminal. This file will be automatically removed once done.
-# ------------
-
-# KILL SWITCH
-# ------------
-# Un-comment following line to completely cancel the deletion process
-# {_CANCEL_DELETION_STR}
-# ------------
-
-# REVISIONS
-# ------------
-""".strip()
-
-
-def _revision_sorting_order(revision: CachedRevisionInfo) -> Any:
-    return revision.last_modified
+    summary_text = " and ".join(summary_parts)
+    print(f"About to delete {summary_text} totalling {strategy.expected_freed_size_str}.")
+    print_cache_selected_revisions(selected_by_repo)
