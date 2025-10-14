@@ -329,27 +329,27 @@ def deserialize_event(event: dict) -> DiscussionEvent:
 
     if event_type == "comment":
         return DiscussionComment(
-            **common_args,
+            **common_args,  # ty: ignore[invalid-argument-type]
             edited=event["data"]["edited"],
             hidden=event["data"]["hidden"],
             content=event["data"]["latest"]["raw"],
         )
     if event_type == "status-change":
         return DiscussionStatusChange(
-            **common_args,
+            **common_args,  # ty: ignore[invalid-argument-type]
             new_status=event["data"]["status"],
         )
     if event_type == "commit":
         return DiscussionCommit(
-            **common_args,
+            **common_args,  # ty: ignore[invalid-argument-type]
             summary=event["data"]["subject"],
             oid=event["data"]["oid"],
         )
     if event_type == "title-change":
         return DiscussionTitleChange(
-            **common_args,
+            **common_args,  # ty: ignore[invalid-argument-type]
             old_title=event["data"]["from"],
             new_title=event["data"]["to"],
         )
 
-    return DiscussionEvent(**common_args)
+    return DiscussionEvent(**common_args)  # ty: ignore[invalid-argument-type]

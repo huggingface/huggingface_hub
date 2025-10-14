@@ -8,13 +8,7 @@ from shutil import copytree
 from typing import Any, Dict, List, Optional, Union
 
 from huggingface_hub import ModelHubMixin, snapshot_download
-from huggingface_hub.utils import (
-    get_tf_version,
-    is_graphviz_available,
-    is_pydot_available,
-    is_tf_available,
-    yaml_dump,
-)
+from huggingface_hub.utils import get_tf_version, is_graphviz_available, is_pydot_available, is_tf_available, yaml_dump
 
 from . import constants
 from .hf_api import HfApi
@@ -88,7 +82,7 @@ def _create_hyperparameter_table(model):
         optimizer_params = model.optimizer.get_config()
         # flatten the configuration
         optimizer_params = _flatten_dict(optimizer_params)
-        optimizer_params["training_precision"] = keras.mixed_precision.global_policy().name
+        optimizer_params["training_precision"] = keras.mixed_precision.global_policy().name  # ty: ignore[possibly-missing-attribute]
         table = "| Hyperparameters | Value |\n| :-- | :-- |\n"
         for key, value in optimizer_params.items():
             table += f"| {key} | {value} |\n"
@@ -96,13 +90,13 @@ def _create_hyperparameter_table(model):
 
 
 def _plot_network(model, save_directory):
-    keras.utils.plot_model(
+    keras.utils.plot_model(  # type: ignore[possibly-missing-attribute]
         model,
         to_file=f"{save_directory}/model.png",
         show_shapes=False,
         show_dtype=False,
         show_layer_names=True,
-        rankdir="TB",
+        rankdir="TB",  # type: ignore[possibly-missing-attribute]
         expand_nested=False,
         dpi=96,
         layer_range=None,

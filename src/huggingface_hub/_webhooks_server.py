@@ -32,7 +32,7 @@ if is_fastapi_available():
     from fastapi.responses import JSONResponse
 else:
     # Will fail at runtime if FastAPI is not available
-    FastAPI = Request = JSONResponse = None  # type: ignore [misc, assignment]
+    FastAPI = Request = JSONResponse = None  # type: ignore[misc, assignment]  # ty: ignore[invalid-type-form]
 
 
 _global_app: Optional["WebhooksServer"] = None
@@ -145,7 +145,7 @@ class WebhooksServer:
             return self.add_webhook()(path)
 
         # Usage: provide a path. Example: `@app.add_webhook(...)`
-        @wraps(FastAPI.post)
+        @wraps(FastAPI.post)  # type: ignore[possibly-missing-attribute]
         def _inner_post(*args, **kwargs):
             func = args[0]
             abs_path = f"/webhooks/{(path or func.__name__).strip('/')}"
