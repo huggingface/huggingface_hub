@@ -576,7 +576,7 @@ def prune(
         print("Dry run: no files were deleted.")
         return
 
-    if not yes and not typer.confirm("Proceed?", default=False):
+    if not yes and not typer.confirm("Proceed?"):
         print("Pruning cancelled.")
         return
 
