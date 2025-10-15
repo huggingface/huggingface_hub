@@ -78,24 +78,25 @@ def _parse_with_unit(value: str, units: Dict[str, int]) -> int:
 
 
 def format_timesince(ts: float) -> str:
-    """Convert a timestamp into a human readable "time since" string."""
-    delta = max(time.time() - ts, 0)
-    if delta < 1:
-        return "less than a second ago"
+    """Format timestamp in seconds into a human-readable string, relative to now.
 
-    CHUNKS = (
-        (60 * 60 * 24 * 365, "year"),
-        (60 * 60 * 24 * 30, "month"),
-        (60 * 60 * 24 * 7, "week"),
-        (60 * 60 * 24, "day"),
-        (60 * 60, "hour"),
-        (60, "minute"),
-        (1, "second"),
+    Vaguely inspired by Django's `timesince` formatter.
+    """
+    _TIMESINCE_CHUNKS = (
+        # Label, divider, max value
+        ("second", 1, 60),
+        ("minute", 60, 60),
+        ("hour", 60 * 60, 24),
+        ("day", 60 * 60 * 24, 6),
+        ("week", 60 * 60 * 24 * 7, 6),
+        ("month", 60 * 60 * 24 * 30, 11),
+        ("year", 60 * 60 * 24 * 365, None),
     )
-
-    for seconds, name in CHUNKS:
-        count = int(delta // seconds)
-        if count:
-            plural = "s" if count != 1 else ""
-            return f"{count} {name}{plural} ago"
-    return "less than a second ago"
+    delta = time.time() - ts
+    if delta < 20:
+        return "a few seconds ago"
+    for label, divider, max_value in _TIMESINCE_CHUNKS:  # noqa: B007
+        value = round(delta / divider)
+        if max_value is not None and value <= max_value:
+            break
+    return f"{value} {label}{'s' if value > 1 else ''} ago"

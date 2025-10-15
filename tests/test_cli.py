@@ -10,7 +10,8 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from huggingface_hub.cli._cli_utils import CacheDeletionCounts, RepoType
+from huggingface_hub.cli._cli_utils import RepoType
+from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload

@@ -16,7 +16,6 @@
 
 import os
 import shutil
-import time
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -815,6 +814,7 @@ def _format_size(num: int) -> str:
             return f"{num_f:3.1f}{unit}"
         num_f /= 1000.0
     return f"{num_f:.1f}Y"
+
 
 def _try_delete_path(path: Path, path_type: str) -> None:
     """Try to delete a local file or folder.
