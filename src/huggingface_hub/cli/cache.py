@@ -22,7 +22,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-from typing import Annotated, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import Annotated, Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 import typer
 
@@ -181,7 +181,9 @@ def compile_cache_filter(
             timestamp = (
                 repo.last_accessed
                 if key == "accessed"
-                else revision.last_modified if revision is not None else repo.last_modified
+                else revision.last_modified
+                if revision is not None
+                else repo.last_modified
             )
             if timestamp is None:
                 return False
@@ -229,6 +231,34 @@ def compile_cache_filter(
         return _refs_filter
 
 
+def _build_cache_export_payload(
+    entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
+) -> List[Dict[str, Any]]:
+    payload: List[Dict[str, Any]] = []
+    for repo, revision in entries:
+        if include_revisions and revision is None:
+            continue
+
+        record: Dict[str, Any] = {
+            "repo_id": repo.repo_id,
+            "repo_type": repo.repo_type,
+            "size_on_disk": (revision.size_on_disk if revision is not None else repo.size_on_disk),
+            "last_accessed": repo.last_accessed,
+            "last_modified": (revision.last_modified if revision is not None else repo.last_modified),
+            "refs": sorted(revision.refs) if revision is not None else sorted(repo_refs_map.get(repo, frozenset())),
+        }
+
+        if include_revisions:
+            record["revision"] = revision.commit_hash
+            record["snapshot_path"] = str(revision.snapshot_path)
+        else:
+            record["revision"] = None
+            record["snapshot_path"] = None
+
+        payload.append(record)
+    return payload
+
+
 def print_cache_entries_table(
     entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
 ) -> None:
@@ -270,101 +300,75 @@ def print_cache_entries_table(
 def print_cache_entries_json(
     entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
 ) -> None:
-    if include_revisions:
-        payload = [
-            {
-                "repo_id": repo.repo_id,
-                "repo_type": repo.repo_type,
-                "revision": revision.commit_hash,
-                "size_on_disk": revision.size_on_disk,
-                "last_accessed": repo.last_accessed,
-                "last_modified": revision.last_modified,
-                "refs": sorted(revision.refs),
-                "snapshot_path": str(revision.snapshot_path),
-            }
-            for repo, revision in entries
-            if revision is not None
-        ]
-    else:
-        payload = [
-            {
-                "repo_id": repo.repo_id,
-                "repo_type": repo.repo_type,
-                "size_on_disk": repo.size_on_disk,
-                "last_accessed": repo.last_accessed,
-                "last_modified": repo.last_modified,
-                "refs": sorted(repo_refs_map.get(repo, frozenset())),
-            }
-            for repo, _ in entries
-        ]
-
+    payload = _build_cache_export_payload(entries, include_revisions=include_revisions, repo_refs_map=repo_refs_map)
     json.dump(payload, sys.stdout, indent=2)
     sys.stdout.write("\n")
 
 
 def print_cache_entries_csv(entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap) -> None:
+    records = _build_cache_export_payload(entries, include_revisions=include_revisions, repo_refs_map=repo_refs_map)
+    if not records:
+        # Write header anyway to keep structure consistent.
+        writer = csv.writer(sys.stdout)
+        headers = [
+            "repo_id",
+            "repo_type",
+            "revision",
+            "snapshot_path",
+            "size_on_disk",
+            "last_accessed",
+            "last_modified",
+            "refs",
+        ]
+        writer.writerow(headers)
+        return
+
+    headers = [
+        "repo_id",
+        "repo_type",
+        "revision",
+        "snapshot_path",
+        "size_on_disk",
+        "last_accessed",
+        "last_modified",
+        "refs",
+    ]
     writer = csv.writer(sys.stdout)
-    if include_revisions:
-        writer.writerow(
-            ["id", "revision", "repo_type", "size_bytes", "size", "last_modified", "last_modified_str", "refs"]
-        )
-        for repo, revision in entries:
-            if revision is None:
-                continue
-            writer.writerow(
-                [
-                    format_cache_repo_id(repo),
-                    revision.commit_hash,
-                    repo.repo_type,
-                    revision.size_on_disk,
-                    revision.size_on_disk_str,
-                    revision.last_modified,
-                    revision.last_modified_str,
-                    "; ".join(sorted(revision.refs)),
-                ]
-            )
-    else:
+    writer.writerow(headers)
+
+    for record in records:
+        refs = record["refs"]
         writer.writerow(
             [
-                "id",
-                "repo_type",
-                "size_bytes",
-                "size",
-                "last_accessed",
-                "last_accessed_str",
-                "last_modified",
-                "last_modified_str",
-                "refs",
+                record.get("repo_id", ""),
+                record.get("repo_type", ""),
+                record.get("revision") or "",
+                record.get("snapshot_path") or "",
+                record.get("size_on_disk"),
+                record.get("last_accessed"),
+                record.get("last_modified"),
+                "; ".join(refs) if refs else "",
             ]
         )
-        for repo, _ in entries:
-            writer.writerow(
-                [
-                    format_cache_repo_id(repo),
-                    repo.repo_type,
-                    repo.size_on_disk,
-                    repo.size_on_disk_str,
-                    repo.last_accessed if repo.last_accessed is not None else "",
-                    repo.last_accessed_str or "",
-                    repo.last_modified,
-                    repo.last_modified_str,
-                    "; ".join(sorted(repo_refs_map.get(repo, frozenset()))),
-                ]
-            )
 
 
 def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
     if left is None:
         return False
 
-    return {
+    comparisons = {
         "=": left == right,
         "!=": left != right,
         ">": left > right,
         "<": left < right,
         ">=": left >= right,
         "<=": left <= right,
-    }.get(op, False)
+    }
+
+    if op not in comparisons:
+        raise ValueError(f"Unsupported numeric comparison operator: {op}")
+
+    return comparisons[op]
 
 
 @cache_cli.command(help="List cached repositories or revisions.")
