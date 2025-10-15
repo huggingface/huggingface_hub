@@ -938,7 +938,12 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     def __reduce__(self):
         # re-populate the instance cache at HfFileSystem._cache and re-populate the cache attributes of every instance
-        return make_instance, (type(self), self.storage_args, self.storage_options, self._instance_cache_attributes_dict)
+        return make_instance, (
+            type(self),
+            self.storage_args,
+            self.storage_options,
+            self._instance_cache_attributes_dict,
+        )
 
 
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
@@ -1140,6 +1145,7 @@ def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
 
 def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: str):
     return fs.open(path, mode=mode, block_size=block_size, cache_type=cache_type)
+
 
 def make_instance(cls, args, kwargs, instance_cache_attributes_dict):
     fs = cls(*args, **kwargs)
