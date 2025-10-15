@@ -27,15 +27,15 @@ from typing import Annotated, Any, Callable, Dict, List, Mapping, Optional, Tupl
 import typer
 
 from ..utils import (
+    ANSI,
     CachedRepoInfo,
     CachedRevisionInfo,
     CacheNotFound,
     DeleteCacheStrategy,
     HFCacheInfo,
+    _format_size,
     scan_cache_dir,
     tabulate,
-    _format_size,
-    ANSI,
 )
 from ..utils._parsing import parse_duration, parse_size
 from ._cli_utils import typer_factory
@@ -328,7 +328,16 @@ def print_cache_entries_csv(entries: List[CacheEntry], *, include_revisions: boo
     writer = csv.writer(sys.stdout)
 
     if include_revisions:
-        headers = ["repo_id", "repo_type", "revision", "snapshot_path", "size_on_disk", "last_accessed", "last_modified", "refs"]
+        headers = [
+            "repo_id",
+            "repo_type",
+            "revision",
+            "snapshot_path",
+            "size_on_disk",
+            "last_accessed",
+            "last_modified",
+            "refs",
+        ]
     else:
         headers = ["repo_id", "repo_type", "size_on_disk", "last_accessed", "last_modified", "refs"]
 
