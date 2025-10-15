@@ -196,8 +196,8 @@ def compile_cache_filter(
     if key == "type":
         expected = value_raw.lower()
 
-        if op not in {"=", "!="}:
-            raise ValueError("Only '=' and '!=' are supported for 'type' filters.")
+        if op != "=":
+            raise ValueError("Only '=' is supported for 'type' filters.")
 
         def _type_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], _: float) -> bool:
             actual = repo.repo_type.lower()
@@ -208,8 +208,8 @@ def compile_cache_filter(
     if key == "id":
         needle = value_raw.lower()
 
-        if op not in {"=", "!="}:
-            raise ValueError("Only '=' and '!=' are supported for 'id' filters.")
+        if op != "=":
+            raise ValueError("Only '=' is supported for 'id' filters.")
 
         def _id_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], _: float) -> bool:
             haystack = format_cache_repo_id(repo).lower()
@@ -219,16 +219,12 @@ def compile_cache_filter(
         return _id_filter
 
     else:
-        needle = value_raw.lower()
-
-        if op not in {"=", "!="}:
-            raise ValueError("Only '=' and '!=' are supported for 'refs' filters.")
+        if op != "=":
+            raise ValueError(f"Only '=' is supported for 'refs' filters. Got {op}.")
 
         def _refs_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], _: float) -> bool:
             refs = revision.refs if revision is not None else repo_refs_map.get(repo, frozenset())
-            refs_lower = [ref.lower() for ref in refs]
-            contains = any(needle in ref for ref in refs_lower)
-            return contains if op == "=" else not contains
+            return value_raw.lower() in [ref.lower() for ref in refs]
 
         return _refs_filter
 
