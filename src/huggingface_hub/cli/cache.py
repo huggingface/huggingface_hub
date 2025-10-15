@@ -73,15 +73,6 @@ CacheEntry = Tuple[CachedRepoInfo, Optional[CachedRevisionInfo]]
 RepoRefsMap = Dict[CachedRepoInfo, frozenset[str]]
 
 
-def _parse_time_expression(value: str) -> Tuple[str, int]:
-    stripped = value.strip()
-    try:
-        return "absolute", int(stripped)
-    except ValueError:
-        seconds = parse_duration(stripped)
-        return "relative", seconds
-
-
 def summarize_cache_deletion_counts(
     selected_by_repo: Mapping[CachedRepoInfo, frozenset[CachedRevisionInfo]],
 ) -> CacheDeletionCounts:
@@ -184,23 +175,17 @@ def compile_cache_filter(
         )
 
     if key in {"modified", "accessed"}:
-        time_kind, time_value = _parse_time_expression(value_raw)
+        seconds = parse_duration(value_raw.strip())
 
-        if key == "modified":
-
-            def _time_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], now: float) -> bool:
-                timestamp = revision.last_modified if revision is not None else repo.last_modified
-                if time_kind == "relative":
-                    return _compare_numeric(now - timestamp, op, time_value)
-                return _compare_numeric(timestamp, op, time_value)
-
-        else:
-
-            def _time_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], now: float) -> bool:
-                timestamp = repo.last_accessed
-                if time_kind == "relative":
-                    return _compare_numeric(now - timestamp, op, time_value)
-                return _compare_numeric(timestamp, op, time_value)
+        def _time_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], now: float) -> bool:
+            timestamp = (
+                repo.last_accessed
+                if key == "accessed"
+                else revision.last_modified if revision is not None else repo.last_modified
+            )
+            if timestamp is None:
+                return False
+            return _compare_numeric(now - timestamp, op, seconds)
 
         return _time_filter
 
@@ -288,16 +273,12 @@ def print_cache_entries_json(
     if include_revisions:
         payload = [
             {
-                "id": format_cache_repo_id(repo),
                 "repo_id": repo.repo_id,
                 "repo_type": repo.repo_type,
                 "revision": revision.commit_hash,
                 "size_on_disk": revision.size_on_disk,
-                "size_on_disk_str": revision.size_on_disk_str,
                 "last_accessed": repo.last_accessed,
-                "last_accessed_str": repo.last_accessed_str,
                 "last_modified": revision.last_modified,
-                "last_modified_str": revision.last_modified_str,
                 "refs": sorted(revision.refs),
                 "snapshot_path": str(revision.snapshot_path),
             }
@@ -307,15 +288,11 @@ def print_cache_entries_json(
     else:
         payload = [
             {
-                "id": format_cache_repo_id(repo),
                 "repo_id": repo.repo_id,
                 "repo_type": repo.repo_type,
                 "size_on_disk": repo.size_on_disk,
-                "size_on_disk_str": repo.size_on_disk_str,
                 "last_accessed": repo.last_accessed,
-                "last_accessed_str": repo.last_accessed_str,
                 "last_modified": repo.last_modified,
-                "last_modified_str": repo.last_modified_str,
                 "refs": sorted(repo_refs_map.get(repo, frozenset())),
             }
             for repo, _ in entries
