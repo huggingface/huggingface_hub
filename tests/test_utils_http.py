@@ -439,42 +439,31 @@ def fake_server():
     server.shutdown()
 
 
-def _assert_500_error(exc_info: pytest.ExceptionInfo, expect_message: bool = True):
+def _check_raise_status(response: httpx.Response):
     """Common assertions for 500 error tests."""
-    assert isinstance(exc_info.value, HfHubHTTPError)
+    with pytest.raises(HfHubHTTPError) as exc_info:
+        hf_raise_for_status(response)
     assert exc_info.value.response.status_code == 500
-    if expect_message:
-        assert "This is a 500 error" in str(exc_info.value)
-    else:
-        assert "This is a 500 error" not in str(exc_info.value)
+    assert "This is a 500 error" in str(exc_info.value)
 
 
 def test_raise_on_status_sync_non_stream(fake_server: str):
     response = get_session().get(fake_server)
-    with pytest.raises(HTTPError) as exc_info:
-        hf_raise_for_status(response)
-    _assert_500_error(exc_info)
+    _check_raise_status(response)
 
 
 def test_raise_on_status_sync_stream(fake_server: str):
     with get_session().stream("GET", fake_server) as response:
-        with pytest.raises(HTTPError) as exc_info:
-            hf_raise_for_status(response)
-    _assert_500_error(exc_info)
+        _check_raise_status(response)
 
 
 @pytest.mark.asyncio
 async def test_raise_on_status_async_non_stream(fake_server: str):
     response = await get_async_session().get(fake_server)
-    with pytest.raises(HTTPError) as exc_info:
-        hf_raise_for_status(response)
-    _assert_500_error(exc_info)
+    _check_raise_status(response)
 
 
 @pytest.mark.asyncio
 async def test_raise_on_status_async_stream(fake_server: str):
     async with get_async_session().stream("GET", fake_server) as response:
-        with pytest.raises(HTTPError) as exc_info:
-            hf_raise_for_status(response)
-    # Async streaming response does not support reading the content
-    _assert_500_error(exc_info, expect_message=False)
+        _check_raise_status(response)

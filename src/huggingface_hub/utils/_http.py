@@ -109,6 +109,20 @@ async def async_hf_request_event_hook(request: httpx.Request) -> None:
     return hf_request_event_hook(request)
 
 
+async def async_hf_response_event_hook(response: httpx.Response) -> None:
+    if response.status_code >= 400:
+        # If response will raise, read content from stream to have it available when raising the exception
+        # If content-length is not set or is too large, skip reading the content to avoid OOM
+        if "Content-length" in response.headers:
+            try:
+                length = int(response.headers["Content-length"])
+            except ValueError:
+                return
+
+            if length < 1_000_000:
+                await response.aread()
+
+
 def default_client_factory() -> httpx.Client:
     """
     Factory function to create a `httpx.Client` with the default transport.
@@ -125,7 +139,7 @@ def default_async_client_factory() -> httpx.AsyncClient:
     Factory function to create a `httpx.AsyncClient` with the default transport.
     """
     return httpx.AsyncClient(
-        event_hooks={"request": [async_hf_request_event_hook]},
+        event_hooks={"request": [async_hf_request_event_hook], "response": [async_hf_response_event_hook]},
         follow_redirects=True,
         timeout=httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
     )
@@ -630,9 +644,12 @@ def _format(error_type: type[HfHubHTTPError], custom_message: str, response: htt
                 response.read()  # In case of streaming response, we need to read the response first
                 data = response.json()
             except RuntimeError:
-                data = {}  # In case of async streaming response, we can't read the response here => skip
-                # ^ TODO: find a better way to handle async streaming response. In practice, async stream must be read in an async content
-                #         so either before hf_raise_for_status or by making an async version of hf_raise_for_status.
+                # In case of async streaming response, we can't read the stream here.
+                # In practice if user is using the default async client from `get_async_client`, the stream will have
+                # already been read in the async event hook `async_hf_response_event_hook`.
+                #
+                # Here, we are skipping reading the response to avoid RuntimeError but it happens only if async + stream + used httpx.AsyncClient directly.
+                data = {}
 
         error = data.get("error")
         if error is not None:
