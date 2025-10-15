@@ -34,6 +34,8 @@ from ..utils import (
     HFCacheInfo,
     scan_cache_dir,
     tabulate,
+    _format_size,
+    ANSI,
 )
 from ..utils._parsing import parse_duration, parse_size
 from ._cli_utils import typer_factory
@@ -100,7 +102,7 @@ def print_cache_selected_revisions(selected_by_repo: Mapping[CachedRepoInfo, fro
 
         print(f"  - {repo_key}:")
         for revision in revisions:
-            refs = ", ".join(sorted(revision.refs)) or "(detached)"
+            refs = " ".join(sorted(revision.refs)) or "(detached)"
             print(f"      {revision.commit_hash} [{refs}] {revision.size_on_disk_str}")
 
 
@@ -236,25 +238,28 @@ def _build_cache_export_payload(
 ) -> List[Dict[str, Any]]:
     payload: List[Dict[str, Any]] = []
     for repo, revision in entries:
-        if include_revisions and revision is None:
-            continue
-
-        record: Dict[str, Any] = {
-            "repo_id": repo.repo_id,
-            "repo_type": repo.repo_type,
-            "size_on_disk": (revision.size_on_disk if revision is not None else repo.size_on_disk),
-            "last_accessed": repo.last_accessed,
-            "last_modified": (revision.last_modified if revision is not None else repo.last_modified),
-            "refs": sorted(revision.refs) if revision is not None else sorted(repo_refs_map.get(repo, frozenset())),
-        }
-
         if include_revisions:
-            record["revision"] = revision.commit_hash
-            record["snapshot_path"] = str(revision.snapshot_path)
+            if revision is None:
+                continue
+            record: Dict[str, Any] = {
+                "repo_id": repo.repo_id,
+                "repo_type": repo.repo_type,
+                "revision": revision.commit_hash,
+                "snapshot_path": str(revision.snapshot_path),
+                "size_on_disk": revision.size_on_disk,
+                "last_accessed": repo.last_accessed,
+                "last_modified": revision.last_modified,
+                "refs": sorted(revision.refs),
+            }
         else:
-            record["revision"] = None
-            record["snapshot_path"] = None
-
+            record = {
+                "repo_id": repo.repo_id,
+                "repo_type": repo.repo_type,
+                "size_on_disk": repo.size_on_disk,
+                "last_accessed": repo.last_accessed,
+                "last_modified": repo.last_modified,
+                "refs": sorted(repo_refs_map.get(repo, frozenset())),
+            }
         payload.append(record)
     return payload
 
@@ -276,7 +281,7 @@ def print_cache_entries_table(
                 revision.commit_hash,
                 revision.size_on_disk_str.rjust(8),
                 revision.last_modified_str,
-                ", ".join(sorted(revision.refs)),
+                " ".join(sorted(revision.refs)),
             ]
             for repo, revision in entries
             if revision is not None
@@ -289,12 +294,25 @@ def print_cache_entries_table(
                 repo.size_on_disk_str.rjust(8),
                 repo.last_accessed_str or "",
                 repo.last_modified_str,
-                ", ".join(sorted(repo_refs_map.get(repo, frozenset()))),
+                " ".join(sorted(repo_refs_map.get(repo, frozenset()))),
             ]
             for repo, _ in entries
         ]
 
     print(tabulate(table_rows, headers=headers))  # type: ignore[arg-type]
+
+    unique_repos = {repo for repo, _ in entries}
+    repo_count = len(unique_repos)
+    if include_revisions:
+        revision_count = sum(1 for _, revision in entries if revision is not None)
+        total_size = sum(revision.size_on_disk for _, revision in entries if revision is not None)
+    else:
+        revision_count = sum(len(repo.revisions) for repo in unique_repos)
+        total_size = sum(repo.size_on_disk for repo in unique_repos)
+
+    print()
+    summary = f"Found {repo_count} repo(s) for a total of {revision_count} revision(s) and {_format_size(total_size)} on disk."
+    print(ANSI.bold(summary))
 
 
 def print_cache_entries_json(
@@ -307,49 +325,41 @@ def print_cache_entries_json(
 
 def print_cache_entries_csv(entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap) -> None:
     records = _build_cache_export_payload(entries, include_revisions=include_revisions, repo_refs_map=repo_refs_map)
-    if not records:
-        # Write header anyway to keep structure consistent.
-        writer = csv.writer(sys.stdout)
-        headers = [
-            "repo_id",
-            "repo_type",
-            "revision",
-            "snapshot_path",
-            "size_on_disk",
-            "last_accessed",
-            "last_modified",
-            "refs",
-        ]
-        writer.writerow(headers)
-        return
-
-    headers = [
-        "repo_id",
-        "repo_type",
-        "revision",
-        "snapshot_path",
-        "size_on_disk",
-        "last_accessed",
-        "last_modified",
-        "refs",
-    ]
     writer = csv.writer(sys.stdout)
+
+    if include_revisions:
+        headers = ["repo_id", "repo_type", "revision", "snapshot_path", "size_on_disk", "last_accessed", "last_modified", "refs"]
+    else:
+        headers = ["repo_id", "repo_type", "size_on_disk", "last_accessed", "last_modified", "refs"]
+
     writer.writerow(headers)
+
+    if not records:
+        return
 
     for record in records:
         refs = record["refs"]
-        writer.writerow(
-            [
+        if include_revisions:
+            row = [
                 record.get("repo_id", ""),
                 record.get("repo_type", ""),
-                record.get("revision") or "",
-                record.get("snapshot_path") or "",
+                record.get("revision", ""),
+                record.get("snapshot_path", ""),
                 record.get("size_on_disk"),
                 record.get("last_accessed"),
                 record.get("last_modified"),
-                "; ".join(refs) if refs else "",
+                " ".join(refs) if refs else "",
             ]
-        )
+        else:
+            row = [
+                record.get("repo_id", ""),
+                record.get("repo_type", ""),
+                record.get("size_on_disk"),
+                record.get("last_accessed"),
+                record.get("last_modified"),
+                " ".join(refs) if refs else "",
+            ]
+        writer.writerow(row)
 
 
 def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
