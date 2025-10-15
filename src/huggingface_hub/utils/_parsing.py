@@ -22,7 +22,6 @@ from typing import Dict
 RE_NUMBER_WITH_UNIT = re.compile(r"(\d+)([a-z]+)", re.IGNORECASE)
 
 BYTE_UNITS: Dict[str, int] = {
-    "": 1,
     "k": 1_000,
     "m": 1_000_000,
     "g": 1_000_000_000,
@@ -31,7 +30,6 @@ BYTE_UNITS: Dict[str, int] = {
 }
 
 TIME_UNITS: Dict[str, int] = {
-    "": 1,
     "s": 1,
     "m": 60,
     "h": 60 * 60,
@@ -43,39 +41,34 @@ TIME_UNITS: Dict[str, int] = {
 
 
 def parse_size(value: str) -> int:
-    """Parse a size expression in bytes."""
     return _parse_with_unit(value, BYTE_UNITS)
 
 
 def parse_duration(value: str) -> int:
-    """Parse a duration expression in seconds."""
     return _parse_with_unit(value, TIME_UNITS)
 
 
 def _parse_with_unit(value: str, units: Dict[str, int]) -> int:
+    """Parse a numeric value with optional unit."""
     stripped = value.strip()
     if not stripped:
         raise ValueError("Value cannot be empty.")
-
     try:
-        number = int(stripped)
+        return int(value)
     except ValueError:
-        match = RE_NUMBER_WITH_UNIT.fullmatch(stripped)
-        if not match:
-            raise ValueError(
-                f"Invalid value '{value}'. Must be an integer optionally followed by one of {sorted(units)}."
-            )
-        number = int(match.group(1))
-        unit = match.group(2).lower()
-        if unit not in units:
-            raise ValueError(f"Unknown unit '{unit}'. Must be one of {sorted(k for k in units if k)}.")
-        multiplier = units[unit]
-    else:
-        if number < 0:
-            raise ValueError(f"Value cannot be negative: {value}")
-        multiplier = units[""]
+        pass
 
-    return number * multiplier
+    match = RE_NUMBER_WITH_UNIT.fullmatch(stripped)
+    if not match:
+        raise ValueError(f"Invalid value '{value}'. Must match pattern '\\d+[a-z]+' or be a plain number.")
+
+    number = int(match.group(1))
+    unit = match.group(2).lower()
+
+    if unit not in units:
+        raise ValueError(f"Unknown unit '{unit}'. Must be one of {list(units.keys())}.")
+
+    return number * units[unit]
 
 
 def format_timesince(ts: float) -> str:
