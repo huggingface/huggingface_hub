@@ -19,6 +19,8 @@ from getpass import getpass
 from pathlib import Path
 from typing import Optional
 
+import typer
+
 from . import constants
 from .utils import (
     ANSI,
@@ -244,8 +246,6 @@ def interpreter_login(*, skip_if_logged_in: bool = False) -> None:
         logger.info("User is already logged in.")
         return
 
-    from .cli._cli_utils import _ask_for_confirmation_no_tui
-
     print(_HF_LOGO_ASCII)
     if get_token() is not None:
         logger.info(
@@ -261,7 +261,7 @@ def interpreter_login(*, skip_if_logged_in: bool = False) -> None:
     if os.name == "nt":
         logger.info("Token can be pasted using 'Right-Click'.")
     token = getpass("Enter your token (input will not be visible): ")
-    add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
+    add_to_git_credential = typer.confirm("Add token as git credential?")
 
     _login(token=token, add_to_git_credential=add_to_git_credential)
 

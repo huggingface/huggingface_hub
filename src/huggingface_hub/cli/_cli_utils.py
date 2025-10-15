@@ -24,13 +24,7 @@ import click
 import typer
 
 from huggingface_hub import __version__, constants
-from huggingface_hub.utils import (
-    ANSI,
-    get_session,
-    hf_raise_for_status,
-    installation_method,
-    logging,
-)
+from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging
 
 
 logger = logging.get_logger()
@@ -177,20 +171,3 @@ def _check_cli_update() -> None:
                 f"To update, run: {ANSI.bold(update_command)}\n",
             )
         )
-
-
-def _ask_for_confirmation_no_tui(message: str, default: bool = True) -> bool:
-    YES = ("y", "yes", "1")
-    NO = ("n", "no", "0")
-    DEFAULT = ""
-    ALL = YES + NO + (DEFAULT,)
-    full_message = message + (" (Y/n) " if default else " (y/N) ")
-    while True:
-        answer = input(full_message).lower()
-        if answer == DEFAULT:
-            return default
-        if answer in YES:
-            return True
-        if answer in NO:
-            return False
-        print(f"Invalid input. Must be one of {ALL}")
