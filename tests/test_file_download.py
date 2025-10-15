@@ -53,7 +53,6 @@ from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_RENAMED_OLD_MODEL_ID,
-    DUMMY_TINY_FILE_NAME,
     SAMPLE_DATASET_IDENTIFIER,
     repo_name,
     use_tmp_repo,
@@ -1323,7 +1322,6 @@ class TestExtraLargeFileDownloadPaths(unittest.TestCase):
                     revision="main",
                     etag_timeout=10,
                 )
-
 
 
 def _recursive_chmod(path: str, mode: int) -> None:
