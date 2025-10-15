@@ -115,6 +115,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         self._repo_and_revision_exists_cache: Dict[
             Tuple[str, str, Optional[str]], Tuple[bool, Optional[Exception]]
         ] = {}
+        # Maps parent directory path to path infos
+        self.dircache: Dict[str, List[Dict[str, Any]]] = {}
 
     def _repo_and_revision_exist(
         self, repo_type: str, repo_id: str, revision: Optional[str]
@@ -927,6 +929,17 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         # See https://github.com/huggingface/huggingface_hub/issues/1733
         raise NotImplementedError("Transactional commits are not supported.")
 
+    @property
+    def _instance_cache_attributes_dict(self):
+        return {
+            "dircache": self.dircache,
+            "_repo_and_revision_exists_cache": self._repo_and_revision_exists_cache,
+        }
+
+    def __reduce__(self):
+        # re-populate the instance cache at HfFileSystem._cache and re-populate the cache attributes of every instance
+        return make_instance, (type(self), self.storage_args, self.storage_options, self._instance_cache_attributes_dict)
+
 
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def __init__(self, fs: HfFileSystem, path: str, revision: Optional[str] = None, **kwargs):
@@ -1127,3 +1140,9 @@ def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
 
 def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: str):
     return fs.open(path, mode=mode, block_size=block_size, cache_type=cache_type)
+
+def make_instance(cls, args, kwargs, instance_cache_attributes_dict):
+    fs = cls(*args, **kwargs)
+    for attr, cached_value in instance_cache_attributes_dict.items():
+        setattr(fs, attr, cached_value)
+    return fs
