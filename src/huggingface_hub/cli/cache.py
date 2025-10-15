@@ -66,6 +66,8 @@ _FILTER_KEYS = {"accessed", "id", "modified", "refs", "size", "type"}
 
 @dataclass(frozen=True)
 class CacheDeletionCounts:
+    """Simple counters summarizing cache deletions for CLI messaging."""
+
     repo_count: int
     partial_revision_count: int
     total_revision_count: int
@@ -78,6 +80,7 @@ RepoRefsMap = Dict[CachedRepoInfo, frozenset[str]]
 def summarize_cache_deletion_counts(
     selected_by_repo: Mapping[CachedRepoInfo, frozenset[CachedRevisionInfo]],
 ) -> CacheDeletionCounts:
+    """Aggregate repo and revision counts for deletion summaries shown in the CLI."""
     repo_count = 0
     total_revisions = 0
     revisions_in_full_repos = 0
@@ -93,6 +96,7 @@ def summarize_cache_deletion_counts(
 
 
 def print_cache_selected_revisions(selected_by_repo: Mapping[CachedRepoInfo, frozenset[CachedRevisionInfo]]) -> None:
+    """Pretty-print selected cache revisions during confirmation prompts."""
     for repo in sorted(selected_by_repo.keys(), key=lambda repo: (repo.repo_type, repo.repo_id.lower())):
         repo_key = f"{repo.repo_type}/{repo.repo_id}"
         revisions = sorted(selected_by_repo[repo], key=lambda rev: rev.commit_hash)
@@ -112,6 +116,7 @@ def build_cache_index(
     Dict[str, CachedRepoInfo],
     Dict[str, Tuple[CachedRepoInfo, CachedRevisionInfo]],
 ]:
+    """Create lookup tables so CLI commands can resolve repo ids and revisions quickly."""
     repo_lookup: dict[str, CachedRepoInfo] = {}
     revision_lookup: dict[str, tuple[CachedRepoInfo, CachedRevisionInfo]] = {}
     for repo in hf_cache_info.repos:
@@ -125,6 +130,7 @@ def build_cache_index(
 def collect_cache_entries(
     hf_cache_info: HFCacheInfo, *, include_revisions: bool
 ) -> Tuple[List[CacheEntry], RepoRefsMap]:
+    """Flatten cache metadata into rows consumed by `hf cache ls`."""
     entries: List[CacheEntry] = []
     repo_refs_map: RepoRefsMap = {}
     sorted_repos = sorted(hf_cache_info.repos, key=lambda repo: (repo.repo_type, repo.repo_id.lower()))
@@ -148,12 +154,14 @@ def collect_cache_entries(
 
 
 def format_cache_repo_id(repo: CachedRepoInfo) -> str:
+    """Return the canonical `type/id` string used across cache CLI outputs."""
     return f"{repo.repo_type}/{repo.repo_id}"
 
 
 def compile_cache_filter(
     expr: str, repo_refs_map: RepoRefsMap
 ) -> Callable[[CachedRepoInfo, Optional[CachedRevisionInfo], float], bool]:
+    """Convert a `hf cache ls` filter expression into the yes/no test we apply to each cache entry before displaying it."""
     match = _FILTER_PATTERN.match(expr.strip())
     if not match:
         raise ValueError(f"Invalid filter expression: '{expr}'.")
@@ -231,6 +239,7 @@ def compile_cache_filter(
 def _build_cache_export_payload(
     entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
 ) -> List[Dict[str, Any]]:
+    """Normalize cache entries into serializable records for JSON/CSV exports."""
     payload: List[Dict[str, Any]] = []
     for repo, revision in entries:
         if include_revisions:
@@ -262,6 +271,7 @@ def _build_cache_export_payload(
 def print_cache_entries_table(
     entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
 ) -> None:
+    """Render cache entries as a table and show a human-readable summary."""
     if not entries:
         message = "No cached revisions found." if include_revisions else "No cached repositories found."
         print(message)
@@ -313,12 +323,14 @@ def print_cache_entries_table(
 def print_cache_entries_json(
     entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
 ) -> None:
+    """Dump cache entries as JSON for scripting or automation."""
     payload = _build_cache_export_payload(entries, include_revisions=include_revisions, repo_refs_map=repo_refs_map)
     json.dump(payload, sys.stdout, indent=2)
     sys.stdout.write("\n")
 
 
 def print_cache_entries_csv(entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap) -> None:
+    """Export cache entries as CSV rows with the shared payload format."""
     records = _build_cache_export_payload(entries, include_revisions=include_revisions, repo_refs_map=repo_refs_map)
     writer = csv.writer(sys.stdout)
 
@@ -367,6 +379,7 @@ def print_cache_entries_csv(entries: List[CacheEntry], *, include_revisions: boo
 
 
 def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
+    """Evaluate numeric comparisons for filters."""
     if left is None:
         return False
 
