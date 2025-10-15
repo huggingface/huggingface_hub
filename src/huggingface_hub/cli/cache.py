@@ -59,6 +59,7 @@ class _DeletionResolution:
 
 _FILTER_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)\s*(?P<op>==|!=|>=|<=|>|<|=)\s*(?P<value>.+)$")
 _ALLOWED_OPERATORS = {"=", "!=", ">", "<", ">=", "<="}
+_FILTER_KEYS = {"accessed", "id", "modified", "refs", "size", "type"}
 
 
 @dataclass(frozen=True)
@@ -166,11 +167,13 @@ def compile_cache_filter(
 
     key = match.group("key").lower()
     op = match.group("op")
-    op = "=" if op == "==" else op
     value_raw = match.group("value").strip()
 
     if op not in _ALLOWED_OPERATORS:
-        raise ValueError(f"Unsupported operator '{op}' in filter '{expr}'.")
+        raise ValueError(f"Unsupported operator '{op}' in filter '{expr}'. Must be one of {list(_ALLOWED_OPERATORS)}.")
+
+    if key not in _FILTER_KEYS:
+        raise ValueError(f"Unsupported filter key '{key}' in '{expr}'. Must be one of {list(_FILTER_KEYS)}.")
 
     if key == "size":
         size_threshold = parse_size(value_raw)
@@ -226,7 +229,7 @@ def compile_cache_filter(
 
         return _id_filter
 
-    if key == "refs":
+    else:
         needle = value_raw.lower()
 
         if op not in {"=", "!="}:
@@ -239,8 +242,6 @@ def compile_cache_filter(
             return contains if op == "=" else not contains
 
         return _refs_filter
-
-    raise ValueError(f"Unsupported filter key '{key}' in '{expr}'.")
 
 
 def print_cache_entries_table(
@@ -408,7 +409,7 @@ def ls(
         typer.Option(
             "-f",
             "--filter",
-            help="Filter entries (e.g. size>1GB, type=model, accessed>7d). Can be used multiple times.",
+            help="Filter entries (e.g. 'size>1GB', 'type=model', 'accessed>7d'). Can be used multiple times.",
         ),
     ] = None,
     format: Annotated[
