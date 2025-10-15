@@ -200,8 +200,7 @@ def compile_cache_filter(
             raise ValueError("Only '=' is supported for 'type' filters.")
 
         def _type_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], _: float) -> bool:
-            actual = repo.repo_type.lower()
-            return actual == expected if op == "=" else actual != expected
+            return repo.repo_type.lower() == expected
 
         return _type_filter
 
