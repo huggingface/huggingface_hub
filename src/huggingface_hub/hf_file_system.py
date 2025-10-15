@@ -101,12 +101,14 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         *args,
         endpoint: Optional[str] = None,
         token: Union[bool, str, None] = None,
+        block_size: Optional[int] = None,
         **storage_options,
     ):
         super().__init__(*args, **storage_options)
         self.endpoint = endpoint or constants.ENDPOINT
         self.token = token
         self._api = HfApi(endpoint=endpoint, token=token)
+        self.block_size = block_size
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
         #  * the 1st element indicating whether the repositoy and the revision exist
         #  * the 2nd element being the exception raised if the repository or revision doesn't exist
@@ -264,12 +266,15 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         block_size: Optional[int] = None,
         **kwargs,
     ) -> "HfFileSystemFile":
+        block_size = block_size if block_size is not None else self.block_size
+        if block_size is not None:
+            kwargs["block_size"] = block_size
         if "a" in mode:
             raise NotImplementedError("Appending to remote files is not yet supported.")
         if block_size == 0:
-            return HfFileSystemStreamFile(self, path, mode=mode, revision=revision, block_size=block_size, **kwargs)
+            return HfFileSystemStreamFile(self, path, mode=mode, revision=revision, **kwargs)
         else:
-            return HfFileSystemFile(self, path, mode=mode, revision=revision, block_size=block_size, **kwargs)
+            return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
 
     def _rm(self, path: str, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path = self.resolve_path(path, revision=revision)

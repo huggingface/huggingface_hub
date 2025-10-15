@@ -219,6 +219,7 @@ def http_backoff(
     retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (
         requests.Timeout,
         requests.ConnectionError,
+        requests.exceptions.ChunkedEncodingError,
     ),
     retry_on_status_codes: Union[int, Tuple[int, ...]] = (500, 502, 503, 504),
     **kwargs,
@@ -248,7 +249,7 @@ def http_backoff(
             Maximum duration (in seconds) to wait before retrying.
         retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
-            By default, retry on `requests.Timeout` and `requests.ConnectionError`.
+            By default, retry on `requests.Timeout`, `requests.ConnectionError` and `requests.exceptions.ChunkedEncodingError`.
         retry_on_status_codes (`int` or `Tuple[int]`, *optional*, defaults to `(500, 502, 503, 504)`):
             Define on which status codes the request must be retried. By default, 5xx errors are retried.
         **kwargs (`dict`, *optional*):

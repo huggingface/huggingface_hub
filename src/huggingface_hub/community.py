@@ -7,7 +7,7 @@ for more information on Pull Requests, Discussions, and the community tab.
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Optional, TypedDict, Union
 
 from . import constants
 from .utils import parse_datetime
@@ -141,6 +141,14 @@ class DiscussionWithDetails(Discussion):
     target_branch: Optional[str]
     merge_commit_oid: Optional[str]
     diff: Optional[str]
+
+
+class DiscussionEventArgs(TypedDict):
+    id: str
+    type: str
+    created_at: datetime
+    author: str
+    _event: dict
 
 
 @dataclass
@@ -319,13 +327,13 @@ def deserialize_event(event: dict) -> DiscussionEvent:
     event_type: str = event["type"]
     created_at = parse_datetime(event["createdAt"])
 
-    common_args = dict(
-        id=event_id,
-        type=event_type,
-        created_at=created_at,
-        author=event.get("author", {}).get("name", "deleted"),
-        _event=event,
-    )
+    common_args: DiscussionEventArgs = {
+        "id": event_id,
+        "type": event_type,
+        "created_at": created_at,
+        "author": event.get("author", {}).get("name", "deleted"),
+        "_event": event,
+    }
 
     if event_type == "comment":
         return DiscussionComment(
