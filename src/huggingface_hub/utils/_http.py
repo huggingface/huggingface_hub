@@ -626,8 +626,13 @@ def _format(error_type: type[HfHubHTTPError], custom_message: str, response: htt
         try:
             data = response.json()
         except httpx.ResponseNotRead:
-            response.read()  # In case of streaming response, we need to read the response first
-            data = response.json()
+            try:
+                response.read()  # In case of streaming response, we need to read the response first
+                data = response.json()
+            except RuntimeError:
+                data = {}  # In case of async streaming response, we can't read the response here => skip
+                # ^ TODO: find a better way to handle async streaming response. In practice, async stream must be read in an async content
+                #         so either before hf_raise_for_status or by making an async version of hf_raise_for_status.
 
         error = data.get("error")
         if error is not None:

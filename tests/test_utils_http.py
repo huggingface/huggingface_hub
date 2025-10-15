@@ -2,9 +2,11 @@ import os
 import threading
 import time
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Process, Queue
 from typing import Generator, Optional
 from unittest.mock import Mock, call, patch
+from urllib.parse import urlparse
 from uuid import UUID
 
 import httpx
@@ -12,13 +14,14 @@ import pytest
 from httpx import ConnectTimeout, HTTPError
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.errors import OfflineModeIsEnabled
+from huggingface_hub.errors import HfHubHTTPError, OfflineModeIsEnabled
 from huggingface_hub.utils._http import (
     _adjust_range_header,
     default_client_factory,
     fix_hf_endpoint_in_url,
     get_async_session,
     get_session,
+    hf_raise_for_status,
     http_backoff,
     set_client_factory,
 )
@@ -378,3 +381,100 @@ async def test_async_client_get_request():
     client = get_async_session()
     response = await client.get("https://huggingface.co")
     assert response.status_code == 200
+
+
+class FakeServerHandler(BaseHTTPRequestHandler):
+    """Fake server handler to test client behavior."""
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+
+        # Health check endpoint (always succeeds)
+        if parsed.path == "/health":
+            self._send_response(200, b"OK")
+            return
+
+        # Main endpoint (always fails with 500)
+        self._send_response(500, b"This is a 500 error")
+
+    def _send_response(self, status_code, body):
+        self.send_response(status_code)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def fake_server():
+    # Find a free port
+    host, port = "127.0.0.1", 8000
+    for port in range(port, 8100):
+        try:
+            server = HTTPServer((host, port), FakeServerHandler)
+            break
+        except OSError:
+            continue
+    else:
+        raise RuntimeError("Could not find a free port")
+
+    url = f"http://{host}:{port}"
+
+    # Start server in a separate thread and wait until it's ready
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    for _ in range(1000):  # up to 10 seconds
+        try:
+            if httpx.get(f"{url}/health", timeout=0.01).status_code == 200:
+                break
+        except httpx.HTTPError:
+            pass
+        time.sleep(0.01)
+    else:
+        server.shutdown()
+        raise RuntimeError("Fake server failed to start")
+
+    yield url
+    server.shutdown()
+
+
+def _assert_500_error(exc_info: pytest.ExceptionInfo, expect_message: bool = True):
+    """Common assertions for 500 error tests."""
+    assert isinstance(exc_info.value, HfHubHTTPError)
+    assert exc_info.value.response.status_code == 500
+    if expect_message:
+        assert "This is a 500 error" in str(exc_info.value)
+    else:
+        assert "This is a 500 error" not in str(exc_info.value)
+
+
+def test_raise_on_status_sync_non_stream(fake_server: str):
+    response = get_session().get(fake_server)
+    with pytest.raises(HTTPError) as exc_info:
+        hf_raise_for_status(response)
+    _assert_500_error(exc_info)
+
+
+def test_raise_on_status_sync_stream(fake_server: str):
+    with get_session().stream("GET", fake_server) as response:
+        with pytest.raises(HTTPError) as exc_info:
+            hf_raise_for_status(response)
+    _assert_500_error(exc_info)
+
+
+@pytest.mark.asyncio
+async def test_raise_on_status_async_non_stream(fake_server: str):
+    response = await get_async_session().get(fake_server)
+    with pytest.raises(HTTPError) as exc_info:
+        hf_raise_for_status(response)
+    _assert_500_error(exc_info)
+
+
+@pytest.mark.asyncio
+async def test_raise_on_status_async_stream(fake_server: str):
+    async with get_async_session().stream("GET", fake_server) as response:
+        with pytest.raises(HTTPError) as exc_info:
+            hf_raise_for_status(response)
+    # Async streaming response does not support reading the content
+    _assert_500_error(exc_info, expect_message=False)
