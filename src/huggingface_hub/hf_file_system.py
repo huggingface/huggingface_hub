@@ -991,9 +991,8 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def read(self, length=-1):
         """Read remote file.
 
-        If `length` is not provided or is -1, the entire file is downloaded and read. On POSIX systems and if
-        `hf_transfer` is not enabled, the file is loaded in memory directly. Otherwise, the file is downloaded to a
-        temporary file and read from there.
+        If `length` is not provided or is -1, the entire file is downloaded and read. On POSIX systems the file is
+        loaded in memory directly. Otherwise, the file is downloaded to a temporary file and read from there.
         """
         if self.mode == "rb" and (length is None or length == -1) and self.loc == 0:
             with self.fs.open(self.path, "rb", block_size=0) as f:  # block_size=0 enables fast streaming

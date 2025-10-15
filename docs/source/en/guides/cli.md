@@ -680,39 +680,36 @@ The `hf env` command prints details about your machine setup. This is useful whe
 
 Copy-and-paste the text below in your GitHub issue.
 
-- huggingface_hub version: 0.19.0.dev0
-- Platform: Linux-6.2.0-36-generic-x86_64-with-glibc2.35
-- Python version: 3.10.12
+- huggingface_hub version: 1.0.0.rc6
+- Platform: Linux-6.8.0-85-generic-x86_64-with-glibc2.35
+- Python version: 3.11.14
 - Running in iPython ?: No
 - Running in notebook ?: No
 - Running in Google Colab ?: No
+- Running in Google Colab Enterprise ?: No
 - Token path ?: /home/wauplin/.cache/huggingface/token
 - Has saved token ?: True
 - Who am I ?: Wauplin
 - Configured git credential helpers: store
-- FastAI: N/A
-- Torch: 1.12.1
-- Jinja2: 3.1.2
-- Graphviz: 0.20.1
-- Pydot: 1.4.2
-- Pillow: 9.2.0
-- hf_transfer: 0.1.3
-- gradio: 4.0.2
-- tensorboard: 2.6
-- numpy: 1.23.2
-- pydantic: 2.4.2
-- aiohttp: 3.8.4
+- Installation method: unknown
+- Torch: N/A
+- httpx: 0.28.1
+- hf_xet: 1.1.10
+- gradio: 5.41.1
+- tensorboard: N/A
+- pydantic: 2.11.7
 - ENDPOINT: https://huggingface.co
 - HF_HUB_CACHE: /home/wauplin/.cache/huggingface/hub
 - HF_ASSETS_CACHE: /home/wauplin/.cache/huggingface/assets
 - HF_TOKEN_PATH: /home/wauplin/.cache/huggingface/token
+- HF_STORED_TOKENS_PATH: /home/wauplin/.cache/huggingface/stored_tokens
 - HF_HUB_OFFLINE: False
 - HF_HUB_DISABLE_TELEMETRY: False
 - HF_HUB_DISABLE_PROGRESS_BARS: None
 - HF_HUB_DISABLE_SYMLINKS_WARNING: False
 - HF_HUB_DISABLE_EXPERIMENTAL_WARNING: False
 - HF_HUB_DISABLE_IMPLICIT_TOKEN: False
-- HF_HUB_ENABLE_HF_TRANSFER: False
+- HF_HUB_DISABLE_XET: False
 - HF_HUB_ETAG_TIMEOUT: 10
 - HF_HUB_DOWNLOAD_TIMEOUT: 10
 ```

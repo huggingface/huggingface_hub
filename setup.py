@@ -47,9 +47,6 @@ extras["torch"] = [
     "torch",
     "safetensors[torch]",
 ]
-extras["hf_transfer"] = [
-    "hf_transfer>=0.1.4",  # Pin for progress bars
-]
 extras["fastai"] = [
     "toml",
     "fastai>=2.4",
