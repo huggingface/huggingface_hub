@@ -41,10 +41,12 @@ TIME_UNITS: Dict[str, int] = {
 
 
 def parse_size(value: str) -> int:
+    """Parse a size expressed as a string with digits and unit (like `"10MB"`) to an integer (in bytes)."""
     return _parse_with_unit(value, BYTE_UNITS)
 
 
 def parse_duration(value: str) -> int:
+    """Parse a duration expressed as a string with digits and unit (like `"10s"`) to an integer (in seconds)."""
     return _parse_with_unit(value, TIME_UNITS)
 
 
