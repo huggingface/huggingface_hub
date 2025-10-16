@@ -61,7 +61,7 @@ class _DeletionResolution:
 
 _FILTER_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)\s*(?P<op>==|!=|>=|<=|>|<|=)\s*(?P<value>.+)$")
 _ALLOWED_OPERATORS = {"=", "!=", ">", "<", ">=", "<="}
-_FILTER_KEYS = {"accessed", "id", "modified", "refs", "size", "type"}
+_FILTER_KEYS = {"accessed", "modified", "refs", "size", "type"}
 
 
 @dataclass(frozen=True)
@@ -175,7 +175,7 @@ def compile_cache_filter(
 
     if key not in _FILTER_KEYS:
         raise ValueError(f"Unsupported filter key '{key}' in '{expr}'. Must be one of {list(_FILTER_KEYS)}.")
-
+    # at this point we know that key is in `_FILTER_KEYS`
     if key == "size":
         size_threshold = parse_size(value_raw)
         return lambda repo, revision, _: _compare_numeric(
@@ -212,20 +212,7 @@ def compile_cache_filter(
 
         return _type_filter
 
-    if key == "id":
-        needle = value_raw.lower()
-
-        if op != "=":
-            raise ValueError("Only '=' is supported for 'id' filters.")
-
-        def _id_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], _: float) -> bool:
-            haystack = format_cache_repo_id(repo).lower()
-            contains = needle in haystack
-            return contains if op == "=" else not contains
-
-        return _id_filter
-
-    else:
+    else:  # key == "refs"
         if op != "=":
             raise ValueError(f"Only '=' is supported for 'refs' filters. Got {op}.")
 
