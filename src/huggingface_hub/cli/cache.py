@@ -31,7 +31,6 @@ from ..utils import (
     CachedRepoInfo,
     CachedRevisionInfo,
     CacheNotFound,
-    DeleteCacheStrategy,
     HFCacheInfo,
     _format_size,
     scan_cache_dir,
@@ -42,6 +41,9 @@ from ._cli_utils import typer_factory
 
 
 cache_cli = typer_factory(help="Manage local cache directory.")
+
+
+#### Cache helper utilities
 
 
 class OutputFormat(str, Enum):
@@ -56,8 +58,6 @@ class _DeletionResolution:
     selected: dict[CachedRepoInfo, frozenset[CachedRevisionInfo]]
     missing: tuple[str, ...]
 
-
-#### Cache helper utilities
 
 _FILTER_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)\s*(?P<op>==|!=|>=|<=|>|<|=)\s*(?P<value>.+)$")
 _ALLOWED_OPERATORS = {"=", "!=", ">", "<", ">=", "<="}
@@ -398,6 +398,50 @@ def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
     return comparisons[op]
 
 
+def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) -> _DeletionResolution:
+    """Resolve the deletion targets into a deletion resolution."""
+    repo_lookup, revision_lookup = build_cache_index(hf_cache_info)
+
+    selected: dict[CachedRepoInfo, set[CachedRevisionInfo]] = defaultdict(set)
+    revisions: set[str] = set()
+    missing: list[str] = []
+
+    for raw_target in targets:
+        target = raw_target.strip()
+        if not target:
+            continue
+        lowered = target.lower()
+
+        if re.fullmatch(r"[0-9a-fA-F]{40}", lowered):
+            match = revision_lookup.get(lowered)
+            if match is None:
+                missing.append(raw_target)
+                continue
+            repo, revision = match
+            selected[repo].add(revision)
+            revisions.add(revision.commit_hash)
+            continue
+
+        matched_repo = repo_lookup.get(lowered)
+        if matched_repo is None:
+            missing.append(raw_target)
+            continue
+
+        for revision in matched_repo.revisions:
+            selected[matched_repo].add(revision)
+            revisions.add(revision.commit_hash)
+
+    frozen_selected = {repo: frozenset(revs) for repo, revs in selected.items()}
+    return _DeletionResolution(
+        revisions=frozenset(revisions),
+        selected=frozen_selected,
+        missing=tuple(missing),
+    )
+
+
+#### Cache CLI commands
+
+
 @cache_cli.command(help="List cached repositories or revisions.")
 def ls(
     cache_dir: Annotated[
@@ -513,7 +557,19 @@ def rm(
         raise typer.Exit(code=0)
 
     strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))
-    _print_deletion_summary(resolution, strategy)
+    counts = summarize_cache_deletion_counts(resolution.selected)
+
+    summary_parts: list[str] = []
+    if counts.repo_count:
+        summary_parts.append(f"{counts.repo_count} repo(s)")
+    if counts.partial_revision_count:
+        summary_parts.append(f"{counts.partial_revision_count} revision(s)")
+    if not summary_parts:
+        summary_parts.append(f"{counts.total_revision_count} revision(s)")
+
+    summary_text = " and ".join(summary_parts)
+    print(f"About to delete {summary_text} totalling {strategy.expected_freed_size_str}.")
+    print_cache_selected_revisions(resolution.selected)
 
     if dry_run:
         print("Dry run: no files were deleted.")
@@ -595,60 +651,3 @@ def prune(
 
     strategy.execute()
     print(f"Deleted {counts.total_revision_count} unreferenced revision(s); freed {strategy.expected_freed_size_str}.")
-
-
-def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) -> _DeletionResolution:
-    repo_lookup, revision_lookup = build_cache_index(hf_cache_info)
-
-    selected: dict[CachedRepoInfo, set[CachedRevisionInfo]] = defaultdict(set)
-    revisions: set[str] = set()
-    missing: list[str] = []
-
-    for raw_target in targets:
-        target = raw_target.strip()
-        if not target:
-            continue
-        lowered = target.lower()
-
-        if re.fullmatch(r"[0-9a-fA-F]{40}", lowered):
-            match = revision_lookup.get(lowered)
-            if match is None:
-                missing.append(raw_target)
-                continue
-            repo, revision = match
-            selected[repo].add(revision)
-            revisions.add(revision.commit_hash)
-            continue
-
-        matched_repo = repo_lookup.get(lowered)
-        if matched_repo is None:
-            missing.append(raw_target)
-            continue
-
-        for revision in matched_repo.revisions:
-            selected[matched_repo].add(revision)
-            revisions.add(revision.commit_hash)
-
-    frozen_selected = {repo: frozenset(revs) for repo, revs in selected.items()}
-    return _DeletionResolution(
-        revisions=frozenset(revisions),
-        selected=frozen_selected,
-        missing=tuple(missing),
-    )
-
-
-def _print_deletion_summary(resolution: _DeletionResolution, strategy: DeleteCacheStrategy) -> None:
-    selected_by_repo = resolution.selected
-    counts = summarize_cache_deletion_counts(selected_by_repo)
-
-    summary_parts: list[str] = []
-    if counts.repo_count:
-        summary_parts.append(f"{counts.repo_count} repo(s)")
-    if counts.partial_revision_count:
-        summary_parts.append(f"{counts.partial_revision_count} revision(s)")
-    if not summary_parts:
-        summary_parts.append(f"{counts.total_revision_count} revision(s)")
-
-    summary_text = " and ".join(summary_parts)
-    print(f"About to delete {summary_text} totalling {strategy.expected_freed_size_str}.")
-    print_cache_selected_revisions(selected_by_repo)
