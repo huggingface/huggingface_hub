@@ -217,8 +217,7 @@ HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IM
 HF_XET_HIGH_PERFORMANCE: bool = _is_true(os.environ.get("HF_XET_HIGH_PERFORMANCE"))
 
 # hf_transfer is not used anymore. Let's warn user is case they set the env variable
-_HF_HUB_ENABLE_HF_TRANSFER: bool = _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER"))
-if _HF_HUB_ENABLE_HF_TRANSFER and not HF_XET_HIGH_PERFORMANCE:
+if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")) and not HF_XET_HIGH_PERFORMANCE:
     import warnings
 
     warnings.warn(
@@ -227,12 +226,6 @@ if _HF_HUB_ENABLE_HF_TRANSFER and not HF_XET_HIGH_PERFORMANCE:
         "Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.",
         DeprecationWarning,
     )
-
-# UNUSED
-# We don't use symlinks in local dir anymore.
-HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD: int = (
-    _as_int(os.environ.get("HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD")) or 5 * 1024 * 1024
-)
 
 # Used to override the etag timeout on a system level
 HF_HUB_ETAG_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_ETAG_TIMEOUT")) or DEFAULT_ETAG_TIMEOUT
