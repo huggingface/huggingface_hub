@@ -2,6 +2,7 @@ import copy
 import datetime
 import io
 import os
+import pickle
 import tempfile
 import unittest
 from pathlib import Path
@@ -485,6 +486,18 @@ class HfFileSystemTests(unittest.TestCase):
             assert not (Path(temp_dir) / "data").exists()
             self.hffs.get_file(self.hf_path + "/data", temp_dir + "/data")
             assert (Path(temp_dir) / "data").exists()
+
+    def test_pickle(self):
+        # Test that pickling re-populates the HfFileSystem cache and keeps the instance cache attributes
+        fs = HfFileSystem()
+        fs.isfile(self.text_file)
+        pickled = pickle.dumps(fs)
+        HfFileSystem.clear_instance_cache()
+        fs = pickle.loads(pickled)
+        assert isinstance(fs, HfFileSystem)
+        assert fs in HfFileSystem._cache.values()
+        assert self.hf_path + "/data" in fs.dircache
+        assert list(fs._repo_and_revision_exists_cache)[0][1] == self.repo_id
 
 
 @pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file"])
