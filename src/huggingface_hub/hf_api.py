@@ -1404,8 +1404,6 @@ class Organization:
             Name of the organization on the Hub (unique).
         fullname (`str`):
             Organization's full name.
-        id (`str`, *optional*):
-            Unique identifier of the organization on the Hub.
         details (`str`, *optional*):
             Organization's description.
         is_verified (`bool`, *optional*):
@@ -1427,7 +1425,6 @@ class Organization:
     avatar_url: str
     name: str
     fullname: str
-    id: Optional[str] = None
     details: Optional[str] = None
     is_verified: Optional[bool] = None
     is_following: Optional[bool] = None
@@ -1441,7 +1438,6 @@ class Organization:
         self.avatar_url = kwargs.pop("avatarUrl", "")
         self.name = kwargs.pop("name", "")
         self.fullname = kwargs.pop("fullname", "")
-        self.id = kwargs.pop("_id", None)
         self.details = kwargs.pop("details", None)
         self.is_verified = kwargs.pop("isVerified", None)
         self.is_following = kwargs.pop("isFollowing", None)
