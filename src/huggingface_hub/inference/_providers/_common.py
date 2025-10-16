@@ -24,6 +24,7 @@ HARDCODED_MODEL_INFERENCE_MAPPING: Dict[str, Dict[str, InferenceProviderMapping]
     #                                    status="live")
     "cerebras": {},
     "cohere": {},
+    "clarifai": {},
     "fal-ai": {},
     "fireworks-ai": {},
     "groq": {},
