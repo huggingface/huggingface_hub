@@ -346,7 +346,6 @@ class TestResolveUploadPaths:
 
 
 class TestUploadImpl:
-    @patch("huggingface_hub.cli.upload.is_xet_available", return_value=True)
     def test_upload_folder_mock(self, *_: object) -> None:
         api = Mock()
         api.create_repo.return_value = Mock(repo_id="my-model")
@@ -389,7 +388,6 @@ class TestUploadImpl:
         )
         print_mock.assert_called_once_with("done")
 
-    @patch("huggingface_hub.cli.upload.is_xet_available", return_value=True)
     def test_upload_file_mock(self, *_: object) -> None:
         api = Mock()
         api.create_repo.return_value = Mock(repo_id="my-dataset")
@@ -428,7 +426,6 @@ class TestUploadImpl:
         )
         print_mock.assert_called_once_with("uploaded")
 
-    @patch("huggingface_hub.cli.upload.is_xet_available", return_value=True)
     def test_upload_file_no_revision_mock(self, *_: object) -> None:
         api = Mock()
         api.create_repo.return_value = Mock(repo_id="my-model")
@@ -447,7 +444,6 @@ class TestUploadImpl:
                 )
         api.repo_info.assert_not_called()
 
-    @patch("huggingface_hub.cli.upload.is_xet_available", return_value=True)
     def test_upload_file_with_revision_mock(self, *_: object) -> None:
         api = Mock()
         api.create_repo.return_value = Mock(repo_id="my-model")
@@ -471,7 +467,6 @@ class TestUploadImpl:
             repo_id="my-model", repo_type="model", branch="my-branch", exist_ok=True
         )
 
-    @patch("huggingface_hub.cli.upload.is_xet_available", return_value=True)
     def test_upload_file_revision_and_create_pr_mock(self, *_: object) -> None:
         api = Mock()
         api.create_repo.return_value = Mock(repo_id="my-model")
@@ -493,7 +488,6 @@ class TestUploadImpl:
         api.repo_info.assert_not_called()
         api.create_branch.assert_not_called()
 
-    @patch("huggingface_hub.cli.upload.is_xet_available", return_value=True)
     def test_upload_missing_path(self, *_: object) -> None:
         api = Mock()
         with pytest.raises(FileNotFoundError):
