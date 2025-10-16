@@ -701,6 +701,7 @@ __all__ = [
     "ObjectDetectionInput",
     "ObjectDetectionOutputElement",
     "ObjectDetectionParameters",
+    "Organization",
     "PYTORCH_WEIGHTS_NAME",
     "Padding",
     "PyTorchModelHubMixin",
