@@ -175,8 +175,8 @@ Set to disable using `hf-xet`, even if it is available in your Python environmen
 
 > [!WARNING]
 > This is a deprecated environment variable.
-> Now that the Hugging Face Hub is fully powered by the Xet backend storage, all file transfers are going through the `hf-xet` binary package. It provides efficient file transfers through a chunk-based deduplication strategy, and a seamless integration with `huggingface_hub`.
-> This means `hf_transfer` can't be used anymore. If you are interested in high performances, check out the [`HF_XET_HIGH_PERFORMANCE` section](#hf_xet_high_performance)
+> Now that the Hugging Face Hub is fully powered by the Xet storage backend, all file transfers go through the `hf-xet` binary package. It provides efficient transfers using a chunk-based deduplication strategy and integrates seamlessly with `huggingface_hub`.
+> This means `hf_transfer` can't be used anymore. If you are interested in higher performance, check out the [`HF_XET_HIGH_PERFORMANCE` section](#hf_xet_high_performance)
 
 ### HF_XET_HIGH_PERFORMANCE
 
