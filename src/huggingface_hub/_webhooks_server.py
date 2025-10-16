@@ -32,7 +32,7 @@ if is_fastapi_available():
     from fastapi.responses import JSONResponse
 else:
     # Will fail at runtime if FastAPI is not available
-    FastAPI = Request = JSONResponse = None  # type: ignore [misc, assignment]
+    FastAPI = Request = JSONResponse = None  # type: ignore
 
 
 _global_app: Optional["WebhooksServer"] = None
