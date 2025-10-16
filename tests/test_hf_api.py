@@ -262,7 +262,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
                 assert info.private == private_value
 
 
-
 class CommitApiTest(HfApiCommonTest):
     def setUp(self) -> None:
         super().setUp()

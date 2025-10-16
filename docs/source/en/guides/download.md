@@ -258,4 +258,4 @@ As of `huggingface_hub` 0.32.0, this will also install `hf_xet`.
 
 All other `huggingface_hub` APIs will continue to work without any modification. To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/storage-backends).
 
-Note: `hf_transfer` was previously used for the LFS storage backend but is no longer in use. Use `hf_xet` instead.
+Note: `hf_transfer` was formerly used with the LFS storage backend and is now deprecated; use hf_xet instead.
