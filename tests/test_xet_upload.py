@@ -57,7 +57,6 @@ def api():
 @pytest.fixture
 def repo_url(api, repo_type: str = "model"):
     repo_url = api.create_repo(repo_id=repo_name(prefix=repo_type), repo_type=repo_type)
-    api.update_repo_settings(repo_id=repo_url.repo_id, xet_enabled=True)
 
     yield repo_url
 

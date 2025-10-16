@@ -801,7 +801,6 @@ class ModelInfo:
     spaces: Optional[list[str]]
     safetensors: Optional[SafeTensorsInfo]
     security_repo_status: Optional[dict]
-    xet_enabled: Optional[bool]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -889,7 +888,6 @@ class ModelInfo:
             else None
         )
         self.security_repo_status = kwargs.pop("securityRepoStatus", None)
-        self.xet_enabled = kwargs.pop("xetEnabled", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -960,7 +958,6 @@ class DatasetInfo:
     trending_score: Optional[int]
     card_data: Optional[DatasetCardData]
     siblings: Optional[list[RepoSibling]]
-    xet_enabled: Optional[bool]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1006,7 +1003,6 @@ class DatasetInfo:
             if siblings is not None
             else None
         )
-        self.xet_enabled = kwargs.pop("xetEnabled", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -1085,7 +1081,6 @@ class SpaceInfo:
     runtime: Optional[SpaceRuntime]
     models: Optional[list[str]]
     datasets: Optional[list[str]]
-    xet_enabled: Optional[bool]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1134,7 +1129,6 @@ class SpaceInfo:
         self.runtime = SpaceRuntime(runtime) if runtime else None
         self.models = kwargs.pop("models", None)
         self.datasets = kwargs.pop("datasets", None)
-        self.xet_enabled = kwargs.pop("xetEnabled", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -3702,7 +3696,6 @@ class HfApi:
         private: Optional[bool] = None,
         token: Union[str, bool, None] = None,
         repo_type: Optional[str] = None,
-        xet_enabled: Optional[bool] = None,
     ) -> None:
         """
         Update the settings of a repository, including gated access and visibility.
@@ -3728,8 +3721,6 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repository to update settings from (`"model"`, `"dataset"` or `"space"`).
                 Defaults to `"model"`.
-            xet_enabled (`bool`, *optional*):
-                Whether the repository should be enabled for Xet Storage.
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If gated is not one of "auto", "manual", or False.
@@ -3757,9 +3748,6 @@ class HfApi:
 
         if private is not None:
             payload["private"] = private
-
-        if xet_enabled is not None:
-            payload["xetEnabled"] = xet_enabled
 
         if len(payload) == 0:
             raise ValueError("At least one setting must be updated.")

@@ -261,12 +261,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
                 assert info.gated == gated_value
                 assert info.private == private_value
 
-    @use_tmp_repo(repo_type="model")
-    def test_update_repo_settings_xet_enabled(self, repo_url: RepoUrl):
-        repo_id = repo_url.repo_id
-        self._api.update_repo_settings(repo_id=repo_id, xet_enabled=True)
-        info = self._api.model_info(repo_id, expand="xetEnabled")
-        assert info.xet_enabled
 
 
 class CommitApiTest(HfApiCommonTest):

@@ -902,7 +902,6 @@ class TestRepoSettingsCommand:
             repo_id=DUMMY_MODEL_ID,
             gated=None,
             private=None,
-            xet_enabled=None,
             repo_type="model",
         )
 
@@ -930,7 +929,6 @@ class TestRepoSettingsCommand:
         assert kwargs["repo_id"] == DUMMY_MODEL_ID
         assert kwargs["repo_type"] == "dataset"
         assert kwargs["private"] is True
-        assert kwargs["xet_enabled"] is None
         assert kwargs["gated"] == "manual"
 
 
