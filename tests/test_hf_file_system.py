@@ -21,7 +21,7 @@ from huggingface_hub.hf_file_system import (
 )
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
-from .testing_utils import repo_name, with_production_testing
+from .testing_utils import OfflineSimulationMode, offline, repo_name, with_production_testing
 
 
 class HfFileSystemTests(unittest.TestCase):
@@ -493,11 +493,13 @@ class HfFileSystemTests(unittest.TestCase):
         fs.isfile(self.text_file)
         pickled = pickle.dumps(fs)
         HfFileSystem.clear_instance_cache()
-        fs = pickle.loads(pickled)
-        assert isinstance(fs, HfFileSystem)
-        assert fs in HfFileSystem._cache.values()
-        assert self.hf_path + "/data" in fs.dircache
-        assert list(fs._repo_and_revision_exists_cache)[0][1] == self.repo_id
+        with offline(mode=OfflineSimulationMode.CONNECTION_FAILS):
+            fs = pickle.loads(pickled)
+            assert isinstance(fs, HfFileSystem)
+            assert fs in HfFileSystem._cache.values()
+            assert self.hf_path + "/data" in fs.dircache
+            assert list(fs._repo_and_revision_exists_cache)[0][1] == self.repo_id
+            assert fs.isfile(self.text_file)
 
 
 @pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file"])
