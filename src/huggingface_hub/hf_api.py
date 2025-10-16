@@ -9703,7 +9703,7 @@ class HfApi:
         Args:
             organization (`str`):
                 Name of the organization to get an overview of.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token, which is the recommended method
                 for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
