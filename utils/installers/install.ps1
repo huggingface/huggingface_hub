@@ -7,7 +7,7 @@
 Installs the Hugging Face CLI on Windows by creating an isolated virtual environment and exposing the `hf` command.
 
 .DESCRIPTION
-Downloads and installs the `huggingface_hub[cli]` package into a dedicated virtual environment, then copies the generated `hf.exe` console script to a directory on the user's PATH.
+Downloads and installs the `huggingface_hub` package into a dedicated virtual environment, then copies the generated `hf.exe` console script to a directory on the user's PATH.
 
 .PARAMETER Force
 Recreates the virtual environment even if it already exists. Off by default.
@@ -235,13 +235,13 @@ function New-VirtualEnvironment {
 }
 
 function Install-HuggingFaceHub {
-    $packageSpec = 'huggingface_hub[cli]'
+    $packageSpec = 'huggingface_hub'
     $requestedVersion = $env:HF_CLI_VERSION
     if ($requestedVersion) {
-        $packageSpec = "huggingface_hub[cli]==$requestedVersion"
-        Write-Log "Installing huggingface_hub[cli] (version $requestedVersion)..."
+        $packageSpec = "huggingface_hub==$requestedVersion"
+        Write-Log "Installing The Hugging Face CLI (version $requestedVersion)..."
     } else {
-        Write-Log "Installing huggingface_hub[cli] (latest)..."
+        Write-Log "Installing The Hugging Face CLI (latest)..."
     }
     if (-not $script:VenvPython) { $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe" }
 
@@ -267,7 +267,7 @@ function Publish-HfCommand {
 
     $hfExeSource = Join-Path $SCRIPTS_DIR "hf.exe"
     if (-not (Test-Path $hfExeSource)) {
-        throw "hf.exe not found in virtual environment. Check that huggingface_hub[cli] installed correctly."
+        throw "hf.exe not found in virtual environment. Check that The Hugging Face CLI installed correctly."
     }
 
     $hfExeTarget = Join-Path $BIN_DIR "hf.exe"

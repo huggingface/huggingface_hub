@@ -11,11 +11,11 @@ The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This
 First of all, let's install the CLI:
 
 ```
->>> pip install -U "huggingface_hub[cli]"
+>>> pip install -U "huggingface_hub"
 ```
 
 > [!TIP]
-> In the snippet above, we also installed the `[cli]` extra dependencies to make the user experience better, especially when using the `cache delete` command.
+> The CLI ships with the core `huggingface_hub` package.
 
 Alternatively, you can install the `hf` CLI with a single command:
 
@@ -78,7 +78,7 @@ Make sure uv is installed (adds `uv` and `uvx` to your PATH):
 Then install the CLI globally and use it anywhere:
 
 ```bash
->>> uv tool install "huggingface_hub[cli]"
+>>> uv tool install "huggingface_hub"
 >>> hf auth whoami
 ```
 

@@ -278,12 +278,12 @@ create_venv() {
 
 # Install huggingface_hub with CLI extras
 install_hf_hub() {
-    local package_spec="huggingface_hub[cli]"
+    local package_spec="huggingface_hub"
     if [ -n "$REQUESTED_VERSION" ]; then
-        package_spec="huggingface_hub[cli]==$REQUESTED_VERSION"
-        log_info "Installing huggingface_hub[cli] (version $REQUESTED_VERSION)..."
+        package_spec="huggingface_hub==$REQUESTED_VERSION"
+        log_info "Installing The Hugging Face CLI (version $REQUESTED_VERSION)..."
     else
-        log_info "Installing huggingface_hub[cli] (latest)..."
+        log_info "Installing The Hugging Face CLI (latest)..."
     fi
 
     local extra_pip_args="${HF_CLI_PIP_ARGS:-${HF_PIP_ARGS:-}}"
@@ -318,7 +318,7 @@ expose_cli_command() {
     local source_cli="$VENV_DIR/bin/hf"
     if [ ! -x "$source_cli" ]; then
         log_error "hf command not found in the virtual environment at $source_cli"
-        log_error "Verify that huggingface_hub[cli] installed correctly."
+        log_error "Verify that The Hugging Face CLI is installed correctly."
         exit 1
     fi
 
