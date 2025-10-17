@@ -445,7 +445,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     common_path_depth = common_path[len(path) :].count("/")
                     maxdepth -= common_path_depth
                 out = [o for o in out if not o["name"].startswith(common_path + "/")]
-                for cached_path in self.dircache:
+                for cached_path in list(self.dircache):
                     if cached_path.startswith(common_path + "/"):
                         self.dircache.pop(cached_path, None)
                 self.dircache.pop(common_path, None)
