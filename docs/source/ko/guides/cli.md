@@ -11,11 +11,11 @@ rendered properly in your Markdown viewer.
 먼저, CLI를 설치해 보세요:
 
 ```
->>> pip install -U "huggingface_hub[cli]"
+>>> pip install -U "huggingface_hub"
 ```
 
 > [!TIP]
-> 위의 코드에서 사용자 경험을 높이기 위해 `[cli]` 추가 종속성을 포함하였습니다. 이는 `cache delete` 명령을 사용할 때 특히 유용합니다.
+> CLI는 기본 `huggingface_hub` 패키지에 포함되어 있습니다.
 
 설치가 완료되면, CLI가 올바르게 설정되었는지 확인할 수 있습니다:
 
@@ -59,7 +59,7 @@ CLI가 제대로 설치되었다면 CLI에서 사용 가능한 모든 옵션 목
 영구적으로 도구를 설치해 어디에서나 사용하려면:
 
 ```bash
->>> uv tool install "huggingface_hub[cli]"
+>>> uv tool install "huggingface_hub"
 >>> hf --help
 ```
 

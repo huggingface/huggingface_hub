@@ -45,14 +45,6 @@ from ._cli_utils import TokenOpt, typer_factory
 
 logger = logging.get_logger(__name__)
 
-try:
-    from InquirerPy import inquirer
-    from InquirerPy.base.control import Choice
-
-    _inquirer_py_available = True
-except ImportError:
-    _inquirer_py_available = False
-
 
 auth_cli = typer_factory(help="Manage authentication (login, logout, etc.).")
 
@@ -89,17 +81,6 @@ def _select_token_name() -> Optional[str]:
         logger.error("No stored tokens found. Please login first.")
         return None
 
-    if _inquirer_py_available:
-        choices = [Choice(token_name, name=token_name) for token_name in token_names]
-        try:
-            return inquirer.select(
-                message="Select a token to switch to:",
-                choices=choices,
-                default=None,
-            ).execute()
-        except KeyboardInterrupt:
-            logger.info("Token selection cancelled.")
-            return None
     # if inquirer is not available, use a simpler terminal UI
     print("Available stored tokens:")
     for i, token_name in enumerate(token_names, 1):
