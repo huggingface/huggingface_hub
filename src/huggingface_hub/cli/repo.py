@@ -147,12 +147,6 @@ def repo_settings(
             help="Whether the repository should be private.",
         ),
     ] = None,
-    xet_enabled: Annotated[
-        Optional[bool],
-        typer.Option(
-            help=" Whether the repository should be enabled for Xet Storage.",
-        ),
-    ] = None,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
@@ -161,7 +155,6 @@ def repo_settings(
         repo_id=repo_id,
         gated=(gated.value if gated else None),  # type: ignore [arg-type]
         private=private,
-        xet_enabled=xet_enabled,
         repo_type=repo_type.value,
     )
     print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")

@@ -27,7 +27,6 @@ from threading import Lock
 from typing import TYPE_CHECKING, Any, Optional, Union
 from urllib.parse import quote
 
-from . import constants
 from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
 from ._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths, get_local_upload_paths, read_upload_metadata
 from .constants import DEFAULT_REVISION, REPO_TYPES
@@ -199,16 +198,7 @@ def upload_large_folder_internal(
     logger.info(f"Repo created: {repo_url}")
     repo_id = repo_url.repo_id
     # 2.1 Check if xet is enabled to set batch file upload size
-    is_xet_enabled = (
-        is_xet_available()
-        and api.repo_info(
-            repo_id=repo_id,
-            repo_type=repo_type,
-            revision=revision,
-            expand="xetEnabled",
-        ).xet_enabled
-    )
-    upload_batch_size = UPLOAD_BATCH_SIZE_XET if is_xet_enabled else UPLOAD_BATCH_SIZE_LFS
+    upload_batch_size = UPLOAD_BATCH_SIZE_XET if is_xet_available() else UPLOAD_BATCH_SIZE_LFS
 
     # 3. List files to upload
     filtered_paths_list = filter_repo_objects(
@@ -559,10 +549,7 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[tuple[WorkerJob, 
             return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, MAX_NB_FILES_FETCH_UPLOAD_MODE))
 
         # 7. Preupload LFS file if at least `status.upload_batch_size` files
-        #    Skip if hf_transfer is enabled and there is already a worker preuploading LFS
-        elif status.queue_preupload_lfs.qsize() >= status.upload_batch_size and (
-            status.nb_workers_preupload_lfs == 0 or not constants.HF_HUB_ENABLE_HF_TRANSFER
-        ):
+        elif status.queue_preupload_lfs.qsize() >= status.upload_batch_size:
             status.nb_workers_preupload_lfs += 1
             logger.debug("Job: preupload LFS")
             return (WorkerJob.PREUPLOAD_LFS, _get_n(status.queue_preupload_lfs, status.upload_batch_size))

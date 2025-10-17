@@ -35,7 +35,6 @@ DEFAULT_ETAG_TIMEOUT = 10
 DEFAULT_DOWNLOAD_TIMEOUT = 10
 DEFAULT_REQUEST_TIMEOUT = 10
 DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024
-HF_TRANSFER_CONCURRENCY = 100
 MAX_HTTP_DOWNLOAD_SIZE = 50 * 1000 * 1000 * 1000  # 50 GB
 
 # Constants for serialization
@@ -215,18 +214,18 @@ HF_HUB_DISABLE_EXPERIMENTAL_WARNING: bool = _is_true(os.environ.get("HF_HUB_DISA
 # Disable sending the cached token by default is all HTTP requests to the Hub
 HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN"))
 
-# Enable fast-download using external dependency "hf_transfer"
-# See:
-# - https://pypi.org/project/hf-transfer/
-# - https://github.com/huggingface/hf_transfer (private)
-HF_HUB_ENABLE_HF_TRANSFER: bool = _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER"))
+HF_XET_HIGH_PERFORMANCE: bool = _is_true(os.environ.get("HF_XET_HIGH_PERFORMANCE"))
 
+# hf_transfer is not used anymore. Let's warn user is case they set the env variable
+if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")) and not HF_XET_HIGH_PERFORMANCE:
+    import warnings
 
-# UNUSED
-# We don't use symlinks in local dir anymore.
-HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD: int = (
-    _as_int(os.environ.get("HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD")) or 5 * 1024 * 1024
-)
+    warnings.warn(
+        "The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. "
+        "Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. "
+        "Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.",
+        DeprecationWarning,
+    )
 
 # Used to override the etag timeout on a system level
 HF_HUB_ETAG_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_ETAG_TIMEOUT")) or DEFAULT_ETAG_TIMEOUT

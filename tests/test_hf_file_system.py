@@ -459,7 +459,7 @@ class HfFileSystemTests(unittest.TestCase):
             assert temp_file.read() == b"dummy text data"
 
     def test_get_file_with_temporary_folder(self):
-        # Test passing a file path works => compatible with hf_transfer
+        # Test passing a file path works
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = os.path.join(temp_dir, "temp_file.txt")
             self.hffs.get_file(self.text_file, temp_file)

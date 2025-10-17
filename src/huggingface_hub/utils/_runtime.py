@@ -36,7 +36,6 @@ _CANDIDATES = {
     "fastcore": {"fastcore"},
     "gradio": {"gradio"},
     "graphviz": {"graphviz"},
-    "hf_transfer": {"hf_transfer"},
     "hf_xet": {"hf_xet"},
     "jinja": {"Jinja2"},
     "httpx": {"httpx"},
@@ -143,15 +142,6 @@ def is_graphviz_available() -> bool:
 
 def get_graphviz_version() -> str:
     return _get_version("graphviz")
-
-
-# hf_transfer
-def is_hf_transfer_available() -> bool:
-    return is_package_available("hf_transfer")
-
-
-def get_hf_transfer_version() -> str:
-    return _get_version("hf_transfer")
 
 
 # httpx
@@ -414,13 +404,10 @@ def dump_environment_info() -> dict[str, Any]:
     info["Installation method"] = installation_method()
 
     # Installed dependencies
-    info["Torch"] = get_torch_version()
     info["httpx"] = get_httpx_version()
-    info["hf_transfer"] = get_hf_transfer_version()
     info["hf_xet"] = get_xet_version()
     info["gradio"] = get_gradio_version()
     info["tensorboard"] = get_tensorboard_version()
-    info["pydantic"] = get_pydantic_version()
 
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT
@@ -435,9 +422,9 @@ def dump_environment_info() -> dict[str, Any]:
     info["HF_HUB_DISABLE_EXPERIMENTAL_WARNING"] = constants.HF_HUB_DISABLE_EXPERIMENTAL_WARNING
     info["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = constants.HF_HUB_DISABLE_IMPLICIT_TOKEN
     info["HF_HUB_DISABLE_XET"] = constants.HF_HUB_DISABLE_XET
-    info["HF_HUB_ENABLE_HF_TRANSFER"] = constants.HF_HUB_ENABLE_HF_TRANSFER
     info["HF_HUB_ETAG_TIMEOUT"] = constants.HF_HUB_ETAG_TIMEOUT
     info["HF_HUB_DOWNLOAD_TIMEOUT"] = constants.HF_HUB_DOWNLOAD_TIMEOUT
+    info["HF_XET_HIGH_PERFORMANCE"] = constants.HF_XET_HIGH_PERFORMANCE
 
     print("\nCopy-and-paste the text below in your GitHub issue.\n")
     print("\n".join([f"- {prop}: {val}" for prop, val in info.items()]) + "\n")
