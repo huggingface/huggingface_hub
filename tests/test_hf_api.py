@@ -4282,6 +4282,15 @@ class UserApiTest(unittest.TestCase):
         assert overview.num_following > 300
         assert overview.num_followers > 1000
 
+    def test_organization_overview(self) -> None:
+        overview = self.api.get_organization_overview("huggingface")
+        assert overview.name == "huggingface"
+        assert overview.fullname == "Hugging Face"
+        assert overview.avatar_url.startswith("https://")
+        assert overview.num_users is None or overview.num_users > 10
+        assert overview.num_models is None or overview.num_models > 10
+        assert overview.num_followers is None or overview.num_followers > 1000
+
     def test_organization_members(self) -> None:
         members = self.api.list_organization_members("huggingface")
         assert len(list(members)) > 1
