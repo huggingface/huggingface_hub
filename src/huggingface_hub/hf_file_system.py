@@ -929,20 +929,16 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         # See https://github.com/huggingface/huggingface_hub/issues/1733
         raise NotImplementedError("Transactional commits are not supported.")
 
-    @property
-    def _instance_cache_attributes_dict(self):
-        return {
-            "dircache": self.dircache,
-            "_repo_and_revision_exists_cache": self._repo_and_revision_exists_cache,
-        }
-
     def __reduce__(self):
         # re-populate the instance cache at HfFileSystem._cache and re-populate the cache attributes of every instance
         return make_instance, (
             type(self),
             self.storage_args,
             self.storage_options,
-            self._instance_cache_attributes_dict,
+            {
+                "dircache": self.dircache,
+                "_repo_and_revision_exists_cache": self._repo_and_revision_exists_cache,
+            },
         )
 
 
