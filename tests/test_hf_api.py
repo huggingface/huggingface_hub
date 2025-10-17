@@ -4371,6 +4371,7 @@ class TestExpandPropertyType(HfApiCommonTest):
         defined_args = set(get_args(property_type))
         expected_args = set(message.replace('"expand" must be one of ', "").strip("[]").split(", "))
         expected_args.discard("gitalyUid")  # internal one, do not document
+        expected_args.discard("xetEnabled")  # all repos are xetEnabled now, so we don't document it anymore
 
         if defined_args != expected_args:
             should_be_removed = defined_args - expected_args
