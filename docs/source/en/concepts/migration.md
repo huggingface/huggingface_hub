@@ -88,7 +88,6 @@ Cache management from the CLI has been redesigned to follow a Docker-inspired wo
 - `hf cache rm` deletes selected cache entries. Pass one or more repo IDs (for example `model/bert-base-uncased`) or revision hashes, and optionally add `--dry-run` to preview or `--yes` to skip the confirmation prompt. This replaces both the interactive TUI and `--disable-tui` workflows from the previous command.
 - `hf cache prune` performs the common cleanup task of deleting unreferenced revisions in one shot. Add `--dry-run` or `--yes` in the same way as with `hf cache rm`.
 
-Because the new implementation no longer relies on the InquirerPy TUI, the optional `huggingface_hub[cli]` extra has been removed. Installing `huggingface_hub` already gives you the full CLI experience.
 
 ## TensorFlow and Keras 2.x support
 
