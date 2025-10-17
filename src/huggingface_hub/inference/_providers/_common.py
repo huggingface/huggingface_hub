@@ -289,6 +289,16 @@ class AutoRouterConversationalTask(BaseConversationalTask):
     def __init__(self):
         super().__init__(provider="auto", base_url="https://router.huggingface.co")
 
+    def _prepare_base_url(self, api_key: str) -> str:
+        """Return the base URL to use for the request.
+
+        Usually not overwritten in subclasses."""
+        # Route to the proxy if the api_key is a HF TOKEN
+        if not api_key.startswith("hf_"):
+            raise ValueError("Cannot select auto-router when using non-Hugging Face API key.")
+        else:
+            return self.base_url  # No `/auto` suffix in the URL
+
     def _prepare_mapping_info(self, model: Optional[str]) -> InferenceProviderMapping:
         """
         In auto-router, we don't need to fetch provider mapping info.

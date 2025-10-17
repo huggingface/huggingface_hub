@@ -221,7 +221,7 @@ class TestAutoRouterConversationalTask:
         )
 
         # Use auto-router URL
-        assert request.url == "https://router.huggingface.co/auto/v1/chat/completions"
+        assert request.url == "https://router.huggingface.co/v1/chat/completions"
 
         # The rest is the expected request for a Chat Completion API
         assert request.headers["authorization"] == "Bearer hf_test_token"
