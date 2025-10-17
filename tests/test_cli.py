@@ -137,7 +137,7 @@ class TestCacheCommand:
             patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
             patch("huggingface_hub.cli.cache.build_cache_index", return_value=(repo_lookup, revision_lookup)),
             patch(
-                "huggingface_hub.cli.cache.summarize_cache_deletion_counts",
+                "huggingface_hub.cli.cache.summarize_deletions",
                 return_value=counts,
             ),
             patch("huggingface_hub.cli.cache.print_cache_selected_revisions") as print_mock,
@@ -167,7 +167,7 @@ class TestCacheCommand:
             patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
             patch("huggingface_hub.cli.cache.build_cache_index", return_value=(repo_lookup, revision_lookup)),
             patch(
-                "huggingface_hub.cli.cache.summarize_cache_deletion_counts",
+                "huggingface_hub.cli.cache.summarize_deletions",
                 return_value=counts,
             ),
             patch("huggingface_hub.cli.cache.print_cache_selected_revisions"),
@@ -195,7 +195,7 @@ class TestCacheCommand:
         with (
             patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
             patch(
-                "huggingface_hub.cli.cache.summarize_cache_deletion_counts",
+                "huggingface_hub.cli.cache.summarize_deletions",
                 return_value=counts,
             ),
             patch("huggingface_hub.cli.cache.print_cache_selected_revisions") as print_mock,

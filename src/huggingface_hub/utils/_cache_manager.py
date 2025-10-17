@@ -245,6 +245,11 @@ class CachedRepoInfo:
         return _format_size(self.size_on_disk)
 
     @property
+    def cache_id(self) -> str:
+        """Canonical `type/id` identifier used across cache tooling."""
+        return f"{self.repo_type}/{self.repo_id}"
+
+    @property
     def refs(self) -> dict[str, CachedRevisionInfo]:
         """
         (property) Mapping between `refs` and revision data structures.

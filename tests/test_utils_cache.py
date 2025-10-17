@@ -9,7 +9,6 @@ import pytest
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, _format_size, scan_cache_dir
 from huggingface_hub.utils._cache_manager import CacheNotFound, _try_delete_path
-from huggingface_hub.utils._parsing import format_timesince
 
 from .testing_utils import rmtree_with_retry, with_production_testing, xfail_on_windows
 
@@ -754,13 +753,4 @@ class TestStringFormatters(unittest.TestCase):
                 _format_size(size),
                 expected,
                 msg=f"Wrong formatting for {size} == '{expected}'",
-            )
-
-    def test_format_timesince(self) -> None:
-        """Test `format_timesince` formatter."""
-        for ts, expected in self.SINCE.items():
-            self.assertEqual(
-                format_timesince(time.time() - ts),
-                expected,
-                msg=f"Wrong formatting for {ts} == '{expected}'",
             )

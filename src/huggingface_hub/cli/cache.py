@@ -77,10 +77,10 @@ CacheEntry = Tuple[CachedRepoInfo, Optional[CachedRevisionInfo]]
 RepoRefsMap = Dict[CachedRepoInfo, frozenset[str]]
 
 
-def summarize_cache_deletion_counts(
+def summarize_deletions(
     selected_by_repo: Mapping[CachedRepoInfo, frozenset[CachedRevisionInfo]],
 ) -> CacheDeletionCounts:
-    """Aggregate repo and revision counts for deletion summaries shown in the CLI."""
+    """Summarize deletions across repositories."""
     repo_count = 0
     total_revisions = 0
     revisions_in_full_repos = 0
@@ -120,7 +120,7 @@ def build_cache_index(
     repo_lookup: dict[str, CachedRepoInfo] = {}
     revision_lookup: dict[str, tuple[CachedRepoInfo, CachedRevisionInfo]] = {}
     for repo in hf_cache_info.repos:
-        repo_key = f"{repo.repo_type}/{repo.repo_id}".lower()
+        repo_key = repo.cache_id.lower()
         repo_lookup[repo_key] = repo
         for revision in repo.revisions:
             revision_lookup[revision.commit_hash.lower()] = (repo, revision)
@@ -144,18 +144,13 @@ def collect_cache_entries(
     if include_revisions:
         entries.sort(
             key=lambda entry: (
-                format_cache_repo_id(entry[0]),
+                entry[0].cache_id,
                 entry[1].commit_hash if entry[1] is not None else "",
             )
         )
     else:
-        entries.sort(key=lambda entry: format_cache_repo_id(entry[0]))
+        entries.sort(key=lambda entry: entry[0].cache_id)
     return entries, repo_refs_map
-
-
-def format_cache_repo_id(repo: CachedRepoInfo) -> str:
-    """Return the canonical `type/id` string used across cache CLI outputs."""
-    return f"{repo.repo_type}/{repo.repo_id}"
 
 
 def compile_cache_filter(
@@ -205,7 +200,7 @@ def compile_cache_filter(
         expected = value_raw.lower()
 
         if op != "=":
-            raise ValueError("Only '=' is supported for 'type' filters.")
+            raise ValueError(f"Only '=' is supported for 'type' filters. Got '{op}'.")
 
         def _type_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], _: float) -> bool:
             return repo.repo_type.lower() == expected
@@ -263,13 +258,12 @@ def print_cache_entries_table(
         message = "No cached revisions found." if include_revisions else "No cached repositories found."
         print(message)
         return
-
+    table_rows: List[List[str]]
     if include_revisions:
-        table_rows: List[List[str]] = []
         headers = ["ID", "REVISION", "SIZE", "LAST_MODIFIED", "REFS"]
         table_rows = [
             [
-                format_cache_repo_id(repo),
+                repo.cache_id,
                 revision.commit_hash,
                 revision.size_on_disk_str.rjust(8),
                 revision.last_modified_str,
@@ -282,7 +276,7 @@ def print_cache_entries_table(
         headers = ["ID", "SIZE", "LAST_ACCESSED", "LAST_MODIFIED", "REFS"]
         table_rows = [
             [
-                format_cache_repo_id(repo),
+                repo.cache_id,
                 repo.size_on_disk_str.rjust(8),
                 repo.last_accessed_str or "",
                 repo.last_modified_str,
@@ -302,8 +296,7 @@ def print_cache_entries_table(
         revision_count = sum(len(repo.revisions) for repo in unique_repos)
         total_size = sum(repo.size_on_disk for repo in unique_repos)
 
-    print()
-    summary = f"Found {repo_count} repo(s) for a total of {revision_count} revision(s) and {_format_size(total_size)} on disk."
+    summary = f"\nFound {repo_count} repo(s) for a total of {revision_count} revision(s) and {_format_size(total_size)} on disk."
     print(ANSI.bold(summary))
 
 
@@ -429,7 +422,7 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
 #### Cache CLI commands
 
 
-@cache_cli.command(help="List cached repositories or revisions.")
+@cache_cli.command()
 def ls(
     cache_dir: Annotated[
         Optional[str],
@@ -466,6 +459,7 @@ def ls(
         ),
     ] = False,
 ) -> None:
+    """List cached repositories or revisions."""
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
@@ -486,7 +480,7 @@ def ls(
 
     if quiet:
         for repo, revision in entries:
-            print(revision.commit_hash if revision is not None else format_cache_repo_id(repo))
+            print(revision.commit_hash if revision is not None else repo.cache_id)
         return
 
     formatters = {
@@ -497,7 +491,7 @@ def ls(
     return formatters[format](entries, include_revisions=revisions, repo_refs_map=repo_refs_map)
 
 
-@cache_cli.command(help="Remove cached repositories or revisions.")
+@cache_cli.command()
 def rm(
     targets: Annotated[
         list[str],
@@ -526,6 +520,7 @@ def rm(
         ),
     ] = False,
 ) -> None:
+    """Remove cached repositories or revisions."""
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
@@ -544,7 +539,7 @@ def rm(
         raise typer.Exit(code=0)
 
     strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))
-    counts = summarize_cache_deletion_counts(resolution.selected)
+    counts = summarize_deletions(resolution.selected)
 
     summary_parts: list[str] = []
     if counts.repo_count:
@@ -567,13 +562,13 @@ def rm(
         return
 
     strategy.execute()
-    counts = summarize_cache_deletion_counts(resolution.selected)
+    counts = summarize_deletions(resolution.selected)
     print(
         f"Deleted {counts.repo_count} repo(s) and {counts.total_revision_count} revision(s); freed {strategy.expected_freed_size_str}."
     )
 
 
-@cache_cli.command(help="Remove detached revisions from the cache.")
+@cache_cli.command()
 def prune(
     cache_dir: Annotated[
         Optional[str],
@@ -596,6 +591,7 @@ def prune(
         ),
     ] = False,
 ) -> None:
+    """Remove detached revisions from the cache."""
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
@@ -621,7 +617,7 @@ def prune(
         missing=(),
     )
     strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))
-    counts = summarize_cache_deletion_counts(selected)
+    counts = summarize_deletions(selected)
 
     print(
         f"About to delete {counts.total_revision_count} unreferenced revision(s) ({strategy.expected_freed_size_str} total)."
