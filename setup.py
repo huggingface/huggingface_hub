@@ -60,7 +60,7 @@ extras["mcp"] = [
 ] + extras["inference"]
 
 extras["testing"] = (
-    +extras["inference"]
+    extras["inference"]
     + extras["oauth"]
     + [
         "jedi",
