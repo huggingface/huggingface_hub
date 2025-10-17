@@ -11,11 +11,11 @@ The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This
 First of all, let's install the CLI:
 
 ```
->>> pip install -U "huggingface_hub[cli]"
+>>> pip install -U "huggingface_hub"
 ```
 
 > [!TIP]
-> In the snippet above, we also installed the `[cli]` extra dependencies to make the user experience better, especially when using the `cache delete` command.
+> The CLI ships with the core `huggingface_hub` package, so there is no longer a `[cli]` extra to install.
 
 Alternatively, you can install the `hf` CLI with a single command:
 
@@ -78,7 +78,7 @@ Make sure uv is installed (adds `uv` and `uvx` to your PATH):
 Then install the CLI globally and use it anywhere:
 
 ```bash
->>> uv tool install "huggingface_hub[cli]"
+>>> uv tool install "huggingface_hub"
 >>> hf auth whoami
 ```
 
@@ -584,30 +584,77 @@ To delete files from a repo you must be authenticated and authorized. By default
 >>> hf repo-files delete --token=hf_**** Wauplin/my-cool-model file.txt
 ```
 
-## hf cache scan
+## hf cache ls
 
-Scanning your cache directory is useful if you want to know which repos you have downloaded and how much space it takes on your disk. You can do that by running `hf cache scan`:
+Use `hf cache ls` to inspect what is stored locally in your Hugging Face cache. By default it aggregates information by repository:
 
 ```bash
->>> hf cache scan
-REPO ID                     REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED LAST_MODIFIED REFS                LOCAL PATH
---------------------------- --------- ------------ -------- ------------- ------------- ------------------- -------------------------------------------------------------------------
-glue                        dataset         116.3K       15 4 days ago    4 days ago    2.4.0, main, 1.17.0 /home/wauplin/.cache/huggingface/hub/datasets--glue
-google/fleurs               dataset          64.9M        6 1 week ago    1 week ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/datasets--google--fleurs
-Jean-Baptiste/camembert-ner model           441.0M        7 2 weeks ago   16 hours ago  main                /home/wauplin/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner
-bert-base-cased             model             1.9G       13 1 week ago    2 years ago                       /home/wauplin/.cache/huggingface/hub/models--bert-base-cased
-t5-base                     model            10.1K        3 3 months ago  3 months ago  main                /home/wauplin/.cache/huggingface/hub/models--t5-base
-t5-small                    model           970.7M       11 3 days ago    3 days ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/models--t5-small
+>>> hf cache ls
+ID                          SIZE     LAST_ACCESSED LAST_MODIFIED REFS        
+--------------------------- -------- ------------- ------------- ----------- 
+dataset/nyu-mll/glue          157.4M 2 days ago    2 days ago    main script 
+model/LiquidAI/LFM2-VL-1.6B     3.2G 4 days ago    4 days ago    main        
+model/microsoft/UserLM-8b      32.1G 4 days ago    4 days ago    main  
 
-Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
-Got 1 warning(s) while scanning. Use -vvv to print details.
+Found 3 repo(s) for a total of 5 revision(s) and 35.5G on disk.
 ```
 
-For more details about how to scan your cache directory, please refer to the [Manage your cache](./manage-cache#scan-cache-from-the-terminal) guide.
+Add `--revisions` to drill down to specific snapshots, and chain filters to focus on what matters:
 
-## hf cache delete
+```bash
+>>> hf cache ls --filter "size>30g" --revisions
+ID                        REVISION                                 SIZE     LAST_MODIFIED REFS 
+------------------------- ---------------------------------------- -------- ------------- ---- 
+model/microsoft/UserLM-8b be8f2069189bdf443e554c24e488ff3ff6952691    32.1G 4 days ago    main 
 
-`hf cache delete` is a tool that helps you delete parts of your cache that you don't use anymore. This is useful for saving and freeing disk space. To learn more about using this command, please refer to the [Manage your cache](./manage-cache#clean-cache-from-the-terminal) guide.
+Found 1 repo(s) for a total of 1 revision(s) and 32.1G on disk.
+```
+
+The command supports several output formats for scripting: `--format json` prints structured objects, `--format csv` writes comma-separated rows, and `--quiet` prints only IDs. Combine these with `--cache-dir` to target alternative cache locations. See the [Manage your cache](./manage-cache) guide for advanced workflows.
+
+## hf cache rm
+
+`hf cache rm` removes cached repositories or individual revisions. Pass one or more repo IDs (`model/bert-base-uncased`) or revision hashes:
+
+```bash
+>>> hf cache rm model/LiquidAI/LFM2-VL-1.6B
+About to delete 1 repo(s) totalling 3.2G.
+  - model/LiquidAI/LFM2-VL-1.6B (entire repo)
+Proceed with deletion? [y/N]: y
+Delete repo: /Users/hcelina/.cache/huggingface/hub/models--LiquidAI--LFM2-VL-1.6B
+Cache deletion done. Saved 3.2G.
+Deleted 1 repo(s) and 2 revision(s); freed 3.2G.
+```
+
+Mix repositories and specific revisions in the same call. Use `--dry-run` to preview the impact, or `--yes` to skip the confirmation prompt—handy in automated scripts:
+
+```bash
+>>> hf cache rm model/t5-small 8f3ad1c --dry-run
+About to delete 1 repo(s) and 1 revision(s) totalling 1.1G.
+  - model/t5-small:
+      8f3ad1c [main] 1.1G
+Dry run: no files were deleted.
+```
+
+When working outside the default cache location, pair the command with `--cache-dir PATH`.
+
+## hf cache prune
+
+`hf cache prune` is a convenience shortcut that deletes every detached (unreferenced) revision in your cache. This keeps only revisions that are still reachable through a branch or tag:
+
+```bash
+>>> hf cache prune
+About to delete 3 unreferenced revision(s) (2.4G total).
+  - model/t5-small:
+      1c610f6b [refs/pr/1] 820.1M
+      d4ec9b72 [(detached)] 640.5M
+  - dataset/google/fleurs:
+      2b91c8dd [(detached)] 937.6M
+Proceed? [y/N]: y
+Deleted 3 unreferenced revision(s); freed 2.4G.
+```
+
+As with the other cache commands, `--dry-run`, `--yes`, and `--cache-dir` are available. Refer to the [Manage your cache](./manage-cache) guide for more examples.
 
 ## hf repo tag create
 

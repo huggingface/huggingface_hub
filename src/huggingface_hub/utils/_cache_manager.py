@@ -612,15 +612,12 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
 
     You can also print a detailed report directly from the `hf` command line using:
     ```text
-    > hf cache scan
-    REPO ID                     REPO TYPE SIZE ON DISK NB FILES REFS                LOCAL PATH
-    --------------------------- --------- ------------ -------- ------------------- -------------------------------------------------------------------------
-    glue                        dataset         116.3K       15 1.17.0, main, 2.4.0 /Users/lucain/.cache/huggingface/hub/datasets--glue
-    google/fleurs               dataset          64.9M        6 main, refs/pr/1     /Users/lucain/.cache/huggingface/hub/datasets--google--fleurs
-    Jean-Baptiste/camembert-ner model           441.0M        7 main                /Users/lucain/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner
-    bert-base-cased             model             1.9G       13 main                /Users/lucain/.cache/huggingface/hub/models--bert-base-cased
-    t5-base                     model            10.1K        3 main                /Users/lucain/.cache/huggingface/hub/models--t5-base
-    t5-small                    model           970.7M       11 refs/pr/1, main     /Users/lucain/.cache/huggingface/hub/models--t5-small
+    > hf cache ls
+    ID                          SIZE     LAST_ACCESSED LAST_MODIFIED REFS
+    --------------------------- -------- ------------- ------------- -----------
+    dataset/nyu-mll/glue          157.4M 2 days ago    2 days ago    main script
+    model/LiquidAI/LFM2-VL-1.6B     3.2G 4 days ago    4 days ago    main
+    model/microsoft/UserLM-8b      32.1G 4 days ago    4 days ago    main
 
     Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
     Got 1 warning(s) while scanning. Use -vvv to print details.
