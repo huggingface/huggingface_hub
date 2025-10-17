@@ -472,7 +472,7 @@ class WebhookInfo:
             URL of the webhook.
         job (`JobSpec`, *optional*):
             Specifications of the Job to trigger.
-        watched (`List[WebhookWatchedItem]`):
+        watched (`list[WebhookWatchedItem]`):
             List of items watched by the webhook, see [`WebhookWatchedItem`].
         domains (`list[WEBHOOK_DOMAIN_T]`):
             List of domains the webhook is watching. Can be one of `["repo", "discussions"]`.
@@ -8949,7 +8949,7 @@ class HfApi:
             job_id (`str`):
                 ID of the source Job to trigger with the webhook payload in the environment variable WEBHOOK_PAYLOAD.
                 Additional environment variables are available for convenience: WEBHOOK_REPO_ID, WEBHOOK_REPO_TYPE and WEBHOOK_SECRET.
-            watched (`List[WebhookWatchedItem]`):
+            watched (`list[WebhookWatchedItem]`):
                 List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets or spaces.
                 Watched items can also be provided as plain dictionaries.
             domains (`list[Literal["repo", "discussion"]]`, optional):
