@@ -1,3 +1,4 @@
+import json
 import os
 import warnings
 from contextlib import contextmanager
@@ -10,12 +11,12 @@ import typer
 from typer.testing import CliRunner
 
 from huggingface_hub.cli._cli_utils import RepoType
-from huggingface_hub.cli.cache import _CANCEL_DELETION_STR
+from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import RevisionNotFoundError
-from huggingface_hub.utils import SoftTemporaryDirectory
+from huggingface_hub.utils import CachedRepoInfo, CachedRevisionInfo, SoftTemporaryDirectory
 
 from .testing_utils import DUMMY_MODEL_ID
 
@@ -25,52 +26,186 @@ def runner() -> CliRunner:
     return CliRunner()
 
 
+def _make_revision(commit_hash: str, *, refs: Optional[set[str]] = None) -> CachedRevisionInfo:
+    return CachedRevisionInfo(
+        commit_hash=commit_hash,
+        snapshot_path=Path(f"/tmp/{commit_hash}"),
+        size_on_disk=0,
+        files=frozenset(),
+        refs=frozenset(refs or set()),
+        last_modified=0.0,
+    )
+
+
+def _make_repo(repo_id: str, *, revisions: list[CachedRevisionInfo]) -> CachedRepoInfo:
+    return CachedRepoInfo(
+        repo_id=repo_id,
+        repo_type="model",
+        repo_path=Path(f"/tmp/{repo_id.replace('/', '_')}"),
+        size_on_disk=0,
+        nb_files=0,
+        revisions=frozenset(revisions),
+        last_accessed=0.0,
+        last_modified=0.0,
+    )
+
+
 class TestCacheCommand:
-    def test_scan_cache_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.cache.scan_cache_dir") as mock_run:
-            result = runner.invoke(app, ["cache", "scan"])
-        assert result.exit_code == 0
-        mock_run.assert_called_once_with(None)
+    def test_ls_table_output(self, runner: CliRunner) -> None:
+        repo = _make_repo("user/model", revisions=[_make_revision("a" * 40, refs={"main"})])
+        entries = [(repo, None)]
+        repo_refs_map = {repo: frozenset({"main"})}
 
-    def test_scan_cache_verbose(self, runner: CliRunner) -> None:
         with (
-            patch("huggingface_hub.cli.cache.scan_cache_dir") as mock_run,
-            patch("huggingface_hub.cli.cache.get_table") as get_table_mock,
-        ):
-            result = runner.invoke(app, ["cache", "scan", "-v"])
-        assert result.exit_code == 0
-        mock_run.assert_called_once_with(None)
-        get_table_mock.assert_called_once_with(mock_run.return_value, verbosity=1)
-
-    def test_scan_cache_with_dir(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.cache.scan_cache_dir") as mock_run:
-            result = runner.invoke(app, ["cache", "scan", "--dir", "something"])
-        assert result.exit_code == 0
-        mock_run.assert_called_once_with("something")
-
-    def test_scan_cache_ultra_verbose(self, runner: CliRunner) -> None:
-        with (
-            patch("huggingface_hub.cli.cache.scan_cache_dir") as mock_run,
-            patch("huggingface_hub.cli.cache.get_table") as get_table_mock,
-        ):
-            result = runner.invoke(app, ["cache", "scan", "-vvv"])
-        assert result.exit_code == 0
-        mock_run.assert_called_once_with(None)
-        get_table_mock.assert_called_once_with(mock_run.return_value, verbosity=3)
-
-    def test_delete_cache_with_dir(self, runner: CliRunner) -> None:
-        hf_cache_info = Mock()
-        with (
-            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info) as scan_mock,
+            patch("huggingface_hub.cli.cache.scan_cache_dir"),
             patch(
-                "huggingface_hub.cli.cache._manual_review_tui",
-                return_value=[_CANCEL_DELETION_STR],
-            ) as review_mock,
+                "huggingface_hub.cli.cache.collect_cache_entries",
+                return_value=(entries, repo_refs_map),
+            ),
         ):
-            result = runner.invoke(app, ["cache", "delete", "--dir", "something"])
+            result = runner.invoke(app, ["cache", "ls"])
+
         assert result.exit_code == 0
-        scan_mock.assert_called_once_with("something")
-        review_mock.assert_called_once_with(hf_cache_info, preselected=[], sort_by=None)
+        stdout = result.stdout
+        assert "model/user/model" in stdout
+        assert "main" in stdout
+
+    def test_ls_json_with_filter_and_revisions(self, runner: CliRunner) -> None:
+        revision = _make_revision("b" * 40, refs={"main"})
+        repo = _make_repo("user/model", revisions=[revision])
+        entries = [(repo, revision)]
+        repo_refs_map = {repo: frozenset({"main"})}
+
+        def true_filter(repo: CachedRepoInfo, revision_obj: Optional[CachedRevisionInfo], now: float) -> bool:
+            return True
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir"),
+            patch(
+                "huggingface_hub.cli.cache.collect_cache_entries",
+                return_value=(entries, repo_refs_map),
+            ),
+            patch(
+                "huggingface_hub.cli.cache.compile_cache_filter",
+                return_value=true_filter,
+            ) as compile_mock,
+        ):
+            result = runner.invoke(
+                app,
+                ["cache", "ls", "--revisions", "--filter", "size>1", "--format", "json"],
+            )
+
+        assert result.exit_code == 0
+        compile_mock.assert_called_once_with("size>1", repo_refs_map)
+        payload = json.loads(result.stdout)
+        assert payload and payload[0]["revision"] == revision.commit_hash
+
+    def test_ls_quiet_revisions(self, runner: CliRunner) -> None:
+        revision = _make_revision("c" * 40, refs=set())
+        repo = _make_repo("user/model", revisions=[revision])
+        entries = [(repo, revision)]
+        repo_refs_map = {repo: frozenset()}
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir"),
+            patch(
+                "huggingface_hub.cli.cache.collect_cache_entries",
+                return_value=(entries, repo_refs_map),
+            ),
+        ):
+            result = runner.invoke(app, ["cache", "ls", "--revisions", "--quiet"])
+
+        assert result.exit_code == 0
+        assert result.stdout.strip() == revision.commit_hash
+
+    def test_rm_revision_executes_strategy(self, runner: CliRunner) -> None:
+        revision = _make_revision("c" * 40)
+        repo = _make_repo("user/model", revisions=[revision])
+
+        repo_lookup = {"model/user/model": repo}
+        revision_lookup = {revision.commit_hash.lower(): (repo, revision)}
+
+        strategy = Mock()
+        strategy.expected_freed_size_str = "0B"
+
+        hf_cache_info = Mock()
+        hf_cache_info.delete_revisions.return_value = strategy
+
+        counts = CacheDeletionCounts(repo_count=0, partial_revision_count=1, total_revision_count=1)
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
+            patch("huggingface_hub.cli.cache.build_cache_index", return_value=(repo_lookup, revision_lookup)),
+            patch(
+                "huggingface_hub.cli.cache.summarize_deletions",
+                return_value=counts,
+            ),
+            patch("huggingface_hub.cli.cache.print_cache_selected_revisions") as print_mock,
+        ):
+            result = runner.invoke(app, ["cache", "rm", revision.commit_hash, "--yes"])
+
+        assert result.exit_code == 0
+        hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
+        strategy.execute.assert_called_once_with()
+        print_mock.assert_called_once()
+
+    def test_rm_dry_run_skips_execute(self, runner: CliRunner) -> None:
+        revision = _make_revision("d" * 40)
+        repo = _make_repo("user/model", revisions=[revision])
+        repo_lookup = {"model/user/model": repo}
+        revision_lookup = {revision.commit_hash.lower(): (repo, revision)}
+
+        strategy = Mock()
+        strategy.expected_freed_size_str = "0B"
+
+        hf_cache_info = Mock()
+        hf_cache_info.delete_revisions.return_value = strategy
+
+        counts = CacheDeletionCounts(repo_count=0, partial_revision_count=1, total_revision_count=1)
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
+            patch("huggingface_hub.cli.cache.build_cache_index", return_value=(repo_lookup, revision_lookup)),
+            patch(
+                "huggingface_hub.cli.cache.summarize_deletions",
+                return_value=counts,
+            ),
+            patch("huggingface_hub.cli.cache.print_cache_selected_revisions"),
+        ):
+            result = runner.invoke(app, ["cache", "rm", revision.commit_hash, "--dry-run"])
+
+        assert result.exit_code == 0
+        hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
+        strategy.execute.assert_not_called()
+
+    def test_prune_dry_run(self, runner: CliRunner) -> None:
+        referenced = _make_revision("e" * 40, refs={"main"})
+        detached = _make_revision("f" * 40, refs=set())
+        repo = _make_repo("user/model", revisions=[referenced, detached])
+
+        hf_cache_info = Mock()
+        hf_cache_info.repos = frozenset({repo})
+
+        strategy = Mock()
+        strategy.expected_freed_size_str = "0B"
+        hf_cache_info.delete_revisions.return_value = strategy
+
+        counts = CacheDeletionCounts(repo_count=0, partial_revision_count=1, total_revision_count=1)
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
+            patch(
+                "huggingface_hub.cli.cache.summarize_deletions",
+                return_value=counts,
+            ),
+            patch("huggingface_hub.cli.cache.print_cache_selected_revisions") as print_mock,
+        ):
+            result = runner.invoke(app, ["cache", "prune", "--dry-run"])
+
+        assert result.exit_code == 0
+        hf_cache_info.delete_revisions.assert_called_once_with(detached.commit_hash)
+        strategy.execute.assert_not_called()
+        print_mock.assert_called_once()
 
 
 class TestUploadCommand:
