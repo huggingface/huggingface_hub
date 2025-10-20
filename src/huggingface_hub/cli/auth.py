@@ -81,7 +81,6 @@ def _select_token_name() -> Optional[str]:
         logger.error("No stored tokens found. Please login first.")
         return None
 
-    # if inquirer is not available, use a simpler terminal UI
     print("Available stored tokens:")
     for i, token_name in enumerate(token_names, 1):
         print(f"{i}. {token_name}")
