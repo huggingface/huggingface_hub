@@ -612,6 +612,19 @@ Found 1 repo(s) for a total of 1 revision(s) and 32.1G on disk.
 
 The command supports several output formats for scripting: `--format json` prints structured objects, `--format csv` writes comma-separated rows, and `--quiet` prints only IDs. Combine these with `--cache-dir` to target alternative cache locations. See the [Manage your cache](./manage-cache) guide for advanced workflows.
 
+Delete cache entries selected with `hf cache ls --q` by piping the IDs into `hf cache rm`:
+
+```bash
+>>> hf cache rm $(hf cache ls --filter "accessed>1y" -q) -y
+About to delete 2 repo(s) totalling 5.31G.
+  - model/meta-llama/Llama-3.2-1B-Instruct (entire repo)
+  - model/hexgrad/Kokoro-82M (entire repo)
+Delete repo: ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct
+Delete repo: ~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
+Cache deletion done. Saved 5.31G.
+Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
+```
+
 ## hf cache rm
 
 `hf cache rm` removes cached repositories or individual revisions. Pass one or more repo IDs (`model/bert-base-uncased`) or revision hashes:
@@ -621,7 +634,7 @@ The command supports several output formats for scripting: `--format json` print
 About to delete 1 repo(s) totalling 3.2G.
   - model/LiquidAI/LFM2-VL-1.6B (entire repo)
 Proceed with deletion? [y/N]: y
-Delete repo: /Users/hcelina/.cache/huggingface/hub/models--LiquidAI--LFM2-VL-1.6B
+Delete repo: ~/.cache/huggingface/hub/models--LiquidAI--LFM2-VL-1.6B
 Cache deletion done. Saved 3.2G.
 Deleted 1 repo(s) and 2 revision(s); freed 3.2G.
 ```

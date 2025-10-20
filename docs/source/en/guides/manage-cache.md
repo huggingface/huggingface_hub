@@ -527,6 +527,19 @@ Proceed with deletion? [y/N]: y
 Deleted 1 repo(s) and 1 revision(s); freed 1.9G.
 ```
 
+You can also use `hf cache rm` in combination with `hf cache ls --quiet` to bulk-delete entries identified by a filter:
+
+```bash
+>>> hf cache rm $(hf cache ls --filter "accessed>1y" -q) -y
+About to delete 2 repo(s) totalling 5.31G.
+  - model/meta-llama/Llama-3.2-1B-Instruct (entire repo)
+  - model/hexgrad/Kokoro-82M (entire repo)
+Delete repo: ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct
+Delete repo: ~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
+Cache deletion done. Saved 5.31G.
+Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
+```
+
 Mix repositories and revisions in the same call. Add `--dry-run` to preview the impact,
 or `--yes` to skip the confirmation prompt when scripting:
 
