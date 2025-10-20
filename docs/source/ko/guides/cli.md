@@ -15,7 +15,7 @@ rendered properly in your Markdown viewer.
 ```
 
 > [!TIP]
-> CLI는 이제 기본 `huggingface_hub` 패키지에 함께 포함되어 별도의 `[cli]` 추가 종속성이 필요하지 않습니다.
+> CLI는 기본 `huggingface_hub` 패키지에 포함되어 있습니다.
 
 설치가 완료되면, CLI가 올바르게 설정되었는지 확인할 수 있습니다:
 

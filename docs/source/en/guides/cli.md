@@ -15,7 +15,7 @@ First of all, let's install the CLI:
 ```
 
 > [!TIP]
-> The CLI ships with the core `huggingface_hub` package, so there is no longer a `[cli]` extra to install.
+> The CLI ships with the core `huggingface_hub` package.
 
 Alternatively, you can install the `hf` CLI with a single command:
 
