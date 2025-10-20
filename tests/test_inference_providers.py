@@ -9,6 +9,7 @@ from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters
 from huggingface_hub.inference._providers import PROVIDERS, get_provider_helper
 from huggingface_hub.inference._providers._common import (
+    AutoRouterConversationalTask,
     BaseConversationalTask,
     BaseTextGenerationTask,
     TaskProviderHelper,
@@ -191,6 +192,47 @@ class TestBasicTaskProviderHelper:
         url = helper._prepare_url("sk_test_token", "test-model")
         assert url == "https://api.provider.com/v1/test-route"
         helper._prepare_route.assert_called_once_with("test-model", "sk_test_token")
+
+
+class TestAutoRouterConversationalTask:
+    def test_properties(self):
+        helper = AutoRouterConversationalTask()
+        assert helper.provider == "auto"
+        assert helper.base_url == "https://router.huggingface.co"
+        assert helper.task == "conversational"
+
+    def test_prepare_mapping_info_is_fake(self):
+        helper = AutoRouterConversationalTask()
+        mapping_info = helper._prepare_mapping_info("test-model")
+        assert mapping_info.hf_model_id == "test-model"
+        assert mapping_info.provider_id == "test-model"
+        assert mapping_info.task == "conversational"
+        assert mapping_info.status == "live"
+
+    def test_prepare_request(self):
+        helper = AutoRouterConversationalTask()
+
+        request = helper.prepare_request(
+            inputs=[{"role": "user", "content": "Hello!"}],
+            parameters={"model": "test-model", "frequency_penalty": 1.0},
+            headers={},
+            model="test-model",
+            api_key="hf_test_token",
+        )
+
+        # Use auto-router URL
+        assert request.url == "https://router.huggingface.co/v1/chat/completions"
+
+        # The rest is the expected request for a Chat Completion API
+        assert request.headers["authorization"] == "Bearer hf_test_token"
+        assert request.json == {
+            "messages": [{"role": "user", "content": "Hello!"}],
+            "model": "test-model",
+            "frequency_penalty": 1.0,
+        }
+        assert request.task == "conversational"
+        assert request.model == "test-model"
+        assert request.data is None
 
 
 class TestBlackForestLabsProvider:
@@ -1670,7 +1712,7 @@ def test_filter_none(data: dict, expected: dict):
     assert filter_none(data) == expected
 
 
-def test_get_provider_helper_auto(mocker):
+def test_get_provider_helper_auto_non_conversational(mocker):
     """Test the 'auto' provider selection logic."""
 
     mock_provider_a_helper = mocker.Mock(spec=TaskProviderHelper)
@@ -1692,3 +1734,13 @@ def test_get_provider_helper_auto(mocker):
 
     PROVIDERS.pop("provider-a", None)
     PROVIDERS.pop("provider-b", None)
+
+
+def test_get_provider_helper_auto_conversational():
+    """Test the 'auto' provider selection logic for conversational task.
+
+    In practice, no HTTP call is made to the Hub because routing is done server-side.
+    """
+    helper = get_provider_helper(provider="auto", task="conversational", model="test-model")
+
+    assert isinstance(helper, AutoRouterConversationalTask)

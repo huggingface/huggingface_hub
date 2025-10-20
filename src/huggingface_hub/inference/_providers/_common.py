@@ -278,6 +278,44 @@ class BaseConversationalTask(TaskProviderHelper):
         return filter_none({"messages": inputs, **parameters, "model": provider_mapping_info.provider_id})
 
 
+class AutoRouterConversationalTask(BaseConversationalTask):
+    """
+    Auto-router for conversational tasks.
+
+    We let the Hugging Face router select the best provider for the model, based on availability and user preferences.
+    This is a special case since the selection is done server-side (avoid 1 API call to fetch provider mapping).
+    """
+
+    def __init__(self):
+        super().__init__(provider="auto", base_url="https://router.huggingface.co")
+
+    def _prepare_base_url(self, api_key: str) -> str:
+        """Return the base URL to use for the request.
+
+        Usually not overwritten in subclasses."""
+        # Route to the proxy if the api_key is a HF TOKEN
+        if not api_key.startswith("hf_"):
+            raise ValueError("Cannot select auto-router when using non-Hugging Face API key.")
+        else:
+            return self.base_url  # No `/auto` suffix in the URL
+
+    def _prepare_mapping_info(self, model: Optional[str]) -> InferenceProviderMapping:
+        """
+        In auto-router, we don't need to fetch provider mapping info.
+        We just return a dummy mapping info with provider_id set to the HF model ID.
+        """
+        if model is None:
+            raise ValueError("Please provide an HF model ID.")
+
+        return InferenceProviderMapping(
+            provider="auto",
+            hf_model_id=model,
+            providerId=model,
+            status="live",
+            task="conversational",
+        )
+
+
 class BaseTextGenerationTask(TaskProviderHelper):
     """
     Base class for text-generation (completion) tasks.
