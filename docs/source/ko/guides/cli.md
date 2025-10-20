@@ -11,11 +11,11 @@ rendered properly in your Markdown viewer.
 먼저, CLI를 설치해 보세요:
 
 ```
->>> pip install -U "huggingface_hub[cli]"
+>>> pip install -U "huggingface_hub"
 ```
 
 > [!TIP]
-> 위의 코드에서 사용자 경험을 높이기 위해 `[cli]` 추가 종속성을 포함하였습니다. 이는 `cache delete` 명령을 사용할 때 특히 유용합니다.
+> CLI는 이제 기본 `huggingface_hub` 패키지에 함께 포함되어 별도의 `[cli]` 추가 종속성이 필요하지 않습니다.
 
 설치가 완료되면, CLI가 올바르게 설정되었는지 확인할 수 있습니다:
 
@@ -59,7 +59,7 @@ CLI가 제대로 설치되었다면 CLI에서 사용 가능한 모든 옵션 목
 영구적으로 도구를 설치해 어디에서나 사용하려면:
 
 ```bash
->>> uv tool install "huggingface_hub[cli]"
+>>> uv tool install "huggingface_hub"
 >>> hf --help
 ```
 
@@ -403,30 +403,58 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
-## hf cache scan [[hf-cache-scan]]
+## hf cache ls [[hf-cache-ls]]
 
-캐시 디렉토리를 스캔하여 다운로드한 리포지토리가 무엇인지와 디스크에서 차지하는 공간을 알 수 있습니다. `hf cache scan` 명령어를 사용하여 이를 확인해보세요:
+로컬 캐시에 어떤 리포지토리나 수정 버전이 저장되어 있는지 확인하려면 `hf cache ls`를 사용하세요. 기본 출력은 리포지토리 단위 요약입니다.
 
 ```bash
->>> hf cache scan
-REPO ID                     REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED LAST_MODIFIED REFS                LOCAL PATH
---------------------------- --------- ------------ -------- ------------- ------------- ------------------- -------------------------------------------------------------------------
-glue                        dataset         116.3K       15 4 days ago    4 days ago    2.4.0, main, 1.17.0 /home/wauplin/.cache/huggingface/hub/datasets--glue
-google/fleurs               dataset          64.9M        6 1 week ago    1 week ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/datasets--google--fleurs
-Jean-Baptiste/camembert-ner model           441.0M        7 2 weeks ago   16 hours ago  main                /home/wauplin/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner
-bert-base-cased             model             1.9G       13 1 week ago    2 years ago                       /home/wauplin/.cache/huggingface/hub/models--bert-base-cased
-t5-base                     model            10.1K        3 3 months ago  3 months ago  main                /home/wauplin/.cache/huggingface/hub/models--t5-base
-t5-small                    model           970.7M       11 3 days ago    3 days ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/models--t5-small
+>>> hf cache ls
+ID                                   SIZE   LAST_ACCESSED LAST_MODIFIED REFS
+------------------------------------ ------- ------------- ------------- -------------------
+dataset/glue                         116.3K 4 days ago     4 days ago     2.4.0 main 1.17.0
+dataset/google/fleurs                 64.9M 1 week ago     1 week ago     main refs/pr/1
+model/Jean-Baptiste/camembert-ner    441.0M 2 weeks ago    16 hours ago   main
+model/bert-base-cased                  1.9G 1 week ago     2 years ago
+model/t5-base                          10.1K 3 months ago   3 months ago   main
+model/t5-small                        970.7M 3 days ago     3 days ago     main refs/pr/1
 
-Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
-Got 1 warning(s) while scanning. Use -vvv to print details.
+Found 6 repo(s) for a total of 12 revision(s) and 3.4G on disk.
 ```
 
-캐시 디렉토리 스캔에 대한 자세한 내용을 알고 싶다면, [캐시 관리](./manage-cache#scan-cache-from-the-terminal) 가이드를 확인해보세요.
+`--revisions` 옵션과 `--filter` 표현식을 조합하면 특정 스냅샷만 추려 볼 수 있습니다.
 
-## hf cache delete [[hf-cache-delete]]
+```bash
+>>> hf cache ls --revisions --filter "size>1GB" --filter "accessed>30d"
+ID                                   REVISION            SIZE   LAST_MODIFIED REFS
+------------------------------------ ------------------ ------- ------------- -------------------
+model/bert-base-cased                6d1d7a1a2a6cf4c2    1.9G  2 years ago
+model/t5-small                       1c610f6b3f5e7d8a    1.1G  3 months ago  main
 
-사용하지 않는 캐시를 삭제하고 싶다면 `hf cache delete`를 사용해보세요. 이는 디스크 공간을 절약하고 확보하는 데 유용합니다. 이에 대한 자세한 내용은 [캐시 관리](./manage-cache#clean-cache-from-the-terminal) 가이드에서 확인할 수 있습니다.
+Found 2 repo(s) for a total of 2 revision(s) and 3.0G on disk.
+```
+
+`--format json`, `--format csv`, `--quiet`, `--cache-dir` 등 다양한 옵션으로 출력 형식을 조정할 수 있습니다. 자세한 내용은 [캐시 관리](./manage-cache#scan-your-cache) 가이드를 참고하세요.
+
+`hf cache ls --quiet`로 추린 식별자를 `hf cache rm`에 바로 파이프하면 오래된 항목을 한 번에 정리할 수 있습니다.
+
+```bash
+>>> hf cache rm $(hf cache ls --filter "accessed>1y" -q) -y
+About to delete 2 repo(s) totalling 5.31G.
+  - model/meta-llama/Llama-3.2-1B-Instruct (entire repo)
+  - model/hexgrad/Kokoro-82M (entire repo)
+Delete repo: ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct
+Delete repo: ~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
+Cache deletion done. Saved 5.31G.
+Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
+```
+
+## hf cache rm [[hf-cache-rm]]
+
+캐시에서 특정 리포지토리나 수정 버전을 삭제하려면 `hf cache rm`을 사용합니다. 리포지토리 식별자나 수정 버전 해시를 하나 이상 전달하면 됩니다. `--dry-run`으로 미리보기, `--yes`로 확인창 건너뛰기, `--cache-dir`로 다른 경로 지정이 가능합니다.
+
+## hf cache prune [[hf-cache-prune]]
+
+참조되지 않는(detached) 수정 버전만 한꺼번에 제거하려면 `hf cache prune`을 실행하세요. `--dry-run`, `--yes`, `--cache-dir` 옵션 역시 동일하게 사용할 수 있습니다.
 
 ## hf env [[hf-env]]
 
