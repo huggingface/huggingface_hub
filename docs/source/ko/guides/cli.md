@@ -435,6 +435,19 @@ Found 2 repo(s) for a total of 2 revision(s) and 3.0G on disk.
 
 `--format json`, `--format csv`, `--quiet`, `--cache-dir` 등 다양한 옵션으로 출력 형식을 조정할 수 있습니다. 자세한 내용은 [캐시 관리](./manage-cache#scan-your-cache) 가이드를 참고하세요.
 
+`hf cache ls --quiet`로 추린 식별자를 `hf cache rm`에 바로 파이프하면 오래된 항목을 한 번에 정리할 수 있습니다.
+
+```bash
+>>> hf cache rm $(hf cache ls --filter "accessed>1y" -q) -y
+About to delete 2 repo(s) totalling 5.31G.
+  - model/meta-llama/Llama-3.2-1B-Instruct (entire repo)
+  - model/hexgrad/Kokoro-82M (entire repo)
+Delete repo: ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct
+Delete repo: ~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
+Cache deletion done. Saved 5.31G.
+Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
+```
+
 ## hf cache rm [[hf-cache-rm]]
 
 캐시에서 특정 리포지토리나 수정 버전을 삭제하려면 `hf cache rm`을 사용합니다. 리포지토리 식별자나 수정 버전 해시를 하나 이상 전달하면 됩니다. `--dry-run`으로 미리보기, `--yes`로 확인창 건너뛰기, `--cache-dir`로 다른 경로 지정이 가능합니다.

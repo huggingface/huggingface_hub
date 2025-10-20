@@ -218,6 +218,17 @@ Found 2 repo(s) for a total of 2 revision(s) and 3.0G on disk.
 
 머신 친화적인 출력이 필요하다면 `--format json` 또는 `--format csv`를 사용하고, 식별자만 받고 싶다면 `--quiet`를 사용할 수 있습니다. `--cache-dir` 옵션을 함께 지정하면 기본 위치가 아닌 다른 캐시 디렉터리를 살펴볼 수도 있습니다.
 
+```text
+➜ hf cache rm $(hf cache ls --filter "accessed>1y" -q) -y
+About to delete 2 repo(s) totalling 5.31G.
+  - model/meta-llama/Llama-3.2-1B-Instruct (entire repo)
+  - model/hexgrad/Kokoro-82M (entire repo)
+Delete repo: ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct
+Delete repo: ~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
+Cache deletion done. Saved 5.31G.
+Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
+```
+
 #### 쉘 도구로 필터링하기[[grep-example]]
 
 출력이 표 형식이므로 기존의 `grep` 같은 도구와도 잘 어울립니다. 아래 예시는 `t5-small` 관련 스냅샷만 찾는 방법입니다.
