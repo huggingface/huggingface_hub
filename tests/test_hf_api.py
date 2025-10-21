@@ -2492,7 +2492,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
             assert item.provider_id is not None
 
     def test_inference_provider_mapping_list_models(self):
-        models = list(self._api.list_models(author="deepseek-ai", expand="inferenceProviderMapping", limit=1))
+        models = list(
+            self._api.list_models(author="deepseek-ai", expand="inferenceProviderMapping", limit=1, inference="warm")
+        )
         assert len(models) > 0
         mapping = models[0].inference_provider_mapping
         assert isinstance(mapping, list)
