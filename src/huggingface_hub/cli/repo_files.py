@@ -51,7 +51,7 @@ class DeleteFilesSubCommand:
         self.repo_id: str = args.repo_id
         self.repo_type: Optional[str] = args.repo_type
         self.revision: Optional[str] = args.revision
-        self.api: HfApi = HfApi(token=args.token, library_name="hf")
+        self.api: HfApi = HfApi(token=args.token, library_name="huggingface-cli")
         self.patterns: List[str] = args.patterns
         self.commit_message: Optional[str] = args.commit_message
         self.commit_description: Optional[str] = args.commit_description
