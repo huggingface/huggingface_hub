@@ -403,14 +403,21 @@ def snapshot_download(
             )
         )
 
-    thread_map(
-        _inner_hf_hub_download,
-        filtered_repo_files,
-        desc=tqdm_desc,
-        max_workers=max_workers,
-        # User can use its own tqdm class or the default one from `huggingface_hub.utils`
-        tqdm_class=tqdm_class or hf_tqdm,
-    )
+    if constants.HF_XET_HIGH_PERFORMANCE and not dry_run:
+        # when using hf_xet high performance we don't want extra parallelism
+        # from the one hf_xet provides
+        # TODO: revisit this when xet_session is implemented
+        for file in filtered_repo_files:
+            _inner_hf_hub_download(file)
+    else:
+        thread_map(
+            _inner_hf_hub_download,
+            filtered_repo_files,
+            desc=tqdm_desc,
+            max_workers=max_workers,
+            # User can use its own tqdm class or the default one from `huggingface_hub.utils`
+            tqdm_class=tqdm_class or hf_tqdm,
+        )
 
     if dry_run:
         assert all(isinstance(r, DryRunFileInfo) for r in results)
