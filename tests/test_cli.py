@@ -657,7 +657,7 @@ class TestDownloadCommand:
         assert kwargs["cache_dir"] is None
         assert kwargs["local_dir"] is None
         assert kwargs["token"] is None
-        assert kwargs["library_name"] == "hf"
+        assert kwargs["library_name"] == "huggingface-cli"
         assert kwargs["max_workers"] == 8
 
     def test_download_with_all_options(self, runner: CliRunner) -> None:
@@ -707,7 +707,7 @@ class TestDownloadCommand:
         assert kwargs["cache_dir"] == "/tmp"
         assert kwargs["local_dir"] == "."
         assert kwargs["token"] == "my-token"
-        assert kwargs["library_name"] == "hf"
+        assert kwargs["library_name"] == "huggingface-cli"
         assert kwargs["max_workers"] == 4
 
 
