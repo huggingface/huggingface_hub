@@ -134,7 +134,7 @@ def download(
                 force_download=force_download,
                 token=token,
                 local_dir=local_dir,
-                library_name="hf",
+                library_name="huggingface-cli",
                 dry_run=dry_run,
             )
 
@@ -156,7 +156,7 @@ def download(
             cache_dir=cache_dir,
             token=token,
             local_dir=local_dir,
-            library_name="hf",
+            library_name="huggingface-cli",
             max_workers=max_workers,
             dry_run=dry_run,
         )

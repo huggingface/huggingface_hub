@@ -734,7 +734,7 @@ class TestDownloadImpl:
             force_download=False,
             token=None,
             local_dir=None,
-            library_name="hf",
+            library_name="huggingface-cli",
             dry_run=False,
         )
         mock_snapshot.assert_not_called()
@@ -764,7 +764,7 @@ class TestDownloadImpl:
             cache_dir=None,
             token=None,
             local_dir=None,
-            library_name="hf",
+            library_name="huggingface-cli",
             max_workers=4,
             dry_run=False,
         )
@@ -791,7 +791,7 @@ class TestDownloadImpl:
             cache_dir=None,
             token=None,
             local_dir=None,
-            library_name="hf",
+            library_name="huggingface-cli",
             max_workers=8,
             dry_run=False,
         )
@@ -827,7 +827,7 @@ class TestDownloadImpl:
             cache_dir=None,
             token=None,
             local_dir=None,
-            library_name="hf",
+            library_name="huggingface-cli",
             max_workers=8,
             dry_run=False,
         )
