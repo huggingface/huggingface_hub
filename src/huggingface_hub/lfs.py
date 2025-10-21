@@ -16,11 +16,9 @@
 
 import io
 import re
-import warnings
 from dataclasses import dataclass
 from math import ceil
 from os.path import getsize
-from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, Iterable, Optional, TypedDict
 from urllib.parse import unquote
 
@@ -33,12 +31,10 @@ from .utils import (
     hf_raise_for_status,
     http_backoff,
     logging,
-    tqdm,
     validate_hf_hub_args,
 )
 from .utils._lfs import SliceFileObj
 from .utils.sha import sha256, sha_fileobj
-from .utils.tqdm import is_tqdm_disabled
 
 
 if TYPE_CHECKING:
@@ -332,23 +328,9 @@ def _upload_multi_part(operation: "CommitOperationAdd", header: dict, chunk_size
     # 1. Get upload URLs for each part
     sorted_parts_urls = _get_sorted_parts_urls(header=header, upload_info=operation.upload_info, chunk_size=chunk_size)
 
-    # 2. Upload parts (either with hf_transfer or in pure Python)
-    use_hf_transfer = constants.HF_HUB_ENABLE_HF_TRANSFER
-    if (
-        constants.HF_HUB_ENABLE_HF_TRANSFER
-        and not isinstance(operation.path_or_fileobj, str)
-        and not isinstance(operation.path_or_fileobj, Path)
-    ):
-        warnings.warn(
-            "hf_transfer is enabled but does not support uploading from bytes or BinaryIO, falling back to regular"
-            " upload"
-        )
-        use_hf_transfer = False
-
-    response_headers = (
-        _upload_parts_hf_transfer(operation=operation, sorted_parts_urls=sorted_parts_urls, chunk_size=chunk_size)
-        if use_hf_transfer
-        else _upload_parts_iteratively(operation=operation, sorted_parts_urls=sorted_parts_urls, chunk_size=chunk_size)
+    # 2. Upload parts (pure Python)
+    response_headers = _upload_parts_iteratively(
+        operation=operation, sorted_parts_urls=sorted_parts_urls, chunk_size=chunk_size
     )
 
     # 3. Send completion request
@@ -409,47 +391,3 @@ def _upload_parts_iteratively(
                 hf_raise_for_status(part_upload_res)
                 headers.append(part_upload_res.headers)
     return headers  # type: ignore
-
-
-def _upload_parts_hf_transfer(
-    operation: "CommitOperationAdd", sorted_parts_urls: list[str], chunk_size: int
-) -> list[dict]:
-    # Upload file using an external Rust-based package. Upload is faster but support less features (no progress bars).
-    try:
-        from hf_transfer import multipart_upload
-    except ImportError:
-        raise ValueError(
-            "Fast uploading using 'hf_transfer' is enabled (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is"
-            " not available in your environment. Try `pip install hf_transfer`."
-        )
-
-    total = operation.upload_info.size
-    desc = operation.path_in_repo
-    if len(desc) > 40:
-        desc = f"(…){desc[-40:]}"
-
-    with tqdm(
-        unit="B",
-        unit_scale=True,
-        total=total,
-        initial=0,
-        desc=desc,
-        disable=is_tqdm_disabled(logger.getEffectiveLevel()),
-        name="huggingface_hub.lfs_upload",
-    ) as progress:
-        try:
-            output = multipart_upload(
-                file_path=operation.path_or_fileobj,
-                parts_urls=sorted_parts_urls,
-                chunk_size=chunk_size,
-                max_files=128,
-                parallel_failures=127,  # could be removed
-                max_retries=5,
-                callback=progress.update,
-            )
-        except Exception as e:
-            raise RuntimeError(
-                "An error occurred while uploading using `hf_transfer`. Consider disabling HF_HUB_ENABLE_HF_TRANSFER for"
-                " better error handling."
-            ) from e
-        return output

@@ -261,13 +261,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
                 assert info.gated == gated_value
                 assert info.private == private_value
 
-    @use_tmp_repo(repo_type="model")
-    def test_update_repo_settings_xet_enabled(self, repo_url: RepoUrl):
-        repo_id = repo_url.repo_id
-        self._api.update_repo_settings(repo_id=repo_id, xet_enabled=True)
-        info = self._api.model_info(repo_id, expand="xetEnabled")
-        assert info.xet_enabled
-
 
 class CommitApiTest(HfApiCommonTest):
     def setUp(self) -> None:
@@ -2499,7 +2492,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
             assert item.provider_id is not None
 
     def test_inference_provider_mapping_list_models(self):
-        models = list(self._api.list_models(author="deepseek-ai", expand="inferenceProviderMapping", limit=1))
+        models = list(
+            self._api.list_models(author="deepseek-ai", expand="inferenceProviderMapping", limit=1, inference="warm")
+        )
         assert len(models) > 0
         mapping = models[0].inference_provider_mapping
         assert isinstance(mapping, list)
@@ -4378,6 +4373,7 @@ class TestExpandPropertyType(HfApiCommonTest):
         defined_args = set(get_args(property_type))
         expected_args = set(message.replace('"expand" must be one of ', "").strip("[]").split(", "))
         expected_args.discard("gitalyUid")  # internal one, do not document
+        expected_args.discard("xetEnabled")  # all repos are xetEnabled now, so we don't document it anymore
 
         if defined_args != expected_args:
             should_be_removed = defined_args - expected_args

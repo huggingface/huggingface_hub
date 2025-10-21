@@ -403,9 +403,10 @@ def snapshot_download(
             )
         )
 
-    if constants.HF_HUB_ENABLE_HF_TRANSFER and not dry_run:
-        # when using hf_transfer we don't want extra parallelism
-        # from the one hf_transfer provides
+    if constants.HF_XET_HIGH_PERFORMANCE and not dry_run:
+        # when using hf_xet high performance we don't want extra parallelism
+        # from the one hf_xet provides
+        # TODO: revisit this when xet_session is implemented
         for file in filtered_repo_files:
             _inner_hf_hub_download(file)
     else:

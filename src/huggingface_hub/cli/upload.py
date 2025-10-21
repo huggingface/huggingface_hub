@@ -55,10 +55,8 @@ import typer
 
 from huggingface_hub import logging
 from huggingface_hub._commit_scheduler import CommitScheduler
-from huggingface_hub.constants import HF_HUB_ENABLE_HF_TRANSFER
 from huggingface_hub.errors import RevisionNotFoundError
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
-from huggingface_hub.utils._runtime import is_xet_available
 
 from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api
 
@@ -155,12 +153,6 @@ def upload(
                 warnings.warn("Ignoring --exclude since a single file is uploaded.")
             if delete is not None and len(delete) > 0:
                 warnings.warn("Ignoring --delete since a single file is uploaded.")
-
-        if not is_xet_available() and not HF_HUB_ENABLE_HF_TRANSFER:
-            logger.info(
-                "Consider using `hf_transfer` for faster uploads. This solution comes with some limitations. See"
-                " https://huggingface.co/docs/huggingface_hub/hf_transfer for more details."
-            )
 
         # Schedule commits if `every` is set
         if every is not None:

@@ -71,10 +71,6 @@ Defaults to `"warning"`.
 
 For more details, see [logging reference](../package_reference/utilities#huggingface_hub.utils.logging.get_verbosity).
 
-### HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD
-
-This environment variable has been deprecated and is now ignored by `huggingface_hub`. Downloading files to the local dir does not rely on symlinks anymore.
-
 ### HF_HUB_ETAG_TIMEOUT
 
 Integer value to define the number of seconds to wait for server response when fetching the latest metadata from a repo before downloading a file. If the request times out, `huggingface_hub` will default to the locally cached files. Setting a lower value speeds up the workflow for machines with a slow connection that have already cached files. A higher value guarantees the metadata call to succeed in more cases. Default to 10s.
@@ -177,31 +173,18 @@ Set to disable using `hf-xet`, even if it is available in your Python environmen
 
 ### HF_HUB_ENABLE_HF_TRANSFER
 
-Set to `True` for faster uploads and downloads from the Hub using `hf_transfer`.
-
-By default, `huggingface_hub` uses the Python-based `httpx.get` and `httpx.post` functions.
-Although these are reliable and versatile,
-they may not be the most efficient choice for machines with high bandwidth.
-[`hf_transfer`](https://github.com/huggingface/hf_transfer) is a Rust-based package developed to
-maximize the bandwidth used by dividing large files into smaller parts
-and transferring them simultaneously using multiple threads.
-This approach can potentially double the transfer speed.
-To use `hf_transfer`:
-
-1. Specify the `hf_transfer` extra when installing `huggingface_hub`
-   (e.g. `pip install huggingface_hub[hf_transfer]`).
-2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
-
-Please note that using `hf_transfer` comes with certain limitations. Since it is not purely Python-based, debugging errors may be challenging. Additionally, `hf_transfer` lacks several user-friendly features such as resumable downloads and proxies. These omissions are intentional to maintain the simplicity and speed of the Rust logic. Consequently, `hf_transfer` is not enabled by default in `huggingface_hub`.
-
-> [!TIP]
-> `hf_xet` is an alternative to `hf_transfer`. It provides efficient file transfers through a chunk-based deduplication strategy, custom Xet storage (replacing Git LFS), and a seamless integration with `huggingface_hub`. 
->
-> [Read more about the package](https://huggingface.co/docs/hub/storage-backends) and enable with `pip install "huggingface_hub[hf_xet]"`.
+> [!WARNING]
+> This is a deprecated environment variable.
+> Now that the Hugging Face Hub is fully powered by the Xet storage backend, all file transfers go through the `hf-xet` binary package. It provides efficient transfers using a chunk-based deduplication strategy and integrates seamlessly with `huggingface_hub`.
+> This means `hf_transfer` can't be used anymore. If you are interested in higher performance, check out the [`HF_XET_HIGH_PERFORMANCE` section](#hf_xet_high_performance)
 
 ### HF_XET_HIGH_PERFORMANCE
 
-Set `hf-xet` to operate with increased settings to maximize network and disk resources on the machine. Enabling high performance mode will try to saturate the network bandwidth of this machine and utilize all CPU cores for parallel upload/download activity. Consider this analogous to setting `HF_HUB_ENABLE_HF_TRANSFER=True` when uploading / downloading using `hf-xet` to the Xet storage backend.
+Set `hf-xet` to operate with increased settings to maximize network and disk resources on the machine. Enabling high performance mode will try to saturate the network bandwidth of this machine and utilize all CPU cores for parallel upload/download activity.
+
+Consider this analogous to the legacy `HF_HUB_ENABLE_HF_TRANSFER=1` environment variable but applied to `hf-xet`.
+
+To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/storage-backends).
 
 ### HF_XET_RECONSTRUCT_WRITE_SEQUENTIALLY
 
