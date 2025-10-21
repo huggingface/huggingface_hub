@@ -163,6 +163,7 @@ _SUBMOD_ATTRS = {
         "GitRefs",
         "HfApi",
         "ModelInfo",
+        "Organization",
         "RepoUrl",
         "SpaceInfo",
         "User",
@@ -216,6 +217,7 @@ _SUBMOD_ATTRS = {
         "get_full_repo_name",
         "get_inference_endpoint",
         "get_model_tags",
+        "get_organization_overview",
         "get_paths_info",
         "get_repo_discussions",
         "get_safetensors_metadata",
@@ -692,6 +694,7 @@ __all__ = [
     "ObjectDetectionInput",
     "ObjectDetectionOutputElement",
     "ObjectDetectionParameters",
+    "Organization",
     "PYTORCH_WEIGHTS_NAME",
     "Padding",
     "PyTorchModelHubMixin",
@@ -862,6 +865,7 @@ __all__ = [
     "get_hf_file_metadata",
     "get_inference_endpoint",
     "get_model_tags",
+    "get_organization_overview",
     "get_paths_info",
     "get_repo_discussions",
     "get_safetensors_metadata",
@@ -1171,6 +1175,7 @@ if TYPE_CHECKING:  # pragma: no cover
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
         ModelInfo,  # noqa: F401
+        Organization,  # noqa: F401
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
         User,  # noqa: F401
@@ -1224,6 +1229,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_full_repo_name,  # noqa: F401
         get_inference_endpoint,  # noqa: F401
         get_model_tags,  # noqa: F401
+        get_organization_overview,  # noqa: F401
         get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401

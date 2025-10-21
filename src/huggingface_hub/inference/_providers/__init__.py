@@ -9,6 +9,7 @@ from huggingface_hub.utils import logging
 from ._common import AutoRouterConversationalTask, TaskProviderHelper, _fetch_inference_provider_mapping
 from .black_forest_labs import BlackForestLabsTextToImageTask
 from .cerebras import CerebrasConversationalTask
+from .clarifai import ClarifaiConversationalTask
 from .cohere import CohereConversationalTask
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
@@ -50,6 +51,7 @@ logger = logging.get_logger(__name__)
 PROVIDER_T = Literal[
     "black-forest-labs",
     "cerebras",
+    "clarifai",
     "cohere",
     "fal-ai",
     "featherless-ai",
@@ -79,6 +81,9 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     },
     "cerebras": {
         "conversational": CerebrasConversationalTask(),
+    },
+    "clarifai": {
+        "conversational": ClarifaiConversationalTask(),
     },
     "cohere": {
         "conversational": CohereConversationalTask(),
