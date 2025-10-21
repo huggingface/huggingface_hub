@@ -155,7 +155,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
                 force_download=self.force_download,
                 token=self.token,
                 local_dir=self.local_dir,
-                library_name="hf",
+                library_name="huggingface-cli",
             )
 
         # Otherwise: use `snapshot_download` to ensure all files comes from same revision
@@ -176,6 +176,6 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             cache_dir=self.cache_dir,
             token=self.token,
             local_dir=self.local_dir,
-            library_name="hf",
+            library_name="huggingface-cli",
             max_workers=self.max_workers,
         )

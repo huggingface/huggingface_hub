@@ -478,7 +478,7 @@ class TestDownloadCommand(unittest.TestCase):
             force_download=False,
             token="hf_****",
             local_dir=".",
-            library_name="hf",
+            library_name="huggingface-cli",
         )
 
     @patch("huggingface_hub.cli.download.snapshot_download")
@@ -510,7 +510,7 @@ class TestDownloadCommand(unittest.TestCase):
             cache_dir=None,
             token="hf_****",
             local_dir="/path/to/dir",
-            library_name="hf",
+            library_name="huggingface-cli",
             max_workers=8,
         )
 
@@ -543,7 +543,7 @@ class TestDownloadCommand(unittest.TestCase):
             cache_dir=None,
             local_dir=None,
             token=None,
-            library_name="hf",
+            library_name="huggingface-cli",
             max_workers=8,
         )
 
@@ -579,7 +579,7 @@ class TestDownloadCommand(unittest.TestCase):
             cache_dir=None,
             token=None,
             local_dir=None,
-            library_name="hf",
+            library_name="huggingface-cli",
             max_workers=8,
         )
 

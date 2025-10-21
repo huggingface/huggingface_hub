@@ -151,7 +151,7 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         self.commit_message: Optional[str] = args.commit_message
         self.commit_description: Optional[str] = args.commit_description
         self.create_pr: bool = args.create_pr
-        self.api: HfApi = HfApi(token=args.token, library_name="hf")
+        self.api: HfApi = HfApi(token=args.token, library_name="huggingface-cli")
         self.quiet: bool = args.quiet  # disable warnings and progress bars
 
         # Check `--every` is valid

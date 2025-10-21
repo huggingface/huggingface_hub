@@ -79,7 +79,7 @@ class UploadLargeFolderCommand(BaseHuggingfaceCLICommand):
         self.include: Optional[List[str]] = args.include
         self.exclude: Optional[List[str]] = args.exclude
 
-        self.api: HfApi = HfApi(token=args.token, library_name="hf")
+        self.api: HfApi = HfApi(token=args.token, library_name="huggingface-cli")
 
         self.num_workers: Optional[int] = args.num_workers
         self.no_report: bool = args.no_report
