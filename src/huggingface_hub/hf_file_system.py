@@ -117,7 +117,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             tuple[str, str, Optional[str]], tuple[bool, Optional[Exception]]
         ] = {}
         # Maps parent directory path to path infos
-        self.dircache: Dict[str, List[Dict[str, Any]]] = {}
+        self.dircache: dict[str, list[dict[str, Any]]] = {}
 
     def _repo_and_revision_exist(
         self, repo_type: str, repo_id: str, revision: Optional[str]
