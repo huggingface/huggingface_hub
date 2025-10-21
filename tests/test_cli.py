@@ -827,7 +827,7 @@ class TestDownloadImpl:
             cache_dir=None,
             token=None,
             local_dir=None,
-            library_name="hf",
+            library_name="huggingface-cli",
             max_workers=8,
             dry_run=False,
         )

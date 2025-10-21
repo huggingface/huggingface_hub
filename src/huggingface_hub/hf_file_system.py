@@ -116,6 +116,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         self._repo_and_revision_exists_cache: dict[
             tuple[str, str, Optional[str]], tuple[bool, Optional[Exception]]
         ] = {}
+        # Maps parent directory path to path infos
+        self.dircache: Dict[str, List[Dict[str, Any]]] = {}
 
     def _repo_and_revision_exist(
         self, repo_type: str, repo_id: str, revision: Optional[str]
@@ -444,7 +446,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     common_path_depth = common_path[len(path) :].count("/")
                     maxdepth -= common_path_depth
                 out = [o for o in out if not o["name"].startswith(common_path + "/")]
-                for cached_path in self.dircache:
+                for cached_path in list(self.dircache):
                     if cached_path.startswith(common_path + "/"):
                         self.dircache.pop(cached_path, None)
                 self.dircache.pop(common_path, None)
@@ -928,6 +930,18 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         # See https://github.com/huggingface/huggingface_hub/issues/1733
         raise NotImplementedError("Transactional commits are not supported.")
 
+    def __reduce__(self):
+        # re-populate the instance cache at HfFileSystem._cache and re-populate the cache attributes of every instance
+        return make_instance, (
+            type(self),
+            self.storage_args,
+            self.storage_options,
+            {
+                "dircache": self.dircache,
+                "_repo_and_revision_exists_cache": self._repo_and_revision_exists_cache,
+            },
+        )
+
 
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def __init__(self, fs: HfFileSystem, path: str, revision: Optional[str] = None, **kwargs):
@@ -1162,3 +1176,10 @@ def _partial_read(response: httpx.Response, length: int = -1) -> bytes:
             return bytes(buf[:length])
 
     return bytes(buf)  # may be < length if response ended
+
+
+def make_instance(cls, args, kwargs, instance_cache_attributes_dict):
+    fs = cls(*args, **kwargs)
+    for attr, cached_value in instance_cache_attributes_dict.items():
+        setattr(fs, attr, cached_value)
+    return fs
