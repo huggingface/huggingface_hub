@@ -2,6 +2,7 @@ import argparse
 import io
 import tempfile
 from contextlib import redirect_stdout
+from difflib import unified_diff
 from pathlib import Path
 
 from typer.cli import app as typer_main
@@ -15,6 +16,34 @@ WARNING_HEADER = """<!--
 # To re-generate the code, run `make style` or `python ./utils/generate_cli_reference.py --update`.
 # WARNING
 -->"""
+
+
+def print_colored_diff(expected: str, current: str) -> None:
+    """Print a colored line-by-line diff between expected and current content.
+
+    Auto-generated code by Cursor.
+    """
+    expected_lines = expected.splitlines(keepends=True)
+    current_lines = current.splitlines(keepends=True)
+
+    diff = unified_diff(
+        current_lines, expected_lines, fromfile="Current content", tofile="Expected content", lineterm=""
+    )
+
+    for line in diff:
+        line = line.rstrip("\n")
+        if line.startswith("+++"):
+            print(f"\033[92m{line}\033[0m")  # Green for additions
+        elif line.startswith("---"):
+            print(f"\033[91m{line}\033[0m")  # Red for deletions
+        elif line.startswith("@@"):
+            print(f"\033[96m{line}\033[0m")  # Cyan for context
+        elif line.startswith("+"):
+            print(f"\033[92m{line}\033[0m")  # Green for additions
+        elif line.startswith("-"):
+            print(f"\033[91m{line}\033[0m")  # Red for deletions
+        else:
+            print(line)  # Default color for context
 
 
 def generate_cli_reference() -> str:
@@ -41,7 +70,7 @@ def generate_cli_reference() -> str:
         return f"{WARNING_HEADER}\n\n{tmp_file.read_text()}"
 
 
-def check_and_update_cli_reference(update: bool) -> None:
+def check_and_update_cli_reference(update: bool, verbose: bool = False) -> None:
     new_content = generate_cli_reference()
     if PACKAGE_REFERENCE_PATH.exists():
         existing_content = PACKAGE_REFERENCE_PATH.read_text()
@@ -66,6 +95,11 @@ def check_and_update_cli_reference(update: bool) -> None:
             "   It is most likely that you've modified the CLI implementation and did not re-generate the docs.\n"
             "   Please run `make style` or `python utils/generate_cli_reference.py --update`."
         )
+
+        if verbose:
+            print("\n📋 Diff between current and expected content:")
+            print_colored_diff(new_content, existing_content)
+
         exit(1)
 
 
@@ -76,5 +110,10 @@ if __name__ == "__main__":
         action="store_true",
         help=(f"Whether to re-generate `{PACKAGE_REFERENCE_PATH}` if a change is detected."),
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show detailed diff when content mismatch is detected.",
+    )
     args = parser.parse_args()
-    check_and_update_cli_reference(update=args.update)
+    check_and_update_cli_reference(update=args.update, verbose=args.verbose)
