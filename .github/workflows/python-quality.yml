@@ -41,6 +41,7 @@ jobs:
       - run: .venv/bin/python utils/check_static_imports.py
       - run: .venv/bin/python utils/check_all_variable.py
       - run: .venv/bin/python utils/generate_async_inference_client.py
+      - run: .venv/bin/python utils/generate_cli_reference.py
       - run: .venv/bin/python utils/generate_inference_types.py
       - run: .venv/bin/python utils/check_task_parameters.py
       - run: uvx ty check src
