@@ -6,6 +6,10 @@ rendered properly in your Markdown viewer.
 
 The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This tool allows you to interact with the Hugging Face Hub directly from a terminal. For example, you can login to your account, create a repository, upload and download files, etc. It also comes with handy features to configure your machine or manage your cache. In this guide, we will have a look at the main features of the CLI and how to use them.
 
+> [!TIP]
+> This guide covers the most important features of the `hf` CLI.
+> For a complete reference of all commands and options, see the [CLI reference](../package_reference/cli.md).
+
 ## Getting started
 
 First of all, let's install the CLI:
