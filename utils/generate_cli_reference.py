@@ -1,4 +1,5 @@
 import argparse
+import html
 import io
 import tempfile
 from contextlib import redirect_stdout
@@ -67,7 +68,10 @@ def generate_cli_reference() -> str:
             if e.code not in (0, None):
                 raise  # re-raise if it was an error exit
 
-        return f"{WARNING_HEADER}\n\n{tmp_file.read_text()}"
+        content = tmp_file.read_text()
+        # Decode HTML entities that Typer generates
+        content = html.unescape(content)
+        return f"{WARNING_HEADER}\n\n{content}"
 
 
 def check_and_update_cli_reference(update: bool, verbose: bool = False) -> None:

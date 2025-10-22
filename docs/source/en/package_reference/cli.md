@@ -167,7 +167,7 @@ $ hf cache ls [OPTIONS]
 
 * `--cache-dir TEXT`: Cache directory to scan (defaults to Hugging Face cache).
 * `--revisions / --no-revisions`: Include revisions in the output instead of aggregated repositories.  [default: no-revisions]
-* `-f, --filter TEXT`: Filter entries (e.g. &#x27;size&gt;1GB&#x27;, &#x27;type=model&#x27;, &#x27;accessed&gt;7d&#x27;). Can be used multiple times.
+* `-f, --filter TEXT`: Filter entries (e.g. 'size>1GB', 'type=model', 'accessed>7d'). Can be used multiple times.
 * `--format [table|json|csv]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (repo IDs or revision hashes).
 * `--help`: Show this message and exit.
@@ -294,7 +294,7 @@ $ hf jobs cancel [OPTIONS] JOB_ID
 
 **Options**:
 
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user&#x27;s namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -314,7 +314,7 @@ $ hf jobs inspect [OPTIONS] JOB_IDS...
 
 **Options**:
 
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user&#x27;s namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -334,7 +334,7 @@ $ hf jobs logs [OPTIONS] JOB_ID
 
 **Options**:
 
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user&#x27;s namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -351,7 +351,7 @@ $ hf jobs ps [OPTIONS]
 **Options**:
 
 * `-a, --all`: Show all Jobs (default shows just running)
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user&#x27;s namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
 * `--format TEXT`: Format output using a custom template
@@ -381,7 +381,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `--flavor [cpu-basic|cpu-upgrade|cpu-xl|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|h100|h100x8]`: Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: cpu-basic, cpu-upgrade, cpu-xl, t4-small, t4-medium, l4x1, l4x4, l40sx1, l40sx4, l40sx8, a10g-small, a10g-large, a10g-largex2, a10g-largex4, a100-large, h100, h100x8.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user&#x27;s namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -425,7 +425,7 @@ $ hf jobs scheduled delete [OPTIONS] SCHEDULED_JOB_ID
 
 **Options**:
 
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user&#x27;s namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -445,7 +445,7 @@ $ hf jobs scheduled inspect [OPTIONS] SCHEDULED_JOB_IDS...
 
 **Options**:
 
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user&#x27;s namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -462,7 +462,7 @@ $ hf jobs scheduled ps [OPTIONS]
 **Options**:
 
 * `-a, --all`: Show all scheduled Jobs (default hides suspended)
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user&#x27;s namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
 * `--format TEXT`: Format output using a custom template
@@ -484,7 +484,7 @@ $ hf jobs scheduled resume [OPTIONS] SCHEDULED_JOB_ID
 
 **Options**:
 
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user&#x27;s namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -514,7 +514,7 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-xl|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|h100|h100x8]`: Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: cpu-basic, cpu-upgrade, cpu-xl, t4-small, t4-medium, l4x1, l4x4, l40sx1, l40sx4, l40sx8, a10g-small, a10g-large, a10g-largex2, a10g-largex4, a100-large, h100, h100x8.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user&#x27;s namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -534,7 +534,7 @@ $ hf jobs scheduled suspend [OPTIONS] SCHEDULED_JOB_ID
 
 **Options**:
 
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user&#x27;s namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -584,7 +584,7 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user&#x27;s namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed
 * `-p, --python TEXT`: The Python interpreter to use for the run environment
@@ -634,7 +634,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user&#x27;s namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed
 * `-p, --python TEXT`: The Python interpreter to use for the run environment
@@ -642,7 +642,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 
 ## `hf lfs-enable-largefiles`
 
-Configure your repository to enable upload of files &gt; 5GB.
+Configure your repository to enable upload of files > 5GB.
 
 **Usage**:
 
@@ -775,8 +775,8 @@ $ hf repo create [OPTIONS] REPO_ID
 **Options**:
 
 * `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
-* `--space-sdk TEXT`: Hugging Face Spaces SDK type. Required when --type is set to &#x27;space&#x27;.
-* `--private / --no-private`: Whether to create a private repo if repo doesn&#x27;t exist on the Hub. Ignored if the repo already exists.  [default: no-private]
+* `--space-sdk TEXT`: Hugging Face Spaces SDK type. Required when --type is set to 'space'.
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.  [default: no-private]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
 * `--resource-group-id TEXT`: Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.
@@ -992,7 +992,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 
 * `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--private / --no-private`: Whether to create a private repo if repo doesn&#x27;t exist on the Hub. Ignored if the repo already exists.  [default: no-private]
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.  [default: no-private]
 * `--include TEXT`: Glob patterns to match files to upload.
 * `--exclude TEXT`: Glob patterns to exclude from files to upload.
 * `--delete TEXT`: Glob patterns for file to be deleted from the repo while committing.
@@ -1023,7 +1023,7 @@ $ hf upload-large-folder [OPTIONS] REPO_ID LOCAL_PATH
 
 * `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--private / --no-private`: Whether to create a private repo if repo doesn&#x27;t exist on the Hub. Ignored if the repo already exists.  [default: no-private]
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.  [default: no-private]
 * `--include TEXT`: Glob patterns to match files to upload.
 * `--exclude TEXT`: Glob patterns to exclude from files to upload.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
