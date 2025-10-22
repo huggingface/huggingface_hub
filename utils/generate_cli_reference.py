@@ -48,6 +48,13 @@ def check_and_update_cli_reference(update: bool) -> None:
         if existing_content == new_content:
             print("✅ All good! (CLI reference)")
             return
+    elif not update:
+        print(
+            f"❌ `{PACKAGE_REFERENCE_PATH}` does not exist yet.\n"
+            "   Please run `make style` or `python utils/generate_cli_reference.py --update` to generate it."
+        )
+        exit(1)
+
     if update:
         PACKAGE_REFERENCE_PATH.write_text(new_content)
         print(
