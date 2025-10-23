@@ -45,6 +45,10 @@ The migration from `requests` to `httpx` brings several key improvements that en
 
 The transition to `httpx` positions `huggingface_hub` with a modern, efficient, and maintainable HTTP backend. While most users should experience seamless operation, the underlying improvements provide better performance and reliability for all Hub interactions.
 
+## `hf_transfer`
+
+Now that all repositories on the Hub are Xet-enabled and that `hf_xet` is the default way to download/upload files, we've removed support for the `hf_transfer` optional package. The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is therefore ignored.
+
 ## `Repository` class
 
 The `Repository` class has been removed in v1.0. It was a thin wrapper around the `git` CLI for managing repositories. You can still use `git` directly in the terminal, but the recommended approach is to use the HTTP-based API in the `huggingface_hub` library for a smoother experience, especially when dealing with large files.
