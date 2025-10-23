@@ -237,6 +237,7 @@ _SUBMOD_ATTRS = {
         "list_lfs_files",
         "list_liked_repos",
         "list_models",
+    "list_organization_followers",
         "list_organization_members",
         "list_papers",
         "list_pending_access_requests",
@@ -893,6 +894,7 @@ __all__ = [
     "list_lfs_files",
     "list_liked_repos",
     "list_models",
+    "list_organization_followers",
     "list_organization_members",
     "list_papers",
     "list_pending_access_requests",
@@ -1249,6 +1251,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_lfs_files,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_models,  # noqa: F401
+        list_organization_followers,  # noqa: F401
         list_organization_members,  # noqa: F401
         list_papers,  # noqa: F401
         list_pending_access_requests,  # noqa: F401
