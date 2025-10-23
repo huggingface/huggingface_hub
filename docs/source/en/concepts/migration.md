@@ -47,7 +47,7 @@ The transition to `httpx` positions `huggingface_hub` with a modern, efficient, 
 
 ## `hf_transfer`
 
-Now that all repositories on the Hub are Xet-enabled and that `hf_xet` is the default way to download/upload files, we've removed support for the `hf_transfer` optional package. The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is therefore ignored.
+Now that all repositories on the Hub are Xet-enabled and that `hf_xet` is the default way to download/upload files, we've removed support for the `hf_transfer` optional package. The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is therefore ignored. Use [`HF_XET_HIGH_PERFORMANCE`](../package_reference/environment_variables.md) instead.
 
 ## `Repository` class
 
