@@ -21,12 +21,16 @@
 import asyncio
 import base64
 import logging
+import os
 import re
 import warnings
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Set, Union, overload
+from contextlib import AsyncExitStack
+from typing import TYPE_CHECKING, Any, AsyncIterable, Literal, Optional, Union, overload
+
+import httpx
 
 from huggingface_hub import constants
-from huggingface_hub.errors import InferenceTimeoutError
+from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
@@ -86,15 +90,19 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provider_helper
-from huggingface_hub.utils import build_hf_headers
+from huggingface_hub.utils import (
+    build_hf_headers,
+    get_async_session,
+    hf_raise_for_status,
+    validate_hf_hub_args,
+)
 from huggingface_hub.utils._auth import get_token
 
-from .._common import _async_yield_from, _import_aiohttp
+from .._common import _async_yield_from
 
 
 if TYPE_CHECKING:
     import numpy as np
-    from aiohttp import ClientResponse, ClientSession
     from PIL.Image import Image
 
 logger = logging.getLogger(__name__)
@@ -127,18 +135,14 @@ class AsyncInferenceClient:
             arguments are mutually exclusive and have the exact same behavior.
         timeout (`float`, `optional`):
             The maximum number of seconds to wait for a response from the server. Defaults to None, meaning it will loop until the server is available.
-        headers (`Dict[str, str]`, `optional`):
+        headers (`dict[str, str]`, `optional`):
             Additional headers to send to the server. By default only the authorization and user-agent headers are sent.
             Values in this dictionary will override the default values.
         bill_to (`str`, `optional`):
             The billing account to use for the requests. By default the requests are billed on the user's account.
             Requests can only be billed to an organization the user is a member of, and which has subscribed to Enterprise Hub.
-        cookies (`Dict[str, str]`, `optional`):
+        cookies (`dict[str, str]`, `optional`):
             Additional cookies to send to the server.
-        trust_env ('bool', 'optional'):
-            Trust environment settings for proxy configuration if the parameter is `True` (`False` by default).
-        proxies (`Any`, `optional`):
-            Proxies to use for the request.
         base_url (`str`, `optional`):
             Base URL to run inference. This is a duplicated argument from `model` to make [`InferenceClient`]
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `model` is set. Defaults to None.
@@ -147,6 +151,7 @@ class AsyncInferenceClient:
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `token` is set. Defaults to None.
     """
 
+    @validate_hf_hub_args
     def __init__(
         self,
         model: Optional[str] = None,
@@ -154,10 +159,8 @@ class AsyncInferenceClient:
         provider: Optional[PROVIDER_OR_POLICY_T] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
-        headers: Optional[Dict[str, str]] = None,
-        cookies: Optional[Dict[str, str]] = None,
-        trust_env: bool = False,
-        proxies: Optional[Any] = None,
+        headers: Optional[dict[str, str]] = None,
+        cookies: Optional[dict[str, str]] = None,
         bill_to: Optional[str] = None,
         # OpenAI compatibility
         base_url: Optional[str] = None,
@@ -219,14 +222,35 @@ class AsyncInferenceClient:
 
         self.cookies = cookies
         self.timeout = timeout
-        self.trust_env = trust_env
-        self.proxies = proxies
 
-        # Keep track of the sessions to close them properly
-        self._sessions: Dict["ClientSession", Set["ClientResponse"]] = dict()
+        self.exit_stack = AsyncExitStack()
+        self._async_client: Optional[httpx.AsyncClient] = None
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.close()
+
+    async def close(self):
+        """Close the client.
+
+        This method is automatically called when using the client as a context manager.
+        """
+        await self.exit_stack.aclose()
+
+    async def _get_async_client(self):
+        """Get a unique async client for this AsyncInferenceClient instance.
+
+        Returns the same client instance on subsequent calls, ensuring proper
+        connection reuse and resource management through the exit stack.
+        """
+        if self._async_client is None:
+            self._async_client = await self.exit_stack.enter_async_context(get_async_session())
+        return self._async_client
 
     @overload
     async def _inner_post(  # type: ignore[misc]
@@ -236,82 +260,59 @@ class AsyncInferenceClient:
     @overload
     async def _inner_post(  # type: ignore[misc]
         self, request_parameters: RequestParameters, *, stream: Literal[True] = ...
-    ) -> AsyncIterable[bytes]: ...
+    ) -> AsyncIterable[str]: ...
 
     @overload
     async def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, AsyncIterable[bytes]]: ...
+    ) -> Union[bytes, AsyncIterable[str]]: ...
 
     async def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, AsyncIterable[bytes]]:
+    ) -> Union[bytes, AsyncIterable[str]]:
         """Make a request to the inference server."""
-
-        aiohttp = _import_aiohttp()
 
         # TODO: this should be handled in provider helpers directly
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        # Do not use context manager as we don't want to close the connection immediately when returning
-        # a stream
-        session = self._get_client_session(headers=request_parameters.headers)
-
         try:
-            response = await session.post(
-                request_parameters.url, json=request_parameters.json, data=request_parameters.data, proxy=self.proxies
-            )
-            response_error_payload = None
-            if response.status != 200:
-                try:
-                    response_error_payload = await response.json()  # get payload before connection closed
-                except Exception:
-                    pass
-            response.raise_for_status()
+            client = await self._get_async_client()
             if stream:
-                return _async_yield_from(session, response)
+                response = await self.exit_stack.enter_async_context(
+                    client.stream(
+                        "POST",
+                        request_parameters.url,
+                        json=request_parameters.json,
+                        data=request_parameters.data,
+                        headers=request_parameters.headers,
+                        cookies=self.cookies,
+                        timeout=self.timeout,
+                    )
+                )
+                hf_raise_for_status(response)
+                return _async_yield_from(client, response)
             else:
-                content = await response.read()
-                await session.close()
-                return content
+                response = await client.post(
+                    request_parameters.url,
+                    json=request_parameters.json,
+                    data=request_parameters.data,
+                    headers=request_parameters.headers,
+                    cookies=self.cookies,
+                    timeout=self.timeout,
+                )
+                hf_raise_for_status(response)
+                return response.content
         except asyncio.TimeoutError as error:
-            await session.close()
             # Convert any `TimeoutError` to a `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
-        except aiohttp.ClientResponseError as error:
-            error.response_error_payload = response_error_payload
-            await session.close()
-            raise error
-        except Exception:
-            await session.close()
+        except HfHubHTTPError as error:
+            if error.response.status_code == 422 and request_parameters.task != "unknown":
+                msg = str(error.args[0])
+                if len(error.response.text) > 0:
+                    msg += f"{os.linesep}{error.response.text}{os.linesep}"
+                error.args = (msg,) + error.args[1:]
             raise
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        await self.close()
-
-    def __del__(self):
-        if len(self._sessions) > 0:
-            warnings.warn(
-                "Deleting 'AsyncInferenceClient' client but some sessions are still open. "
-                "This can happen if you've stopped streaming data from the server before the stream was complete. "
-                "To close the client properly, you must call `await client.close()` "
-                "or use an async context (e.g. `async with AsyncInferenceClient(): ...`."
-            )
-
-    async def close(self):
-        """Close all open sessions.
-
-        By default, 'aiohttp.ClientSession' objects are closed automatically when a call is completed. However, if you
-        are streaming data from the server and you stop before the stream is complete, you must call this method to
-        close the session properly.
-
-        Another possibility is to use an async context (e.g. `async with AsyncInferenceClient(): ...`).
-        """
-        await asyncio.gather(*[session.close() for session in self._sessions.keys()])
 
     async def audio_classification(
         self,
@@ -320,7 +321,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         top_k: Optional[int] = None,
         function_to_apply: Optional["AudioClassificationOutputTransform"] = None,
-    ) -> List[AudioClassificationOutputElement]:
+    ) -> list[AudioClassificationOutputElement]:
         """
         Perform audio classification on the provided audio content.
 
@@ -338,12 +339,12 @@ class AsyncInferenceClient:
                 The function to apply to the model outputs in order to retrieve the scores.
 
         Returns:
-            `List[AudioClassificationOutputElement]`: List of [`AudioClassificationOutputElement`] items containing the predicted labels and their confidence.
+            `list[AudioClassificationOutputElement]`: List of [`AudioClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -376,7 +377,7 @@ class AsyncInferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[AudioToAudioOutputElement]:
+    ) -> list[AudioToAudioOutputElement]:
         """
         Performs multiple tasks related to audio-to-audio depending on the model (eg: speech enhancement, source separation).
 
@@ -390,12 +391,12 @@ class AsyncInferenceClient:
                 audio_to_audio will be used.
 
         Returns:
-            `List[AudioToAudioOutputElement]`: A list of [`AudioToAudioOutputElement`] items containing audios label, content-type, and audio content in blob.
+            `list[AudioToAudioOutputElement]`: A list of [`AudioToAudioOutputElement`] items containing audios label, content-type, and audio content in blob.
 
         Raises:
             `InferenceTimeoutError`:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -429,7 +430,7 @@ class AsyncInferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> AutomaticSpeechRecognitionOutput:
         """
         Perform automatic speech recognition (ASR or audio-to-text) on the given audio content.
@@ -440,7 +441,7 @@ class AsyncInferenceClient:
             model (`str`, *optional*):
                 The model to use for ASR. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for ASR will be used.
-            extra_body (`Dict`, *optional*):
+            extra_body (`dict`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
         Returns:
@@ -449,7 +450,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -476,105 +477,105 @@ class AsyncInferenceClient:
     @overload
     async def chat_completion(  # type: ignore
         self,
-        messages: List[Union[Dict, ChatCompletionInputMessage]],
+        messages: list[Union[dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: Literal[False] = False,
         frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[List[float]] = None,
+        logit_bias: Optional[list[float]] = None,
         logprobs: Optional[bool] = None,
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
         tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> ChatCompletionOutput: ...
 
     @overload
     async def chat_completion(  # type: ignore
         self,
-        messages: List[Union[Dict, ChatCompletionInputMessage]],
+        messages: list[Union[dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: Literal[True] = True,
         frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[List[float]] = None,
+        logit_bias: Optional[list[float]] = None,
         logprobs: Optional[bool] = None,
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
         tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> AsyncIterable[ChatCompletionStreamOutput]: ...
 
     @overload
     async def chat_completion(
         self,
-        messages: List[Union[Dict, ChatCompletionInputMessage]],
+        messages: list[Union[dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: bool = False,
         frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[List[float]] = None,
+        logit_bias: Optional[list[float]] = None,
         logprobs: Optional[bool] = None,
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
         tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]: ...
 
     async def chat_completion(
         self,
-        messages: List[Union[Dict, ChatCompletionInputMessage]],
+        messages: list[Union[dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: bool = False,
         # Parameters from ChatCompletionInput (handled manually)
         frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[List[float]] = None,
+        logit_bias: Optional[list[float]] = None,
         logprobs: Optional[bool] = None,
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
         tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]:
         """
         A method for completing conversations using a specified language model.
@@ -600,7 +601,7 @@ class AsyncInferenceClient:
             frequency_penalty (`float`, *optional*):
                 Penalizes new tokens based on their existing frequency
                 in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
-            logit_bias (`List[float]`, *optional*):
+            logit_bias (`list[float]`, *optional*):
                 Adjusts the likelihood of specific tokens appearing in the generated output.
             logprobs (`bool`, *optional*):
                 Whether to return log probabilities of the output tokens or not. If true, returns the log
@@ -616,7 +617,7 @@ class AsyncInferenceClient:
                 Grammar constraints. Can be either a JSONSchema or a regex.
             seed (Optional[`int`], *optional*):
                 Seed for reproducible control flow. Defaults to None.
-            stop (`List[str]`, *optional*):
+            stop (`list[str]`, *optional*):
                 Up to four strings which trigger the end of the response.
                 Defaults to None.
             stream (`bool`, *optional*):
@@ -640,7 +641,7 @@ class AsyncInferenceClient:
             tools (List of [`ChatCompletionInputTool`], *optional*):
                 A list of tools the model may call. Currently, only functions are supported as a tool. Use this to
                 provide a list of functions the model may generate JSON inputs for.
-            extra_body (`Dict`, *optional*):
+            extra_body (`dict`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
         Returns:
@@ -652,7 +653,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -972,8 +973,8 @@ class AsyncInferenceClient:
         max_question_len: Optional[int] = None,
         max_seq_len: Optional[int] = None,
         top_k: Optional[int] = None,
-        word_boxes: Optional[List[Union[List[float], str]]] = None,
-    ) -> List[DocumentQuestionAnsweringOutputElement]:
+        word_boxes: Optional[list[Union[list[float], str]]] = None,
+    ) -> list[DocumentQuestionAnsweringOutputElement]:
         """
         Answer questions on document images.
 
@@ -1003,16 +1004,16 @@ class AsyncInferenceClient:
             top_k (`int`, *optional*):
                 The number of answers to return (will be chosen by order of likelihood). Can return less than top_k
                 answers if there are not enough options available within the context.
-            word_boxes (`List[Union[List[float], str`, *optional*):
+            word_boxes (`list[Union[list[float], str`, *optional*):
                 A list of words and bounding boxes (normalized 0->1000). If provided, the inference will skip the OCR
                 step and use the provided bounding boxes instead.
         Returns:
-            `List[DocumentQuestionAnsweringOutputElement]`: a list of [`DocumentQuestionAnsweringOutputElement`] items containing the predicted label, associated probability, word ids, and page number.
+            `list[DocumentQuestionAnsweringOutputElement]`: a list of [`DocumentQuestionAnsweringOutputElement`] items containing the predicted label, associated probability, word ids, and page number.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
 
@@ -1027,7 +1028,7 @@ class AsyncInferenceClient:
         """
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="document-question-answering", model=model_id)
-        inputs: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
+        inputs: dict[str, Any] = {"question": question, "image": _b64_encode(image)}
         request_parameters = provider_helper.prepare_request(
             inputs=inputs,
             parameters={
@@ -1088,7 +1089,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1126,9 +1127,9 @@ class AsyncInferenceClient:
         text: str,
         *,
         model: Optional[str] = None,
-        targets: Optional[List[str]] = None,
+        targets: Optional[list[str]] = None,
         top_k: Optional[int] = None,
-    ) -> List[FillMaskOutputElement]:
+    ) -> list[FillMaskOutputElement]:
         """
         Fill in a hole with a missing word (token to be precise).
 
@@ -1138,20 +1139,20 @@ class AsyncInferenceClient:
             model (`str`, *optional*):
                 The model to use for the fill mask task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended fill mask model will be used.
-            targets (`List[str`, *optional*):
+            targets (`list[str`, *optional*):
                 When passed, the model will limit the scores to the passed targets instead of looking up in the whole
                 vocabulary. If the provided targets are not in the model vocab, they will be tokenized and the first
                 resulting token will be used (with a warning, and that might be slower).
             top_k (`int`, *optional*):
                 When passed, overrides the number of predictions to return.
         Returns:
-            `List[FillMaskOutputElement]`: a list of [`FillMaskOutputElement`] items containing the predicted label, associated
+            `list[FillMaskOutputElement]`: a list of [`FillMaskOutputElement`] items containing the predicted label, associated
             probability, token reference, and completed text.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1185,7 +1186,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         function_to_apply: Optional["ImageClassificationOutputTransform"] = None,
         top_k: Optional[int] = None,
-    ) -> List[ImageClassificationOutputElement]:
+    ) -> list[ImageClassificationOutputElement]:
         """
         Perform image classification on the given image using the specified model.
 
@@ -1200,12 +1201,12 @@ class AsyncInferenceClient:
             top_k (`int`, *optional*):
                 When specified, limits the output to the top K most probable classes.
         Returns:
-            `List[ImageClassificationOutputElement]`: a list of [`ImageClassificationOutputElement`] items containing the predicted label and associated probability.
+            `list[ImageClassificationOutputElement]`: a list of [`ImageClassificationOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1238,7 +1239,7 @@ class AsyncInferenceClient:
         overlap_mask_area_threshold: Optional[float] = None,
         subtask: Optional["ImageSegmentationSubtask"] = None,
         threshold: Optional[float] = None,
-    ) -> List[ImageSegmentationOutputElement]:
+    ) -> list[ImageSegmentationOutputElement]:
         """
         Perform image segmentation on the given image using the specified model.
 
@@ -1260,12 +1261,12 @@ class AsyncInferenceClient:
             threshold (`float`, *optional*):
                 Probability threshold to filter out predicted masks.
         Returns:
-            `List[ImageSegmentationOutputElement]`: A list of [`ImageSegmentationOutputElement`] items containing the segmented masks and associated attributes.
+            `list[ImageSegmentationOutputElement]`: A list of [`ImageSegmentationOutputElement`] items containing the segmented masks and associated attributes.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1341,7 +1342,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1473,7 +1474,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1497,12 +1498,12 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        output_list: List[ImageToTextOutput] = ImageToTextOutput.parse_obj_as_list(response)
+        output_list: list[ImageToTextOutput] = ImageToTextOutput.parse_obj_as_list(response)
         return output_list[0]
 
     async def object_detection(
         self, image: ContentT, *, model: Optional[str] = None, threshold: Optional[float] = None
-    ) -> List[ObjectDetectionOutputElement]:
+    ) -> list[ObjectDetectionOutputElement]:
         """
         Perform object detection on the given image using the specified model.
 
@@ -1518,12 +1519,12 @@ class AsyncInferenceClient:
             threshold (`float`, *optional*):
                 The probability necessary to make a prediction.
         Returns:
-            `List[ObjectDetectionOutputElement]`: A list of [`ObjectDetectionOutputElement`] items containing the bounding boxes and associated attributes.
+            `list[ObjectDetectionOutputElement]`: A list of [`ObjectDetectionOutputElement`] items containing the bounding boxes and associated attributes.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
             `ValueError`:
                 If the request output is not a List.
@@ -1562,7 +1563,7 @@ class AsyncInferenceClient:
         max_question_len: Optional[int] = None,
         max_seq_len: Optional[int] = None,
         top_k: Optional[int] = None,
-    ) -> Union[QuestionAnsweringOutputElement, List[QuestionAnsweringOutputElement]]:
+    ) -> Union[QuestionAnsweringOutputElement, list[QuestionAnsweringOutputElement]]:
         """
         Retrieve the answer to a question from a given text.
 
@@ -1594,13 +1595,13 @@ class AsyncInferenceClient:
                 topk answers if there are not enough options available within the context.
 
         Returns:
-            Union[`QuestionAnsweringOutputElement`, List[`QuestionAnsweringOutputElement`]]:
+            Union[`QuestionAnsweringOutputElement`, list[`QuestionAnsweringOutputElement`]]:
                 When top_k is 1 or not provided, it returns a single `QuestionAnsweringOutputElement`.
                 When top_k is greater than 1, it returns a list of `QuestionAnsweringOutputElement`.
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1635,15 +1636,15 @@ class AsyncInferenceClient:
         return output
 
     async def sentence_similarity(
-        self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
-    ) -> List[float]:
+        self, sentence: str, other_sentences: list[str], *, model: Optional[str] = None
+    ) -> list[float]:
         """
         Compute the semantic similarity between a sentence and a list of other sentences by comparing their embeddings.
 
         Args:
             sentence (`str`):
                 The main sentence to compare to others.
-            other_sentences (`List[str]`):
+            other_sentences (`list[str]`):
                 The list of sentences to compare to.
             model (`str`, *optional*):
                 The model to use for the sentence similarity task. Can be a model ID hosted on the Hugging Face Hub or a URL to
@@ -1651,12 +1652,12 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[float]`: The similarity scores between the main sentence and the given comparison sentences.
+            `list[float]`: The embedding representing the input text.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1694,7 +1695,7 @@ class AsyncInferenceClient:
         *,
         model: Optional[str] = None,
         clean_up_tokenization_spaces: Optional[bool] = None,
-        generate_parameters: Optional[Dict[str, Any]] = None,
+        generate_parameters: Optional[dict[str, Any]] = None,
         truncation: Optional["SummarizationTruncationStrategy"] = None,
     ) -> SummarizationOutput:
         """
@@ -1708,7 +1709,7 @@ class AsyncInferenceClient:
                 Inference Endpoint. If not provided, the default recommended model for summarization will be used.
             clean_up_tokenization_spaces (`bool`, *optional*):
                 Whether to clean up the potential extra spaces in the text output.
-            generate_parameters (`Dict[str, Any]`, *optional*):
+            generate_parameters (`dict[str, Any]`, *optional*):
                 Additional parametrization of the text generation algorithm.
             truncation (`"SummarizationTruncationStrategy"`, *optional*):
                 The truncation strategy to use.
@@ -1718,7 +1719,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1749,7 +1750,7 @@ class AsyncInferenceClient:
 
     async def table_question_answering(
         self,
-        table: Dict[str, Any],
+        table: dict[str, Any],
         query: str,
         *,
         model: Optional[str] = None,
@@ -1784,7 +1785,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1810,12 +1811,12 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return TableQuestionAnsweringOutputElement.parse_obj_as_instance(response)
 
-    async def tabular_classification(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[str]:
+    async def tabular_classification(self, table: dict[str, Any], *, model: Optional[str] = None) -> list[str]:
         """
         Classifying a target category (a group) based on a set of attributes.
 
         Args:
-            table (`Dict[str, Any]`):
+            table (`dict[str, Any]`):
                 Set of attributes to classify.
             model (`str`, *optional*):
                 The model to use for the tabular classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
@@ -1828,7 +1829,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1866,12 +1867,12 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return _bytes_to_list(response)
 
-    async def tabular_regression(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[float]:
+    async def tabular_regression(self, table: dict[str, Any], *, model: Optional[str] = None) -> list[float]:
         """
         Predicting a numerical target value given a set of attributes/features in a table.
 
         Args:
-            table (`Dict[str, Any]`):
+            table (`dict[str, Any]`):
                 Set of attributes stored in a table. The attributes used to predict the target can be both numerical and categorical.
             model (`str`, *optional*):
                 The model to use for the tabular regression task. Can be a model ID hosted on the Hugging Face Hub or a URL to
@@ -1884,7 +1885,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1924,7 +1925,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         top_k: Optional[int] = None,
         function_to_apply: Optional["TextClassificationOutputTransform"] = None,
-    ) -> List[TextClassificationOutputElement]:
+    ) -> list[TextClassificationOutputElement]:
         """
         Perform text classification (e.g. sentiment-analysis) on the given text.
 
@@ -1941,12 +1942,12 @@ class AsyncInferenceClient:
                 The function to apply to the model outputs in order to retrieve the scores.
 
         Returns:
-            `List[TextClassificationOutputElement]`: a list of [`TextClassificationOutputElement`] items containing the predicted label and associated probability.
+            `list[TextClassificationOutputElement]`: a list of [`TextClassificationOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1995,8 +1996,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2025,8 +2026,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2055,8 +2056,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = None,  # Manual default value
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2085,8 +2086,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2115,8 +2116,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2144,8 +2145,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2198,9 +2199,9 @@ class AsyncInferenceClient:
                 Whether to prepend the prompt to the generated text
             seed (`int`, *optional*):
                 Random sampling seed
-            stop (`List[str]`, *optional*):
+            stop (`list[str]`, *optional*):
                 Stop generating tokens if a member of `stop` is generated.
-            stop_sequences (`List[str]`, *optional*):
+            stop_sequences (`list[str]`, *optional*):
                 Deprecated argument. Use `stop` instead.
             temperature (`float`, *optional*):
                 The value used to module the logits distribution.
@@ -2221,10 +2222,10 @@ class AsyncInferenceClient:
                 Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
 
         Returns:
-            `Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]`:
+            `Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]`:
             Generated text returned from the server:
             - if `stream=False` and `details=False`, the generated text is returned as a `str` (default)
-            - if `stream=True` and `details=False`, the generated text is returned token by token as a `Iterable[str]`
+            - if `stream=True` and `details=False`, the generated text is returned token by token as a `AsyncIterable[str]`
             - if `stream=False` and `details=True`, the generated text is returned with more details as a [`~huggingface_hub.TextGenerationOutput`]
             - if `details=True` and `stream=True`, the generated text is returned token by token as a iterable of [`~huggingface_hub.TextGenerationStreamOutput`]
 
@@ -2233,7 +2234,7 @@ class AsyncInferenceClient:
                 If input values are not valid. No HTTP call is made to the server.
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2423,9 +2424,9 @@ class AsyncInferenceClient:
         # Handle errors separately for more precise error messages
         try:
             bytes_output = await self._inner_post(request_parameters, stream=stream or False)
-        except _import_aiohttp().ClientResponseError as e:
-            match = MODEL_KWARGS_NOT_USED_REGEX.search(e.response_error_payload["error"])
-            if e.status == 400 and match:
+        except HfHubHTTPError as e:
+            match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
+            if isinstance(e, BadRequestError) and match:
                 unused_params = [kwarg.strip("' ") for kwarg in match.group(1).split(",")]
                 _set_unsupported_text_generation_kwargs(model, unused_params)
                 return await self.text_generation(  # type: ignore
@@ -2478,7 +2479,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         scheduler: Optional[str] = None,
         seed: Optional[int] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[dict[str, Any]] = None,
     ) -> "Image":
         """
         Generate an image based on a given text using a specified model.
@@ -2512,7 +2513,7 @@ class AsyncInferenceClient:
                 Override the scheduler with a compatible one.
             seed (`int`, *optional*):
                 Seed for the random number generator.
-            extra_body (`Dict[str, Any]`, *optional*):
+            extra_body (`dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
 
@@ -2522,7 +2523,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2612,11 +2613,11 @@ class AsyncInferenceClient:
         *,
         model: Optional[str] = None,
         guidance_scale: Optional[float] = None,
-        negative_prompt: Optional[List[str]] = None,
+        negative_prompt: Optional[list[str]] = None,
         num_frames: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
         seed: Optional[int] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[dict[str, Any]] = None,
     ) -> bytes:
         """
         Generate a video based on a given text.
@@ -2634,7 +2635,7 @@ class AsyncInferenceClient:
             guidance_scale (`float`, *optional*):
                 A higher guidance scale value encourages the model to generate videos closely linked to the text
                 prompt, but values too high may cause saturation and other artifacts.
-            negative_prompt (`List[str]`, *optional*):
+            negative_prompt (`list[str]`, *optional*):
                 One or several prompt to guide what NOT to include in video generation.
             num_frames (`float`, *optional*):
                 The num_frames parameter determines how many video frames are generated.
@@ -2643,7 +2644,7 @@ class AsyncInferenceClient:
                 expense of slower inference.
             seed (`int`, *optional*):
                 Seed for the random number generator.
-            extra_body (`Dict[str, Any]`, *optional*):
+            extra_body (`dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
 
@@ -2723,7 +2724,7 @@ class AsyncInferenceClient:
         top_p: Optional[float] = None,
         typical_p: Optional[float] = None,
         use_cache: Optional[bool] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[dict[str, Any]] = None,
     ) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
@@ -2784,7 +2785,7 @@ class AsyncInferenceClient:
                 paper](https://hf.co/papers/2202.00666) for more details.
             use_cache (`bool`, *optional*):
                 Whether the model should use the past last key/values attentions to speed up decoding
-            extra_body (`Dict[str, Any]`, *optional*):
+            extra_body (`dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
         Returns:
@@ -2793,7 +2794,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2917,9 +2918,9 @@ class AsyncInferenceClient:
         *,
         model: Optional[str] = None,
         aggregation_strategy: Optional["TokenClassificationAggregationStrategy"] = None,
-        ignore_labels: Optional[List[str]] = None,
+        ignore_labels: Optional[list[str]] = None,
         stride: Optional[int] = None,
-    ) -> List[TokenClassificationOutputElement]:
+    ) -> list[TokenClassificationOutputElement]:
         """
         Perform token classification on the given text.
         Usually used for sentence parsing, either grammatical, or Named Entity Recognition (NER) to understand keywords contained within text.
@@ -2933,18 +2934,18 @@ class AsyncInferenceClient:
                 Defaults to None.
             aggregation_strategy (`"TokenClassificationAggregationStrategy"`, *optional*):
                 The strategy used to fuse tokens based on model predictions
-            ignore_labels (`List[str`, *optional*):
+            ignore_labels (`list[str`, *optional*):
                 A list of labels to ignore
             stride (`int`, *optional*):
                 The number of overlapping tokens between chunks when splitting the input text.
 
         Returns:
-            `List[TokenClassificationOutputElement]`: List of [`TokenClassificationOutputElement`] items containing the entity group, confidence score, word, start and end index.
+            `list[TokenClassificationOutputElement]`: List of [`TokenClassificationOutputElement`] items containing the entity group, confidence score, word, start and end index.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2996,7 +2997,7 @@ class AsyncInferenceClient:
         tgt_lang: Optional[str] = None,
         clean_up_tokenization_spaces: Optional[bool] = None,
         truncation: Optional["TranslationTruncationStrategy"] = None,
-        generate_parameters: Optional[Dict[str, Any]] = None,
+        generate_parameters: Optional[dict[str, Any]] = None,
     ) -> TranslationOutput:
         """
         Convert text from one language to another.
@@ -3021,7 +3022,7 @@ class AsyncInferenceClient:
                 Whether to clean up the potential extra spaces in the text output.
             truncation (`"TranslationTruncationStrategy"`, *optional*):
                 The truncation strategy to use.
-            generate_parameters (`Dict[str, Any]`, *optional*):
+            generate_parameters (`dict[str, Any]`, *optional*):
                 Additional parametrization of the text generation algorithm.
 
         Returns:
@@ -3030,7 +3031,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
             `ValueError`:
                 If only one of the `src_lang` and `tgt_lang` arguments are provided.
@@ -3084,7 +3085,7 @@ class AsyncInferenceClient:
         *,
         model: Optional[str] = None,
         top_k: Optional[int] = None,
-    ) -> List[VisualQuestionAnsweringOutputElement]:
+    ) -> list[VisualQuestionAnsweringOutputElement]:
         """
         Answering open-ended questions based on an image.
 
@@ -3101,12 +3102,12 @@ class AsyncInferenceClient:
                 The number of answers to return (will be chosen by order of likelihood). Note that we return less than
                 topk answers if there are not enough options available within the context.
         Returns:
-            `List[VisualQuestionAnsweringOutputElement]`: a list of [`VisualQuestionAnsweringOutputElement`] items containing the predicted label and associated probability.
+            `list[VisualQuestionAnsweringOutputElement]`: a list of [`VisualQuestionAnsweringOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             `InferenceTimeoutError`:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -3140,21 +3141,21 @@ class AsyncInferenceClient:
     async def zero_shot_classification(
         self,
         text: str,
-        candidate_labels: List[str],
+        candidate_labels: list[str],
         *,
         multi_label: Optional[bool] = False,
         hypothesis_template: Optional[str] = None,
         model: Optional[str] = None,
-    ) -> List[ZeroShotClassificationOutputElement]:
+    ) -> list[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
 
         Args:
             text (`str`):
                 The input text to classify.
-            candidate_labels (`List[str]`):
+            candidate_labels (`list[str]`):
                 The set of possible class labels to classify the text into.
-            labels (`List[str]`, *optional*):
+            labels (`list[str]`, *optional*):
                 (deprecated) List of strings. Each string is the verbalization of a possible label for the input text.
             multi_label (`bool`, *optional*):
                 Whether multiple candidate labels can be true. If false, the scores are normalized such that the sum of
@@ -3169,12 +3170,12 @@ class AsyncInferenceClient:
 
 
         Returns:
-            `List[ZeroShotClassificationOutputElement]`: List of [`ZeroShotClassificationOutputElement`] items containing the predicted labels and their confidence.
+            `list[ZeroShotClassificationOutputElement]`: List of [`ZeroShotClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example with `multi_label=False`:
@@ -3248,22 +3249,22 @@ class AsyncInferenceClient:
     async def zero_shot_image_classification(
         self,
         image: ContentT,
-        candidate_labels: List[str],
+        candidate_labels: list[str],
         *,
         model: Optional[str] = None,
         hypothesis_template: Optional[str] = None,
         # deprecated argument
-        labels: List[str] = None,  # type: ignore
-    ) -> List[ZeroShotImageClassificationOutputElement]:
+        labels: list[str] = None,  # type: ignore
+    ) -> list[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
                 The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
-            candidate_labels (`List[str]`):
+            candidate_labels (`list[str]`):
                 The candidate labels for this image
-            labels (`List[str]`, *optional*):
+            labels (`list[str]`, *optional*):
                 (deprecated) List of string possible labels. There must be at least 2 labels.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
@@ -3273,12 +3274,12 @@ class AsyncInferenceClient:
                 replacing the placeholder with the candidate labels.
 
         Returns:
-            `List[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
+            `list[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -3313,48 +3314,7 @@ class AsyncInferenceClient:
         response = await self._inner_post(request_parameters)
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
-    def _get_client_session(self, headers: Optional[Dict] = None) -> "ClientSession":
-        aiohttp = _import_aiohttp()
-        client_headers = self.headers.copy()
-        if headers is not None:
-            client_headers.update(headers)
-
-        # Return a new aiohttp ClientSession with correct settings.
-        session = aiohttp.ClientSession(
-            headers=client_headers,
-            cookies=self.cookies,
-            timeout=aiohttp.ClientTimeout(self.timeout),
-            trust_env=self.trust_env,
-        )
-
-        # Keep track of sessions to close them later
-        self._sessions[session] = set()
-
-        # Override the `._request` method to register responses to be closed
-        session._wrapped_request = session._request
-
-        async def _request(method, url, **kwargs):
-            response = await session._wrapped_request(method, url, **kwargs)
-            self._sessions[session].add(response)
-            return response
-
-        session._request = _request
-
-        # Override the 'close' method to
-        # 1. close ongoing responses
-        # 2. deregister the session when closed
-        session._close = session.close
-
-        async def close_session():
-            for response in self._sessions[session]:
-                response.close()
-            await session._close()
-            self._sessions.pop(session, None)
-
-        session.close = close_session
-        return session
-
-    async def get_endpoint_info(self, *, model: Optional[str] = None) -> Dict[str, Any]:
+    async def get_endpoint_info(self, *, model: Optional[str] = None) -> dict[str, Any]:
         """
         Get information about the deployed endpoint.
 
@@ -3367,7 +3327,7 @@ class AsyncInferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `Dict[str, Any]`: Information about the endpoint.
+            `dict[str, Any]`: Information about the endpoint.
 
         Example:
         ```py
@@ -3409,10 +3369,10 @@ class AsyncInferenceClient:
         else:
             url = f"{constants.INFERENCE_ENDPOINT}/models/{model}/info"
 
-        async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
-            response.raise_for_status()
-            return await response.json()
+        client = await self._get_async_client()
+        response = await client.get(url, headers=build_hf_headers(token=self.token))
+        hf_raise_for_status(response)
+        return response.json()
 
     async def health_check(self, model: Optional[str] = None) -> bool:
         """
@@ -3446,9 +3406,9 @@ class AsyncInferenceClient:
             raise ValueError("Model must be an Inference Endpoint URL.")
         url = model.rstrip("/") + "/health"
 
-        async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
-            return response.status == 200
+        client = await self._get_async_client()
+        response = await client.get(url, headers=build_hf_headers(token=self.token))
+        return response.status_code == 200
 
     @property
     def chat(self) -> "ProxyClientChat":

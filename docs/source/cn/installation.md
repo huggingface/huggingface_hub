@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 在开始之前，您需要通过安装适当的软件包来设置您的环境
 
-huggingface_hub 在 Python 3.8 或更高版本上进行了测试，可以保证在这些版本上正常运行。如果您使用的是 Python 3.7 或更低版本，可能会出现兼容性问题
+huggingface_hub 在 Python 3.9 或更高版本上进行了测试，可以保证在这些版本上正常运行。如果您使用的是 Python 3.7 或更低版本，可能会出现兼容性问题
 
 ## 使用 pip 安装
 
@@ -48,11 +48,7 @@ pip install --upgrade huggingface_hub
 您可以通过`pip`安装可选依赖项,请运行以下代码：
 
 ```bash
-# 安装 TensorFlow 特定功能的依赖项
-# /!\ 注意：这不等同于 `pip install tensorflow`
-pip install 'huggingface_hub[tensorflow]'
-
-# 安装 TensorFlow 特定功能和 CLI 特定功能的依赖项
+# 安装 Torch 特定功能和 CLI 特定功能的依赖项
 pip install 'huggingface_hub[cli,torch]'
 ```
 
@@ -60,7 +56,7 @@ pip install 'huggingface_hub[cli,torch]'
 
 - `cli`：为 `huggingface_hub` 提供更方便的命令行界面
 
-- `fastai`,` torch`, `tensorflow`: 运行框架特定功能所需的依赖项
+- `fastai`,` torch`: 运行框架特定功能所需的依赖项
 
 - `dev`：用于为库做贡献的依赖项。包括 `testing`（用于运行测试）、`typing`（用于运行类型检查器）和 `quality`（用于运行 linter）
 

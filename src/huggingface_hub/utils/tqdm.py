@@ -86,7 +86,7 @@ import os
 import warnings
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import ContextManager, Dict, Iterator, Optional, Union
+from typing import ContextManager, Iterator, Optional, Union
 
 from tqdm.auto import tqdm as old_tqdm
 
@@ -102,7 +102,7 @@ from ..constants import HF_HUB_DISABLE_PROGRESS_BARS
 # progress bar visibility through code. By default, progress bars are turned on.
 
 
-progress_bar_states: Dict[str, bool] = {}
+progress_bar_states: dict[str, bool] = {}
 
 
 def disable_progress_bars(name: Optional[str] = None) -> None:
@@ -248,7 +248,7 @@ def tqdm_stream_file(path: Union[Path, str]) -> Iterator[io.BufferedReader]:
     Example:
     ```py
     >>> with tqdm_stream_file("config.json") as f:
-    >>>     requests.put(url, data=f)
+    >>>     httpx.put(url, data=f)
     config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
     ```
     """

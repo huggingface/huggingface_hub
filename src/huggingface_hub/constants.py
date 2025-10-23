@@ -1,7 +1,7 @@
 import os
 import re
 import typing
-from typing import Literal, Optional, Tuple
+from typing import Literal, Optional
 
 
 # Possible values for env variables
@@ -35,7 +35,6 @@ DEFAULT_ETAG_TIMEOUT = 10
 DEFAULT_DOWNLOAD_TIMEOUT = 10
 DEFAULT_REQUEST_TIMEOUT = 10
 DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024
-HF_TRANSFER_CONCURRENCY = 100
 MAX_HTTP_DOWNLOAD_SIZE = 50 * 1000 * 1000 * 1000  # 50 GB
 
 # Constants for serialization
@@ -118,9 +117,9 @@ REPO_TYPES_MAPPING = {
 }
 
 DiscussionTypeFilter = Literal["all", "discussion", "pull_request"]
-DISCUSSION_TYPES: Tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionTypeFilter)
+DISCUSSION_TYPES: tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionTypeFilter)
 DiscussionStatusFilter = Literal["all", "open", "closed"]
-DISCUSSION_STATUS: Tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionStatusFilter)
+DISCUSSION_STATUS: tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionStatusFilter)
 
 # Webhook subscription types
 WEBHOOK_DOMAIN_T = Literal["repo", "discussions"]
@@ -135,7 +134,6 @@ HF_HOME = os.path.expandvars(
         )
     )
 )
-hf_cache_home = HF_HOME  # for backward compatibility. TODO: remove this in 1.0.0
 
 default_cache_path = os.path.join(HF_HOME, "hub")
 default_assets_cache_path = os.path.join(HF_HOME, "assets")
@@ -163,6 +161,10 @@ HF_ASSETS_CACHE = os.path.expandvars(
 )
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
+
+# File created to mark that the version check has been done.
+# Check is performed once per 24 hours at most.
+CHECK_FOR_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_update_done")
 
 # If set, log level will be set to DEBUG and all requests made to the Hub will be logged
 # as curl commands for reproducibility.
@@ -212,18 +214,18 @@ HF_HUB_DISABLE_EXPERIMENTAL_WARNING: bool = _is_true(os.environ.get("HF_HUB_DISA
 # Disable sending the cached token by default is all HTTP requests to the Hub
 HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN"))
 
-# Enable fast-download using external dependency "hf_transfer"
-# See:
-# - https://pypi.org/project/hf-transfer/
-# - https://github.com/huggingface/hf_transfer (private)
-HF_HUB_ENABLE_HF_TRANSFER: bool = _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER"))
+HF_XET_HIGH_PERFORMANCE: bool = _is_true(os.environ.get("HF_XET_HIGH_PERFORMANCE"))
 
+# hf_transfer is not used anymore. Let's warn user is case they set the env variable
+if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")) and not HF_XET_HIGH_PERFORMANCE:
+    import warnings
 
-# UNUSED
-# We don't use symlinks in local dir anymore.
-HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD: int = (
-    _as_int(os.environ.get("HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD")) or 5 * 1024 * 1024
-)
+    warnings.warn(
+        "The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. "
+        "Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. "
+        "Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.",
+        DeprecationWarning,
+    )
 
 # Used to override the etag timeout on a system level
 HF_HUB_ETAG_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_ETAG_TIMEOUT")) or DEFAULT_ETAG_TIMEOUT
@@ -233,43 +235,6 @@ HF_HUB_DOWNLOAD_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_DOWNLOAD_TIMEOUT")
 
 # Allows to add information about the requester in the user-agent (eg. partner name)
 HF_HUB_USER_AGENT_ORIGIN: Optional[str] = os.environ.get("HF_HUB_USER_AGENT_ORIGIN")
-
-# List frameworks that are handled by the InferenceAPI service. Useful to scan endpoints and check which models are
-# deployed and running. Since 95% of the models are using the top 4 frameworks listed below, we scan only those by
-# default. We still keep the full list of supported frameworks in case we want to scan all of them.
-MAIN_INFERENCE_API_FRAMEWORKS = [
-    "diffusers",
-    "sentence-transformers",
-    "text-generation-inference",
-    "transformers",
-]
-
-ALL_INFERENCE_API_FRAMEWORKS = MAIN_INFERENCE_API_FRAMEWORKS + [
-    "adapter-transformers",
-    "allennlp",
-    "asteroid",
-    "bertopic",
-    "doctr",
-    "espnet",
-    "fairseq",
-    "fastai",
-    "fasttext",
-    "flair",
-    "k2",
-    "keras",
-    "mindspore",
-    "nemo",
-    "open_clip",
-    "paddlenlp",
-    "peft",
-    "pyannote-audio",
-    "sklearn",
-    "spacy",
-    "span-marker",
-    "speechbrain",
-    "stanza",
-    "timm",
-]
 
 # If OAuth didn't work after 2 redirects, there's likely a third-party cookie issue in the Space iframe view.
 # In this case, we redirect the user to the non-iframe view.

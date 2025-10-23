@@ -18,7 +18,6 @@ import os
 import string
 import time
 from pathlib import Path
-from typing import List
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -215,7 +214,7 @@ CHAT_COMPLETION_RESPONSE_FORMAT = {
 }
 
 
-def list_clients(task: str) -> List[pytest.param]:
+def list_clients(task: str) -> list[pytest.param]:
     """Get list of clients for a specific task, with proper skip handling."""
     clients = []
     for provider, tasks in _RECOMMENDED_MODELS_FOR_VCR.items():
@@ -894,7 +893,7 @@ class TestHeadersAndCookies(TestBase):
         response = client.text_to_image("An astronaut riding a horse")
         assert response == bytes_to_image_mock.return_value
 
-        headers = get_session_mock().post.call_args_list[0].kwargs["headers"]
+        headers = get_session_mock().stream.call_args_list[0].kwargs["headers"]
         assert headers["Accept"] == "image/png"
 
 
@@ -993,20 +992,20 @@ class TestOpenAICompatibility(TestBase):
 @pytest.mark.parametrize(
     "stop_signal",
     [
-        b"data: [DONE]",
-        b"data: [DONE]\n",
-        b"data: [DONE] ",
+        "data: [DONE]",
+        "data: [DONE]\n",
+        "data: [DONE] ",
     ],
 )
 def test_stream_text_generation_response(stop_signal: bytes):
     data = [
-        b'data: {"index":1,"token":{"id":4560,"text":" trying","logprob":-2.078125,"special":false},"generated_text":null,"details":null}',
-        b"",  # Empty line is skipped
-        b"\n",  # Newline is skipped
-        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+        'data: {"index":1,"token":{"id":4560,"text":" trying","logprob":-2.078125,"special":false},"generated_text":null,"details":null}',
+        "",  # Empty line is skipped
+        "\n",  # Newline is skipped
+        'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
         stop_signal,  # Stop signal
         # Won't parse after
-        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+        'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
     ]
     output = list(_stream_text_generation_response(data, details=False))
     assert len(output) == 2
@@ -1016,20 +1015,20 @@ def test_stream_text_generation_response(stop_signal: bytes):
 @pytest.mark.parametrize(
     "stop_signal",
     [
-        b"data: [DONE]",
-        b"data: [DONE]\n",
-        b"data: [DONE] ",
+        "data: [DONE]",
+        "data: [DONE]\n",
+        "data: [DONE] ",
     ],
 )
 def test_stream_chat_completion_response(stop_signal: bytes):
     data = [
-        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
-        b"",  # Empty line is skipped
-        b"\n",  # Newline is skipped
-        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":" Rust"},"logprobs":null,"finish_reason":null}]}',
+        'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
+        "",  # Empty line is skipped
+        "\n",  # Newline is skipped
+        'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":" Rust"},"logprobs":null,"finish_reason":null}]}',
         stop_signal,  # Stop signal
         # Won't parse after
-        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+        'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
     ]
     output = list(_stream_chat_completion_response(data))
     assert len(output) == 2
@@ -1043,8 +1042,8 @@ def test_chat_completion_error_in_stream():
     When an error is encountered in the stream, it should raise a TextGenerationError (e.g. a ValidationError).
     """
     data = [
-        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
-        b'data: {"error":"Input validation error: `inputs` tokens + `max_new_tokens` must be <= 4096. Given: 6 `inputs` tokens and 4091 `max_new_tokens`","error_type":"validation"}',
+        'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
+        'data: {"error":"Input validation error: `inputs` tokens + `max_new_tokens` must be <= 4096. Given: 6 `inputs` tokens and 4091 `max_new_tokens`","error_type":"validation"}',
     ]
     with pytest.raises(ValidationError):
         for token in _stream_chat_completion_response(data):

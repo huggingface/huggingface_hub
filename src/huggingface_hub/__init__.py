@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.36.0.dev0"
+__version__ = "1.0.0.rc7"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -111,6 +111,9 @@ _SUBMOD_ATTRS = {
         "WebhooksServer",
         "webhook_endpoint",
     ],
+    "cli._cli_utils": [
+        "typer_factory",
+    ],
     "community": [
         "Discussion",
         "DiscussionComment",
@@ -138,6 +141,7 @@ _SUBMOD_ATTRS = {
         "push_to_hub_fastai",
     ],
     "file_download": [
+        "DryRunFileInfo",
         "HfFileMetadata",
         "_CACHED_NO_EXIST",
         "get_hf_file_metadata",
@@ -219,7 +223,6 @@ _SUBMOD_ATTRS = {
         "get_safetensors_metadata",
         "get_space_runtime",
         "get_space_variables",
-        "get_token_permission",
         "get_user_overview",
         "get_webhook",
         "grant_access",
@@ -280,7 +283,6 @@ _SUBMOD_ATTRS = {
         "update_collection_metadata",
         "update_inference_endpoint",
         "update_repo_settings",
-        "update_repo_visibility",
         "update_webhook",
         "upload_file",
         "upload_folder",
@@ -473,15 +475,6 @@ _SUBMOD_ATTRS = {
     "inference._mcp.mcp_client": [
         "MCPClient",
     ],
-    "inference_api": [
-        "InferenceApi",
-    ],
-    "keras_mixin": [
-        "KerasModelHubMixin",
-        "from_pretrained_keras",
-        "push_to_hub_keras",
-        "save_pretrained_keras",
-    ],
     "repocard": [
         "DatasetCard",
         "ModelCard",
@@ -499,12 +492,8 @@ _SUBMOD_ATTRS = {
         "ModelCardData",
         "SpaceCardData",
     ],
-    "repository": [
-        "Repository",
-    ],
     "serialization": [
         "StateDictSplit",
-        "get_tf_storage_size",
         "get_torch_storage_id",
         "get_torch_storage_size",
         "load_state_dict_from_file",
@@ -512,7 +501,6 @@ _SUBMOD_ATTRS = {
         "save_torch_model",
         "save_torch_state_dict",
         "split_state_dict_into_shards_factory",
-        "split_tf_state_dict_into_shards",
         "split_torch_state_dict_into_shards",
     ],
     "serialization._dduf": [
@@ -522,6 +510,8 @@ _SUBMOD_ATTRS = {
         "read_dduf_file",
     ],
     "utils": [
+        "ASYNC_CLIENT_FACTORY_T",
+        "CLIENT_FACTORY_T",
         "CacheNotFound",
         "CachedFileInfo",
         "CachedRepoInfo",
@@ -529,14 +519,17 @@ _SUBMOD_ATTRS = {
         "CorruptedCacheException",
         "DeleteCacheStrategy",
         "HFCacheInfo",
-        "HfFolder",
         "cached_assets_path",
-        "configure_http_backend",
+        "close_session",
         "dump_environment_info",
+        "get_async_session",
         "get_session",
         "get_token",
+        "hf_raise_for_status",
         "logging",
         "scan_cache_dir",
+        "set_async_client_factory",
+        "set_client_factory",
     ],
 }
 
@@ -552,6 +545,7 @@ _SUBMOD_ATTRS = {
 # ```
 
 __all__ = [
+    "ASYNC_CLIENT_FACTORY_T",
     "Agent",
     "AsyncInferenceClient",
     "AudioClassificationInput",
@@ -566,6 +560,7 @@ __all__ = [
     "AutomaticSpeechRecognitionOutput",
     "AutomaticSpeechRecognitionOutputChunk",
     "AutomaticSpeechRecognitionParameters",
+    "CLIENT_FACTORY_T",
     "CONFIG_NAME",
     "CacheNotFound",
     "CachedFileInfo",
@@ -634,6 +629,7 @@ __all__ = [
     "DocumentQuestionAnsweringInputData",
     "DocumentQuestionAnsweringOutputElement",
     "DocumentQuestionAnsweringParameters",
+    "DryRunFileInfo",
     "EvalResult",
     "FLAX_WEIGHTS_NAME",
     "FeatureExtractionInput",
@@ -654,7 +650,6 @@ __all__ = [
     "HfFileSystemFile",
     "HfFileSystemResolvedPath",
     "HfFileSystemStreamFile",
-    "HfFolder",
     "ImageClassificationInput",
     "ImageClassificationOutputElement",
     "ImageClassificationOutputTransform",
@@ -676,7 +671,6 @@ __all__ = [
     "ImageToVideoOutput",
     "ImageToVideoParameters",
     "ImageToVideoTargetSize",
-    "InferenceApi",
     "InferenceClient",
     "InferenceEndpoint",
     "InferenceEndpointError",
@@ -688,7 +682,6 @@ __all__ = [
     "JobOwner",
     "JobStage",
     "JobStatus",
-    "KerasModelHubMixin",
     "MCPClient",
     "ModelCard",
     "ModelCardData",
@@ -714,7 +707,6 @@ __all__ = [
     "REPO_TYPE_SPACE",
     "RepoCard",
     "RepoUrl",
-    "Repository",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
     "SpaceCard",
@@ -827,8 +819,8 @@ __all__ = [
     "cancel_access_request",
     "cancel_job",
     "change_discussion_status",
+    "close_session",
     "comment_discussion",
-    "configure_http_backend",
     "create_branch",
     "create_collection",
     "create_commit",
@@ -865,7 +857,7 @@ __all__ = [
     "fetch_job_logs",
     "file_exists",
     "from_pretrained_fastai",
-    "from_pretrained_keras",
+    "get_async_session",
     "get_collection",
     "get_dataset_tags",
     "get_discussion_details",
@@ -880,9 +872,7 @@ __all__ = [
     "get_session",
     "get_space_runtime",
     "get_space_variables",
-    "get_tf_storage_size",
     "get_token",
-    "get_token_permission",
     "get_torch_storage_id",
     "get_torch_storage_size",
     "get_user_overview",
@@ -890,6 +880,7 @@ __all__ = [
     "grant_access",
     "hf_hub_download",
     "hf_hub_url",
+    "hf_raise_for_status",
     "inspect_job",
     "inspect_scheduled_job",
     "interpreter_login",
@@ -936,7 +927,6 @@ __all__ = [
     "permanently_delete_lfs_files",
     "preupload_lfs_files",
     "push_to_hub_fastai",
-    "push_to_hub_keras",
     "read_dduf_file",
     "reject_access_request",
     "rename_discussion",
@@ -952,26 +942,26 @@ __all__ = [
     "run_as_future",
     "run_job",
     "run_uv_job",
-    "save_pretrained_keras",
     "save_torch_model",
     "save_torch_state_dict",
     "scale_to_zero_inference_endpoint",
     "scan_cache_dir",
+    "set_async_client_factory",
+    "set_client_factory",
     "set_space_sleep_time",
     "snapshot_download",
     "space_info",
     "split_state_dict_into_shards_factory",
-    "split_tf_state_dict_into_shards",
     "split_torch_state_dict_into_shards",
     "super_squash_history",
     "suspend_scheduled_job",
     "try_to_load_from_cache",
+    "typer_factory",
     "unlike",
     "update_collection_item",
     "update_collection_metadata",
     "update_inference_endpoint",
     "update_repo_settings",
-    "update_repo_visibility",
     "update_webhook",
     "upload_file",
     "upload_folder",
@@ -1135,6 +1125,7 @@ if TYPE_CHECKING:  # pragma: no cover
         WebhooksServer,  # noqa: F401
         webhook_endpoint,  # noqa: F401
     )
+    from .cli._cli_utils import typer_factory  # noqa: F401
     from .community import (
         Discussion,  # noqa: F401
         DiscussionComment,  # noqa: F401
@@ -1163,6 +1154,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .file_download import (
         _CACHED_NO_EXIST,  # noqa: F401
+        DryRunFileInfo,  # noqa: F401
         HfFileMetadata,  # noqa: F401
         get_hf_file_metadata,  # noqa: F401
         hf_hub_download,  # noqa: F401
@@ -1243,7 +1235,6 @@ if TYPE_CHECKING:  # pragma: no cover
         get_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
-        get_token_permission,  # noqa: F401
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
@@ -1304,7 +1295,6 @@ if TYPE_CHECKING:  # pragma: no cover
         update_collection_metadata,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
         update_repo_settings,  # noqa: F401
-        update_repo_visibility,  # noqa: F401
         update_webhook,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
@@ -1491,13 +1481,6 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .inference._mcp.agent import Agent  # noqa: F401
     from .inference._mcp.mcp_client import MCPClient  # noqa: F401
-    from .inference_api import InferenceApi  # noqa: F401
-    from .keras_mixin import (
-        KerasModelHubMixin,  # noqa: F401
-        from_pretrained_keras,  # noqa: F401
-        push_to_hub_keras,  # noqa: F401
-        save_pretrained_keras,  # noqa: F401
-    )
     from .repocard import (
         DatasetCard,  # noqa: F401
         ModelCard,  # noqa: F401
@@ -1515,10 +1498,8 @@ if TYPE_CHECKING:  # pragma: no cover
         ModelCardData,  # noqa: F401
         SpaceCardData,  # noqa: F401
     )
-    from .repository import Repository  # noqa: F401
     from .serialization import (
         StateDictSplit,  # noqa: F401
-        get_tf_storage_size,  # noqa: F401
         get_torch_storage_id,  # noqa: F401
         get_torch_storage_size,  # noqa: F401
         load_state_dict_from_file,  # noqa: F401
@@ -1526,7 +1507,6 @@ if TYPE_CHECKING:  # pragma: no cover
         save_torch_model,  # noqa: F401
         save_torch_state_dict,  # noqa: F401
         split_state_dict_into_shards_factory,  # noqa: F401
-        split_tf_state_dict_into_shards,  # noqa: F401
         split_torch_state_dict_into_shards,  # noqa: F401
     )
     from .serialization._dduf import (
@@ -1536,6 +1516,8 @@ if TYPE_CHECKING:  # pragma: no cover
         read_dduf_file,  # noqa: F401
     )
     from .utils import (
+        ASYNC_CLIENT_FACTORY_T,  # noqa: F401
+        CLIENT_FACTORY_T,  # noqa: F401
         CachedFileInfo,  # noqa: F401
         CachedRepoInfo,  # noqa: F401
         CachedRevisionInfo,  # noqa: F401
@@ -1543,12 +1525,15 @@ if TYPE_CHECKING:  # pragma: no cover
         CorruptedCacheException,  # noqa: F401
         DeleteCacheStrategy,  # noqa: F401
         HFCacheInfo,  # noqa: F401
-        HfFolder,  # noqa: F401
         cached_assets_path,  # noqa: F401
-        configure_http_backend,  # noqa: F401
+        close_session,  # noqa: F401
         dump_environment_info,  # noqa: F401
+        get_async_session,  # noqa: F401
         get_session,  # noqa: F401
         get_token,  # noqa: F401
+        hf_raise_for_status,  # noqa: F401
         logging,  # noqa: F401
         scan_cache_dir,  # noqa: F401
+        set_async_client_factory,  # noqa: F401
+        set_client_factory,  # noqa: F401
     )

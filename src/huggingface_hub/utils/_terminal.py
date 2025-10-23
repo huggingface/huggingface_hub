@@ -1,4 +1,4 @@
-# Copyright 2022 The HuggingFace Team. All rights reserved.
+# Copyright 2025 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,10 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains a utility for good-looking prints."""
+"""Contains utilities to print stuff to the terminal (styling, helpers)."""
 
 import os
-from typing import List, Union
+from typing import Union
 
 
 class ANSI:
@@ -52,7 +52,7 @@ class ANSI:
         return f"{code}{s}{cls._reset}"
 
 
-def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
+def tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
     """
     Inspired by:
 
@@ -67,8 +67,3 @@ def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
     for row in rows:
         lines.append(row_format.format(*row))
     return "\n".join(lines)
-
-
-def show_deprecation_warning(old_command: str, new_command: str):
-    """Show a yellow warning about deprecated CLI command."""
-    print(ANSI.yellow(f"⚠️  Warning: '{old_command}' is deprecated. Use '{new_command}' instead."))

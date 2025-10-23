@@ -1,5 +1,5 @@
 import base64
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
@@ -20,8 +20,8 @@ class NscaleTextToImageTask(TaskProviderHelper):
         return "/v1/images/generations"
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[dict]:
         mapped_model = provider_mapping_info.provider_id
         # Combine all parameters except inputs and parameters
         parameters = filter_none(parameters)
@@ -39,6 +39,6 @@ class NscaleTextToImageTask(TaskProviderHelper):
         }
         return payload
 
-    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
         response_dict = _as_dict(response)
         return base64.b64decode(response_dict["data"][0]["b64_json"])

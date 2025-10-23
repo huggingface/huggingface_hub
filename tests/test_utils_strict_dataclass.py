@@ -1,11 +1,27 @@
 import inspect
+import sys
 from dataclasses import asdict, astuple, dataclass, is_dataclass
-from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union, get_type_hints
+from typing import Annotated, Any, Literal, Optional, TypedDict, Union, get_type_hints
 
 import jedi
 import pytest
 
-from huggingface_hub.dataclasses import _is_validator, as_validated_field, strict, type_validator, validated_field
+
+if sys.version_info >= (3, 11):
+    from typing import NotRequired, Required
+else:
+    # Provide fallbacks or skip the entire module
+    NotRequired = None
+    Required = None
+from huggingface_hub.dataclasses import (
+    _build_strict_cls_from_typed_dict,
+    _is_validator,
+    as_validated_field,
+    strict,
+    type_validator,
+    validate_typed_dict,
+    validated_field,
+)
 from huggingface_hub.errors import (
     StrictDataclassClassValidationError,
     StrictDataclassDefinitionError,
@@ -180,18 +196,18 @@ def test_custom_validator_must_be_callable():
         ("John", Literal["John", "Doe"]),
         (5, Literal[4, 5, 6]),
         # List
-        ([1, 2, 3], List[int]),
-        ([1, 2, "3"], List[Union[int, str]]),
+        ([1, 2, 3], list[int]),
+        ([1, 2, "3"], list[Union[int, str]]),
         # Tuple
-        ((1, 2, 3), Tuple[int, int, int]),
-        ((1, 2, "3"), Tuple[int, int, str]),
-        ((1, 2, 3, 4), Tuple[int, ...]),
+        ((1, 2, 3), tuple[int, int, int]),
+        ((1, 2, "3"), tuple[int, int, str]),
+        ((1, 2, 3, 4), tuple[int, ...]),
         # Dict
-        ({"a": 1, "b": 2}, Dict[str, int]),
-        ({"a": 1, "b": "2"}, Dict[str, Union[int, str]]),
+        ({"a": 1, "b": 2}, dict[str, int]),
+        ({"a": 1, "b": "2"}, dict[str, Union[int, str]]),
         # Set
-        ({1, 2, 3}, Set[int]),
-        ({1, 2, "3"}, Set[Union[int, str]]),
+        ({1, 2, 3}, set[int]),
+        ({1, 2, "3"}, set[Union[int, str]]),
         # Custom classes
         (DummyClass(), DummyClass),
         # Any
@@ -206,13 +222,13 @@ def test_custom_validator_must_be_callable():
                     (2, DummyClass(), None),
                 ],
             },
-            Dict[
+            dict[
                 str,
-                List[
-                    Tuple[
+                list[
+                    tuple[
                         int,
                         DummyClass,
-                        Optional[Set[Union[int, str],]],
+                        Optional[set[Union[int, str],]],
                     ]
                 ],
             ],
@@ -241,19 +257,19 @@ def test_type_validator_valid(value, type_annotation):
         ("Ada", Literal["John", "Doe"]),
         (3, Literal[4, 5, 6]),
         # List
-        (5, List[int]),
-        ([1, 2, "3"], List[int]),
+        (5, list[int]),
+        ([1, 2, "3"], list[int]),
         # Tuple
-        (5, Tuple[int, int, int]),
-        ((1, 2, "3"), Tuple[int, int, int]),
-        ((1, 2, 3, 4), Tuple[int, int, int]),
-        ((1, 2, "3", 4), Tuple[int, ...]),
+        (5, tuple[int, int, int]),
+        ((1, 2, "3"), tuple[int, int, int]),
+        ((1, 2, 3, 4), tuple[int, int, int]),
+        ((1, 2, "3", 4), tuple[int, ...]),
         # Dict
-        (5, Dict[str, int]),
-        ({"a": 1, "b": "2"}, Dict[str, int]),
+        (5, dict[str, int]),
+        ({"a": 1, "b": "2"}, dict[str, int]),
         # Set
-        (5, Set[int]),
-        ({1, 2, "3"}, Set[int]),
+        (5, set[int]),
+        ({1, 2, "3"}, set[int]),
         # Custom classes
         (5, DummyClass),
         ("John", DummyClass),
@@ -646,3 +662,125 @@ class TestClassValidateAlreadyExists:
             @dataclass
             class ConfigWithParent(ParentClass):  # 'validate' already defined => should raise an error
                 foo: int = 0
+
+
+class ConfigDict(TypedDict):
+    str_value: str
+    positive_int_value: Annotated[int, positive_int]
+    forward_ref_value: "ForwardDtype"
+    optional_value: Optional[int]
+
+
+class ConfigDictIncomplete(TypedDict, total=False):
+    str_value: str
+    positive_int_value: Annotated[int, positive_int]
+    forward_ref_value: "ForwardDtype"
+    optional_value: Optional[int]
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        # All values are valid
+        {"str_value": "foo", "positive_int_value": 1, "forward_ref_value": "bar", "optional_value": 0},
+    ],
+)
+def test_typed_dict_valid_data(data: dict):
+    validate_typed_dict(ConfigDict, data)
+    validate_typed_dict(ConfigDictIncomplete, data)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        # Optional value cannot be omitted
+        {"str_value": "foo", "positive_int_value": 1, "forward_ref_value": "bar"},
+        # Other fields neither
+        {"positive_int_value": 1, "forward_ref_value": "bar", "optional_value": 0},
+        # Not a string
+        {"str_value": 123, "positive_int_value": 1, "forward_ref_value": "bar", "optional_value": 0},
+        # Not an integer
+        {"str_value": "foo", "positive_int_value": "1", "forward_ref_value": "bar", "optional_value": 0},
+        # Annotated validator is used
+        {"str_value": "foo", "positive_int_value": -1, "forward_ref_value": "bar", "optional_value": 0},
+    ],
+)
+def test_typed_dict_invalid_data(data: dict):
+    with pytest.raises(StrictDataclassFieldValidationError):
+        validate_typed_dict(ConfigDict, data)
+
+
+def test_typed_dict_error_message():
+    with pytest.raises(StrictDataclassFieldValidationError) as exception:
+        validate_typed_dict(
+            ConfigDict, {"str_value": 123, "positive_int_value": 1, "forward_ref_value": "bar", "optional_value": 0}
+        )
+    assert "Validation error for field 'str_value'" in str(exception.value)
+    assert "Field 'str_value' expected str, got int (value: 123)" in str(exception.value)
+
+
+def test_typed_dict_unknown_attribute():
+    with pytest.raises(TypeError):
+        validate_typed_dict(
+            ConfigDict,
+            {
+                "str_value": "foo",
+                "positive_int_value": 1,
+                "forward_ref_value": "bar",
+                "optional_value": 0,
+                "another_value": 0,
+            },
+        )
+
+
+def test_typed_dict_to_dataclass_is_cached():
+    strict_cls = _build_strict_cls_from_typed_dict(ConfigDict)
+    strict_cls_bis = _build_strict_cls_from_typed_dict(ConfigDict)
+    assert strict_cls is strict_cls_bis  # "is" because dataclass is built only once
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11+")
+class TestConfigDictNotRequired:
+    def __init__(self):
+        # cannot be defined at class level because of Python<3.11
+        self.ConfigDictNotRequired = TypedDict(
+            "ConfigDictNotRequired",
+            {"required_value": Required[int], "not_required_value": NotRequired[int]},
+            total=False,
+        )
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {"required_value": 1, "not_required_value": 2},
+            {"required_value": 1},  # not required value is not validated
+        ],
+    )
+    def test_typed_dict_not_required_valid_data(self, data: dict):
+        validate_typed_dict(self.ConfigDictNotRequired, data)
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            # Missing required value
+            {"not_required_value": 2},
+            # If exists, the value is validated
+            {"required_value": 1, "not_required_value": "2"},
+        ],
+    )
+    def test_typed_dict_not_required_invalid_data(self, data: dict):
+        with pytest.raises(StrictDataclassFieldValidationError):
+            validate_typed_dict(self.ConfigDictNotRequired, data)
+
+
+def test_typed_dict_total_true():
+    ConfigDictTotalTrue = TypedDict("ConfigDictTotalTrue", {"value": int}, total=True)
+    validate_typed_dict(ConfigDictTotalTrue, {"value": 1})
+    with pytest.raises(StrictDataclassFieldValidationError):
+        validate_typed_dict(ConfigDictTotalTrue, {})
+
+
+def test_typed_dict_total_false():
+    ConfigDictTotalFalse = TypedDict("ConfigDictTotalFalse", {"value": int}, total=False)
+    validate_typed_dict(ConfigDictTotalFalse, {})
+    validate_typed_dict(ConfigDictTotalFalse, {"value": 1})

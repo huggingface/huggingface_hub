@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Optional
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import fsspec
 import pytest
@@ -194,9 +194,9 @@ class HfFileSystemTests(unittest.TestCase):
             self.assertIsInstance(f, HfFileSystemStreamFile)
             self.assertEqual(f.read(6), b"dummy ")
             # Simulate that streaming fails mid-way
-            f.response.raw.read = None
+            f.response = None
             self.assertEqual(f.read(6), b"binary")
-            self.assertIsNotNone(f.response.raw.read)  # a new connection has been created
+            self.assertIsNotNone(f.response)  # a new connection has been created
 
     def test_read_file_with_revision(self):
         with self.hffs.open(self.hf_path + "/data/binary_data_for_pr.bin", "rb", revision="refs/pr/1") as f:
@@ -460,7 +460,7 @@ class HfFileSystemTests(unittest.TestCase):
             assert temp_file.read() == b"dummy text data"
 
     def test_get_file_with_temporary_folder(self):
-        # Test passing a file path works => compatible with hf_transfer
+        # Test passing a file path works
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = os.path.join(temp_dir, "temp_file.txt")
             self.hffs.get_file(self.text_file, temp_file)
@@ -603,9 +603,9 @@ def test_resolve_path_with_refs_revision() -> None:
 def mock_repo_info(fs: HfFileSystem):
     def _inner(repo_id: str, *, revision: str, repo_type: str, **kwargs):
         if repo_id not in ["gpt2", "squad", "username/my_dataset", "username/my_model"]:
-            raise RepositoryNotFoundError(repo_id)
+            raise RepositoryNotFoundError(repo_id, response=Mock())
         if revision is not None and revision not in ["main", "dev", "refs"] and not revision.startswith("refs/"):
-            raise RevisionNotFoundError(revision)
+            raise RevisionNotFoundError(revision, response=Mock())
 
     return patch.object(fs._api, "repo_info", _inner)
 

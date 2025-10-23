@@ -19,7 +19,7 @@ import os
 import warnings
 from pathlib import Path
 from threading import Lock
-from typing import Dict, Optional
+from typing import Optional
 
 from .. import constants
 from ._runtime import is_colab_enterprise, is_google_colab
@@ -125,13 +125,13 @@ def _get_token_from_file() -> Optional[str]:
         return None
 
 
-def get_stored_tokens() -> Dict[str, str]:
+def get_stored_tokens() -> dict[str, str]:
     """
     Returns the parsed INI file containing the access tokens.
     The file is located at `HF_STORED_TOKENS_PATH`, defaulting to `~/.cache/huggingface/stored_tokens`.
     If the file does not exist, an empty dictionary is returned.
 
-    Returns: `Dict[str, str]`
+    Returns: `dict[str, str]`
         Key is the token name and value is the token.
     """
     tokens_path = Path(constants.HF_STORED_TOKENS_PATH)
@@ -147,12 +147,12 @@ def get_stored_tokens() -> Dict[str, str]:
     return stored_tokens
 
 
-def _save_stored_tokens(stored_tokens: Dict[str, str]) -> None:
+def _save_stored_tokens(stored_tokens: dict[str, str]) -> None:
     """
     Saves the given configuration to the stored tokens file.
 
     Args:
-        stored_tokens (`Dict[str, str]`):
+        stored_tokens (`dict[str, str]`):
             The stored tokens to save. Key is the token name and value is the token.
     """
     stored_tokens_path = Path(constants.HF_STORED_TOKENS_PATH)

@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 Before you start, you will need to setup your environment by installing the appropriate packages.
 
-`huggingface_hub` is tested on **Python 3.8+**.
+`huggingface_hub` is tested on **Python 3.9+**.
 
 ## Install with pip
 
@@ -46,17 +46,13 @@ Some dependencies of `huggingface_hub` are [optional](https://setuptools.pypa.io
 
 You can install optional dependencies via `pip`:
 ```bash
-# Install dependencies for tensorflow-specific features
-# /!\ Warning: this is not equivalent to `pip install tensorflow`
-pip install 'huggingface_hub[tensorflow]'
-
 # Install dependencies for both torch-specific and CLI-specific features.
 pip install 'huggingface_hub[cli,torch]'
 ```
 
 Here is the list of optional dependencies in `huggingface_hub`:
 - `cli`: provide a more convenient CLI interface for `huggingface_hub`.
-- `fastai`, `torch`, `tensorflow`: dependencies to run framework-specific features.
+- `fastai`, `torch`: dependencies to run framework-specific features.
 - `dev`: dependencies to contribute to the lib. Includes `testing` (to run tests), `typing` (to run type checker) and `quality` (to run linters).
 
 
@@ -106,6 +102,22 @@ These commands will link the folder you cloned the repository to and your Python
 Python will now look inside the folder you cloned to in addition to the normal library paths.
 For example, if your Python packages are typically installed in `./.venv/lib/python3.13/site-packages/`,
 Python will also search the folder you cloned `./huggingface_hub/`.
+
+## Install the Hugging Face CLI 
+
+Use our one-liner installers to set up the `hf` CLI without touching your Python environment:
+
+On macOS and Linux:
+
+```bash
+curl -LsSf https://hf.co/cli/install.sh | sh
+```
+
+On Windows:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
+```
 
 ## Install with conda
 

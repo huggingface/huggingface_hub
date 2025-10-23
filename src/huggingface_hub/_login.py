@@ -19,9 +19,11 @@ from getpass import getpass
 from pathlib import Path
 from typing import Optional
 
+import typer
+
 from . import constants
-from .commands._cli_utils import ANSI
 from .utils import (
+    ANSI,
     capture_output,
     get_token,
     is_google_colab,
@@ -41,7 +43,6 @@ from .utils._auth import (
     _save_token,
     get_stored_tokens,
 )
-from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 
 logger = logging.get_logger(__name__)
@@ -55,18 +56,11 @@ _HF_LOGO_ASCII = """
 """
 
 
-@_deprecate_arguments(
-    version="1.0",
-    deprecated_args="write_permission",
-    custom_message="Fine-grained tokens added complexity to the permissions, making it irrelevant to check if a token has 'write' access.",
-)
-@_deprecate_positional_args(version="1.0")
 def login(
     token: Optional[str] = None,
     *,
     add_to_git_credential: bool = False,
-    new_session: bool = True,
-    write_permission: bool = False,
+    skip_if_logged_in: bool = False,
 ) -> None:
     """Login the machine to access the Hub.
 
@@ -96,10 +90,8 @@ def login(
             is configured, a warning will be displayed to the user. If `token` is `None`,
             the value of `add_to_git_credential` is ignored and will be prompted again
             to the end user.
-        new_session (`bool`, defaults to `True`):
-            If `True`, will request a token even if one is already saved on the machine.
-        write_permission (`bool`):
-            Ignored and deprecated argument.
+        skip_if_logged_in (`bool`, defaults to `False`):
+            If `True`, do not prompt for token if user is already logged in.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an organization token is passed. Only personal account tokens are valid
@@ -119,9 +111,9 @@ def login(
             )
         _login(token, add_to_git_credential=add_to_git_credential)
     elif is_notebook():
-        notebook_login(new_session=new_session)
+        notebook_login(skip_if_logged_in=skip_if_logged_in)
     else:
-        interpreter_login(new_session=new_session)
+        interpreter_login(skip_if_logged_in=skip_if_logged_in)
 
 
 def logout(token_name: Optional[str] = None) -> None:
@@ -236,13 +228,7 @@ def auth_list() -> None:
 ###
 
 
-@_deprecate_arguments(
-    version="1.0",
-    deprecated_args="write_permission",
-    custom_message="Fine-grained tokens added complexity to the permissions, making it irrelevant to check if a token has 'write' access.",
-)
-@_deprecate_positional_args(version="1.0")
-def interpreter_login(*, new_session: bool = True, write_permission: bool = False) -> None:
+def interpreter_login(*, skip_if_logged_in: bool = False) -> None:
     """
     Displays a prompt to log in to the HF website and store the token.
 
@@ -253,16 +239,12 @@ def interpreter_login(*, new_session: bool = True, write_permission: bool = Fals
     For more details, see [`login`].
 
     Args:
-        new_session (`bool`, defaults to `True`):
-            If `True`, will request a token even if one is already saved on the machine.
-        write_permission (`bool`):
-            Ignored and deprecated argument.
+        skip_if_logged_in (`bool`, defaults to `False`):
+            If `True`, do not prompt for token if user is already logged in.
     """
-    if not new_session and get_token() is not None:
+    if not skip_if_logged_in and get_token() is not None:
         logger.info("User is already logged in.")
         return
-
-    from .commands.delete_cache import _ask_for_confirmation_no_tui
 
     print(_HF_LOGO_ASCII)
     if get_token() is not None:
@@ -279,7 +261,7 @@ def interpreter_login(*, new_session: bool = True, write_permission: bool = Fals
     if os.name == "nt":
         logger.info("Token can be pasted using 'Right-Click'.")
     token = getpass("Enter your token (input will not be visible): ")
-    add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
+    add_to_git_credential = typer.confirm("Add token as git credential?")
 
     _login(token=token, add_to_git_credential=add_to_git_credential)
 
@@ -308,13 +290,7 @@ NOTEBOOK_LOGIN_TOKEN_HTML_END = """
 notebooks. </center>"""
 
 
-@_deprecate_arguments(
-    version="1.0",
-    deprecated_args="write_permission",
-    custom_message="Fine-grained tokens added complexity to the permissions, making it irrelevant to check if a token has 'write' access.",
-)
-@_deprecate_positional_args(version="1.0")
-def notebook_login(*, new_session: bool = True, write_permission: bool = False) -> None:
+def notebook_login(*, skip_if_logged_in: bool = False) -> None:
     """
     Displays a widget to log in to the HF website and store the token.
 
@@ -325,10 +301,8 @@ def notebook_login(*, new_session: bool = True, write_permission: bool = False) 
     For more details, see [`login`].
 
     Args:
-        new_session (`bool`, defaults to `True`):
-            If `True`, will request a token even if one is already saved on the machine.
-        write_permission (`bool`):
-            Ignored and deprecated argument.
+        skip_if_logged_in (`bool`, defaults to `False`):
+            If `True`, do not prompt for token if user is already logged in.
     """
     try:
         import ipywidgets.widgets as widgets  # type: ignore
@@ -338,7 +312,7 @@ def notebook_login(*, new_session: bool = True, write_permission: bool = False) 
             "The `notebook_login` function can only be used in a notebook (Jupyter or"
             " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
         )
-    if not new_session and get_token() is not None:
+    if not skip_if_logged_in and get_token() is not None:
         logger.info("User is already logged in.")
         return
 

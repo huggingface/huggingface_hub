@@ -2,24 +2,25 @@ import os
 import re
 import tempfile
 from collections import deque
+from contextlib import ExitStack
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, NoReturn, Optional, Tuple, Union
+from typing import Any, Iterator, NoReturn, Optional, Union
 from urllib.parse import quote, unquote
 
 import fsspec
+import httpx
 from fsspec.callbacks import _DEFAULT_CALLBACK, NoOpCallback, TqdmCallback
 from fsspec.utils import isfilelike
-from requests import Response
 
 from . import constants
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
-from .errors import EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
+from .errors import EntryNotFoundError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from .file_download import hf_hub_url, http_get
 from .hf_api import HfApi, LastCommitInfo, RepoFile
-from .utils import HFValidationError, hf_raise_for_status, http_backoff
+from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff
 
 
 # Regex used to match special revisions with "/" in them (see #1710)
@@ -112,15 +113,15 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
         #  * the 1st element indicating whether the repositoy and the revision exist
         #  * the 2nd element being the exception raised if the repository or revision doesn't exist
-        self._repo_and_revision_exists_cache: Dict[
-            Tuple[str, str, Optional[str]], Tuple[bool, Optional[Exception]]
+        self._repo_and_revision_exists_cache: dict[
+            tuple[str, str, Optional[str]], tuple[bool, Optional[Exception]]
         ] = {}
         # Maps parent directory path to path infos
-        self.dircache: Dict[str, List[Dict[str, Any]]] = {}
+        self.dircache: dict[str, list[dict[str, Any]]] = {}
 
     def _repo_and_revision_exist(
         self, repo_type: str, repo_id: str, revision: Optional[str]
-    ) -> Tuple[bool, Optional[Exception]]:
+    ) -> tuple[bool, Optional[Exception]]:
         if (repo_type, repo_id, revision) not in self._repo_and_revision_exists_cache:
             try:
                 self._api.repo_info(
@@ -339,7 +340,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     def ls(
         self, path: str, detail: bool = True, refresh: bool = False, revision: Optional[str] = None, **kwargs
-    ) -> List[Union[str, Dict[str, Any]]]:
+    ) -> list[Union[str, dict[str, Any]]]:
         """
         List the contents of a directory.
 
@@ -360,7 +361,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 The git revision to list from.
 
         Returns:
-            `List[Union[str, Dict[str, Any]]]`: List of file paths (if detail=False) or list of file information
+            `list[Union[str, dict[str, Any]]]`: List of file paths (if detail=False) or list of file information
             dictionaries (if detail=True).
         """
         resolved_path = self.resolve_path(path, revision=revision)
@@ -495,7 +496,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     out.append(cache_path_info)
         return out
 
-    def walk(self, path: str, *args, **kwargs) -> Iterator[Tuple[str, List[str], List[str]]]:
+    def walk(self, path: str, *args, **kwargs) -> Iterator[tuple[str, list[str], list[str]]]:
         """
         Return all files below the given path.
 
@@ -506,12 +507,12 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 Root path to list files from.
 
         Returns:
-            `Iterator[Tuple[str, List[str], List[str]]]`: An iterator of (path, list of directory names, list of file names) tuples.
+            `Iterator[tuple[str, list[str], list[str]]]`: An iterator of (path, list of directory names, list of file names) tuples.
         """
         path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
         yield from super().walk(path, *args, **kwargs)
 
-    def glob(self, path: str, **kwargs) -> List[str]:
+    def glob(self, path: str, **kwargs) -> list[str]:
         """
         Find files by glob-matching.
 
@@ -522,7 +523,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 Path pattern to match.
 
         Returns:
-            `List[str]`: List of paths matching the pattern.
+            `list[str]`: List of paths matching the pattern.
         """
         path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
         return super().glob(path, **kwargs)
@@ -536,7 +537,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         refresh: bool = False,
         revision: Optional[str] = None,
         **kwargs,
-    ) -> Union[List[str], Dict[str, Dict[str, Any]]]:
+    ) -> Union[list[str], dict[str, dict[str, Any]]]:
         """
         List all files below path.
 
@@ -557,7 +558,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 The git revision to list from.
 
         Returns:
-            `Union[List[str], Dict[str, Dict[str, Any]]]`: List of paths or dict of file information.
+            `Union[list[str], dict[str, dict[str, Any]]]`: List of paths or dict of file information.
         """
         if maxdepth is not None and maxdepth < 1:
             raise ValueError("maxdepth must be at least 1")
@@ -662,7 +663,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         info = self.info(path, **{**kwargs, "expand_info": True})
         return info["last_commit"]["date"]
 
-    def info(self, path: str, refresh: bool = False, revision: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+    def info(self, path: str, refresh: bool = False, revision: Optional[str] = None, **kwargs) -> dict[str, Any]:
         """
         Get information about a file or directory.
 
@@ -680,7 +681,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 The git revision to get info from.
 
         Returns:
-            `Dict[str, Any]`: Dictionary containing file information (type, size, commit info, etc.).
+            `dict[str, Any]`: Dictionary containing file information (type, size, commit info, etc.).
 
         """
         resolved_path = self.resolve_path(path, revision=revision)
@@ -1004,9 +1005,8 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def read(self, length=-1):
         """Read remote file.
 
-        If `length` is not provided or is -1, the entire file is downloaded and read. On POSIX systems and if
-        `hf_transfer` is not enabled, the file is loaded in memory directly. Otherwise, the file is downloaded to a
-        temporary file and read from there.
+        If `length` is not provided or is -1, the entire file is downloaded and read. On POSIX systems the file is
+        loaded in memory directly. Otherwise, the file is downloaded to a temporary file and read from there.
         """
         if self.mode == "rb" and (length is None or length == -1) and self.loc == 0:
             with self.fs.open(self.path, "rb", block_size=0) as f:  # block_size=0 enables fast streaming
@@ -1048,8 +1048,9 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         super().__init__(
             fs, self.resolved_path.unresolve(), mode=mode, block_size=block_size, cache_type=cache_type, **kwargs
         )
-        self.response: Optional[Response] = None
+        self.response: Optional[httpx.Response] = None
         self.fs: HfFileSystem
+        self._exit_stack = ExitStack()
 
     def seek(self, loc: int, whence: int = 0):
         if loc == 0 and whence == 1:
@@ -1059,53 +1060,32 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         raise ValueError("Cannot seek streaming HF file")
 
     def read(self, length: int = -1):
-        read_args = (length,) if length >= 0 else ()
-        if self.response is None:
-            url = hf_hub_url(
-                repo_id=self.resolved_path.repo_id,
-                revision=self.resolved_path.revision,
-                filename=self.resolved_path.path_in_repo,
-                repo_type=self.resolved_path.repo_type,
-                endpoint=self.fs.endpoint,
-            )
-            self.response = http_backoff(
-                "GET",
-                url,
-                headers=self.fs._api._build_hf_headers(),
-                stream=True,
-                timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
-            )
-            hf_raise_for_status(self.response)
-        try:
-            self.response.raw.decode_content = True
-            out = self.response.raw.read(*read_args)
-        except Exception:
-            self.response.close()
+        """Read the remote file.
 
-            # Retry by recreating the connection
-            url = hf_hub_url(
-                repo_id=self.resolved_path.repo_id,
-                revision=self.resolved_path.revision,
-                filename=self.resolved_path.path_in_repo,
-                repo_type=self.resolved_path.repo_type,
-                endpoint=self.fs.endpoint,
-            )
-            self.response = http_backoff(
-                "GET",
-                url,
-                headers={"Range": "bytes=%d-" % self.loc, **self.fs._api._build_hf_headers()},
-                stream=True,
-                timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
-            )
-            hf_raise_for_status(self.response)
+        If the file is already open, we reuse the connection.
+        Otherwise, open a new connection and read from it.
+
+        If reading the stream fails, we retry with a new connection.
+        """
+        if self.response is None:
+            self._open_connection()
+
+        retried_once = False
+        while True:
             try:
-                self.response.raw.decode_content = True
-                out = self.response.raw.read(*read_args)
+                if self.response is None:
+                    return b""  # Already read the entire file
+                out = _partial_read(self.response, length)
+                self.loc += len(out)
+                return out
             except Exception:
-                self.response.close()
-                raise
-        self.loc += len(out)
-        return out
+                if self.response is not None:
+                    self.response.close()
+                if retried_once:  # Already retried once, give up
+                    raise
+                # First failure, retry with range header
+                self._open_connection()
+                retried_once = True
 
     def url(self) -> str:
         return self.fs.url(self.path)
@@ -1114,10 +1094,42 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         if not hasattr(self, "resolved_path"):
             # Means that the constructor failed. Nothing to do.
             return
+        self._exit_stack.close()
         return super().__del__()
 
     def __reduce__(self):
         return reopen, (self.fs, self.path, self.mode, self.blocksize, self.cache.name)
+
+    def _open_connection(self):
+        """Open a connection to the remote file."""
+        url = hf_hub_url(
+            repo_id=self.resolved_path.repo_id,
+            revision=self.resolved_path.revision,
+            filename=self.resolved_path.path_in_repo,
+            repo_type=self.resolved_path.repo_type,
+            endpoint=self.fs.endpoint,
+        )
+        headers = self.fs._api._build_hf_headers()
+        if self.loc > 0:
+            headers["Range"] = f"bytes={self.loc}-"
+        self.response = self._exit_stack.enter_context(
+            http_stream_backoff(
+                "GET",
+                url,
+                headers=headers,
+                retry_on_status_codes=(500, 502, 503, 504),
+                timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
+            )
+        )
+
+        try:
+            hf_raise_for_status(self.response)
+        except HfHubHTTPError as e:
+            if e.response.status_code == 416:
+                # Range not satisfiable => means that we have already read the entire file
+                self.response = None
+                return
+            raise
 
 
 def safe_revision(revision: str) -> str:
@@ -1141,6 +1153,29 @@ def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
 
 def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: str):
     return fs.open(path, mode=mode, block_size=block_size, cache_type=cache_type)
+
+
+def _partial_read(response: httpx.Response, length: int = -1) -> bytes:
+    """
+    Read up to `length` bytes from a streamed response.
+    If length == -1, read until EOF.
+    """
+    buf = bytearray()
+    if length < -1:
+        raise ValueError("length must be -1 or >= 0")
+    if length == 0:
+        return b""
+    if length == -1:
+        for chunk in response.iter_bytes():
+            buf.extend(chunk)
+        return bytes(buf)
+
+    for chunk in response.iter_bytes(chunk_size=length):
+        buf.extend(chunk)
+        if len(buf) >= length:
+            return bytes(buf[:length])
+
+    return bytes(buf)  # may be < length if response ended
 
 
 def make_instance(cls, args, kwargs, instance_cache_attributes_dict):

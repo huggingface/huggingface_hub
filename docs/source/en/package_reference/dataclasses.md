@@ -188,6 +188,14 @@ The `@strict` decorator enhances a dataclass with strict validation.
 
 [[autodoc]] dataclasses.strict
 
+### `validate_typed_dict`
+
+Method to validate that a dictionary conforms to the types defined in a `TypedDict` class.
+
+This is the equivalent to dataclass validation but for `TypedDict`s. Since typed dicts are never instantiated (only used by static type checkers), validation step must be manually called.
+
+[[autodoc]] dataclasses.validate_typed_dict
+
 ### `as_validated_field`
 
 Decorator to create a [`validated_field`]. Recommended for fields with a single validator to avoid boilerplate code.

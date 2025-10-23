@@ -1,7 +1,7 @@
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 from urllib.parse import urlparse, urlunparse
 
 from huggingface_hub import constants
@@ -60,8 +60,8 @@ class HFInferenceTask(TaskProviderHelper):
         )
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[dict]:
         if isinstance(inputs, bytes):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
         if isinstance(inputs, Path):
@@ -71,16 +71,16 @@ class HFInferenceTask(TaskProviderHelper):
 
 class HFInferenceBinaryInputTask(HFInferenceTask):
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[dict]:
         return None
 
     def _prepare_payload_as_bytes(
         self,
         inputs: Any,
-        parameters: Dict,
+        parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
-        extra_payload: Optional[Dict],
+        extra_payload: Optional[dict],
     ) -> Optional[MimeBytes]:
         parameters = filter_none(parameters)
         extra_payload = extra_payload or {}
@@ -106,8 +106,8 @@ class HFInferenceConversational(HFInferenceTask):
         super().__init__("conversational")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[dict]:
         payload = filter_none(parameters)
         mapped_model = provider_mapping_info.provider_id
         payload_model = parameters.get("model") or mapped_model
@@ -156,7 +156,7 @@ def _build_chat_completion_url(model_url: str) -> str:
 
 
 @lru_cache(maxsize=1)
-def _fetch_recommended_models() -> Dict[str, Optional[str]]:
+def _fetch_recommended_models() -> dict[str, Optional[str]]:
     response = get_session().get(f"{constants.ENDPOINT}/api/tasks", headers=build_hf_headers())
     hf_raise_for_status(response)
     return {task: next(iter(details["widgetModels"]), None) for task, details in response.json().items()}
@@ -211,8 +211,8 @@ class HFInferenceFeatureExtractionTask(HFInferenceTask):
         super().__init__("feature-extraction")
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[dict]:
         if isinstance(inputs, bytes):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
         if isinstance(inputs, Path):
@@ -222,7 +222,7 @@ class HFInferenceFeatureExtractionTask(HFInferenceTask):
         # See specs: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/src/tasks/feature-extraction/spec/input.json
         return {"inputs": inputs, **filter_none(parameters)}
 
-    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
         if isinstance(response, bytes):
             return _bytes_to_dict(response)
         return response

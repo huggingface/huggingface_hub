@@ -1,0 +1,88 @@
+name: Check CLI installers
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "utils/installers/**"
+      - ".github/workflows/check-installers.yml"
+  pull_request:
+    paths:
+      - "utils/installers/**"
+      - ".github/workflows/check-installers.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  linux-installer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run installer
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          HF_TEST_ROOT=$(mktemp -d)
+          INSTALL_DIR="$HF_TEST_ROOT/install"
+          BIN_DIR="$HF_TEST_ROOT/bin"
+
+          HF_HOME="$INSTALL_DIR" HF_CLI_BIN_DIR="$BIN_DIR" utils/installers/install.sh --no-modify-path
+
+          export PATH="$BIN_DIR:$PATH"
+
+          HF_VERSION_PATH="$HF_TEST_ROOT/hf-version.txt"
+          hf version | tee "$HF_VERSION_PATH"
+          if ! grep -Eq 'huggingface_hub version: [0-9]+(\.[0-9]+){1,2}' "$HF_VERSION_PATH"; then
+            echo "hf version output missing huggingface_hub version" >&2
+            cat "$HF_VERSION_PATH" >&2
+            exit 1
+          fi
+
+          NO_COLOR=1 hf --help
+
+          rm -rf "$HF_TEST_ROOT"
+
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run installer
+        shell: pwsh
+        run: |
+          $hfTestRoot = Join-Path $env:TEMP ([System.Guid]::NewGuid().ToString())
+          $installDir = Join-Path $hfTestRoot 'install'
+          $binDir = Join-Path $hfTestRoot 'bin'
+          New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+          New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+
+          $env:HF_HOME = $installDir
+          $env:HF_CLI_BIN_DIR = $binDir
+          & "$PWD/utils/installers/install.ps1" -NoModifyPath
+
+          $env:PATH = "$binDir;$env:PATH"
+
+          $hfVersionPath = Join-Path $hfTestRoot 'hf-version.txt'
+          & hf.exe version | Tee-Object -FilePath $hfVersionPath
+          if ($LASTEXITCODE -ne 0) {
+            throw 'hf version failed'
+          }
+          if (-not (Select-String -Path $hfVersionPath -Pattern 'huggingface_hub version: [0-9]+(\.[0-9]+){1,2}')) {
+            throw 'hf version output missing huggingface_hub version'
+          }
+
+          $env:NO_COLOR = '1'
+          & hf.exe --help
+          if ($LASTEXITCODE -ne 0) {
+            throw 'hf --help failed'
+          }
+          Remove-Item Env:NO_COLOR
+
+          Remove-Item -Path $hfTestRoot -Recurse -Force

@@ -15,7 +15,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from huggingface_hub import constants
 from huggingface_hub._space_api import SpaceHardware
@@ -71,13 +71,13 @@ class JobInfo:
         space_id (`str` or `None`):
             The Docker image from Hugging Face Spaces used for the Job.
             Can be None if docker_image is present instead.
-        command (`List[str]` or `None`):
+        command (`list[str]` or `None`):
             Command of the Job, e.g. `["python", "-c", "print('hello world')"]`
-        arguments (`List[str]` or `None`):
+        arguments (`list[str]` or `None`):
             Arguments passed to the command
-        environment (`Dict[str]` or `None`):
+        environment (`dict[str]` or `None`):
             Environment variables of the Job as a dictionary.
-        secrets (`Dict[str]` or `None`):
+        secrets (`dict[str]` or `None`):
             Secret environment variables of the Job (encrypted).
         flavor (`str` or `None`):
             Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
@@ -111,10 +111,10 @@ class JobInfo:
     created_at: Optional[datetime]
     docker_image: Optional[str]
     space_id: Optional[str]
-    command: Optional[List[str]]
-    arguments: Optional[List[str]]
-    environment: Optional[Dict[str, Any]]
-    secrets: Optional[Dict[str, Any]]
+    command: Optional[list[str]]
+    arguments: Optional[list[str]]
+    environment: Optional[dict[str, Any]]
+    secrets: Optional[dict[str, Any]]
     flavor: Optional[SpaceHardware]
     status: JobStatus
     owner: JobOwner
@@ -148,13 +148,13 @@ class JobInfo:
 class JobSpec:
     docker_image: Optional[str]
     space_id: Optional[str]
-    command: Optional[List[str]]
-    arguments: Optional[List[str]]
-    environment: Optional[Dict[str, Any]]
-    secrets: Optional[Dict[str, Any]]
+    command: Optional[list[str]]
+    arguments: Optional[list[str]]
+    environment: Optional[dict[str, Any]]
+    secrets: Optional[dict[str, Any]]
     flavor: Optional[SpaceHardware]
     timeout: Optional[int]
-    tags: Optional[List[str]]
+    tags: Optional[list[str]]
     arch: Optional[str]
 
     def __init__(self, **kwargs) -> None:
@@ -202,7 +202,7 @@ class ScheduledJobInfo:
             Scheduled Job ID.
         created_at (`datetime` or `None`):
             When the scheduled Job was created.
-        tags (`List[str]` or `None`):
+        tags (`list[str]` or `None`):
             The tags of the scheduled Job.
         schedule (`str` or `None`):
             One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
@@ -263,14 +263,14 @@ class ScheduledJobInfo:
 def _create_job_spec(
     *,
     image: str,
-    command: List[str],
-    env: Optional[Dict[str, Any]],
-    secrets: Optional[Dict[str, Any]],
+    command: list[str],
+    env: Optional[dict[str, Any]],
+    secrets: Optional[dict[str, Any]],
     flavor: Optional[SpaceHardware],
     timeout: Optional[Union[int, float, str]],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     # prepare job spec to send to HF Jobs API
-    job_spec: Dict[str, Any] = {
+    job_spec: dict[str, Any] = {
         "command": command,
         "arguments": [],
         "environment": env or {},

@@ -64,7 +64,7 @@ class XetProgressReporter:
 
         return f"{padding}{name.ljust(width)}"
 
-    def update_progress(self, total_update: PyTotalProgressUpdate, item_updates: List[PyItemProgressUpdate]):
+    def update_progress(self, total_update: PyTotalProgressUpdate, item_updates: list[PyItemProgressUpdate]):
         # Update all the per-item values.
         for item in item_updates:
             item_name = item.item_name

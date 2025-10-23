@@ -4,12 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Upload files to the Hub
 
-Sharing your files and work is an important aspect of the Hub. The `huggingface_hub` offers several options for uploading your files to the Hub. You can use these functions independently or integrate them into your library, making it more convenient for your users to interact with the Hub. This guide will show you how to push files:
-
-- without using Git.
-- that are very large with [Git LFS](https://git-lfs.github.com/).
-- with the `commit` context manager.
-- with the [`~Repository.push_to_hub`] function.
+Sharing your files and work is an important aspect of the Hub. The `huggingface_hub` offers several options for uploading your files to the Hub. You can use these functions independently or integrate them into your library, making it more convenient for your users to interact with the Hub.
 
 Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account. For more details about authentication, check out [this section](../quick-start#authentication).
 
@@ -160,16 +155,7 @@ Check out our [Repository limitations and recommendations](https://huggingface.c
 
 - **Start small**: We recommend starting with a small amount of data to test your upload script. It's easier to iterate on a script when failing takes only a little time.
 - **Expect failures**: Streaming large amounts of data is challenging. You don't know what can happen, but it's always best to consider that something will fail at least once -no matter if it's due to your machine, your connection, or our servers. For example, if you plan to upload a large number of files, it's best to keep track locally of which files you already uploaded before uploading the next batch. You are ensured that an LFS file that is already committed will never be re-uploaded twice but checking it client-side can still save some time. This is what [`upload_large_folder`] does for you.
-- **Use `hf_xet`**: this leverages the new storage backend for Hub, is written in Rust, and is being rolled out to users right now. In order to upload using `hf_xet` your repo must be enabled to use the Xet storage backend. It is being rolled out now, so join the [waitlist](https://huggingface.co/join/xet) to get onboarded soon!
-- **Use `hf_transfer`**: this is a Rust-based [library](https://github.com/huggingface/hf_transfer) meant to speed up uploads on machines with very high bandwidth (uploads LFS files). To use `hf_transfer`:
-    1. Specify the `hf_transfer` extra when installing `huggingface_hub`
-       (i.e., `pip install huggingface_hub[hf_transfer]`).
-    2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
-
-> [!WARNING]
-> `hf_transfer` is a power user tool for uploading LFS files! It is tested and production-ready, but it is less future-proof and lacks user-friendly features like advanced error handling or proxies. For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
->
-> Note that `hf_xet` and `hf_transfer` tools are mutually exclusive. The former is used to upload files to Xet-enabled repos while the later uploads LFS files to regular repos.
+- **Use `hf_xet`**: this leverages the new storage backend for the Hub, is written in Rust, and is now available for everyone to use. In fact, `hf_xet` is already enabled by default when using `huggingface_hub`! For maximum performance, set [`HF_XET_HIGH_PERFORMANCE=1`](../package_reference/environment_variables.md#hf_xet_high_performance) as an environment variable. Be aware that when high performance mode is enabled, the tool will try to use all available bandwidth and CPU cores.
 
 ## Advanced features
 
@@ -179,9 +165,6 @@ However, `huggingface_hub` has more advanced features to make things easier. Let
 ### Faster Uploads
 
 Take advantage of faster uploads through `hf_xet`, the Python binding to the [`xet-core`](https://github.com/huggingface/xet-core) library that enables chunk-based deduplication for faster uploads and downloads. `hf_xet` integrates seamlessly with `huggingface_hub`, but uses the Rust `xet-core` library and Xet storage instead of LFS. 
-
-> [!WARNING]
-> As of May 23rd, 2025, Xet-enabled repositories [are the default for all new Hugging Face Hub users and organizations](https://huggingface.co/changelog/xet-default-for-new-users). If your user or organization was created before then, you may need Xet enabled on your repo for `hf_xet` to actually upload to the Xet backend. Join the [waitlist](https://huggingface.co/join/xet) to make Xet the default for all your repositories. Also, note that while `hf_xet` works with in-memory bytes or bytearray data, support for BinaryIO streams is still pending.
 
 `hf_xet` uses the Xet storage system, which breaks files down into immutable chunks, storing collections of these chunks (called blocks or xorbs) remotely and retrieving them to reassemble the file when requested. When uploading, after confirming the user is authorized to write to this repo, `hf_xet` will scan the files, breaking them down into their chunks and collecting those chunks into xorbs (and deduplicating across known chunks), and then will be upload these xorbs to the Xet content-addressable service (CAS), which will verify the integrity of the xorbs, register the xorb metadata along with the LFS SHA256 hash (to support lookup/download), and write the xorbs to remote storage.
 
@@ -465,111 +448,3 @@ update of the object is that **the binary content is removed** from it, meaning 
 you don't store another reference to it. This is expected as we don't want to keep in memory the content that is
 already uploaded. Finally we create the commit by passing all the operations to [`create_commit`]. You can pass
 additional operations (add, delete or copy) that have not been processed yet and they will be handled correctly.
-
-## (legacy) Upload files with Git LFS
-
-All the methods described above use the Hub's API to upload files. This is the recommended way to upload files to the Hub.
-However, we also provide [`Repository`], a wrapper around the git tool to manage a local repository.
-
-> [!WARNING]
-> Although [`Repository`] is not formally deprecated, we recommend using the HTTP-based methods described above instead.
-> For more details about this recommendation, please have a look at [this guide](../concepts/git_vs_http) explaining the
-> core differences between HTTP-based and Git-based approaches.
-
-Git LFS automatically handles files larger than 10MB. But for very large files (>5GB), you need to install a custom transfer agent for Git LFS:
-
-```bash
-hf lfs-enable-largefiles
-```
-
-You should install this for each repository that has a very large file. Once installed, you'll be able to push files larger than 5GB.
-
-### commit context manager
-
-The `commit` context manager handles four of the most common Git commands: pull, add, commit, and push. `git-lfs` automatically tracks any file larger than 10MB. In the following example, the `commit` context manager:
-
-1. Pulls from the `text-files` repository.
-2. Adds a change made to `file.txt`.
-3. Commits the change.
-4. Pushes the change to the `text-files` repository.
-
-```python
->>> from huggingface_hub import Repository
->>> with Repository(local_dir="text-files", clone_from="<user>/text-files").commit(commit_message="My first file :)"):
-...     with open("file.txt", "w+") as f:
-...         f.write(json.dumps({"hey": 8}))
-```
-
-Here is another example of how to use the `commit` context manager to save and upload a file to a repository:
-
-```python
->>> import torch
->>> model = torch.nn.Transformer()
->>> with Repository("torch-model", clone_from="<user>/torch-model", token=True).commit(commit_message="My cool model :)"):
-...     torch.save(model.state_dict(), "model.pt")
-```
-
-Set `blocking=False` if you would like to push your commits asynchronously. Non-blocking behavior is helpful when you want to continue running your script while your commits are being pushed.
-
-```python
->>> with repo.commit(commit_message="My cool model :)", blocking=False)
-```
-
-You can check the status of your push with the `command_queue` method:
-
-```python
->>> last_command = repo.command_queue[-1]
->>> last_command.status
-```
-
-Refer to the table below for the possible statuses:
-
-| Status   | Description                          |
-| -------- | ------------------------------------ |
-| -1       | The push is ongoing.                 |
-| 0        | The push has completed successfully. |
-| Non-zero | An error has occurred.               |
-
-When `blocking=False`, commands are tracked, and your script will only exit when all pushes are completed, even if other errors occur in your script. Some additional useful commands for checking the status of a push include:
-
-```python
-# Inspect an error.
->>> last_command.stderr
-
-# Check whether a push is completed or ongoing.
->>> last_command.is_done
-
-# Check whether a push command has errored.
->>> last_command.failed
-```
-
-### push_to_hub
-
-The [`Repository`] class has a [`~Repository.push_to_hub`] function to add files, make a commit, and push them to a repository. Unlike the `commit` context manager, you'll need to pull from a repository first before calling [`~Repository.push_to_hub`].
-
-For example, if you've already cloned a repository from the Hub, then you can initialize the `repo` from the local directory:
-
-```python
->>> from huggingface_hub import Repository
->>> repo = Repository(local_dir="path/to/local/repo")
-```
-
-Update your local clone with [`~Repository.git_pull`] and then push your file to the Hub:
-
-```py
->>> repo.git_pull()
->>> repo.push_to_hub(commit_message="Commit my-awesome-file to the Hub")
-```
-
-However, if you aren't ready to push a file yet, you can use [`~Repository.git_add`] and [`~Repository.git_commit`] to only add and commit your file:
-
-```py
->>> repo.git_add("path/to/file")
->>> repo.git_commit(commit_message="add my first model config file :)")
-```
-
-When you're ready, push the file to your repository with [`~Repository.git_push`]:
-
-```py
->>> repo.git_push()
-```

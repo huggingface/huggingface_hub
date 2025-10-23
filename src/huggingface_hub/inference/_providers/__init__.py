@@ -1,4 +1,4 @@
-from typing import Dict, Literal, Optional, Union
+from typing import Literal, Optional, Union
 
 from huggingface_hub.inference._providers.featherless_ai import (
     FeatherlessConversationalTask,
@@ -6,7 +6,7 @@ from huggingface_hub.inference._providers.featherless_ai import (
 )
 from huggingface_hub.utils import logging
 
-from ._common import TaskProviderHelper, _fetch_inference_provider_mapping
+from ._common import AutoRouterConversationalTask, TaskProviderHelper, _fetch_inference_provider_mapping
 from .black_forest_labs import BlackForestLabsTextToImageTask
 from .cerebras import CerebrasConversationalTask
 from .clarifai import ClarifaiConversationalTask
@@ -73,7 +73,9 @@ PROVIDER_T = Literal[
 
 PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
 
-PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
+CONVERSATIONAL_AUTO_ROUTER = AutoRouterConversationalTask()
+
+PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     "black-forest-labs": {
         "text-to-image": BlackForestLabsTextToImageTask(),
     },
@@ -206,13 +208,19 @@ def get_provider_helper(
 
     if provider is None:
         logger.info(
-            "Defaulting to 'auto' which will select the first provider available for the model, sorted by the user's order in https://hf.co/settings/inference-providers."
+            "No provider specified for task `conversational`. Defaulting to server-side auto routing."
+            if task == "conversational"
+            else "Defaulting to 'auto' which will select the first provider available for the model, sorted by the user's order in https://hf.co/settings/inference-providers."
         )
         provider = "auto"
 
     if provider == "auto":
         if model is None:
             raise ValueError("Specifying a model is required when provider is 'auto'")
+        if task == "conversational":
+            # Special case: we have a dedicated auto-router for conversational models. No need to fetch provider mapping.
+            return CONVERSATIONAL_AUTO_ROUTER
+
         provider_mapping = _fetch_inference_provider_mapping(model)
         provider = next(iter(provider_mapping)).provider
 
