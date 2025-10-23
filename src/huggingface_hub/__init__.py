@@ -237,7 +237,7 @@ _SUBMOD_ATTRS = {
         "list_lfs_files",
         "list_liked_repos",
         "list_models",
-    "list_organization_followers",
+        "list_organization_followers",
         "list_organization_members",
         "list_papers",
         "list_pending_access_requests",
