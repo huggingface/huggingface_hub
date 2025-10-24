@@ -673,6 +673,44 @@ Deleted 3 unreferenced revision(s); freed 2.4G.
 
 As with the other cache commands, `--dry-run`, `--yes`, and `--cache-dir` are available. Refer to the [Manage your cache](./manage-cache) guide for more examples.
 
+## hf cache verify
+
+Use `hf cache verify` to validate local files against their checksums on the Hub. Target a single repo per invocation and choose between verifying the cache snapshot or a regular local directory.
+
+Examples:
+
+```bash
+# Verify main revision of a model in cache
+>>> hf cache verify deepseek-ai/DeepSeek-OCR
+
+# Verify a specific revision
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --revision refs/pr/1
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --revision abcdef123
+
+# Verify a private repo
+>>> hf cache verify me/private-model --token hf_***
+
+# Verify a dataset
+>>> hf cache verify karpathy/fineweb-edu-100b-shuffle --repo-type dataset
+
+# Verify files in a local directory
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --local-dir /path/to/repo
+```
+
+By default, the command warns about missing or extra files but does not fail. Use flags to make these conditions fail the command:
+
+```bash
+>>> hf cache verify gpt2 --fail-on-missing-files --fail-on-extra-files
+```
+
+On success, you will see a summary:
+
+```text
+✅ Verified 60 file(s) at e7da7f221d5bf496a48136c0cd264e630fe9fcc8; no checksum mismatches.
+```
+
+If mismatches are detected, the command prints a detailed list and exits with a non-zero status.
+
 ## hf repo tag create
 
 The `hf repo tag create` command allows you to tag, untag, and list tags for repositories.

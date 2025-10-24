@@ -479,6 +479,28 @@ HFCacheInfo(
 )
 ```
 
+### Verify your cache
+
+`huggingface_hub` can verify that your cached files match the checksums on the Hub. Use `hf cache verify` from the CLI to validate one or more cached repositories or specific revisions.
+
+Verify a whole cached repository by repo ID (verifies every cached revision for that repo):
+
+```bash
+>>> hf cache verify model/sentence-transformers/all-MiniLM-L6-v2 
+✅ Verified 28 file(s) across 1 revision(s); no checksum mismatches detected.
+```
+
+Verify specific cached revisions by hash (you can pass several targets at once):
+
+```text
+➜ hf cache verify 1c610f6b3f5e7d8a d4ec9b72
+❌ Checksum verification failed for the following file(s):
+  - dataset/nyu-mll/glue@bcdcba79d07bc864c1c254ccfcedcce55bcc9a8c::cola/test-00000-of-00001.parquet: missing locally.
+```
+
+> [!TIP]
+> Pair `hf cache verify` with `--cache-dir PATH` when working outside the default cache, and `--token` to verify against private or gated repositories.
+
 ### Clean your cache
 
 Scanning your cache is interesting but what you really want to do next is usually to
