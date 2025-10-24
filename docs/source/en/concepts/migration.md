@@ -86,12 +86,14 @@ Some methods and parameters have been removed in v1.0. The ones listed below hav
 
 ## CLI cache commands
 
-Cache management from the CLI has been redesigned to follow a Docker-inspired workflow. The legacy `hf cache scan` and `hf cache delete` commands are removed in v1.0 and are replaced with the new trio below:
+Cache management from the CLI has been redesigned to follow a Docker-inspired workflow. The deprecated `huggingface-cli` has been removed, `hf` (introduced in v0.34) replaces it with a clearer ressource-action CLI. 
+The legacy `hf cache scan` and `hf cache delete` commands are also removed in v1.0 and are replaced with the new trio below:
 
 - `hf cache ls` lists cache entries with concise table, JSON, or CSV output. Use `--revisions` to inspect individual revisions, add `--filter` expressions such as `size>1GB` or `accessed>30d`, and combine them with `--quiet` when you only need the identifiers.
 - `hf cache rm` deletes selected cache entries. Pass one or more repo IDs (for example `model/bert-base-uncased`) or revision hashes, and optionally add `--dry-run` to preview or `--yes` to skip the confirmation prompt. This replaces both the interactive TUI and `--disable-tui` workflows from the previous command.
 - `hf cache prune` performs the common cleanup task of deleting unreferenced revisions in one shot. Add `--dry-run` or `--yes` in the same way as with `hf cache rm`.
 
+Finally, the `[cli]` extra has been removed - The CLI now ships with the core `huggingface_hub` package.
 
 ## TensorFlow and Keras 2.x support
 
