@@ -9529,9 +9529,7 @@ class HfApi:
         return Organization(**r.json())
 
     @validate_hf_hub_args
-    def list_organization_followers(
-        self, organization: str, token: Union[bool, str, None] = None
-    ) -> Iterable[User]:
+    def list_organization_followers(self, organization: str, token: Union[bool, str, None] = None) -> Iterable[User]:
         """
         List followers of an organization on the Hub.
 
