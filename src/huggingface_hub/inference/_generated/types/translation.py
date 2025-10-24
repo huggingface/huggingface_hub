@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -17,7 +17,7 @@ class TranslationParameters(BaseInferenceType):
 
     clean_up_tokenization_spaces: Optional[bool] = None
     """Whether to clean up the potential extra spaces in the text output."""
-    generate_parameters: Optional[dict[str, Any]] = None
+    generate_parameters: Optional[Dict[str, Any]] = None
     """Additional parametrization of the text generation algorithm."""
     src_lang: Optional[str] = None
     """The source language of the text. Required for models that can translate from multiple
