@@ -54,8 +54,9 @@ from huggingface_hub.inference._providers.replicate import (
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from huggingface_hub.inference._providers.scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from huggingface_hub.inference._providers.together import TogetherTextToImageTask
-from huggingface_hub.inference._providers.wavespeed_ai import (
+from huggingface_hub.inference._providers.wavespeed import (
     WavespeedAIImageToImageTask,
+    WavespeedAIImageToVideoTask,
     WavespeedAITextToImageTask,
     WavespeedAITextToVideoTask,
 )
@@ -1494,7 +1495,7 @@ class TestWavespeedAIProvider:
     def test_prepare_headers(self):
         """Test header preparation for both direct and routed calls."""
         helper = WavespeedAITextToImageTask()
-        
+
         # Test with Wavespeed API key
         headers = helper._prepare_headers({}, "ws_test_key")
         assert headers["authorization"] == "Bearer ws_test_key"
@@ -1516,7 +1517,8 @@ class TestWavespeedAIProvider:
                 "seed": 42,
             },
             InferenceProviderMapping(
-                hf_model_id="wavespeed-ai/flux-schnell",
+                provider="wavespeed",
+                hf_model_id="black-forest-labs/FLUX.1-schnell",
                 providerId="wavespeed-ai/flux-schnell",
                 task="text-to-image",
                 status="live",
@@ -1546,8 +1548,9 @@ class TestWavespeedAIProvider:
                 "size": "480*832"
             },
             InferenceProviderMapping(
-                hf_model_id="wavespeed-ai/wan-2.1/t2v-480p",
-                providerId="wavespeed-ai/wan-2.1/t2v-480p", 
+                provider="wavespeed",
+                hf_model_id="Wan-AI/Wan2.1-T2V-14B",
+                providerId="wavespeed-ai/wan-2.1/t2v-480p",
                 task="text-to-video",
                 status="live"
             )
@@ -1566,7 +1569,7 @@ class TestWavespeedAIProvider:
     def test_prepare_image_to_image_payload(self, mocker):
         """Test payload preparation for image-to-image task."""
         helper = WavespeedAIImageToImageTask()
-        
+
         # Mock image data
         image_data = b"dummy_image_data"
         mock_encode = mocker.patch("base64.b64encode")
@@ -1581,7 +1584,8 @@ class TestWavespeedAIProvider:
                 "seed": -1
             },
             InferenceProviderMapping(
-                hf_model_id="wavespeed-ai/hidream-e1-full",
+                provider="wavespeed",
+                hf_model_id="HiDream-ai/HiDream-E1-Full",
                 providerId="wavespeed-ai/hidream-e1-full",
                 task="image-to-image",
                 status="live"
@@ -1590,29 +1594,69 @@ class TestWavespeedAIProvider:
 
         assert payload == {
             "image": "data:image/jpeg;base64,base64_encoded_image",
-            "prompt": "The leopard chases its prey", 
+            "prompt": "The leopard chases its prey",
             "guidance_scale": 5,
             "num_inference_steps": 30,
             "seed": -1
         }
         mock_encode.assert_called_once_with(image_data)
-        
+
+    def test_prepare_image_to_video_payload(self, mocker):
+        """Test payload preparation for image-to-video task."""
+        helper = WavespeedAIImageToVideoTask()
+
+        # Mock image data
+        image_data = b"dummy_image_data"
+        mock_encode = mocker.patch("base64.b64encode")
+        mock_encode.return_value.decode.return_value = "base64_encoded_image"
+
+        payload = helper._prepare_payload_as_dict(
+            image_data,
+            {
+                "prompt": "The leopard chases its prey",
+                "guidance_scale": 5,
+                "num_inference_steps": 30,
+                "seed": -1
+            },
+            InferenceProviderMapping(
+                provider="wavespeed",
+                hf_model_id="Wan-AI/Wan2.1-I2V-14B-480P",
+                providerId="wavespeed-ai/wan-2.1/i2v-480p",
+                task="image-to-video",
+                status="live"
+            )
+        )
+
+        assert payload == {
+            "image": "data:image/jpeg;base64,base64_encoded_image",
+            "prompt": "The leopard chases its prey",
+            "guidance_scale": 5,
+            "num_inference_steps": 30,
+            "seed": -1
+        }
+        mock_encode.assert_called_once_with(image_data)
+
     def test_prepare_urls(self):
         """Test URL preparation for different tasks."""
         # Text to Image
         t2i_helper = WavespeedAITextToImageTask()
         t2i_url = t2i_helper._prepare_url("ws_test_key", "wavespeed-ai/flux-schnell")
-        assert t2i_url == "https://api.wavespeed.ai/api/v2/wavespeed-ai/flux-schnell"
+        assert t2i_url == "https://api.wavespeed.ai/api/v3/wavespeed-ai/flux-schnell"
 
         # Text to Video
         t2v_helper = WavespeedAITextToVideoTask()
         t2v_url = t2v_helper._prepare_url("ws_test_key", "wavespeed-ai/wan-2.1/t2v-480p")
-        assert t2v_url == "https://api.wavespeed.ai/api/v2/wavespeed-ai/wan-2.1/t2v-480p"
+        assert t2v_url == "https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.1/t2v-480p"
 
-        # Image to Image  
+        # Image to Image
         i2i_helper = WavespeedAIImageToImageTask()
         i2i_url = i2i_helper._prepare_url("ws_test_key", "wavespeed-ai/hidream-e1-full")
-        assert i2i_url == "https://api.wavespeed.ai/api/v2/wavespeed-ai/hidream-e1-full"
+        assert i2i_url == "https://api.wavespeed.ai/api/v3/wavespeed-ai/hidream-e1-full"
+
+        # Image to Video
+        i2v_helper = WavespeedAIImageToVideoTask()
+        i2v_url = i2v_helper._prepare_url("ws_test_key", "wavespeed-ai/wan-2.1/i2v-480p")
+        assert i2v_url == "https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.1/i2v-480p"
 
 
 class TestZaiProvider:
@@ -1635,6 +1679,7 @@ class TestZaiProvider:
         # Test with HF token (should route through HF proxy)
         url = helper._prepare_url("hf_token", "test-model")
         assert url.startswith("https://router.huggingface.co/zai-org")
+
 
 class TestBaseConversationalTask:
     def test_prepare_route(self):

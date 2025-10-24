@@ -42,8 +42,9 @@ from .replicate import ReplicateImageToImageTask, ReplicateTask, ReplicateTextTo
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
-from .wavespeed_ai import (
+from .wavespeed import (
     WavespeedAIImageToImageTask,
+    WavespeedAIImageToVideoTask,
     WavespeedAITextToImageTask,
     WavespeedAITextToVideoTask,
 )
@@ -73,7 +74,7 @@ PROVIDER_T = Literal[
     "sambanova",
     "scaleway",
     "together",
-    "wavespeed-ai",
+    "wavespeed",
     "zai-org",
 ]
 
@@ -185,10 +186,11 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "conversational": TogetherConversationalTask(),
         "text-generation": TogetherTextGenerationTask(),
     },
-    "wavespeed-ai": {
+    "wavespeed": {
         "text-to-image": WavespeedAITextToImageTask(),
         "text-to-video": WavespeedAITextToVideoTask(),
         "image-to-image": WavespeedAIImageToImageTask(),
+        "image-to-video": WavespeedAIImageToVideoTask(),
     },
     "zai-org": {
         "conversational": ZaiConversationalTask(),

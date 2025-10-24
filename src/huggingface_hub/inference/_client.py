@@ -135,7 +135,7 @@ class InferenceClient:
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
             arguments are mutually exclusive. If a URL is passed as `model` or `base_url` for chat completion, the `(/v1)/chat/completions` suffix path will be appended to the URL.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"clarifai"`, `"cohere"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"openai"`, `"publicai"`, `"replicate"`, `"sambanova"`, `"scaleway"`, `"together"`, `"wavespeed-ai"` or `"zai-org"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"clarifai"`, `"cohere"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"openai"`, `"publicai"`, `"replicate"`, `"sambanova"`, `"scaleway"`, `"together"`, `"wavespeed"` or `"zai-org"`.
             Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
@@ -1322,19 +1322,6 @@ class InferenceClient:
         >>> image.save("tiger.jpg")
         ```
         
-        Example using wavespeed-ai provider directly. Usage will be billed on your wavespeed.ai account.
-        ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient(
-        ...     provider="wavespeed-ai",  # Use wavespeed.ai provider
-        ...     api_key="your-wavespeed-api-key",  # Pass your wavespeed API key 
-        ... )
-        >>> image = client.image_to_image("cat.jpg",
-        ...     "turn the cat into a tiger",
-        ...     model="wavespeed-ai/hidream-e1-full",
-        ... )
-        >>> image.save("tiger.jpg")
-        ```
         """
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="image-to-image", model=model_id)
@@ -2555,19 +2542,6 @@ class InferenceClient:
         >>> image.save("astronaut.png")
         ```
         
-        Example using a third-party provider directly. Usage will be billed on your wavespeed.ai account.
-        ```
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient(
-        ...     provider="wavespeed-ai",  # Use wavespeed.ai provider
-        ...     api_key="wavespeed-ai-api-key",  # Pass your wavespeed.ai API key
-        ... )
-        >>> image = client.text_to_image(
-        ...     "A majestic lion in a fantasy forest",
-        ...     model="wavespeed-ai/flux-schnell",
-        ... )
-        >>> image.save("lion.png")
-        ```
         """
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="text-to-image", model=model_id)
@@ -2667,20 +2641,6 @@ class InferenceClient:
         ...     file.write(video)
         ```
         
-        Example using wavespeed-ai provider directly. Usage will be billed on your wavespeed.ai account.
-        ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient(
-        ...     provider="wavespeed-ai",  # Use wavespeed.ai provider
-        ...     api_key="your-wavespeed-api-key",  # Pass your wavespeed API key 
-        ... )
-        >>> video = client.text_to_video(
-        ...     "A majestic lion running in a fantasy forest",
-        ...     model="wavespeed-ai/wan-2.1/t2v-480p",
-        ... )
-        >>> with open("lion.mp4", "wb") as file:
-        ...     file.write(video)
-        ```
         """
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="text-to-video", model=model_id)
