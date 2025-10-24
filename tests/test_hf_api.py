@@ -4247,6 +4247,14 @@ class UserApiTest(unittest.TestCase):
         members = self.api.list_organization_members("huggingface")
         assert len(list(members)) > 1
 
+    def test_organization_followers(self) -> None:
+        followers = self.api.list_organization_followers("huggingface")
+        first_follower = next(followers)
+        assert isinstance(first_follower, User)
+        assert first_follower.username
+        assert first_follower.fullname
+        assert first_follower.avatar_url
+
     def test_user_followers(self) -> None:
         followers = self.api.list_user_followers("clem")
         assert len(list(followers)) > 500
