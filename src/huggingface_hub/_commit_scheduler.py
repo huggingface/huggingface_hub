@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from io import SEEK_END, SEEK_SET, BytesIO
 from pathlib import Path
 from threading import Lock, Thread
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 
 from .hf_api import DEFAULT_IGNORE_PATTERNS, CommitInfo, CommitOperationAdd, HfApi
 from .utils import filter_repo_objects
@@ -53,9 +53,9 @@ class CommitScheduler:
             Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists.
         token (`str`, *optional*):
             The token to use to commit to the repo. Defaults to the token saved on the machine.
-        allow_patterns (`List[str]` or `str`, *optional*):
+        allow_patterns (`list[str]` or `str`, *optional*):
             If provided, only files matching at least one pattern are uploaded.
-        ignore_patterns (`List[str]` or `str`, *optional*):
+        ignore_patterns (`list[str]` or `str`, *optional*):
             If provided, files matching any of the patterns are not uploaded.
         squash_history (`bool`, *optional*):
             Whether to squash the history of the repo after each commit. Defaults to `False`. Squashing commits is
@@ -108,8 +108,8 @@ class CommitScheduler:
         revision: Optional[str] = None,
         private: Optional[bool] = None,
         token: Optional[str] = None,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
         squash_history: bool = False,
         hf_api: Optional["HfApi"] = None,
     ) -> None:
@@ -138,7 +138,7 @@ class CommitScheduler:
         self.token = token
 
         # Keep track of already uploaded files
-        self.last_uploaded: Dict[Path, float] = {}  # key is local path, value is timestamp
+        self.last_uploaded: dict[Path, float] = {}  # key is local path, value is timestamp
 
         # Scheduler
         if not every > 0:
@@ -205,13 +205,10 @@ class CommitScheduler:
         """
         Push folder to the Hub and return the commit info.
 
-        <Tip warning={true}>
-
-        This method is not meant to be called directly. It is run in the background by the scheduler, respecting a
-        queue mechanism to avoid concurrent commits. Making a direct call to the method might lead to concurrency
-        issues.
-
-        </Tip>
+        > [!WARNING]
+        > This method is not meant to be called directly. It is run in the background by the scheduler, respecting a
+        > queue mechanism to avoid concurrent commits. Making a direct call to the method might lead to concurrency
+        > issues.
 
         The default behavior of `push_to_hub` is to assume an append-only folder. It lists all files in the folder and
         uploads only changed files. If no changes are found, the method returns without committing anything. If you want
@@ -232,7 +229,7 @@ class CommitScheduler:
             prefix = f"{self.path_in_repo.strip('/')}/" if self.path_in_repo else ""
 
             # Filter with pattern + filter out unchanged files + retrieve current file size
-            files_to_upload: List[_FileToUpload] = []
+            files_to_upload: list[_FileToUpload] = []
             for relpath in filter_repo_objects(
                 relpath_to_abspath.keys(), allow_patterns=self.allow_patterns, ignore_patterns=self.ignore_patterns
             ):
@@ -315,9 +312,12 @@ class PartialFileIO(BytesIO):
         return self._size_limit
 
     def __getattribute__(self, name: str):
-        if name.startswith("_") or name in ("read", "tell", "seek"):  # only 3 public methods supported
+        if name.startswith("_") or name in ("read", "tell", "seek", "fileno"):  # only 4 public methods supported
             return super().__getattribute__(name)
         raise NotImplementedError(f"PartialFileIO does not support '{name}'.")
+
+    def fileno(self):
+        raise AttributeError("PartialFileIO does not have a fileno.")
 
     def tell(self) -> int:
         """Return the current file position."""

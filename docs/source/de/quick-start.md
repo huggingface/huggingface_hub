@@ -53,9 +53,9 @@ In vielen Fällen müssen Sie mit einem Hugging Face-Konto angemeldet sein, um m
 Sobald Sie Ihr "User Access Token" haben, führen Sie den folgenden Befehl in Ihrem Terminal aus:
 
 ```bash
-huggingface-cli login
+hf auth login
 # or using an environment variable
-huggingface-cli login --token $HUGGINGFACE_TOKEN
+hf auth login --token $HUGGINGFACE_TOKEN
 ```
 
 Alternativ können Sie sich auch programmatisch in einem Notebook oder einem Skript mit [`login`] anmelden:
@@ -67,13 +67,10 @@ Alternativ können Sie sich auch programmatisch in einem Notebook oder einem Skr
 
 Es ist auch möglich, sich programmatisch anzumelden, ohne aufgefordert zu werden, Ihr Token einzugeben, indem Sie das Token direkt an [`login`] weitergeben, wie z.B. `login(token="hf_xxx")`. Seien Sie vorsichtig, wenn Sie Ihren Quellcode teilen. Es ist eine bewährte Methode, das Token aus einem sicheren Tresor/Vault zu laden, anstatt es explizit in Ihrer Codebasis/Notebook zu speichern.
 
-Sie können nur auf 1 Konto gleichzeitig angemeldet sein. Wenn Sie Ihren Computer mit einem neuen Konto anmelden, werden Sie vom vorherigen abgemeldet. Mit dem Befehl `huggingface-cli whoami` stellen Sie sicher, dass Sie immer wissen, welches Konto Sie gerade verwenden. Wenn Sie mehrere Konten im selben Skript verwalten möchten, können Sie Ihr Token bereitstellen, wenn Sie jede Methode aufrufen. Dies ist auch nützlich, wenn Sie kein Token auf Ihrem Computer speichern möchten.
+Sie können nur auf 1 Konto gleichzeitig angemeldet sein. Wenn Sie Ihren Computer mit einem neuen Konto anmelden, werden Sie vom vorherigen abgemeldet. Mit dem Befehl `hf auth whoami` stellen Sie sicher, dass Sie immer wissen, welches Konto Sie gerade verwenden. Wenn Sie mehrere Konten im selben Skript verwalten möchten, können Sie Ihr Token bereitstellen, wenn Sie jede Methode aufrufen. Dies ist auch nützlich, wenn Sie kein Token auf Ihrem Computer speichern möchten.
 
-<Tip warning={true}>
-
-Sobald Sie angemeldet sind, werden alle Anfragen an den Hub - auch Methoden, die nicht unbedingt eine Authentifizierung erfordern - standardmäßig Ihr Zugriffstoken verwenden. Wenn Sie die implizite Verwendung Ihres Tokens deaktivieren möchten, sollten Sie die Umgebungsvariable `HF_HUB_DISABLE_IMPLICIT_TOKEN` setzen.
-
-</Tip>
+> [!WARNING]
+> Sobald Sie angemeldet sind, werden alle Anfragen an den Hub - auch Methoden, die nicht unbedingt eine Authentifizierung erfordern - standardmäßig Ihr Zugriffstoken verwenden. Wenn Sie die implizite Verwendung Ihres Tokens deaktivieren möchten, sollten Sie die Umgebungsvariable `HF_HUB_DISABLE_IMPLICIT_TOKEN` setzen.
 
 ## Eine Repository erstellen
 
@@ -95,11 +92,8 @@ If you want your repository to be private, then:
 
 Private Repositories sind für niemanden außer Ihnen selbst sichtbar.
 
-<Tip>
-
-Um eine Repository zu erstellen oder Inhalte auf den Hub zu pushen, müssen Sie ein "User Access Token" bereitstellen, das die Schreibberechtigung (`write`) hat. Sie können die Berechtigung auswählen, wenn Sie das Token auf Ihrer [Einstellungsseite](https://huggingface.co/settings/tokens) erstellen.
-
-</Tip>
+> [!TIP]
+> Um eine Repository zu erstellen oder Inhalte auf den Hub zu pushen, müssen Sie ein "User Access Token" bereitstellen, das die Schreibberechtigung (`write`) hat. Sie können die Berechtigung auswählen, wenn Sie das Token auf Ihrer [Einstellungsseite](https://huggingface.co/settings/tokens) erstellen.
 
 ## Dateien hochladen
 

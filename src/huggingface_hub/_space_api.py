@@ -15,7 +15,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Optional
+from typing import Optional
 
 from huggingface_hub.utils import parse_datetime
 
@@ -128,9 +128,9 @@ class SpaceRuntime:
     requested_hardware: Optional[SpaceHardware]
     sleep_time: Optional[int]
     storage: Optional[SpaceStorage]
-    raw: Dict
+    raw: dict
 
-    def __init__(self, data: Dict) -> None:
+    def __init__(self, data: dict) -> None:
         self.stage = data["stage"]
         self.hardware = data.get("hardware", {}).get("current")
         self.requested_hardware = data.get("hardware", {}).get("requested")
@@ -160,7 +160,7 @@ class SpaceVariable:
     description: Optional[str]
     updated_at: Optional[datetime]
 
-    def __init__(self, key: str, values: Dict) -> None:
+    def __init__(self, key: str, values: dict) -> None:
         self.key = key
         self.value = values["value"]
         self.description = values.get("description")

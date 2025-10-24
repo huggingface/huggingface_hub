@@ -42,6 +42,11 @@ def generate_async_client_code(code: str) -> str:
     # Refactor `.post` method to be async + adapt calls
     code = _make_inner_post_async(code)
     code = _await_inner_post_method_call(code)
+
+    # Handle __enter__, __exit__, close
+    code = _remove_enter_exit_stack(code)
+
+    # Use _async_stream_text_generation_response
     code = _use_async_streaming_util(code)
 
     # Make all tasks-method async
@@ -54,20 +59,10 @@ def generate_async_client_code(code: str) -> str:
     code = _adapt_chat_completion_to_async(code)
 
     # Update some docstrings
-    code = _rename_HTTPError_to_ClientResponseError_in_docstring(code)
     code = _update_examples_in_public_methods(code)
-
-    # Adapt get_model_status
-    code = _adapt_get_model_status(code)
-
-    # Adapt list_deployed_models
-    code = _adapt_list_deployed_models(code)
 
     # Adapt /info and /health endpoints
     code = _adapt_info_and_health_endpoints(code)
-
-    # Add _get_client_session
-    code = _add_get_client_session(code)
 
     # Adapt the proxy client (for client.chat.completions.create)
     code = _adapt_proxy_client(code)
@@ -142,10 +137,13 @@ def _add_imports(code: str) -> str:
         r"(\nimport .*?\n)",
         repl=(
             r"\1"
-            + "from .._common import _async_yield_from, _import_aiohttp\n"
+            + "from .._common import _async_yield_from\n"
+            + "from huggingface_hub.utils import get_async_session\n"
             + "from typing import AsyncIterable\n"
+            + "from contextlib import AsyncExitStack\n"
             + "from typing import Set\n"
             + "import asyncio\n"
+            + "import httpx\n"
         ),
         string=code,
         count=1,
@@ -169,73 +167,52 @@ def _rename_to_AsyncInferenceClient(code: str) -> str:
 
 
 ASYNC_INNER_POST_CODE = """
-        aiohttp = _import_aiohttp()
-
         # TODO: this should be handled in provider helpers directly
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        with _open_as_binary(request_parameters.data) as data_as_binary:
-            # Do not use context manager as we don't want to close the connection immediately when returning
-            # a stream
-            session = self._get_client_session(headers=request_parameters.headers)
-
-            try:
-                response = await session.post(request_parameters.url, json=request_parameters.json, data=data_as_binary, proxy=self.proxies)
-                response_error_payload = None
-                if response.status != 200:
-                    try:
-                        response_error_payload = await response.json()  # get payload before connection closed
-                    except Exception:
-                        pass
-                response.raise_for_status()
-                if stream:
-                    return _async_yield_from(session, response)
-                else:
-                    content = await response.read()
-                    await session.close()
-                    return content
-            except asyncio.TimeoutError as error:
-                await session.close()
-                # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
-            except aiohttp.ClientResponseError as error:
-                error.response_error_payload = response_error_payload
-                await session.close()
-                raise error
-            except Exception:
-                await session.close()
-                raise
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        await self.close()
-
-    def __del__(self):
-        if len(self._sessions) > 0:
-            warnings.warn(
-                "Deleting 'AsyncInferenceClient' client but some sessions are still open. "
-                "This can happen if you've stopped streaming data from the server before the stream was complete. "
-                "To close the client properly, you must call `await client.close()` "
-                "or use an async context (e.g. `async with AsyncInferenceClient(): ...`."
-            )
-
-    async def close(self):
-        \"""Close all open sessions.
-
-        By default, 'aiohttp.ClientSession' objects are closed automatically when a call is completed. However, if you
-        are streaming data from the server and you stop before the stream is complete, you must call this method to
-        close the session properly.
-
-        Another possibility is to use an async context (e.g. `async with AsyncInferenceClient(): ...`).
-        \"""
-        await asyncio.gather(*[session.close() for session in self._sessions.keys()])"""
+        try:
+            client = await self._get_async_client()
+            if stream:
+                response = await self.exit_stack.enter_async_context(
+                    client.stream(
+                        "POST",
+                        request_parameters.url,
+                        json=request_parameters.json,
+                        data=request_parameters.data,
+                        headers=request_parameters.headers,
+                        cookies=self.cookies,
+                        timeout=self.timeout,
+                    )
+                )
+                hf_raise_for_status(response)
+                return _async_yield_from(client, response)
+            else:
+                response = await client.post(
+                    request_parameters.url,
+                    json=request_parameters.json,
+                    data=request_parameters.data,
+                    headers=request_parameters.headers,
+                    cookies=self.cookies,
+                    timeout=self.timeout,
+                )
+                hf_raise_for_status(response)
+                return response.content
+        except asyncio.TimeoutError as error:
+            # Convert any `TimeoutError` to a `InferenceTimeoutError`
+            raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
+        except HfHubHTTPError as error:
+            if error.response.status_code == 422 and request_parameters.task != "unknown":
+                msg = str(error.args[0])
+                if len(error.response.text) > 0:
+                    msg += f"{os.linesep}{error.response.text}{os.linesep}"
+                error.args = (msg,) + error.args[1:]
+            raise
+            """
 
 
 def _make_inner_post_async(code: str) -> str:
-    # Update AsyncInferenceClient._inner_post() implementation (use aiohttp instead of requests)
+    # Update AsyncInferenceClient._inner_post() implementation
     code = re.sub(
         r"""
         def[ ]_inner_post\( # definition
@@ -250,12 +227,52 @@ def _make_inner_post_async(code: str) -> str:
     )
     # Update `post`'s type annotations
     code = code.replace("    def _inner_post(", "    async def _inner_post(")
-    return code.replace("Iterable[bytes]", "AsyncIterable[bytes]")
+    return code
 
 
-def _rename_HTTPError_to_ClientResponseError_in_docstring(code: str) -> str:
-    # Update `raises`-part in docstrings
-    return code.replace("`HTTPError`:", "`aiohttp.ClientResponseError`:")
+ENTER_EXIT_STACK_SYNC_CODE = """
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.exit_stack.close()
+
+    def close(self):
+        self.exit_stack.close()"""
+
+ENTER_EXIT_STACK_ASYNC_CODE = """
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.close()
+
+    async def close(self):
+        \"""Close the client.
+
+        This method is automatically called when using the client as a context manager.
+        \"""
+        await self.exit_stack.aclose()
+
+    async def _get_async_client(self):
+        \"""Get a unique async client for this AsyncInferenceClient instance.
+
+        Returns the same client instance on subsequent calls, ensuring proper
+        connection reuse and resource management through the exit stack.
+        \"""
+        if self._async_client is None:
+            self._async_client = await self.exit_stack.enter_async_context(get_async_session())
+        return self._async_client
+"""
+
+
+def _remove_enter_exit_stack(code: str) -> str:
+    code = code.replace(
+        "exit_stack = ExitStack()",
+        "exit_stack = AsyncExitStack()\n        self._async_client: Optional[httpx.AsyncClient] = None",
+    )
+    code = code.replace(ENTER_EXIT_STACK_SYNC_CODE, ENTER_EXIT_STACK_ASYNC_CODE)
+    return code
 
 
 def _make_tasks_methods_async(code: str) -> str:
@@ -279,22 +296,7 @@ def _make_tasks_methods_async(code: str) -> str:
 
 
 def _adapt_text_generation_to_async(code: str) -> str:
-    # Text-generation task has to be handled specifically since it has a recursive call mechanism (to retry on non-tgi
-    # servers)
-
-    # Catch `aiohttp` error instead of `requests` error
-    code = code.replace(
-        """
-        except HTTPError as e:
-            match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
-            if isinstance(e, BadRequestError) and match:
-    """,
-        """
-        except _import_aiohttp().ClientResponseError as e:
-            match = MODEL_KWARGS_NOT_USED_REGEX.search(e.response_error_payload["error"])
-            if e.status == 400 and match:
-    """,
-    )
+    # Text-generation task has to be handled specifically since it has a recursive call mechanism (to retry on non-tgi servers)
 
     # Await recursive call
     code = code.replace(
@@ -308,24 +310,8 @@ def _adapt_text_generation_to_async(code: str) -> str:
 
     # Update return types: Iterable -> AsyncIterable
     code = code.replace(
-        ") -> Iterable[str]:",
-        ") -> AsyncIterable[str]:",
-    )
-    code = code.replace(
-        ") -> Union[bytes, Iterable[bytes]]:",
-        ") -> Union[bytes, AsyncIterable[bytes]]:",
-    )
-    code = code.replace(
-        ") -> Iterable[TextGenerationStreamOutput]:",
-        ") -> AsyncIterable[TextGenerationStreamOutput]:",
-    )
-    code = code.replace(
-        ") -> Union[TextGenerationOutput, Iterable[TextGenerationStreamOutput]]:",
-        ") -> Union[TextGenerationOutput, AsyncIterable[TextGenerationStreamOutput]]:",
-    )
-    code = code.replace(
-        ") -> Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]:",
-        ") -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:",
+        "Iterable[",
+        "AsyncIterable[",
     )
 
     return code
@@ -336,16 +322,6 @@ def _adapt_chat_completion_to_async(code: str) -> str:
     code = code.replace(
         "text_generation_output = self.text_generation(",
         "text_generation_output = await self.text_generation(",
-    )
-
-    # Update return types: Iterable -> AsyncIterable
-    code = code.replace(
-        ") -> Iterable[ChatCompletionStreamOutput]:",
-        ") -> AsyncIterable[ChatCompletionStreamOutput]:",
-    )
-    code = code.replace(
-        ") -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:",
-        ") -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]:",
     )
 
     return code
@@ -401,138 +377,15 @@ def _use_async_streaming_util(code: str) -> str:
     return code
 
 
-def _adapt_get_model_status(code: str) -> str:
-    sync_snippet = """
-        response = get_session().get(url, headers=build_hf_headers(token=self.token))
-        hf_raise_for_status(response)
-        response_data = response.json()"""
-
-    async_snippet = """
-        async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
-            response.raise_for_status()
-            response_data = await response.json()"""
-
-    return code.replace(sync_snippet, async_snippet)
-
-
-def _adapt_list_deployed_models(code: str) -> str:
-    sync_snippet = """
-        for framework in frameworks:
-            response = get_session().get(f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token))
-            hf_raise_for_status(response)
-            _unpack_response(framework, response.json())""".strip()
-
-    async_snippet = """
-        async def _fetch_framework(framework: str) -> None:
-            async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-                response = await client.get(f"{INFERENCE_ENDPOINT}/framework/{framework}", proxy=self.proxies)
-                response.raise_for_status()
-                _unpack_response(framework, await response.json())
-
-        import asyncio
-
-        await asyncio.gather(*[_fetch_framework(framework) for framework in frameworks])""".strip()
-
-    return code.replace(sync_snippet, async_snippet)
-
-
 def _adapt_info_and_health_endpoints(code: str) -> str:
-    info_sync_snippet = """
-        response = get_session().get(url, headers=build_hf_headers(token=self.token))
-        hf_raise_for_status(response)
-        return response.json()"""
+    get_url_sync_snippet = """
+        response = get_session().get(url, headers=build_hf_headers(token=self.token))"""
 
-    info_async_snippet = """
-        async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
-            response.raise_for_status()
-            return await response.json()"""
+    get_url_async_snippet = """
+        client = await self._get_async_client()
+        response = await client.get(url, headers=build_hf_headers(token=self.token))"""
 
-    code = code.replace(info_sync_snippet, info_async_snippet)
-
-    health_sync_snippet = """
-        response = get_session().get(url, headers=build_hf_headers(token=self.token))
-        return response.status_code == 200"""
-
-    health_async_snippet = """
-        async with self._get_client_session(headers=build_hf_headers(token=self.token)) as client:
-            response = await client.get(url, proxy=self.proxies)
-            return response.status == 200"""
-
-    return code.replace(health_sync_snippet, health_async_snippet)
-
-
-def _add_get_client_session(code: str) -> str:
-    # Add trust_env as parameter
-    code = _add_before(code, "proxies: Optional[Any] = None,", "trust_env: bool = False,")
-    code = _add_before(code, "\n        self.proxies = proxies\n", "\n        self.trust_env = trust_env")
-
-    # Document `trust_env` parameter
-    code = _add_before(
-        code,
-        "\n        proxies (`Any`, `optional`):",
-        """
-        trust_env ('bool', 'optional'):
-            Trust environment settings for proxy configuration if the parameter is `True` (`False` by default).""",
-    )
-
-    # insert `_get_client_session` before `get_endpoint_info` method
-    client_session_code = """
-
-    def _get_client_session(self, headers: Optional[Dict] = None) -> "ClientSession":
-        aiohttp = _import_aiohttp()
-        client_headers = self.headers.copy()
-        if headers is not None:
-            client_headers.update(headers)
-
-        # Return a new aiohttp ClientSession with correct settings.
-        session = aiohttp.ClientSession(
-            headers=client_headers,
-            cookies=self.cookies,
-            timeout=aiohttp.ClientTimeout(self.timeout),
-            trust_env=self.trust_env,
-        )
-
-        # Keep track of sessions to close them later
-        self._sessions[session] = set()
-
-        # Override the `._request` method to register responses to be closed
-        session._wrapped_request = session._request
-
-        async def _request(method, url, **kwargs):
-            response = await session._wrapped_request(method, url, **kwargs)
-            self._sessions[session].add(response)
-            return response
-
-        session._request = _request
-
-        # Override the 'close' method to
-        # 1. close ongoing responses
-        # 2. deregister the session when closed
-        session._close = session.close
-
-        async def close_session():
-            for response in self._sessions[session]:
-                response.close()
-            await session._close()
-            self._sessions.pop(session, None)
-
-        session.close = close_session
-        return session
-
-"""
-    code = _add_before(code, "\n    async def get_endpoint_info(", client_session_code)
-
-    # Add self._sessions attribute in __init__
-    code = _add_before(
-        code,
-        "\n    def __repr__(self):\n",
-        "\n        # Keep track of the sessions to close them properly"
-        "\n        self._sessions: Dict['ClientSession', Set['ClientResponse']] = dict()",
-    )
-
-    return code
+    return code.replace(get_url_sync_snippet, get_url_async_snippet)
 
 
 def _adapt_proxy_client(code: str) -> str:

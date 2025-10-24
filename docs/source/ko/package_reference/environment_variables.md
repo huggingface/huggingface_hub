@@ -57,10 +57,6 @@ Hub에 인증하기 위한 사용자 액세스 토큰을 구성합니다. 이 �
 
 더 자세한 정보를 알아보고 싶다면, [logging reference](../package_reference/utilities#huggingface_hub.utils.logging.get_verbosity)를 살펴보세요.
 
-### HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD[[hfhublocaldirautosymlinkthreshold]]
-
-이 환경 변수는 더 이상 사용되지 않으며 이제 `huggingface_hub`에서 무시됩니다. 로컬 디렉터리로 파일을 다운로드할 때 더 이상 심볼릭 링크에 의존하지 않습니다.
-
 ### HF_HUB_ETAG_TIMEOUT[[hfhubetagtimeout]]
 
 파일을 다운로드하기 전에 리포지토리에서 최신 메타데이터를 가져올 때 서버 응답을 기다리는 시간(초)을 정의하는 정수 값입니다. 요청 시간이 초과되면 `huggingface_hub`는 기본적으로 로컬에 캐시된 파일을 사용합니다. 값을 낮게 설정하면 이미 파일을 캐시한 연결 속도가 느린 컴퓨터의 워크플로 속도가 빨라집니다. 값이 클수록 더 많은 경우에서 메타데이터 호출이 성공할 수 있습니다. 기본값은 10초입니다.
@@ -128,11 +124,11 @@ Hub에서 `hf_transfer`를 사용하여 더 빠르게 업로드 및 다운로드
 
 Hugging Face 생태계의 모든 환경 변수를 표준화하기 위해 일부 변수는 사용되지 않는 것으로 표시되었습니다. 해당 변수는 여전히 작동하지만 더 이상 대체한 변수보다 우선하지 않습니다. 다음 표에는 사용되지 않는 변수와 해당 대체 변수가 간략하게 설명되어 있습니다:
 
-| 사용되지 않는 변수 | 대체 변수 |
-| --- | --- |
-| `HUGGINGFACE_HUB_CACHE` | `HF_HUB_CACHE` |
-| `HUGGINGFACE_ASSETS_CACHE` | `HF_ASSETS_CACHE` |
-| `HUGGING_FACE_HUB_TOKEN` | `HF_TOKEN` |
+| 사용되지 않는 변수          | 대체 변수          |
+| --------------------------- | ------------------ |
+| `HUGGINGFACE_HUB_CACHE`     | `HF_HUB_CACHE`     |
+| `HUGGINGFACE_ASSETS_CACHE`  | `HF_ASSETS_CACHE`  |
+| `HUGGING_FACE_HUB_TOKEN`    | `HF_TOKEN`         |
 | `HUGGINGFACE_HUB_VERBOSITY` | `HF_HUB_VERBOSITY` |
 
 ## 외부 도구[[from-external-tools]]
@@ -145,7 +141,7 @@ Hugging Face 생태계의 모든 환경 변수를 표준화하기 위해 일부 
 
 ### NO_COLOR[[nocolor]]
 
-불리언 값입니다. 이 값을 설정하면 `huggingface-cli` 도구는 ANSI 색상을 출력하지 않습니다. [no-color.org](https://no-color.org/)를 참조하세요.
+불리언 값입니다. 이 값을 설정하면 `hf` 도구는 ANSI 색상을 출력하지 않습니다. [no-color.org](https://no-color.org/)를 참조하세요.
 
 ### XDG_CACHE_HOME[[xdgcachehome]]
 

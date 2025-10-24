@@ -25,15 +25,12 @@ from concurrent.futures import Future
 from dataclasses import fields
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Set, Union, get_args
+from typing import Optional, Union, get_args
 from unittest.mock import Mock, patch
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 import pytest
-import requests
-from requests.exceptions import HTTPError
 
-import huggingface_hub.lfs
 from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage, constants
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
@@ -60,6 +57,7 @@ from huggingface_hub.hf_api import (
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
     InferenceEndpoint,
+    InferenceProviderMapping,
     ModelInfo,
     RepoSibling,
     RepoUrl,
@@ -180,7 +178,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
     def test_whoami_with_implicit_token_from_login(self, mock_get_token: Mock) -> None:
-        """Test using `whoami` after a `huggingface-cli login`."""
+        """Test using `whoami` after a `hf auth login`."""
         with patch.object(self._api, "token", None):  # no default token
             info = self._api.whoami()
         self.assertEqual(info["name"], USER)
@@ -196,7 +194,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         # test for #751
         # See https://github.com/huggingface/huggingface_hub/issues/751
         with self.assertRaisesRegex(
-            requests.exceptions.HTTPError,
+            HfHubHTTPError,
             re.compile(
                 r"404 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
                 flags=re.DOTALL,
@@ -207,23 +205,11 @@ class HfApiEndpointsTest(HfApiCommonTest):
     def test_delete_repo_missing_ok(self) -> None:
         self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
-    def test_update_repo_visibility(self):
-        repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
-
-        self._api.update_repo_settings(repo_id=repo_id, private=True)
-        assert self._api.model_info(repo_id).private
-
-        self._api.update_repo_settings(repo_id=repo_id, private=False)
-        assert not self._api.model_info(repo_id).private
-
-        self._api.delete_repo(repo_id=repo_id)
-
     def test_move_repo_normal_usage(self):
-        repo_id = f"{USER}/{repo_name()}"
-        new_repo_id = f"{USER}/{repo_name()}"
-
         # Spaces not tested on staging (error 500)
         for repo_type in [None, constants.REPO_TYPE_MODEL, constants.REPO_TYPE_DATASET]:
+            repo_id = f"{USER}/{repo_name()}"
+            new_repo_id = f"{USER}/{repo_name()}"
             self._api.create_repo(repo_id=repo_id, repo_type=repo_type)
             self._api.move_repo(from_id=repo_id, to_id=new_repo_id, repo_type=repo_type)
             self._api.delete_repo(repo_id=new_repo_id, repo_type=repo_type)
@@ -274,24 +260,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
                 assert info.gated == gated_value
                 assert info.private == private_value
 
-    @use_tmp_repo(repo_type="model")
-    def test_update_repo_settings_xet_enabled(self, repo_url: RepoUrl):
-        repo_id = repo_url.repo_id
-        self._api.update_repo_settings(repo_id=repo_id, xet_enabled=True)
-        info = self._api.model_info(repo_id, expand="xetEnabled")
-        assert info.xet_enabled
-
-    @expect_deprecation("get_token_permission")
-    def test_get_token_permission_on_oauth_token(self):
-        whoami = {
-            "type": "user",
-            "auth": {"type": "oauth", "expiresAt": "2024-10-24T19:43:43.000Z"},
-            # ...
-            # other values are ignored as we only need to check the "auth" value
-        }
-        with patch.object(self._api, "whoami", return_value=whoami):
-            assert self._api.get_token_permission() is None
-
 
 class CommitApiTest(HfApiCommonTest):
     def setUp(self) -> None:
@@ -339,8 +307,8 @@ class CommitApiTest(HfApiCommonTest):
             path_in_repo="temp/new_file.md",
             repo_id=repo_id,
         )
-        self.assertEqual(return_val, f"{repo_url}/blob/main/temp/new_file.md")
-        self.assertIsInstance(return_val, CommitInfo)
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
@@ -361,7 +329,8 @@ class CommitApiTest(HfApiCommonTest):
                 path_in_repo="temp/new_file.md",
                 repo_id=repo_id,
             )
-        self.assertEqual(return_val, f"{repo_url}/blob/main/temp/new_file.md")
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
@@ -376,7 +345,8 @@ class CommitApiTest(HfApiCommonTest):
             path_in_repo="temp/new_file.md",
             repo_id=repo_id,
         )
-        self.assertEqual(return_val, f"{repo_url}/blob/main/temp/new_file.md")
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
@@ -445,8 +415,9 @@ class CommitApiTest(HfApiCommonTest):
             repo_id=repo_id,
             create_pr=True,
         )
-        self.assertEqual(return_val, f"{repo_url}/blob/{quote('refs/pr/1', safe='')}/temp/new_file.md")
-        self.assertIsInstance(return_val, CommitInfo)
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
+        assert return_val.pr_revision == "refs/pr/1"
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(
@@ -483,19 +454,14 @@ class CommitApiTest(HfApiCommonTest):
 
         # Upload folder
         url = self._api.upload_folder(folder_path=self.tmp_dir, path_in_repo="temp/dir", repo_id=repo_id)
-        self.assertEqual(
-            url,
-            f"{self._api.endpoint}/{repo_id}/tree/main/temp/dir",
-        )
-        self.assertIsInstance(url, CommitInfo)
+        assert isinstance(url, CommitInfo)
+        assert url.startswith(f"{repo_url}/commit/")
 
         # Check files are uploaded
         for rpath in ["temp", "nested/file.bin"]:
             local_path = os.path.join(self.tmp_dir, rpath)
             remote_path = f"temp/dir/{rpath}"
-            filepath = hf_hub_download(
-                repo_id=repo_id, filename=remote_path, revision="main", use_auth_token=self._token
-            )
+            filepath = hf_hub_download(repo_id=repo_id, filename=remote_path, revision="main", token=self._token)
             assert filepath is not None
             with open(filepath, "rb") as downloaded_file:
                 content = downloaded_file.read()
@@ -515,20 +481,15 @@ class CommitApiTest(HfApiCommonTest):
         return_val = self._api.upload_folder(
             folder_path=self.tmp_dir, path_in_repo="temp/dir", repo_id=repo_id, create_pr=True
         )
-        self.assertEqual(return_val, f"{self._api.endpoint}/{repo_id}/tree/refs%2Fpr%2F1/temp/dir")
+        assert isinstance(return_val, CommitInfo)
+        assert return_val.startswith(f"{repo_url}/commit/")
+        assert return_val.pr_revision == "refs/pr/1"
 
         # Check files are uploaded
         for rpath in ["temp", "nested/file.bin"]:
             local_path = os.path.join(self.tmp_dir, rpath)
             filepath = hf_hub_download(repo_id=repo_id, filename=f"temp/dir/{rpath}", revision="refs/pr/1")
             assert Path(local_path).read_bytes() == Path(filepath).read_bytes()
-
-    def test_upload_folder_default_path_in_repo(self):
-        REPO_NAME = repo_name("upload_folder_to_root")
-        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
-        url = self._api.upload_folder(folder_path=self.tmp_dir, repo_id=f"{USER}/{REPO_NAME}")
-        # URL to root of repository
-        self.assertEqual(url, f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/main/")
 
     @use_tmp_repo()
     def test_upload_folder_git_folder_excluded(self, repo_url: RepoUrl) -> None:
@@ -606,7 +567,7 @@ class CommitApiTest(HfApiCommonTest):
         self.assertEqual(resp.pr_revision, "refs/pr/1")
 
         # File doesn't exist on main...
-        with self.assertRaises(HTTPError) as ctx:
+        with self.assertRaises(HfHubHTTPError) as ctx:
             # Should raise a 404
             self._api.hf_hub_download(repo_id, "buffer")
             self.assertEqual(ctx.exception.response.status_code, 404)
@@ -707,7 +668,7 @@ class CommitApiTest(HfApiCommonTest):
             self.assertIsNone(resp.pr_num)
             self.assertIsNone(resp.pr_revision)
 
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             # Should raise a 404
             hf_hub_download(repo_id, "temp/new_file.md")
 
@@ -736,7 +697,7 @@ class CommitApiTest(HfApiCommonTest):
         operations = [
             CommitOperationAdd(path_in_repo="buffer", path_or_fileobj=b"Buffer data"),
         ]
-        with self.assertRaises(HTTPError) as exc_ctx:
+        with self.assertRaises(HfHubHTTPError) as exc_ctx:
             self._api.create_commit(
                 operations=operations,
                 commit_message="Test create_commit",
@@ -1349,18 +1310,18 @@ class HfApiDeleteFolderTest(HfApiCommonTest):
         )
 
         with self.assertRaises(EntryNotFoundError):
-            hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
+            hf_hub_download(self.repo_id, "1/file_1.md", token=self._token)
 
         with self.assertRaises(EntryNotFoundError):
-            hf_hub_download(self.repo_id, "1/file_2.md", use_auth_token=self._token)
+            hf_hub_download(self.repo_id, "1/file_2.md", token=self._token)
 
         # Still exists
-        hf_hub_download(self.repo_id, "2/file_3.md", use_auth_token=self._token)
+        hf_hub_download(self.repo_id, "2/file_3.md", token=self._token)
 
     def test_create_commit_delete_folder_explicit(self):
         self._api.delete_folder(path_in_repo="1", repo_id=self.repo_id)
         with self.assertRaises(EntryNotFoundError):
-            hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
+            hf_hub_download(self.repo_id, "1/file_1.md", token=self._token)
 
     def test_create_commit_implicit_delete_folder_is_ok(self):
         self._api.create_commit(
@@ -1591,7 +1552,7 @@ class HfApiTagEndpointTest(HfApiCommonTest):
     @use_tmp_repo("model")
     def test_invalid_tag_name(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` with an invalid tag name."""
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.create_tag(repo_url.repo_id, tag="invalid tag")
 
     @use_tmp_repo("model")
@@ -1659,10 +1620,10 @@ class HfApiBranchEndpointTest(HfApiCommonTest):
         """Test `create_branch` on existing branch."""
         self._api.create_branch(repo_url.repo_id, branch="cool-branch")
 
-        with self.assertRaisesRegex(HfHubHTTPError, "Reference already exists"):
+        with self.assertRaisesRegex(HfHubHTTPError, r"Reference refs/heads/cool-branch already exists"):
             self._api.create_branch(repo_url.repo_id, branch="cool-branch")
 
-        with self.assertRaisesRegex(HfHubHTTPError, "Reference already exists"):
+        with self.assertRaisesRegex(HfHubHTTPError, r"Reference refs/heads/main already exists"):
             self._api.create_branch(repo_url.repo_id, branch="main")
 
         # exist_ok=True => doesn't fail
@@ -1759,7 +1720,7 @@ class HfApiDeleteFilesTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=self.repo_id)
         super().tearDown()
 
-    def remote_files(self) -> Set[set]:
+    def remote_files(self) -> set[set]:
         return set(self._api.list_repo_files(repo_id=self.repo_id))
 
     def test_delete_single_file(self):
@@ -1830,6 +1791,12 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert isinstance(models[0], ModelInfo)
         for model in models:
             assert model.id.startswith("google/")
+
+    def test_list_models_apps(self):
+        models = list(self._api.list_models(apps="ollama", full=True, limit=500))
+        assert len(models) > 1
+        for model in models:
+            assert any(sibling.rfilename.lower().endswith(".gguf") for sibling in model.siblings)
 
     def test_list_models_search(self):
         models = list(self._api.list_models(search="bert"))
@@ -2167,6 +2134,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert any(dataset.card_data is not None for dataset in self._api.list_datasets(full=True, limit=50))
         assert all(dataset.card_data is None for dataset in self._api.list_datasets(full=False, limit=50))
 
+    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_tag(self):
         for dataset in self._api.list_datasets(tags="fiftyone", limit=5):
             assert "fiftyone" in dataset.tags
@@ -2190,7 +2158,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert files is not None
         self._check_siblings_metadata(files)
 
-    def _check_siblings_metadata(self, files: List[RepoSibling]):
+    def _check_siblings_metadata(self, files: list[RepoSibling]):
         """Check requested metadata has been received from the server."""
         at_least_one_lfs = False
         for file in files:
@@ -2278,33 +2246,33 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert len(models) == 0
 
     def test_filter_models_with_library(self):
-        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", library="tensorflow"))
+        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", filter="tensorflow"))
         assert len(models) == 0
 
-        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", library="pytorch"))
+        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", filter="pytorch"))
         assert len(models) > 0
 
     def test_filter_models_with_task(self):
-        models = list(self._api.list_models(task="fill-mask", model_name="albert-base-v2"))
+        models = list(self._api.list_models(filter="fill-mask", model_name="albert-base-v2"))
         assert models[0].pipeline_tag == "fill-mask"
         assert "albert" in models[0].id
         assert "base" in models[0].id
         assert "v2" in models[0].id
 
-        models = list(self._api.list_models(task="dummytask"))
+        models = list(self._api.list_models(filter="dummytask"))
         assert len(models) == 0
 
     def test_filter_models_by_language(self):
         for language in ["en", "fr", "zh"]:
-            for model in self._api.list_models(language=language, limit=5):
+            for model in self._api.list_models(filter=language, limit=5):
                 assert language in model.tags
 
     def test_filter_models_with_tag(self):
-        models = list(self._api.list_models(author="HuggingFaceBR4", tags=["tensorboard"]))
+        models = list(self._api.list_models(author="HuggingFaceBR4", filter=["tensorboard"]))
         assert models[0].id.startswith("HuggingFaceBR4/")
         assert "tensorboard" in models[0].tags
 
-        models = list(self._api.list_models(tags="dummytag"))
+        models = list(self._api.list_models(filter=["dummytag"]))
         assert len(models) == 0
 
     def test_filter_models_with_card_data(self):
@@ -2511,6 +2479,40 @@ class HfApiPublicProductionTest(unittest.TestCase):
                 "HuggingFaceH4/zephyr-7b-beta", "pytorch_model-00001-of-00008.bin"
             )
 
+    def test_inference_provider_mapping_model_info(self):
+        model = self._api.model_info("deepseek-ai/DeepSeek-R1-0528", expand="inferenceProviderMapping")
+        mapping = model.inference_provider_mapping
+        assert isinstance(mapping, list)
+        assert len(mapping) > 0
+        for item in mapping:
+            assert isinstance(item, InferenceProviderMapping)
+            assert item.provider is not None
+            assert item.hf_model_id == "deepseek-ai/DeepSeek-R1-0528"
+            assert item.provider_id is not None
+
+    def test_inference_provider_mapping_list_models(self):
+        models = list(
+            self._api.list_models(author="deepseek-ai", expand="inferenceProviderMapping", limit=1, inference="warm")
+        )
+        assert len(models) > 0
+        mapping = models[0].inference_provider_mapping
+        assert isinstance(mapping, list)
+        assert len(mapping) > 0
+        for item in mapping:
+            assert isinstance(item, InferenceProviderMapping)
+            assert item.provider is not None
+            assert item.hf_model_id is not None
+            assert item.provider_id is not None
+
+    def test_filter_models_by_inference_provider(self):
+        models = list(
+            self._api.list_models(inference_provider="hf-inference", expand=["inferenceProviderMapping"], limit=10)
+        )
+        assert len(models) > 0
+        for model in models:
+            assert model.inference_provider_mapping is not None
+            assert any(mapping.provider == "hf-inference" for mapping in model.inference_provider_mapping)
+
 
 class HfApiPrivateTest(HfApiCommonTest):
     def setUp(self) -> None:
@@ -2528,7 +2530,7 @@ class HfApiPrivateTest(HfApiCommonTest):
         with patch.object(self._api, "token", None):  # no default token
             # Test we cannot access model info without a token
             with self.assertRaisesRegex(
-                requests.exceptions.HTTPError,
+                HfHubHTTPError,
                 re.compile(
                     r"401 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
                     flags=re.DOTALL,
@@ -2536,7 +2538,7 @@ class HfApiPrivateTest(HfApiCommonTest):
             ):
                 _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
 
-            model_info = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token)
+            model_info = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}", token=self._token)
             self.assertIsInstance(model_info, ModelInfo)
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=None)
@@ -2544,7 +2546,7 @@ class HfApiPrivateTest(HfApiCommonTest):
         with patch.object(self._api, "token", None):  # no default token
             # Test we cannot access model info without a token
             with self.assertRaisesRegex(
-                requests.exceptions.HTTPError,
+                HfHubHTTPError,
                 re.compile(
                     r"401 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
                     flags=re.DOTALL,
@@ -2552,23 +2554,23 @@ class HfApiPrivateTest(HfApiCommonTest):
             ):
                 _ = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}")
 
-            dataset_info = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token)
+            dataset_info = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}", token=self._token)
             self.assertIsInstance(dataset_info, DatasetInfo)
 
     def test_list_private_datasets(self):
-        orig = len(list(self._api.list_datasets(use_auth_token=False)))
-        new = len(list(self._api.list_datasets(use_auth_token=self._token)))
+        orig = len(list(self._api.list_datasets(token=False)))
+        new = len(list(self._api.list_datasets(token=self._token)))
         self.assertGreater(new, orig)
 
     def test_list_private_models(self):
-        orig = len(list(self._api.list_models(use_auth_token=False)))
-        new = len(list(self._api.list_models(use_auth_token=self._token)))
+        orig = len(list(self._api.list_models(token=False)))
+        new = len(list(self._api.list_models(token=self._token)))
         self.assertGreater(new, orig)
 
     @with_production_testing
     def test_list_private_spaces(self):
-        orig = len(list(self._api.list_spaces(use_auth_token=False)))
-        new = len(list(self._api.list_spaces(use_auth_token=self._token)))
+        orig = len(list(self._api.list_spaces(token=False)))
+        new = len(list(self._api.list_spaces(token=self._token)))
         self.assertGreaterEqual(new, orig)
 
 
@@ -2615,7 +2617,7 @@ class UploadFolderMockedTest(unittest.TestCase):
         self.create_commit_mock.return_value.pr_url = None
         self.api.create_commit = self.create_commit_mock
 
-    def _upload_folder_alias(self, **kwargs) -> List[Union[CommitOperationAdd, CommitOperationDelete]]:
+    def _upload_folder_alias(self, **kwargs) -> list[Union[CommitOperationAdd, CommitOperationDelete]]:
         """Alias to call `upload_folder` + retrieve the CommitOperation list passed to `create_commit`."""
         if "folder_path" not in kwargs:
             kwargs["folder_path"] = self.cache_dir
@@ -2729,12 +2731,9 @@ class HfLargefilesTest(HfApiCommonTest):
         subprocess.run(["git", "lfs", "track", "*.epub"], check=True, cwd=self.cache_dir)
 
     @require_git_lfs
-    def test_end_to_end_thresh_6M(self):
-        # Little-hack: create repo with defined `_lfsmultipartthresh`. Only for tests purposes
-        self._api._lfsmultipartthresh = 6 * 10**6
+    def test_git_push_end_to_end(self):
         self.repo_url = self._api.create_repo(repo_id=repo_name())
         self.repo_id = self.repo_url.repo_id
-        self._api._lfsmultipartthresh = None
         self.setup_local_clone()
 
         subprocess.run(
@@ -2742,73 +2741,20 @@ class HfLargefilesTest(HfApiCommonTest):
         )
         subprocess.run(["git", "add", "*"], check=True, cwd=self.cache_dir)
         subprocess.run(["git", "commit", "-m", "commit message"], check=True, cwd=self.cache_dir)
-
-        # This will fail as we haven't set up our custom transfer agent yet.
-        failed_process = subprocess.run(
-            ["git", "push"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=self.cache_dir,
-        )
-        self.assertEqual(failed_process.returncode, 1)
-        self.assertIn("cli lfs-enable-largefiles", failed_process.stderr.decode())
-        # ^ Instructions on how to fix this are included in the error message.
-        subprocess.run(["huggingface-cli", "lfs-enable-largefiles", self.cache_dir], check=True)
+        subprocess.run(["hf", "lfs-enable-largefiles", self.cache_dir], check=True)
 
         start_time = time.time()
         subprocess.run(["git", "push"], check=True, cwd=self.cache_dir)
         print("took", time.time() - start_time)
 
         # To be 100% sure, let's download the resolved file
-        pdf_url = f"{self.repo_url}/resolve/main/progit.pdf"
-        DEST_FILENAME = "uploaded.pdf"
-        subprocess.run(
-            ["wget", pdf_url, "-O", DEST_FILENAME],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=self.cache_dir,
-        )
-        dest_filesize = (self.cache_dir / DEST_FILENAME).stat().st_size
-        assert dest_filesize == 18685041
-
-    @require_git_lfs
-    def test_end_to_end_thresh_16M(self):
-        # Here we'll push one multipart and one non-multipart file in the same commit, and see what happens
-        # Little-hack: create repo with defined `_lfsmultipartthresh`. Only for tests purposes
-        self._api._lfsmultipartthresh = 16 * 10**6
-        self.repo_url = self._api.create_repo(repo_id=repo_name())
-        self.repo_id = self.repo_url.repo_id
-        self._api._lfsmultipartthresh = None
-        self.setup_local_clone()
-
-        subprocess.run(
-            ["wget", LARGE_FILE_18MB], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.cache_dir
-        )
-        subprocess.run(
-            ["wget", LARGE_FILE_14MB], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.cache_dir
-        )
-        subprocess.run(["git", "add", "*"], check=True, cwd=self.cache_dir)
-        subprocess.run(["git", "commit", "-m", "both files in same commit"], check=True, cwd=self.cache_dir)
-        subprocess.run(["huggingface-cli", "lfs-enable-largefiles", self.cache_dir], check=True)
-
-        start_time = time.time()
-        subprocess.run(["git", "push"], check=True, cwd=self.cache_dir)
-        print("took", time.time() - start_time)
-
-    def test_upload_lfs_file_multipart(self):
-        """End to end test to check upload an LFS file using multipart upload works."""
-        self._api._lfsmultipartthresh = 16 * 10**6
-        self.repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
-        self._api._lfsmultipartthresh = None
-
-        with patch.object(
-            huggingface_hub.lfs,
-            "_upload_parts_iteratively",
-            wraps=huggingface_hub.lfs._upload_parts_iteratively,
-        ) as mock:
-            self._api.upload_file(repo_id=self.repo_id, path_or_fileobj=b"0" * 18 * 10**6, path_in_repo="lfs.bin")
-            mock.assert_called_once()  # It used multipart upload
+        with SoftTemporaryDirectory() as tmp_dir:
+            filepath = hf_hub_download(
+                repo_id=self.repo_id,
+                filename="progit.pdf",
+                cache_dir=tmp_dir,
+            )
+            assert Path(filepath).stat().st_size == 18685041
 
 
 class ParseHFUrlTest(unittest.TestCase):
@@ -3409,12 +3355,8 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             revision=None,
             cache_dir=None,
             local_dir=None,
-            local_dir_use_symlinks="auto",
             force_download=False,
-            force_filename=None,
-            proxies=None,
             etag_timeout=10,
-            resume_download=None,
             local_files_only=False,
             headers=None,
         )
@@ -3436,10 +3378,7 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             revision=None,
             cache_dir=None,
             local_dir=None,
-            local_dir_use_symlinks="auto",
-            proxies=None,
             etag_timeout=10,
-            resume_download=None,
             force_download=False,
             local_files_only=False,
             allow_patterns=None,
@@ -4011,7 +3950,7 @@ class CollectionAPITest(HfApiCommonTest):
         self.slug = collection_1.slug
 
         # Cannot create twice with same title
-        with self.assertRaises(HTTPError):  # already exists
+        with self.assertRaises(HfHubHTTPError):  # already exists
             self._api.create_collection(self.title)
 
         # Can ignore error
@@ -4027,7 +3966,7 @@ class CollectionAPITest(HfApiCommonTest):
 
         # Get private collection
         self._api.get_collection(collection.slug)  # no error
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.get_collection(collection.slug, token=OTHER_TOKEN)  # not authorized
 
         # Get public collection
@@ -4069,7 +4008,7 @@ class CollectionAPITest(HfApiCommonTest):
         self._api.delete_collection(collection.slug)
 
         # Cannot delete twice the same collection
-        with self.assertRaises(HTTPError):  # already exists
+        with self.assertRaises(HfHubHTTPError):  # already exists
             self._api.delete_collection(collection.slug)
 
         # Possible to ignore error
@@ -4097,12 +4036,12 @@ class CollectionAPITest(HfApiCommonTest):
         self.assertIsNone(collection.items[1].note)
 
         # Add existing item fails (except if ignore error)
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.add_collection_item(collection.slug, model_id, "model")
         self._api.add_collection_item(collection.slug, model_id, "model", exists_ok=True)
 
         # Add inexistent item fails
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.add_collection_item(collection.slug, model_id, "dataset")
 
         # Update first item
@@ -4129,6 +4068,13 @@ class CollectionAPITest(HfApiCommonTest):
         self._api.delete_repo(model_id)
         self._api.delete_repo(dataset_id, repo_type="dataset")
         self._api.delete_collection(collection.slug)
+
+    @with_production_testing
+    def test_collection_items_with_collections(self) -> None:
+        collection = HfApi().get_collection("celinah/inference-providers-function-calling-6826023e8ae9b24b3039ee5f")
+        assert len(collection.items) > 1
+        assert collection.items[0].item_type == "collection"
+        assert collection.items[0].item_id.startswith("celinah/")
 
 
 class AccessRequestAPITest(HfApiCommonTest):
@@ -4196,21 +4142,21 @@ class AccessRequestAPITest(HfApiCommonTest):
         self._api.grant_access(self.repo_id, OTHER_USER)
 
         # Cannot grant twice
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.grant_access(self.repo_id, OTHER_USER)
 
         # Cannot accept to already accepted
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.accept_access_request(self.repo_id, OTHER_USER)
 
         # Cannot reject to already rejected
         self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
 
         # Cannot cancel to already cancelled
         self._api.cancel_access_request(self.repo_id, OTHER_USER)
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.cancel_access_request(self.repo_id, OTHER_USER)
 
 
@@ -4231,9 +4177,26 @@ class UserApiTest(unittest.TestCase):
         assert overview.num_following > 300
         assert overview.num_followers > 1000
 
+    def test_organization_overview(self) -> None:
+        overview = self.api.get_organization_overview("huggingface")
+        assert overview.name == "huggingface"
+        assert overview.fullname == "Hugging Face"
+        assert overview.avatar_url.startswith("https://")
+        assert overview.num_users is None or overview.num_users > 10
+        assert overview.num_models is None or overview.num_models > 10
+        assert overview.num_followers is None or overview.num_followers > 1000
+
     def test_organization_members(self) -> None:
         members = self.api.list_organization_members("huggingface")
         assert len(list(members)) > 1
+
+    def test_organization_followers(self) -> None:
+        followers = self.api.list_organization_followers("huggingface")
+        first_follower = next(followers)
+        assert isinstance(first_follower, User)
+        assert first_follower.username
+        assert first_follower.fullname
+        assert first_follower.avatar_url
 
     def test_user_followers(self) -> None:
         followers = self.api.list_user_followers("clem")
@@ -4328,7 +4291,7 @@ class WebhookApiTest(HfApiCommonTest):
             url=self.webhook_url, watched=self.watched_items, domains=self.domains, secret=self.secret
         )
         self._api.delete_webhook(webhook_to_delete.id)
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.get_webhook(webhook_to_delete.id)
 
 
@@ -4370,6 +4333,7 @@ class TestExpandPropertyType(HfApiCommonTest):
         defined_args = set(get_args(property_type))
         expected_args = set(message.replace('"expand" must be one of ', "").strip("[]").split(", "))
         expected_args.discard("gitalyUid")  # internal one, do not document
+        expected_args.discard("xetEnabled")  # all repos are xetEnabled now, so we don't document it anymore
 
         if defined_args != expected_args:
             should_be_removed = defined_args - expected_args
@@ -4441,7 +4405,7 @@ class HfApiInferenceCatalogTest(HfApiCommonTest):
     def test_list_inference_catalog(self) -> None:
         models = self._api.list_inference_catalog()  # note: @experimental api
         # Check that server returns a list[str] => at least if it changes in the future, we'll notice
-        assert isinstance(models, List)
+        assert isinstance(models, list)
         assert len(models) > 0
         assert all(isinstance(model, str) for model in models)
 
@@ -4481,6 +4445,7 @@ class HfApiInferenceCatalogTest(HfApiCommonTest):
                 },
                 "name": "llama-3-2-3b-instruct-eey",
                 "provider": {"region": "us-east-1", "vendor": "aws"},
+                "healthRoute": "/health",
                 "status": {
                     "createdAt": "2025-03-07T15:30:13.949Z",
                     "createdBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
@@ -4501,3 +4466,139 @@ class HfApiInferenceCatalogTest(HfApiCommonTest):
         )
         assert isinstance(endpoint, InferenceEndpoint)
         assert endpoint.name == "llama-3-2-3b-instruct-eey"
+
+
+@pytest.mark.parametrize(
+    "custom_image, expected_image_payload",
+    [
+        # Case 1: No custom_image provided
+        (
+            None,
+            {
+                "huggingface": {},
+            },
+        ),
+        # Case 2: Flat dictionary custom_image provided
+        (
+            {
+                "url": "my.registry/my-image:latest",
+                "port": 8080,
+            },
+            {
+                "custom": {
+                    "url": "my.registry/my-image:latest",
+                    "port": 8080,
+                }
+            },
+        ),
+        # Case 3: Explicitly keyed ('tgi') custom_image provided
+        (
+            {
+                "tgi": {
+                    "url": "ghcr.io/huggingface/text-generation-inference:latest",
+                }
+            },
+            {
+                "tgi": {
+                    "url": "ghcr.io/huggingface/text-generation-inference:latest",
+                }
+            },
+        ),
+        # Case 4: Explicitly keyed ('custom') custom_image provided
+        (
+            {
+                "custom": {
+                    "url": "another.registry/custom:v2",
+                }
+            },
+            {
+                "custom": {
+                    "url": "another.registry/custom:v2",
+                }
+            },
+        ),
+    ],
+    ids=["no_custom_image", "flat_dict_custom_image", "keyed_tgi_custom_image", "keyed_custom_custom_image"],
+)
+@patch("huggingface_hub.hf_api.get_session")
+def test_create_inference_endpoint_custom_image_payload(
+    mock_post: Mock,
+    custom_image: Optional[dict],
+    expected_image_payload: dict,
+):
+    common_args = {
+        "name": "test-endpoint-custom-img",
+        "repository": "meta-llama/Llama-2-7b-chat-hf",
+        "framework": "pytorch",
+        "accelerator": "gpu",
+        "instance_size": "medium",
+        "instance_type": "nvidia-a10g",
+        "region": "us-east-1",
+        "vendor": "aws",
+        "type": "protected",
+        "task": "text-generation",
+        "namespace": "Wauplin",
+    }
+    mock_session = mock_post.return_value
+    mock_post_method = mock_session.post
+    mock_response = Mock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "compute": {
+            "accelerator": "gpu",
+            "id": "aws-us-east-1-nvidia-l4-x1",
+            "instanceSize": "x1",
+            "instanceType": "nvidia-l4",
+            "scaling": {
+                "maxReplica": 1,
+                "measure": {"hardwareUsage": None},
+                "metric": "hardwareUsage",
+                "minReplica": 0,
+                "scaleToZeroTimeout": 15,
+            },
+        },
+        "model": {
+            "env": {},
+            "framework": "pytorch",
+            "image": {
+                "tgi": {
+                    "disableCustomKernels": False,
+                    "healthRoute": "/health",
+                    "port": 80,
+                    "url": "ghcr.io/huggingface/text-generation-inference:3.1.1",
+                }
+            },
+            "repository": "meta-llama/Llama-3.2-3B-Instruct",
+            "revision": "0cb88a4f764b7a12671c53f0838cd831a0843b95",
+            "secrets": {},
+            "task": "text-generation",
+        },
+        "name": "llama-3-2-3b-instruct-eey",
+        "provider": {"region": "us-east-1", "vendor": "aws"},
+        "healthRoute": "/health",
+        "status": {
+            "createdAt": "2025-03-07T15:30:13.949Z",
+            "createdBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
+            "message": "Endpoint waiting to be scheduled",
+            "readyReplica": 0,
+            "state": "pending",
+            "targetReplica": 1,
+            "updatedAt": "2025-03-07T15:30:13.949Z",
+            "updatedBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
+        },
+        "type": "protected",
+    }
+    mock_post_method.return_value = mock_response
+
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    if custom_image is not None:
+        api.create_inference_endpoint(custom_image=custom_image, **common_args)
+    else:
+        api.create_inference_endpoint(**common_args)
+
+    mock_post_method.assert_called_once()
+    _, call_kwargs = mock_post_method.call_args
+    payload = call_kwargs.get("json", {})
+
+    assert "model" in payload and "image" in payload["model"]
+    assert payload["model"]["image"] == expected_image_payload

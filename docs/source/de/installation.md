@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 Bevor Sie beginnen, müssen Sie Ihre Umgebung vorbereiten, indem Sie die entsprechenden Pakete installieren.
 
-`huggingface_hub` wurde für **Python 3.8+** getestet.
+`huggingface_hub` wurde für **Python 3.9+** getestet.
 
 ## Installation mit pip
 
@@ -44,10 +44,6 @@ Einige Abhängigkeiten von `huggingface_hub` sind [optional](https://setuptools.
 
 Sie können optionale Abhängigkeiten über `pip` installieren:
 ```bash
-# Abhängigkeiten für spezifische TensorFlow-Funktionen installieren
-# /!\ Achtung: dies entspricht nicht `pip install tensorflow`
-pip install 'huggingface_hub[tensorflow]'
-
 # Abhängigkeiten sowohl für torch-spezifische als auch für CLI-spezifische Funktionen installieren.
 pip install 'huggingface_hub[cli,torch]'
 ```
@@ -55,7 +51,7 @@ pip install 'huggingface_hub[cli,torch]'
 Hier ist die Liste der optionalen Abhängigkeiten in huggingface_hub:
 
 - `cli`: bietet eine komfortablere CLI-Schnittstelle für huggingface_hub.
-- `fastai`, `torch`, `tensorflow`: Abhängigkeiten, um framework-spezifische Funktionen auszuführen.
+- `fastai`, `torch`: Abhängigkeiten, um framework-spezifische Funktionen auszuführen.
 - `dev`: Abhängigkeiten, um zur Bibliothek beizutragen. Enthält `testing` (um Tests auszuführen), `typing` (um den Type Checker auszuführen) und `quality` (um Linters auszuführen).
 
 

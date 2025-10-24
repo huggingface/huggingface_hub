@@ -18,8 +18,6 @@
       title: 명령줄 인터페이스(CLI) 사용하기
     - local: guides/hf_file_system
       title: Hf파일시스템
-    - local: guides/repository
-      title: 리포지토리
     - local: guides/search
       title: Hub에서 검색하기
     - local: guides/inference
@@ -40,10 +38,6 @@
       title: 라이브러리 통합
     - local: guides/webhooks_server
       title: 웹훅 서버
-- title: "개념 가이드"
-  sections:
-    - local: concepts/git_vs_http
-      title: Git 대 HTTP 패러다임
 - title: "라이브러리 레퍼런스"
   sections:
     - local: package_reference/overview
@@ -52,8 +46,6 @@
       title: 로그인 및 로그아웃
     - local: package_reference/environment_variables
       title: 환경 변수
-    - local: package_reference/repository
-      title: 로컬 및 온라인 리포지토리 관리
     - local: package_reference/hf_api
       title: 허깅페이스 Hub API
     - local: package_reference/file_download

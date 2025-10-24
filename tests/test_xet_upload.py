@@ -15,13 +15,12 @@
 from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
-from typing import Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from huggingface_hub import HfApi, RepoUrl
-from huggingface_hub._commit_api import _upload_lfs_files, _upload_xet_files
+from huggingface_hub._commit_api import CommitOperationAdd, _upload_files, _upload_lfs_files, _upload_xet_files
 from huggingface_hub.file_download import (
     _get_metadata_or_catch_error,
     get_hf_file_metadata,
@@ -39,8 +38,8 @@ def assert_upload_mode(mode: str):
     if mode not in ("xet", "lfs"):
         raise ValueError("Mode must be either 'xet' or 'lfs'")
 
-    with patch("huggingface_hub.hf_api._upload_xet_files", wraps=_upload_xet_files) as mock_xet:
-        with patch("huggingface_hub.hf_api._upload_lfs_files", wraps=_upload_lfs_files) as mock_lfs:
+    with patch("huggingface_hub._commit_api._upload_xet_files", wraps=_upload_xet_files) as mock_xet:
+        with patch("huggingface_hub._commit_api._upload_lfs_files", wraps=_upload_lfs_files) as mock_lfs:
             yield
             assert mock_xet.called == (mode == "xet"), (
                 f"Expected {'XET' if mode == 'xet' else 'LFS'} upload to be used"
@@ -58,42 +57,48 @@ def api():
 @pytest.fixture
 def repo_url(api, repo_type: str = "model"):
     repo_url = api.create_repo(repo_id=repo_name(prefix=repo_type), repo_type=repo_type)
-    api.update_repo_settings(repo_id=repo_url.repo_id, xet_enabled=True)
 
     yield repo_url
 
     api.delete_repo(repo_id=repo_url.repo_id, repo_type=repo_type)
 
 
+@pytest.fixture
+def xet_setup(request, tmp_path):
+    instance = getattr(request, "instance", None)
+    if instance is None:
+        yield
+        return
+    instance.folder_path = tmp_path
+    # Create a regular text file
+    text_file = instance.folder_path / "text_file.txt"
+    instance.text_content = "This is a regular text file"
+    text_file.write_text(instance.text_content)
+
+    # Create a binary file
+    instance.bin_file = instance.folder_path / "binary_file.bin"
+    instance.bin_content = b"0" * (1 * 1024 * 1024)
+    instance.bin_file.write_bytes(instance.bin_content)
+
+    # Create nested directory structure
+    nested_dir = instance.folder_path / "nested"
+    nested_dir.mkdir()
+
+    # Create a nested text file
+    nested_text_file = nested_dir / "nested_text.txt"
+    instance.nested_text_content = "This is a nested text file"
+    nested_text_file.write_text(instance.nested_text_content)
+
+    # Create a nested binary file
+    nested_bin_file = nested_dir / "nested_binary.safetensors"
+    instance.nested_bin_content = b"1" * (1 * 1024 * 1024)
+    nested_bin_file.write_bytes(instance.nested_bin_content)
+    yield
+
+
 @requires("hf_xet")
+@pytest.mark.usefixtures("xet_setup")
 class TestXetUpload:
-    @pytest.fixture(autouse=True)
-    def setup(self, tmp_path):
-        self.folder_path = tmp_path
-        # Create a regular text file
-        text_file = self.folder_path / "text_file.txt"
-        self.text_content = "This is a regular text file"
-        text_file.write_text(self.text_content)
-
-        # Create a binary file
-        self.bin_file = self.folder_path / "binary_file.bin"
-        self.bin_content = b"0" * (1 * 1024 * 1024)
-        self.bin_file.write_bytes(self.bin_content)
-
-        # Create nested directory structure
-        nested_dir = self.folder_path / "nested"
-        nested_dir.mkdir()
-
-        # Create a nested text file
-        nested_text_file = nested_dir / "nested_text.txt"
-        self.nested_text_content = "This is a nested text file"
-        nested_text_file.write_text(self.nested_text_content)
-
-        # Create a nested binary file
-        nested_bin_file = nested_dir / "nested_binary.safetensors"
-        self.nested_bin_content = b"1" * (1 * 1024 * 1024)
-        nested_bin_file.write_bytes(self.nested_bin_content)
-
     def test_upload_file(self, api, tmp_path, repo_url):
         filename_in_repo = "binary_file.bin"
         repo_id = repo_url.repo_id
@@ -103,8 +108,8 @@ class TestXetUpload:
                 path_in_repo=filename_in_repo,
                 repo_id=repo_id,
             )
+        assert return_val.startswith(f"{api.endpoint}/{repo_id}/commit")
 
-        assert return_val == f"{api.endpoint}/{repo_id}/blob/main/{filename_in_repo}"
         # Download and verify content
         downloaded_file = hf_hub_download(repo_id=repo_id, filename=filename_in_repo, cache_dir=tmp_path)
         with open(downloaded_file, "rb") as f:
@@ -153,7 +158,7 @@ class TestXetUpload:
 
     def test_fallback_to_lfs_when_xet_not_available(self, api, repo_url):
         repo_id = repo_url.repo_id
-        with patch("huggingface_hub.hf_api.is_xet_available", return_value=False):
+        with patch("huggingface_hub._commit_api.is_xet_available", return_value=False):
             with assert_upload_mode("lfs"):
                 api.upload_file(
                     path_or_fileobj=self.bin_file,
@@ -161,28 +166,65 @@ class TestXetUpload:
                     repo_id=repo_id,
                 )
 
-    def test_upload_based_on_xet_enabled_setting(self, api, repo_url):
-        repo_id = repo_url.repo_id
+    def test_transfers_to_xet_when_server_returns_xet(self):
+        addition = CommitOperationAdd(path_in_repo="xet.bin", path_or_fileobj=self.bin_file)
 
-        # Test when xet is enabled -> use Xet upload
-        with patch("huggingface_hub.hf_api.HfApi.repo_info") as mock_repo_info:
-            mock_repo_info.return_value.xet_enabled = True
-            with assert_upload_mode("xet"):
-                api.upload_file(
-                    path_or_fileobj=self.bin_file,
-                    path_in_repo="xet_enabled.bin",
-                    repo_id=repo_id,
-                )
+        def fake_batch(
+            upload_infos, token, repo_type, repo_id, revision=None, endpoint=None, headers=None, transfers=None
+        ):
+            action = {
+                "oid": upload_infos[0].sha256.hex(),
+                "size": upload_infos[0].size,
+                "actions": {"upload": {"href": "https://example.invalid", "header": {}}},
+            }
+            return ([action], [], "xet")
 
-        # Test when xet is disabled -> use LFS upload
-        with patch("huggingface_hub.hf_api.HfApi.repo_info") as mock_repo_info:
-            mock_repo_info.return_value.xet_enabled = False
-            with assert_upload_mode("lfs"):
-                api.upload_file(
-                    path_or_fileobj=self.bin_file,
-                    path_in_repo="xet_disabled.bin",
-                    repo_id=repo_id,
-                )
+        with patch("huggingface_hub._commit_api.post_lfs_batch_info", side_effect=fake_batch) as mock_batch:
+            with patch("huggingface_hub._commit_api._upload_lfs_files") as mock_lfs:
+                with patch("huggingface_hub._commit_api._upload_xet_files") as mock_xet:
+                    _upload_files(
+                        additions=[addition],
+                        repo_type="model",
+                        repo_id="dummy/user-repo",
+                        headers={},
+                        endpoint="https://hub-ci.huggingface.co",
+                        revision="main",
+                        create_pr=False,
+                    )
+            assert mock_batch.call_count == 1
+            mock_xet.assert_called_once()
+            mock_lfs.assert_not_called()
+
+    def test_transfers_bytesio_renegotiates_to_lfs_when_server_returns_xet(self):
+        addition = CommitOperationAdd(path_in_repo="bytesio.bin", path_or_fileobj=BytesIO(self.bin_content))
+
+        def fake_batch(
+            upload_infos, token, repo_type, repo_id, revision=None, endpoint=None, headers=None, transfers=None
+        ):
+            action = {
+                "oid": upload_infos[0].sha256.hex(),
+                "size": upload_infos[0].size,
+                "actions": {"upload": {"href": "https://example.invalid", "header": {}}},
+            }
+            return ([action], [], "xet")
+
+        with patch("huggingface_hub._commit_api.post_lfs_batch_info", side_effect=fake_batch) as mock_batch:
+            with patch("huggingface_hub._commit_api._upload_lfs_files") as mock_lfs:
+                with patch("huggingface_hub._commit_api._upload_xet_files") as mock_xet:
+                    _upload_files(
+                        additions=[addition],
+                        repo_type="model",
+                        repo_id="dummy/user-repo",
+                        headers={},
+                        endpoint="https://hub-ci.huggingface.co",
+                        revision="main",
+                        create_pr=False,
+                    )
+
+            # Ensure we retried negotiation and routed to LFS, not XET
+            assert mock_batch.call_count == 1
+            mock_xet.assert_not_called()
+            mock_lfs.assert_called_once()
 
     def test_upload_folder(self, api, repo_url):
         repo_id = repo_url.repo_id
@@ -194,7 +236,7 @@ class TestXetUpload:
                 repo_id=repo_id,
             )
 
-        assert return_val == f"{api.endpoint}/{repo_id}/tree/main/{folder_in_repo}"
+        assert return_val.startswith(f"{api.endpoint}/{repo_id}/commit")
         files_in_repo = set(api.list_repo_files(repo_id=repo_id))
         files = {
             f"{folder_in_repo}/text_file.txt",
@@ -221,7 +263,7 @@ class TestXetUpload:
                 create_pr=True,
             )
 
-        assert return_val == f"{api.endpoint}/{repo_id}/tree/refs%2Fpr%2F1/{folder_in_repo}"
+        assert return_val.startswith(f"{api.endpoint}/{repo_id}/commit")
 
         for rpath in ["text_file.txt", "nested/nested_binary.safetensors"]:
             local_path = self.folder_path / rpath
@@ -279,9 +321,43 @@ class TestXetLargeUpload:
             regular_file = local_dir / f"subfolder_{i}/file_regular_{i}_{j}.txt"
             assert regular_file.read_bytes() == f"content_regular_{i}_{j}".encode()
 
+    def test_upload_large_folder_batch_size_greater_than_one(self, api, tmp_path, repo_url: RepoUrl) -> None:
+        from hf_xet import upload_files as real_upload_files
+
+        N_FILES = 500
+        repo_id = repo_url.repo_id
+
+        folder = Path(tmp_path) / "large_folder"
+        folder.mkdir()
+        for i in range(N_FILES):
+            (folder / f"file_xet_{i}.bin").write_bytes(f"content_lfs_{i}".encode())
+
+        # capture the number of files passed in per call to hf_xet.upload_files
+        # to ensure that the batch size is respected.
+        num_files_per_call = []
+
+        def spy_upload_files(*args, **kwargs):
+            num_files = len(args[0])
+            num_files_per_call.append(num_files)
+            return real_upload_files(*args, **kwargs)
+
+        with assert_upload_mode("xet"):
+            with patch("hf_xet.upload_files", side_effect=spy_upload_files):
+                api.upload_large_folder(repo_id=repo_id, repo_type="model", folder_path=folder, num_workers=4)
+
+        # the batch size is set to 256 however due to speed of hashing and get_upload_mode calls it's not always guaranteed
+        # that the files will be uploaded in batches of 256. They may be uploaded in smaller batches if no other jobs
+        # are available to run; even as small as 1 file per call.
+        #
+        # However, it would be unlikely that all files are uploaded in batches of 1 if batching was correctly implemented.
+        # So we assert that not all files were uploaded in batches of 1, although it is possible even with batching.
+
+        assert any(n > 1 for n in num_files_per_call)
+
 
 @requires("hf_xet")
-class TestXetE2E(TestXetUpload):
+@pytest.mark.usefixtures("xet_setup")
+class TestXetE2E:
     def test_hf_xet_with_token_refresher(self, api, tmp_path, repo_url):
         """
         Test the hf_xet.download_files function with a token refresher.
@@ -324,7 +400,6 @@ class TestXetE2E(TestXetUpload):
                 headers=headers,
                 endpoint=api.endpoint,
                 token=TOKEN,
-                proxies=None,
                 etag_timeout=None,
                 local_files_only=False,
             )
@@ -334,7 +409,7 @@ class TestXetE2E(TestXetUpload):
 
         # manually construct parameters to hf_xet.download_files and use a locally defined token_refresher function
         # to verify that token refresh works as expected.
-        def token_refresher() -> Tuple[str, int]:
+        def token_refresher() -> tuple[str, int]:
             # Issue a token refresh by returning a new access token and expiration time
             new_connection = refresh_xet_connection_info(file_data=xet_filedata, headers=headers)
             return new_connection.access_token, new_connection.expiration_unix_epoch

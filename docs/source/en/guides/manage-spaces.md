@@ -60,14 +60,12 @@ Secrets and variables can be deleted as well:
 >>> api.delete_space_variable(repo_id=repo_id, key="MODEL_REPO_ID")
 ```
 
-<Tip>
-From within your Space, secrets are available as environment variables (or
-Streamlit Secrets Management if using Streamlit). No need to fetch them via the API!
-</Tip>
+> [!TIP]
+> From within your Space, secrets are available as environment variables (or
+> Streamlit Secrets Management if using Streamlit). No need to fetch them via the API!
 
-<Tip warning={true}>
-Any change in your Space configuration (secrets or hardware) will trigger a restart of your app.
-</Tip>
+> [!WARNING]
+> Any change in your Space configuration (secrets or hardware) will trigger a restart of your app.
 
 **Bonus: set secrets and variables when creating or duplicating the Space!**
 
@@ -263,11 +261,10 @@ Here is what your app would look like. On startup, check if a task is scheduled 
 run it on the correct hardware. Once done, set back hardware to the free-plan CPU and
 prompt the user for a new task.
 
-<Tip warning={true}>
-Such a workflow does not support concurrent access as normal demos.
-In particular, the interface will be disabled when training occurs.
-It is preferable to set your repo as private to ensure you are the only user.
-</Tip>
+> [!WARNING]
+> Such a workflow does not support concurrent access as normal demos.
+> In particular, the interface will be disabled when training occurs.
+> It is preferable to set your repo as private to ensure you are the only user.
 
 ```py
 # Space will need your token to request hardware: set it as a Secret !

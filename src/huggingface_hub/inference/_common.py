@@ -18,30 +18,16 @@ import base64
 import io
 import json
 import logging
-from contextlib import contextmanager
+import mimetypes
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    AsyncIterable,
-    BinaryIO,
-    ContextManager,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Literal,
-    NoReturn,
-    Optional,
-    Union,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, AsyncIterable, BinaryIO, Iterable, Literal, NoReturn, Optional, Union, overload
 
-from requests import HTTPError
+import httpx
 
 from huggingface_hub.errors import (
     GenerationError,
+    HfHubHTTPError,
     IncompleteGenerationError,
     OverloadedError,
     TextGenerationError,
@@ -54,14 +40,12 @@ from ._generated.types import ChatCompletionStreamOutput, TextGenerationStreamOu
 
 
 if TYPE_CHECKING:
-    from aiohttp import ClientResponse, ClientSession
     from PIL.Image import Image
 
 # TYPES
 UrlT = str
 PathT = Union[str, Path]
-BinaryT = Union[bytes, BinaryIO]
-ContentT = Union[BinaryT, PathT, UrlT]
+ContentT = Union[bytes, BinaryIO, PathT, UrlT, "Image", bytearray, memoryview]
 
 # Use to set a Accept: image/png header
 TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
@@ -74,40 +58,34 @@ class RequestParameters:
     url: str
     task: str
     model: Optional[str]
-    json: Optional[Union[str, Dict, List]]
-    data: Optional[ContentT]
-    headers: Dict[str, Any]
+    json: Optional[Union[str, dict, list]]
+    data: Optional[bytes]
+    headers: dict[str, Any]
 
 
-# Add dataclass for ModelStatus. We use this dataclass in get_model_status function.
-@dataclass
-class ModelStatus:
+class MimeBytes(bytes):
     """
-    This Dataclass represents the model status in the HF Inference API.
+    A bytes object with a mime type.
+    To be returned by `_prepare_payload_open_as_mime_bytes` in subclasses.
 
-    Args:
-        loaded (`bool`):
-            If the model is currently loaded into HF's Inference API. Models
-            are loaded on-demand, leading to the user's first request taking longer.
-            If a model is loaded, you can be assured that it is in a healthy state.
-        state (`str`):
-            The current state of the model. This can be 'Loaded', 'Loadable', 'TooBig'.
-            If a model's state is 'Loadable', it's not too big and has a supported
-            backend. Loadable models are automatically loaded when the user first
-            requests inference on the endpoint. This means it is transparent for the
-            user to load a model, except that the first call takes longer to complete.
-        compute_type (`Dict`):
-            Information about the compute resource the model is using or will use, such as 'gpu' type and number of
-            replicas.
-        framework (`str`):
-            The name of the framework that the model was built with, such as 'transformers'
-            or 'text-generation-inference'.
+    Example:
+    ```python
+        >>> b = MimeBytes(b"hello", "text/plain")
+        >>> isinstance(b, bytes)
+        True
+        >>> b.mime_type
+        'text/plain'
+    ```
     """
 
-    loaded: bool
-    state: str
-    compute_type: Dict
-    framework: str
+    mime_type: Optional[str]
+
+    def __new__(cls, data: bytes, mime_type: Optional[str] = None):
+        obj = super().__new__(cls, data)
+        obj.mime_type = mime_type
+        if isinstance(data, MimeBytes) and mime_type is None:
+            obj.mime_type = data.mime_type
+        return obj
 
 
 ## IMPORT UTILS
@@ -147,32 +125,49 @@ def _import_pil_image():
 
 
 @overload
-def _open_as_binary(
-    content: ContentT,
-) -> ContextManager[BinaryT]: ...  # means "if input is not None, output is not None"
+def _open_as_mime_bytes(content: ContentT) -> MimeBytes: ...  # means "if input is not None, output is not None"
 
 
 @overload
-def _open_as_binary(
-    content: Literal[None],
-) -> ContextManager[Literal[None]]: ...  # means "if input is None, output is None"
+def _open_as_mime_bytes(content: Literal[None]) -> Literal[None]: ...  # means "if input is None, output is None"
 
 
-@contextmanager  # type: ignore
-def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT], None, None]:
-    """Open `content` as a binary file, either from a URL, a local path, or raw bytes.
+def _open_as_mime_bytes(content: Optional[ContentT]) -> Optional[MimeBytes]:
+    """Open `content` as a binary file, either from a URL, a local path, raw bytes, or a PIL Image.
 
-    Do nothing if `content` is None,
-
-    TODO: handle a PIL.Image as input
-    TODO: handle base64 as input
+    Do nothing if `content` is None.
     """
+    # If content is None, yield None
+    if content is None:
+        return None
+
+    # If content is bytes, return it
+    if isinstance(content, bytes):
+        return MimeBytes(content)
+
+    # If content is raw binary data (bytearray, memoryview)
+    if isinstance(content, (bytearray, memoryview)):
+        return MimeBytes(bytes(content))
+
+    # If content is a binary file-like object
+    if hasattr(content, "read"):  # duck-typing instead of isinstance(content, BinaryIO)
+        logger.debug("Reading content from BinaryIO")
+        data = content.read()
+        mime_type = mimetypes.guess_type(content.name)[0] if hasattr(content, "name") else None
+        if isinstance(data, str):
+            raise TypeError("Expected binary stream (bytes), but got text stream")
+        return MimeBytes(data, mime_type=mime_type)
+
     # If content is a string => must be either a URL or a path
     if isinstance(content, str):
         if content.startswith("https://") or content.startswith("http://"):
             logger.debug(f"Downloading content from {content}")
-            yield get_session().get(content).content  # TODO: retrieve as stream and pipe to post request ?
-            return
+            response = get_session().get(content)
+            mime_type = response.headers.get("Content-Type")
+            if mime_type is None:
+                mime_type = mimetypes.guess_type(content)[0]
+            return MimeBytes(response.content, mime_type=mime_type)
+
         content = Path(content)
         if not content.exists():
             raise FileNotFoundError(
@@ -183,18 +178,47 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
     # If content is a Path => open it
     if isinstance(content, Path):
         logger.debug(f"Opening content from {content}")
-        with content.open("rb") as f:
-            yield f
-    else:
-        # Otherwise: already a file-like object or None
-        yield content
+        return MimeBytes(content.read_bytes(), mime_type=mimetypes.guess_type(content)[0])
+
+    # If content is a PIL Image => convert to bytes
+    if is_pillow_available():
+        from PIL import Image
+
+        if isinstance(content, Image.Image):
+            logger.debug("Converting PIL Image to bytes")
+            buffer = io.BytesIO()
+            format = content.format or "PNG"
+            content.save(buffer, format=format)
+            return MimeBytes(buffer.getvalue(), mime_type=f"image/{format.lower()}")
+
+    # If nothing matched, raise error
+    raise TypeError(
+        f"Unsupported content type: {type(content)}. "
+        "Expected one of: bytes, bytearray, BinaryIO, memoryview, Path, str (URL or file path), or PIL.Image.Image."
+    )
 
 
 def _b64_encode(content: ContentT) -> str:
     """Encode a raw file (image, audio) into base64. Can be bytes, an opened file, a path or a URL."""
-    with _open_as_binary(content) as data:
-        data_as_bytes = data if isinstance(data, bytes) else data.read()
-        return base64.b64encode(data_as_bytes).decode()
+    raw_bytes = _open_as_mime_bytes(content)
+    return base64.b64encode(raw_bytes).decode()
+
+
+def _as_url(content: ContentT, default_mime_type: str) -> str:
+    if isinstance(content, str) and content.startswith(("http://", "https://", "data:")):
+        return content
+
+    # Convert content to bytes
+    raw_bytes = _open_as_mime_bytes(content)
+
+    # Get MIME type
+    mime_type = raw_bytes.mime_type or default_mime_type
+
+    # Encode content to base64
+    encoded_data = base64.b64encode(raw_bytes).decode()
+
+    # Build data URL
+    return f"data:{mime_type};base64,{encoded_data}"
 
 
 def _b64_to_image(encoded_image: str) -> "Image":
@@ -203,7 +227,7 @@ def _b64_to_image(encoded_image: str) -> "Image":
     return Image.open(io.BytesIO(base64.b64decode(encoded_image)))
 
 
-def _bytes_to_list(content: bytes) -> List:
+def _bytes_to_list(content: bytes) -> list:
     """Parse bytes from a Response object into a Python list.
 
     Expects the response body to be JSON-encoded data.
@@ -214,7 +238,7 @@ def _bytes_to_list(content: bytes) -> List:
     return json.loads(content.decode())
 
 
-def _bytes_to_dict(content: bytes) -> Dict:
+def _bytes_to_dict(content: bytes) -> dict:
     """Parse bytes from a Response object into a Python dictionary.
 
     Expects the response body to be JSON-encoded data.
@@ -234,24 +258,21 @@ def _bytes_to_image(content: bytes) -> "Image":
     return Image.open(io.BytesIO(content))
 
 
-def _as_dict(response: Union[bytes, Dict]) -> Dict:
+def _as_dict(response: Union[bytes, dict]) -> dict:
     return json.loads(response) if isinstance(response, bytes) else response
-
-
-## PAYLOAD UTILS
 
 
 ## STREAMING UTILS
 
 
 def _stream_text_generation_response(
-    bytes_output_as_lines: Iterable[bytes], details: bool
+    output_lines: Iterable[str], details: bool
 ) -> Union[Iterable[str], Iterable[TextGenerationStreamOutput]]:
     """Used in `InferenceClient.text_generation`."""
     # Parse ServerSentEvents
-    for byte_payload in bytes_output_as_lines:
+    for line in output_lines:
         try:
-            output = _format_text_generation_stream_output(byte_payload, details)
+            output = _format_text_generation_stream_output(line, details)
         except StopIteration:
             break
         if output is not None:
@@ -259,13 +280,13 @@ def _stream_text_generation_response(
 
 
 async def _async_stream_text_generation_response(
-    bytes_output_as_lines: AsyncIterable[bytes], details: bool
+    output_lines: AsyncIterable[str], details: bool
 ) -> Union[AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:
     """Used in `AsyncInferenceClient.text_generation`."""
     # Parse ServerSentEvents
-    async for byte_payload in bytes_output_as_lines:
+    async for line in output_lines:
         try:
-            output = _format_text_generation_stream_output(byte_payload, details)
+            output = _format_text_generation_stream_output(line, details)
         except StopIteration:
             break
         if output is not None:
@@ -273,17 +294,17 @@ async def _async_stream_text_generation_response(
 
 
 def _format_text_generation_stream_output(
-    byte_payload: bytes, details: bool
+    line: str, details: bool
 ) -> Optional[Union[str, TextGenerationStreamOutput]]:
-    if not byte_payload.startswith(b"data:"):
+    if not line.startswith("data:"):
         return None  # empty line
 
-    if byte_payload.strip() == b"data: [DONE]":
+    if line.strip() == "data: [DONE]":
         raise StopIteration("[DONE] signal received.")
 
     # Decode payload
-    payload = byte_payload.decode("utf-8")
-    json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
+    payload = line.lstrip("data:").rstrip("/n")
+    json_payload = json.loads(payload)
 
     # Either an error as being returned
     if json_payload.get("error") is not None:
@@ -295,12 +316,12 @@ def _format_text_generation_stream_output(
 
 
 def _stream_chat_completion_response(
-    bytes_lines: Iterable[bytes],
+    lines: Iterable[str],
 ) -> Iterable[ChatCompletionStreamOutput]:
     """Used in `InferenceClient.chat_completion` if model is served with TGI."""
-    for item in bytes_lines:
+    for line in lines:
         try:
-            output = _format_chat_completion_stream_output(item)
+            output = _format_chat_completion_stream_output(line)
         except StopIteration:
             break
         if output is not None:
@@ -308,12 +329,12 @@ def _stream_chat_completion_response(
 
 
 async def _async_stream_chat_completion_response(
-    bytes_lines: AsyncIterable[bytes],
+    lines: AsyncIterable[str],
 ) -> AsyncIterable[ChatCompletionStreamOutput]:
     """Used in `AsyncInferenceClient.chat_completion`."""
-    async for item in bytes_lines:
+    async for line in lines:
         try:
-            output = _format_chat_completion_stream_output(item)
+            output = _format_chat_completion_stream_output(line)
         except StopIteration:
             break
         if output is not None:
@@ -321,17 +342,16 @@ async def _async_stream_chat_completion_response(
 
 
 def _format_chat_completion_stream_output(
-    byte_payload: bytes,
+    line: str,
 ) -> Optional[ChatCompletionStreamOutput]:
-    if not byte_payload.startswith(b"data:"):
+    if not line.startswith("data:"):
         return None  # empty line
 
-    if byte_payload.strip() == b"data: [DONE]":
+    if line.strip() == "data: [DONE]":
         raise StopIteration("[DONE] signal received.")
 
     # Decode payload
-    payload = byte_payload.decode("utf-8")
-    json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
+    json_payload = json.loads(line.lstrip("data:").strip())
 
     # Either an error as being returned
     if json_payload.get("error") is not None:
@@ -341,10 +361,9 @@ def _format_chat_completion_stream_output(
     return ChatCompletionStreamOutput.parse_obj_as_instance(json_payload)
 
 
-async def _async_yield_from(client: "ClientSession", response: "ClientResponse") -> AsyncIterable[bytes]:
-    async for byte_payload in response.content:
-        yield byte_payload.strip()
-    await client.close()
+async def _async_yield_from(client: httpx.AsyncClient, response: httpx.Response) -> AsyncIterable[str]:
+    async for line in response.aiter_lines():
+        yield line.strip()
 
 
 # "TGI servers" are servers running with the `text-generation-inference` backend.
@@ -365,14 +384,14 @@ async def _async_yield_from(client: "ClientSession", response: "ClientResponse")
 # For more details, see https://github.com/huggingface/text-generation-inference and
 # https://huggingface.co/docs/api-inference/detailed_parameters#text-generation-task.
 
-_UNSUPPORTED_TEXT_GENERATION_KWARGS: Dict[Optional[str], List[str]] = {}
+_UNSUPPORTED_TEXT_GENERATION_KWARGS: dict[Optional[str], list[str]] = {}
 
 
-def _set_unsupported_text_generation_kwargs(model: Optional[str], unsupported_kwargs: List[str]) -> None:
+def _set_unsupported_text_generation_kwargs(model: Optional[str], unsupported_kwargs: list[str]) -> None:
     _UNSUPPORTED_TEXT_GENERATION_KWARGS.setdefault(model, []).extend(unsupported_kwargs)
 
 
-def _get_unsupported_text_generation_kwargs(model: Optional[str]) -> List[str]:
+def _get_unsupported_text_generation_kwargs(model: Optional[str]) -> list[str]:
     return _UNSUPPORTED_TEXT_GENERATION_KWARGS.get(model, [])
 
 
@@ -383,7 +402,7 @@ def _get_unsupported_text_generation_kwargs(model: Optional[str]) -> List[str]:
 # ----------------------
 
 
-def raise_text_generation_error(http_error: HTTPError) -> NoReturn:
+def raise_text_generation_error(http_error: HfHubHTTPError) -> NoReturn:
     """
     Try to parse text-generation-inference error message and raise HTTPError in any case.
 
@@ -392,6 +411,8 @@ def raise_text_generation_error(http_error: HTTPError) -> NoReturn:
             The HTTPError that have been raised.
     """
     # Try to parse a Text Generation Inference error
+    if http_error.response is None:
+        raise http_error
 
     try:
         # Hacky way to retrieve payload in case of aiohttp error

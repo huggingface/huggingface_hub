@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 시작하기 전에 적절한 패키지를 설치하여 환경을 설정해야 합니다.
 
-`huggingface_hub`는 **Python 3.8+**에서 테스트되었습니다.
+`huggingface_hub`는 **Python 3.9+**에서 테스트되었습니다.
 
 ## pip로 설치하기 [[install-with-pip]]
 
@@ -46,17 +46,13 @@ pip install --upgrade huggingface_hub
 
 선택적 의존성은 `pip`을 통해 설치할 수 있습니다:
 ```bash
-# TensorFlow 관련 기능에 대한 의존성을 설치합니다.
-# /!\ 경고: `pip install tensorflow`와 동일하지 않습니다.
-pip install 'huggingface_hub[tensorflow]'
-
 # PyTorch와 CLI와 관련된 기능에 대한 의존성을 모두 설치합니다.
 pip install 'huggingface_hub[cli,torch]'
 ```
 
 다음은 `huggingface_hub`의 선택 의존성 목록입니다:
 - `cli`: 보다 편리한 `huggingface_hub`의 CLI 인터페이스입니다.
-- `fastai`, `torch`, `tensorflow`: 프레임워크별 기능을 실행하려면 필요합니다.
+- `fastai`, `torch`: 프레임워크별 기능을 실행하려면 필요합니다.
 - `dev`: 라이브러리에 기여하고 싶다면 필요합니다. 테스트 실행을 위한 `testing`, 타입 검사기 실행을 위한 `typing`, 린터 실행을 위한 `quality`가 포함됩니다.
 
 ### 소스에서 설치 [[install-from-source]]

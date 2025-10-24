@@ -35,16 +35,16 @@ jobs:
 
       - name: Install dependencies
         run: uv pip install "huggingface_hub[dev] @ ."
-      - run: .venv/bin/ruff check tests src contrib # linter
-      - run: .venv/bin/ruff format --check tests src contrib # formatter
-      - run: .venv/bin/python utils/check_contrib_list.py
+      - run: .venv/bin/ruff check tests src # linter
+      - run: .venv/bin/ruff format --check tests src # formatter
       - run: .venv/bin/python utils/check_inference_input_params.py
       - run: .venv/bin/python utils/check_static_imports.py
       - run: .venv/bin/python utils/check_all_variable.py
       - run: .venv/bin/python utils/generate_async_inference_client.py
+      - run: .venv/bin/python utils/generate_cli_reference.py --verbose
       - run: .venv/bin/python utils/generate_inference_types.py
       - run: .venv/bin/python utils/check_task_parameters.py
-
+      - run: uvx ty check src
       # Run type checking at least on huggingface_hub root file to check all modules
       # that can be lazy-loaded actually exist.
       - run: .venv/bin/mypy src/huggingface_hub/__init__.py --follow-imports=silent --show-traceback

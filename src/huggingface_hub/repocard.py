@@ -1,9 +1,8 @@
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Type, Union
+from typing import Any, Literal, Optional, Union
 
-import requests
 import yaml
 
 from huggingface_hub.file_download import hf_hub_download
@@ -17,7 +16,7 @@ from huggingface_hub.repocard_data import (
     eval_results_to_model_index,
     model_index_to_eval_results,
 )
-from huggingface_hub.utils import get_session, is_jinja_available, yaml_dump
+from huggingface_hub.utils import HfHubHTTPError, get_session, hf_raise_for_status, is_jinja_available, yaml_dump
 
 from . import constants
 from .errors import EntryNotFoundError
@@ -65,13 +64,11 @@ class RepoCard:
             '\\n# My repo\\n'
 
             ```
-        <Tip>
-        Raises the following error:
-
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              when the content of the repo card metadata is not a dictionary.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following error:
+        >
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       when the content of the repo card metadata is not a dictionary.
         """
 
         # Set the content of the RepoCard, as well as underlying .data and .text attributes.
@@ -199,15 +196,13 @@ class RepoCard:
                 The type of Hugging Face repo to push to. Options are "model", "dataset", and "space".
                 If this function is called from a child class, the default will be the child class's `repo_type`.
 
-        <Tip>
-        Raises the following errors:
-
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if the card fails validation checks.
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the request to the Hub API fails for any other reason.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if the card fails validation checks.
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the request to the Hub API fails for any other reason.
         """
 
         # If repo type is provided, otherwise, use the repo type of the card.
@@ -220,11 +215,11 @@ class RepoCard:
         headers = {"Accept": "text/plain"}
 
         try:
-            r = get_session().post("https://huggingface.co/api/validate-yaml", body, headers=headers)
-            r.raise_for_status()
-        except requests.exceptions.HTTPError as exc:
-            if r.status_code == 400:
-                raise ValueError(r.text)
+            response = get_session().post("https://huggingface.co/api/validate-yaml", json=body, headers=headers)
+            hf_raise_for_status(response)
+        except HfHubHTTPError as exc:
+            if response.status_code == 400:
+                raise ValueError(response.text)
             else:
                 raise exc
 
@@ -276,7 +271,7 @@ class RepoCard:
 
         with SoftTemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir) / constants.REPOCARD_NAME
-            tmp_path.write_text(str(self))
+            tmp_path.write_text(str(self), encoding="utf-8")
             url = upload_file(
                 path_or_fileobj=str(tmp_path),
                 path_in_repo=constants.REPOCARD_NAME,
@@ -336,7 +331,7 @@ class RepoCard:
 
 
 class ModelCard(RepoCard):
-    card_data_class = ModelCardData
+    card_data_class = ModelCardData  # type: ignore[assignment]
     default_template_path = TEMPLATE_MODELCARD_PATH
     repo_type = "model"
 
@@ -417,7 +412,7 @@ class ModelCard(RepoCard):
 
 
 class DatasetCard(RepoCard):
-    card_data_class = DatasetCardData
+    card_data_class = DatasetCardData  # type: ignore[assignment]
     default_template_path = TEMPLATE_DATASETCARD_PATH
     repo_type = "dataset"
 
@@ -482,7 +477,7 @@ class DatasetCard(RepoCard):
 
 
 class SpaceCard(RepoCard):
-    card_data_class = SpaceCardData
+    card_data_class = SpaceCardData  # type: ignore[assignment]
     default_template_path = TEMPLATE_MODELCARD_PATH
     repo_type = "space"
 
@@ -508,7 +503,7 @@ def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:  # n
         return "\n"
 
 
-def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
+def metadata_load(local_path: Union[str, Path]) -> Optional[dict]:
     content = Path(local_path).read_text()
     match = REGEX_YAML_BLOCK.search(content)
     if match:
@@ -521,7 +516,7 @@ def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
         return None
 
 
-def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
+def metadata_save(local_path: Union[str, Path], data: dict) -> None:
     """
     Save the metadata dict in the upper YAML part Trying to preserve newlines as
     in the existing file. Docs about open() with newline="" parameter:
@@ -569,7 +564,7 @@ def metadata_eval_result(
     dataset_split: Optional[str] = None,
     dataset_revision: Optional[str] = None,
     metrics_verification_token: Optional[str] = None,
-) -> Dict:
+) -> dict:
     """
     Creates a metadata dict with the result from a model evaluated on a dataset.
 
@@ -684,7 +679,7 @@ def metadata_eval_result(
 @validate_hf_hub_args
 def metadata_update(
     repo_id: str,
-    metadata: Dict,
+    metadata: dict,
     *,
     repo_type: Optional[str] = None,
     overwrite: bool = False,
@@ -752,7 +747,7 @@ def metadata_update(
     commit_message = commit_message if commit_message is not None else "Update metadata with huggingface_hub"
 
     # Card class given repo_type
-    card_class: Type[RepoCard]
+    card_class: type[RepoCard]
     if repo_type is None or repo_type == "model":
         card_class = ModelCard
     elif repo_type == "dataset":
@@ -771,7 +766,8 @@ def metadata_update(
             raise ValueError("Cannot update metadata on a Space that doesn't contain a `README.md` file.")
 
         # Initialize a ModelCard or DatasetCard from default template and no data.
-        card = card_class.from_template(CardData())
+        # Cast to the concrete expected card type to satisfy type checkers.
+        card = card_class.from_template(CardData())  # type: ignore[return-value]
 
     for key, value in metadata.items():
         if key == "model-index":

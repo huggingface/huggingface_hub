@@ -34,18 +34,17 @@
 # - Only the main parameters are publicly exposed. Power users can always read the docs for more options.
 import base64
 import logging
+import os
 import re
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Union, overload
-
-from requests import HTTPError
+from contextlib import ExitStack
+from typing import TYPE_CHECKING, Any, Iterable, Literal, Optional, Union, overload
 
 from huggingface_hub import constants
-from huggingface_hub.errors import BadRequestError, InferenceTimeoutError
+from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
-    ModelStatus,
     RequestParameters,
     _b64_encode,
     _b64_to_image,
@@ -54,7 +53,6 @@ from huggingface_hub.inference._common import (
     _bytes_to_list,
     _get_unsupported_text_generation_kwargs,
     _import_numpy,
-    _open_as_binary,
     _set_unsupported_text_generation_kwargs,
     _stream_chat_completion_response,
     _stream_text_generation_response,
@@ -66,6 +64,7 @@ from huggingface_hub.inference._generated.types import (
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
     ChatCompletionInputGrammarType,
+    ChatCompletionInputMessage,
     ChatCompletionInputStreamOptions,
     ChatCompletionInputTool,
     ChatCompletionInputToolChoiceClass,
@@ -80,6 +79,7 @@ from huggingface_hub.inference._generated.types import (
     ImageSegmentationSubtask,
     ImageToImageTargetSize,
     ImageToTextOutput,
+    ImageToVideoTargetSize,
     ObjectDetectionOutputElement,
     Padding,
     QuestionAnsweringOutputElement,
@@ -100,10 +100,14 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
-from huggingface_hub.inference._providers import PROVIDER_T, get_provider_helper
-from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
+from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provider_helper
+from huggingface_hub.utils import (
+    build_hf_headers,
+    get_session,
+    hf_raise_for_status,
+    validate_hf_hub_args,
+)
 from huggingface_hub.utils._auth import get_token
-from huggingface_hub.utils._deprecation import _deprecate_method
 
 
 if TYPE_CHECKING:
@@ -129,11 +133,9 @@ class InferenceClient:
             or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is
             automatically selected for the task.
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
-            arguments are mutually exclusive. If using `base_url` for chat completion, the `/chat/completions` suffix
-            path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
-            documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
+            arguments are mutually exclusive. If a URL is passed as `model` or `base_url` for chat completion, the `(/v1)/chat/completions` suffix path will be appended to the URL.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"cohere"`, `"fal-ai"`, `"fireworks-ai"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"openai"`, `"replicate"`, "sambanova"` , `"together"`. or `"wavespeed-ai"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"clarifai"`, `"cohere"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"openai"`, `"publicai"`, `"replicate"`, `"sambanova"`, `"scaleway"`, `"together"`, `"wavespeed-ai"` or `"zai-org"`.
             Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
@@ -142,16 +144,14 @@ class InferenceClient:
             arguments are mutually exclusive and have the exact same behavior.
         timeout (`float`, `optional`):
             The maximum number of seconds to wait for a response from the server. Defaults to None, meaning it will loop until the server is available.
-        headers (`Dict[str, str]`, `optional`):
+        headers (`dict[str, str]`, `optional`):
             Additional headers to send to the server. By default only the authorization and user-agent headers are sent.
             Values in this dictionary will override the default values.
         bill_to (`str`, `optional`):
             The billing account to use for the requests. By default the requests are billed on the user's account.
             Requests can only be billed to an organization the user is a member of, and which has subscribed to Enterprise Hub.
-        cookies (`Dict[str, str]`, `optional`):
+        cookies (`dict[str, str]`, `optional`):
             Additional cookies to send to the server.
-        proxies (`Any`, `optional`):
-            Proxies to use for the request.
         base_url (`str`, `optional`):
             Base URL to run inference. This is a duplicated argument from `model` to make [`InferenceClient`]
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `model` is set. Defaults to None.
@@ -160,16 +160,16 @@ class InferenceClient:
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `token` is set. Defaults to None.
     """
 
+    @validate_hf_hub_args
     def __init__(
         self,
         model: Optional[str] = None,
         *,
-        provider: Union[Literal["auto"], PROVIDER_T, None] = None,
+        provider: Optional[PROVIDER_OR_POLICY_T] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
-        headers: Optional[Dict[str, str]] = None,
-        cookies: Optional[Dict[str, str]] = None,
-        proxies: Optional[Any] = None,
+        headers: Optional[dict[str, str]] = None,
+        cookies: Optional[dict[str, str]] = None,
         bill_to: Optional[str] = None,
         # OpenAI compatibility
         base_url: Optional[str] = None,
@@ -231,10 +231,20 @@ class InferenceClient:
 
         self.cookies = cookies
         self.timeout = timeout
-        self.proxies = proxies
+
+        self.exit_stack = ExitStack()
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.exit_stack.close()
+
+    def close(self):
+        self.exit_stack.close()
 
     @overload
     def _inner_post(  # type: ignore[misc]
@@ -244,45 +254,46 @@ class InferenceClient:
     @overload
     def _inner_post(  # type: ignore[misc]
         self, request_parameters: RequestParameters, *, stream: Literal[True] = ...
-    ) -> Iterable[bytes]: ...
+    ) -> Iterable[str]: ...
 
     @overload
     def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, Iterable[bytes]]: ...
+    ) -> Union[bytes, Iterable[str]]: ...
 
     def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, Iterable[bytes]]:
+    ) -> Union[bytes, Iterable[str]]:
         """Make a request to the inference server."""
         # TODO: this should be handled in provider helpers directly
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
-        with _open_as_binary(request_parameters.data) as data_as_binary:
-            try:
-                response = get_session().post(
+        try:
+            response = self.exit_stack.enter_context(
+                get_session().stream(
+                    "POST",
                     request_parameters.url,
                     json=request_parameters.json,
-                    data=data_as_binary,
+                    content=request_parameters.data,
                     headers=request_parameters.headers,
                     cookies=self.cookies,
                     timeout=self.timeout,
-                    stream=stream,
-                    proxies=self.proxies,
                 )
-            except TimeoutError as error:
-                # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
-
-        try:
+            )
             hf_raise_for_status(response)
-            return response.iter_lines() if stream else response.content
-        except HTTPError as error:
+            if stream:
+                return response.iter_lines()
+            else:
+                return response.read()
+        except TimeoutError as error:
+            # Convert any `TimeoutError` to a `InferenceTimeoutError`
+            raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
+        except HfHubHTTPError as error:
             if error.response.status_code == 422 and request_parameters.task != "unknown":
                 msg = str(error.args[0])
                 if len(error.response.text) > 0:
-                    msg += f"\n{error.response.text}\n"
+                    msg += f"{os.linesep}{error.response.text}{os.linesep}"
                 error.args = (msg,) + error.args[1:]
             raise
 
@@ -293,7 +304,7 @@ class InferenceClient:
         model: Optional[str] = None,
         top_k: Optional[int] = None,
         function_to_apply: Optional["AudioClassificationOutputTransform"] = None,
-    ) -> List[AudioClassificationOutputElement]:
+    ) -> list[AudioClassificationOutputElement]:
         """
         Perform audio classification on the provided audio content.
 
@@ -311,12 +322,12 @@ class InferenceClient:
                 The function to apply to the model outputs in order to retrieve the scores.
 
         Returns:
-            `List[AudioClassificationOutputElement]`: List of [`AudioClassificationOutputElement`] items containing the predicted labels and their confidence.
+            `list[AudioClassificationOutputElement]`: List of [`AudioClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -348,7 +359,7 @@ class InferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[AudioToAudioOutputElement]:
+    ) -> list[AudioToAudioOutputElement]:
         """
         Performs multiple tasks related to audio-to-audio depending on the model (eg: speech enhancement, source separation).
 
@@ -362,12 +373,12 @@ class InferenceClient:
                 audio_to_audio will be used.
 
         Returns:
-            `List[AudioToAudioOutputElement]`: A list of [`AudioToAudioOutputElement`] items containing audios label, content-type, and audio content in blob.
+            `list[AudioToAudioOutputElement]`: A list of [`AudioToAudioOutputElement`] items containing audios label, content-type, and audio content in blob.
 
         Raises:
             `InferenceTimeoutError`:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -400,7 +411,7 @@ class InferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> AutomaticSpeechRecognitionOutput:
         """
         Perform automatic speech recognition (ASR or audio-to-text) on the given audio content.
@@ -411,7 +422,7 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for ASR. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for ASR will be used.
-            extra_body (`Dict`, *optional*):
+            extra_body (`dict`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
         Returns:
@@ -420,7 +431,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -446,121 +457,117 @@ class InferenceClient:
     @overload
     def chat_completion(  # type: ignore
         self,
-        messages: List[Dict],
+        messages: list[Union[dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: Literal[False] = False,
         frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[List[float]] = None,
+        logit_bias: Optional[list[float]] = None,
         logprobs: Optional[bool] = None,
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
         tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> ChatCompletionOutput: ...
 
     @overload
     def chat_completion(  # type: ignore
         self,
-        messages: List[Dict],
+        messages: list[Union[dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: Literal[True] = True,
         frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[List[float]] = None,
+        logit_bias: Optional[list[float]] = None,
         logprobs: Optional[bool] = None,
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
         tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> Iterable[ChatCompletionStreamOutput]: ...
 
     @overload
     def chat_completion(
         self,
-        messages: List[Dict],
+        messages: list[Union[dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: bool = False,
         frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[List[float]] = None,
+        logit_bias: Optional[list[float]] = None,
         logprobs: Optional[bool] = None,
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
         tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]: ...
 
     def chat_completion(
         self,
-        messages: List[Dict],
+        messages: list[Union[dict, ChatCompletionInputMessage]],
         *,
         model: Optional[str] = None,
         stream: bool = False,
         # Parameters from ChatCompletionInput (handled manually)
         frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[List[float]] = None,
+        logit_bias: Optional[list[float]] = None,
         logprobs: Optional[bool] = None,
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
         tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[list[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        extra_body: Optional[Dict] = None,
+        extra_body: Optional[dict] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:
         """
         A method for completing conversations using a specified language model.
 
-        <Tip>
+        > [!TIP]
+        > The `client.chat_completion` method is aliased as `client.chat.completions.create` for compatibility with OpenAI's client.
+        > Inputs and outputs are strictly the same and using either syntax will yield the same results.
+        > Check out the [Inference guide](https://huggingface.co/docs/huggingface_hub/guides/inference#openai-compatibility)
+        > for more details about OpenAI's compatibility.
 
-        The `client.chat_completion` method is aliased as `client.chat.completions.create` for compatibility with OpenAI's client.
-        Inputs and outputs are strictly the same and using either syntax will yield the same results.
-        Check out the [Inference guide](https://huggingface.co/docs/huggingface_hub/guides/inference#openai-compatibility)
-        for more details about OpenAI's compatibility.
-
-        </Tip>
-
-        <Tip>
-        You can pass provider-specific parameters to the model by using the `extra_body` argument.
-        </Tip>
+        > [!TIP]
+        > You can pass provider-specific parameters to the model by using the `extra_body` argument.
 
         Args:
             messages (List of [`ChatCompletionInputMessage`]):
@@ -574,7 +581,7 @@ class InferenceClient:
             frequency_penalty (`float`, *optional*):
                 Penalizes new tokens based on their existing frequency
                 in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
-            logit_bias (`List[float]`, *optional*):
+            logit_bias (`list[float]`, *optional*):
                 Adjusts the likelihood of specific tokens appearing in the generated output.
             logprobs (`bool`, *optional*):
                 Whether to return log probabilities of the output tokens or not. If true, returns the log
@@ -590,7 +597,7 @@ class InferenceClient:
                 Grammar constraints. Can be either a JSONSchema or a regex.
             seed (Optional[`int`], *optional*):
                 Seed for reproducible control flow. Defaults to None.
-            stop (`List[str]`, *optional*):
+            stop (`list[str]`, *optional*):
                 Up to four strings which trigger the end of the response.
                 Defaults to None.
             stream (`bool`, *optional*):
@@ -614,7 +621,7 @@ class InferenceClient:
             tools (List of [`ChatCompletionInputTool`], *optional*):
                 A list of tools the model may call. Currently, only functions are supported as a tool. Use this to
                 provide a list of functions the model may generate JSON inputs for.
-            extra_body (`Dict`, *optional*):
+            extra_body (`dict`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
         Returns:
@@ -626,7 +633,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -940,8 +947,8 @@ class InferenceClient:
         max_question_len: Optional[int] = None,
         max_seq_len: Optional[int] = None,
         top_k: Optional[int] = None,
-        word_boxes: Optional[List[Union[List[float], str]]] = None,
-    ) -> List[DocumentQuestionAnsweringOutputElement]:
+        word_boxes: Optional[list[Union[list[float], str]]] = None,
+    ) -> list[DocumentQuestionAnsweringOutputElement]:
         """
         Answer questions on document images.
 
@@ -971,16 +978,16 @@ class InferenceClient:
             top_k (`int`, *optional*):
                 The number of answers to return (will be chosen by order of likelihood). Can return less than top_k
                 answers if there are not enough options available within the context.
-            word_boxes (`List[Union[List[float], str`, *optional*):
+            word_boxes (`list[Union[list[float], str`, *optional*):
                 A list of words and bounding boxes (normalized 0->1000). If provided, the inference will skip the OCR
                 step and use the provided bounding boxes instead.
         Returns:
-            `List[DocumentQuestionAnsweringOutputElement]`: a list of [`DocumentQuestionAnsweringOutputElement`] items containing the predicted label, associated probability, word ids, and page number.
+            `list[DocumentQuestionAnsweringOutputElement]`: a list of [`DocumentQuestionAnsweringOutputElement`] items containing the predicted label, associated probability, word ids, and page number.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
 
@@ -994,7 +1001,7 @@ class InferenceClient:
         """
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="document-question-answering", model=model_id)
-        inputs: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
+        inputs: dict[str, Any] = {"question": question, "image": _b64_encode(image)}
         request_parameters = provider_helper.prepare_request(
             inputs=inputs,
             parameters={
@@ -1055,7 +1062,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1092,9 +1099,9 @@ class InferenceClient:
         text: str,
         *,
         model: Optional[str] = None,
-        targets: Optional[List[str]] = None,
+        targets: Optional[list[str]] = None,
         top_k: Optional[int] = None,
-    ) -> List[FillMaskOutputElement]:
+    ) -> list[FillMaskOutputElement]:
         """
         Fill in a hole with a missing word (token to be precise).
 
@@ -1104,20 +1111,20 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for the fill mask task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended fill mask model will be used.
-            targets (`List[str`, *optional*):
+            targets (`list[str`, *optional*):
                 When passed, the model will limit the scores to the passed targets instead of looking up in the whole
                 vocabulary. If the provided targets are not in the model vocab, they will be tokenized and the first
                 resulting token will be used (with a warning, and that might be slower).
             top_k (`int`, *optional*):
                 When passed, overrides the number of predictions to return.
         Returns:
-            `List[FillMaskOutputElement]`: a list of [`FillMaskOutputElement`] items containing the predicted label, associated
+            `list[FillMaskOutputElement]`: a list of [`FillMaskOutputElement`] items containing the predicted label, associated
             probability, token reference, and completed text.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1150,13 +1157,13 @@ class InferenceClient:
         model: Optional[str] = None,
         function_to_apply: Optional["ImageClassificationOutputTransform"] = None,
         top_k: Optional[int] = None,
-    ) -> List[ImageClassificationOutputElement]:
+    ) -> list[ImageClassificationOutputElement]:
         """
         Perform image classification on the given image using the specified model.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The image to classify. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The image to classify. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for image classification. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
@@ -1165,12 +1172,12 @@ class InferenceClient:
             top_k (`int`, *optional*):
                 When specified, limits the output to the top K most probable classes.
         Returns:
-            `List[ImageClassificationOutputElement]`: a list of [`ImageClassificationOutputElement`] items containing the predicted label and associated probability.
+            `list[ImageClassificationOutputElement]`: a list of [`ImageClassificationOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1202,19 +1209,16 @@ class InferenceClient:
         overlap_mask_area_threshold: Optional[float] = None,
         subtask: Optional["ImageSegmentationSubtask"] = None,
         threshold: Optional[float] = None,
-    ) -> List[ImageSegmentationOutputElement]:
+    ) -> list[ImageSegmentationOutputElement]:
         """
         Perform image segmentation on the given image using the specified model.
 
-        <Tip warning={true}>
-
-        You must have `PIL` installed if you want to work with images (`pip install Pillow`).
-
-        </Tip>
+        > [!WARNING]
+        > You must have `PIL` installed if you want to work with images (`pip install Pillow`).
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The image to segment. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The image to segment. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for image segmentation. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for image segmentation will be used.
@@ -1227,12 +1231,12 @@ class InferenceClient:
             threshold (`float`, *optional*):
                 Probability threshold to filter out predicted masks.
         Returns:
-            `List[ImageSegmentationOutputElement]`: A list of [`ImageSegmentationOutputElement`] items containing the segmented masks and associated attributes.
+            `list[ImageSegmentationOutputElement]`: A list of [`ImageSegmentationOutputElement`] items containing the segmented masks and associated attributes.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1278,15 +1282,12 @@ class InferenceClient:
         """
         Perform image-to-image translation using a specified model.
 
-        <Tip warning={true}>
-
-        You must have `PIL` installed if you want to work with images (`pip install Pillow`).
-
-        </Tip>
+        > [!WARNING]
+        > You must have `PIL` installed if you want to work with images (`pip install Pillow`).
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image for translation. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image for translation. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             prompt (`str`, *optional*):
                 The text prompt to guide the image generation.
             negative_prompt (`str`, *optional*):
@@ -1301,7 +1302,8 @@ class InferenceClient:
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
             target_size (`ImageToImageTargetSize`, *optional*):
-                The size in pixel of the output image.
+                The size in pixels of the output image. This parameter is only supported by some providers and for
+                specific models. It will be ignored when unsupported.
 
         Returns:
             `Image`: The translated image.
@@ -1309,7 +1311,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1351,7 +1353,87 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
+        response = provider_helper.get_response(response, request_parameters)
         return _bytes_to_image(response)
+
+    def image_to_video(
+        self,
+        image: ContentT,
+        *,
+        model: Optional[str] = None,
+        prompt: Optional[str] = None,
+        negative_prompt: Optional[str] = None,
+        num_frames: Optional[float] = None,
+        num_inference_steps: Optional[int] = None,
+        guidance_scale: Optional[float] = None,
+        seed: Optional[int] = None,
+        target_size: Optional[ImageToVideoTargetSize] = None,
+        **kwargs,
+    ) -> bytes:
+        """
+        Generate a video from an input image.
+
+        Args:
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image to generate a video from. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
+            model (`str`, *optional*):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+            prompt (`str`, *optional*):
+                The text prompt to guide the video generation.
+            negative_prompt (`str`, *optional*):
+                One prompt to guide what NOT to include in video generation.
+            num_frames (`float`, *optional*):
+                The num_frames parameter determines how many video frames are generated.
+            num_inference_steps (`int`, *optional*):
+                For diffusion models. The number of denoising steps. More denoising steps usually lead to a higher
+                quality image at the expense of slower inference.
+            guidance_scale (`float`, *optional*):
+                For diffusion models. A higher guidance scale value encourages the model to generate videos closely
+                linked to the text prompt at the expense of lower image quality.
+            seed (`int`, *optional*):
+                The seed to use for the video generation.
+            target_size (`ImageToVideoTargetSize`, *optional*):
+                The size in pixel of the output video frames.
+            num_inference_steps (`int`, *optional*):
+                The number of denoising steps. More denoising steps usually lead to a higher quality video at the
+                expense of slower inference.
+            seed (`int`, *optional*):
+                Seed for the random number generator.
+
+        Returns:
+            `bytes`: The generated video.
+
+        Examples:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> video = client.image_to_video("cat.jpg", model="Wan-AI/Wan2.2-I2V-A14B", prompt="turn the cat into a tiger")
+        >>> with open("tiger.mp4", "wb") as f:
+        ...     f.write(video)
+        ```
+        """
+        model_id = model or self.model
+        provider_helper = get_provider_helper(self.provider, task="image-to-video", model=model_id)
+        request_parameters = provider_helper.prepare_request(
+            inputs=image,
+            parameters={
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "num_frames": num_frames,
+                "num_inference_steps": num_inference_steps,
+                "guidance_scale": guidance_scale,
+                "seed": seed,
+                "target_size": target_size,
+                **kwargs,
+            },
+            headers=self.headers,
+            model=model_id,
+            api_key=self.token,
+        )
+        response = self._inner_post(request_parameters)
+        response = provider_helper.get_response(response, request_parameters)
+        return response
 
     def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> ImageToTextOutput:
         """
@@ -1361,8 +1443,8 @@ class InferenceClient:
         (OCR), Pix2Struct, etc). Please have a look to the model card to learn more about a model's specificities.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image to caption. It can be raw bytes, an image file, or a URL to an online image..
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
@@ -1373,7 +1455,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1396,36 +1478,33 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
-        output = ImageToTextOutput.parse_obj(response)
-        return output[0] if isinstance(output, list) else output
+        output_list: list[ImageToTextOutput] = ImageToTextOutput.parse_obj_as_list(response)
+        return output_list[0]
 
     def object_detection(
         self, image: ContentT, *, model: Optional[str] = None, threshold: Optional[float] = None
-    ) -> List[ObjectDetectionOutputElement]:
+    ) -> list[ObjectDetectionOutputElement]:
         """
         Perform object detection on the given image using the specified model.
 
-        <Tip warning={true}>
-
-        You must have `PIL` installed if you want to work with images (`pip install Pillow`).
-
-        </Tip>
+        > [!WARNING]
+        > You must have `PIL` installed if you want to work with images (`pip install Pillow`).
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The image to detect objects on. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The image to detect objects on. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             model (`str`, *optional*):
                 The model to use for object detection. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for object detection (DETR) will be used.
             threshold (`float`, *optional*):
                 The probability necessary to make a prediction.
         Returns:
-            `List[ObjectDetectionOutputElement]`: A list of [`ObjectDetectionOutputElement`] items containing the bounding boxes and associated attributes.
+            `list[ObjectDetectionOutputElement]`: A list of [`ObjectDetectionOutputElement`] items containing the bounding boxes and associated attributes.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
             `ValueError`:
                 If the request output is not a List.
@@ -1463,7 +1542,7 @@ class InferenceClient:
         max_question_len: Optional[int] = None,
         max_seq_len: Optional[int] = None,
         top_k: Optional[int] = None,
-    ) -> Union[QuestionAnsweringOutputElement, List[QuestionAnsweringOutputElement]]:
+    ) -> Union[QuestionAnsweringOutputElement, list[QuestionAnsweringOutputElement]]:
         """
         Retrieve the answer to a question from a given text.
 
@@ -1495,13 +1574,13 @@ class InferenceClient:
                 topk answers if there are not enough options available within the context.
 
         Returns:
-            Union[`QuestionAnsweringOutputElement`, List[`QuestionAnsweringOutputElement`]]:
+            Union[`QuestionAnsweringOutputElement`, list[`QuestionAnsweringOutputElement`]]:
                 When top_k is 1 or not provided, it returns a single `QuestionAnsweringOutputElement`.
                 When top_k is greater than 1, it returns a list of `QuestionAnsweringOutputElement`.
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1515,7 +1594,7 @@ class InferenceClient:
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="question-answering", model=model_id)
         request_parameters = provider_helper.prepare_request(
-            inputs=None,
+            inputs={"question": question, "context": context},
             parameters={
                 "align_to_words": align_to_words,
                 "doc_stride": doc_stride,
@@ -1525,7 +1604,6 @@ class InferenceClient:
                 "max_seq_len": max_seq_len,
                 "top_k": top_k,
             },
-            extra_payload={"question": question, "context": context},
             headers=self.headers,
             model=model_id,
             api_key=self.token,
@@ -1536,15 +1614,15 @@ class InferenceClient:
         return output
 
     def sentence_similarity(
-        self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
-    ) -> List[float]:
+        self, sentence: str, other_sentences: list[str], *, model: Optional[str] = None
+    ) -> list[float]:
         """
         Compute the semantic similarity between a sentence and a list of other sentences by comparing their embeddings.
 
         Args:
             sentence (`str`):
                 The main sentence to compare to others.
-            other_sentences (`List[str]`):
+            other_sentences (`list[str]`):
                 The list of sentences to compare to.
             model (`str`, *optional*):
                 The model to use for the sentence similarity task. Can be a model ID hosted on the Hugging Face Hub or a URL to
@@ -1552,12 +1630,12 @@ class InferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[float]`: The embedding representing the input text.
+            `list[float]`: The embedding representing the input text.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1594,7 +1672,7 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         clean_up_tokenization_spaces: Optional[bool] = None,
-        generate_parameters: Optional[Dict[str, Any]] = None,
+        generate_parameters: Optional[dict[str, Any]] = None,
         truncation: Optional["SummarizationTruncationStrategy"] = None,
     ) -> SummarizationOutput:
         """
@@ -1608,7 +1686,7 @@ class InferenceClient:
                 Inference Endpoint. If not provided, the default recommended model for summarization will be used.
             clean_up_tokenization_spaces (`bool`, *optional*):
                 Whether to clean up the potential extra spaces in the text output.
-            generate_parameters (`Dict[str, Any]`, *optional*):
+            generate_parameters (`dict[str, Any]`, *optional*):
                 Additional parametrization of the text generation algorithm.
             truncation (`"SummarizationTruncationStrategy"`, *optional*):
                 The truncation strategy to use.
@@ -1618,7 +1696,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1648,7 +1726,7 @@ class InferenceClient:
 
     def table_question_answering(
         self,
-        table: Dict[str, Any],
+        table: dict[str, Any],
         query: str,
         *,
         model: Optional[str] = None,
@@ -1683,7 +1761,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1699,9 +1777,8 @@ class InferenceClient:
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="table-question-answering", model=model_id)
         request_parameters = provider_helper.prepare_request(
-            inputs=None,
+            inputs={"query": query, "table": table},
             parameters={"model": model, "padding": padding, "sequential": sequential, "truncation": truncation},
-            extra_payload={"query": query, "table": table},
             headers=self.headers,
             model=model_id,
             api_key=self.token,
@@ -1709,12 +1786,12 @@ class InferenceClient:
         response = self._inner_post(request_parameters)
         return TableQuestionAnsweringOutputElement.parse_obj_as_instance(response)
 
-    def tabular_classification(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[str]:
+    def tabular_classification(self, table: dict[str, Any], *, model: Optional[str] = None) -> list[str]:
         """
         Classifying a target category (a group) based on a set of attributes.
 
         Args:
-            table (`Dict[str, Any]`):
+            table (`dict[str, Any]`):
                 Set of attributes to classify.
             model (`str`, *optional*):
                 The model to use for the tabular classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
@@ -1727,7 +1804,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1764,12 +1841,12 @@ class InferenceClient:
         response = self._inner_post(request_parameters)
         return _bytes_to_list(response)
 
-    def tabular_regression(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[float]:
+    def tabular_regression(self, table: dict[str, Any], *, model: Optional[str] = None) -> list[float]:
         """
         Predicting a numerical target value given a set of attributes/features in a table.
 
         Args:
-            table (`Dict[str, Any]`):
+            table (`dict[str, Any]`):
                 Set of attributes stored in a table. The attributes used to predict the target can be both numerical and categorical.
             model (`str`, *optional*):
                 The model to use for the tabular regression task. Can be a model ID hosted on the Hugging Face Hub or a URL to
@@ -1782,7 +1859,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1821,7 +1898,7 @@ class InferenceClient:
         model: Optional[str] = None,
         top_k: Optional[int] = None,
         function_to_apply: Optional["TextClassificationOutputTransform"] = None,
-    ) -> List[TextClassificationOutputElement]:
+    ) -> list[TextClassificationOutputElement]:
         """
         Perform text classification (e.g. sentiment-analysis) on the given text.
 
@@ -1838,12 +1915,12 @@ class InferenceClient:
                 The function to apply to the model outputs in order to retrieve the scores.
 
         Returns:
-            `List[TextClassificationOutputElement]`: a list of [`TextClassificationOutputElement`] items containing the predicted label and associated probability.
+            `list[TextClassificationOutputElement]`: a list of [`TextClassificationOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -1873,116 +1950,26 @@ class InferenceClient:
         return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
-    def text_generation(  # type: ignore
+    def text_generation(
         self,
         prompt: str,
         *,
-        details: Literal[False] = ...,
-        stream: Literal[False] = ...,
+        details: Literal[True],
+        stream: Literal[True],
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
-    ) -> str: ...
-
-    @overload
-    def text_generation(  # type: ignore
-        self,
-        prompt: str,
-        *,
-        details: Literal[True] = ...,
-        stream: Literal[False] = ...,
-        model: Optional[str] = None,
-        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
-        seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
-    ) -> TextGenerationOutput: ...
-
-    @overload
-    def text_generation(  # type: ignore
-        self,
-        prompt: str,
-        *,
-        details: Literal[False] = ...,
-        stream: Literal[True] = ...,
-        model: Optional[str] = None,
-        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
-        seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
-    ) -> Iterable[str]: ...
-
-    @overload
-    def text_generation(  # type: ignore
-        self,
-        prompt: str,
-        *,
-        details: Literal[True] = ...,
-        stream: Literal[True] = ...,
-        model: Optional[str] = None,
-        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
-        seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1997,22 +1984,22 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        details: Literal[True] = ...,
-        stream: bool = ...,
+        details: Literal[True],
+        stream: Optional[Literal[False]] = None,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2020,28 +2007,118 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: Optional[bool] = None,
-    ) -> Union[TextGenerationOutput, Iterable[TextGenerationStreamOutput]]: ...
+    ) -> TextGenerationOutput: ...
 
+    @overload
     def text_generation(
         self,
         prompt: str,
         *,
-        details: bool = False,
-        stream: bool = False,
+        details: Optional[Literal[False]] = None,
+        stream: Literal[True],
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = False,  # Manual default value
+        do_sample: Optional[bool] = None,
         frequency_penalty: Optional[float] = None,
         grammar: Optional[TextGenerationInputGrammarType] = None,
         max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = False,  # Manual default value
+        return_full_text: Optional[bool] = None,  # Manual default value
         seed: Optional[int] = None,
-        stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: Optional[bool] = None,
+    ) -> Iterable[str]: ...
+
+    @overload
+    def text_generation(
+        self,
+        prompt: str,
+        *,
+        details: Optional[Literal[False]] = None,
+        stream: Optional[Literal[False]] = None,
+        model: Optional[str] = None,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
+        best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = None,
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: Optional[bool] = None,
+        seed: Optional[int] = None,
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: Optional[bool] = None,
+    ) -> str: ...
+
+    @overload
+    def text_generation(
+        self,
+        prompt: str,
+        *,
+        details: Optional[bool] = None,
+        stream: Optional[bool] = None,
+        model: Optional[str] = None,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
+        best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = None,
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: Optional[bool] = None,
+        seed: Optional[int] = None,
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: Optional[bool] = None,
+    ) -> Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]: ...
+
+    def text_generation(
+        self,
+        prompt: str,
+        *,
+        details: Optional[bool] = None,
+        stream: Optional[bool] = None,
+        model: Optional[str] = None,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
+        best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = None,
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: Optional[bool] = None,
+        seed: Optional[int] = None,
+        stop: Optional[list[str]] = None,
+        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -2053,12 +2130,9 @@ class InferenceClient:
         """
         Given a prompt, generate the following text.
 
-        <Tip>
-
-        If you want to generate a response from chat messages, you should use the [`InferenceClient.chat_completion`] method.
-        It accepts a list of messages instead of a single text prompt and handles the chat templating for you.
-
-        </Tip>
+        > [!TIP]
+        > If you want to generate a response from chat messages, you should use the [`InferenceClient.chat_completion`] method.
+        > It accepts a list of messages instead of a single text prompt and handles the chat templating for you.
 
         Args:
             prompt (`str`):
@@ -2097,9 +2171,9 @@ class InferenceClient:
                 Whether to prepend the prompt to the generated text
             seed (`int`, *optional*):
                 Random sampling seed
-            stop (`List[str]`, *optional*):
+            stop (`list[str]`, *optional*):
                 Stop generating tokens if a member of `stop` is generated.
-            stop_sequences (`List[str]`, *optional*):
+            stop_sequences (`list[str]`, *optional*):
                 Deprecated argument. Use `stop` instead.
             temperature (`float`, *optional*):
                 The value used to module the logits distribution.
@@ -2116,7 +2190,7 @@ class InferenceClient:
             typical_p (`float`, *optional`):
                 Typical Decoding mass
                 See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666) for more information
-            watermark (`bool`, *optional`):
+            watermark (`bool`, *optional*):
                 Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
 
         Returns:
@@ -2132,7 +2206,7 @@ class InferenceClient:
                 If input values are not valid. No HTTP call is made to the server.
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2266,7 +2340,7 @@ class InferenceClient:
             "repetition_penalty": repetition_penalty,
             "return_full_text": return_full_text,
             "seed": seed,
-            "stop": stop if stop is not None else [],
+            "stop": stop,
             "temperature": temperature,
             "top_k": top_k,
             "top_n_tokens": top_n_tokens,
@@ -2320,8 +2394,8 @@ class InferenceClient:
 
         # Handle errors separately for more precise error messages
         try:
-            bytes_output = self._inner_post(request_parameters, stream=stream)
-        except HTTPError as e:
+            bytes_output = self._inner_post(request_parameters, stream=stream or False)
+        except HfHubHTTPError as e:
             match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
             if isinstance(e, BadRequestError) and match:
                 unused_params = [kwarg.strip("' ") for kwarg in match.group(1).split(",")]
@@ -2376,20 +2450,16 @@ class InferenceClient:
         model: Optional[str] = None,
         scheduler: Optional[str] = None,
         seed: Optional[int] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[dict[str, Any]] = None,
     ) -> "Image":
         """
         Generate an image based on a given text using a specified model.
 
-        <Tip warning={true}>
+        > [!WARNING]
+        > You must have `PIL` installed if you want to work with images (`pip install Pillow`).
 
-        You must have `PIL` installed if you want to work with images (`pip install Pillow`).
-
-        </Tip>
-
-        <Tip>
-        You can pass provider-specific parameters to the model by using the `extra_body` argument.
-        </Tip>
+        > [!TIP]
+        > You can pass provider-specific parameters to the model by using the `extra_body` argument.
 
         Args:
             prompt (`str`):
@@ -2414,7 +2484,7 @@ class InferenceClient:
                 Override the scheduler with a compatible one.
             seed (`int`, *optional*):
                 Seed for the random number generator.
-            extra_body (`Dict[str, Any]`, *optional*):
+            extra_body (`dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
 
@@ -2424,7 +2494,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2527,18 +2597,17 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         guidance_scale: Optional[float] = None,
-        negative_prompt: Optional[List[str]] = None,
+        negative_prompt: Optional[list[str]] = None,
         num_frames: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
         seed: Optional[int] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[dict[str, Any]] = None,
     ) -> bytes:
         """
         Generate a video based on a given text.
 
-        <Tip>
-        You can pass provider-specific parameters to the model by using the `extra_body` argument.
-        </Tip>
+        > [!TIP]
+        > You can pass provider-specific parameters to the model by using the `extra_body` argument.
 
         Args:
             prompt (`str`):
@@ -2550,7 +2619,7 @@ class InferenceClient:
             guidance_scale (`float`, *optional*):
                 A higher guidance scale value encourages the model to generate videos closely linked to the text
                 prompt, but values too high may cause saturation and other artifacts.
-            negative_prompt (`List[str]`, *optional*):
+            negative_prompt (`list[str]`, *optional*):
                 One or several prompt to guide what NOT to include in video generation.
             num_frames (`float`, *optional*):
                 The num_frames parameter determines how many video frames are generated.
@@ -2559,7 +2628,7 @@ class InferenceClient:
                 expense of slower inference.
             seed (`int`, *optional*):
                 Seed for the random number generator.
-            extra_body (`Dict[str, Any]`, *optional*):
+            extra_body (`dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
 
@@ -2654,14 +2723,13 @@ class InferenceClient:
         top_p: Optional[float] = None,
         typical_p: Optional[float] = None,
         use_cache: Optional[bool] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[dict[str, Any]] = None,
     ) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
 
-        <Tip>
-        You can pass provider-specific parameters to the model by using the `extra_body` argument.
-        </Tip>
+        > [!TIP]
+        > You can pass provider-specific parameters to the model by using the `extra_body` argument.
 
         Args:
             text (`str`):
@@ -2716,7 +2784,7 @@ class InferenceClient:
                 paper](https://hf.co/papers/2202.00666) for more details.
             use_cache (`bool`, *optional*):
                 Whether the model should use the past last key/values attentions to speed up decoding
-            extra_body (`Dict[str, Any]`, *optional*):
+            extra_body (`dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
         Returns:
@@ -2725,7 +2793,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2848,9 +2916,9 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         aggregation_strategy: Optional["TokenClassificationAggregationStrategy"] = None,
-        ignore_labels: Optional[List[str]] = None,
+        ignore_labels: Optional[list[str]] = None,
         stride: Optional[int] = None,
-    ) -> List[TokenClassificationOutputElement]:
+    ) -> list[TokenClassificationOutputElement]:
         """
         Perform token classification on the given text.
         Usually used for sentence parsing, either grammatical, or Named Entity Recognition (NER) to understand keywords contained within text.
@@ -2864,18 +2932,18 @@ class InferenceClient:
                 Defaults to None.
             aggregation_strategy (`"TokenClassificationAggregationStrategy"`, *optional*):
                 The strategy used to fuse tokens based on model predictions
-            ignore_labels (`List[str`, *optional*):
+            ignore_labels (`list[str`, *optional*):
                 A list of labels to ignore
             stride (`int`, *optional*):
                 The number of overlapping tokens between chunks when splitting the input text.
 
         Returns:
-            `List[TokenClassificationOutputElement]`: List of [`TokenClassificationOutputElement`] items containing the entity group, confidence score, word, start and end index.
+            `list[TokenClassificationOutputElement]`: List of [`TokenClassificationOutputElement`] items containing the entity group, confidence score, word, start and end index.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -2926,7 +2994,7 @@ class InferenceClient:
         tgt_lang: Optional[str] = None,
         clean_up_tokenization_spaces: Optional[bool] = None,
         truncation: Optional["TranslationTruncationStrategy"] = None,
-        generate_parameters: Optional[Dict[str, Any]] = None,
+        generate_parameters: Optional[dict[str, Any]] = None,
     ) -> TranslationOutput:
         """
         Convert text from one language to another.
@@ -2951,7 +3019,7 @@ class InferenceClient:
                 Whether to clean up the potential extra spaces in the text output.
             truncation (`"TranslationTruncationStrategy"`, *optional*):
                 The truncation strategy to use.
-            generate_parameters (`Dict[str, Any]`, *optional*):
+            generate_parameters (`dict[str, Any]`, *optional*):
                 Additional parametrization of the text generation algorithm.
 
         Returns:
@@ -2960,7 +3028,7 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
             `ValueError`:
                 If only one of the `src_lang` and `tgt_lang` arguments are provided.
@@ -3013,13 +3081,13 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         top_k: Optional[int] = None,
-    ) -> List[VisualQuestionAnsweringOutputElement]:
+    ) -> list[VisualQuestionAnsweringOutputElement]:
         """
         Answering open-ended questions based on an image.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image for the context. It can be raw bytes, an image file, or a URL to an online image.
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image for the context. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             question (`str`):
                 Question to be answered.
             model (`str`, *optional*):
@@ -3030,12 +3098,12 @@ class InferenceClient:
                 The number of answers to return (will be chosen by order of likelihood). Note that we return less than
                 topk answers if there are not enough options available within the context.
         Returns:
-            `List[VisualQuestionAnsweringOutputElement]`: a list of [`VisualQuestionAnsweringOutputElement`] items containing the predicted label and associated probability.
+            `list[VisualQuestionAnsweringOutputElement]`: a list of [`VisualQuestionAnsweringOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             `InferenceTimeoutError`:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -3068,21 +3136,21 @@ class InferenceClient:
     def zero_shot_classification(
         self,
         text: str,
-        candidate_labels: List[str],
+        candidate_labels: list[str],
         *,
         multi_label: Optional[bool] = False,
         hypothesis_template: Optional[str] = None,
         model: Optional[str] = None,
-    ) -> List[ZeroShotClassificationOutputElement]:
+    ) -> list[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
 
         Args:
             text (`str`):
                 The input text to classify.
-            candidate_labels (`List[str]`):
+            candidate_labels (`list[str]`):
                 The set of possible class labels to classify the text into.
-            labels (`List[str]`, *optional*):
+            labels (`list[str]`, *optional*):
                 (deprecated) List of strings. Each string is the verbalization of a possible label for the input text.
             multi_label (`bool`, *optional*):
                 Whether multiple candidate labels can be true. If false, the scores are normalized such that the sum of
@@ -3097,12 +3165,12 @@ class InferenceClient:
 
 
         Returns:
-            `List[ZeroShotClassificationOutputElement]`: List of [`ZeroShotClassificationOutputElement`] items containing the predicted labels and their confidence.
+            `list[ZeroShotClassificationOutputElement]`: List of [`ZeroShotClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example with `multi_label=False`:
@@ -3174,22 +3242,22 @@ class InferenceClient:
     def zero_shot_image_classification(
         self,
         image: ContentT,
-        candidate_labels: List[str],
+        candidate_labels: list[str],
         *,
         model: Optional[str] = None,
         hypothesis_template: Optional[str] = None,
         # deprecated argument
-        labels: List[str] = None,  # type: ignore
-    ) -> List[ZeroShotImageClassificationOutputElement]:
+        labels: list[str] = None,  # type: ignore
+    ) -> list[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
 
         Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image to caption. It can be raw bytes, an image file, or a URL to an online image.
-            candidate_labels (`List[str]`):
+            image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
+                The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
+            candidate_labels (`list[str]`):
                 The candidate labels for this image
-            labels (`List[str]`, *optional*):
+            labels (`list[str]`, *optional*):
                 (deprecated) List of string possible labels. There must be at least 2 labels.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
@@ -3199,12 +3267,12 @@ class InferenceClient:
                 replacing the placeholder with the candidate labels.
 
         Returns:
-            `List[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
+            `list[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            [`HfHubHTTPError`]:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -3238,102 +3306,7 @@ class InferenceClient:
         response = self._inner_post(request_parameters)
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
-    @_deprecate_method(
-        version="0.33.0",
-        message=(
-            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
-            " Use `HfApi.list_models(..., inference_provider='...')` to list warm models per provider."
-        ),
-    )
-    def list_deployed_models(
-        self, frameworks: Union[None, str, Literal["all"], List[str]] = None
-    ) -> Dict[str, List[str]]:
-        """
-        List models deployed on the HF Serverless Inference API service.
-
-        This helper checks deployed models framework by framework. By default, it will check the 4 main frameworks that
-        are supported and account for 95% of the hosted models. However, if you want a complete list of models you can
-        specify `frameworks="all"` as input. Alternatively, if you know before-hand which framework you are interested
-        in, you can also restrict to search to this one (e.g. `frameworks="text-generation-inference"`). The more
-        frameworks are checked, the more time it will take.
-
-        <Tip warning={true}>
-
-        This endpoint method does not return a live list of all models available for the HF Inference API service.
-        It searches over a cached list of models that were recently available and the list may not be up to date.
-        If you want to know the live status of a specific model, use [`~InferenceClient.get_model_status`].
-
-        </Tip>
-
-        <Tip>
-
-        This endpoint method is mostly useful for discoverability. If you already know which model you want to use and want to
-        check its availability, you can directly use [`~InferenceClient.get_model_status`].
-
-        </Tip>
-
-        Args:
-            frameworks (`Literal["all"]` or `List[str]` or `str`, *optional*):
-                The frameworks to filter on. By default only a subset of the available frameworks are tested. If set to
-                "all", all available frameworks will be tested. It is also possible to provide a single framework or a
-                custom set of frameworks to check.
-
-        Returns:
-            `Dict[str, List[str]]`: A dictionary mapping task names to a sorted list of model IDs.
-
-        Example:
-        ```python
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-
-        # Discover zero-shot-classification models currently deployed
-        >>> models = client.list_deployed_models()
-        >>> models["zero-shot-classification"]
-        ['Narsil/deberta-large-mnli-zero-cls', 'facebook/bart-large-mnli', ...]
-
-        # List from only 1 framework
-        >>> client.list_deployed_models("text-generation-inference")
-        {'text-generation': ['bigcode/starcoder', 'meta-llama/Llama-2-70b-chat-hf', ...], ...}
-        ```
-        """
-        if self.provider != "hf-inference":
-            raise ValueError(f"Listing deployed models is not supported on '{self.provider}'.")
-
-        # Resolve which frameworks to check
-        if frameworks is None:
-            frameworks = constants.MAIN_INFERENCE_API_FRAMEWORKS
-        elif frameworks == "all":
-            frameworks = constants.ALL_INFERENCE_API_FRAMEWORKS
-        elif isinstance(frameworks, str):
-            frameworks = [frameworks]
-        frameworks = list(set(frameworks))
-
-        # Fetch them iteratively
-        models_by_task: Dict[str, List[str]] = {}
-
-        def _unpack_response(framework: str, items: List[Dict]) -> None:
-            for model in items:
-                if framework == "sentence-transformers":
-                    # Model running with the `sentence-transformers` framework can work with both tasks even if not
-                    # branded as such in the API response
-                    models_by_task.setdefault("feature-extraction", []).append(model["model_id"])
-                    models_by_task.setdefault("sentence-similarity", []).append(model["model_id"])
-                else:
-                    models_by_task.setdefault(model["task"], []).append(model["model_id"])
-
-        for framework in frameworks:
-            response = get_session().get(
-                f"{constants.INFERENCE_ENDPOINT}/framework/{framework}", headers=build_hf_headers(token=self.token)
-            )
-            hf_raise_for_status(response)
-            _unpack_response(framework, response.json())
-
-        # Sort alphabetically for discoverability and return
-        for task, models in models_by_task.items():
-            models_by_task[task] = sorted(set(models), key=lambda x: x.lower())
-        return models_by_task
-
-    def get_endpoint_info(self, *, model: Optional[str] = None) -> Dict[str, Any]:
+    def get_endpoint_info(self, *, model: Optional[str] = None) -> dict[str, Any]:
         """
         Get information about the deployed endpoint.
 
@@ -3346,7 +3319,7 @@ class InferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `Dict[str, Any]`: Information about the endpoint.
+            `dict[str, Any]`: Information about the endpoint.
 
         Example:
         ```py
@@ -3396,7 +3369,6 @@ class InferenceClient:
         Check the health of the deployed endpoint.
 
         Health check is only available with Inference Endpoints powered by Text-Generation-Inference (TGI) or Text-Embedding-Inference (TEI).
-        For Inference API, please use [`InferenceClient.get_model_status`] instead.
 
         Args:
             model (`str`, *optional*):
@@ -3420,74 +3392,11 @@ class InferenceClient:
         if model is None:
             raise ValueError("Model id not provided.")
         if not model.startswith(("http://", "https://")):
-            raise ValueError(
-                "Model must be an Inference Endpoint URL. For serverless Inference API, please use `InferenceClient.get_model_status`."
-            )
+            raise ValueError("Model must be an Inference Endpoint URL.")
         url = model.rstrip("/") + "/health"
 
         response = get_session().get(url, headers=build_hf_headers(token=self.token))
         return response.status_code == 200
-
-    @_deprecate_method(
-        version="0.33.0",
-        message=(
-            "HF Inference API is getting revamped and will only support warm models in the future (no cold start allowed)."
-            " Use `HfApi.model_info` to get the model status both with HF Inference API and external providers."
-        ),
-    )
-    def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
-        """
-        Get the status of a model hosted on the HF Inference API.
-
-        <Tip>
-
-        This endpoint is mostly useful when you already know which model you want to use and want to check its
-        availability. If you want to discover already deployed models, you should rather use [`~InferenceClient.list_deployed_models`].
-
-        </Tip>
-
-        Args:
-            model (`str`, *optional*):
-                Identifier of the model for witch the status gonna be checked. If model is not provided,
-                the model associated with this instance of [`InferenceClient`] will be used. Only HF Inference API service can be checked so the
-                identifier cannot be a URL.
-
-
-        Returns:
-            [`ModelStatus`]: An instance of ModelStatus dataclass, containing information,
-                         about the state of the model: load, state, compute type and framework.
-
-        Example:
-        ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-        >>> client.get_model_status("meta-llama/Meta-Llama-3-8B-Instruct")
-        ModelStatus(loaded=True, state='Loaded', compute_type='gpu', framework='text-generation-inference')
-        ```
-        """
-        if self.provider != "hf-inference":
-            raise ValueError(f"Getting model status is not supported on '{self.provider}'.")
-
-        model = model or self.model
-        if model is None:
-            raise ValueError("Model id not provided.")
-        if model.startswith("https://"):
-            raise NotImplementedError("Model status is only available for Inference API endpoints.")
-        url = f"{constants.INFERENCE_ENDPOINT}/status/{model}"
-
-        response = get_session().get(url, headers=build_hf_headers(token=self.token))
-        hf_raise_for_status(response)
-        response_data = response.json()
-
-        if "error" in response_data:
-            raise ValueError(response_data["error"])
-
-        return ModelStatus(
-            loaded=response_data["loaded"],
-            state=response_data["state"],
-            compute_type=response_data["compute_type"],
-            framework=response_data["framework"],
-        )
 
     @property
     def chat(self) -> "ProxyClientChat":

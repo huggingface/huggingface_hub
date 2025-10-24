@@ -14,15 +14,12 @@
 # limitations under the License.
 """Git LFS related type definitions and utilities"""
 
-import inspect
 import io
 import re
-import warnings
 from dataclasses import dataclass
 from math import ceil
 from os.path import getsize
-from pathlib import Path
-from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tuple, TypedDict
+from typing import TYPE_CHECKING, BinaryIO, Iterable, Optional, TypedDict
 from urllib.parse import unquote
 
 from huggingface_hub import constants
@@ -34,12 +31,10 @@ from .utils import (
     hf_raise_for_status,
     http_backoff,
     logging,
-    tqdm,
     validate_hf_hub_args,
 )
 from .utils._lfs import SliceFileObj
 from .utils.sha import sha256, sha_fileobj
-from .utils.tqdm import is_tqdm_disabled
 
 
 if TYPE_CHECKING:
@@ -107,8 +102,9 @@ def post_lfs_batch_info(
     repo_id: str,
     revision: Optional[str] = None,
     endpoint: Optional[str] = None,
-    headers: Optional[Dict[str, str]] = None,
-) -> Tuple[List[dict], List[dict]]:
+    headers: Optional[dict[str, str]] = None,
+    transfers: Optional[list[str]] = None,
+) -> tuple[list[dict], list[dict], Optional[str]]:
     """
     Requests the LFS batch endpoint to retrieve upload instructions
 
@@ -127,16 +123,19 @@ def post_lfs_batch_info(
             The git revision to upload to.
         headers (`dict`, *optional*):
             Additional headers to include in the request
+        transfers (`list`, *optional*):
+            List of transfer methods to use. Defaults to ["basic", "multipart"].
 
     Returns:
-        `LfsBatchInfo`: 2-tuple:
+        `LfsBatchInfo`: 3-tuple:
             - First element is the list of upload instructions from the server
-            - Second element is an list of errors, if any
+            - Second element is a list of errors, if any
+            - Third element is the chosen transfer adapter if provided by the server (e.g. "basic", "multipart", "xet")
 
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an argument is invalid or the server response is malformed.
-        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        [`HfHubHTTPError`]
             If the server returned an error.
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
@@ -144,9 +143,9 @@ def post_lfs_batch_info(
     if repo_type in constants.REPO_TYPES_URL_PREFIXES:
         url_prefix = constants.REPO_TYPES_URL_PREFIXES[repo_type]
     batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
-    payload: Dict = {
+    payload: dict = {
         "operation": "upload",
-        "transfers": ["basic", "multipart"],
+        "transfers": transfers if transfers is not None else ["basic", "multipart"],
         "objects": [
             {
                 "oid": upload.sha256.hex(),
@@ -172,9 +171,13 @@ def post_lfs_batch_info(
     if not isinstance(objects, list):
         raise ValueError("Malformed response from server")
 
+    chosen_transfer = batch_info.get("transfer")
+    chosen_transfer = chosen_transfer if isinstance(chosen_transfer, str) else None
+
     return (
         [_validate_batch_actions(obj) for obj in objects if "error" not in obj],
         [_validate_batch_error(obj) for obj in objects if "error" in obj],
+        chosen_transfer,
     )
 
 
@@ -187,14 +190,14 @@ class CompletionPayloadT(TypedDict):
     """Payload that will be sent to the Hub when uploading multi-part."""
 
     oid: str
-    parts: List[PayloadPartT]
+    parts: list[PayloadPartT]
 
 
 def lfs_upload(
     operation: "CommitOperationAdd",
-    lfs_batch_action: Dict,
+    lfs_batch_action: dict,
     token: Optional[str] = None,
-    headers: Optional[Dict[str, str]] = None,
+    headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
 ) -> None:
     """
@@ -214,7 +217,7 @@ def lfs_upload(
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If `lfs_batch_action` is improperly formatted
-        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        [`HfHubHTTPError`]
             If the upload resulted in an error
     """
     # 0. If LFS file is already present, skip upload
@@ -308,42 +311,26 @@ def _upload_single_part(operation: "CommitOperationAdd", upload_url: str) -> Non
         fileobj:
             The file-like object holding the data to upload.
 
-    Returns: `requests.Response`
-
     Raises:
-     [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-        If the upload resulted in an error.
+        [`HfHubHTTPError`]
+            If the upload resulted in an error.
     """
     with operation.as_file(with_tqdm=True) as fileobj:
         # S3 might raise a transient 500 error -> let's retry if that happens
-        response = http_backoff("PUT", upload_url, data=fileobj, retry_on_status_codes=(500, 502, 503, 504))
+        response = http_backoff("PUT", upload_url, data=fileobj)
         hf_raise_for_status(response)
 
 
-def _upload_multi_part(operation: "CommitOperationAdd", header: Dict, chunk_size: int, upload_url: str) -> None:
+def _upload_multi_part(operation: "CommitOperationAdd", header: dict, chunk_size: int, upload_url: str) -> None:
     """
     Uploads file using HF multipart LFS transfer protocol.
     """
     # 1. Get upload URLs for each part
     sorted_parts_urls = _get_sorted_parts_urls(header=header, upload_info=operation.upload_info, chunk_size=chunk_size)
 
-    # 2. Upload parts (either with hf_transfer or in pure Python)
-    use_hf_transfer = constants.HF_HUB_ENABLE_HF_TRANSFER
-    if (
-        constants.HF_HUB_ENABLE_HF_TRANSFER
-        and not isinstance(operation.path_or_fileobj, str)
-        and not isinstance(operation.path_or_fileobj, Path)
-    ):
-        warnings.warn(
-            "hf_transfer is enabled but does not support uploading from bytes or BinaryIO, falling back to regular"
-            " upload"
-        )
-        use_hf_transfer = False
-
-    response_headers = (
-        _upload_parts_hf_transfer(operation=operation, sorted_parts_urls=sorted_parts_urls, chunk_size=chunk_size)
-        if use_hf_transfer
-        else _upload_parts_iteratively(operation=operation, sorted_parts_urls=sorted_parts_urls, chunk_size=chunk_size)
+    # 2. Upload parts (pure Python)
+    response_headers = _upload_parts_iteratively(
+        operation=operation, sorted_parts_urls=sorted_parts_urls, chunk_size=chunk_size
     )
 
     # 3. Send completion request
@@ -355,7 +342,7 @@ def _upload_multi_part(operation: "CommitOperationAdd", header: Dict, chunk_size
     hf_raise_for_status(completion_res)
 
 
-def _get_sorted_parts_urls(header: Dict, upload_info: UploadInfo, chunk_size: int) -> List[str]:
+def _get_sorted_parts_urls(header: dict, upload_info: UploadInfo, chunk_size: int) -> list[str]:
     sorted_part_upload_urls = [
         upload_url
         for _, upload_url in sorted(
@@ -373,8 +360,8 @@ def _get_sorted_parts_urls(header: Dict, upload_info: UploadInfo, chunk_size: in
     return sorted_part_upload_urls
 
 
-def _get_completion_payload(response_headers: List[Dict], oid: str) -> CompletionPayloadT:
-    parts: List[PayloadPartT] = []
+def _get_completion_payload(response_headers: list[dict], oid: str) -> CompletionPayloadT:
+    parts: list[PayloadPartT] = []
     for part_number, header in enumerate(response_headers):
         etag = header.get("etag")
         if etag is None or etag == "":
@@ -389,8 +376,8 @@ def _get_completion_payload(response_headers: List[Dict], oid: str) -> Completio
 
 
 def _upload_parts_iteratively(
-    operation: "CommitOperationAdd", sorted_parts_urls: List[str], chunk_size: int
-) -> List[Dict]:
+    operation: "CommitOperationAdd", sorted_parts_urls: list[str], chunk_size: int
+) -> list[dict]:
     headers = []
     with operation.as_file(with_tqdm=True) as fileobj:
         for part_idx, part_upload_url in enumerate(sorted_parts_urls):
@@ -400,61 +387,7 @@ def _upload_parts_iteratively(
                 read_limit=chunk_size,
             ) as fileobj_slice:
                 # S3 might raise a transient 500 error -> let's retry if that happens
-                part_upload_res = http_backoff(
-                    "PUT", part_upload_url, data=fileobj_slice, retry_on_status_codes=(500, 502, 503, 504)
-                )
+                part_upload_res = http_backoff("PUT", part_upload_url, data=fileobj_slice)
                 hf_raise_for_status(part_upload_res)
                 headers.append(part_upload_res.headers)
     return headers  # type: ignore
-
-
-def _upload_parts_hf_transfer(
-    operation: "CommitOperationAdd", sorted_parts_urls: List[str], chunk_size: int
-) -> List[Dict]:
-    # Upload file using an external Rust-based package. Upload is faster but support less features (no progress bars).
-    try:
-        from hf_transfer import multipart_upload
-    except ImportError:
-        raise ValueError(
-            "Fast uploading using 'hf_transfer' is enabled (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is"
-            " not available in your environment. Try `pip install hf_transfer`."
-        )
-
-    supports_callback = "callback" in inspect.signature(multipart_upload).parameters
-    if not supports_callback:
-        warnings.warn(
-            "You are using an outdated version of `hf_transfer`. Consider upgrading to latest version to enable progress bars using `pip install -U hf_transfer`."
-        )
-
-    total = operation.upload_info.size
-    desc = operation.path_in_repo
-    if len(desc) > 40:
-        desc = f"(…){desc[-40:]}"
-
-    with tqdm(
-        unit="B",
-        unit_scale=True,
-        total=total,
-        initial=0,
-        desc=desc,
-        disable=is_tqdm_disabled(logger.getEffectiveLevel()),
-        name="huggingface_hub.lfs_upload",
-    ) as progress:
-        try:
-            output = multipart_upload(
-                file_path=operation.path_or_fileobj,
-                parts_urls=sorted_parts_urls,
-                chunk_size=chunk_size,
-                max_files=128,
-                parallel_failures=127,  # could be removed
-                max_retries=5,
-                **({"callback": progress.update} if supports_callback else {}),
-            )
-        except Exception as e:
-            raise RuntimeError(
-                "An error occurred while uploading using `hf_transfer`. Consider disabling HF_HUB_ENABLE_HF_TRANSFER for"
-                " better error handling."
-            ) from e
-        if not supports_callback:
-            progress.update(total)
-        return output

@@ -4,7 +4,6 @@ Type definitions and utilities for the `create_commit` API
 
 import base64
 import io
-import math
 import os
 import warnings
 from collections import defaultdict
@@ -12,7 +11,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, Iterable, Iterator, Literal, Optional, Union
 
 from tqdm.contrib.concurrent import thread_map
 
@@ -23,6 +22,7 @@ from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
     FORBIDDEN_FOLDERS,
     XetTokenType,
+    are_progress_bars_disabled,
     chunk_iterable,
     fetch_xet_connection_info_from_repo_info,
     get_session,
@@ -33,7 +33,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils.tqdm import _get_progress_bar_context
+from .utils._runtime import is_xet_available
 
 
 if TYPE_CHECKING:
@@ -236,7 +236,7 @@ class CommitOperationAdd:
         config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
 
         >>> with operation.as_file(with_tqdm=True) as file:
-        ...     requests.put(..., data=file)
+        ...     httpx.put(..., data=file)
         config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
         ```
         """
@@ -307,7 +307,7 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
 CommitOperation = Union[CommitOperationAdd, CommitOperationCopy, CommitOperationDelete]
 
 
-def _warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
+def _warn_on_overwriting_operations(operations: list[CommitOperation]) -> None:
     """
     Warn user when a list of operations is expected to overwrite itself in a single
     commit.
@@ -322,7 +322,7 @@ def _warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
       delete before upload) but can happen if a user deletes an entire folder and then
       add new files to it.
     """
-    nb_additions_per_path: Dict[str, int] = defaultdict(int)
+    nb_additions_per_path: dict[str, int] = defaultdict(int)
     for operation in operations:
         path_in_repo = operation.path_in_repo
         if isinstance(operation, CommitOperationAdd):
@@ -354,15 +354,95 @@ def _warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
 
 
 @validate_hf_hub_args
-def _upload_lfs_files(
+def _upload_files(
     *,
-    additions: List[CommitOperationAdd],
+    additions: list[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
-    headers: Dict[str, str],
+    headers: dict[str, str],
     endpoint: Optional[str] = None,
     num_threads: int = 5,
     revision: Optional[str] = None,
+    create_pr: Optional[bool] = None,
+):
+    """
+    Negotiates per-file transfer (LFS vs Xet) and uploads in batches.
+    """
+    xet_additions: list[CommitOperationAdd] = []
+    lfs_actions: list[dict[str, Any]] = []
+    lfs_oid2addop: dict[str, CommitOperationAdd] = {}
+
+    for chunk in chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES):
+        chunk_list = [op for op in chunk]
+
+        transfers: list[str] = ["basic", "multipart"]
+        has_buffered_io_data = any(isinstance(op.path_or_fileobj, io.BufferedIOBase) for op in chunk_list)
+        if is_xet_available():
+            if not has_buffered_io_data:
+                transfers.append("xet")
+            else:
+                logger.warning(
+                    "Uploading files as a binary IO buffer is not supported by Xet Storage. "
+                    "Falling back to HTTP upload."
+                )
+
+        actions_chunk, errors_chunk, chosen_transfer = post_lfs_batch_info(
+            upload_infos=[op.upload_info for op in chunk_list],
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            endpoint=endpoint,
+            headers=headers,
+            token=None,  # already passed in 'headers'
+            transfers=transfers,
+        )
+        if errors_chunk:
+            message = "\n".join(
+                [
+                    f"Encountered error for file with OID {err.get('oid')}: `{err.get('error', {}).get('message')}"
+                    for err in errors_chunk
+                ]
+            )
+            raise ValueError(f"LFS batch API returned errors:\n{message}")
+
+        # If server returns a transfer we didn't offer (e.g "xet" while uploading from BytesIO),
+        # fall back to LFS for this chunk.
+        if chosen_transfer == "xet" and ("xet" in transfers):
+            xet_additions.extend(chunk_list)
+        else:
+            lfs_actions.extend(actions_chunk)
+            for op in chunk_list:
+                lfs_oid2addop[op.upload_info.sha256.hex()] = op
+
+    if len(lfs_actions) > 0:
+        _upload_lfs_files(
+            actions=lfs_actions,
+            oid2addop=lfs_oid2addop,
+            headers=headers,
+            endpoint=endpoint,
+            num_threads=num_threads,
+        )
+
+    if len(xet_additions) > 0:
+        _upload_xet_files(
+            additions=xet_additions,
+            repo_type=repo_type,
+            repo_id=repo_id,
+            headers=headers,
+            endpoint=endpoint,
+            revision=revision,
+            create_pr=create_pr,
+        )
+
+
+@validate_hf_hub_args
+def _upload_lfs_files(
+    *,
+    actions: list[dict[str, Any]],
+    oid2addop: dict[str, CommitOperationAdd],
+    headers: dict[str, str],
+    endpoint: Optional[str] = None,
+    num_threads: int = 5,
 ):
     """
     Uploads the content of `additions` to the Hub using the large file storage protocol.
@@ -371,14 +451,26 @@ def _upload_lfs_files(
         - LFS Batch API: https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
 
     Args:
-        additions (`List` of `CommitOperationAdd`):
-            The files to be uploaded
-        repo_type (`str`):
+        actions (`list[dict[str, Any]]`):
+            LFS batch actions returned by the server.
+        oid2addop (`dict[str, CommitOperationAdd]`):
+            A dictionary mapping the OID of the file to the corresponding `CommitOperationAdd` object.
+        headers (`dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
+        endpoint (`str`, *optional*):
+            The endpoint to use for the request. Defaults to `constants.ENDPOINT`.
+        num_threads (`int`, *optional*):
+            The number of concurrent threads to use when uploading. Defaults to 5.
+
+    Raises:
+        [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+            If an upload failed for any reason
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        headers (`Dict[str, str]`):
+        headers (`dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
         num_threads (`int`, *optional*):
             The number of concurrent threads to use when uploading. Defaults to 5.
@@ -390,53 +482,20 @@ def _upload_lfs_files(
             If an upload failed for any reason
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the server returns malformed responses
-        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        [`HfHubHTTPError`]
             If the LFS batch endpoint returned an HTTP error.
     """
-    # Step 1: retrieve upload instructions from the LFS batch endpoint.
-    #         Upload instructions are retrieved by chunk of 256 files to avoid reaching
-    #         the payload limit.
-    batch_actions: List[Dict] = []
-    for chunk in chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES):
-        batch_actions_chunk, batch_errors_chunk = post_lfs_batch_info(
-            upload_infos=[op.upload_info for op in chunk],
-            repo_id=repo_id,
-            repo_type=repo_type,
-            revision=revision,
-            endpoint=endpoint,
-            headers=headers,
-            token=None,  # already passed in 'headers'
-        )
-
-        # If at least 1 error, we do not retrieve information for other chunks
-        if batch_errors_chunk:
-            message = "\n".join(
-                [
-                    f"Encountered error for file with OID {err.get('oid')}: `{err.get('error', {}).get('message')}"
-                    for err in batch_errors_chunk
-                ]
-            )
-            raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
-
-        batch_actions += batch_actions_chunk
-    oid2addop = {add_op.upload_info.sha256.hex(): add_op for add_op in additions}
-
-    # Step 2: ignore files that have already been uploaded
+    # Filter out files already present upstream
     filtered_actions = []
-    for action in batch_actions:
+    for action in actions:
         if action.get("actions") is None:
             logger.debug(
-                f"Content of file {oid2addop[action['oid']].path_in_repo} is already"
-                " present upstream - skipping upload."
+                f"Content of file {oid2addop[action['oid']].path_in_repo} is already present upstream - skipping upload."
             )
         else:
             filtered_actions.append(action)
 
-    if len(filtered_actions) == 0:
-        logger.debug("No LFS files to upload.")
-        return
-
-    # Step 3: upload files concurrently according to these instructions
+    # Upload according to server-provided actions
     def _wrapped_lfs_upload(batch_action) -> None:
         try:
             operation = oid2addop[batch_action["oid"]]
@@ -444,11 +503,7 @@ def _upload_lfs_files(
         except Exception as exc:
             raise RuntimeError(f"Error while uploading '{operation.path_in_repo}' to the Hub.") from exc
 
-    if constants.HF_HUB_ENABLE_HF_TRANSFER:
-        logger.debug(f"Uploading {len(filtered_actions)} LFS files to the Hub using `hf_transfer`.")
-        for action in hf_tqdm(filtered_actions, name="huggingface_hub.lfs_upload"):
-            _wrapped_lfs_upload(action)
-    elif len(filtered_actions) == 1:
+    if len(filtered_actions) == 1:
         logger.debug("Uploading 1 LFS file to the Hub")
         _wrapped_lfs_upload(filtered_actions[0])
     else:
@@ -467,10 +522,10 @@ def _upload_lfs_files(
 @validate_hf_hub_args
 def _upload_xet_files(
     *,
-    additions: List[CommitOperationAdd],
+    additions: list[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
-    headers: Dict[str, str],
+    headers: dict[str, str],
     endpoint: Optional[str] = None,
     revision: Optional[str] = None,
     create_pr: Optional[bool] = None,
@@ -480,14 +535,14 @@ def _upload_xet_files(
     This chunks the files and deduplicates the chunks before uploading them to xetcas storage.
 
     Args:
-        additions (`List` of `CommitOperationAdd`):
+        additions (`` of `CommitOperationAdd`):
             The files to be uploaded.
         repo_type (`str`):
             Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        headers (`Dict[str, str]`):
+        headers (`dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
         endpoint: (`str`, *optional*):
             The endpoint to use for the xetcas service. Defaults to `constants.ENDPOINT`.
@@ -501,7 +556,7 @@ def _upload_xet_files(
             If an upload failed for any reason.
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the server returns malformed responses or if the user is unauthorized to upload to xet storage.
-        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        [`HfHubHTTPError`]
             If the LFS batch endpoint returned an HTTP error.
 
     **How it works:**
@@ -529,8 +584,11 @@ def _upload_xet_files(
     """
     if len(additions) == 0:
         return
+
     # at this point, we know that hf_xet is installed
     from hf_xet import upload_bytes, upload_files
+
+    from .utils._xet_progress_reporting import XetProgressReporter
 
     try:
         xet_connection_info = fetch_xet_connection_info_from_repo_info(
@@ -553,7 +611,7 @@ def _upload_xet_files(
     xet_endpoint = xet_connection_info.endpoint
     access_token_info = (xet_connection_info.access_token, xet_connection_info.expiration_unix_epoch)
 
-    def token_refresher() -> Tuple[str, int]:
+    def token_refresher() -> tuple[str, int]:
         new_xet_connection = fetch_xet_connection_info_from_repo_info(
             token_type=XetTokenType.WRITE,
             repo_id=repo_id,
@@ -567,51 +625,42 @@ def _upload_xet_files(
             raise XetRefreshTokenError("Failed to refresh xet token")
         return new_xet_connection.access_token, new_xet_connection.expiration_unix_epoch
 
-    num_chunks = math.ceil(len(additions) / UPLOAD_BATCH_MAX_NUM_FILES)
-    num_chunks_num_digits = int(math.log10(num_chunks)) + 1
-    for i, chunk in enumerate(chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES)):
-        _chunk = [op for op in chunk]
+    if not are_progress_bars_disabled():
+        progress = XetProgressReporter()
+        progress_callback = progress.update_progress
+    else:
+        progress, progress_callback = None, None
 
-        bytes_ops = [op for op in _chunk if isinstance(op.path_or_fileobj, bytes)]
-        paths_ops = [op for op in _chunk if isinstance(op.path_or_fileobj, (str, Path))]
-        expected_size = sum(op.upload_info.size for op in bytes_ops + paths_ops)
+    try:
+        all_bytes_ops = [op for op in additions if isinstance(op.path_or_fileobj, bytes)]
+        all_paths_ops = [op for op in additions if isinstance(op.path_or_fileobj, (str, Path))]
 
-        if num_chunks > 1:
-            description = f"Uploading Batch [{str(i + 1).zfill(num_chunks_num_digits)}/{num_chunks}]..."
-        else:
-            description = "Uploading..."
-        progress_cm = _get_progress_bar_context(
-            desc=description,
-            total=expected_size,
-            initial=0,
-            unit="B",
-            unit_scale=True,
-            name="huggingface_hub.xet_put",
-            log_level=logger.getEffectiveLevel(),
-        )
-        with progress_cm as progress:
+        if len(all_paths_ops) > 0:
+            all_paths = [str(op.path_or_fileobj) for op in all_paths_ops]
+            upload_files(
+                all_paths,
+                xet_endpoint,
+                access_token_info,
+                token_refresher,
+                progress_callback,
+                repo_type,
+            )
 
-            def update_progress(increment: int):
-                progress.update(increment)
+        if len(all_bytes_ops) > 0:
+            all_bytes = [op.path_or_fileobj for op in all_bytes_ops]
+            upload_bytes(
+                all_bytes,
+                xet_endpoint,
+                access_token_info,
+                token_refresher,
+                progress_callback,
+                repo_type,
+            )
 
-            if len(paths_ops) > 0:
-                upload_files(
-                    [str(op.path_or_fileobj) for op in paths_ops],
-                    xet_endpoint,
-                    access_token_info,
-                    token_refresher,
-                    update_progress,
-                    repo_type,
-                )
-            if len(bytes_ops) > 0:
-                upload_bytes(
-                    [op.path_or_fileobj for op in bytes_ops],
-                    xet_endpoint,
-                    access_token_info,
-                    token_refresher,
-                    update_progress,
-                    repo_type,
-                )
+    finally:
+        if progress is not None:
+            progress.close(False)
+
     return
 
 
@@ -635,7 +684,7 @@ def _fetch_upload_modes(
     additions: Iterable[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
-    headers: Dict[str, str],
+    headers: dict[str, str],
     revision: str,
     endpoint: Optional[str] = None,
     create_pr: bool = False,
@@ -654,7 +703,7 @@ def _fetch_upload_modes(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        headers (`Dict[str, str]`):
+        headers (`dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
@@ -672,12 +721,12 @@ def _fetch_upload_modes(
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
 
     # Fetch upload mode (LFS or regular) chunk by chunk.
-    upload_modes: Dict[str, UploadMode] = {}
-    should_ignore_info: Dict[str, bool] = {}
-    oid_info: Dict[str, Optional[str]] = {}
+    upload_modes: dict[str, UploadMode] = {}
+    should_ignore_info: dict[str, bool] = {}
+    oid_info: dict[str, Optional[str]] = {}
 
     for chunk in chunk_iterable(additions, 256):
-        payload: Dict = {
+        payload: dict = {
             "files": [
                 {
                     "path": op.path_in_repo,
@@ -720,10 +769,10 @@ def _fetch_files_to_copy(
     copies: Iterable[CommitOperationCopy],
     repo_type: str,
     repo_id: str,
-    headers: Dict[str, str],
+    headers: dict[str, str],
     revision: str,
     endpoint: Optional[str] = None,
-) -> Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]]:
+) -> dict[tuple[str, Optional[str]], Union["RepoFile", bytes]]:
     """
     Fetch information about the files to copy.
 
@@ -739,12 +788,12 @@ def _fetch_files_to_copy(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        headers (`Dict[str, str]`):
+        headers (`dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
 
-    Returns: `Dict[Tuple[str, Optional[str]], Union[RepoFile, bytes]]]`
+    Returns: `dict[tuple[str, Optional[str]], Union[RepoFile, bytes]]]`
         Key is the file path and revision of the file to copy.
         Value is the raw content as bytes (for regular files) or the file information as a RepoFile (for LFS files).
 
@@ -757,9 +806,9 @@ def _fetch_files_to_copy(
     from .hf_api import HfApi, RepoFolder
 
     hf_api = HfApi(endpoint=endpoint, headers=headers)
-    files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]] = {}
+    files_to_copy: dict[tuple[str, Optional[str]], Union["RepoFile", bytes]] = {}
     # Store (path, revision) -> oid mapping
-    oid_info: Dict[Tuple[str, Optional[str]], Optional[str]] = {}
+    oid_info: dict[tuple[str, Optional[str]], Optional[str]] = {}
     # 1. Fetch OIDs for destination paths in batches.
     dest_paths = [op.path_in_repo for op in copies]
     for offset in range(0, len(dest_paths), FETCH_LFS_BATCH_SIZE):
@@ -819,11 +868,11 @@ def _fetch_files_to_copy(
 
 def _prepare_commit_payload(
     operations: Iterable[CommitOperation],
-    files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]],
+    files_to_copy: dict[tuple[str, Optional[str]], Union["RepoFile", bytes]],
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
-) -> Iterable[Dict[str, Any]]:
+) -> Iterable[dict[str, Any]]:
     """
     Builds the payload to POST to the `/commit` API of the Hub.
 

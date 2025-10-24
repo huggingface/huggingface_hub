@@ -1,7 +1,8 @@
 import unittest
+from unittest.mock import Mock
 
 import pytest
-from requests.models import PreparedRequest, Response
+from httpx import Request, Response
 
 from huggingface_hub.errors import (
     BadRequestError,
@@ -16,9 +17,8 @@ from huggingface_hub.utils._http import REPO_API_REGEX, X_AMZN_TRACE_ID, X_REQUE
 
 class TestErrorUtils(unittest.TestCase):
     def test_hf_raise_for_status_repo_not_found(self) -> None:
-        response = Response()
-        response.headers = {"X-Error-Code": "RepoNotFound", X_REQUEST_ID: 123}
-        response.status_code = 404
+        response = Response(status_code=404, headers={"X-Error-Code": "RepoNotFound", X_REQUEST_ID: "123"})
+        response.request = Request(method="GET", url="https://huggingface.co/fake")
         with self.assertRaisesRegex(RepositoryNotFoundError, "Repository Not Found") as context:
             hf_raise_for_status(response)
 
@@ -26,10 +26,11 @@ class TestErrorUtils(unittest.TestCase):
         assert "Request ID: 123" in str(context.exception)
 
     def test_hf_raise_for_status_disabled_repo(self) -> None:
-        response = Response()
-        response.headers = {"X-Error-Message": "Access to this resource is disabled.", X_REQUEST_ID: 123}
+        response = Response(
+            status_code=403, headers={"X-Error-Message": "Access to this resource is disabled.", X_REQUEST_ID: "123"}
+        )
+        response.request = Request(method="GET", url="https://huggingface.co/fake")
 
-        response.status_code = 403
         with self.assertRaises(DisabledRepoError) as context:
             hf_raise_for_status(response)
 
@@ -37,11 +38,8 @@ class TestErrorUtils(unittest.TestCase):
         assert "Request ID: 123" in str(context.exception)
 
     def test_hf_raise_for_status_401_repo_url_not_invalid_token(self) -> None:
-        response = Response()
-        response.headers = {X_REQUEST_ID: 123}
-        response.status_code = 401
-        response.request = PreparedRequest()
-        response.request.url = "https://huggingface.co/api/models/username/reponame"
+        response = Response(status_code=401, headers={X_REQUEST_ID: "123"})
+        response.request = Request(method="GET", url="https://huggingface.co/api/models/username/reponame")
         with self.assertRaisesRegex(RepositoryNotFoundError, "Repository Not Found") as context:
             hf_raise_for_status(response)
 
@@ -49,11 +47,11 @@ class TestErrorUtils(unittest.TestCase):
         assert "Request ID: 123" in str(context.exception)
 
     def test_hf_raise_for_status_401_repo_url_invalid_token(self) -> None:
-        response = Response()
-        response.headers = {X_REQUEST_ID: 123, "X-Error-Message": "Invalid credentials in Authorization header"}
-        response.status_code = 401
-        response.request = PreparedRequest()
-        response.request.url = "https://huggingface.co/api/models/username/reponame"
+        response = Response(
+            status_code=401,
+            headers={X_REQUEST_ID: "123", "X-Error-Message": "Invalid credentials in Authorization header"},
+        )
+        response.request = Request(method="GET", url="https://huggingface.co/api/models/username/reponame")
         with self.assertRaisesRegex(HfHubHTTPError, "Invalid credentials in Authorization header") as context:
             hf_raise_for_status(response)
 
@@ -61,11 +59,10 @@ class TestErrorUtils(unittest.TestCase):
         assert "Request ID: 123" in str(context.exception)
 
     def test_hf_raise_for_status_403_wrong_token_scope(self) -> None:
-        response = Response()
-        response.headers = {X_REQUEST_ID: 123, "X-Error-Message": "specific error message"}
-        response.status_code = 403
-        response.request = PreparedRequest()
-        response.request.url = "https://huggingface.co/api/repos/create"
+        response = Response(
+            status_code=403, headers={X_REQUEST_ID: "123", "X-Error-Message": "specific error message"}
+        )
+        response.request = Request(method="GET", url="https://huggingface.co/api/repos/create")
         expected_message_part = "403 Forbidden: specific error message"
         with self.assertRaisesRegex(HfHubHTTPError, expected_message_part) as context:
             hf_raise_for_status(response)
@@ -74,11 +71,8 @@ class TestErrorUtils(unittest.TestCase):
         assert "Request ID: 123" in str(context.exception)
 
     def test_hf_raise_for_status_401_not_repo_url(self) -> None:
-        response = Response()
-        response.headers = {X_REQUEST_ID: 123}
-        response.status_code = 401
-        response.request = PreparedRequest()
-        response.request.url = "https://huggingface.co/api/collections"
+        response = Response(status_code=401, headers={X_REQUEST_ID: "123"})
+        response.request = Request(method="GET", url="https://huggingface.co/api/collections")
         with self.assertRaises(HfHubHTTPError) as context:
             hf_raise_for_status(response)
 
@@ -86,9 +80,8 @@ class TestErrorUtils(unittest.TestCase):
         assert "Request ID: 123" in str(context.exception)
 
     def test_hf_raise_for_status_revision_not_found(self) -> None:
-        response = Response()
-        response.headers = {"X-Error-Code": "RevisionNotFound", X_REQUEST_ID: 123}
-        response.status_code = 404
+        response = Response(status_code=404, headers={"X-Error-Code": "RevisionNotFound", X_REQUEST_ID: "123"})
+        response.request = Request(method="GET", url="https://huggingface.co/fake")
         with self.assertRaisesRegex(RevisionNotFoundError, "Revision Not Found") as context:
             hf_raise_for_status(response)
 
@@ -96,9 +89,8 @@ class TestErrorUtils(unittest.TestCase):
         assert "Request ID: 123" in str(context.exception)
 
     def test_hf_raise_for_status_entry_not_found(self) -> None:
-        response = Response()
-        response.headers = {"X-Error-Code": "EntryNotFound", X_REQUEST_ID: 123}
-        response.status_code = 404
+        response = Response(status_code=404, headers={"X-Error-Code": "EntryNotFound", X_REQUEST_ID: "123"})
+        response.request = Request(method="GET", url="https://huggingface.co/fake")
         with self.assertRaisesRegex(EntryNotFoundError, "Entry Not Found") as context:
             hf_raise_for_status(response)
 
@@ -107,33 +99,29 @@ class TestErrorUtils(unittest.TestCase):
 
     def test_hf_raise_for_status_bad_request_no_endpoint_name(self) -> None:
         """Test HTTPError converted to BadRequestError if error 400."""
-        response = Response()
-        response.status_code = 400
+        response = Response(status_code=400)
+        response.request = Request(method="GET", url="https://huggingface.co/fake")
         with self.assertRaisesRegex(BadRequestError, "Bad request:") as context:
             hf_raise_for_status(response)
         assert context.exception.response.status_code == 400
 
     def test_hf_raise_for_status_bad_request_with_endpoint_name(self) -> None:
         """Test endpoint name is added to BadRequestError message."""
-        response = Response()
-        response.status_code = 400
+        response = Response(status_code=400)
+        response.request = Request(method="GET", url="https://huggingface.co/fake")
         with self.assertRaisesRegex(BadRequestError, "Bad request for preupload endpoint:") as context:
             hf_raise_for_status(response, endpoint_name="preupload")
         assert context.exception.response.status_code == 400
 
     def test_hf_raise_for_status_fallback(self) -> None:
         """Test HTTPError is converted to HfHubHTTPError."""
-        response = Response()
-        response.status_code = 404
-        response.headers = {
-            X_REQUEST_ID: "test-id",
-        }
-        response.url = "test_URL"
+        response = Response(status_code=404, headers={X_REQUEST_ID: "test-id"})
+        response.request = Request(method="GET", url="https://huggingface.co/fake")
         with self.assertRaisesRegex(HfHubHTTPError, "Request ID: test-id") as context:
             hf_raise_for_status(response)
 
         assert context.exception.response.status_code == 404
-        assert context.exception.response.url == "test_URL"
+        assert context.exception.response.url == "https://huggingface.co/fake"
 
 
 class TestHfHubHTTPError(unittest.TestCase):
@@ -141,9 +129,7 @@ class TestHfHubHTTPError(unittest.TestCase):
 
     def setUp(self) -> None:
         """Setup with a default response."""
-        self.response = Response()
-        self.response.status_code = 404
-        self.response.url = "test_URL"
+        self.response = Response(status_code=404, request=Request(method="GET", url="https://huggingface.co/fake"))
 
     def test_hf_hub_http_error_initialization(self) -> None:
         """Test HfHubHTTPError is initialized properly."""
@@ -323,3 +309,9 @@ def test_repo_api_regex(url: str, should_match: bool) -> None:
         assert REPO_API_REGEX.match(url)
     else:
         assert REPO_API_REGEX.match(url) is None
+
+
+def test_hf_hub_http_error_inherits_from_os_error() -> None:
+    """Test HfHubHTTPError inherits from OSError."""
+    with pytest.raises(OSError):
+        raise HfHubHTTPError("this is a message", response=Mock())

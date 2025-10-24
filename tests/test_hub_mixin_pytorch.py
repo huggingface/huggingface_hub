@@ -4,13 +4,13 @@ import struct
 import unittest
 from argparse import Namespace
 from pathlib import Path
-from typing import Any, Dict, Optional, TypeVar
+from typing import Any, Optional, TypeVar
 from unittest.mock import Mock, patch
 
 import pytest
 
 from huggingface_hub import HfApi, ModelCard, constants, hf_hub_download
-from huggingface_hub.errors import EntryNotFoundError, HfHubHTTPError
+from huggingface_hub.errors import RemoteEntryNotFoundError
 from huggingface_hub.hub_mixin import ModelHubMixin, PyTorchModelHubMixin
 from huggingface_hub.serialization._torch import storage_ptr
 from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available
@@ -89,7 +89,7 @@ if is_torch_available():
             self.not_jsonable = not_jsonable
 
     class DummyModelWithConfigAndKwargs(nn.Module, PyTorchModelHubMixin):
-        def __init__(self, num_classes: int = 42, state: str = "layernorm", config: Optional[Dict] = None, **kwargs):
+        def __init__(self, num_classes: int = 42, state: str = "layernorm", config: Optional[dict] = None, **kwargs):
             super().__init__()
 
     class DummyModelWithModelCardAndCustomKwargs(
@@ -195,7 +195,7 @@ class PytorchHubMixinTest(unittest.TestCase):
 
     def pretend_file_download(self, **kwargs):
         if kwargs.get("filename") == "config.json":
-            raise HfHubHTTPError("no config")
+            raise RemoteEntryNotFoundError("no config", response=Mock())
         DummyModel().save_pretrained(self.cache_dir)
         return self.cache_dir / "model.safetensors"
 
@@ -209,8 +209,6 @@ class PytorchHubMixinTest(unittest.TestCase):
             revision=None,
             cache_dir=None,
             force_download=False,
-            proxies=None,
-            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -219,7 +217,7 @@ class PytorchHubMixinTest(unittest.TestCase):
     def pretend_file_download_fallback(self, **kwargs):
         filename = kwargs.get("filename")
         if filename == "model.safetensors" or filename == "config.json":
-            raise EntryNotFoundError("not found")
+            raise RemoteEntryNotFoundError("not found", response=Mock())
 
         class TestMixin(ModelHubMixin):
             def _save_pretrained(self, save_directory: Path) -> None:
@@ -238,8 +236,6 @@ class PytorchHubMixinTest(unittest.TestCase):
             revision=None,
             cache_dir=None,
             force_download=False,
-            proxies=None,
-            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -249,8 +245,6 @@ class PytorchHubMixinTest(unittest.TestCase):
             revision=None,
             cache_dir=None,
             force_download=False,
-            proxies=None,
-            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -266,8 +260,6 @@ class PytorchHubMixinTest(unittest.TestCase):
             revision="123456789",  # Revision is passed correctly!
             cache_dir=None,
             force_download=False,
-            proxies=None,
-            resume_download=None,
             local_files_only=False,
             token=None,
         )
@@ -318,10 +310,7 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         # Test config has been pushed to hub
         tmp_config_path = hf_hub_download(
-            repo_id=repo_id,
-            filename="config.json",
-            use_auth_token=TOKEN,
-            cache_dir=self.cache_dir,
+            repo_id=repo_id, filename="config.json", token=TOKEN, cache_dir=self.cache_dir
         )
         with open(tmp_config_path) as f:
             self.assertDictEqual(json.load(f), CONFIG)

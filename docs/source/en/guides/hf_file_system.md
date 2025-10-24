@@ -6,13 +6,10 @@ rendered properly in your Markdown viewer.
 
 In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSystem`], a pythonic [fsspec-compatible](https://filesystem-spec.readthedocs.io/en/latest/) file interface to the Hugging Face Hub. The [`HfFileSystem`] builds on top of the [`HfApi`] and offers typical filesystem style operations like `cp`, `mv`, `ls`, `du`, `glob`, `get_file`, and `put_file`.
 
-<Tip warning={true}>
-
-  [`HfFileSystem`] provides fsspec compatibility, which is useful for libraries that require it (e.g., reading
-  Hugging Face datasets directly with `pandas`). However, it introduces additional overhead due to this compatibility
-  layer. For better performance and reliability, it's recommended to use [`HfApi`] methods when possible.
-
-</Tip>
+> [!WARNING]
+> [`HfFileSystem`] provides fsspec compatibility, which is useful for libraries that require it (e.g., reading
+>   Hugging Face datasets directly with `pandas`). However, it introduces additional overhead due to this compatibility
+>   layer. For better performance and reliability, it's recommended to use [`HfApi`] methods when possible.
 
 ## Usage
 

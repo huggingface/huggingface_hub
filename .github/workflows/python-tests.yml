@@ -21,27 +21,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.13"]
-        test_name:
-          [
-            "Repository only",
-            "Everything else",
-            "Inference only",
-            "Xet only"
-          ]
+        python-version: ["3.9", "3.13"]
+        test_name: ["Everything else", "Inference only", "Xet only"]
         include:
-          - python-version: "3.13" # LFS not ran on 3.8
+          - python-version: "3.13" # LFS not ran on 3.9
             test_name: "lfs"
-          - python-version: "3.8"
+          - python-version: "3.9"
             test_name: "fastai"
           - python-version: "3.10" # fastai not supported on 3.12 and 3.11 -> test it on 3.10
             test_name: "fastai"
-          - python-version: "3.8"
-            test_name: "tensorflow"
-          - python-version: "3.10" # tensorflow not supported on 3.12 -> test it on 3.10
-            test_name: "tensorflow"
-          - python-version: "3.8" # test torch~=1.11 on python 3.8 only.
-            test_name: "Python 3.8, torch_1.11"
+          - python-version: "3.9" # test torch~=1.11 on python 3.9 only.
+            test_name: "Python 3.9, torch_1.11"
           - python-version: "3.12" # test torch latest on python 3.12 only.
             test_name: "torch_latest"
     steps:
@@ -65,7 +55,7 @@ jobs:
 
           case "${{ matrix.test_name }}" in
 
-            "Repository only" | "Everything else" | "Inference only")
+            "Everything else" | "Inference only")
               sudo apt update
               sudo apt install -y libsndfile1-dev
               ;;
@@ -84,15 +74,9 @@ jobs:
               uv pip install --upgrade torch
               ;;
 
-            "Python 3.8, torch_1.11")
+            "Python 3.9, torch_1.11")
               uv pip install "huggingface_hub[torch] @ ."
               uv pip install torch~=1.11
-              ;;
-
-            tensorflow)
-              sudo apt update
-              sudo apt install -y graphviz
-              uv pip install "huggingface_hub[tensorflow-testing] @ ."
               ;;
 
           esac
@@ -102,6 +86,7 @@ jobs:
           if [[ "${{ matrix.test_name }}" != "Xet only" ]]; then
             uv pip uninstall hf_xet
           fi
+
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
@@ -110,13 +95,6 @@ jobs:
           PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 8 --reruns-delay 2 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504||not less than or equal to 0.01)'"
 
           case "${{ matrix.test_name }}" in
-
-            "Repository only")
-              # Run repo tests concurrently
-              PYTEST="$PYTEST ../tests -k 'TestRepository' -n 4"
-              echo $PYTEST
-              eval $PYTEST
-            ;;
 
             "Inference only")
               # Run inference tests concurrently
@@ -139,14 +117,7 @@ jobs:
               eval "$PYTEST ../tests/test_fastai*"
             ;;
 
-            tensorflow)
-              # Cannot be on same line since '_tf*' checks if tensorflow is NOT imported by default
-              eval "$PYTEST ../tests/test_tf*"
-              eval "$PYTEST ../tests/test_keras*"
-              eval "$PYTEST ../tests/test_serialization.py"
-            ;;
-
-            "Python 3.8, torch_1.11" | torch_latest)
+            "Python 3.9, torch_1.11" | torch_latest)
             eval "$PYTEST ../tests/test_hub_mixin*"
             eval "$PYTEST ../tests/test_serialization.py"
             ;;
@@ -177,7 +148,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.11"]
+        python-version: ["3.9", "3.11"]
         test_name: ["Everything else", "Xet only"]
 
     steps:

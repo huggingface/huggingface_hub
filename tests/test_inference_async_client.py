@@ -28,7 +28,6 @@ import inspect
 from unittest.mock import Mock, patch
 
 import pytest
-from aiohttp import ClientResponseError
 
 import huggingface_hub.inference._common
 from huggingface_hub import (
@@ -299,57 +298,8 @@ def test_sync_vs_async_signatures() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip("Deprecated (get_model_status)")
-async def test_get_status_too_big_model() -> None:
-    model_status = await AsyncInferenceClient(token=False).get_model_status("facebook/nllb-moe-54b")
-    assert model_status.loaded is False
-    assert model_status.state == "TooBig"
-    assert model_status.compute_type == "cpu"
-    assert model_status.framework == "transformers"
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip("Deprecated (get_model_status)")
-async def test_get_status_loaded_model() -> None:
-    model_status = await AsyncInferenceClient(token=False).get_model_status("bigscience/bloom")
-    assert model_status.loaded is True
-    assert model_status.state == "Loaded"
-    assert isinstance(model_status.compute_type, dict)  # e.g. {'gpu': {'gpu': 'a100', 'count': 8}}
-    assert model_status.framework == "text-generation-inference"
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip("Deprecated (get_model_status)")
-async def test_get_status_unknown_model() -> None:
-    with pytest.raises(ClientResponseError):
-        await AsyncInferenceClient(token=False).get_model_status("unknown/model")
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip("Deprecated (get_model_status)")
-async def test_get_status_model_as_url() -> None:
-    with pytest.raises(NotImplementedError):
-        await AsyncInferenceClient(token=False).get_model_status("https://unkown/model")
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip("Deprecated (list_deployed_models)")
-async def test_list_deployed_models_single_frameworks() -> None:
-    models_by_task = await AsyncInferenceClient().list_deployed_models("text-generation-inference")
-    assert isinstance(models_by_task, dict)
-    for task, models in models_by_task.items():
-        assert isinstance(task, str)
-        assert isinstance(models, list)
-        for model in models:
-            assert isinstance(model, str)
-
-    assert "text-generation" in models_by_task
-    assert "HuggingFaceH4/zephyr-7b-beta" in models_by_task["text-generation"]
-
-
-@pytest.mark.asyncio
 async def test_async_generate_timeout_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    def _mock_aiohttp_client_timeout(*args, **kwargs):
+    async def _mock_client_post(*args, **kwargs):
         raise asyncio.TimeoutError
 
     def mock_check_supported_task(*args, **kwargs):
@@ -358,9 +308,10 @@ async def test_async_generate_timeout_error(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(
         "huggingface_hub.inference._providers.hf_inference._check_supported_task", mock_check_supported_task
     )
-    monkeypatch.setattr("aiohttp.ClientSession.post", _mock_aiohttp_client_timeout)
+    client = AsyncInferenceClient(timeout=1)
+    client._async_client = Mock(post=_mock_client_post)
     with pytest.raises(InferenceTimeoutError):
-        await AsyncInferenceClient(timeout=1).text_generation("test")
+        await client.text_generation("test")
 
 
 class CustomException(Exception):
@@ -465,32 +416,3 @@ async def test_use_async_with_inference_client():
         async with AsyncInferenceClient():
             pass
     mock_close.assert_called_once()
-
-
-@pytest.mark.asyncio
-@patch("aiohttp.ClientSession._request")
-async def test_client_responses_correctly_closed(request_mock: Mock) -> None:
-    """
-    Regression test for #2521.
-    Async client must close the ClientResponse objects when exiting the async context manager.
-    Fixed by closing the response objects when the session is closed.
-
-    See https://github.com/huggingface/huggingface_hub/issues/2521.
-    """
-    async with AsyncInferenceClient() as client:
-        session = client._get_client_session()
-        response1 = await session.get("http://this-is-a-fake-url.com")
-        response2 = await session.post("http://this-is-a-fake-url.com", json={})
-
-    # Response objects are closed when the AsyncInferenceClient is closed
-    response1.close.assert_called_once()
-    response2.close.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_warns_if_client_deleted_with_opened_sessions():
-    client = AsyncInferenceClient()
-    session = client._get_client_session()
-    with pytest.warns(UserWarning):
-        client.__del__()
-    await session.close()

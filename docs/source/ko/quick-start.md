@@ -49,9 +49,9 @@ Hub의 리포지토리는 git으로 버전 관리되며, 사용자는 단일 파
 사용자 액세스 토큰을 받으면 터미널에서 다음 명령을 실행하세요:
 
 ```bash
-huggingface-cli login
+hf auth login
 # or using an environment variable
-huggingface-cli login --token $HUGGINGFACE_TOKEN
+hf auth login --token $HUGGINGFACE_TOKEN
 ```
 
 또는 주피터 노트북이나 스크립트에서 [`login`]로 프로그래밍 방식으로 로그인할 수도 있습니다:
@@ -63,14 +63,11 @@ huggingface-cli login --token $HUGGINGFACE_TOKEN
 
 `login(token="hf_xxx")`과 같이 토큰을 [`login`]에 직접 전달하여 토큰을 입력하라는 메시지를 표시하지 않고 프로그래밍 방식으로 로그인할 수도 있습니다. 이렇게 한다면 소스 코드를 공유할 때 주의하세요. 토큰을 소스코드에 명시적으로 저장하는 대신에 보안 저장소에서 토큰을 가져오는 것이 가장 좋습니다.
 
-한 번에 하나의 계정에만 로그인할 수 있습니다. 새 계정으로 로그인하면 이전 계정에서 로그아웃됩니다. 항상 `huggingface-cli whoami` 명령으로 어떤 계정을 사용 중인지 확인하세요.
+한 번에 하나의 계정에만 로그인할 수 있습니다. 새 계정으로 로그인하면 이전 계정에서 로그아웃됩니다. 항상 `hf auth whoami` 명령으로 어떤 계정을 사용 중인지 확인하세요.
 동일한 스크립트에서 여러 계정을 처리하려면 각 메서드를 호출할 때 토큰을 제공하면 됩니다. 이 방법은 머신에 토큰을 저장하지 않으려는 경우에도 유용합니다.
 
-<Tip warning={true}>
-
-로그인하면 Hub에 대한 모든 요청(반드시 인증이 필요하지 않은 메소드 포함)은 기본적으로 액세스 토큰을 사용합니다. 토큰의 암시적 사용을 비활성화하려면 `HF_HUB_DISABLE_IMPLICIT_TOKEN` 환경 변수를 설정해야 합니다.
-
-</Tip>
+> [!WARNING]
+> 로그인하면 Hub에 대한 모든 요청(반드시 인증이 필요하지 않은 메소드 포함)은 기본적으로 액세스 토큰을 사용합니다. 토큰의 암시적 사용을 비활성화하려면 `HF_HUB_DISABLE_IMPLICIT_TOKEN` 환경 변수를 설정해야 합니다.
 
 ## 리포지토리 만들기 [[create-a-repository]]
 
@@ -92,11 +89,8 @@ huggingface-cli login --token $HUGGINGFACE_TOKEN
 
 비공개 리포지토리는 본인 외에는 누구에게도 공개되지 않습니다.
 
-<Tip>
-
-리포지토리를 생성하거나 Hub에 콘텐츠를 푸시하려면 `write` (쓰기) 권한이 있는 사용자 액세스 토큰을 제공해야 합니다. 토큰을 생성할 때 [설정 페이지](https://huggingface.co/settings/tokens)에서 권한을 선택할 수 있습니다.
-
-</Tip>
+> [!TIP]
+> 리포지토리를 생성하거나 Hub에 콘텐츠를 푸시하려면 `write` (쓰기) 권한이 있는 사용자 액세스 토큰을 제공해야 합니다. 토큰을 생성할 때 [설정 페이지](https://huggingface.co/settings/tokens)에서 권한을 선택할 수 있습니다.
 
 ## 파일 업로드 [[upload-files]]
 
