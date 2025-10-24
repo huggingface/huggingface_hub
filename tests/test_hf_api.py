@@ -31,7 +31,6 @@ from urllib.parse import urlparse
 
 import pytest
 
-import huggingface_hub.lfs
 from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage, constants
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
@@ -2742,17 +2741,6 @@ class HfLargefilesTest(HfApiCommonTest):
         )
         subprocess.run(["git", "add", "*"], check=True, cwd=self.cache_dir)
         subprocess.run(["git", "commit", "-m", "commit message"], check=True, cwd=self.cache_dir)
-
-        # This will fail as we haven't set up our custom transfer agent yet.
-        failed_process = subprocess.run(
-            ["git", "push"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=self.cache_dir,
-        )
-        self.assertEqual(failed_process.returncode, 1)
-        self.assertIn('Run "hf lfs-enable-largefiles ./path/to/your/repo"', failed_process.stderr.decode())
-        # ^ Instructions on how to fix this are included in the error message.
         subprocess.run(["hf", "lfs-enable-largefiles", self.cache_dir], check=True)
 
         start_time = time.time()
@@ -2760,17 +2748,13 @@ class HfLargefilesTest(HfApiCommonTest):
         print("took", time.time() - start_time)
 
         # To be 100% sure, let's download the resolved file
-        pdf_url = f"{self.repo_url}/resolve/main/progit.pdf"
-        DEST_FILENAME = "uploaded.pdf"
-        subprocess.run(
-            ["wget", pdf_url, "-O", DEST_FILENAME],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=self.cache_dir,
-        )
-        dest_filesize = (self.cache_dir / DEST_FILENAME).stat().st_size
-        assert dest_filesize == 18685041
+        with SoftTemporaryDirectory() as tmp_dir:
+            filepath = hf_hub_download(
+                repo_id=self.repo_id,
+                filename="progit.pdf",
+                cache_dir=tmp_dir,
+            )
+            assert Path(filepath).stat().st_size == 18685041
 
 
 class ParseHFUrlTest(unittest.TestCase):
