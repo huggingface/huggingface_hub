@@ -486,16 +486,14 @@ HFCacheInfo(
 Verify a whole cached repository by repo ID (verifies every cached revision for that repo):
 
 ```bash
->>> hf cache verify model/sentence-transformers/all-MiniLM-L6-v2 
-✅ Verified 28 file(s) across 1 revision(s); no checksum mismatches detected.
+>>> hf cache verify meta-llama/Llama-3.2-1B-Instruct
+✅ Verified 13 file(s) at 9213176726f574b556790deb65791e0c5aa438b6; no checksum mismatches.
 ```
 
-Verify specific cached revisions by hash (you can pass several targets at once):
+Verify a specific cached revision:
 
-```text
-➜ hf cache verify 1c610f6b3f5e7d8a d4ec9b72
-❌ Checksum verification failed for the following file(s):
-  - dataset/nyu-mll/glue@bcdcba79d07bc864c1c254ccfcedcce55bcc9a8c::cola/test-00000-of-00001.parquet: missing locally.
+```bash
+>>> hf cache verify meta-llama/Llama-3.2-1B-InstructR --revision abcdef123
 ```
 
 > [!TIP]

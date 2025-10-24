@@ -700,7 +700,7 @@ Examples:
 By default, the command warns about missing or extra files but does not fail. Use flags to make these conditions fail the command:
 
 ```bash
->>> hf cache verify gpt2 --fail-on-missing-files --fail-on-extra-files
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --fail-on-missing-files --fail-on-extra-files
 ```
 
 On success, you will see a summary:
