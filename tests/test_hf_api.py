@@ -4602,3 +4602,27 @@ def test_create_inference_endpoint_custom_image_payload(
 
     assert "model" in payload and "image" in payload["model"]
     assert payload["model"]["image"] == expected_image_payload
+
+
+class HfApiVerifyChecksumsTest(HfApiCommonTest):
+    def test_verify_repo_checksums_with_local_cache(self) -> None:
+        repo_id = self._api.create_repo(repo_name()).repo_id
+        self._api.create_commit(
+            repo_id=repo_id,
+            commit_message="add file",
+            operations=[CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="file.txt")],
+        )
+
+        # minimal cache layout
+        info = self._api.repo_info(repo_id)
+        commit = info.sha
+        parts = [f"{constants.REPO_TYPE_MODEL}s", *repo_id.split("/")]
+        repo_folder_name = constants.REPO_ID_SEPARATOR.join(parts)
+
+        storage = Path(constants.HF_HUB_CACHE) / repo_folder_name
+        snapshot = storage / "snapshots" / commit
+        snapshot.mkdir(parents=True, exist_ok=True)
+        (snapshot / "file.txt").write_bytes(b"data")
+
+        res = self._api.verify_repo_checksums(repo_id=repo_id, revision=commit, cache_dir=storage.parent)
+        assert res.revision == commit and res.checked_count == 1 and not res.mismatches
