@@ -392,7 +392,7 @@ class CommitInfo(str):
 
     # Computed from `pr_url` in `__post_init__`
     pr_revision: Optional[str] = field(init=False)
-    pr_num: Optional[str] = field(init=False)
+    pr_num: Optional[int] = field(init=False)
 
     def __new__(cls, *args, commit_url: str, **kwargs):
         return str.__new__(cls, commit_url)
@@ -9528,6 +9528,35 @@ class HfApi:
         hf_raise_for_status(r)
         return Organization(**r.json())
 
+    @validate_hf_hub_args
+    def list_organization_followers(self, organization: str, token: Union[bool, str, None] = None) -> Iterable[User]:
+        """
+        List followers of an organization on the Hub.
+
+        Args:
+            organization (`str`):
+                Name of the organization to get the followers of.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[User]`: A list of [`User`] objects with the followers of the organization.
+
+        Raises:
+            [`HfHubHTTPError`]:
+                HTTP 404 If the organization does not exist on the Hub.
+
+        """
+        for follower in paginate(
+            path=f"{constants.ENDPOINT}/api/organizations/{organization}/followers",
+            params={},
+            headers=self._build_hf_headers(token=token),
+        ):
+            yield User(**follower)
+
     def list_organization_members(self, organization: str, token: Union[bool, str, None] = None) -> Iterable[User]:
         """
         List of members of an organization on the Hub.
@@ -10819,6 +10848,7 @@ update_webhook = api.update_webhook
 # User API
 get_user_overview = api.get_user_overview
 get_organization_overview = api.get_organization_overview
+list_organization_followers = api.list_organization_followers
 list_organization_members = api.list_organization_members
 list_user_followers = api.list_user_followers
 list_user_following = api.list_user_following

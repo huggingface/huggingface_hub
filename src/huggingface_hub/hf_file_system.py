@@ -660,7 +660,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         Returns:
             `datetime`: Last commit date of the file.
         """
-        info = self.info(path, **{**kwargs, "expand_info": True})
+        info = self.info(path, **{**kwargs, "expand_info": True})  # type: ignore
         return info["last_commit"]["date"]
 
     def info(self, path: str, refresh: bool = False, revision: Optional[str] = None, **kwargs) -> dict[str, Any]:
