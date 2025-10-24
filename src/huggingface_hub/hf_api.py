@@ -3623,11 +3623,6 @@ class HfApi:
             if provided_space_args:
                 warnings.warn(f"Ignoring provided {', '.join(provided_space_args)} because repo_type is not 'space'.")
 
-        if getattr(self, "_lfsmultipartthresh", None):
-            # Testing purposes only.
-            # See https://github.com/huggingface/huggingface_hub/pull/733/files#r820604472
-            json["lfsmultipartthresh"] = self._lfsmultipartthresh  # type: ignore
-
         if resource_group_id is not None:
             json["resourceGroupId"] = resource_group_id
 
