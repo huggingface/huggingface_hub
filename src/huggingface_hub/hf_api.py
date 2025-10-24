@@ -392,7 +392,7 @@ class CommitInfo(str):
 
     # Computed from `pr_url` in `__post_init__`
     pr_revision: Optional[str] = field(init=False)
-    pr_num: Optional[str] = field(init=False)
+    pr_num: Optional[int] = field(init=False)
 
     def __new__(cls, *args, commit_url: str, **kwargs):
         return str.__new__(cls, commit_url)
