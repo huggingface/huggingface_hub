@@ -3,6 +3,8 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
+from typing import List
+
 from .base import BaseInferenceType, dataclass_with_extra
 
 
@@ -10,7 +12,7 @@ from .base import BaseInferenceType, dataclass_with_extra
 class ZeroShotObjectDetectionParameters(BaseInferenceType):
     """Additional inference parameters for Zero Shot Object Detection"""
 
-    candidate_labels: list[str]
+    candidate_labels: List[str]
     """The candidate labels for this image"""
 
 

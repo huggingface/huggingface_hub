@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -16,7 +16,7 @@ class TextToVideoParameters(BaseInferenceType):
     """A higher guidance scale value encourages the model to generate videos closely linked to
     the text prompt, but values too high may cause saturation and other artifacts.
     """
-    negative_prompt: Optional[list[str]] = None
+    negative_prompt: Optional[List[str]] = None
     """One or several prompt to guide what NOT to include in video generation."""
     num_frames: Optional[float] = None
     """The num_frames parameter determines how many video frames are generated."""

@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any, Literal, Optional
+from typing import Any, List, Literal, Optional
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -49,7 +49,7 @@ class TextGenerationInputGenerateParameters(BaseInferenceType):
     """Whether to prepend the prompt to the generated text"""
     seed: Optional[int] = None
     """Random sampling seed."""
-    stop: Optional[list[str]] = None
+    stop: Optional[List[str]] = None
     """Stop generating tokens if a member of `stop` is generated."""
     temperature: Optional[float] = None
     """The value used to module the logits distribution."""
@@ -108,21 +108,21 @@ class TextGenerationOutputBestOfSequence(BaseInferenceType):
     finish_reason: "TextGenerationOutputFinishReason"
     generated_text: str
     generated_tokens: int
-    prefill: list[TextGenerationOutputPrefillToken]
-    tokens: list[TextGenerationOutputToken]
+    prefill: List[TextGenerationOutputPrefillToken]
+    tokens: List[TextGenerationOutputToken]
     seed: Optional[int] = None
-    top_tokens: Optional[list[list[TextGenerationOutputToken]]] = None
+    top_tokens: Optional[List[List[TextGenerationOutputToken]]] = None
 
 
 @dataclass_with_extra
 class TextGenerationOutputDetails(BaseInferenceType):
     finish_reason: "TextGenerationOutputFinishReason"
     generated_tokens: int
-    prefill: list[TextGenerationOutputPrefillToken]
-    tokens: list[TextGenerationOutputToken]
-    best_of_sequences: Optional[list[TextGenerationOutputBestOfSequence]] = None
+    prefill: List[TextGenerationOutputPrefillToken]
+    tokens: List[TextGenerationOutputToken]
+    best_of_sequences: Optional[List[TextGenerationOutputBestOfSequence]] = None
     seed: Optional[int] = None
-    top_tokens: Optional[list[list[TextGenerationOutputToken]]] = None
+    top_tokens: Optional[List[List[TextGenerationOutputToken]]] = None
 
 
 @dataclass_with_extra
@@ -165,4 +165,4 @@ class TextGenerationStreamOutput(BaseInferenceType):
     token: TextGenerationStreamOutputToken
     details: Optional[TextGenerationStreamOutputStreamDetails] = None
     generated_text: Optional[str] = None
-    top_tokens: Optional[list[TextGenerationStreamOutputToken]] = None
+    top_tokens: Optional[List[TextGenerationStreamOutputToken]] = None

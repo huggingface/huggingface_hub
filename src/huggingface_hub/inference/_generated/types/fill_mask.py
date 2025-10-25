@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -12,7 +12,7 @@ from .base import BaseInferenceType, dataclass_with_extra
 class FillMaskParameters(BaseInferenceType):
     """Additional inference parameters for Fill Mask"""
 
-    targets: Optional[list[str]] = None
+    targets: Optional[List[str]] = None
     """When passed, the model will limit the scores to the passed targets instead of looking up
     in the whole vocabulary. If the provided targets are not in the model vocab, they will be
     tokenized and the first resulting token will be used (with a warning, and that might be
