@@ -1,12 +1,15 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Literal, Optional, TypedDict
+from typing import TYPE_CHECKING, Literal, Optional, TypedDict, Union
 
 from .. import constants
 from ..file_download import repo_folder_name
 from .sha import git_hash, sha_fileobj
 
+
+if TYPE_CHECKING:
+    from ..hf_api import RepoFile, RepoFolder
 
 # using fullmatch for clarity and strictness
 _REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
@@ -72,7 +75,7 @@ def _resolve_commit_hash_from_cache(storage_folder: Path, revision: Optional[str
     )
 
 
-def resolve_expected_hash(entry: object) -> tuple[HashAlgo, str]:
+def resolve_expected_hash(entry: Union["RepoFile", "RepoFolder"]) -> tuple[HashAlgo, str]:
     """
     Return the algorithm and expected hash for a remote entry.
     Prefers LFS sha256 if available; falls back to git blob_id (sha1).
@@ -97,34 +100,24 @@ def compute_file_hash(path: Path, algorithm: HashAlgo, *, git_hash_cache: dict[P
     Compute the checksum of a local file using the requested algorithm.
     """
 
-    def _sha256(p: Path, cache: dict[Path, str]) -> str:
-        with p.open("rb") as stream:
+    if algorithm == "sha256":
+        with path.open("rb") as stream:
             return sha_fileobj(stream).hex()
 
-    def _git_sha1(p: Path, cache: dict[Path, str]) -> str:
+    if algorithm == "git-sha1":
         try:
-            return cache[p]
+            return git_hash_cache[path]
         except KeyError:
-            with p.open("rb") as stream:
-                data = stream.read()
-            digest = git_hash(data)
-            cache[p] = digest
+            with path.open("rb") as stream:
+                digest = git_hash(stream.read())
+            git_hash_cache[path] = digest
             return digest
 
-    HASHERS: dict[HashAlgo, Callable[[Path, dict[Path, str]], str]] = {
-        "sha256": _sha256,
-        "git-sha1": _git_sha1,
-    }
-
-    try:
-        return HASHERS[algorithm](path, git_hash_cache)
-    except KeyError:
-        # Should be unreachable, but keeps type checker happy
-        raise ValueError(f"Unsupported hash algorithm: {algorithm}")
+    raise ValueError(f"Unsupported hash algorithm: {algorithm}")
 
 
 def verify_maps(
-    *, remote_by_path: dict[str, Any], local_by_path: dict[str, Path], revision: str
+    *, remote_by_path: dict[str, Union["RepoFile", "RepoFolder"]], local_by_path: dict[str, Path], revision: str
 ) -> FolderVerification:
     """Compare remote entries and local files and return a verification result."""
     remote_paths = set(remote_by_path)

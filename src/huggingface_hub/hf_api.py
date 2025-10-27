@@ -111,7 +111,7 @@ from .utils.endpoint_helpers import _is_emission_within_threshold
 
 if TYPE_CHECKING:
     from .inference._providers import PROVIDER_T
-    from .utils._verification import Verification
+    from .utils._verification import FolderVerification
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
@@ -3092,7 +3092,7 @@ class HfApi:
         local_dir: Optional[Union[str, Path]] = None,
         cache_dir: Optional[Union[str, Path]] = None,
         token: Union[str, bool, None] = None,
-    ) -> "Verification":
+    ) -> "FolderVerification":
         """
         Verify local files for a repo against Hub checksums.
 
@@ -3115,7 +3115,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            [`Verification`]: a structured result containing the verification details.
+            [`FolderVerification`]: a structured result containing the verification details.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:

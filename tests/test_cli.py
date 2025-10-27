@@ -24,7 +24,7 @@ from huggingface_hub.utils import (
     HFCacheInfo,
     SoftTemporaryDirectory,
 )
-from huggingface_hub.utils._verification import Verification
+from huggingface_hub.utils._verification import FolderVerification
 
 from .testing_utils import DUMMY_MODEL_ID
 
@@ -217,7 +217,9 @@ class TestCacheCommand:
 
     def test_verify_success(self, runner: CliRunner) -> None:
         repo_id = "user/model"
-        result_obj = Verification(revision="main", checked_count=1, mismatches=[], missing_paths=[], extra_paths=[])
+        result_obj = FolderVerification(
+            revision="main", checked_count=1, mismatches=[], missing_paths=[], extra_paths=[]
+        )
 
         with patch("huggingface_hub.cli.cache.get_hf_api") as get_api_mock:
             api = get_api_mock.return_value
@@ -238,7 +240,7 @@ class TestCacheCommand:
 
     def test_verify_reports_mismatch(self, runner: CliRunner) -> None:
         repo_id = "user/model"
-        result_obj = Verification(
+        result_obj = FolderVerification(
             revision="main",
             checked_count=1,
             mismatches=[{"path": "pytorch_model.bin", "expected": "dead", "actual": "beef", "algorithm": "sha256"}],
