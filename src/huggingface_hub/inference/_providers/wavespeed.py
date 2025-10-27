@@ -19,9 +19,7 @@ _POLLING_INTERVAL = 0.5
 
 class WavespeedAITask(TaskProviderHelper, ABC):
     def __init__(self, task: str):
-        super().__init__(
-            provider="wavespeed", base_url="https://api.wavespeed.ai", task=task
-        )
+        super().__init__(provider="wavespeed", base_url="https://api.wavespeed.ai", task=task)
 
     def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
         headers = super()._prepare_headers(headers, api_key)
@@ -44,9 +42,7 @@ class WavespeedAITask(TaskProviderHelper, ABC):
         if not result_path:
             raise ValueError("No result URL found in the response")
         if request_params is None:
-            raise ValueError(
-                "A `RequestParameters` object should be provided to get responses with WaveSpeed AI."
-            )
+            raise ValueError("A `RequestParameters` object should be provided to get responses with WaveSpeed AI.")
 
         # Parse the request URL to determine base URL
         parsed_url = urlparse(request_params.url)
@@ -69,9 +65,7 @@ class WavespeedAITask(TaskProviderHelper, ABC):
         # Poll until task is completed
         while True:
             time.sleep(_POLLING_INTERVAL)
-            result_response = get_session().get(
-                result_url, headers=request_params.headers
-            )
+            result_response = get_session().get(result_url, headers=request_params.headers)
             hf_raise_for_status(result_response)
 
             result = result_response.json()
@@ -86,9 +80,7 @@ class WavespeedAITask(TaskProviderHelper, ABC):
                 output_url = task_result["outputs"][0]
                 return get_session().get(output_url).content
             elif status == "failed":
-                error_msg = task_result.get(
-                    "error", "Task failed with no specific error message"
-                )
+                error_msg = task_result.get("error", "Task failed with no specific error message")
                 raise ValueError(f"WaveSpeed AI task failed: {error_msg}")
             elif status in ["processing", "created"]:
                 continue

@@ -1321,7 +1321,7 @@ class InferenceClient:
         >>> image = client.image_to_image("cat.jpg", prompt="turn the cat into a tiger")
         >>> image.save("tiger.jpg")
         ```
-        
+
         """
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="image-to-image", model=model_id)
@@ -2541,7 +2541,7 @@ class InferenceClient:
         ... )
         >>> image.save("astronaut.png")
         ```
-        
+
         """
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="text-to-image", model=model_id)
@@ -2640,7 +2640,7 @@ class InferenceClient:
         >>> with open("cat.mp4", "wb") as file:
         ...     file.write(video)
         ```
-        
+
         """
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="text-to-video", model=model_id)

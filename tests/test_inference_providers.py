@@ -1522,7 +1522,7 @@ class TestWavespeedAIProvider:
                 providerId="wavespeed-ai/flux-schnell",
                 task="text-to-image",
                 status="live",
-            )
+            ),
         )
         assert payload == {
             "prompt": "a beautiful cat",
@@ -1545,15 +1545,15 @@ class TestWavespeedAIProvider:
                 "duration": 5,
                 "enable_safety_checker": True,
                 "flow_shift": 2.9,
-                "size": "480*832"
+                "size": "480*832",
             },
             InferenceProviderMapping(
                 provider="wavespeed",
                 hf_model_id="Wan-AI/Wan2.1-T2V-14B",
                 providerId="wavespeed-ai/wan-2.1/t2v-480p",
                 task="text-to-video",
-                status="live"
-            )
+                status="live",
+            ),
         )
         assert payload == {
             "prompt": "a dancing cat",
@@ -1563,7 +1563,7 @@ class TestWavespeedAIProvider:
             "duration": 5,
             "enable_safety_checker": True,
             "flow_shift": 2.9,
-            "size": "480*832"
+            "size": "480*832",
         }
 
     def test_prepare_image_to_image_payload(self, mocker):
@@ -1577,19 +1577,14 @@ class TestWavespeedAIProvider:
 
         payload = helper._prepare_payload_as_dict(
             image_data,
-            {
-                "prompt": "The leopard chases its prey",
-                "guidance_scale": 5,
-                "num_inference_steps": 30,
-                "seed": -1
-            },
+            {"prompt": "The leopard chases its prey", "guidance_scale": 5, "num_inference_steps": 30, "seed": -1},
             InferenceProviderMapping(
                 provider="wavespeed",
                 hf_model_id="HiDream-ai/HiDream-E1-Full",
                 providerId="wavespeed-ai/hidream-e1-full",
                 task="image-to-image",
-                status="live"
-            )
+                status="live",
+            ),
         )
 
         assert payload == {
@@ -1597,7 +1592,7 @@ class TestWavespeedAIProvider:
             "prompt": "The leopard chases its prey",
             "guidance_scale": 5,
             "num_inference_steps": 30,
-            "seed": -1
+            "seed": -1,
         }
         mock_encode.assert_called_once_with(image_data)
 
@@ -1612,19 +1607,14 @@ class TestWavespeedAIProvider:
 
         payload = helper._prepare_payload_as_dict(
             image_data,
-            {
-                "prompt": "The leopard chases its prey",
-                "guidance_scale": 5,
-                "num_inference_steps": 30,
-                "seed": -1
-            },
+            {"prompt": "The leopard chases its prey", "guidance_scale": 5, "num_inference_steps": 30, "seed": -1},
             InferenceProviderMapping(
                 provider="wavespeed",
                 hf_model_id="Wan-AI/Wan2.1-I2V-14B-480P",
                 providerId="wavespeed-ai/wan-2.1/i2v-480p",
                 task="image-to-video",
-                status="live"
-            )
+                status="live",
+            ),
         )
 
         assert payload == {
@@ -1632,7 +1622,7 @@ class TestWavespeedAIProvider:
             "prompt": "The leopard chases its prey",
             "guidance_scale": 5,
             "num_inference_steps": 30,
-            "seed": -1
+            "seed": -1,
         }
         mock_encode.assert_called_once_with(image_data)
 
