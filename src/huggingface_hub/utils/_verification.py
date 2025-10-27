@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Literal, Optional, TypedDict
+from typing import Any, Callable, Literal, Optional, TypedDict
 
 from .. import constants
 from ..file_download import repo_folder_name
@@ -24,19 +24,15 @@ HashAlgo = Literal["sha256", "git-sha1"]
 
 
 @dataclass(frozen=True)
-class Verification:
+class FolderVerification:
     revision: str
     checked_count: int
     mismatches: list[Mismatch]
     missing_paths: list[str]
     extra_paths: list[str]
 
-    @property
-    def ok(self) -> bool:
-        return not (self.mismatches or self.missing_paths or self.extra_paths)
 
-
-def _collect_files_from_directory(root: Path) -> dict[str, Path]:
+def collect_local_files(root: Path) -> dict[str, Path]:
     """
     Return a mapping of repo-relative path -> absolute path for all files under `root`.
     """
@@ -127,7 +123,9 @@ def compute_file_hash(path: Path, algorithm: HashAlgo, *, git_hash_cache: dict[P
         raise ValueError(f"Unsupported hash algorithm: {algorithm}")
 
 
-def verify_maps(*, remote_by_path: dict[str, object], local_by_path: dict[str, Path], revision: str) -> Verification:
+def verify_maps(
+    *, remote_by_path: dict[str, Any], local_by_path: dict[str, Path], revision: str
+) -> FolderVerification:
     """Compare remote entries and local files and return a verification result."""
     remote_paths = set(remote_by_path)
     local_paths = set(local_by_path)
@@ -160,7 +158,7 @@ def verify_maps(*, remote_by_path: dict[str, object], local_by_path: dict[str, P
         if actual != expected:
             mismatches.append(Mismatch(path=rel_path, expected=expected, actual=actual, algorithm=algorithm))
 
-    return Verification(
+    return FolderVerification(
         revision=revision,
         checked_count=len(both),
         mismatches=mismatches,
@@ -197,8 +195,3 @@ def resolve_local_root(
     if not snapshot_dir.is_dir():
         raise ValueError(f"Snapshot directory does not exist for revision '{commit}': {snapshot_dir}.")
     return snapshot_dir, commit
-
-
-def collect_local_files(root: Path) -> dict[str, Path]:
-    """Collect all files under a root directory (either a cache snapshot or a regular folder)."""
-    return _collect_files_from_directory(root)

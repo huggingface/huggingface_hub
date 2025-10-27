@@ -682,18 +682,14 @@ def verify(
 
     api = get_hf_api(token=token)
 
-    try:
-        result = api.verify_repo_checksums(
-            repo_id=repo_id,
-            repo_type=repo_type.value if hasattr(repo_type, "value") else str(repo_type),
-            revision=revision,
-            local_dir=local_dir,
-            cache_dir=cache_dir,
-            token=token,
-        )
-    except ValueError as exc:
-        print(str(exc))
-        raise typer.Exit(code=1)
+    result = api.verify_repo_checksums(
+        repo_id=repo_id,
+        repo_type=repo_type.value if hasattr(repo_type, "value") else str(repo_type),
+        revision=revision,
+        local_dir=local_dir,
+        cache_dir=cache_dir,
+        token=token,
+    )
 
     # Print mismatches first if any
     if result.mismatches:

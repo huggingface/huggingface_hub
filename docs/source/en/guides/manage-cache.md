@@ -497,7 +497,7 @@ Verify a specific cached revision:
 ```
 
 > [!TIP]
-> Pair `hf cache verify` with `--cache-dir PATH` when working outside the default cache, and `--token` to verify against private or gated repositories.
+> Check the [`hf cache verify` CLI reference](../package_reference/cli#hf-cache-verify) for more details about the usage and a complete list of options.
 
 ### Clean your cache
 

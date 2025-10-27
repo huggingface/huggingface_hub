@@ -3144,7 +3144,7 @@ class HfApi:
         local_by_path = collect_local_files(root)
 
         # get remote entries
-        remote_by_path: dict[str, object] = {}
+        remote_by_path: dict[str, Union[RepoFile, RepoFolder]] = {}
         for entry in self.list_repo_tree(
             repo_id=repo_id, recursive=True, revision=remote_revision, repo_type=repo_type, token=token
         ):
