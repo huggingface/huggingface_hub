@@ -1,17 +1,20 @@
+# This workflow was originally implemented by the diffusers team and ported into huggingface_hub
+# as a reusable workflow. Related PRs:
+# - https://github.com/huggingface/diffusers/pull/10274
+# - https://github.com/huggingface/diffusers/pull/10931
+# - https://github.com/huggingface/diffusers/pull/10908
+
+
 name: Style Bot Action
 
 on:
     workflow_call:
       inputs:
-        pre_commit_script:
+        style_command_type:
           required: false
           type: string
-          description: "Optional script to run before committing changes"
-        pre_commit_script_name:
-          required: false
-          type: string
-          description: "Custom name for the pre-commit script step"
-          default: "Custom pre-commit script"
+          description: "Which style command to run (options: 'default' (make style && make quality), 'quality_only', 'style_only')"
+          default: "default"
         python_quality_dependencies:
           required: true
           type: string
@@ -21,11 +24,6 @@ on:
           type: string
           description: "Python version to run code formatter"
           default: "3.10"
-        style_command:
-          required: false
-          type: string
-          description: "Command to run for style checks or/and style fixes"
-          default: "make style && make quality"
       secrets:
         bot_token:
           required: true
@@ -34,8 +32,9 @@ on:
 jobs:
   check-permissions:
     if: >
-      contains(github.event.comment.body, '@bot /style') &&
-      github.event.issue.pull_request != null
+      (github.event_name == 'issue_comment' && 
+       contains(github.event.comment.body, '@bot /style') &&
+       github.event.issue.pull_request != null)
     runs-on: ubuntu-latest
     outputs:
       is_authorized: ${{ steps.check_user_permission.outputs.has_permission }}
@@ -45,14 +44,16 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const comment_user = context.payload.comment.user.login;
+
+            comment_user = context.payload.comment.user.login;
             const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
               owner: context.repo.owner,
               repo: context.repo.repo,
               username: comment_user
             });
-            const authorized = permission.permission === 'admin';
-            console.log(`User ${comment_user} has permission level: ${permission.permission}, authorized: ${authorized} (only admins allowed)`);
+            
+            const authorized = ['admin', 'maintain', 'push', 'write'].includes(permission.permission);
+            console.log(`User ${comment_user} has permission level: ${permission.permission}, authorized: ${authorized} (only users with at least write access are allowed to run this action)`);
             core.setOutput('has_permission', authorized);
 
   run-style-bot:
@@ -66,21 +67,30 @@ jobs:
         with:
           script: |
             const prNumber = context.payload.issue.number;
+            console.log(`PR number from env: "${prNumber}"`);
+            
             const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: prNumber
             });
             
-            // We capture both the branch ref and the "full_name" of the head repo
-            // so that we can check out the correct repository & branch (including forks).
-            core.setOutput("prNumber", prNumber);
-            core.setOutput("headRef", pr.head.ref);
-            core.setOutput("headRepoFullName", pr.head.repo.full_name);
-
+            // Set outputs for use in subsequent steps
+            core.setOutput('headRepoFullName', pr.head.repo.full_name);
+            core.setOutput('headRef', pr.head.ref);
+            core.setOutput('baseRef', pr.base.ref);
+            core.setOutput('prNumber', prNumber);
+            
+            console.log('PR Details:', {
+              number: prNumber,
+              headRepo: pr.head.repo.full_name,
+              headRef: pr.head.ref,
+              baseRef: pr.base.ref
+            });
+        
       - name: Check out PR branch
         uses: actions/checkout@v3
-        env: 
+        env:
           HEADREPOFULLNAME: ${{ steps.pr_info.outputs.headRepoFullName }}
           HEADREF: ${{ steps.pr_info.outputs.headRef }}
         with:
@@ -91,15 +101,54 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.bot_token }}
 
-      - name: Debug
-        env: 
-          HEADREPOFULLNAME: ${{ steps.pr_info.outputs.headRepoFullName }}
+      - name: Check commit timestamps
+        env:
+          COMMENT_DATE: ${{ github.event.comment.created_at }}
+          PR_NUMBER: ${{ steps.pr_info.outputs.prNumber }}
+          BASE_REPO_URL: https://github.com/${{ github.repository }}
           HEADREF: ${{ steps.pr_info.outputs.headRef }}
-          PRNUMBER: ${{ steps.pr_info.outputs.prNumber }}
         run: |
-          echo "PR number: $PRNUMBER"
-          echo "Head Ref: $HEADREF"
-          echo "Head Repo Full Name: $HEADREPOFULLNAME"
+            echo "--- Checking remotes ---"
+            git remote -v
+            echo "--- Checking ref on origin (${{ steps.pr_info.outputs.headRepoFullName }}) ---"
+            git ls-remote origin refs/pull/$PR_NUMBER/merge || echo "Ref not found on origin (fork)."
+            echo "--- Checking ref on base (${{ github.repository }}) ---"
+            git ls-remote $BASE_REPO_URL refs/pull/$PR_NUMBER/merge || echo "Ref not found on base repository."
+            
+            echo "--- Proceeding with fetch from base repository ---"
+            git fetch $BASE_REPO_URL refs/pull/$PR_NUMBER/merge:refs/remotes/pull/$PR_NUMBER/merge
+            git checkout refs/remotes/pull/$PR_NUMBER/merge
+            echo "PR_MERGE_SHA: $(git log -1 --format=%H)"
+            PR_MERGE_COMMIT_TIMESTAMP=$(git log -1 --date=unix --format=%cd)
+            echo "PR_MERGE_COMMIT_TIMESTAMP: $PR_MERGE_COMMIT_TIMESTAMP"
+            COMMENT_TIMESTAMP=$(date -d "${COMMENT_DATE}" +"%s")
+            echo "COMMENT_DATE: $COMMENT_DATE"
+            echo "COMMENT_TIMESTAMP: $COMMENT_TIMESTAMP"
+            if [ $COMMENT_TIMESTAMP -le $PR_MERGE_COMMIT_TIMESTAMP ]; then
+              echo "❌ Last commit on the pull request is newer than the issue comment triggering this run! Abort!";
+              exit -1;
+            fi
+
+            echo "--- Checking out contributor branch ($HEADREF) ---"
+            git checkout $HEADREF
+
+      - name: Comment on PR with workflow run link
+        id: init_comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const prNumber = parseInt(process.env.prNumber, 10);
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+
+            const { data: botComment } = await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `Style fix is beginning .... [View the workflow run here](${runUrl}).`
+            });
+            core.setOutput('comment_id', botComment.id);
+        env:
+          prNumber: ${{ steps.pr_info.outputs.prNumber }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -112,23 +161,36 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install .$python_quality_dependencies
-
-      - name: ${{ inputs.pre_commit_script_name }}
-        env:
-          pre_commit_script: ${{ inputs.pre_commit_script }}
-        if: inputs.pre_commit_script != ''
-        run: |
-          bash -c "${pre_commit_script}"
+          echo ${{ steps.init_comment.outputs.comment_id }}
 
       - name: Run style command
+        id: run_style
         env:
-          style_command: ${{ inputs.style_command }}
+            STYLECOMMANDTYPE : ${{ inputs.style_command_type }}
         run: |
-          bash -c "$style_command"
+          case "$STYLECOMMANDTYPE" in
+            "default")
+              echo "Running default style and quality checks"
+              make style && make quality
+              ;;
+            "quality_only")
+              echo "Running quality checks only"
+              make quality
+              ;;
+            "style_only")
+              echo "Running style checks only"
+              make style
+              ;;
+            *)
+              echo "Invalid style_command_type: $STYLECOMMANDTYPE"
+              echo "Valid options are: 'default', 'quality_only', 'style_only'"
+              exit 1
+              ;;
+          esac
 
       - name: Commit and push changes
         id: commit_and_push
-        env: 
+        env:
           HEADREPOFULLNAME: ${{ steps.pr_info.outputs.headRepoFullName }}
           HEADREF: ${{ steps.pr_info.outputs.headRef }}
           PRNUMBER: ${{ steps.pr_info.outputs.prNumber }}
@@ -154,19 +216,27 @@ jobs:
             echo "changes_pushed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Comment on PR with workflow run link
-        if: steps.commit_and_push.outputs.changes_pushed == 'true'
+      - name: Prepare final comment message
+        id: prepare_final_comment
+        run: |
+          if [ "${{ steps.commit_and_push.outputs.changes_pushed }}" = 'true' ]; then
+            echo "final_comment=Style bot fixed some files and pushed the changes." >> $GITHUB_OUTPUT
+          else
+            echo "final_comment=Style fix runs successfully without any file modified." >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR
         uses: actions/github-script@v6
         with:
           script: |
             const prNumber = parseInt(process.env.prNumber, 10);
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
 
-            await github.rest.issues.createComment({
+            await github.rest.issues.updateComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: prNumber,
-              body: `Style fixes have been applied. [View the workflow run here](${runUrl}).`
+              comment_id: ${{ steps.init_comment.outputs.comment_id }},
+              body: `${{ steps.prepare_final_comment.outputs.final_comment }}`
             });
         env:
           prNumber: ${{ steps.pr_info.outputs.prNumber }}

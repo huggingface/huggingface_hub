@@ -65,7 +65,7 @@ If you prefer, you can also install it with [conda](https://huggingface.co/docs/
 In order to keep the package minimal by default, `huggingface_hub` comes with optional dependencies useful for some use cases. For example, if you want have a complete experience for Inference, run:
 
 ```bash
-pip install huggingface_hub[inference]
+pip install "huggingface_hub[inference]"
 ```
 
 To learn more installation and optional dependencies, check out the [installation guide](https://huggingface.co/docs/huggingface_hub/en/installation).
@@ -97,9 +97,9 @@ Files will be downloaded in a local cache folder. More details in [this guide](h
 The Hugging Face Hub uses tokens to authenticate applications (see [docs](https://huggingface.co/docs/hub/security-tokens)). To log in your machine, run the following CLI:
 
 ```bash
-huggingface-cli login
+hf auth login
 # or using an environment variable
-huggingface-cli login --token $HUGGINGFACE_TOKEN
+hf auth login --token $HUGGINGFACE_TOKEN
 ```
 
 ### Create a repository
@@ -146,7 +146,6 @@ The advantages are:
 
 - Free model or dataset hosting for libraries and their users.
 - Built-in file versioning, even with very large files, thanks to a git-based approach.
-- Serverless inference API for all models publicly available.
 - In-browser widgets to play with the uploaded models.
 - Anyone can upload a new model for your library, they just need to add the corresponding tag for the model to be discoverable.
 - Fast downloads! We use Cloudfront (a CDN) to geo-replicate downloads so they're blazing fast from anywhere on the globe.

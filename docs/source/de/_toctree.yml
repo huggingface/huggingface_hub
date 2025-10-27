@@ -34,7 +34,3 @@
       title: Integrieren einer Bibliothek
     - local: guides/webhooks_server
       title: Webhooks server
-- title: "Konzeptionelle Anleitungen"
-  sections:
-    - local: concepts/git_vs_http
-      title: Git vs. HTTP-Paradigma

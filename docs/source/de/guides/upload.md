@@ -16,9 +16,9 @@ Wenn Sie Dateien auf den Hub hochladen möchten, müssen Sie sich bei Ihrem Hugg
 - Melden Sie sich bei Ihrem Hugging Face-Konto mit dem folgenden Befehl an:
 
   ```bash
-  huggingface-cli login
+  hf auth login
   # oder mit einer Umgebungsvariable
-  huggingface-cli login --token $HUGGINGFACE_TOKEN
+  hf auth login --token $HUGGINGFACE_TOKEN
   ```
 
 - Alternativ können Sie sich in einem Notebook oder einem Skript programmatisch mit [`login`] anmelden:
@@ -119,11 +119,8 @@ False
 ...
 ```
 
-<Tip>
-
-Hintergrund-Aufgaben werden in die Warteschlange gestellt, wenn `run_as_future=True` verwendet wird. Das bedeutet, dass garantiert wird, dass die Aufgaben in der richtigen Reihenfolge ausgeführt werden.
-
-</Tip>
+> [!TIP]
+> Hintergrund-Aufgaben werden in die Warteschlange gestellt, wenn `run_as_future=True` verwendet wird. Das bedeutet, dass garantiert wird, dass die Aufgaben in der richtigen Reihenfolge ausgeführt werden.
 
 Auch wenn Hintergrundaufgaben hauptsächlich dazu dienen, Daten hochzuladen/Commits zu erstellen, können Sie jede gewünschte Methode in die Warteschlange stellen, indem Sie [`run_as_future`] verwenden. Sie können es beispielsweise verwenden, um ein Repo zu erstellen und dann Daten im Hintergrund dorthin hochzuladen. Das integrierte Argument `run_as_future` in Upload-Methoden ist lediglich ein Alias dafür.
 
@@ -161,11 +158,8 @@ Das untenstehende Beispiel lädt den Ordner "checkpoints" in ein Dataset in mehr
 
 Wenn Sie die Upload-Strategie besser steuern möchten (d.h. die erstellten Commits), können Sie sich die Low-Level-Methoden [`plan_multi_commits`] und [`create_commits_on_pr`] ansehen.
 
-<Tip warning={true}>
-
-`multi_commits` ist noch ein experimentelles Feature. Seine API und sein Verhalten können in Zukunft ohne vorherige Ankündigung geändert werden.
-
-</Tip>
+> [!WARNING]
+> `multi_commits` ist noch ein experimentelles Feature. Seine API und sein Verhalten können in Zukunft ohne vorherige Ankündigung geändert werden.
 
 ### Geplante Uploads
 
@@ -261,11 +255,8 @@ Wenn Sie `push_to_hub` überschreiben, haben Sie Zugriff auf die Attribute vom [
 - Repo-Parameter: `repo_id`, `repo_type`, `revision`
 - Das Thread-Lock: `lock`
 
-<Tip>
-
-Für weitere Beispiele von benutzerdefinierten Schedulern, schauen Sie sich unseren [Demo Space](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver) an, der verschiedene Implementierungen je nach Ihren Anforderungen enthält.
-
-</Tip>
+> [!TIP]
+> Für weitere Beispiele von benutzerdefinierten Schedulern, schauen Sie sich unseren [Demo Space](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver) an, der verschiedene Implementierungen je nach Ihren Anforderungen enthält.
 
 ### create_commit
 
@@ -368,17 +359,14 @@ Hinweis: Dies ist ein Tool für Power-User. Es ist getestet und einsatzbereit, v
 Alle oben beschriebenen Methoden verwenden die Hub-API, um Dateien hochzuladen. Dies ist der empfohlene Weg, Dateien in den Hub hochzuladen.
 Wir bieten jedoch auch [`Repository`] an, einen Wrapper um das git-Tool, um ein lokales Repository zu verwalten.
 
-<Tip warning={true}>
-
-Obwohl [`Repository`] formell nicht als veraltet gekennzeichnet ist, empfehlen wir stattdessen die Nutzung der HTTP-basierten Methoden, die oben beschrieben sind.
-Für weitere Details zu dieser Empfehlung werfen Sie bitte einen Blick auf diesen [Leitfaden](../concepts/git_vs_http), der die Kernunterschiede zwischen HTTP- und Git-basierten Ansätzen erklärt.
-
-</Tip>
+> [!WARNING]
+> Obwohl [`Repository`] formell nicht als veraltet gekennzeichnet ist, empfehlen wir stattdessen die Nutzung der HTTP-basierten Methoden, die oben beschrieben sind.
+> Für weitere Details zu dieser Empfehlung werfen Sie bitte einen Blick auf diesen [Leitfaden](../concepts/git_vs_http), der die Kernunterschiede zwischen HTTP- und Git-basierten Ansätzen erklärt.
 
 Git LFS verarbeitet automatisch Dateien, die größer als 10MB sind. Für sehr große Dateien (>5GB) müssen Sie jedoch einen benutzerdefinierten Transferagenten für Git LFS installieren:
 
 ```bash
-huggingface-cli lfs-enable-largefiles
+hf lfs-enable-largefiles .
 ```
 
 Sie sollten dies für jedes Repository installieren, das eine sehr große Datei enthält. Einmal installiert, können Sie Dateien hochladen, die größer als 5GB sind.

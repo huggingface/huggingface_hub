@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Optional, Union
 
-from requests import HTTPError, Response
+from httpx import HTTPError, Response
 
 
 # CACHE ERRORS
@@ -37,7 +37,7 @@ class OfflineModeIsEnabled(ConnectionError):
     """Raised when a request is made but `HF_HUB_OFFLINE=1` is set as environment variable."""
 
 
-class HfHubHTTPError(HTTPError):
+class HfHubHTTPError(HTTPError, OSError):
     """
     HTTPError to inherit from for any custom HTTP Error raised in HF Hub.
 
@@ -51,7 +51,7 @@ class HfHubHTTPError(HTTPError):
 
     Example:
     ```py
-        import requests
+        import httpx
         from huggingface_hub.utils import get_session, hf_raise_for_status, HfHubHTTPError
 
         response = get_session().post(...)
@@ -67,19 +67,18 @@ class HfHubHTTPError(HTTPError):
     ```
     """
 
-    def __init__(self, message: str, response: Optional[Response] = None, *, server_message: Optional[str] = None):
-        self.request_id = (
-            response.headers.get("x-request-id") or response.headers.get("X-Amzn-Trace-Id")
-            if response is not None
-            else None
-        )
+    def __init__(
+        self,
+        message: str,
+        *,
+        response: Response,
+        server_message: Optional[str] = None,
+    ):
+        self.request_id = response.headers.get("x-request-id") or response.headers.get("X-Amzn-Trace-Id")
         self.server_message = server_message
-
-        super().__init__(
-            message,
-            response=response,  # type: ignore [arg-type]
-            request=response.request if response is not None else None,  # type: ignore [arg-type]
-        )
+        self.response = response
+        self.request = response.request
+        super().__init__(message)
 
     def append_to_message(self, additional_message: str) -> None:
         """Append additional information to the `HfHubHTTPError` initial message."""
@@ -161,6 +160,10 @@ class HFValidationError(ValueError):
 # FILE METADATA ERRORS
 
 
+class DryRunError(OSError):
+    """Error triggered when a dry run is requested but cannot be performed (e.g. invalid repo)."""
+
+
 class FileMetadataError(OSError):
     """Error triggered when the metadata of a file on the Hub cannot be retrieved (missing ETag or commit_hash).
 
@@ -182,7 +185,7 @@ class RepositoryNotFoundError(HfHubHTTPError):
     >>> from huggingface_hub import model_info
     >>> model_info("<non_existent_repository>")
     (...)
-    huggingface_hub.utils._errors.RepositoryNotFoundError: 401 Client Error. (Request ID: PvMw_VjBMjVdMz53WKIzP)
+    huggingface_hub.errors.RepositoryNotFoundError: 401 Client Error. (Request ID: PvMw_VjBMjVdMz53WKIzP)
 
     Repository Not Found for url: https://huggingface.co/api/models/%3Cnon_existent_repository%3E.
     Please make sure you specified the correct `repo_id` and `repo_type`.
@@ -205,7 +208,7 @@ class GatedRepoError(RepositoryNotFoundError):
     >>> from huggingface_hub import model_info
     >>> model_info("<gated_repository>")
     (...)
-    huggingface_hub.utils._errors.GatedRepoError: 403 Client Error. (Request ID: ViT1Bf7O_026LGSQuVqfa)
+    huggingface_hub.errors.GatedRepoError: 403 Client Error. (Request ID: ViT1Bf7O_026LGSQuVqfa)
 
     Cannot access gated repo for url https://huggingface.co/api/models/ardent-figment/gated-model.
     Access to model ardent-figment/gated-model is restricted and you are not in the authorized list.
@@ -224,7 +227,7 @@ class DisabledRepoError(HfHubHTTPError):
     >>> from huggingface_hub import dataset_info
     >>> dataset_info("laion/laion-art")
     (...)
-    huggingface_hub.utils._errors.DisabledRepoError: 403 Client Error. (Request ID: Root=1-659fc3fa-3031673e0f92c71a2260dbe2;bc6f4dfb-b30a-4862-af0a-5cfe827610d8)
+    huggingface_hub.errors.DisabledRepoError: 403 Client Error. (Request ID: Root=1-659fc3fa-3031673e0f92c71a2260dbe2;bc6f4dfb-b30a-4862-af0a-5cfe827610d8)
 
     Cannot access repository for url https://huggingface.co/api/datasets/laion/laion-art.
     Access to this resource is disabled.
@@ -246,7 +249,7 @@ class RevisionNotFoundError(HfHubHTTPError):
     >>> from huggingface_hub import hf_hub_download
     >>> hf_hub_download('bert-base-cased', 'config.json', revision='<non-existent-revision>')
     (...)
-    huggingface_hub.utils._errors.RevisionNotFoundError: 404 Client Error. (Request ID: Mwhe_c3Kt650GcdKEFomX)
+    huggingface_hub.errors.RevisionNotFoundError: 404 Client Error. (Request ID: Mwhe_c3Kt650GcdKEFomX)
 
     Revision Not Found for url: https://huggingface.co/bert-base-cased/resolve/%3Cnon-existent-revision%3E/config.json.
     ```
@@ -254,7 +257,25 @@ class RevisionNotFoundError(HfHubHTTPError):
 
 
 # ENTRY ERRORS
-class EntryNotFoundError(HfHubHTTPError):
+class EntryNotFoundError(Exception):
+    """
+    Raised when entry not found, either locally or remotely.
+
+    Example:
+
+    ```py
+    >>> from huggingface_hub import hf_hub_download
+    >>> hf_hub_download('bert-base-cased', '<non-existent-file>')
+    (...)
+    huggingface_hub.errors.RemoteEntryNotFoundError (...)
+    >>> hf_hub_download('bert-base-cased', '<non-existent-file>', local_files_only=True)
+    (...)
+    huggingface_hub.utils.errors.LocalEntryNotFoundError (...)
+    ```
+    """
+
+
+class RemoteEntryNotFoundError(HfHubHTTPError, EntryNotFoundError):
     """
     Raised when trying to access a hf.co URL with a valid repository and revision
     but an invalid filename.
@@ -265,21 +286,17 @@ class EntryNotFoundError(HfHubHTTPError):
     >>> from huggingface_hub import hf_hub_download
     >>> hf_hub_download('bert-base-cased', '<non-existent-file>')
     (...)
-    huggingface_hub.utils._errors.EntryNotFoundError: 404 Client Error. (Request ID: 53pNl6M0MxsnG5Sw8JA6x)
+    huggingface_hub.errors.EntryNotFoundError: 404 Client Error. (Request ID: 53pNl6M0MxsnG5Sw8JA6x)
 
     Entry Not Found for url: https://huggingface.co/bert-base-cased/resolve/main/%3Cnon-existent-file%3E.
     ```
     """
 
 
-class LocalEntryNotFoundError(EntryNotFoundError, FileNotFoundError, ValueError):
+class LocalEntryNotFoundError(FileNotFoundError, EntryNotFoundError):
     """
     Raised when trying to access a file or snapshot that is not on the disk when network is
     disabled or unavailable (connection issue). The entry may exist on the Hub.
-
-    Note: `ValueError` type is to ensure backward compatibility.
-    Note: `LocalEntryNotFoundError` derives from `HTTPError` because of `EntryNotFoundError`
-          even when it is not a network issue.
 
     Example:
 
@@ -287,12 +304,12 @@ class LocalEntryNotFoundError(EntryNotFoundError, FileNotFoundError, ValueError)
     >>> from huggingface_hub import hf_hub_download
     >>> hf_hub_download('bert-base-cased', '<non-cached-file>',  local_files_only=True)
     (...)
-    huggingface_hub.utils._errors.LocalEntryNotFoundError: Cannot find the requested files in the disk cache and outgoing traffic has been disabled. To enable hf.co look-ups and downloads online, set 'local_files_only' to False.
+    huggingface_hub.errors.LocalEntryNotFoundError: Cannot find the requested files in the disk cache and outgoing traffic has been disabled. To enable hf.co look-ups and downloads online, set 'local_files_only' to False.
     ```
     """
 
     def __init__(self, message: str):
-        super().__init__(message, response=None)
+        super().__init__(message)
 
 
 # REQUEST ERROR
@@ -303,9 +320,9 @@ class BadRequestError(HfHubHTTPError, ValueError):
     Example:
 
     ```py
-    >>> resp = requests.post("hf.co/api/check", ...)
+    >>> resp = httpx.post("hf.co/api/check", ...)
     >>> hf_raise_for_status(resp, endpoint_name="check")
-    huggingface_hub.utils._errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
+    huggingface_hub.errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
     ```
     """
 
@@ -327,3 +344,51 @@ class DDUFExportError(DDUFError):
 
 class DDUFInvalidEntryNameError(DDUFExportError):
     """Exception thrown when the entry name is invalid."""
+
+
+# STRICT DATACLASSES ERRORS
+
+
+class StrictDataclassError(Exception):
+    """Base exception for strict dataclasses."""
+
+
+class StrictDataclassDefinitionError(StrictDataclassError):
+    """Exception thrown when a strict dataclass is defined incorrectly."""
+
+
+class StrictDataclassFieldValidationError(StrictDataclassError):
+    """Exception thrown when a strict dataclass fails validation for a given field."""
+
+    def __init__(self, field: str, cause: Exception):
+        error_message = f"Validation error for field '{field}':"
+        error_message += f"\n    {cause.__class__.__name__}: {cause}"
+        super().__init__(error_message)
+
+
+class StrictDataclassClassValidationError(StrictDataclassError):
+    """Exception thrown when a strict dataclass fails validation on a class validator."""
+
+    def __init__(self, validator: str, cause: Exception):
+        error_message = f"Class validation error for validator '{validator}':"
+        error_message += f"\n    {cause.__class__.__name__}: {cause}"
+        super().__init__(error_message)
+
+
+# XET ERRORS
+
+
+class XetError(Exception):
+    """Base exception for errors related to Xet Storage."""
+
+
+class XetAuthorizationError(XetError):
+    """Exception thrown when the user does not have the right authorization to use Xet Storage."""
+
+
+class XetRefreshTokenError(XetError):
+    """Exception thrown when the refresh token is invalid."""
+
+
+class XetDownloadError(Exception):
+    """Exception thrown when the download from Xet Storage fails."""

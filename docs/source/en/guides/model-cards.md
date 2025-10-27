@@ -162,11 +162,8 @@ As you update the card data, you can validate the card is still valid against th
 
 Instead of using your own template, you can also use the [default template](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md), which is a fully featured model card with tons of sections you may want to fill out. Under the hood, it uses [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) to fill out a template file.
 
-<Tip>
-
-Note that you will have to have Jinja2 installed to use `from_template`. You can do so with `pip install Jinja2`.
-
-</Tip>
+> [!TIP]
+> Note that you will have to have Jinja2 installed to use `from_template`. You can do so with `pip install Jinja2`.
 
 ```python
 card_data = ModelCardData(language='en', license='mit', library_name='keras')
@@ -183,7 +180,7 @@ print(card)
 
 ## Share Model Cards
 
-If you're authenticated with the Hugging Face Hub (either by using `huggingface-cli login` or [`login`]), you can push cards to the Hub by simply calling [`ModelCard.push_to_hub`]. Let's take a look at how to do that...
+If you're authenticated with the Hugging Face Hub (either by using `hf auth login` or [`login`]), you can push cards to the Hub by simply calling [`ModelCard.push_to_hub`]. Let's take a look at how to do that...
 
 First, we'll create a new repo called 'hf-hub-modelcards-pr-test' under the authenticated user's namespace:
 
@@ -263,11 +260,8 @@ review and merge your suggestions.
 
 To include evaluation results in the metadata `model-index`, you can pass an [`EvalResult`] or a list of `EvalResult` with your associated evaluation results. Under the hood it'll create the `model-index` when you call `card.data.to_dict()`. For more information on how this works, you can check out [this section of the Hub docs](https://huggingface.co/docs/hub/models-cards#evaluation-results).
 
-<Tip>
-
-Note that using this function requires you to include the `model_name` attribute in [`ModelCardData`].
-
-</Tip>
+> [!TIP]
+> Note that using this function requires you to include the `model_name` attribute in [`ModelCardData`].
 
 ```python
 card_data = ModelCardData(

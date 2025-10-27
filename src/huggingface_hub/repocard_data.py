@@ -1,7 +1,7 @@
 import copy
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 from huggingface_hub.utils import logging, yaml_dump
 
@@ -38,7 +38,7 @@ class EvalResult:
         dataset_revision (`str`, *optional*):
             The revision (AKA Git Sha) of the dataset used in `load_dataset()`.
             Example: 5503434ddd753f426f4b38109466949a1217c2bb
-        dataset_args (`Dict[str, Any]`, *optional*):
+        dataset_args (`dict[str, Any]`, *optional*):
             The arguments passed during `Metric.compute()`. Example for `bleu`: `{"max_order": 4}`
         metric_name (`str`, *optional*):
             A pretty name for the metric. Example: "Test WER".
@@ -46,7 +46,7 @@ class EvalResult:
             The name of the metric configuration used in `load_metric()`.
             Example: bleurt-large-512 in `load_metric("bleurt", "bleurt-large-512")`.
             See the `datasets` docs for more info: https://huggingface.co/docs/datasets/v2.1.0/en/loading#load-configurations
-        metric_args (`Dict[str, Any]`, *optional*):
+        metric_args (`dict[str, Any]`, *optional*):
             The arguments passed during `Metric.compute()`. Example for `bleu`: max_order: 4
         verified (`bool`, *optional*):
             Indicates whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not. Automatically computed by Hugging Face, do not set.
@@ -102,7 +102,7 @@ class EvalResult:
 
     # The arguments passed during `Metric.compute()`.
     # Example for `bleu`: max_order: 4
-    dataset_args: Optional[Dict[str, Any]] = None
+    dataset_args: Optional[dict[str, Any]] = None
 
     # A pretty name for the metric.
     # Example: Test WER
@@ -115,7 +115,7 @@ class EvalResult:
 
     # The arguments passed during `Metric.compute()`.
     # Example for `bleu`: max_order: 4
-    metric_args: Optional[Dict[str, Any]] = None
+    metric_args: Optional[dict[str, Any]] = None
 
     # Indicates whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not. Automatically computed by Hugging Face, do not set.
     verified: Optional[bool] = None
@@ -195,7 +195,7 @@ class CardData:
         """
         pass
 
-    def to_yaml(self, line_break=None, original_order: Optional[List[str]] = None) -> str:
+    def to_yaml(self, line_break=None, original_order: Optional[list[str]] = None) -> str:
         """Dumps CardData to a YAML block for inclusion in a README.md file.
 
         Args:
@@ -245,21 +245,38 @@ class CardData:
         return len(self.__dict__)
 
 
+def _validate_eval_results(
+    eval_results: Optional[Union[EvalResult, list[EvalResult]]],
+    model_name: Optional[str],
+) -> list[EvalResult]:
+    if eval_results is None:
+        return []
+    if isinstance(eval_results, EvalResult):
+        eval_results = [eval_results]
+    if not isinstance(eval_results, list) or not all(isinstance(r, EvalResult) for r in eval_results):
+        raise ValueError(
+            f"`eval_results` should be of type `EvalResult` or a list of `EvalResult`, got {type(eval_results)}."
+        )
+    if model_name is None:
+        raise ValueError("Passing `eval_results` requires `model_name` to be set.")
+    return eval_results
+
+
 class ModelCardData(CardData):
     """Model Card Metadata that is used by Hugging Face Hub when included at the top of your README.md
 
     Args:
-        base_model (`str` or `List[str]`, *optional*):
+        base_model (`str` or `list[str]`, *optional*):
             The identifier of the base model from which the model derives. This is applicable for example if your model is a
             fine-tune or adapter of an existing model. The value must be the ID of a model on the Hub (or a list of IDs
             if your model derives from multiple models). Defaults to None.
-        datasets (`Union[str, List[str]]`, *optional*):
+        datasets (`Union[str, list[str]]`, *optional*):
             Dataset or list of datasets that were used to train this model. Should be a dataset ID
             found on https://hf.co/datasets. Defaults to None.
-        eval_results (`Union[List[EvalResult], EvalResult]`, *optional*):
+        eval_results (`Union[list[EvalResult], EvalResult]`, *optional*):
             List of `huggingface_hub.EvalResult` that define evaluation results of the model. If provided,
             `model_name` is used to as a name on PapersWithCode's leaderboards. Defaults to `None`.
-        language (`Union[str, List[str]]`, *optional*):
+        language (`Union[str, list[str]]`, *optional*):
             Language of model's training data or metadata. It must be an ISO 639-1, 639-2 or
             639-3 code (two/three letters), or a special value like "code", "multilingual". Defaults to `None`.
         library_name (`str`, *optional*):
@@ -275,7 +292,7 @@ class ModelCardData(CardData):
         license_link (`str`, *optional*):
             Link to the license of this model. Defaults to None. To be used in conjunction with `license_name`.
             Common licenses (Apache-2.0, MIT, CC-BY-SA-4.0) do not need a link. In that case, use `license` instead.
-        metrics (`List[str]`, *optional*):
+        metrics (`list[str]`, *optional*):
             List of metrics used to evaluate this model. Should be a metric name that can be found
             at https://hf.co/metrics. Example: 'accuracy'. Defaults to None.
         model_name (`str`, *optional*):
@@ -285,7 +302,7 @@ class ModelCardData(CardData):
             then the repo name is used as a default. Defaults to None.
         pipeline_tag (`str`, *optional*):
             The pipeline tag associated with the model. Example: "text-classification".
-        tags (`List[str]`, *optional*):
+        tags (`list[str]`, *optional*):
             List of tags to add to your model that can be used when filtering on the Hugging
             Face Hub. Defaults to None.
         ignore_metadata_errors (`str`):
@@ -312,18 +329,18 @@ class ModelCardData(CardData):
     def __init__(
         self,
         *,
-        base_model: Optional[Union[str, List[str]]] = None,
-        datasets: Optional[Union[str, List[str]]] = None,
-        eval_results: Optional[List[EvalResult]] = None,
-        language: Optional[Union[str, List[str]]] = None,
+        base_model: Optional[Union[str, list[str]]] = None,
+        datasets: Optional[Union[str, list[str]]] = None,
+        eval_results: Optional[list[EvalResult]] = None,
+        language: Optional[Union[str, list[str]]] = None,
         library_name: Optional[str] = None,
         license: Optional[str] = None,
         license_name: Optional[str] = None,
         license_link: Optional[str] = None,
-        metrics: Optional[List[str]] = None,
+        metrics: Optional[list[str]] = None,
         model_name: Optional[str] = None,
         pipeline_tag: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -359,15 +376,18 @@ class ModelCardData(CardData):
         super().__init__(**kwargs)
 
         if self.eval_results:
-            if isinstance(self.eval_results, EvalResult):
-                self.eval_results = [self.eval_results]
-            if self.model_name is None:
-                raise ValueError("Passing `eval_results` requires `model_name` to be set.")
+            try:
+                self.eval_results = _validate_eval_results(self.eval_results, self.model_name)
+            except Exception as e:
+                if ignore_metadata_errors:
+                    logger.warning(f"Failed to validate eval_results: {e}. Not loading eval results into CardData.")
+                else:
+                    raise ValueError(f"Failed to validate eval_results: {e}") from e
 
     def _to_dict(self, data_dict):
         """Format the internal data dict. In this case, we convert eval results to a valid model index"""
         if self.eval_results is not None:
-            data_dict["model-index"] = eval_results_to_model_index(self.model_name, self.eval_results)
+            data_dict["model-index"] = eval_results_to_model_index(self.model_name, self.eval_results)  # type: ignore
             del data_dict["eval_results"], data_dict["model_name"]
 
 
@@ -375,58 +395,58 @@ class DatasetCardData(CardData):
     """Dataset Card Metadata that is used by Hugging Face Hub when included at the top of your README.md
 
     Args:
-        language (`List[str]`, *optional*):
+        language (`list[str]`, *optional*):
             Language of dataset's data or metadata. It must be an ISO 639-1, 639-2 or
             639-3 code (two/three letters), or a special value like "code", "multilingual".
-        license (`Union[str, List[str]]`, *optional*):
+        license (`Union[str, list[str]]`, *optional*):
             License(s) of this dataset. Example: apache-2.0 or any license from
             https://huggingface.co/docs/hub/repositories-licenses.
-        annotations_creators (`Union[str, List[str]]`, *optional*):
+        annotations_creators (`Union[str, list[str]]`, *optional*):
             How the annotations for the dataset were created.
             Options are: 'found', 'crowdsourced', 'expert-generated', 'machine-generated', 'no-annotation', 'other'.
-        language_creators (`Union[str, List[str]]`, *optional*):
+        language_creators (`Union[str, list[str]]`, *optional*):
             How the text-based data in the dataset was created.
             Options are: 'found', 'crowdsourced', 'expert-generated', 'machine-generated', 'other'
-        multilinguality (`Union[str, List[str]]`, *optional*):
+        multilinguality (`Union[str, list[str]]`, *optional*):
             Whether the dataset is multilingual.
             Options are: 'monolingual', 'multilingual', 'translation', 'other'.
-        size_categories (`Union[str, List[str]]`, *optional*):
+        size_categories (`Union[str, list[str]]`, *optional*):
             The number of examples in the dataset. Options are: 'n<1K', '1K<n<10K', '10K<n<100K',
             '100K<n<1M', '1M<n<10M', '10M<n<100M', '100M<n<1B', '1B<n<10B', '10B<n<100B', '100B<n<1T', 'n>1T', and 'other'.
-        source_datasets (`List[str]]`, *optional*):
+        source_datasets (`list[str]]`, *optional*):
             Indicates whether the dataset is an original dataset or extended from another existing dataset.
             Options are: 'original' and 'extended'.
-        task_categories (`Union[str, List[str]]`, *optional*):
+        task_categories (`Union[str, list[str]]`, *optional*):
             What categories of task does the dataset support?
-        task_ids (`Union[str, List[str]]`, *optional*):
+        task_ids (`Union[str, list[str]]`, *optional*):
             What specific tasks does the dataset support?
         paperswithcode_id (`str`, *optional*):
             ID of the dataset on PapersWithCode.
         pretty_name (`str`, *optional*):
             A more human-readable name for the dataset. (ex. "Cats vs. Dogs")
-        train_eval_index (`Dict`, *optional*):
+        train_eval_index (`dict`, *optional*):
             A dictionary that describes the necessary spec for doing evaluation on the Hub.
             If not provided, it will be gathered from the 'train-eval-index' key of the kwargs.
-        config_names (`Union[str, List[str]]`, *optional*):
+        config_names (`Union[str, list[str]]`, *optional*):
             A list of the available dataset configs for the dataset.
     """
 
     def __init__(
         self,
         *,
-        language: Optional[Union[str, List[str]]] = None,
-        license: Optional[Union[str, List[str]]] = None,
-        annotations_creators: Optional[Union[str, List[str]]] = None,
-        language_creators: Optional[Union[str, List[str]]] = None,
-        multilinguality: Optional[Union[str, List[str]]] = None,
-        size_categories: Optional[Union[str, List[str]]] = None,
-        source_datasets: Optional[List[str]] = None,
-        task_categories: Optional[Union[str, List[str]]] = None,
-        task_ids: Optional[Union[str, List[str]]] = None,
+        language: Optional[Union[str, list[str]]] = None,
+        license: Optional[Union[str, list[str]]] = None,
+        annotations_creators: Optional[Union[str, list[str]]] = None,
+        language_creators: Optional[Union[str, list[str]]] = None,
+        multilinguality: Optional[Union[str, list[str]]] = None,
+        size_categories: Optional[Union[str, list[str]]] = None,
+        source_datasets: Optional[list[str]] = None,
+        task_categories: Optional[Union[str, list[str]]] = None,
+        task_ids: Optional[Union[str, list[str]]] = None,
         paperswithcode_id: Optional[str] = None,
         pretty_name: Optional[str] = None,
-        train_eval_index: Optional[Dict] = None,
-        config_names: Optional[Union[str, List[str]]] = None,
+        train_eval_index: Optional[dict] = None,
+        config_names: Optional[Union[str, list[str]]] = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -475,11 +495,11 @@ class SpaceCardData(CardData):
             https://huggingface.co/docs/hub/repositories-licenses.
         duplicated_from (`str`, *optional*)
             ID of the original Space if this is a duplicated Space.
-        models (List[`str`], *optional*)
+        models (list[`str`], *optional*)
             List of models related to this Space. Should be a dataset ID found on https://hf.co/models.
-        datasets (`List[str]`, *optional*)
+        datasets (`list[str]`, *optional*)
             List of datasets related to this Space. Should be a dataset ID found on https://hf.co/datasets.
-        tags (`List[str]`, *optional*)
+        tags (`list[str]`, *optional*)
             List of tags to add to your Space that can be used when filtering on the Hub.
         ignore_metadata_errors (`str`):
             If True, errors while parsing the metadata section will be ignored. Some information might be lost during
@@ -512,9 +532,9 @@ class SpaceCardData(CardData):
         app_port: Optional[int] = None,
         license: Optional[str] = None,
         duplicated_from: Optional[str] = None,
-        models: Optional[List[str]] = None,
-        datasets: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None,
+        models: Optional[list[str]] = None,
+        datasets: Optional[list[str]] = None,
+        tags: Optional[list[str]] = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -532,14 +552,14 @@ class SpaceCardData(CardData):
         super().__init__(**kwargs)
 
 
-def model_index_to_eval_results(model_index: List[Dict[str, Any]]) -> Tuple[str, List[EvalResult]]:
+def model_index_to_eval_results(model_index: list[dict[str, Any]]) -> tuple[str, list[EvalResult]]:
     """Takes in a model index and returns the model name and a list of `huggingface_hub.EvalResult` objects.
 
     A detailed spec of the model index can be found here:
     https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
 
     Args:
-        model_index (`List[Dict[str, Any]]`):
+        model_index (`list[dict[str, Any]]`):
             A model index data structure, likely coming from a README.md file on the
             Hugging Face Hub.
 
@@ -547,7 +567,7 @@ def model_index_to_eval_results(model_index: List[Dict[str, Any]]) -> Tuple[str,
         model_name (`str`):
             The name of the model as found in the model index. This is used as the
             identifier for the model on leaderboards like PapersWithCode.
-        eval_results (`List[EvalResult]`):
+        eval_results (`list[EvalResult]`):
             A list of `huggingface_hub.EvalResult` objects containing the metrics
             reported in the provided model_index.
 
@@ -648,7 +668,7 @@ def _remove_none(obj):
         return obj
 
 
-def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult]) -> List[Dict[str, Any]]:
+def eval_results_to_model_index(model_name: str, eval_results: list[EvalResult]) -> list[dict[str, Any]]:
     """Takes in given model name and list of `huggingface_hub.EvalResult` and returns a
     valid model-index that will be compatible with the format expected by the
     Hugging Face Hub.
@@ -657,12 +677,12 @@ def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult])
         model_name (`str`):
             Name of the model (ex. "my-cool-model"). This is used as the identifier
             for the model on leaderboards like PapersWithCode.
-        eval_results (`List[EvalResult]`):
+        eval_results (`list[EvalResult]`):
             List of `huggingface_hub.EvalResult` objects containing the metrics to be
             reported in the model-index.
 
     Returns:
-        model_index (`List[Dict[str, Any]]`): The eval_results converted to a model-index.
+        model_index (`list[dict[str, Any]]`): The eval_results converted to a model-index.
 
     Example:
         ```python
@@ -685,7 +705,7 @@ def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult])
 
     # Metrics are reported on a unique task-and-dataset basis.
     # Here, we make a map of those pairs and the associated EvalResults.
-    task_and_ds_types_map: Dict[Any, List[EvalResult]] = defaultdict(list)
+    task_and_ds_types_map: dict[Any, list[EvalResult]] = defaultdict(list)
     for eval_result in eval_results:
         task_and_ds_types_map[eval_result.unique_identifier].append(eval_result)
 
@@ -740,7 +760,7 @@ def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult])
     return _remove_none(model_index)
 
 
-def _to_unique_list(tags: Optional[List[str]]) -> Optional[List[str]]:
+def _to_unique_list(tags: Optional[list[str]]) -> Optional[list[str]]:
     if tags is None:
         return tags
     unique_tags = []  # make tags unique + keep order explicitly

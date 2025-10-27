@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 from pickle import DEFAULT_PROTOCOL, PicklingError
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from packaging import version
 
@@ -16,7 +16,6 @@ from huggingface_hub.utils import (
 )
 
 from .utils import logging, validate_hf_hub_args
-from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility...
 
 
 logger = logging.get_logger(__name__)
@@ -35,13 +34,11 @@ def _check_fastai_fastcore_versions(
         fastcore_min_version (`str`, *optional*):
             The minimum fastcore version supported.
 
-    <Tip>
-    Raises the following error:
-
-        - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
-          if the fastai or fastcore libraries are not available or are of an invalid version.
-
-    </Tip>
+    > [!TIP]
+    > Raises the following error:
+    >
+    >     - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
+    >       if the fastai or fastcore libraries are not available or are of an invalid version.
     """
 
     if (get_fastcore_version() or get_fastai_version()) == "N/A":
@@ -89,15 +86,13 @@ def _check_fastai_fastcore_pyproject_versions(
         fastcore_min_version (`str`, *optional*):
             The minimum fastcore version supported.
 
-    <Tip>
-    Raises the following errors:
-
-        - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
-          if the `toml` module is not installed.
-        - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
-          if the `pyproject.toml` indicates a lower than minimum supported version of fastai or fastcore.
-
-    </Tip>
+    > [!TIP]
+    > Raises the following errors:
+    >
+    >     - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
+    >       if the `toml` module is not installed.
+    >     - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
+    >       if the `pyproject.toml` indicates a lower than minimum supported version of fastai or fastcore.
     """
 
     try:
@@ -241,7 +236,7 @@ def _create_model_pyproject(repo_dir: Path):
 def _save_pretrained_fastai(
     learner,
     save_directory: Union[str, Path],
-    config: Optional[Dict[str, Any]] = None,
+    config: Optional[dict[str, Any]] = None,
 ):
     """
     Saves a fastai learner to `save_directory` in pickle format using the default pickle protocol for the version of python used.
@@ -254,14 +249,11 @@ def _save_pretrained_fastai(
         config (`dict`, *optional*):
             Configuration object. Will be uploaded as a .json file. Example: 'https://huggingface.co/espejelomar/fastai-pet-breeds-classification/blob/main/config.json'.
 
-    <Tip>
-
-    Raises the following error:
-
-        - [`RuntimeError`](https://docs.python.org/3/library/exceptions.html#RuntimeError)
-          if the config file provided is not a dictionary.
-
-    </Tip>
+    > [!TIP]
+    > Raises the following error:
+    >
+    >     - [`RuntimeError`](https://docs.python.org/3/library/exceptions.html#RuntimeError)
+    >       if the config file provided is not a dictionary.
     """
     _check_fastai_fastcore_versions()
 
@@ -350,9 +342,9 @@ def push_to_hub_fastai(
     config: Optional[dict] = None,
     branch: Optional[str] = None,
     create_pr: Optional[bool] = None,
-    allow_patterns: Optional[Union[List[str], str]] = None,
-    ignore_patterns: Optional[Union[List[str], str]] = None,
-    delete_patterns: Optional[Union[List[str], str]] = None,
+    allow_patterns: Optional[Union[list[str], str]] = None,
+    ignore_patterns: Optional[Union[list[str], str]] = None,
+    delete_patterns: Optional[Union[list[str], str]] = None,
     api_endpoint: Optional[str] = None,
 ):
     """
@@ -385,24 +377,21 @@ def push_to_hub_fastai(
             Defaults to `False`.
         api_endpoint (`str`, *optional*):
             The API endpoint to use when pushing the model to the hub.
-        allow_patterns (`List[str]` or `str`, *optional*):
+        allow_patterns (`list[str]` or `str`, *optional*):
             If provided, only files matching at least one pattern are pushed.
-        ignore_patterns (`List[str]` or `str`, *optional*):
+        ignore_patterns (`list[str]` or `str`, *optional*):
             If provided, files matching any of the patterns are not pushed.
-        delete_patterns (`List[str]` or `str`, *optional*):
+        delete_patterns (`list[str]` or `str`, *optional*):
             If provided, remote files matching any of the patterns will be deleted from the repo.
 
     Returns:
         The url of the commit of your model in the given repository.
 
-    <Tip>
-
-    Raises the following error:
-
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-          if the user is not log on to the Hugging Face Hub.
-
-    </Tip>
+    > [!TIP]
+    > Raises the following error:
+    >
+    >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+    >       if the user is not log on to the Hugging Face Hub.
     """
     _check_fastai_fastcore_versions()
     api = HfApi(endpoint=api_endpoint)

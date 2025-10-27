@@ -10,7 +10,7 @@ All methods from the `HfApi` are also accessible from the package's root directl
 
 Using the root method is more straightforward but the [`HfApi`] class gives you more flexibility.
 In particular, you can pass a token that will be reused in all HTTP calls. This is different
-than `huggingface-cli login` or [`login`] as the token is not persisted on the machine.
+than `hf auth login` or [`login`] as the token is not persisted on the machine.
 It is also possible to provide a different endpoint or configure a custom user-agent.
 
 ```python
@@ -45,6 +45,10 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.DatasetInfo
 
+### DryRunFileInfo
+
+[[autodoc]] huggingface_hub.hf_api.DryRunFileInfo
+
 ### GitRefInfo
 
 [[autodoc]] huggingface_hub.hf_api.GitRefInfo
@@ -56,6 +60,14 @@ models = hf_api.list_models()
 ### GitRefs
 
 [[autodoc]] huggingface_hub.hf_api.GitRefs
+
+### InferenceProviderMapping
+
+[[autodoc]] huggingface_hub.hf_api.InferenceProviderMapping
+
+### LFSFileInfo
+
+[[autodoc]] huggingface_hub.hf_api.LFSFileInfo
 
 ### ModelInfo
 

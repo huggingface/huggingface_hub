@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 आरंभ करने से पहले, आपको उपयुक्त पैकेज स्थापित करके अपना परिवेश सेटअप करना होगा।
 
-`huggingface_hub` का परीक्षण **Python 3.8+** पर किया गया है।
+`huggingface_hub` का परीक्षण **Python 3.9+** पर किया गया है।
 
 ## पिप के साथ स्थापित करें
 
@@ -46,17 +46,13 @@ pip install --upgrade huggingface_hub
 
 आप `pip` के माध्यम से वैकल्पिक निर्भरताएँ स्थापित कर सकते हैं:
 ```bash
-# Install dependencies for tensorflow-specific features
-# /!\ Warning: this is not equivalent to `pip install tensorflow`
-pip install 'huggingface_hub[tensorflow]'
-
 # Install dependencies for both torch-specific and CLI-specific features.
 pip install 'huggingface_hub[cli,torch]'
 ```
 
 यहां `huggingface_hub` में वैकल्पिक निर्भरताओं की सूची दी गई है:
 - `cli`: `huggingface_hub` के लिए अधिक सुविधाजनक CLI इंटरफ़ेस प्रदान करें।
-- `fastai`, `torch`, `tensorflow`: फ्रेमवर्क-विशिष्ट सुविधाओं को चलाने के लिए निर्भरताएँ।
+- `fastai`, `torch`: फ्रेमवर्क-विशिष्ट सुविधाओं को चलाने के लिए निर्भरताएँ।
 - `dev`: lib में योगदान करने के लिए निर्भरताएँ। इसमें 'परीक्षण' (परीक्षण चलाने के लिए), 'टाइपिंग' (टाइप चेकर चलाने के लिए) और 'गुणवत्ता' (लिंटर चलाने के लिए) शामिल हैं।
 
 

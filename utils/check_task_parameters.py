@@ -42,7 +42,7 @@ import re
 import textwrap
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, NoReturn, Optional, Set
+from typing import Any, NoReturn, Optional
 
 import libcst as cst
 from helpers import format_source_code
@@ -101,7 +101,7 @@ class DataclassFieldCollector(cst.CSTVisitor):
 
     def __init__(self, dataclass_name: str):
         self.dataclass_name = dataclass_name
-        self.parameters: Dict[str, Dict[str, str]] = {}
+        self.parameters: dict[str, dict[str, str]] = {}
 
     def visit_ClassDef(self, node: cst.ClassDef) -> None:
         """Visit class definitions to find the target dataclass."""
@@ -130,7 +130,7 @@ class DataclassFieldCollector(cst.CSTVisitor):
 
     @staticmethod
     def _extract_docstring(
-        body_statements: List[cst.CSTNode],
+        body_statements: list[cst.CSTNode],
         field_index: int,
     ) -> str:
         """Extract the docstring following a field definition."""
@@ -169,7 +169,7 @@ class MethodArgumentsCollector(cst.CSTVisitor):
 
     def __init__(self, method_name: str):
         self.method_name = method_name
-        self.parameters: Dict[str, Dict[str, str]] = {}
+        self.parameters: dict[str, dict[str, str]] = {}
 
     def visit_FunctionDef(self, node: cst.FunctionDef) -> None:
         if node.name.value != self.method_name:
@@ -194,7 +194,7 @@ class MethodArgumentsCollector(cst.CSTVisitor):
             return node.body.body[0].body[0].value.evaluated_value
         return ""
 
-    def _parse_docstring_params(self, docstring: str) -> Dict[str, str]:
+    def _parse_docstring_params(self, docstring: str) -> dict[str, str]:
         """Parse parameter descriptions from docstring."""
         param_docs = {}
         lines = docstring.split("\n")
@@ -230,7 +230,7 @@ class MethodArgumentsCollector(cst.CSTVisitor):
 class AddImports(cst.CSTTransformer):
     """Transformer that adds import statements to the module."""
 
-    def __init__(self, imports_to_add: List[cst.BaseStatement]):
+    def __init__(self, imports_to_add: list[cst.BaseStatement]):
         self.imports_to_add = imports_to_add
         self.added = False
 
@@ -265,7 +265,7 @@ class AddImports(cst.CSTTransformer):
 class UpdateParameters(cst.CSTTransformer):
     """Updates a method's parameters, types, and docstrings."""
 
-    def __init__(self, method_name: str, param_updates: Dict[str, Dict[str, str]]):
+    def __init__(self, method_name: str, param_updates: dict[str, dict[str, str]]):
         self.method_name = method_name
         self.param_updates = param_updates
         self.found_method = False  # Flag to check if the method is found
@@ -368,9 +368,12 @@ class UpdateParameters(cst.CSTTransformer):
         desc_indent = param_indent + "    "  # Indentation for description lines
         # Update existing parameters in the docstring
         if update_params:
-            docstring_lines = self._process_existing_params(
+            docstring_lines, params_updated = self._process_existing_params(
                 docstring_lines, update_params, args_index, param_indent, desc_indent
             )
+            # When params_updated is still not empty, it means there are new parameters that are not in the docstring
+            # but are in the method signature
+            new_params = {**new_params, **params_updated}
         # Add new parameters to the docstring
         if new_params:
             docstring_lines = self._add_new_params(docstring_lines, new_params, args_index, param_indent, desc_indent)
@@ -380,10 +383,10 @@ class UpdateParameters(cst.CSTTransformer):
     def _format_param_docstring(
         self,
         param_name: str,
-        param_info: Dict[str, str],
+        param_info: dict[str, str],
         param_indent: str,
         desc_indent: str,
-    ) -> List[str]:
+    ) -> list[str]:
         """Format the docstring lines for a single parameter."""
         # Extract and format the parameter type
         param_type = param_info["type"]
@@ -414,13 +417,15 @@ class UpdateParameters(cst.CSTTransformer):
 
     def _process_existing_params(
         self,
-        docstring_lines: List[str],
-        params_to_update: Dict[str, Dict[str, str]],
+        docstring_lines: list[str],
+        params_to_update: dict[str, dict[str, str]],
         args_index: int,
         param_indent: str,
         desc_indent: str,
-    ) -> List[str]:
+    ) -> tuple[list[str], dict[str, dict[str, str]]]:
         """Update existing parameters in the docstring."""
+        # track the params that are updated
+        params_updated = params_to_update.copy()
         i = args_index + 1  # Start after the 'Args:' section
         while i < len(docstring_lines):
             line = docstring_lines[i]
@@ -436,9 +441,9 @@ class UpdateParameters(cst.CSTTransformer):
                 # Check if the line is a parameter line
                 param_line = stripped_line
                 param_name = param_line.strip().split()[0]  # Extract parameter name
-                if param_name in params_to_update:
+                if param_name in params_updated:
                     # Get the updated parameter info
-                    param_info = params_to_update[param_name]
+                    param_info = params_updated.pop(param_name)
                     # Format the new parameter docstring
                     param_doc_lines = self._format_param_docstring(param_name, param_info, param_indent, desc_indent)
                     # Find the end of the current parameter's description
@@ -464,16 +469,16 @@ class UpdateParameters(cst.CSTTransformer):
                 i += 1
             else:
                 i += 1  # Move to the next line if not a parameter line
-        return docstring_lines
+        return docstring_lines, params_updated
 
     def _add_new_params(
         self,
-        docstring_lines: List[str],
-        new_params: Dict[str, Dict[str, str]],
+        docstring_lines: list[str],
+        new_params: dict[str, dict[str, str]],
         args_index: int,
         param_indent: str,
         desc_indent: str,
-    ) -> List[str]:
+    ) -> list[str]:
         """Add new parameters to the docstring."""
         # Find the insertion point after existing parameters
         insertion_index = args_index + 1
@@ -516,7 +521,7 @@ def _check_parameters(
     parameters_module: cst.Module,
     method_name: str,
     parameter_type_name: str,
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     """
     Check for missing parameters and outdated types/docstrings.
 
@@ -546,6 +551,8 @@ def _check_parameters(
     updates = {}
     # Check for new and updated parameters
     for param_name, param_info in dataclass_params.items():
+        if param_name in CORE_PARAMETERS:
+            continue
         if param_name not in existing_params:
             # New parameter
             updates[param_name] = {**param_info, "status": "new"}
@@ -564,7 +571,7 @@ def _check_parameters(
 def _update_parameters(
     module: cst.Module,
     method_name: str,
-    param_updates: Dict[str, Dict[str, str]],
+    param_updates: dict[str, dict[str, str]],
 ) -> cst.Module:
     """
     Update method parameters, types and docstrings.
@@ -583,21 +590,21 @@ def _update_parameters(
 
 
 def _get_imports_to_add(
-    parameters: Dict[str, Dict[str, str]],
+    parameters: dict[str, dict[str, str]],
     parameters_module: cst.Module,
     inference_client_module: cst.Module,
-) -> Dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """
     Get the needed imports for missing parameters.
 
     Args:
-        parameters (Dict[str, Dict[str, str]]): Dictionary of parameters with their type and docstring.
+        parameters (dict[str, dict[str, str]]): Dictionary of parameters with their type and docstring.
         eg: {"function_to_apply": {"type": "ClassificationOutputTransform", "docstring": "Function to apply to the input."}}
         parameters_module (cst.Module): The module where the parameters are defined.
         inference_client_module (cst.Module): The module of the inference client.
 
     Returns:
-        Dict[str, List[str]]: A dictionary mapping modules to list of types to import.
+        dict[str, list[str]]: A dictionary mapping modules to list of types to import.
         eg: {"huggingface_hub.inference._generated.types": ["ClassificationOutputTransform"]}
     """
     # Collect all type names from parameter annotations
@@ -623,12 +630,12 @@ def _get_imports_to_add(
     return needed_imports
 
 
-def _generate_import_statements(import_dict: Dict[str, List[str]]) -> str:
+def _generate_import_statements(import_dict: dict[str, list[str]]) -> str:
     """
     Generate import statements from a dictionary of needed imports.
 
     Args:
-        import_dict (Dict[str, List[str]]): Dictionary mapping modules to list of types to import.
+        import_dict (dict[str, list[str]]): Dictionary mapping modules to list of types to import.
         eg: {"typing": ["List", "Dict"], "huggingface_hub.inference._generated.types": ["ClassificationOutputTransform"]}
 
     Returns:
@@ -651,7 +658,7 @@ def _normalize_docstring(docstring: str) -> str:
 
 
 # TODO: Needs to be improved, maybe using `typing.get_type_hints` instead (we gonna need to access the method though)?
-def _collect_type_hints_from_annotation(annotation_str: str) -> Set[str]:
+def _collect_type_hints_from_annotation(annotation_str: str) -> set[str]:
     """
     Collect type hints from an annotation string.
 
@@ -659,7 +666,7 @@ def _collect_type_hints_from_annotation(annotation_str: str) -> Set[str]:
         annotation_str (str): The annotation string.
 
     Returns:
-        Set[str]: A set of type hints.
+        set[str]: A set of type hints.
     """
     type_string = annotation_str.replace(" ", "")
     builtin_types = {d for d in dir(builtins) if isinstance(getattr(builtins, d), type)}
@@ -692,7 +699,7 @@ def _parse_module_from_file(filepath: Path) -> Optional[cst.Module]:
 
 
 def _check_and_update_parameters(
-    method_params: Dict[str, str],
+    method_params: dict[str, str],
     update: bool,
 ) -> NoReturn:
     """
@@ -761,7 +768,7 @@ def _check_and_update_parameters(
             "❌ Mismatch between between parameters defined in tasks methods signature in "
             "`./src/huggingface_hub/inference/_client.py` and parameters defined in "
             "`./src/huggingface_hub/inference/_generated/types.py \n"
-            "Please run `make inference_update` or `python utils/generate_task_parameters.py --update"
+            "Please run `make inference_update` or `python utils/check_task_parameters.py --update"
         )
         exit(1)
     else:

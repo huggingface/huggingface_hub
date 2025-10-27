@@ -3,7 +3,7 @@ name: Style Bot
 on:
   issue_comment:
     types: [created]
-    
+
 permissions:
   contents: write
   pull-requests: write
@@ -13,6 +13,6 @@ jobs:
     uses: ./.github/workflows/style-bot-action.yml
     with:
       python_quality_dependencies: "[quality]"
-      style_command: "make style"
+      style_command_type: "style_only"
     secrets:
-      bot_token: ${{ secrets.GITHUB_TOKEN }}
+      bot_token: ${{ secrets.HF_STYLE_BOT_ACTION }}

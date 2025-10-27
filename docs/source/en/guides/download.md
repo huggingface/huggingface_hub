@@ -18,13 +18,10 @@ guide will show you how to:
 The [`hf_hub_download`] function is the main function for downloading files from the Hub.
 It downloads the remote file, caches it on disk (in a version-aware way), and returns its local file path.
 
-<Tip>
-
-The returned filepath is a pointer to the HF local cache. Therefore, it is important to not modify the file to avoid
-having a corrupted cache. If you are interested in getting to know more about how files are cached, please refer to our
-[caching guide](./manage-cache).
-
-</Tip>
+> [!TIP]
+> The returned filepath is a pointer to the HF local cache. Therefore, it is important to not modify the file to avoid
+> having a corrupted cache. If you are interested in getting to know more about how files are cached, please refer to our
+> [caching guide](./manage-cache).
 
 ### From latest version
 
@@ -136,20 +133,17 @@ A `.cache/huggingface/` folder is created at the root of your local directory co
 
 After completing the download, you can safely remove the `.cache/huggingface/` folder if you no longer need it. However, be aware that re-running your script without this folder may result in longer recovery times, as metadata will be lost. Rest assured that your local data will remain intact and unaffected.
 
-<Tip>
-
-Don't worry about the `.cache/huggingface/` folder when committing changes to the Hub! This folder is automatically ignored by both `git` and [`upload_folder`].
-
-</Tip>
+> [!TIP]
+> Don't worry about the `.cache/huggingface/` folder when committing changes to the Hub! This folder is automatically ignored by both `git` and [`upload_folder`].
 
 ## Download from the CLI
 
-You can use the `huggingface-cli download` command from the terminal to directly download files from the Hub.
+You can use the `hf download` command from the terminal to directly download files from the Hub.
 Internally, it uses the same [`hf_hub_download`] and [`snapshot_download`] helpers described above and prints the
 returned path to the terminal.
 
 ```bash
->>> huggingface-cli download gpt2 config.json
+>>> hf download gpt2 config.json
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
@@ -157,29 +151,111 @@ You can download multiple files at once which displays a progress bar and return
 are located:
 
 ```bash
->>> huggingface-cli download gpt2 config.json model.safetensors
+>>> hf download gpt2 config.json model.safetensors
 Fetching 2 files: 100%|████████████████████████████████████████████| 2/2 [00:00<00:00, 23831.27it/s]
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
-For more details about the CLI download command, please refer to the [CLI guide](./cli#huggingface-cli-download).
+For more details about the CLI download command, please refer to the [CLI guide](./cli#hf-download).
+
+## Dry-run mode
+
+In some cases, you would like to check which files would be downloaded before actually downloading them. You can check this using the `--dry-run` parameter. It lists all files to download on the repo and checks whether they are already downloaded or not. This gives an idea of how many files have to be downloaded and their sizes.
+
+Here is an example, checking on a single file:
+
+```sh
+>>> hf download openai-community/gpt2 onnx/decoder_model_merged.onnx --dry-run
+[dry-run] Will download 1 files (out of 1) totalling 655.2M
+File                           Bytes to download
+------------------------------ -----------------
+onnx/decoder_model_merged.onnx 655.2M
+```
+
+And if the file is already cached:
+
+```sh
+>>> hf download openai-community/gpt2 onnx/decoder_model_merged.onnx --dry-run
+[dry-run] Will download 0 files (out of 1) totalling 0.0.
+File                           Bytes to download
+------------------------------ -----------------
+onnx/decoder_model_merged.onnx -
+```
+
+You can also execute a dry-run on an entire repository:
+
+```sh
+>>> hf download openai-community/gpt2 --dry-run
+[dry-run] Fetching 26 files: 100%|█████████████| 26/26 [00:04<00:00,  6.26it/s]
+[dry-run] Will download 11 files (out of 26) totalling 5.6G.
+File                              Bytes to download
+--------------------------------- -----------------
+.gitattributes                    -
+64-8bits.tflite                   125.2M
+64-fp16.tflite                    248.3M
+64.tflite                         495.8M
+README.md                         -
+config.json                       -
+flax_model.msgpack                497.8M
+generation_config.json            -
+merges.txt                        -
+model.safetensors                 548.1M
+onnx/config.json                  -
+onnx/decoder_model.onnx           653.7M
+onnx/decoder_model_merged.onnx    655.2M
+onnx/decoder_with_past_model.onnx 653.7M
+onnx/generation_config.json       -
+onnx/merges.txt                   -
+onnx/special_tokens_map.json      -
+onnx/tokenizer.json               -
+onnx/tokenizer_config.json        -
+onnx/vocab.json                   -
+pytorch_model.bin                 548.1M
+rust_model.ot                     702.5M
+tf_model.h5                       497.9M
+tokenizer.json                    -
+tokenizer_config.json             -
+vocab.json                        -
+```
+
+And with files filtering:
+
+```sh
+>>> hf download openai-community/gpt2 --include "*.json"  --dry-run
+[dry-run] Fetching 11 files: 100%|█████████████| 11/11 [00:00<00:00, 80518.92it/s]
+[dry-run] Will download 0 files (out of 11) totalling 0.0.
+File                         Bytes to download
+---------------------------- -----------------
+config.json                  -
+generation_config.json       -
+onnx/config.json             -
+onnx/generation_config.json  -
+onnx/special_tokens_map.json -
+onnx/tokenizer.json          -
+onnx/tokenizer_config.json   -
+onnx/vocab.json              -
+tokenizer.json               -
+tokenizer_config.json        -
+vocab.json                   -
+```
+
+Finally, you can also make a dry-run programmatically by passing `dry_run=True` to [`hf_hub_download`] and [`snapshot_download`]. It will return a [`DryRunFileInfo`] (respectively a list of [`DryRunFileInfo`]) with for each file, their commit hash, file name and file size, whether the file is cached and whether the file would be downloaded. In practice, the file will be downloaded if not cached or if `force_download=True` is passed.
 
 ## Faster downloads
 
-If you are running on a machine with high bandwidth,
-you can increase your download speed with [`hf_transfer`](https://github.com/huggingface/hf_transfer),
-a Rust-based library developed to speed up file transfers with the Hub.
-To enable it:
+Take advantage of faster downloads through `hf_xet`, the Python binding to the [`xet-core`](https://github.com/huggingface/xet-core) library that enables 
+chunk-based deduplication for faster downloads and uploads. `hf_xet` integrates seamlessly with `huggingface_hub`, but uses the Rust `xet-core` library and Xet storage instead of LFS.
 
-1. Specify the `hf_transfer` extra when installing `huggingface_hub`
-   (e.g. `pip install huggingface_hub[hf_transfer]`).
-2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
+`hf_xet` uses the Xet storage system, which breaks files down into immutable chunks, storing collections of these chunks (called blocks or xorbs) remotely and retrieving them to reassemble the file when requested. When downloading, after confirming the user is authorized to access the files, `hf_xet` will query the Xet content-addressable service (CAS) with the LFS SHA256 hash for this file to receive the reconstruction metadata (ranges within xorbs) to assemble these files, along with presigned URLs to download the xorbs directly. Then `hf_xet` will efficiently download the xorb ranges necessary and will write out the files on disk. `hf_xet` uses a local disk cache to only download chunks once, learn more in the [Chunk-based caching(Xet)](./manage-cache#chunk-based-caching-xet) section.
 
-<Tip warning={true}>
+To enable it, simply install the latest version of `huggingface_hub`:
 
-`hf_transfer` is a power user tool!
-It is tested and production-ready,
-but it lacks user-friendly features like advanced error handling or proxies.
-For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
+```bash
+pip install -U "huggingface_hub"
+```
 
-</Tip>
+As of `huggingface_hub` 0.32.0, this will also install `hf_xet`.
+
+All other `huggingface_hub` APIs will continue to work without any modification. To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/storage-backends).
+
+Note: `hf_transfer` was formerly used with the LFS storage backend and is now deprecated; use `hf_xet` instead.

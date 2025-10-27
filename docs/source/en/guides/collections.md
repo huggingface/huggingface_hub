@@ -76,11 +76,8 @@ Number of upvotes: 1
 Number of upvotes: 5
 ```
 
-<Tip warning={true}>
-
-When listing collections, the item list per collection is truncated to 4 items maximum. To retrieve all items from a collection, you must use [`get_collection`].
-
-</Tip>
+> [!WARNING]
+> When listing collections, the item list per collection is truncated to 4 items maximum. To retrieve all items from a collection, you must use [`get_collection`].
 
 It is possible to do more advanced filtering. Let's get all collections containing the model [TheBloke/OpenHermes-2.5-Mistral-7B-GGUF](https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF), sorted by trending, and limit the count to 5.
 ```py
@@ -215,11 +212,8 @@ Finally, you can also remove an item using [`delete_collection_item`].
 
 A collection can be deleted using [`delete_collection`].
 
-<Tip warning={true}>
-
-This is a non-revertible action. A deleted collection cannot be restored.
-
-</Tip>
+> [!WARNING]
+> This is a non-revertible action. A deleted collection cannot be restored.
 
 ```py
 >>> from huggingface_hub import delete_collection

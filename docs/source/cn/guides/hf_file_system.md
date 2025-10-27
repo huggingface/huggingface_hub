@@ -5,12 +5,8 @@
 
 除了 [`HfApi`]，`huggingface_hub` 库还提供了 [`HfFileSystem`]，这是一个符合 [fsspec](https://filesystem-spec.readthedocs.io/en/latest/) 规范的 Python 文件接口，用于与 Hugging Face Hub 交互。[`HfFileSystem`] 基于 [`HfApi`] 构建，提供了典型的文件系统操作，如 `cp`、`mv`、`ls`、`du`、`glob`、`get_file` 和 `put_file`。
 
-<Tip warning={true}>
-
-  [`HfFileSystem`] 提供了 fsspec 兼容性，这对于需要它的库（例如，直接使用 `pandas` 读取 Hugging Face 数据集）非常有用。然而，由于这种兼容性层，会引入额外的开销。为了更好的性能和可靠性，建议尽可能使用 [`HfApi`] 方法。
-
-
-</Tip>
+> [!WARNING]
+> [`HfFileSystem`] 提供了 fsspec 兼容性，这对于需要它的库（例如，直接使用 `pandas` 读取 Hugging Face 数据集）非常有用。然而，由于这种兼容性层，会引入额外的开销。为了更好的性能和可靠性，建议尽可能使用 [`HfApi`] 方法。
 
 ## 使用方法
 

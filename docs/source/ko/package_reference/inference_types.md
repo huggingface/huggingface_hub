@@ -56,11 +56,17 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.ChatCompletionInputFunctionName
 
-[[autodoc]] huggingface_hub.ChatCompletionInputGrammarType
+[[autodoc]] huggingface_hub.ChatCompletionInputJSONSchema
 
 [[autodoc]] huggingface_hub.ChatCompletionInputMessage
 
 [[autodoc]] huggingface_hub.ChatCompletionInputMessageChunk
+
+[[autodoc]] huggingface_hub.ChatCompletionInputResponseFormatJSONObject
+
+[[autodoc]] huggingface_hub.ChatCompletionInputResponseFormatJSONSchema
+
+[[autodoc]] huggingface_hub.ChatCompletionInputResponseFormatText
 
 [[autodoc]] huggingface_hub.ChatCompletionInputStreamOptions
 
@@ -187,6 +193,18 @@ rendered properly in your Markdown viewer.
 [[autodoc]] huggingface_hub.ImageToTextOutput
 
 [[autodoc]] huggingface_hub.ImageToTextParameters
+
+
+
+## image_to_video[[huggingface_hub.ImageToVideoInput]]
+
+[[autodoc]] huggingface_hub.ImageToVideoInput
+
+[[autodoc]] huggingface_hub.ImageToVideoOutput
+
+[[autodoc]] huggingface_hub.ImageToVideoParameters
+
+[[autodoc]] huggingface_hub.ImageToVideoTargetSize
 
 
 

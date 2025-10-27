@@ -84,9 +84,9 @@ import io
 import logging
 import os
 import warnings
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import Dict, Iterator, Optional, Union
+from typing import ContextManager, Iterator, Optional, Union
 
 from tqdm.auto import tqdm as old_tqdm
 
@@ -102,7 +102,7 @@ from ..constants import HF_HUB_DISABLE_PROGRESS_BARS
 # progress bar visibility through code. By default, progress bars are turned on.
 
 
-progress_bar_states: Dict[str, bool] = {}
+progress_bar_states: dict[str, bool] = {}
 
 
 def disable_progress_bars(name: Optional[str] = None) -> None:
@@ -248,7 +248,7 @@ def tqdm_stream_file(path: Union[Path, str]) -> Iterator[io.BufferedReader]:
     Example:
     ```py
     >>> with tqdm_stream_file("config.json") as f:
-    >>>     requests.put(url, data=f)
+    >>>     httpx.put(url, data=f)
     config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
     ```
     """
@@ -277,3 +277,31 @@ def tqdm_stream_file(path: Union[Path, str]) -> Iterator[io.BufferedReader]:
         yield f
 
         pbar.close()
+
+
+def _get_progress_bar_context(
+    *,
+    desc: str,
+    log_level: int,
+    total: Optional[int] = None,
+    initial: int = 0,
+    unit: str = "B",
+    unit_scale: bool = True,
+    name: Optional[str] = None,
+    _tqdm_bar: Optional[tqdm] = None,
+) -> ContextManager[tqdm]:
+    if _tqdm_bar is not None:
+        return nullcontext(_tqdm_bar)
+        # ^ `contextlib.nullcontext` mimics a context manager that does nothing
+        #   Makes it easier to use the same code path for both cases but in the later
+        #   case, the progress bar is not closed when exiting the context manager.
+
+    return tqdm(
+        unit=unit,
+        unit_scale=unit_scale,
+        total=total,
+        initial=initial,
+        desc=desc,
+        disable=is_tqdm_disabled(log_level=log_level),
+        name=name,
+    )

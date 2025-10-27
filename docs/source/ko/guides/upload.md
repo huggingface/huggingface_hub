@@ -4,12 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Hub에 파일 업로드하기[[upload-files-to-the-hub]]
 
-파일과 작업물을 공유하는 것은 Hub의 주요 특성 중 하나입니다. `huggingface_hub`는 Hub에 파일을 업로드하기 위한 몇 가지 옵션을 제공합니다. 이러한 기능을 단독으로 사용하거나 라이브러리에 통합하여 해당 라이브러리의 사용자가 Hub와 더 편리하게 상호작용할 수 있도록 도울 수 있습니다. 이 가이드에서는 파일을 푸시하는 다양한 방법에 대해 설명합니다:
-
-- Git을 사용하지 않고 푸시하기.
-- [Git LFS](https://git-lfs.github.com/)를 사용하여 매우 큰 파일을 푸시하기.
-- `commit` 컨텍스트 매니저를 사용하여 푸시하기.
-- [`~Repository.push_to_hub`] 함수를 사용하여 푸시하기.
+파일과 작업물을 공유하는 것은 Hub의 주요 특성 중 하나입니다. `huggingface_hub`는 Hub에 파일을 업로드하기 위한 몇 가지 옵션을 제공합니다. 이러한 기능을 단독으로 사용하거나 라이브러리에 통합하여 해당 라이브러리의 사용자가 Hub와 더 편리하게 상호작용할 수 있도록 도울 수 있습니다.
 
 Hub에 파일을 업로드 하려면 허깅페이스 계정으로 로그인해야 합니다. 인증에 대한 자세한 내용은 [이 페이지](../quick-start#authentication)를 참조해 주세요.
 
@@ -82,16 +77,16 @@ Hub에 파일을 업로드 하려면 허깅페이스 계정으로 로그인해�
 
 ## CLI에서 업로드[[upload-from-the-cli]]
 
-터미널에서 `huggingface-cli upload` 명령어를 사용하여 Hub에 파일을 직접 업로드할 수 있습니다. 내부적으로는 위에서 설명한 것과 동일한 [`upload_file`] 와 [`upload_folder`] 함수를 사용합니다.
+터미널에서 `hf upload` 명령어를 사용하여 Hub에 파일을 직접 업로드할 수 있습니다. 내부적으로는 위에서 설명한 것과 동일한 [`upload_file`] 와 [`upload_folder`] 함수를 사용합니다.
 
 다음과 같이 단일 파일 또는 전체 폴더를 업로드할 수 있습니다:
 
 ```bash
-# 사용례:  huggingface-cli upload [repo_id] [local_path] [path_in_repo]
->>> huggingface-cli upload Wauplin/my-cool-model ./models/model.safetensors model.safetensors
+# 사용례:  hf upload [repo_id] [local_path] [path_in_repo]
+>>> hf upload Wauplin/my-cool-model ./models/model.safetensors model.safetensors
 https://huggingface.co/Wauplin/my-cool-model/blob/main/model.safetensors
 
->>> huggingface-cli upload Wauplin/my-cool-model ./models .
+>>> hf upload Wauplin/my-cool-model ./models .
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
@@ -100,7 +95,7 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 같은 이름의 폴더나 파일을 찾지 못한다면 사용자에게 `local_path`를 명시하도록 요청하는 예외 처리가 발생합니다.
 어떤 경우든 `path_in_repo`가 설정되어 있지 않으면 파일이 리포지토리의 루트 디렉터리에 업로드됩니다.
 
-CLI 업로드 명령어에 대한 자세한 내용은 [CLI 가이드](./cli#huggingface-cli-upload)를 참조하세요.
+CLI 업로드 명령어에 대한 자세한 내용은 [CLI 가이드](./cli#hf-upload)를 참조하세요.
 
 ## 고급 기능[[advanced-features]]
 
@@ -130,11 +125,8 @@ False
 ...
 ```
 
-<Tip>
-
-`run_as_future=True`를 사용하면 백그라운드 작업이 큐에 대기됩니다. 이는 작업이 올바른 순서로 실행된다는 것을 의미합니다.
-
-</Tip>
+> [!TIP]
+> `run_as_future=True`를 사용하면 백그라운드 작업이 큐에 대기됩니다. 이는 작업이 올바른 순서로 실행된다는 것을 의미합니다.
 
 백그라운드 작업은 주로 데이터를 업로드하거나 커밋을 생성하는 데 유용하지만, 이 외에도 [`run_as_future`]를 사용하여 원하는 메소드를 대기열에 넣을 수 있습니다.
 예를 들어, 해당 기능을 사용하여 백그라운드에서 리포지토리를 만든 다음 그대로 데이터를 업로드할 수 있습니다.
@@ -183,12 +175,9 @@ PR을 계속 열어두고 수동으로 검토하려면 `create_pr=True`를 인�
 
 업로드 전략(즉, 생성되는 커밋)을 더 잘 제어하고 싶으면 로우 레벨의 [`plan_multi_commits`] 와 [`create_commits_on_pr`] 메서드를 살펴보세요.
 
-<Tip warning={true}>
-
-`multi_commits`은 아직 실험적인 기능입니다.
-해당 API와 동작은 향후 사전 고지 없이 변경될 수 있습니다.
-
-</Tip>
+> [!WARNING]
+> `multi_commits`은 아직 실험적인 기능입니다.
+> 해당 API와 동작은 향후 사전 고지 없이 변경될 수 있습니다.
 
 ### 예약된 업로드[[scheduled-uploads]]
 
@@ -308,11 +297,8 @@ class ZipScheduler(CommitScheduler):
 - 리포지토리 매개변수: `repo_id`, `repo_type`, `revision`
 - 스레드 락: `lock`
 
-<Tip>
-
-사용자 정의 스케줄러의 더 많은 예제는 사용 사례에 따른 다양한 구현이 포함된 [데모 스페이스](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)를 참조하세요.
-
-</Tip>
+> [!TIP]
+> 사용자 정의 스케줄러의 더 많은 예제는 사용 사례에 따른 다양한 구현이 포함된 [데모 스페이스](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)를 참조하세요.
 
 ### create_commit[[createcommit]]
 
@@ -378,14 +364,11 @@ class ZipScheduler(CommitScheduler):
 이 문제를 극복하기 위해 파일을 하나씩 S3에 업로드한 다음 마지막에 하나의 커밋을 생성할 수 있습니다.
 이는 [`preupload_lfs_files`]와 [`create_commit`]을 함께 사용하면 됩니다.
 
-<Tip warning={true}>
-
-이 방법은 고급 사용자를 위한 방식입니다.
-사전에 파일을 미리 업로드하는 로우 레벨 로직을 처리하는 대신 [`upload_file`], [`upload_folder`] 또는 [`create_commit`]을 직접 사용하는 것이 대부분의 경우에 적합합니다.
-[`preupload_lfs_files`]의 주요 주의 사항은 커밋이 실제로 이루어질 때까지는 Hub의 리포지토리에서 업로드 파일에 액세스할 수 없다는 것입니다.
-궁금한 점이 있으면 언제든지 Discord나 GitHub 이슈로 문의해 주세요.
-
-</Tip>
+> [!WARNING]
+> 이 방법은 고급 사용자를 위한 방식입니다.
+> 사전에 파일을 미리 업로드하는 로우 레벨 로직을 처리하는 대신 [`upload_file`], [`upload_folder`] 또는 [`create_commit`]을 직접 사용하는 것이 대부분의 경우에 적합합니다.
+> [`preupload_lfs_files`]의 주요 주의 사항은 커밋이 실제로 이루어질 때까지는 Hub의 리포지토리에서 업로드 파일에 액세스할 수 없다는 것입니다.
+> 궁금한 점이 있으면 언제든지 Discord나 GitHub 이슈로 문의해 주세요.
 
 다음은 파일을 미리 업로드하는 방법을 보여주는 간단한 예시입니다:
 
@@ -428,125 +411,7 @@ Hub에서 리포지토리를 구성하는 방법에 대한 모범 사례는 [리
        (예: `pip install huggingface_hub[hf_transfer]`).
     2. 환경 변수로 `HF_HUB_ENABLE_HF_TRANSFER=1`을 설정합니다.
 
-<Tip warning={true}>
-
-`hf_transfer`는 고급 사용자 도구입니다!
-테스트 및 프로덕션 준비가 완료되었지만, 고급 오류 처리나 프록시와 같은 사용자 친화적인 기능이 부족합니다.
-자세한 내용은 [이 섹션](https://huggingface.co/docs/huggingface_hub/hf_transfer)을 참조하세요.
-
-</Tip>
-
-## (레거시) Git LFS로 파일 업로드하기[[legacy-upload-files-with-git-lfs]]
-
-위에서 설명한 모든 방법은 Hub의 API를 사용하여 파일을 업로드하며, 이는 Hub에 파일을 업로드하는 데 권장되는 방법입니다.
-이뿐만 아니라 로컬 리포지토리를 관리하기 위하여 git 도구의 래퍼인 [`Repository`]또한 제공합니다.
-
-<Tip warning={true}>
-
-[`Repository`]는 공식적으로 지원 종료된 것은 아니지만, 가급적이면 위에서 설명한 HTTP 기반 방법들을 사용할 것을 권장합니다.
-이 권장 사항에 대한 자세한 내용은 HTTP 기반 방식과 Git 기반 방식 간의 핵심적인 차이점을 설명하는 [이 가이드](../concepts/git_vs_http)를 참조하세요.
-
-</Tip>
-
-Git LFS는 10MB보다 큰 파일을 자동으로 처리합니다. 하지만 매우 큰 파일(5GB 이상)의 경우, Git LFS용 사용자 지정 전송 에이전트를 설치해야 합니다:
-
-```bash
-huggingface-cli lfs-enable-largefiles
-```
-
-매우 큰 파일이 있는 각 리포지토리에 대해 이 옵션을 설치해야 합니다.
-설치가 완료되면 5GB보다 큰 파일을 푸시할 수 있습니다.
-
-### 커밋 컨텍스트 관리자[[commit-context-manager]]
-
-`commit` 컨텍스트 관리자는 가장 일반적인 네 가지 Git 명령인 pull, add, commit, push를 처리합니다. 
-`git-lfs`는 10MB보다 큰 파일을 자동으로 추적합니다.
-다음 예제에서는 `commit` 컨텍스트 관리자가 다음과 같은 작업을 수행합니다:
-
-1. `text-files` 리포지토리에서 pull.
-2. `file.txt`에 변경 내용을 add.
-3. 변경 내용을 commit.
-4. 변경 내용을 `text-files` 리포지토리에 push.
-
-```python
->>> from huggingface_hub import Repository
->>> with Repository(local_dir="text-files", clone_from="<user>/text-files").commit(commit_message="My first file :)"):
-...     with open("file.txt", "w+") as f:
-...         f.write(json.dumps({"hey": 8}))
-```
-
-다음은 `commit` 컨텍스트 관리자를 사용하여 파일을 저장하고 리포지토리에 업로드하는 방법의 또 다른 예입니다:
-
-```python
->>> import torch
->>> model = torch.nn.Transformer()
->>> with Repository("torch-model", clone_from="<user>/torch-model", token=True).commit(commit_message="My cool model :)"):
-...     torch.save(model.state_dict(), "model.pt")
-```
-
-커밋을 비동기적으로 푸시하려면 `blocking=False`를 설정하세요.
-커밋을 푸시하는 동안 스크립트를 계속 실행하고 싶을 때 논 블로킹 동작이 유용합니다.
-
-```python
->>> with repo.commit(commit_message="My cool model :)", blocking=False)
-```
-
-`command_queue` 메서드로 푸시 상태를 확인할 수 있습니다:
-
-```python
->>> last_command = repo.command_queue[-1]
->>> last_command.status
-```
-
-가능한 상태는 아래 표를 참조하세요:
-
-| 상태      | 설명                          |
-| -------- | ----------------------------- |
-| -1       | 푸시가 진행 중입니다.           |
-| 0        | 푸시가 성공적으로 완료되었습니다.|
-| Non-zero | 오류가 발생했습니다.            |
-
-`blocking=False`인 경우, 명령이 추적되며 스크립트에서 다른 오류가 발생하더라도 모든 푸시가 완료된 경우에만 스크립트가 종료됩니다.
-푸시 상태를 확인하는 데 유용한 몇 가지 추가 명령은 다음과 같습니다:
-
-```python
-# 오류를 검사합니다.
->>> last_command.stderr
-
-# 푸시 진행여부를 확인합니다.
->>> last_command.is_done
-
-# 푸시 명령의 에러여부를 파악합니다.
->>> last_command.failed
-```
-
-### push_to_hub[[pushtohub]]
-
-[`Repository`] 클래스에는 파일을 추가하고 커밋한 후 리포지토리로 푸시하는 [`~Repository.push_to_hub`] 함수가 있습니다. [`~Repository.push_to_hub`]는 `commit` 컨텍스트 관리자와는 달리 호출하기 전에 먼저 리포지토리에서 업데이트(pull) 작업을 수행 해야 합니다.
-
-예를 들어 Hub에서 리포지토리를 이미 복제했다면 로컬 디렉터리에서 `repo`를 초기화할 수 있습니다:
-
-```python
->>> from huggingface_hub import Repository
->>> repo = Repository(local_dir="path/to/local/repo")
-```
-
-로컬 클론을 [`~Repository.git_pull`]로 업데이트한 다음 파일을 Hub로 푸시합니다:
-
-```py
->>> repo.git_pull()
->>> repo.push_to_hub(commit_message="Commit my-awesome-file to the Hub")
-```
-
-그러나 아직 파일을 푸시할 준비가 되지 않았다면 [`~Repository.git_add`] 와 [`~Repository.git_commit`]을 사용하여 파일만 추가하고 커밋할 수 있습니다:
-
-```py
->>> repo.git_add("path/to/file")
->>> repo.git_commit(commit_message="add my first model config file :)")
-```
-
-준비가 완료되면 [`~Repository.git_push`]를 사용하여 파일을 리포지토리에 푸시합니다:
-
-```py
->>> repo.git_push()
-```
+> [!WARNING]
+> `hf_transfer`는 고급 사용자 도구입니다!
+> 테스트 및 프로덕션 준비가 완료되었지만, 고급 오류 처리나 프록시와 같은 사용자 친화적인 기능이 부족합니다.
+> 자세한 내용은 [이 섹션](https://huggingface.co/docs/huggingface_hub/hf_transfer)을 참조하세요.

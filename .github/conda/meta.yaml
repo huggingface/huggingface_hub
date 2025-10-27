@@ -16,21 +16,22 @@ requirements:
     - pip
     - fsspec
     - filelock
-    - requests
+    - httpx
     - tqdm
     - typing-extensions
     - packaging
     - pyyaml
+    - hf-xet
   run:
     - python
     - pip
     - filelock
-    - requests
+    - httpx
     - tqdm
     - typing-extensions
     - packaging
     - pyyaml
-
+    - hf-xet
 test:
   imports:
     - huggingface_hub

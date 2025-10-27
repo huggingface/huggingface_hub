@@ -60,7 +60,7 @@ Take a look at these guides to learn how to use huggingface_hub to solve real-wo
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
         Inference
       </div><p class="text-gray-700">
-        How to make predictions using the HF Inference API and other Inference Providers?
+        How to make predictions using Hugging Face Inference Providers?
       </p>
     </a>
 
@@ -124,6 +124,15 @@ Take a look at these guides to learn how to use huggingface_hub to solve real-wo
         Webhooks server
       </div><p class="text-gray-700">
         How to create a server to receive Webhooks and deploy it as a Space?
+      </p>
+    </a>
+
+    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg"
+       href="./jobs">
+      <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
+        Jobs
+      </div><p class="text-gray-700">
+        How to run and manage compute Jobs on Hugging Face infrastructure and select the hardware?
       </p>
     </a>
 

@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import List, Literal, Optional, Union
+from typing import Literal, Optional, Union
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -75,11 +75,10 @@ class AutomaticSpeechRecognitionGenerationParameters(BaseInferenceType):
 class AutomaticSpeechRecognitionParameters(BaseInferenceType):
     """Additional inference parameters for Automatic Speech Recognition"""
 
+    generation_parameters: Optional[AutomaticSpeechRecognitionGenerationParameters] = None
+    """Parametrization of the text generation process"""
     return_timestamps: Optional[bool] = None
     """Whether to output corresponding timestamps with the generated text"""
-    # Will be deprecated in the future when the renaming to `generation_parameters` is implemented in transformers
-    generate_kwargs: Optional[AutomaticSpeechRecognitionGenerationParameters] = None
-    """Parametrization of the text generation process"""
 
 
 @dataclass_with_extra
@@ -98,7 +97,7 @@ class AutomaticSpeechRecognitionInput(BaseInferenceType):
 class AutomaticSpeechRecognitionOutputChunk(BaseInferenceType):
     text: str
     """A chunk of text identified by the model"""
-    timestamp: List[float]
+    timestamp: list[float]
     """The start and end timestamps corresponding with the text"""
 
 
@@ -108,7 +107,7 @@ class AutomaticSpeechRecognitionOutput(BaseInferenceType):
 
     text: str
     """The recognized text."""
-    chunks: Optional[List[AutomaticSpeechRecognitionOutputChunk]] = None
+    chunks: Optional[list[AutomaticSpeechRecognitionOutputChunk]] = None
     """When returnTimestamps is enabled, chunks contains a list of audio chunks identified by
     the model.
     """

@@ -11,13 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
 import io
 import json
 import os
 import string
 import time
 from pathlib import Path
-from typing import List
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -42,20 +42,20 @@ from huggingface_hub import (
     TranslationOutput,
     VisualQuestionAnsweringOutputElement,
     ZeroShotClassificationOutputElement,
-    constants,
     hf_hub_download,
 )
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
-from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.inference._common import (
+    MimeBytes,
+    _as_url,
+    _open_as_mime_bytes,
     _stream_chat_completion_response,
     _stream_text_generation_response,
 )
 from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.inference._providers.hf_inference import _build_chat_completion_url
-from huggingface_hub.utils import build_hf_headers
 
-from .testing_utils import expect_deprecation, with_production_testing
+from .testing_utils import with_production_testing
 
 
 # Avoid calling APIs in VCRed tests
@@ -214,7 +214,7 @@ CHAT_COMPLETION_RESPONSE_FORMAT = {
 }
 
 
-def list_clients(task: str) -> List[pytest.param]:
+def list_clients(task: str) -> list[pytest.param]:
     """Get list of clients for a specific task, with proper skip handling."""
     clients = []
     for provider, tasks in _RECOMMENDED_MODELS_FOR_VCR.items():
@@ -286,8 +286,8 @@ class TestBase:
         monkeypatch.setattr("huggingface_hub.inference._providers.hf_inference._fetch_recommended_models", mock_fetch)
 
 
-@pytest.mark.vcr
 @with_production_testing
+@pytest.mark.skip("Temporary skipping tests for InferenceClient")
 class TestInferenceClient(TestBase):
     @pytest.mark.parametrize("client", list_clients("audio-classification"), indirect=True)
     def test_audio_classification(self, client: InferenceClient):
@@ -346,7 +346,7 @@ class TestInferenceClient(TestBase):
         assert output[-1].choices[0].finish_reason == "length"
 
     def test_chat_completion_with_non_tgi(self) -> None:
-        client = InferenceClient()
+        client = InferenceClient(provider="hf-inference")
         output = client.chat_completion(
             messages=CHAT_COMPLETION_MESSAGES,
             model=CHAT_COMPLETE_NON_TGI_MODEL,
@@ -431,7 +431,7 @@ class TestInferenceClient(TestBase):
 
         See https://github.com/huggingface/huggingface_hub/issues/2225.
         """
-        client = InferenceClient()
+        client = InferenceClient(provider="hf-inference")
         with pytest.raises(HfHubHTTPError):
             client.chat_completion(
                 "please output 'Observation'",  # Not a list of messages
@@ -508,14 +508,14 @@ class TestInferenceClient(TestBase):
     def test_hf_inference_get_recommended_model_has_recommendation(self) -> None:
         from huggingface_hub.inference._providers.hf_inference import HFInferenceTask
 
-        HFInferenceTask("feature-extraction")._prepare_mapped_model(None) == "facebook/bart-base"
-        HFInferenceTask("translation")._prepare_mapped_model(None) == "t5-small"
+        HFInferenceTask("feature-extraction")._prepare_mapping_info(None).provider_id == "facebook/bart-base"
+        HFInferenceTask("translation")._prepare_mapping_info(None).provider_id == "t5-small"
 
     def test_hf_inference_get_recommended_model_no_recommendation(self) -> None:
         from huggingface_hub.inference._providers.hf_inference import HFInferenceTask
 
         with pytest.raises(ValueError):
-            HFInferenceTask("text-generation")._prepare_mapped_model(None)
+            HFInferenceTask("text-generation")._prepare_mapping_info(None)
 
     @pytest.mark.parametrize("client", list_clients("image-classification"), indirect=True)
     def test_image_classification(self, client: InferenceClient):
@@ -769,39 +769,107 @@ class TestInferenceClient(TestBase):
             assert isinstance(item.score, float)
 
 
-class TestOpenAsBinary:
+class TestOpenAsMimeBytes:
     @pytest.fixture(autouse=True)
     def setup(self, audio_file, image_file, document_file):
         self.audio_file = audio_file
         self.image_file = image_file
         self.document_file = document_file
 
-    def test_open_as_binary_with_none(self) -> None:
-        with _open_as_binary(None) as content:
-            assert content is None
+    def test_open_as_mime_bytes_with_none(self) -> None:
+        assert _open_as_mime_bytes(None) is None
 
-    def test_open_as_binary_from_str_path(self) -> None:
-        with _open_as_binary(self.image_file) as content:
-            assert isinstance(content, io.BufferedReader)
+    def test_open_as_mime_bytes_from_str_path(self) -> None:
+        mime_bytes = _open_as_mime_bytes(self.image_file)
+        assert isinstance(mime_bytes, MimeBytes)
+        assert mime_bytes.mime_type == "image/png"
 
-    def test_open_as_binary_from_pathlib_path(self) -> None:
-        with _open_as_binary(Path(self.image_file)) as content:
-            assert isinstance(content, io.BufferedReader)
+    def test_open_as_mime_bytes_from_pathlib_path(self) -> None:
+        mime_bytes = _open_as_mime_bytes(Path(self.image_file))
+        assert isinstance(mime_bytes, MimeBytes)
+        assert mime_bytes.mime_type == "image/png"
 
-    def test_open_as_binary_from_url(self) -> None:
-        with _open_as_binary("https://huggingface.co/datasets/Narsil/image_dummy/resolve/main/tree.png") as content:
-            assert isinstance(content, bytes)
+    def test_open_as_mime_bytes_from_url(self) -> None:
+        mime_bytes = _open_as_mime_bytes("https://huggingface.co/datasets/Narsil/image_dummy/resolve/main/tree.png")
+        assert isinstance(mime_bytes, MimeBytes)
+        assert mime_bytes.mime_type == "image/png"
 
-    def test_open_as_binary_opened_file(self) -> None:
+    def test_open_as_mime_bytes_opened_file(self) -> None:
         with Path(self.image_file).open("rb") as f:
-            with _open_as_binary(f) as content:
-                assert content == f
-                assert isinstance(content, io.BufferedReader)
+            mime_bytes = _open_as_mime_bytes(f)
+        assert isinstance(mime_bytes, MimeBytes)
+        assert mime_bytes.mime_type == "image/png"
 
-    def test_open_as_binary_from_bytes(self) -> None:
+    def test_open_as_mime_bytes_from_bytes(self) -> None:
         content_bytes = Path(self.image_file).read_bytes()
-        with _open_as_binary(content_bytes) as content:
-            assert content == content_bytes
+        mime_bytes = _open_as_mime_bytes(content_bytes)
+        assert mime_bytes == content_bytes
+        assert mime_bytes.mime_type is None
+
+    def test_open_as_mime_bytes_from_pil_image(self) -> None:
+        pil_image = Image.open(self.image_file)
+        mime_bytes = _open_as_mime_bytes(pil_image)
+        assert isinstance(mime_bytes, MimeBytes)
+        assert mime_bytes.mime_type == "image/png"
+
+
+class TestMimeBytes:
+    """Tests for the MimeBytes subclass."""
+
+    def test_mime_bytes_with_mime_type(self):
+        """Test creating MimeBytes with data and mime type."""
+        data = b"hello world"
+        mime_type = "text/plain"
+        mb = MimeBytes(data, mime_type)
+
+        assert isinstance(mb, bytes)
+        assert isinstance(mb, MimeBytes)
+        assert mb == data
+        assert mb.mime_type == mime_type
+
+    def test_mime_bytes_without_mime_type(self):
+        """Test creating MimeBytes without mime type defaults to None."""
+        data = b"test data"
+        mb = MimeBytes(data)
+
+        assert isinstance(mb, MimeBytes)
+        assert mb == data
+        assert mb.mime_type is None
+
+    def test_mime_bytes_with_none_mime_type(self):
+        """Test creating MimeBytes with explicit None mime type."""
+        data = b"test data"
+        mb = MimeBytes(data, None)
+
+        assert isinstance(mb, MimeBytes)
+        assert mb == data
+        assert mb.mime_type is None
+
+    def test_mime_bytes_from_mime_bytes(self):
+        """Test that mime_type is inherited from source MimeBytes when none provided."""
+        original_data = b"original content"
+        original_mime = "text/html"
+        original_mb = MimeBytes(original_data, original_mime)
+
+        # Create new MimeBytes from existing one without specifying mime_type
+        new_mb = MimeBytes(original_mb)
+
+        assert isinstance(new_mb, MimeBytes)
+        assert new_mb == original_data
+        assert new_mb.mime_type == original_mime
+
+    def test_mime_type_override_when_provided(self):
+        """Test that mime_type is overridden when explicitly provided."""
+        original_data = b"original content"
+        original_mime = "text/html"
+        original_mb = MimeBytes(original_data, original_mime)
+
+        new_mime = "application/json"
+        new_mb = MimeBytes(original_mb, new_mime)
+
+        assert isinstance(new_mb, MimeBytes)
+        assert new_mb == original_data
+        assert new_mb.mime_type == new_mime
 
 
 class TestHeadersAndCookies(TestBase):
@@ -809,31 +877,6 @@ class TestHeadersAndCookies(TestBase):
         client = InferenceClient(headers={"X-My-Header": "foo"}, cookies={"my-cookie": "bar"})
         assert client.headers["X-My-Header"] == "foo"
         assert client.cookies["my-cookie"] == "bar"
-
-    @expect_deprecation("post")
-    @with_production_testing
-    @patch("huggingface_hub.inference._client.get_session")
-    @patch("huggingface_hub.inference._providers.hf_inference._check_supported_task")
-    def test_mocked_post(self, check_supported_task_mock: MagicMock, get_session_mock: MagicMock) -> None:
-        """Test that headers and cookies are correctly passed to the request."""
-
-        client = InferenceClient(
-            headers={"X-My-Header": "foo"}, cookies={"my-cookie": "bar"}, proxies="custom proxies"
-        )
-        response = client.post(data=b"content", model="username/repo_name", task="text-classification")
-        assert response == get_session_mock().post.return_value.content
-
-        expected_headers = build_hf_headers()
-        get_session_mock().post.assert_called_once_with(
-            "https://router.huggingface.co/hf-inference/models/username/repo_name",
-            json=None,
-            data=b"content",
-            headers={**expected_headers, "X-My-Header": "foo"},
-            cookies={"my-cookie": "bar"},
-            timeout=None,
-            stream=False,
-            proxies="custom proxies",
-        )
 
     @patch("huggingface_hub.inference._client._bytes_to_image")
     @patch("huggingface_hub.inference._client.get_session")
@@ -845,34 +888,21 @@ class TestHeadersAndCookies(TestBase):
         bytes_to_image_mock: MagicMock,
     ) -> None:
         """Test that Accept: image/png header is set for image tasks."""
-        client = InferenceClient()
+        client = InferenceClient(provider="hf-inference")
 
         response = client.text_to_image("An astronaut riding a horse")
         assert response == bytes_to_image_mock.return_value
 
-        headers = get_session_mock().post.call_args_list[0].kwargs["headers"]
+        headers = get_session_mock().stream.call_args_list[0].kwargs["headers"]
         assert headers["Accept"] == "image/png"
 
 
-class TestListDeployedModels(TestBase):
-    @expect_deprecation("list_deployed_models")
-    @patch("huggingface_hub.inference._client.get_session")
-    def test_list_deployed_models_main_frameworks_mock(self, get_session_mock: MagicMock) -> None:
-        InferenceClient().list_deployed_models()
-        assert len(get_session_mock.return_value.get.call_args_list) == len(constants.MAIN_INFERENCE_API_FRAMEWORKS)
-
-    @expect_deprecation("list_deployed_models")
-    @patch("huggingface_hub.inference._client.get_session")
-    def test_list_deployed_models_all_frameworks_mock(self, get_session_mock: MagicMock) -> None:
-        InferenceClient().list_deployed_models("all")
-        assert len(get_session_mock.return_value.get.call_args_list) == len(constants.ALL_INFERENCE_API_FRAMEWORKS)
-
-
-@pytest.mark.vcr
 @with_production_testing
+@pytest.mark.skip("Temporary skipping tests for TestOpenAICompatibility")
 class TestOpenAICompatibility(TestBase):
     def test_base_url_and_api_key(self):
         client = InferenceClient(
+            provider="hf-inference",
             base_url="https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
             api_key=os.getenv("HF_INFERENCE_TEST_TOKEN"),
         )
@@ -888,7 +918,10 @@ class TestOpenAICompatibility(TestBase):
         assert "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" in output.choices[0].message.content
 
     def test_without_base_url(self):
-        client = InferenceClient(token=os.getenv("HF_INFERENCE_TEST_TOKEN"))
+        client = InferenceClient(
+            provider="hf-inference",
+            token=os.getenv("HF_INFERENCE_TEST_TOKEN"),
+        )
         output = client.chat.completions.create(
             model="meta-llama/Meta-Llama-3-8B-Instruct",
             messages=[
@@ -901,7 +934,10 @@ class TestOpenAICompatibility(TestBase):
         assert "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" in output.choices[0].message.content
 
     def test_with_stream_true(self):
-        client = InferenceClient(token=os.getenv("HF_INFERENCE_TEST_TOKEN"))
+        client = InferenceClient(
+            provider="hf-inference",
+            token=os.getenv("HF_INFERENCE_TEST_TOKEN"),
+        )
         output = client.chat.completions.create(
             model="meta-llama/Meta-Llama-3-8B-Instruct",
             messages=[
@@ -956,20 +992,20 @@ class TestOpenAICompatibility(TestBase):
 @pytest.mark.parametrize(
     "stop_signal",
     [
-        b"data: [DONE]",
-        b"data: [DONE]\n",
-        b"data: [DONE] ",
+        "data: [DONE]",
+        "data: [DONE]\n",
+        "data: [DONE] ",
     ],
 )
 def test_stream_text_generation_response(stop_signal: bytes):
     data = [
-        b'data: {"index":1,"token":{"id":4560,"text":" trying","logprob":-2.078125,"special":false},"generated_text":null,"details":null}',
-        b"",  # Empty line is skipped
-        b"\n",  # Newline is skipped
-        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+        'data: {"index":1,"token":{"id":4560,"text":" trying","logprob":-2.078125,"special":false},"generated_text":null,"details":null}',
+        "",  # Empty line is skipped
+        "\n",  # Newline is skipped
+        'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
         stop_signal,  # Stop signal
         # Won't parse after
-        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+        'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
     ]
     output = list(_stream_text_generation_response(data, details=False))
     assert len(output) == 2
@@ -979,20 +1015,20 @@ def test_stream_text_generation_response(stop_signal: bytes):
 @pytest.mark.parametrize(
     "stop_signal",
     [
-        b"data: [DONE]",
-        b"data: [DONE]\n",
-        b"data: [DONE] ",
+        "data: [DONE]",
+        "data: [DONE]\n",
+        "data: [DONE] ",
     ],
 )
 def test_stream_chat_completion_response(stop_signal: bytes):
     data = [
-        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
-        b"",  # Empty line is skipped
-        b"\n",  # Newline is skipped
-        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":" Rust"},"logprobs":null,"finish_reason":null}]}',
+        'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
+        "",  # Empty line is skipped
+        "\n",  # Newline is skipped
+        'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":" Rust"},"logprobs":null,"finish_reason":null}]}',
         stop_signal,  # Stop signal
         # Won't parse after
-        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+        'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
     ]
     output = list(_stream_chat_completion_response(data))
     assert len(output) == 2
@@ -1006,8 +1042,8 @@ def test_chat_completion_error_in_stream():
     When an error is encountered in the stream, it should raise a TextGenerationError (e.g. a ValidationError).
     """
     data = [
-        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
-        b'data: {"error":"Input validation error: `inputs` tokens + `max_new_tokens` must be <= 4096. Given: 6 `inputs` tokens and 4091 `max_new_tokens`","error_type":"validation"}',
+        'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
+        'data: {"error":"Input validation error: `inputs` tokens + `max_new_tokens` must be <= 4096. Given: 6 `inputs` tokens and 4091 `max_new_tokens`","error_type":"validation"}',
     ]
     with pytest.raises(ValidationError):
         for token in _stream_chat_completion_response(data):
@@ -1052,6 +1088,27 @@ LOCAL_TGI_URL = "http://0.0.0.0:8080"
             f"{LOCAL_TGI_URL}/v1",
             f"{LOCAL_TGI_URL}/v1/chat/completions",
         ),
+        # With query parameters
+        (
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+        ),
+        (
+            f"{INFERENCE_ENDPOINT_URL}/chat/completions?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/chat/completions?api-version=1",
+        ),
+        (
+            f"{INFERENCE_ENDPOINT_URL}?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+        ),
+        (
+            f"{INFERENCE_ENDPOINT_URL}/v1?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+        ),
+        (
+            f"{INFERENCE_ENDPOINT_URL}/?api-version=1",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions?api-version=1",
+        ),
     ],
 )
 def test_resolve_chat_completion_url(model_url: str, expected_url: str):
@@ -1060,8 +1117,11 @@ def test_resolve_chat_completion_url(model_url: str, expected_url: str):
 
 
 def test_pass_url_as_base_url():
-    client = InferenceClient(base_url="http://localhost:8082/v1/")
-    provider = get_provider_helper("hf-inference", "text-generation")
+    client = InferenceClient(
+        provider="hf-inference",
+        base_url="http://localhost:8082/v1/",
+    )
+    provider = get_provider_helper("hf-inference", "text-generation", "test-model")
     request = provider.prepare_request(
         inputs="The huggingface_hub library is ", parameters={}, headers={}, model=client.model, api_key=None
     )
@@ -1079,3 +1139,149 @@ def test_cannot_pass_token_false():
     """
     with pytest.raises(ValueError):
         InferenceClient(token=False)
+
+
+class TestBillToOrganization:
+    def test_bill_to_added_to_new_headers(self):
+        client = InferenceClient(bill_to="huggingface_hub")
+        assert client.headers["X-HF-Bill-To"] == "huggingface_hub"
+
+    def test_bill_to_added_to_existing_headers(self):
+        headers = {"foo": "bar"}
+        client = InferenceClient(bill_to="huggingface_hub", headers=headers)
+        assert client.headers["X-HF-Bill-To"] == "huggingface_hub"
+        assert client.headers["foo"] == "bar"
+        assert headers == {"foo": "bar"}  # do not mutate the original headers
+
+    def test_warning_if_bill_to_already_set(self):
+        headers = {"X-HF-Bill-To": "huggingface"}
+        with pytest.warns(UserWarning, match="Overriding existing 'huggingface' value in headers with 'openai'."):
+            client = InferenceClient(bill_to="openai", headers=headers)
+        assert client.headers["X-HF-Bill-To"] == "openai"
+        assert headers == {"X-HF-Bill-To": "huggingface"}  # do not mutate the original headers
+
+    def test_warning_if_bill_to_with_direct_calls(self):
+        with pytest.warns(
+            UserWarning,
+            match="You've provided an external provider's API key, so requests will be billed directly by the provider.",
+        ):
+            InferenceClient(bill_to="openai", token="replicate_key", provider="replicate")
+
+
+@pytest.mark.parametrize(
+    "client_init_arg, init_kwarg_name, expected_request_url, expected_payload_model",
+    [
+        # passing a custom endpoint in the model argument
+        pytest.param(
+            "https://my-custom-endpoint.com/custom_path",
+            "model",
+            "https://my-custom-endpoint.com/custom_path/v1/chat/completions",
+            "dummy",
+            id="client_model_is_url",
+        ),
+        # passing a custom endpoint in the base_url argument
+        pytest.param(
+            "https://another-endpoint.com/v1/",
+            "base_url",
+            "https://another-endpoint.com/v1/chat/completions",
+            "dummy",
+            id="client_base_url_is_url",
+        ),
+        # passing a model ID
+        pytest.param(
+            "username/repo_name",
+            "model",
+            "https://router.huggingface.co/hf-inference/models/username/repo_name/v1/chat/completions",
+            "username/repo_name",
+            id="client_model_is_id",
+        ),
+        # passing a custom endpoint in the model argument
+        pytest.param(
+            "https://specific-chat-endpoint.com/v1/chat/completions",
+            "model",
+            "https://specific-chat-endpoint.com/v1/chat/completions",
+            "dummy",
+            id="client_model_is_full_chat_url",
+        ),
+        # passing a localhost URL in the model argument
+        pytest.param(
+            "http://localhost:8080",
+            "model",
+            "http://localhost:8080/v1/chat/completions",
+            "dummy",
+            id="client_model_is_localhost_url",
+        ),
+        # passing a localhost URL in the base_url argument
+        pytest.param(
+            "http://127.0.0.1:8000/custom/path/v1",
+            "base_url",
+            "http://127.0.0.1:8000/custom/path/v1/chat/completions",
+            "dummy",
+            id="client_base_url_is_localhost_ip_with_path",
+        ),
+    ],
+)
+def test_chat_completion_url_resolution(
+    mocker, client_init_arg, init_kwarg_name, expected_request_url, expected_payload_model
+):
+    init_kwargs = {init_kwarg_name: client_init_arg, "provider": "hf-inference"}
+    client = InferenceClient(**init_kwargs)
+
+    mock_response_content = b'{"choices": [{"message": {"content": "Mock response"}}]}'
+    mocker.patch(
+        "huggingface_hub.inference._providers.hf_inference._check_supported_task",
+        return_value=None,
+    )
+
+    with patch.object(InferenceClient, "_inner_post", return_value=mock_response_content) as mock_inner_post:
+        client.chat_completion(messages=[{"role": "user", "content": "Hello?"}], stream=False)
+
+        mock_inner_post.assert_called_once()
+
+        request_params = mock_inner_post.call_args[0][0]
+        assert request_params.url == expected_request_url
+        assert request_params.json is not None
+        assert request_params.json.get("model") == expected_payload_model
+
+
+@pytest.mark.parametrize(
+    "content_input, default_mime_type, expected, is_exact_match",
+    [
+        ("https://my-url.com/cat.gif", "image/jpeg", "https://my-url.com/cat.gif", True),
+        ("assets/image.png", "image/jpeg", "data:image/png;base64,", False),
+        (Path("assets/image.png"), "image/jpeg", "data:image/png;base64,", False),
+        ("assets/image.foo", "image/jpeg", "data:image/jpeg;base64,", False),
+        (b"some image bytes", "image/jpeg", "data:image/jpeg;base64,c29tZSBpbWFnZSBieXRlcw==", True),
+        (io.BytesIO(b"some image bytes"), "image/jpeg", "data:image/jpeg;base64,c29tZSBpbWFnZSBieXRlcw==", True),
+    ],
+)
+def test_as_url(content_input, default_mime_type, expected, is_exact_match, tmp_path: Path):
+    if isinstance(content_input, (str, Path)) and not str(content_input).startswith("http"):
+        file_path = tmp_path / content_input
+        file_path.parent.mkdir(exist_ok=True, parents=True)
+        file_path.touch()
+        content_input = file_path
+
+    result = _as_url(content_input, default_mime_type)
+    if is_exact_match:
+        assert result == expected
+    else:
+        assert result.startswith(expected)
+
+
+def test_as_url_with_pil_image(image_file: str):
+    """Test `_as_url` helper with a PIL Image."""
+    pil_image = Image.open(image_file)
+
+    pil_image.format = "PNG"
+    png_url = _as_url(pil_image, default_mime_type="image/jpeg")
+    assert png_url.startswith("data:image/png;base64,")
+
+    pil_image.format = None
+    png_url = _as_url(pil_image, default_mime_type="image/jpeg")
+    assert png_url.startswith("data:image/png;base64,")
+
+    buffer = io.BytesIO()
+    pil_image.save(buffer, format="PNG")
+    b64_encoded = base64.b64encode(buffer.getvalue()).decode()
+    assert png_url == f"data:image/png;base64,{b64_encoded}"

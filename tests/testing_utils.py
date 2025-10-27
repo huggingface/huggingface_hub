@@ -9,13 +9,13 @@ from contextlib import contextmanager
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Callable, Optional, Type, TypeVar, Union
+from typing import Callable, Optional, TypeVar, Union
 from unittest.mock import Mock, patch
 
+import httpx
 import pytest
-import requests
 
-from huggingface_hub.utils import is_package_available, logging, reset_sessions
+from huggingface_hub.utils import is_package_available, logging
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
 
 
@@ -48,6 +48,17 @@ DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = "c603981e170e9e333934a39781d2ae3
 
 YES = ("y", "yes", "t", "true", "on", "1")
 NO = ("n", "no", "f", "false", "off", "0")
+
+
+# Xet testing
+DUMMY_XET_MODEL_ID = "celinah/dummy-xet-testing"
+DUMMY_XET_FILE = "dummy.safetensors"
+DUMMY_XET_REGULAR_FILE = "dummy.txt"
+
+# extra large file for testing on production
+DUMMY_EXTRA_LARGE_FILE_MODEL_ID = "brianronan/dummy-xet-edge-case-files"
+DUMMY_EXTRA_LARGE_FILE_NAME = "verylargemodel.safetensors"  # > 50GB file
+DUMMY_TINY_FILE_NAME = "tiny.safetensors"  # 45 byte file
 
 
 def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
@@ -150,13 +161,14 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
         Connection errors are created by mocking socket.socket
     CONNECTION_TIMES_OUT: the connection hangs until it times out.
         The default timeout value is low (1e-16) to speed up the tests.
-        Timeout errors are created by mocking requests.request
+        Timeout errors are created by mocking httpx.request
     HF_HUB_OFFLINE_SET_TO_1: the HF_HUB_OFFLINE_SET_TO_1 environment variable is set to 1.
         This makes the http/ftp calls of the library instantly fail and raise an OfflineModeEnabled error.
     """
     import socket
 
-    from requests import request as online_request
+    # Store the original httpx.request to avoid recursion
+    original_httpx_request = httpx.request
 
     def timeout_request(method, url, **kwargs):
         # Change the url to an invalid url so that the connection hangs
@@ -167,13 +179,16 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
             )
         kwargs["timeout"] = timeout
         try:
-            return online_request(method, invalid_url, **kwargs)
+            return original_httpx_request(method, invalid_url, **kwargs)
         except Exception as e:
             # The following changes in the error are just here to make the offline timeout error prettier
-            e.request.url = url
-            max_retry_error = e.args[0]
-            max_retry_error.args = (max_retry_error.args[0].replace("10.255.255.1", f"OfflineMock[{url}]"),)
-            e.args = (max_retry_error,)
+            if hasattr(e, "request"):
+                e.request.url = url
+            if hasattr(e, "args") and e.args:
+                max_retry_error = e.args[0]
+                if hasattr(max_retry_error, "args"):
+                    max_retry_error.args = (max_retry_error.args[0].replace("10.255.255.1", f"OfflineMock[{url}]"),)
+                e.args = (max_retry_error,)
             raise
 
     def offline_socket(*args, **kwargs):
@@ -183,21 +198,37 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
         # inspired from https://stackoverflow.com/a/18601897
         with patch("socket.socket", offline_socket):
             with patch("huggingface_hub.utils._http.get_session") as get_session_mock:
-                with patch("huggingface_hub.file_download.get_session") as get_session_mock:
-                    get_session_mock.return_value = requests.Session()  # not an existing one
-                    yield
+                mock_client = Mock()
+
+                # Mock the request method to raise connection error
+                def mock_request(*args, **kwargs):
+                    raise httpx.ConnectError("Connection failed")
+
+                # Mock the stream method to raise connection error
+                def mock_stream(*args, **kwargs):
+                    raise httpx.ConnectError("Connection failed")
+
+                mock_client.request = mock_request
+                mock_client.stream = mock_stream
+                get_session_mock.return_value = mock_client
+                yield
     elif mode is OfflineSimulationMode.CONNECTION_TIMES_OUT:
         # inspired from https://stackoverflow.com/a/904609
-        with patch("requests.request", timeout_request):
+        with patch("httpx.request", timeout_request):
             with patch("huggingface_hub.utils._http.get_session") as get_session_mock:
-                with patch("huggingface_hub.file_download.get_session") as get_session_mock:
-                    get_session_mock().request = timeout_request
-                    yield
+                mock_client = Mock()
+                mock_client.request = timeout_request
+
+                # Mock the stream method to raise timeout
+                def mock_stream(*args, **kwargs):
+                    raise httpx.ConnectTimeout("Connection timed out")
+
+                mock_client.stream = mock_stream
+                get_session_mock.return_value = mock_client
+                yield
     elif mode is OfflineSimulationMode.HF_HUB_OFFLINE_SET_TO_1:
         with patch("huggingface_hub.constants.HF_HUB_OFFLINE", True):
-            reset_sessions()
             yield
-        reset_sessions()
     else:
         raise ValueError("Please use a value from the OfflineSimulationMode enum.")
 
@@ -212,7 +243,7 @@ def rmtree_with_retry(path: Union[str, Path]) -> None:
 
 
 def with_production_testing(func):
-    file_download = patch("huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE", ENDPOINT_PRODUCTION_URL_SCHEME)
+    file_download = patch("huggingface_hub.constants.HUGGINGFACE_CO_URL_TEMPLATE", ENDPOINT_PRODUCTION_URL_SCHEME)
     hf_api = patch("huggingface_hub.constants.ENDPOINT", ENDPOINT_PRODUCTION)
     return hf_api(file_download(func))
 
@@ -271,7 +302,7 @@ def expect_deprecation(function_name: str):
     return _inner_decorator
 
 
-def xfail_on_windows(reason: str, raises: Optional[Type[Exception]] = None):
+def xfail_on_windows(reason: str, raises: Optional[type[Exception]] = None):
     """
     Decorator to flag tests that we expect to fail on Windows.
 
@@ -281,7 +312,7 @@ def xfail_on_windows(reason: str, raises: Optional[Type[Exception]] = None):
     Args:
         reason (`str`):
             Reason why it should fail.
-        raises (`Type[Exception]`):
+        raises (`type[Exception]`):
             The error type we except to happen.
     """
 

@@ -1,3 +1,5 @@
+import sys
+
 from setuptools import find_packages, setup
 
 
@@ -14,29 +16,32 @@ def get_version() -> str:
 install_requires = [
     "filelock",
     "fsspec>=2023.5.0",
+    "hf-xet>=1.1.3,<2.0.0; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
+    "httpx>=0.23.0, <1",
     "packaging>=20.9",
     "pyyaml>=5.1",
-    "requests",
+    "shellingham",
     "tqdm>=4.42.1",
+    "typer-slim",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
 ]
 
 extras = {}
 
-extras["cli"] = [
-    "InquirerPy==0.3.4",  # Note: installs `prompt-toolkit` in the background
-]
-
 extras["inference"] = [
     "aiohttp",  # for AsyncInferenceClient
+]
+
+extras["oauth"] = [
+    "authlib>=1.3.2",  # minimum version to include https://github.com/lepture/authlib/pull/644
+    "fastapi",
+    "httpx",  # required for authlib but not included in its dependencies
+    "itsdangerous",  # required for starlette SessionMiddleware
 ]
 
 extras["torch"] = [
     "torch",
     "safetensors[torch]",
-]
-extras["hf_transfer"] = [
-    "hf_transfer>=0.1.4",  # Pin for progress bars
 ]
 extras["fastai"] = [
     "toml",
@@ -44,47 +49,47 @@ extras["fastai"] = [
     "fastcore>=1.3.27",
 ]
 
-extras["tensorflow"] = [
-    "tensorflow",
-    "pydot",
-    "graphviz",
-]
+extras["hf_xet"] = ["hf-xet>=1.1.3,<2.0.0"]
 
-extras["tensorflow-testing"] = [
-    "tensorflow",
-    "keras<3.0",
-]
-
+extras["mcp"] = [
+    "mcp>=1.8.0",
+    "typer",
+] + extras["inference"]
 
 extras["testing"] = (
-    extras["cli"]
-    + extras["inference"]
+    extras["inference"]
+    + extras["oauth"]
     + [
         "jedi",
         "Jinja2",
-        "pytest>=8.1.1,<8.2.2",  # at least until 8.2.3 is released with https://github.com/pytest-dev/pytest/pull/12436
+        "pytest>=8.4.2",  # we need https://github.com/pytest-dev/pytest/pull/12436
         "pytest-cov",
         "pytest-env",
         "pytest-xdist",
         "pytest-vcr",  # to mock Inference
         "pytest-asyncio",  # for AsyncInferenceClient
-        "pytest-rerunfailures",  # to rerun flaky tests in CI
+        "pytest-rerunfailures<16.0",  # to rerun flaky tests in CI
         "pytest-mock",
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
         "Pillow",
-        "gradio>=4.0.0",  # to test webhooks # pin to avoid issue on Python3.12
+        "requests",  # for gradio
         "numpy",  # for embeddings
         "fastapi",  # To build the documentation
     ]
 )
+
+if sys.version_info >= (3, 10):
+    # We need gradio to test webhooks server
+    # But gradio 5.0+ only supports python 3.10+ so we don't want to test earlier versions
+    extras["testing"].append("gradio>=5.0.0")
+    extras["testing"].append("requests")  # see https://github.com/gradio-app/gradio/pull/11830
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
 # Please make sure to update the list there when adding a new typing dependency.
 extras["typing"] = [
     "typing-extensions>=4.8.0",
     "types-PyYAML",
-    "types-requests",
     "types-simplejson",
     "types-toml",
     "types-tqdm",
@@ -93,8 +98,9 @@ extras["typing"] = [
 
 extras["quality"] = [
     "ruff>=0.9.0",
-    "mypy==1.5.1",
-    "libcst==1.4.0",
+    "mypy==1.15.0",
+    "libcst>=1.4.0",
+    "ty",
 ]
 
 extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
@@ -116,10 +122,13 @@ setup(
     packages=find_packages("src"),
     extras_require=extras,
     entry_points={
-        "console_scripts": ["huggingface-cli=huggingface_hub.commands.huggingface_cli:main"],
+        "console_scripts": [
+            "hf=huggingface_hub.cli.hf:main",
+            "tiny-agents=huggingface_hub.inference._mcp.cli:app",
+        ],
         "fsspec.specs": "hf=huggingface_hub.HfFileSystem",
     },
-    python_requires=">=3.8.0",
+    python_requires=">=3.9.0",
     install_requires=install_requires,
     classifiers=[
         "Intended Audience :: Developers",
@@ -129,7 +138,6 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",

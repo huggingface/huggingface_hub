@@ -1,46 +1,89 @@
-from typing import Dict, Literal
+from typing import Literal, Optional, Union
 
-from ._common import TaskProviderHelper
+from huggingface_hub.inference._providers.featherless_ai import (
+    FeatherlessConversationalTask,
+    FeatherlessTextGenerationTask,
+)
+from huggingface_hub.utils import logging
+
+from ._common import AutoRouterConversationalTask, TaskProviderHelper, _fetch_inference_provider_mapping
 from .black_forest_labs import BlackForestLabsTextToImageTask
 from .cerebras import CerebrasConversationalTask
+from .clarifai import ClarifaiConversationalTask
 from .cohere import CohereConversationalTask
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
+    FalAIImageToImageTask,
+    FalAIImageToVideoTask,
     FalAITextToImageTask,
     FalAITextToSpeechTask,
     FalAITextToVideoTask,
 )
 from .fireworks_ai import FireworksAIConversationalTask
-from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
+from .groq import GroqConversationalTask
+from .hf_inference import (
+    HFInferenceBinaryInputTask,
+    HFInferenceConversational,
+    HFInferenceFeatureExtractionTask,
+    HFInferenceTask,
+)
 from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
-from .nebius import NebiusConversationalTask, NebiusTextGenerationTask, NebiusTextToImageTask
+from .nebius import (
+    NebiusConversationalTask,
+    NebiusFeatureExtractionTask,
+    NebiusTextGenerationTask,
+    NebiusTextToImageTask,
+)
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
-from .replicate import ReplicateTask, ReplicateTextToSpeechTask
-from .sambanova import SambanovaConversationalTask
+from .nscale import NscaleConversationalTask, NscaleTextToImageTask
+from .openai import OpenAIConversationalTask
+from .publicai import PublicAIConversationalTask
+from .replicate import ReplicateImageToImageTask, ReplicateTask, ReplicateTextToImageTask, ReplicateTextToSpeechTask
+from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
+from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
+from .zai_org import ZaiConversationalTask
+
+
+logger = logging.get_logger(__name__)
 
 
 PROVIDER_T = Literal[
     "black-forest-labs",
     "cerebras",
+    "clarifai",
     "cohere",
     "fal-ai",
+    "featherless-ai",
     "fireworks-ai",
+    "groq",
     "hf-inference",
     "hyperbolic",
     "nebius",
     "novita",
+    "nscale",
+    "openai",
+    "publicai",
     "replicate",
     "sambanova",
+    "scaleway",
     "together",
+    "zai-org",
 ]
 
-PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
+PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
+
+CONVERSATIONAL_AUTO_ROUTER = AutoRouterConversationalTask()
+
+PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     "black-forest-labs": {
         "text-to-image": BlackForestLabsTextToImageTask(),
     },
     "cerebras": {
         "conversational": CerebrasConversationalTask(),
+    },
+    "clarifai": {
+        "conversational": ClarifaiConversationalTask(),
     },
     "cohere": {
         "conversational": CohereConversationalTask(),
@@ -50,9 +93,18 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-image": FalAITextToImageTask(),
         "text-to-speech": FalAITextToSpeechTask(),
         "text-to-video": FalAITextToVideoTask(),
+        "image-to-video": FalAIImageToVideoTask(),
+        "image-to-image": FalAIImageToImageTask(),
+    },
+    "featherless-ai": {
+        "conversational": FeatherlessConversationalTask(),
+        "text-generation": FeatherlessTextGenerationTask(),
     },
     "fireworks-ai": {
         "conversational": FireworksAIConversationalTask(),
+    },
+    "groq": {
+        "conversational": GroqConversationalTask(),
     },
     "hf-inference": {
         "text-to-image": HFInferenceTask("text-to-image"),
@@ -63,7 +115,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "audio-classification": HFInferenceBinaryInputTask("audio-classification"),
         "automatic-speech-recognition": HFInferenceBinaryInputTask("automatic-speech-recognition"),
         "fill-mask": HFInferenceTask("fill-mask"),
-        "feature-extraction": HFInferenceTask("feature-extraction"),
+        "feature-extraction": HFInferenceFeatureExtractionTask(),
         "image-classification": HFInferenceBinaryInputTask("image-classification"),
         "image-segmentation": HFInferenceBinaryInputTask("image-segmentation"),
         "document-question-answering": HFInferenceTask("document-question-answering"),
@@ -91,46 +143,97 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-image": NebiusTextToImageTask(),
         "conversational": NebiusConversationalTask(),
         "text-generation": NebiusTextGenerationTask(),
+        "feature-extraction": NebiusFeatureExtractionTask(),
     },
     "novita": {
         "text-generation": NovitaTextGenerationTask(),
         "conversational": NovitaConversationalTask(),
         "text-to-video": NovitaTextToVideoTask(),
     },
+    "nscale": {
+        "conversational": NscaleConversationalTask(),
+        "text-to-image": NscaleTextToImageTask(),
+    },
+    "openai": {
+        "conversational": OpenAIConversationalTask(),
+    },
+    "publicai": {
+        "conversational": PublicAIConversationalTask(),
+    },
     "replicate": {
-        "text-to-image": ReplicateTask("text-to-image"),
+        "image-to-image": ReplicateImageToImageTask(),
+        "text-to-image": ReplicateTextToImageTask(),
         "text-to-speech": ReplicateTextToSpeechTask(),
         "text-to-video": ReplicateTask("text-to-video"),
     },
     "sambanova": {
         "conversational": SambanovaConversationalTask(),
+        "feature-extraction": SambanovaFeatureExtractionTask(),
+    },
+    "scaleway": {
+        "conversational": ScalewayConversationalTask(),
+        "feature-extraction": ScalewayFeatureExtractionTask(),
     },
     "together": {
         "text-to-image": TogetherTextToImageTask(),
         "conversational": TogetherConversationalTask(),
         "text-generation": TogetherTextGenerationTask(),
     },
+    "zai-org": {
+        "conversational": ZaiConversationalTask(),
+    },
 }
 
 
-def get_provider_helper(provider: PROVIDER_T, task: str) -> TaskProviderHelper:
+def get_provider_helper(
+    provider: Optional[PROVIDER_OR_POLICY_T], task: str, model: Optional[str]
+) -> TaskProviderHelper:
     """Get provider helper instance by name and task.
 
     Args:
-        provider (str): Name of the provider
-        task (str): Name of the task
-
+        provider (`str`, *optional*): name of the provider, or "auto" to automatically select the provider for the model.
+        task (`str`): Name of the task
+        model (`str`, *optional*): Name of the model
     Returns:
         TaskProviderHelper: Helper instance for the specified provider and task
 
     Raises:
         ValueError: If provider or task is not supported
     """
-    if provider not in PROVIDERS:
-        raise ValueError(f"Provider '{provider}' not supported. Available providers: {list(PROVIDERS.keys())}")
-    if task not in PROVIDERS[provider]:
-        raise ValueError(
-            f"Task '{task}' not supported for provider '{provider}'. "
-            f"Available tasks: {list(PROVIDERS[provider].keys())}"
+
+    if (model is None and provider in (None, "auto")) or (
+        model is not None and model.startswith(("http://", "https://"))
+    ):
+        provider = "hf-inference"
+
+    if provider is None:
+        logger.info(
+            "No provider specified for task `conversational`. Defaulting to server-side auto routing."
+            if task == "conversational"
+            else "Defaulting to 'auto' which will select the first provider available for the model, sorted by the user's order in https://hf.co/settings/inference-providers."
         )
-    return PROVIDERS[provider][task]
+        provider = "auto"
+
+    if provider == "auto":
+        if model is None:
+            raise ValueError("Specifying a model is required when provider is 'auto'")
+        if task == "conversational":
+            # Special case: we have a dedicated auto-router for conversational models. No need to fetch provider mapping.
+            return CONVERSATIONAL_AUTO_ROUTER
+
+        provider_mapping = _fetch_inference_provider_mapping(model)
+        provider = next(iter(provider_mapping)).provider
+
+    provider_tasks = PROVIDERS.get(provider)  # type: ignore
+    if provider_tasks is None:
+        raise ValueError(
+            f"Provider '{provider}' not supported. Available values: 'auto' or any provider from {list(PROVIDERS.keys())}."
+            "Passing 'auto' (default value) will automatically select the first provider available for the model, sorted "
+            "by the user's order in https://hf.co/settings/inference-providers."
+        )
+
+    if task not in provider_tasks:
+        raise ValueError(
+            f"Task '{task}' not supported for provider '{provider}'. Available tasks: {list(provider_tasks.keys())}"
+        )
+    return provider_tasks[task]

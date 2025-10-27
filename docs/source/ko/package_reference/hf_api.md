@@ -10,7 +10,7 @@ rendered properly in your Markdown viewer.
 
 루트 메서드를 사용하는 것이 더 간단하지만 [`HfApi`] 클래스를 사용하면 더 유연하게 사용할 수 있습니다.
 특히 모든 HTTP 호출에서 재사용할 토큰을 전달할 수 있습니다. 
-이 방식은 토큰이 머신에 유지되지 않기 때문에 `huggingface-cli login` 또는 [`login`]를 사용하는 방식과는 다르며,
+이 방식은 토큰이 머신에 유지되지 않기 때문에 `hf auth login` 또는 [`login`]를 사용하는 방식과는 다르며,
 다른 엔드포인트를 제공하거나 사용자정의 에이전트를 구성할 수도 있습니다.
 
 ```python

@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import List, Literal, Optional, Union
+from typing import Literal, Optional, Union
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -19,7 +19,7 @@ class FeatureExtractionInput(BaseInferenceType):
     https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-tei-import.ts.
     """
 
-    inputs: Union[List[str], str]
+    inputs: Union[list[str], str]
     """The text or list of texts to embed."""
     normalize: Optional[bool] = None
     prompt_name: Optional[str] = None

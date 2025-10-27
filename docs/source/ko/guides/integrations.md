@@ -81,7 +81,7 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
 - `token`: 개인 리포지토리에서 다운로드하기 위한 토큰
 - `revision`: 특정 브랜치에서 다운로드하기 위한 리비전
 - `cache_dir`: 특정 디렉터리에 파일을 캐시하기 위한 디렉터리
-- `force_download`/`resume_download`/`local_files_only`: 캐시를 재사용할 것인지 여부를 결정하는 매개변수
+- `force_download`/`local_files_only`: 캐시를 재사용할 것인지 여부를 결정하는 매개변수
 - `proxies`: HTTP 세션 구성
 
 모델을 푸시할 때는 유사한 매개변수가 지원됩니다:
@@ -211,8 +211,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
       revision: str,
       cache_dir: str,
       force_download: bool,
-      proxies: Optional[Dict],
-      resume_download: bool,
+      proxies: Optional[dict],
       local_files_only: bool,
       token: Union[str, bool, None],
       map_location: str = "cpu", # 추가 인자
@@ -232,8 +231,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
             revision=revision,
             cache_dir=cache_dir,
             force_download=force_download,
-            proxies=proxies,
-            resume_download=resume_download,
             token=token,
             local_files_only=local_files_only,
             )
@@ -393,11 +390,11 @@ class VoiceCraft(
 두 가지 접근 방법에 대한 장단점을 간단히 정리해보겠습니다. 아래 표는 단순히 예시일 뿐입니다. 각자 다른 프레임워크에는 고려해야 할 특정 사항이 있을 수 있습니다. 이 가이드는 통합을 다루는 아이디어와 지침을 제공하기 위한 것입니다. 언제든지 궁금한 점이 있으면 문의해 주세요!
 
 <!-- Generated using https://www.tablesgenerator.com/markdown_tables -->
-| 통합 | helpers 사용 시 | [`ModelHubMixin`] 사용 시 |
-|:---:|:---:|:---:|
-| 사용자 경험 | `model = load_from_hub(...)`<br>`push_to_hub(model, ...)` | `model = MyModel.from_pretrained(...)`<br>`model.push_to_hub(...)` |
-| 유연성 | 매우 유연합니다.<br>구현을 완전히 제어합니다. | 유연성이 떨어집니다.<br>프레임워크에는 모델 클래스가 있어야 합니다. |
-| 유지 관리 | 구성 및 새로운 기능에 대한 지원을 추가하기 위한 유지 관리가 더 필요합니다. 사용자가 보고한 문제를 해결해야할 수도 있습니다. | Hub와의 대부분의 상호 작용이 `huggingface_hub`에서 구현되므로 유지 관리가 줄어듭니다. |
-| 문서화 / 타입 주석 | 수동으로 작성해야 합니다. | `huggingface_hub`에서 부분적으로 처리됩니다. |
-| 다운로드 횟수 표시기 | 수동으로 처리해야 합니다. | 클래스에 `config` 속성이 있다면 기본적으로 활성화됩니다. |
-| 모델 카드 | 수동으로 처리해야 합니다. | library_name, tags 등을 활용하여 기본적으로 생성됩니다. |
+|         통합         |                                                       helpers 사용 시                                                       |                               [`ModelHubMixin`] 사용 시                               |
+| :------------------: | :-------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------: |
+|     사용자 경험      |                                  `model = load_from_hub(...)`<br>`push_to_hub(model, ...)`                                  |          `model = MyModel.from_pretrained(...)`<br>`model.push_to_hub(...)`           |
+|        유연성        |                                        매우 유연합니다.<br>구현을 완전히 제어합니다.                                        |          유연성이 떨어집니다.<br>프레임워크에는 모델 클래스가 있어야 합니다.          |
+|      유지 관리       | 구성 및 새로운 기능에 대한 지원을 추가하기 위한 유지 관리가 더 필요합니다. 사용자가 보고한 문제를 해결해야할 수도 있습니다. | Hub와의 대부분의 상호 작용이 `huggingface_hub`에서 구현되므로 유지 관리가 줄어듭니다. |
+|  문서화 / 타입 주석  |                                                  수동으로 작성해야 합니다.                                                  |                     `huggingface_hub`에서 부분적으로 처리됩니다.                      |
+| 다운로드 횟수 표시기 |                                                  수동으로 처리해야 합니다.                                                  |               클래스에 `config` 속성이 있다면 기본적으로 활성화됩니다.                |
+|      모델 카드       |                                                  수동으로 처리해야 합니다.                                                  |                library_name, tags 등을 활용하여 기본적으로 생성됩니다.                |

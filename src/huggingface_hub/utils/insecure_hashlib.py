@@ -25,10 +25,8 @@
 #     ```
 import functools
 import hashlib
-import sys
 
 
-_kwargs = {"usedforsecurity": False} if sys.version_info >= (3, 9) else {}
-md5 = functools.partial(hashlib.md5, **_kwargs)
-sha1 = functools.partial(hashlib.sha1, **_kwargs)
-sha256 = functools.partial(hashlib.sha256, **_kwargs)
+md5 = functools.partial(hashlib.md5, usedforsecurity=False)
+sha1 = functools.partial(hashlib.sha1, usedforsecurity=False)
+sha256 = functools.partial(hashlib.sha256, usedforsecurity=False)

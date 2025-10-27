@@ -120,23 +120,40 @@ You can also enable or disable progress bars for specific groups. This allows yo
 
 [[autodoc]] huggingface_hub.utils.enable_progress_bars
 
-## Configure HTTP backend
+## Configuring the HTTP Backend
 
-In some environments, you might want to configure how HTTP calls are made, for example if you are using a proxy.
-`huggingface_hub` let you configure this globally using [`configure_http_backend`]. All requests made to the Hub will
-then use your settings. Under the hood, `huggingface_hub` uses `requests.Session` so you might want to refer to the
-[`requests` documentation](https://requests.readthedocs.io/en/latest/user/advanced) to learn more about the available
-parameters.
+<Tip>
 
-Since `requests.Session` is not guaranteed to be thread-safe, `huggingface_hub` creates one session instance per thread.
-Using sessions allows us to keep the connection open between HTTP calls and ultimately save time. If you are
-integrating `huggingface_hub` in a third-party library and wants to make a custom call to the Hub, use [`get_session`]
-to get a Session configured by your users (i.e. replace any `requests.get(...)` call by `get_session().get(...)`).
+In `huggingface_hub` v0.x, HTTP requests were handled with `requests`, and configuration was done via `configure_http_backend`. Since we now use `httpx`, configuration works differently: you must provide a factory function that takes no arguments and returns an `httpx.Client`. You can review the [default implementation here](https://github.com/huggingface/huggingface_hub/blob/v1.0-release/src/huggingface_hub/utils/_http.py) to see which parameters are used by default.
 
-[[autodoc]] configure_http_backend
+</Tip>
+
+
+In some setups, you may need to control how HTTP requests are made, for example when working behind a proxy. The `huggingface_hub` library allows you to configure this globally with [`set_client_factory`]. After configuration, all requests to the Hub will use your custom settings. Since `huggingface_hub` relies on `httpx.Client` under the hood, you can check the [`httpx` documentation](https://www.python-httpx.org/advanced/clients/) for details on available parameters.
+
+If you are building a third-party library and need to make direct requests to the Hub, use [`get_session`] to obtain a correctly configured `httpx` client. Replace any direct `httpx.get(...)` calls with `get_session().get(...)` to ensure proper behavior.
+
+[[autodoc]] set_client_factory
 
 [[autodoc]] get_session
 
+In rare cases, you may want to manually close the current session (for example, after a transient `SSLError`). You can do this with [`close_session`]. A new session will automatically be created on the next call to [`get_session`].
+
+Sessions are always closed automatically when the process exits.
+
+[[autodoc]] close_session
+
+For async code, use [`set_async_client_factory`] to configure an `httpx.AsyncClient` and [`get_async_session`] to retrieve one.
+
+[[autodoc]] set_async_client_factory
+
+[[autodoc]] get_async_session
+
+<Tip>
+
+Unlike the synchronous client, the lifecycle of the async client is not managed automatically. Use an async context manager to handle it properly.
+
+</Tip>
 
 ## Handle HTTP errors
 
@@ -177,35 +194,39 @@ Here is a list of HTTP errors thrown in `huggingface_hub`.
 the server response and format the error message to provide as much information to the
 user as possible.
 
-[[autodoc]] huggingface_hub.utils.HfHubHTTPError
+[[autodoc]] huggingface_hub.errors.HfHubHTTPError
 
 #### RepositoryNotFoundError
 
-[[autodoc]] huggingface_hub.utils.RepositoryNotFoundError
+[[autodoc]] huggingface_hub.errors.RepositoryNotFoundError
 
 #### GatedRepoError
 
-[[autodoc]] huggingface_hub.utils.GatedRepoError
+[[autodoc]] huggingface_hub.errors.GatedRepoError
 
 #### RevisionNotFoundError
 
-[[autodoc]] huggingface_hub.utils.RevisionNotFoundError
-
-#### EntryNotFoundError
-
-[[autodoc]] huggingface_hub.utils.EntryNotFoundError
+[[autodoc]] huggingface_hub.errors.RevisionNotFoundError
 
 #### BadRequestError
 
-[[autodoc]] huggingface_hub.utils.BadRequestError
+[[autodoc]] huggingface_hub.errors.BadRequestError
+
+#### EntryNotFoundError
+
+[[autodoc]] huggingface_hub.errors.EntryNotFoundError
+
+#### RemoteEntryNotFoundError
+
+[[autodoc]] huggingface_hub.errors.RemoteEntryNotFoundError
 
 #### LocalEntryNotFoundError
 
-[[autodoc]] huggingface_hub.utils.LocalEntryNotFoundError
+[[autodoc]] huggingface_hub.errors.LocalEntryNotFoundError
 
 #### OfflineModeIsEnabled
 
-[[autodoc]] huggingface_hub.utils.OfflineModeIsEnabled
+[[autodoc]] huggingface_hub.errors.OfflineModeIsEnabled
 
 ## Telemetry
 
@@ -251,20 +272,6 @@ huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in rep
 
 >>> my_cool_method(repo_id="other..repo..id")
 huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other..repo..id'.
-
->>> @validate_hf_hub_args
-... def my_cool_auth_method(token: str):
-...     print(token)
-
->>> my_cool_auth_method(token="a token")
-"a token"
-
->>> my_cool_auth_method(use_auth_token="a use_auth_token")
-"a use_auth_token"
-
->>> my_cool_auth_method(token="a token", use_auth_token="a use_auth_token")
-UserWarning: Both `token` and `use_auth_token` are passed (...). `use_auth_token` value will be ignored.
-"a token"
 ```
 
 #### validate_hf_hub_args
@@ -284,8 +291,8 @@ validated.
 
 [[autodoc]] utils.validate_repo_id
 
-#### smoothly_deprecate_use_auth_token
+#### smoothly_deprecate_legacy_arguments
 
 Not exactly a validator, but ran as well.
 
-[[autodoc]] utils.smoothly_deprecate_use_auth_token
+[[autodoc]] utils._validators.smoothly_deprecate_legacy_arguments

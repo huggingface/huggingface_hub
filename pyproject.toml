@@ -1,7 +1,28 @@
 [tool.mypy]
 ignore_missing_imports = true
-no_implicit_optional = true
-scripts_are_modules = true
+
+[tool.ty]
+[tool.ty.terminal]
+# Do not fail CI on warnings; keep output readable
+error-on-warning = false
+output-format = "concise"
+
+[tool.ty.rules]
+# Minimize noise from optional/extra dependencies not installed in CI or local
+unresolved-import = "ignore"
+unresolved-attribute = "ignore"
+
+# Be tolerant with framework/typing edge-cases and runtime-validated code paths
+unsupported-base = "ignore"
+unsupported-operator = "ignore"
+possibly-missing-attribute = "ignore"
+possibly-missing-implicit-call = "ignore"
+non-subscriptable = "ignore"
+call-non-callable = "ignore"
+
+# Loosen strictness a bit on type matching
+missing-argument = "ignore"
+deprecated = "ignore"
 
 [tool.pytest.ini_options]
 # Add the specified `OPTS` to the set of command line arguments as if they had

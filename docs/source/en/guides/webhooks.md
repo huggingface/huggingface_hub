@@ -28,6 +28,24 @@ webhook = create_webhook(
 )
 ```
 
+A webhook can also trigger a Job to run on Hugging face infrastructure instead of sending the payload to an URL.
+In this case you need to pass the ID of a source Job.
+
+```python
+from huggingface_hub import create_webhook
+
+# Example: Creating a webhook that triggers a Job
+webhook = create_webhook(
+    job_id=job_id,
+    watched=[{"type": "user", "name": "your-username"}, {"type": "org", "name": "your-org-name"}],
+    domains=["repo", "discussion"],
+    secret="your-secret"
+)
+```
+
+The webhook triggers the Job with the webhook payload in the environment variable `WEBHOOK_PAYLOAD`.
+For more information on Hugging Face Jobs, available hardware (CPU, GPU) and UV scripts, see the [Jobs documentation](./jobs).
+
 ### Listing Webhooks
 
 To see all the webhooks you have configured, you can list them with [`list_webhooks`]. This is useful to review their IDs, URLs, and statuses.
@@ -90,20 +108,14 @@ The base class that we will use in this guides section is [`WebhooksServer`]. It
 can receive webhooks from the Huggingface Hub. The server is based on a [Gradio](https://gradio.app/) app. It has a UI
 to display instructions for you or your users and an API to listen to webhooks.
 
-<Tip>
+> [!TIP]
+> To see a running example of a webhook server, check out the [Spaces CI Bot](https://huggingface.co/spaces/spaces-ci-bot/webhook)
+> one. It is a Space that launches ephemeral environments when a PR is opened on a Space.
 
-To see a running example of a webhook server, check out the [Spaces CI Bot](https://huggingface.co/spaces/spaces-ci-bot/webhook)
-one. It is a Space that launches ephemeral environments when a PR is opened on a Space.
-
-</Tip>
-
-<Tip warning={true}>
-
-This is an [experimental feature](../package_reference/environment_variables#hfhubdisableexperimentalwarning). This
-means that we are still working on improving the API. Breaking changes might be introduced in the future without prior
-notice. Make sure to pin the version of `huggingface_hub` in your requirements.
-
-</Tip>
+> [!WARNING]
+> This is an [experimental feature](../package_reference/environment_variables#hfhubdisableexperimentalwarning). This
+> means that we are still working on improving the API. Breaking changes might be introduced in the future without prior
+> notice. Make sure to pin the version of `huggingface_hub` in your requirements.
 
 
 ### Create an endpoint
@@ -154,13 +166,10 @@ debugging your webhook server and quickly iterating before deploying it to a Spa
 4. Finally, the logs also tell you that your server is currently not secured by a secret. This is not problematic for
 local debugging but is to keep in mind for later.
 
-<Tip warning={true}>
-
-By default, the server is started at the end of your script. If you are running it in a notebook, you can start the
-server manually by calling `decorated_function.run()`. Since a unique server is used, you only have to start the server
-once even if you have multiple endpoints.
-
-</Tip>
+> [!WARNING]
+> By default, the server is started at the end of your script. If you are running it in a notebook, you can start the
+> server manually by calling `decorated_function.run()`. Since a unique server is used, you only have to start the server
+> once even if you have multiple endpoints.
 
 
 ### Configure a Webhook

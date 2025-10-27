@@ -18,6 +18,7 @@ import inspect
 import json
 import re
 import struct
+import time
 import warnings
 from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -26,25 +27,23 @@ from datetime import datetime
 from functools import wraps
 from itertools import islice
 from pathlib import Path
+from textwrap import dedent
 from typing import (
+    TYPE_CHECKING,
     Any,
     BinaryIO,
     Callable,
-    Dict,
     Iterable,
     Iterator,
-    List,
     Literal,
     Optional,
-    Tuple,
     TypeVar,
     Union,
     overload,
 )
 from urllib.parse import quote
 
-import requests
-from requests.exceptions import HTTPError
+import httpx
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
@@ -57,10 +56,11 @@ from ._commit_api import (
     _fetch_files_to_copy,
     _fetch_upload_modes,
     _prepare_commit_payload,
-    _upload_lfs_files,
+    _upload_files,
     _warn_on_overwriting_operations,
 )
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
+from ._jobs_api import JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
@@ -71,47 +71,25 @@ from .community import (
     DiscussionWithDetails,
     deserialize_event,
 )
-from .constants import (
-    DEFAULT_ETAG_TIMEOUT,  # noqa: F401 # kept for backward compatibility
-    DEFAULT_REQUEST_TIMEOUT,  # noqa: F401 # kept for backward compatibility
-    DEFAULT_REVISION,  # noqa: F401 # kept for backward compatibility
-    DISCUSSION_STATUS,  # noqa: F401 # kept for backward compatibility
-    DISCUSSION_TYPES,  # noqa: F401 # kept for backward compatibility
-    ENDPOINT,  # noqa: F401 # kept for backward compatibility
-    INFERENCE_ENDPOINTS_ENDPOINT,  # noqa: F401 # kept for backward compatibility
-    REGEX_COMMIT_OID,  # noqa: F401 # kept for backward compatibility
-    REPO_TYPE_MODEL,  # noqa: F401 # kept for backward compatibility
-    REPO_TYPES,  # noqa: F401 # kept for backward compatibility
-    REPO_TYPES_MAPPING,  # noqa: F401 # kept for backward compatibility
-    REPO_TYPES_URL_PREFIXES,  # noqa: F401 # kept for backward compatibility
-    SAFETENSORS_INDEX_FILE,  # noqa: F401 # kept for backward compatibility
-    SAFETENSORS_MAX_HEADER_LENGTH,  # noqa: F401 # kept for backward compatibility
-    SAFETENSORS_SINGLE_FILE,  # noqa: F401 # kept for backward compatibility
-    SPACES_SDK_TYPES,  # noqa: F401 # kept for backward compatibility
-    WEBHOOK_DOMAIN_T,  # noqa: F401 # kept for backward compatibility
-    DiscussionStatusFilter,  # noqa: F401 # kept for backward compatibility
-    DiscussionTypeFilter,  # noqa: F401 # kept for backward compatibility
-)
 from .errors import (
     BadRequestError,
-    EntryNotFoundError,
     GatedRepoError,
     HfHubHTTPError,
+    RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
+from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
-    HfFolder,  # noqa: F401 # kept for backward compatibility
-    LocalTokenNotFoundError,
     NotASafetensorsRepoError,
     SafetensorsFileMetadata,
     SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
     build_hf_headers,
+    chunk_iterable,
     experimental,
     filter_repo_objects,
     fix_hf_endpoint_in_url,
@@ -125,13 +103,16 @@ from .utils import (
 )
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
-from .utils._deprecation import _deprecate_method
+from .utils._deprecation import _deprecate_arguments
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
 
 
+if TYPE_CHECKING:
+    from .inference._providers import PROVIDER_T
+
 R = TypeVar("R")  # Return type
-CollectionItemType_T = Literal["model", "dataset", "space", "paper"]
+CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -164,7 +145,6 @@ ExpandModelProperty_T = Literal[
     "trendingScore",
     "usedStorage",
     "widgetData",
-    "xetEnabled",
 ]
 
 ExpandDatasetProperty_T = Literal[
@@ -187,7 +167,6 @@ ExpandDatasetProperty_T = Literal[
     "tags",
     "trendingScore",
     "usedStorage",
-    "xetEnabled",
 ]
 
 ExpandSpaceProperty_T = Literal[
@@ -209,7 +188,6 @@ ExpandSpaceProperty_T = Literal[
     "tags",
     "trendingScore",
     "usedStorage",
-    "xetEnabled",
 ]
 
 USERNAME_PLACEHOLDER = "hf_user"
@@ -227,7 +205,7 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
 logger = logging.get_logger(__name__)
 
 
-def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tuple[Optional[str], Optional[str], str]:
+def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tuple[Optional[str], Optional[str], str]:
     """
     Returns the repo type and ID from a huggingface.co URL linking to a
     repository
@@ -337,8 +315,8 @@ class BlobLfsInfo(dict):
 class BlobSecurityInfo(dict):
     safe: bool  # duplicate information with "status" field, keeping it for backward compatibility
     status: str
-    av_scan: Optional[Dict]
-    pickle_import_scan: Optional[Dict]
+    av_scan: Optional[dict]
+    pickle_import_scan: Optional[dict]
 
     def __post_init__(self):  # hack to make BlogSecurityInfo backward compatible
         self.update(asdict(self))
@@ -358,7 +336,7 @@ class TransformersInfo(dict):
 
 @dataclass
 class SafeTensorsInfo(dict):
-    parameters: Dict[str, int]
+    parameters: dict[str, int]
     total: int
 
     def __post_init__(self):  # hack to make SafeTensorsInfo backward compatible
@@ -401,12 +379,6 @@ class CommitInfo(str):
 
         repo_url (`RepoUrl`):
             Repo URL of the commit containing info like repo_id, repo_type, etc.
-
-        _url (`str`, *optional*):
-            Legacy url for `str` compatibility. Can be the url to the uploaded file on the Hub (if returned by
-            [`upload_file`]), to the uploaded folder on the Hub (if returned by [`upload_folder`]) or to the commit on
-            the Hub (if returned by [`create_commit`]). Defaults to `commit_url`. It is deprecated to use this
-            attribute. Please use `commit_url` instead.
     """
 
     commit_url: str
@@ -420,13 +392,10 @@ class CommitInfo(str):
 
     # Computed from `pr_url` in `__post_init__`
     pr_revision: Optional[str] = field(init=False)
-    pr_num: Optional[str] = field(init=False)
+    pr_num: Optional[int] = field(init=False)
 
-    # legacy url for `str` compatibility (ex: url to uploaded file, url to uploaded folder, url to PR, etc.)
-    _url: str = field(repr=False, default=None)  # type: ignore  # defaults to `commit_url`
-
-    def __new__(cls, *args, commit_url: str, _url: Optional[str] = None, **kwargs):
-        return str.__new__(cls, _url or commit_url)
+    def __new__(cls, *args, commit_url: str, **kwargs):
+        return str.__new__(cls, commit_url)
 
     def __post_init__(self):
         """Populate pr-related fields after initialization.
@@ -461,7 +430,7 @@ class AccessRequest:
             Timestamp of the request.
         status (`Literal["pending", "accepted", "rejected"]`):
             Status of the request. Can be one of `["pending", "accepted", "rejected"]`.
-        fields (`Dict[str, Any]`, *optional*):
+        fields (`dict[str, Any]`, *optional*):
             Additional fields filled by the user in the gate form.
     """
 
@@ -472,7 +441,7 @@ class AccessRequest:
     status: Literal["pending", "accepted", "rejected"]
 
     # Additional fields filled by the user in the gate form
-    fields: Optional[Dict[str, Any]] = None
+    fields: Optional[dict[str, Any]] = None
 
 
 @dataclass
@@ -494,14 +463,18 @@ class WebhookWatchedItem:
 class WebhookInfo:
     """Data structure containing information about a webhook.
 
+    One of `url` or `job` is specified, but not both.
+
     Attributes:
         id (`str`):
             ID of the webhook.
-        url (`str`):
+        url (`str`, *optional*):
             URL of the webhook.
-        watched (`List[WebhookWatchedItem]`):
+        job (`JobSpec`, *optional*):
+            Specifications of the Job to trigger.
+        watched (`list[WebhookWatchedItem]`):
             List of items watched by the webhook, see [`WebhookWatchedItem`].
-        domains (`List[WEBHOOK_DOMAIN_T]`):
+        domains (`list[WEBHOOK_DOMAIN_T]`):
             List of domains the webhook is watching. Can be one of `["repo", "discussions"]`.
         secret (`str`, *optional*):
             Secret of the webhook.
@@ -510,9 +483,10 @@ class WebhookInfo:
     """
 
     id: str
-    url: str
-    watched: List[WebhookWatchedItem]
-    domains: List[constants.WEBHOOK_DOMAIN_T]
+    url: Optional[str]
+    job: Optional[JobSpec]
+    watched: list[WebhookWatchedItem]
+    domains: list[constants.WEBHOOK_DOMAIN_T]
     secret: Optional[str]
     disabled: bool
 
@@ -583,15 +557,12 @@ class RepoSibling:
     """
     Contains basic information about a repo file inside a repo on the Hub.
 
-    <Tip>
-
-    All attributes of this class are optional except `rfilename`. This is because only the file names are returned when
-    listing repositories on the Hub (with [`list_models`], [`list_datasets`] or [`list_spaces`]). If you need more
-    information like file size, blob id or lfs details, you must request them specifically from one repo at a time
-    (using [`model_info`], [`dataset_info`] or [`space_info`]) as it adds more constraints on the backend server to
-    retrieve these.
-
-    </Tip>
+    > [!TIP]
+    > All attributes of this class are optional except `rfilename`. This is because only the file names are returned when
+    > listing repositories on the Hub (with [`list_models`], [`list_datasets`] or [`list_spaces`]). If you need more
+    > information like file size, blob id or lfs details, you must request them specifically from one repo at a time
+    > (using [`model_info`], [`dataset_info`] or [`space_info`]) as it adds more constraints on the backend server to
+    > retrieve these.
 
     Attributes:
         rfilename (str):
@@ -704,29 +675,38 @@ class RepoFolder:
 
 @dataclass
 class InferenceProviderMapping:
-    status: Literal["live", "staging"]
-    provider_id: str
+    provider: "PROVIDER_T"  # Provider name
+    hf_model_id: str  # ID of the model on the Hugging Face Hub
+    provider_id: str  # ID of the model on the provider's side
+    status: Literal["error", "live", "staging"]
     task: str
 
+    adapter: Optional[str] = None
+    adapter_weights_path: Optional[str] = None
+    type: Optional[Literal["single-model", "tag-filter"]] = None
+
     def __init__(self, **kwargs):
-        self.status = kwargs.pop("status")
+        self.provider = kwargs.pop("provider")
+        self.hf_model_id = kwargs.pop("hf_model_id")
         self.provider_id = kwargs.pop("providerId")
+        self.status = kwargs.pop("status")
         self.task = kwargs.pop("task")
+
+        self.adapter = kwargs.pop("adapter", None)
+        self.adapter_weights_path = kwargs.pop("adapterWeightsPath", None)
+        self.type = kwargs.pop("type", None)
         self.__dict__.update(**kwargs)
 
 
 @dataclass
 class ModelInfo:
     """
-    Contains information about a model on the Hub.
+    Contains information about a model on the Hub. This object is returned by [`model_info`] and [`list_models`].
 
-    <Tip>
-
-    Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
-    In general, the more specific the query, the more information is returned. On the contrary, when listing models
-    using [`list_models`] only a subset of the attributes are returned.
-
-    </Tip>
+    > [!TIP]
+    > Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
+    > In general, the more specific the query, the more information is returned. On the contrary, when listing models
+    > using [`list_models`] only a subset of the attributes are returned.
 
     Attributes:
         id (`str`):
@@ -751,19 +731,17 @@ class ModelInfo:
         gated (`Literal["auto", "manual", False]`, *optional*):
             Is the repo gated.
             If so, whether there is manual or automatic approval.
-        gguf (`Dict`, *optional*):
+        gguf (`dict`, *optional*):
             GGUF information of the model.
-        inference (`Literal["cold", "frozen", "warm"]`, *optional*):
-            Status of the model on the inference API.
-            Warm models are available for immediate use. Cold models will be loaded on first inference call.
-            Frozen models are not available in Inference API.
-        inference_provider_mapping (`Dict`, *optional*):
-            Model's inference provider mapping.
+        inference (`Literal["warm"]`, *optional*):
+            Status of the model on Inference Providers. Warm if the model is served by at least one provider.
+        inference_provider_mapping (`list[InferenceProviderMapping]`, *optional*):
+            A list of [`InferenceProviderMapping`] ordered after the user's provider order.
         likes (`int`):
             Number of likes of the model.
         library_name (`str`, *optional*):
             Library associated with the model.
-        tags (`List[str]`):
+        tags (`list[str]`):
             List of tags of the model. Compared to `card_data.tags`, contains extra tags computed by the Hub
             (e.g. supported libraries, model's arXiv).
         pipeline_tag (`str`, *optional*):
@@ -772,9 +750,9 @@ class ModelInfo:
             Mask token used by the model.
         widget_data (`Any`, *optional*):
             Widget data associated with the model.
-        model_index (`Dict`, *optional*):
+        model_index (`dict`, *optional*):
             Model index for evaluation.
-        config (`Dict`, *optional*):
+        config (`dict`, *optional*):
             Model configuration.
         transformers_info (`TransformersInfo`, *optional*):
             Transformers-specific info (auto class, processor, etc.) associated with the model.
@@ -782,13 +760,13 @@ class ModelInfo:
             Trending score of the model.
         card_data (`ModelCardData`, *optional*):
             Model Card Metadata  as a [`huggingface_hub.repocard_data.ModelCardData`] object.
-        siblings (`List[RepoSibling]`):
+        siblings (`list[RepoSibling]`):
             List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the model.
-        spaces (`List[str]`, *optional*):
+        spaces (`list[str]`, *optional*):
             List of spaces using the model.
         safetensors (`SafeTensorsInfo`, *optional*):
             Model's safetensors information.
-        security_repo_status (`Dict`, *optional*):
+        security_repo_status (`dict`, *optional*):
             Model's security scan status.
     """
 
@@ -802,25 +780,24 @@ class ModelInfo:
     downloads: Optional[int]
     downloads_all_time: Optional[int]
     gated: Optional[Literal["auto", "manual", False]]
-    gguf: Optional[Dict]
-    inference: Optional[Literal["warm", "cold", "frozen"]]
-    inference_provider_mapping: Optional[Dict[str, InferenceProviderMapping]]
+    gguf: Optional[dict]
+    inference: Optional[Literal["warm"]]
+    inference_provider_mapping: Optional[list[InferenceProviderMapping]]
     likes: Optional[int]
     library_name: Optional[str]
-    tags: Optional[List[str]]
+    tags: Optional[list[str]]
     pipeline_tag: Optional[str]
     mask_token: Optional[str]
     card_data: Optional[ModelCardData]
     widget_data: Optional[Any]
-    model_index: Optional[Dict]
-    config: Optional[Dict]
+    model_index: Optional[dict]
+    config: Optional[dict]
     transformers_info: Optional[TransformersInfo]
     trending_score: Optional[int]
-    siblings: Optional[List[RepoSibling]]
-    spaces: Optional[List[str]]
+    siblings: Optional[list[RepoSibling]]
+    spaces: Optional[list[str]]
     safetensors: Optional[SafeTensorsInfo]
-    security_repo_status: Optional[Dict]
-    xet_enabled: Optional[bool]
+    security_repo_status: Optional[dict]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -840,12 +817,25 @@ class ModelInfo:
         self.gguf = kwargs.pop("gguf", None)
 
         self.inference = kwargs.pop("inference", None)
-        self.inference_provider_mapping = kwargs.pop("inferenceProviderMapping", None)
-        if self.inference_provider_mapping:
-            self.inference_provider_mapping = {
-                provider: InferenceProviderMapping(**value)
-                for provider, value in self.inference_provider_mapping.items()
-            }
+
+        # little hack to simplify Inference Providers logic and make it backward and forward compatible
+        # right now, API returns a dict on model_info and a list on list_models. Let's harmonize to list.
+        mapping = kwargs.pop("inferenceProviderMapping", None)
+        if isinstance(mapping, list):
+            self.inference_provider_mapping = [
+                InferenceProviderMapping(**{**value, "hf_model_id": self.id}) for value in mapping
+            ]
+        elif isinstance(mapping, dict):
+            self.inference_provider_mapping = [
+                InferenceProviderMapping(**{**value, "hf_model_id": self.id, "provider": provider})
+                for provider, value in mapping.items()
+            ]
+        elif mapping is None:
+            self.inference_provider_mapping = None
+        else:
+            raise ValueError(
+                f"Unexpected type for `inferenceProviderMapping`. Expecting `dict` or `list`. Got {mapping}."
+            )
 
         self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
@@ -895,7 +885,6 @@ class ModelInfo:
             else None
         )
         self.security_repo_status = kwargs.pop("securityRepoStatus", None)
-        self.xet_enabled = kwargs.pop("xetEnabled", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -906,15 +895,12 @@ class ModelInfo:
 @dataclass
 class DatasetInfo:
     """
-    Contains information about a dataset on the Hub.
+    Contains information about a dataset on the Hub. This object is returned by [`dataset_info`] and [`list_datasets`].
 
-    <Tip>
-
-    Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
-    In general, the more specific the query, the more information is returned. On the contrary, when listing datasets
-    using [`list_datasets`] only a subset of the attributes are returned.
-
-    </Tip>
+    > [!TIP]
+    > Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
+    > In general, the more specific the query, the more information is returned. On the contrary, when listing datasets
+    > using [`list_datasets`] only a subset of the attributes are returned.
 
     Attributes:
         id (`str`):
@@ -941,11 +927,11 @@ class DatasetInfo:
             Cumulated number of downloads of the model since its creation.
         likes (`int`):
             Number of likes of the dataset.
-        tags (`List[str]`):
+        tags (`list[str]`):
             List of tags of the dataset.
         card_data (`DatasetCardData`, *optional*):
             Model Card Metadata  as a [`huggingface_hub.repocard_data.DatasetCardData`] object.
-        siblings (`List[RepoSibling]`):
+        siblings (`list[RepoSibling]`):
             List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the dataset.
         paperswithcode_id (`str`, *optional*):
             Papers with code ID of the dataset.
@@ -965,11 +951,10 @@ class DatasetInfo:
     downloads_all_time: Optional[int]
     likes: Optional[int]
     paperswithcode_id: Optional[str]
-    tags: Optional[List[str]]
+    tags: Optional[list[str]]
     trending_score: Optional[int]
     card_data: Optional[DatasetCardData]
-    siblings: Optional[List[RepoSibling]]
-    xet_enabled: Optional[bool]
+    siblings: Optional[list[RepoSibling]]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1015,7 +1000,6 @@ class DatasetInfo:
             if siblings is not None
             else None
         )
-        self.xet_enabled = kwargs.pop("xetEnabled", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -1025,15 +1009,12 @@ class DatasetInfo:
 @dataclass
 class SpaceInfo:
     """
-    Contains information about a Space on the Hub.
+    Contains information about a Space on the Hub. This object is returned by [`space_info`] and [`list_spaces`].
 
-    <Tip>
-
-    Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
-    In general, the more specific the query, the more information is returned. On the contrary, when listing spaces
-    using [`list_spaces`] only a subset of the attributes are returned.
-
-    </Tip>
+    > [!TIP]
+    > Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
+    > In general, the more specific the query, the more information is returned. On the contrary, when listing spaces
+    > using [`list_spaces`] only a subset of the attributes are returned.
 
     Attributes:
         id (`str`):
@@ -1060,9 +1041,9 @@ class SpaceInfo:
             Subdomain of the Space.
         likes (`int`):
             Number of likes of the Space.
-        tags (`List[str]`):
+        tags (`list[str]`):
             List of tags of the Space.
-        siblings (`List[RepoSibling]`):
+        siblings (`list[RepoSibling]`):
             List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the Space.
         card_data (`SpaceCardData`, *optional*):
             Space Card Metadata  as a [`huggingface_hub.repocard_data.SpaceCardData`] object.
@@ -1070,9 +1051,9 @@ class SpaceInfo:
             Space runtime information as a [`huggingface_hub.hf_api.SpaceRuntime`] object.
         sdk (`str`, *optional*):
             SDK used by the Space.
-        models (`List[str]`, *optional*):
+        models (`list[str]`, *optional*):
             List of models used by the Space.
-        datasets (`List[str]`, *optional*):
+        datasets (`list[str]`, *optional*):
             List of datasets used by the Space.
         trending_score (`int`, *optional*):
             Trending score of the Space.
@@ -1090,14 +1071,13 @@ class SpaceInfo:
     subdomain: Optional[str]
     likes: Optional[int]
     sdk: Optional[str]
-    tags: Optional[List[str]]
-    siblings: Optional[List[RepoSibling]]
+    tags: Optional[list[str]]
+    siblings: Optional[list[RepoSibling]]
     trending_score: Optional[int]
     card_data: Optional[SpaceCardData]
     runtime: Optional[SpaceRuntime]
-    models: Optional[List[str]]
-    datasets: Optional[List[str]]
-    xet_enabled: Optional[bool]
+    models: Optional[list[str]]
+    datasets: Optional[list[str]]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1146,7 +1126,6 @@ class SpaceInfo:
         self.runtime = SpaceRuntime(runtime) if runtime else None
         self.models = kwargs.pop("models", None)
         self.datasets = kwargs.pop("datasets", None)
-        self.xet_enabled = kwargs.pop("xetEnabled", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -1156,16 +1135,16 @@ class SpaceInfo:
 @dataclass
 class CollectionItem:
     """
-    Contains information about an item of a Collection (model, dataset, Space or paper).
+    Contains information about an item of a Collection (model, dataset, Space, paper or collection).
 
     Attributes:
         item_object_id (`str`):
             Unique ID of the item in the collection.
         item_id (`str`):
-            ID of the underlying object on the Hub. Can be either a repo_id or a paper id
-            e.g. `"jbilcke-hf/ai-comic-factory"`, `"2307.09288"`.
+            ID of the underlying object on the Hub. Can be either a repo_id, a paper id or a collection slug.
+            e.g. `"jbilcke-hf/ai-comic-factory"`, `"2307.09288"`, `"celinah/cerebras-function-calling-682607169c35fbfa98b30b9a"`.
         item_type (`str`):
-            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"` or `"paper"`.
+            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"` or `"collection"`.
         position (`int`):
             Position of the item in the collection.
         note (`str`, *optional*):
@@ -1179,10 +1158,20 @@ class CollectionItem:
     note: Optional[str] = None
 
     def __init__(
-        self, _id: str, id: str, type: CollectionItemType_T, position: int, note: Optional[Dict] = None, **kwargs
+        self,
+        _id: str,
+        id: str,
+        type: CollectionItemType_T,
+        position: int,
+        note: Optional[dict] = None,
+        **kwargs,
     ) -> None:
         self.item_object_id: str = _id  # id in database
         self.item_id: str = id  # repo_id or paper id
+        # if the item is a collection, override item_id with the slug
+        slug = kwargs.get("slug")
+        if slug is not None:
+            self.item_id = slug  # collection slug
         self.item_type: CollectionItemType_T = type
         self.position: int = position
         self.note: str = note["text"] if note is not None else None
@@ -1200,7 +1189,7 @@ class Collection:
             Title of the collection. E.g. `"Recent models"`.
         owner (`str`):
             Owner of the collection. E.g. `"TheBloke"`.
-        items (`List[CollectionItem]`):
+        items (`list[CollectionItem]`):
             List of items in the collection.
         last_updated (`datetime`):
             Date of the last update of the collection.
@@ -1221,7 +1210,7 @@ class Collection:
     slug: str
     title: str
     owner: str
-    items: List[CollectionItem]
+    items: list[CollectionItem]
     last_updated: datetime
     position: int
     private: bool
@@ -1278,22 +1267,22 @@ class GitRefs:
     Object is returned by [`list_repo_refs`].
 
     Attributes:
-        branches (`List[GitRefInfo]`):
+        branches (`list[GitRefInfo]`):
             A list of [`GitRefInfo`] containing information about branches on the repo.
-        converts (`List[GitRefInfo]`):
+        converts (`list[GitRefInfo]`):
             A list of [`GitRefInfo`] containing information about "convert" refs on the repo.
             Converts are refs used (internally) to push preprocessed data in Dataset repos.
-        tags (`List[GitRefInfo]`):
+        tags (`list[GitRefInfo]`):
             A list of [`GitRefInfo`] containing information about tags on the repo.
-        pull_requests (`List[GitRefInfo]`, *optional*):
+        pull_requests (`list[GitRefInfo]`, *optional*):
             A list of [`GitRefInfo`] containing information about pull requests on the repo.
             Only returned if `include_prs=True` is set.
     """
 
-    branches: List[GitRefInfo]
-    converts: List[GitRefInfo]
-    tags: List[GitRefInfo]
-    pull_requests: Optional[List[GitRefInfo]] = None
+    branches: list[GitRefInfo]
+    converts: list[GitRefInfo]
+    tags: list[GitRefInfo]
+    pull_requests: Optional[list[GitRefInfo]] = None
 
 
 @dataclass
@@ -1304,7 +1293,7 @@ class GitCommitInfo:
     Attributes:
         commit_id (`str`):
             OID of the commit (e.g. `"e7da7f221d5bf496a48136c0cd264e630fe9fcc8"`)
-        authors (`List[str]`):
+        authors (`list[str]`):
             List of authors of the commit.
         created_at (`datetime`):
             Datetime when the commit was created.
@@ -1320,7 +1309,7 @@ class GitCommitInfo:
 
     commit_id: str
 
-    authors: List[str]
+    authors: list[str]
     created_at: datetime
     title: str
     message: str
@@ -1339,11 +1328,11 @@ class UserLikes:
             Name of the user for which we fetched the likes.
         total (`int`):
             Total number of likes.
-        datasets (`List[str]`):
+        datasets (`list[str]`):
             List of datasets liked by the user (as repo_ids).
-        models (`List[str]`):
+        models (`list[str]`):
             List of models liked by the user (as repo_ids).
-        spaces (`List[str]`):
+        spaces (`list[str]`):
             List of spaces liked by the user (as repo_ids).
     """
 
@@ -1352,9 +1341,9 @@ class UserLikes:
     total: int
 
     # User likes
-    datasets: List[str]
-    models: List[str]
-    spaces: List[str]
+    datasets: list[str]
+    models: list[str]
+    spaces: list[str]
 
 
 @dataclass
@@ -1369,16 +1358,48 @@ class Organization:
             Name of the organization on the Hub (unique).
         fullname (`str`):
             Organization's full name.
+        details (`str`, *optional*):
+            Organization's description.
+        is_verified (`bool`, *optional*):
+            Whether the organization is verified.
+        is_following (`bool`, *optional*):
+            Whether the authenticated user follows this organization.
+        num_users (`int`, *optional*):
+            Number of members in the organization.
+        num_models (`int`, *optional*):
+            Number of models owned by the organization.
+        num_spaces (`int`, *optional*):
+            Number of Spaces owned by the organization.
+        num_datasets (`int`, *optional*):
+            Number of datasets owned by the organization.
+        num_followers (`int`, *optional*):
+            Number of followers of the organization.
     """
 
     avatar_url: str
     name: str
     fullname: str
+    details: Optional[str] = None
+    is_verified: Optional[bool] = None
+    is_following: Optional[bool] = None
+    num_users: Optional[int] = None
+    num_models: Optional[int] = None
+    num_spaces: Optional[int] = None
+    num_datasets: Optional[int] = None
+    num_followers: Optional[int] = None
 
     def __init__(self, **kwargs) -> None:
         self.avatar_url = kwargs.pop("avatarUrl", "")
         self.name = kwargs.pop("name", "")
         self.fullname = kwargs.pop("fullname", "")
+        self.details = kwargs.pop("details", None)
+        self.is_verified = kwargs.pop("isVerified", None)
+        self.is_following = kwargs.pop("isFollowing", None)
+        self.num_users = kwargs.pop("numUsers", None)
+        self.num_models = kwargs.pop("numModels", None)
+        self.num_spaces = kwargs.pop("numSpaces", None)
+        self.num_datasets = kwargs.pop("numDatasets", None)
+        self.num_followers = kwargs.pop("numFollowers", None)
 
         # forward compatibility
         self.__dict__.update(**kwargs)
@@ -1440,7 +1461,7 @@ class User:
     num_likes: Optional[int] = None
     num_following: Optional[int] = None
     num_followers: Optional[int] = None
-    orgs: List[Organization] = field(default_factory=list)
+    orgs: list[Organization] = field(default_factory=list)
 
     def __init__(self, **kwargs) -> None:
         self.username = kwargs.pop("user", "")
@@ -1473,7 +1494,7 @@ class PaperInfo:
     Attributes:
         id (`str`):
             arXiv paper ID.
-        authors (`List[str]`, **optional**):
+        authors (`list[str]`, **optional**):
             Names of paper authors
         published_at (`datetime`, **optional**):
             Date paper published.
@@ -1496,7 +1517,7 @@ class PaperInfo:
     """
 
     id: str
-    authors: Optional[List[str]]
+    authors: Optional[list[str]]
     published_at: Optional[datetime]
     title: Optional[str]
     summary: Optional[str]
@@ -1524,6 +1545,67 @@ class PaperInfo:
         self.submitted_at = parse_datetime(submitted_at) if submitted_at else None
         submitted_by = kwargs.pop("submittedBy", None) or kwargs.pop("submittedOnDailyBy", None)
         self.submitted_by = User(**submitted_by) if submitted_by else None
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
+class LFSFileInfo:
+    """
+    Contains information about a file stored as LFS on a repo on the Hub.
+
+    Used in the context of listing and permanently deleting LFS files from a repo to free-up space.
+    See [`list_lfs_files`] and [`permanently_delete_lfs_files`] for more details.
+
+    Git LFS files are tracked using SHA-256 object IDs, rather than file paths, to optimize performance
+    This approach is necessary because a single object can be referenced by multiple paths across different commits,
+    making it impractical to search and resolve these connections. Check out [our documentation](https://huggingface.co/docs/hub/storage-limits#advanced-track-lfs-file-references)
+    to learn how to know which filename(s) is(are) associated with each SHA.
+
+    Attributes:
+        file_oid (`str`):
+            SHA-256 object ID of the file. This is the identifier to pass when permanently deleting the file.
+        filename (`str`):
+            Possible filename for the LFS object. See the note above for more information.
+        oid (`str`):
+            OID of the LFS object.
+        pushed_at (`datetime`):
+            Date the LFS object was pushed to the repo.
+        ref (`str`, *optional*):
+            Ref where the LFS object has been pushed (if any).
+        size (`int`):
+            Size of the LFS object.
+
+    Example:
+        ```py
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
+
+        # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+        # e.g. select only LFS files in the "checkpoints" folder
+        >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
+
+        # Permanently delete LFS files
+        >>> api.permanently_delete_lfs_files("username/my-cool-repo", lfs_files_to_delete)
+        ```
+    """
+
+    file_oid: str
+    filename: str
+    oid: str
+    pushed_at: datetime
+    ref: Optional[str]
+    size: int
+
+    def __init__(self, **kwargs) -> None:
+        self.file_oid = kwargs.pop("fileOid")
+        self.filename = kwargs.pop("filename")
+        self.oid = kwargs.pop("oid")
+        self.pushed_at = parse_datetime(kwargs.pop("pushedAt"))
+        self.ref = kwargs.pop("ref", None)
+        self.size = kwargs.pop("size")
 
         # forward compatibility
         self.__dict__.update(**kwargs)
@@ -1574,7 +1656,7 @@ class HfApi:
     Args:
         endpoint (`str`, *optional*):
             Endpoint of the Hub. Defaults to <https://huggingface.co>.
-        token (Union[bool, str, None], optional):
+        token (`bool` or `str`, *optional*):
             A valid user access token (string). Defaults to the locally saved
             token, which is the recommended method for authentication (see
             https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -1599,8 +1681,8 @@ class HfApi:
         token: Union[str, bool, None] = None,
         library_name: Optional[str] = None,
         library_version: Optional[str] = None,
-        user_agent: Union[Dict, str, None] = None,
-        headers: Optional[Dict[str, str]] = None,
+        user_agent: Union[dict, str, None] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> None:
         self.endpoint = endpoint if endpoint is not None else constants.ENDPOINT
         self.token = token
@@ -1651,12 +1733,12 @@ class HfApi:
         return self._thread_pool.submit(fn, *args, **kwargs)
 
     @validate_hf_hub_args
-    def whoami(self, token: Union[bool, str, None] = None) -> Dict:
+    def whoami(self, token: Union[bool, str, None] = None) -> dict:
         """
         Call HF API to know "whoami".
 
         Args:
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -1670,62 +1752,24 @@ class HfApi:
         )
         try:
             hf_raise_for_status(r)
-        except HTTPError as e:
-            error_message = "Invalid user token."
-            # Check which token is the effective one and generate the error message accordingly
-            if effective_token == _get_token_from_google_colab():
-                error_message += " The token from Google Colab vault is invalid. Please update it from the UI."
-            elif effective_token == _get_token_from_environment():
-                error_message += (
-                    " The token from HF_TOKEN environment variable is invalid. "
-                    "Note that HF_TOKEN takes precedence over `huggingface-cli login`."
-                )
-            elif effective_token == _get_token_from_file():
-                error_message += " The token stored is invalid. Please run `huggingface-cli login` to update it."
-            raise HTTPError(error_message, request=e.request, response=e.response) from e
+        except HfHubHTTPError as e:
+            if e.response.status_code == 401:
+                error_message = "Invalid user token."
+                # Check which token is the effective one and generate the error message accordingly
+                if effective_token == _get_token_from_google_colab():
+                    error_message += " The token from Google Colab vault is invalid. Please update it from the UI."
+                elif effective_token == _get_token_from_environment():
+                    error_message += (
+                        " The token from HF_TOKEN environment variable is invalid. "
+                        "Note that HF_TOKEN takes precedence over `hf auth login`."
+                    )
+                elif effective_token == _get_token_from_file():
+                    error_message += " The token stored is invalid. Please run `hf auth login` to update it."
+                raise HfHubHTTPError(error_message, response=e.response) from e
+            raise
         return r.json()
 
-    @_deprecate_method(
-        version="1.0",
-        message=(
-            "Permissions are more complex than when `get_token_permission` was first introduced. "
-            "OAuth and fine-grain tokens allows for more detailed permissions. "
-            "If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key."
-        ),
-    )
-    def get_token_permission(
-        self, token: Union[bool, str, None] = None
-    ) -> Literal["read", "write", "fineGrained", None]:
-        """
-        Check if a given `token` is valid and return its permissions.
-
-        <Tip warning={true}>
-
-        This method is deprecated and will be removed in version 1.0. Permissions are more complex than when
-        `get_token_permission` was first introduced. OAuth and fine-grain tokens allows for more detailed permissions.
-        If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key.
-
-        </Tip>
-
-        For more details about tokens, please refer to https://huggingface.co/docs/hub/security-tokens#what-are-user-access-tokens.
-
-        Args:
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-
-        Returns:
-            `Literal["read", "write", "fineGrained", None]`: Permission granted by the token ("read" or "write"). Returns `None` if no
-            token passed, if token is invalid or if role is not returned by the server. This typically happens when the token is an OAuth token.
-        """
-        try:
-            return self.whoami(token=token)["auth"]["accessToken"]["role"]
-        except (LocalTokenNotFoundError, HTTPError, KeyError):
-            return None
-
-    def get_model_tags(self) -> Dict:
+    def get_model_tags(self) -> dict:
         """
         List all valid model tags as a nested namespace object
         """
@@ -1734,7 +1778,7 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
-    def get_dataset_tags(self) -> Dict:
+    def get_dataset_tags(self) -> dict:
         """
         List all valid dataset tags as a nested namespace object.
         """
@@ -1750,23 +1794,21 @@ class HfApi:
         # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
+        apps: Optional[Union[str, list[str]]] = None,
         gated: Optional[bool] = None,
-        inference: Optional[Literal["cold", "frozen", "warm"]] = None,
-        library: Optional[Union[str, List[str]]] = None,
-        language: Optional[Union[str, List[str]]] = None,
+        inference: Optional[Literal["warm"]] = None,
+        inference_provider: Optional[Union[Literal["all"], "PROVIDER_T", list["PROVIDER_T"]]] = None,
         model_name: Optional[str] = None,
-        task: Optional[Union[str, List[str]]] = None,
-        trained_dataset: Optional[Union[str, List[str]]] = None,
-        tags: Optional[Union[str, List[str]]] = None,
+        trained_dataset: Optional[Union[str, list[str]]] = None,
         search: Optional[str] = None,
         pipeline_tag: Optional[str] = None,
-        emissions_thresholds: Optional[Tuple[float, float]] = None,
+        emissions_thresholds: Optional[tuple[float, float]] = None,
         # Sorting and pagination parameters
         sort: Union[Literal["last_modified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
-        expand: Optional[List[ExpandModelProperty_T]] = None,
+        expand: Optional[list[ExpandModelProperty_T]] = None,
         full: Optional[bool] = None,
         cardData: bool = False,
         fetch_config: bool = False,
@@ -1778,35 +1820,28 @@ class HfApi:
         Args:
             filter (`str` or `Iterable[str]`, *optional*):
                 A string or list of string to filter models on the Hub.
+                Models can be filtered by library, language, task, tags, and more.
             author (`str`, *optional*):
                 A string which identify the author (user or organization) of the
                 returned models.
+            apps (`str` or `List`, *optional*):
+                A string or list of strings to filter models on the Hub that
+                support the specified apps. Example values include `"ollama"` or `["ollama", "vllm"]`.
             gated (`bool`, *optional*):
                 A boolean to filter models on the Hub that are gated or not. By default, all models are returned.
                 If `gated=True` is passed, only gated models are returned.
                 If `gated=False` is passed, only non-gated models are returned.
-            inference (`Literal["cold", "frozen", "warm"]`, *optional*):
-                A string to filter models on the Hub by their state on the Inference API.
-                Warm models are available for immediate use. Cold models will be loaded on first inference call.
-                Frozen models are not available in Inference API.
-            library (`str` or `List`, *optional*):
-                A string or list of strings of foundational libraries models were
-                originally trained from, such as pytorch, tensorflow, or allennlp.
-            language (`str` or `List`, *optional*):
-                A string or list of strings of languages, both by name and country
-                code, such as "en" or "English"
+            inference (`Literal["warm"]`, *optional*):
+                If "warm", filter models on the Hub currently served by at least one provider.
+            inference_provider (`Literal["all"]` or `str`, *optional*):
+                A string to filter models on the Hub that are served by a specific provider.
+                Pass `"all"` to get all models served by at least one provider.
             model_name (`str`, *optional*):
                 A string that contain complete or partial names for models on the
                 Hub, such as "bert" or "bert-base-cased"
-            task (`str` or `List`, *optional*):
-                A string or list of strings of tasks models were designed for, such
-                as: "fill-mask" or "automatic-speech-recognition"
             trained_dataset (`str` or `List`, *optional*):
                 A string tag or a list of string tags of the trained dataset for a
                 model on the Hub.
-            tags (`str` or `List`, *optional*):
-                A string tag or a list of tags to filter models on the Hub by, such
-                as `text-generation` or `spacy`.
             search (`str`, *optional*):
                 A string that will be contained in the returned model ids.
             pipeline_tag (`str`, *optional*):
@@ -1823,10 +1858,10 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of models fetched. Leaving this option
                 to `None` fetches all models.
-            expand (`List[ExpandModelProperty_T]`, *optional*):
+            expand (`list[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
+                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, and `"resourceGroup"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -1838,7 +1873,7 @@ class HfApi:
             fetch_config (`bool`, *optional*):
                 Whether to fetch the model configs as well. This is not included
                 in `full` due to its size.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -1848,7 +1883,7 @@ class HfApi:
         Returns:
             `Iterable[ModelInfo]`: an iterable of [`huggingface_hub.hf_api.ModelInfo`] objects.
 
-        Example usage with the `filter` argument:
+        Example:
 
         ```python
         >>> from huggingface_hub import HfApi
@@ -1858,66 +1893,55 @@ class HfApi:
         # List all models
         >>> api.list_models()
 
-        # List only the text classification models
+        # List text classification models
         >>> api.list_models(filter="text-classification")
 
-        # List only models from the AllenNLP library
-        >>> api.list_models(filter="allennlp")
-        ```
+        # List models from the KerasHub library
+        >>> api.list_models(filter="keras-hub")
 
-        Example usage with the `search` argument:
+        # List models served by Cohere
+        >>> api.list_models(inference_provider="cohere")
 
-        ```python
-        >>> from huggingface_hub import HfApi
-
-        >>> api = HfApi()
-
-        # List all models with "bert" in their name
+        # List models with "bert" in their name
         >>> api.list_models(search="bert")
 
-        # List all models with "bert" in their name made by google
+        # List models with "bert" in their name and pushed by google
         >>> api.list_models(search="bert", author="google")
         ```
         """
         if expand and (full or cardData or fetch_config):
             raise ValueError("`expand` cannot be used if `full`, `cardData` or `fetch_config` are passed.")
 
-        if emissions_thresholds is not None and cardData is None:
+        if emissions_thresholds is not None and not cardData:
             raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
 
         path = f"{self.endpoint}/api/models"
         headers = self._build_hf_headers(token=token)
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
 
         # Build the filter list
-        filter_list: List[str] = []
+        filter_list: list[str] = []
         if filter:
             filter_list.extend([filter] if isinstance(filter, str) else filter)
-        if library:
-            filter_list.extend([library] if isinstance(library, str) else library)
-        if task:
-            filter_list.extend([task] if isinstance(task, str) else task)
         if trained_dataset:
-            if isinstance(trained_dataset, str):
-                trained_dataset = [trained_dataset]
-            for dataset in trained_dataset:
-                if not dataset.startswith("dataset:"):
-                    dataset = f"dataset:{dataset}"
-                filter_list.append(dataset)
-        if language:
-            filter_list.extend([language] if isinstance(language, str) else language)
-        if tags:
-            filter_list.extend([tags] if isinstance(tags, str) else tags)
+            datasets = [trained_dataset] if isinstance(trained_dataset, str) else trained_dataset
+            filter_list.extend(f"dataset:{d}" if not d.startswith("dataset:") else d for d in datasets)
         if len(filter_list) > 0:
             params["filter"] = filter_list
 
         # Handle other query params
         if author:
             params["author"] = author
+        if apps:
+            if isinstance(apps, str):
+                apps = [apps]
+            params["apps"] = apps
         if gated is not None:
             params["gated"] = gated
         if inference is not None:
             params["inference"] = inference
+        if inference_provider is not None:
+            params["inference_provider"] = inference_provider
         if pipeline_tag:
             params["pipeline_tag"] = pipeline_tag
         search_list = []
@@ -1963,6 +1987,7 @@ class HfApi:
             if emissions_thresholds is None or _is_emission_within_threshold(model_info, *emissions_thresholds):
                 yield model_info
 
+    @_deprecate_arguments(version="1.0", deprecated_args=["tags"], custom_message="Use `filter` instead.")
     @validate_hf_hub_args
     def list_datasets(
         self,
@@ -1970,25 +1995,26 @@ class HfApi:
         # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
-        benchmark: Optional[Union[str, List[str]]] = None,
+        benchmark: Optional[Union[str, list[str]]] = None,
         dataset_name: Optional[str] = None,
         gated: Optional[bool] = None,
-        language_creators: Optional[Union[str, List[str]]] = None,
-        language: Optional[Union[str, List[str]]] = None,
-        multilinguality: Optional[Union[str, List[str]]] = None,
-        size_categories: Optional[Union[str, List[str]]] = None,
-        tags: Optional[Union[str, List[str]]] = None,
-        task_categories: Optional[Union[str, List[str]]] = None,
-        task_ids: Optional[Union[str, List[str]]] = None,
+        language_creators: Optional[Union[str, list[str]]] = None,
+        language: Optional[Union[str, list[str]]] = None,
+        multilinguality: Optional[Union[str, list[str]]] = None,
+        size_categories: Optional[Union[str, list[str]]] = None,
+        task_categories: Optional[Union[str, list[str]]] = None,
+        task_ids: Optional[Union[str, list[str]]] = None,
         search: Optional[str] = None,
         # Sorting and pagination parameters
         sort: Optional[Union[Literal["last_modified"], str]] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
-        expand: Optional[List[ExpandDatasetProperty_T]] = None,
+        expand: Optional[list[ExpandDatasetProperty_T]] = None,
         full: Optional[bool] = None,
         token: Union[bool, str, None] = None,
+        # Deprecated arguments - use `filter` instead
+        tags: Optional[Union[str, list[str]]] = None,
     ) -> Iterable[DatasetInfo]:
         """
         List datasets hosted on the Huggingface Hub, given some filters.
@@ -2023,7 +2049,7 @@ class HfApi:
                 the Hub by the size of the dataset such as `100K<n<1M` or
                 `1M<n<10M`.
             tags (`str` or `List`, *optional*):
-                A string tag or a list of tags to filter datasets on the Hub.
+                Deprecated. Pass tags in `filter` to filter datasets by tags.
             task_categories (`str` or `List`, *optional*):
                 A string or list of strings that can be used to identify datasets on
                 the Hub by the designed task, such as `audio_classification` or
@@ -2043,15 +2069,15 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
-            expand (`List[ExpandDatasetProperty_T]`, *optional*):
+            expand (`list[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `last_modified`,
                 the `card_data` and  the files. Can contain useful information such as the
                 PapersWithCode ID.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -2103,7 +2129,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/datasets"
         headers = self._build_hf_headers(token=token)
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
 
         # Build `filter` list
         filter_list = []
@@ -2190,7 +2216,7 @@ class HfApi:
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
-        expand: Optional[List[ExpandSpaceProperty_T]] = None,
+        expand: Optional[list[ExpandSpaceProperty_T]] = None,
         full: Optional[bool] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[SpaceInfo]:
@@ -2221,14 +2247,14 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of Spaces fetched. Leaving this option
                 to `None` fetches all Spaces.
-            expand (`List[ExpandSpaceProperty_T]`, *optional*):
+            expand (`list[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
             full (`bool`, *optional*):
                 Whether to fetch all Spaces data, including the `last_modified`, `siblings`
                 and `card_data` fields.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -2242,7 +2268,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/spaces"
         headers = self._build_hf_headers(token=token)
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if filter is not None:
             params["filter"] = filter
         if author is not None:
@@ -2303,7 +2329,7 @@ class HfApi:
             repo_id (`str`):
                 The repository to unlike. Example: `"user/my-cool-model"`.
 
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -2353,7 +2379,7 @@ class HfApi:
         Args:
             user (`str`, *optional*):
                 Name of the user for which you want to fetch the likes.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -2428,7 +2454,7 @@ class HfApi:
             repo_id (`str`):
                 The repository to retrieve . Example: `"user/my-cool-model"`.
 
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -2459,7 +2485,7 @@ class HfApi:
         timeout: Optional[float] = None,
         securityStatus: Optional[bool] = None,
         files_metadata: bool = False,
-        expand: Optional[List[ExpandModelProperty_T]] = None,
+        expand: Optional[list[ExpandModelProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> ModelInfo:
         """
@@ -2482,11 +2508,11 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
-            expand (`List[ExpandModelProperty_T]`, *optional*):
+            expand (`list[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
-            token (Union[bool, str, None], optional):
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"`, and `"resourceGroup"`.
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -2495,17 +2521,14 @@ class HfApi:
         Returns:
             [`huggingface_hub.hf_api.ModelInfo`]: The model repository information.
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-              If the revision to download from cannot be found.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.RevisionNotFoundError`]
+        >       If the revision to download from cannot be found.
         """
         if expand and (securityStatus or files_metadata):
             raise ValueError("`expand` cannot be used if `securityStatus` or `files_metadata` are set.")
@@ -2516,7 +2539,7 @@ class HfApi:
             if revision is None
             else (f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}")
         )
-        params: Dict = {}
+        params: dict = {}
         if securityStatus:
             params["securityStatus"] = True
         if files_metadata:
@@ -2536,7 +2559,7 @@ class HfApi:
         revision: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
-        expand: Optional[List[ExpandDatasetProperty_T]] = None,
+        expand: Optional[list[ExpandDatasetProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> DatasetInfo:
         """
@@ -2556,11 +2579,11 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
-            expand (`List[ExpandDatasetProperty_T]`, *optional*):
+            expand (`list[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `files_metadata` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`,`"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
-            token (Union[bool, str, None], optional):
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`,`"usedStorage"`, and `"resourceGroup"`.
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -2569,17 +2592,14 @@ class HfApi:
         Returns:
             [`hf_api.DatasetInfo`]: The dataset repository information.
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-              If the revision to download from cannot be found.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.RevisionNotFoundError`]
+        >       If the revision to download from cannot be found.
         """
         if expand and files_metadata:
             raise ValueError("`expand` cannot be used if `files_metadata` is set.")
@@ -2590,7 +2610,7 @@ class HfApi:
             if revision is None
             else (f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}")
         )
-        params: Dict = {}
+        params: dict = {}
         if files_metadata:
             params["blobs"] = True
         if expand:
@@ -2609,7 +2629,7 @@ class HfApi:
         revision: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
-        expand: Optional[List[ExpandSpaceProperty_T]] = None,
+        expand: Optional[list[ExpandSpaceProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> SpaceInfo:
         """
@@ -2629,11 +2649,11 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
-            expand (`List[ExpandSpaceProperty_T]`, *optional*):
+            expand (`list[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, `"resourceGroup"` and `"xetEnabled"`.
-            token (Union[bool, str, None], optional):
+                Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -2642,17 +2662,14 @@ class HfApi:
         Returns:
             [`~hf_api.SpaceInfo`]: The space repository information.
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-              If the revision to download from cannot be found.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.RevisionNotFoundError`]
+        >       If the revision to download from cannot be found.
         """
         if expand and files_metadata:
             raise ValueError("`expand` cannot be used if `files_metadata` is set.")
@@ -2663,7 +2680,7 @@ class HfApi:
             if revision is None
             else (f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}")
         )
-        params: Dict = {}
+        params: dict = {}
         if files_metadata:
             params["blobs"] = True
         if expand:
@@ -2708,7 +2725,7 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -2719,17 +2736,14 @@ class HfApi:
             [`huggingface_hub.hf_api.DatasetInfo`], [`huggingface_hub.hf_api.ModelInfo`]
             or [`huggingface_hub.hf_api.SpaceInfo`] object.
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-              If the revision to download from cannot be found.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.RevisionNotFoundError`]
+        >       If the revision to download from cannot be found.
         """
         if repo_type is None or repo_type == "model":
             method = self.model_info
@@ -2766,7 +2780,7 @@ class HfApi:
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
                 `None` or `"model"` if getting repository info from a model. Default is `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -2813,7 +2827,7 @@ class HfApi:
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
                 `None` or `"model"` if getting repository info from a model. Default is `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -2864,7 +2878,7 @@ class HfApi:
                 `None` or `"model"` if getting repository info from a model. Default is `None`.
             revision (`str`, *optional*):
                 The revision of the repository from which to get the information. Defaults to `"main"` branch.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -2894,7 +2908,7 @@ class HfApi:
             return True
         except GatedRepoError:  # raise specifically on gated repo
             raise
-        except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
+        except (RepositoryNotFoundError, RemoteEntryNotFoundError, RevisionNotFoundError):
             return False
 
     @validate_hf_hub_args
@@ -2905,7 +2919,7 @@ class HfApi:
         revision: Optional[str] = None,
         repo_type: Optional[str] = None,
         token: Union[str, bool, None] = None,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Get the list of files in a given repo.
 
@@ -2917,14 +2931,14 @@ class HfApi:
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or space, `None` or `"model"` if uploading to
                 a model. Default is `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[str]`: the list of files in a given repository.
+            `list[str]`: the list of files in a given repository.
         """
         return [
             f.rfilename
@@ -2967,7 +2981,7 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repository from which to get the tree (`"model"`, `"dataset"` or `"space"`.
                 Defaults to `"model"`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -2984,7 +2998,7 @@ class HfApi:
                 does not exist.
             [`~utils.RevisionNotFoundError`]:
                 If revision is not found (error 404) on the repo.
-            [`~utils.EntryNotFoundError`]:
+            [`~utils.RemoteEntryNotFoundError`]:
                 If the tree (folder) does not exist (error 404) on the repo.
 
         Examples:
@@ -3087,7 +3101,7 @@ class HfApi:
                 `None` or `"model"` if listing from a model. Default is `None`.
             include_pull_requests (`bool`, *optional*):
                 Whether to include refs from pull requests in the list. Defaults to `False`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -3126,7 +3140,7 @@ class HfApi:
         hf_raise_for_status(response)
         data = response.json()
 
-        def _format_as_git_ref_info(item: Dict) -> GitRefInfo:
+        def _format_as_git_ref_info(item: dict) -> GitRefInfo:
             return GitRefInfo(name=item["name"], ref=item["ref"], target_commit=item["targetCommit"])
 
         return GitRefs(
@@ -3147,7 +3161,7 @@ class HfApi:
         token: Union[bool, str, None] = None,
         revision: Optional[str] = None,
         formatted: bool = False,
-    ) -> List[GitCommitInfo]:
+    ) -> list[GitCommitInfo]:
         """
         Get the list of commits of a given revision for a repo on the Hub.
 
@@ -3159,7 +3173,7 @@ class HfApi:
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if listing commits from a dataset or a Space, `None` or `"model"` if
                 listing from a model. Default is `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -3194,7 +3208,7 @@ class HfApi:
         ```
 
         Returns:
-            List[[`GitCommitInfo`]]: list of objects containing information about the commits for a repo on the Hub.
+            list[[`GitCommitInfo`]]: list of objects containing information about the commits for a repo on the Hub.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:
@@ -3228,20 +3242,20 @@ class HfApi:
     def get_paths_info(
         self,
         repo_id: str,
-        paths: Union[List[str], str],
+        paths: Union[list[str], str],
         *,
         expand: bool = False,
         revision: Optional[str] = None,
         repo_type: Optional[str] = None,
         token: Union[str, bool, None] = None,
-    ) -> List[Union[RepoFile, RepoFolder]]:
+    ) -> list[Union[RepoFile, RepoFolder]]:
         """
         Get information about a repo's paths.
 
         Args:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated by a `/`.
-            paths (`Union[List[str], str]`, *optional*):
+            paths (`Union[list[str], str]`, *optional*):
                 The paths to get information about. If a path do not exist, it is ignored without raising
                 an exception.
             expand (`bool`, *optional*, defaults to `False`):
@@ -3254,14 +3268,14 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repository from which to get the information (`"model"`, `"dataset"` or `"space"`.
                 Defaults to `"model"`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[Union[RepoFile, RepoFolder]]`:
+            `list[Union[RepoFile, RepoFolder]]`:
                 The information about the paths, as a list of [`RepoFile`] and [`RepoFolder`] objects.
 
         Raises:
@@ -3316,18 +3330,12 @@ class HfApi:
         Squashing the repo history is useful when you know you'll make hundreds of commits and you don't want to
         clutter the history. Squashing commits can only be performed from the head of a branch.
 
-        <Tip warning={true}>
+        > [!WARNING]
+        > Once squashed, the commit history cannot be retrieved. This is a non-revertible operation.
 
-        Once squashed, the commit history cannot be retrieved. This is a non-revertible operation.
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        Once the history of a branch has been squashed, it is not possible to merge it back into another branch since
-        their history will have diverged.
-
-        </Tip>
+        > [!WARNING]
+        > Once the history of a branch has been squashed, it is not possible to merge it back into another branch since
+        > their history will have diverged.
 
         Args:
             repo_id (`str`):
@@ -3339,7 +3347,7 @@ class HfApi:
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if listing commits from a dataset or a Space, `None` or `"model"` if
                 listing from a model. Default is `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -3388,6 +3396,128 @@ class HfApi:
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
+    def list_lfs_files(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[LFSFileInfo]:
+        """
+        List all LFS files in a repo on the Hub.
+
+        This is primarily useful to count how much storage a repo is using and to eventually clean up large files
+        with [`permanently_delete_lfs_files`]. Note that this would be a permanent action that will affect all commits
+        referencing this deleted files and that cannot be undone.
+
+        Args:
+            repo_id (`str`):
+                The repository for which you are listing LFS files.
+            repo_type (`str`, *optional*):
+                Type of repository. Set to `"dataset"` or `"space"` if listing from a dataset or space, `None` or
+                `"model"` if listing from a model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[LFSFileInfo]`: An iterator of [`LFSFileInfo`] objects.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
+
+            # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            # e.g. select only LFS files in the "checkpoints" folder
+            >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
+
+            # Permanently delete LFS files
+            >>> api.permanently_delete_lfs_files("username/my-cool-repo", lfs_files_to_delete)
+            ```
+        """
+        # Prepare request
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL
+        url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/lfs-files"
+        headers = self._build_hf_headers(token=token)
+
+        # Paginate over LFS items
+        for item in paginate(url, params={}, headers=headers):
+            yield LFSFileInfo(**item)
+
+    @validate_hf_hub_args
+    def permanently_delete_lfs_files(
+        self,
+        repo_id: str,
+        lfs_files: Iterable[LFSFileInfo],
+        *,
+        rewrite_history: bool = True,
+        repo_type: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        """
+        Permanently delete LFS files from a repo on the Hub.
+
+        > [!WARNING]
+        > This is a permanent action that will affect all commits referencing the deleted files and might corrupt your
+        > repository. This is a non-revertible operation. Use it only if you know what you are doing.
+
+        Args:
+            repo_id (`str`):
+                The repository for which you are listing LFS files.
+            lfs_files (`Iterable[LFSFileInfo]`):
+                An iterable of [`LFSFileInfo`] items to permanently delete from the repo. Use [`list_lfs_files`] to list
+                all LFS files from a repo.
+            rewrite_history (`bool`, *optional*, default to `True`):
+                Whether to rewrite repository history to remove file pointers referencing the deleted LFS files (recommended).
+            repo_type (`str`, *optional*):
+                Type of repository. Set to `"dataset"` or `"space"` if listing from a dataset or space, `None` or
+                `"model"` if listing from a model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
+
+            # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            # e.g. select only LFS files in the "checkpoints" folder
+            >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
+
+            # Permanently delete LFS files
+            >>> api.permanently_delete_lfs_files("username/my-cool-repo", lfs_files_to_delete)
+            ```
+        """
+        # Prepare request
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL
+        url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/lfs-files/batch"
+        headers = self._build_hf_headers(token=token)
+
+        # Delete LFS items by batches of 1000
+        for batch in chunk_iterable(lfs_files, 1000):
+            shas = [item.file_oid for item in batch]
+            if len(shas) == 0:
+                return
+            payload = {
+                "deletions": {
+                    "sha": shas,
+                    "rewriteHistory": rewrite_history,
+                }
+            }
+            response = get_session().post(url, headers=headers, json=payload)
+            hf_raise_for_status(response)
+
+    @validate_hf_hub_args
     def create_repo(
         self,
         repo_id: str,
@@ -3401,8 +3531,8 @@ class HfApi:
         space_hardware: Optional[SpaceHardware] = None,
         space_storage: Optional[SpaceStorage] = None,
         space_sleep_time: Optional[int] = None,
-        space_secrets: Optional[List[Dict[str, str]]] = None,
-        space_variables: Optional[List[Dict[str, str]]] = None,
+        space_secrets: Optional[list[dict[str, str]]] = None,
+        space_variables: Optional[list[dict[str, str]]] = None,
     ) -> RepoUrl:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -3410,7 +3540,7 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -3424,7 +3554,7 @@ class HfApi:
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
             resource_group_id (`str`, *optional*):
-                Resource group in which to create the repo. Resource groups is only available for organizations and
+                Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations and
                 allow to define which members of the organization can access the resource. The ID of a resource group
                 can be found in the URL of the resource's page on the Hub (e.g. `"66670e5163145ca562cb1988"`).
                 To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
@@ -3439,10 +3569,10 @@ class HfApi:
                 your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
                 the sleep time (value is fixed to 48 hours of inactivity).
                 See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
-            space_secrets (`List[Dict[str, str]]`, *optional*):
+            space_secrets (`list[dict[str, str]]`, *optional*):
                 A list of secret keys to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
-            space_variables (`List[Dict[str, str]]`, *optional*):
+            space_variables (`list[dict[str, str]]`, *optional*):
                 A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
 
@@ -3457,7 +3587,7 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError("Invalid repo type")
 
-        json: Dict[str, Any] = {"name": name, "organization": organization}
+        json: dict[str, Any] = {"name": name, "organization": organization}
         if private is not None:
             json["private"] = private
         if repo_type is not None:
@@ -3493,11 +3623,6 @@ class HfApi:
             if provided_space_args:
                 warnings.warn(f"Ignoring provided {', '.join(provided_space_args)} because repo_type is not 'space'.")
 
-        if getattr(self, "_lfsmultipartthresh", None):
-            # Testing purposes only.
-            # See https://github.com/huggingface/huggingface_hub/pull/733/files#r820604472
-            json["lfsmultipartthresh"] = self._lfsmultipartthresh  # type: ignore
-
         if resource_group_id is not None:
             json["resourceGroupId"] = resource_group_id
 
@@ -3517,7 +3642,7 @@ class HfApi:
 
         try:
             hf_raise_for_status(r)
-        except HTTPError as err:
+        except HfHubHTTPError as err:
             if exist_ok and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
@@ -3552,7 +3677,7 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -3579,67 +3704,12 @@ class HfApi:
             json["type"] = repo_type
 
         headers = self._build_hf_headers(token=token)
-        r = get_session().delete(path, headers=headers, json=json)
+        r = get_session().request("DELETE", path, headers=headers, json=json)
         try:
             hf_raise_for_status(r)
         except RepositoryNotFoundError:
             if not missing_ok:
                 raise
-
-    @_deprecate_method(version="0.32", message="Please use `update_repo_settings` instead.")
-    @validate_hf_hub_args
-    def update_repo_visibility(
-        self,
-        repo_id: str,
-        private: bool = False,
-        *,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-    ) -> Dict[str, bool]:
-        """Update the visibility setting of a repository.
-
-        Deprecated. Use `update_repo_settings` instead.
-
-        Args:
-            repo_id (`str`, *optional*):
-                A namespace (user or an organization) and a repo name separated by a `/`.
-            private (`bool`, *optional*, defaults to `False`):
-                Whether the repository should be private.
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-            repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or
-                space, `None` or `"model"` if uploading to a model. Default is
-                `None`.
-
-        Returns:
-            The HTTP response in json.
-
-        <Tip>
-
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
-        """
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
-        if repo_type is None:
-            repo_type = constants.REPO_TYPE_MODEL  # default repo type
-
-        r = get_session().put(
-            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
-            headers=self._build_hf_headers(token=token),
-            json={"private": private},
-        )
-        hf_raise_for_status(r)
-        return r.json()
 
     @validate_hf_hub_args
     def update_repo_settings(
@@ -3675,7 +3745,6 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repository to update settings from (`"model"`, `"dataset"` or `"space"`).
                 Defaults to `"model"`.
-
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If gated is not one of "auto", "manual", or False.
@@ -3693,15 +3762,8 @@ class HfApi:
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL  # default repo type
 
-        # Check if both gated and private are None
-        if gated is None and private is None:
-            raise ValueError("At least one of 'gated' or 'private' must be provided.")
-
-        # Build headers
-        headers = self._build_hf_headers(token=token)
-
         # Prepare the JSON payload for the PUT request
-        payload: Dict = {}
+        payload: dict = {}
 
         if gated is not None:
             if gated not in ["auto", "manual", False]:
@@ -3710,6 +3772,12 @@ class HfApi:
 
         if private is not None:
             payload["private"] = private
+
+        if len(payload) == 0:
+            raise ValueError("At least one setting must be updated.")
+
+        # Build headers
+        headers = self._build_hf_headers(token=token)
 
         r = get_session().put(
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
@@ -3744,21 +3812,18 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         if len(from_id.split("/")) != 2:
             raise ValueError(f"Invalid repo_id: {from_id}. It should have a namespace (:namespace:/:repo_name:)")
@@ -3837,27 +3902,18 @@ class HfApi:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
 
-        <Tip warning={true}>
+        > [!WARNING]
+        > The input list of `CommitOperation` will be mutated during the commit process. Do not reuse the same objects
+        > for multiple commits.
 
-        The input list of `CommitOperation` will be mutated during the commit process. Do not reuse the same objects
-        for multiple commits.
+        > [!WARNING]
+        > `create_commit` assumes that the repo already exists on the Hub. If you get a
+        > Client error 404, please make sure you are authenticated and that `repo_id` and
+        > `repo_type` are set correctly. If repo does not exist, create it first using
+        > [`~hf_api.create_repo`].
 
-        </Tip>
-
-        <Tip warning={true}>
-
-        `create_commit` assumes that the repo already exists on the Hub. If you get a
-        Client error 404, please make sure you are authenticated and that `repo_id` and
-        `repo_type` are set correctly. If repo does not exist, create it first using
-        [`~hf_api.create_repo`].
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        `create_commit` is limited to 25k LFS files and a 1GB payload for regular files.
-
-        </Tip>
+        > [!WARNING]
+        > `create_commit` is limited to 25k LFS files and a 1GB payload for regular files.
 
         Args:
             repo_id (`str`):
@@ -3880,7 +3936,7 @@ class HfApi:
             commit_description (`str`, *optional*):
                 The description of the commit that will be created
 
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -4087,12 +4143,12 @@ class HfApi:
         params = {"create_pr": "1"} if create_pr else None
 
         try:
-            commit_resp = get_session().post(url=commit_url, headers=headers, data=data, params=params)
+            commit_resp = get_session().post(url=commit_url, headers=headers, content=data, params=params)
             hf_raise_for_status(commit_resp, endpoint_name="commit")
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
-        except EntryNotFoundError as e:
+        except RemoteEntryNotFoundError as e:
             if nb_deletions > 0 and "A file with this name doesn't exist" in str(e):
                 e.append_to_message(
                     "\nMake sure to differentiate file and folder paths in delete"
@@ -4131,21 +4187,15 @@ class HfApi:
         This method is useful if you are generating the files to upload on-the-fly and you don't want to store them
         in memory before uploading them all at once.
 
-        <Tip warning={true}>
+        > [!WARNING]
+        > This is a power-user method. You shouldn't need to call it directly to make a normal commit.
+        > Use [`create_commit`] directly instead.
 
-        This is a power-user method. You shouldn't need to call it directly to make a normal commit.
-        Use [`create_commit`] directly instead.
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        Commit operations will be mutated during the process. In particular, the attached `path_or_fileobj` will be
-        removed after the upload to save memory (and replaced by an empty `bytes` object). Do not reuse the same
-        objects except to pass them to [`create_commit`]. If you don't want to remove the attached content from the
-        commit operation object, pass `free_memory=False`.
-
-        </Tip>
+        > [!WARNING]
+        > Commit operations will be mutated during the process. In particular, the attached `path_or_fileobj` will be
+        > removed after the upload to save memory (and replaced by an empty `bytes` object). Do not reuse the same
+        > objects except to pass them to [`create_commit`]. If you don't want to remove the attached content from the
+        > commit operation object, pass `free_memory=False`.
 
         Args:
             repo_id (`str`):
@@ -4155,7 +4205,7 @@ class HfApi:
                 The list of files to upload. Warning: the objects in this list will be mutated to include information
                 relative to the upload. Do not reuse the same objects for multiple commits.
 
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -4218,20 +4268,23 @@ class HfApi:
         new_additions = [addition for addition in additions if not addition._is_uploaded]
 
         # Check which new files are LFS
-        try:
-            _fetch_upload_modes(
-                additions=new_additions,
-                repo_type=repo_type,
-                repo_id=repo_id,
-                headers=headers,
-                revision=revision,
-                endpoint=self.endpoint,
-                create_pr=create_pr or False,
-                gitignore_content=gitignore_content,
-            )
-        except RepositoryNotFoundError as e:
-            e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
-            raise
+        # For some items, we might have already fetched the upload mode (in case of upload_large_folder)
+        additions_no_upload_mode = [addition for addition in new_additions if addition._upload_mode is None]
+        if len(additions_no_upload_mode) > 0:
+            try:
+                _fetch_upload_modes(
+                    additions=additions_no_upload_mode,
+                    repo_type=repo_type,
+                    repo_id=repo_id,
+                    headers=headers,
+                    revision=revision,
+                    endpoint=self.endpoint,
+                    create_pr=create_pr or False,
+                    gitignore_content=gitignore_content,
+                )
+            except RepositoryNotFoundError as e:
+                e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+                raise
 
         # Filter out regular files
         new_lfs_additions = [addition for addition in new_additions if addition._upload_mode == "lfs"]
@@ -4248,20 +4301,23 @@ class HfApi:
                 f"Skipped upload for {len(new_lfs_additions) - len(new_lfs_additions_to_upload)} LFS file(s) "
                 "(ignored by gitignore file)."
             )
-
-        # Upload new LFS files
-        _upload_lfs_files(
-            additions=new_lfs_additions_to_upload,
-            repo_type=repo_type,
-            repo_id=repo_id,
-            headers=headers,
-            endpoint=self.endpoint,
-            num_threads=num_threads,
+        # If no LFS files remain to upload, keep previous behavior and log explicitly
+        if len(new_lfs_additions_to_upload) == 0:
+            logger.debug("No LFS files to upload.")
+            return
+        # Prepare upload parameters
+        upload_kwargs = {
+            "additions": new_lfs_additions_to_upload,
+            "repo_type": repo_type,
+            "repo_id": repo_id,
+            "headers": headers,
+            "endpoint": self.endpoint,
             # If `create_pr`, we don't want to check user permission on the revision as users with read permission
             # should still be able to create PRs even if they don't have write permission on the target branch of the
             # PR (i.e. `revision`).
-            revision=revision if not create_pr else None,
-        )
+            "revision": revision if not create_pr else None,
+        }
+        _upload_files(**upload_kwargs, num_threads=num_threads, create_pr=create_pr)  # type: ignore [arg-type]
         for addition in new_lfs_additions_to_upload:
             addition._is_uploaded = True
             if free_memory:
@@ -4333,7 +4389,7 @@ class HfApi:
             repo_id (`str`):
                 The repository to which the file will be uploaded, for example:
                 `"username/custom_transformers"`
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -4371,30 +4427,24 @@ class HfApi:
                 Instance of [`CommitInfo`] containing information about the newly created commit (commit hash, commit
                 url, pr url, commit message,...). If `run_as_future=True` is passed, returns a Future object which will
                 contain the result when executed.
-        <Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.RevisionNotFoundError`]
+        >       If the revision to download from cannot be found.
 
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-              If the revision to download from cannot be found.
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        `upload_file` assumes that the repo already exists on the Hub. If you get a
-        Client error 404, please make sure you are authenticated and that `repo_id` and
-        `repo_type` are set correctly. If repo does not exist, create it first using
-        [`~hf_api.create_repo`].
-
-        </Tip>
+        > [!WARNING]
+        > `upload_file` assumes that the repo already exists on the Hub. If you get a
+        > Client error 404, please make sure you are authenticated and that `repo_id` and
+        > `repo_type` are set correctly. If repo does not exist, create it first using
+        > [`~hf_api.create_repo`].
 
         Example:
 
@@ -4409,7 +4459,6 @@ class HfApi:
         ...         repo_type="dataset",
         ...         token="my_token",
         ...     )
-        "https://huggingface.co/datasets/username/my-dataset/blob/main/remote/file/path.h5"
 
         >>> upload_file(
         ...     path_or_fileobj=".\\\\local\\\\file\\\\path",
@@ -4417,7 +4466,6 @@ class HfApi:
         ...     repo_id="username/my-model",
         ...     token="my_token",
         ... )
-        "https://huggingface.co/username/my-model/blob/main/remote/file/path.h5"
 
         >>> upload_file(
         ...     path_or_fileobj=".\\\\local\\\\file\\\\path",
@@ -4426,7 +4474,6 @@ class HfApi:
         ...     token="my_token",
         ...     create_pr=True,
         ... )
-        "https://huggingface.co/username/my-model/blob/refs%2Fpr%2F1/remote/file/path.h5"
         ```
         """
         if repo_type not in constants.REPO_TYPES:
@@ -4440,7 +4487,7 @@ class HfApi:
             path_in_repo=path_in_repo,
         )
 
-        commit_info = self.create_commit(
+        return self.create_commit(
             repo_id=repo_id,
             repo_type=repo_type,
             operations=[operation],
@@ -4450,23 +4497,6 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
             parent_commit=parent_commit,
-        )
-
-        if commit_info.pr_url is not None:
-            revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
-        if repo_type in constants.REPO_TYPES_URL_PREFIXES:
-            repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-        revision = revision if revision is not None else constants.DEFAULT_REVISION
-
-        return CommitInfo(
-            commit_url=commit_info.commit_url,
-            commit_message=commit_info.commit_message,
-            commit_description=commit_info.commit_description,
-            oid=commit_info.oid,
-            pr_url=commit_info.pr_url,
-            # Similar to `hf_hub_url` but it's "blob" instead of "resolve"
-            # TODO: remove this in v1.0
-            _url=f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}",
         )
 
     @overload
@@ -4483,9 +4513,9 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
-        delete_patterns: Optional[Union[List[str], str]] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+        delete_patterns: Optional[Union[list[str], str]] = None,
         run_as_future: Literal[False] = ...,
     ) -> CommitInfo: ...
 
@@ -4503,9 +4533,9 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
-        delete_patterns: Optional[Union[List[str], str]] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+        delete_patterns: Optional[Union[list[str], str]] = None,
         run_as_future: Literal[True] = ...,
     ) -> Future[CommitInfo]: ...
 
@@ -4524,9 +4554,9 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
-        delete_patterns: Optional[Union[List[str], str]] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+        delete_patterns: Optional[Union[list[str], str]] = None,
         run_as_future: bool = False,
     ) -> Union[CommitInfo, Future[CommitInfo]]:
         """
@@ -4561,7 +4591,7 @@ class HfApi:
             path_in_repo (`str`, *optional*):
                 Relative path of the directory in the repo, for example:
                 `"checkpoints/1fec34a/results"`. Will default to the root folder of the repository.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -4588,11 +4618,11 @@ class HfApi:
                 If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
-            allow_patterns (`List[str]` or `str`, *optional*):
+            allow_patterns (`list[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are uploaded.
-            ignore_patterns (`List[str]` or `str`, *optional*):
+            ignore_patterns (`list[str]` or `str`, *optional*):
                 If provided, files matching any of the patterns are not uploaded.
-            delete_patterns (`List[str]` or `str`, *optional*):
+            delete_patterns (`list[str]` or `str`, *optional*):
                 If provided, remote files matching any of the patterns will be deleted from the repo while committing
                 new files. This is useful if you don't know which files have already been uploaded.
                 Note: to avoid discrepancies the `.gitattributes` file is not deleted even if it matches the pattern.
@@ -4607,30 +4637,21 @@ class HfApi:
                 url, pr url, commit message,...). If `run_as_future=True` is passed, returns a Future object which will
                 contain the result when executed.
 
-        <Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >     if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >     if some parameter value is invalid
 
-        Raises the following errors:
+        > [!WARNING]
+        > `upload_folder` assumes that the repo already exists on the Hub. If you get a Client error 404, please make
+        > sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist, create
+        > it first using [`~hf_api.create_repo`].
 
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-            if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            if some parameter value is invalid
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        `upload_folder` assumes that the repo already exists on the Hub. If you get a Client error 404, please make
-        sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist, create
-        it first using [`~hf_api.create_repo`].
-
-        </Tip>
-
-        <Tip>
-
-        When dealing with a large folder (thousands of files or hundreds of GB), we recommend using [`~hf_api.upload_large_folder`] instead.
-
-        </Tip>
+        > [!TIP]
+        > When dealing with a large folder (thousands of files or hundreds of GB), we recommend using [`~hf_api.upload_large_folder`] instead.
 
         Example:
 
@@ -4644,7 +4665,6 @@ class HfApi:
         ...     token="my_token",
         ...     ignore_patterns="**/logs/*.txt",
         ... )
-        # "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 
         # Upload checkpoints folder including logs while deleting existing logs from the repo
         # Useful if you don't know exactly which log files have already being pushed
@@ -4656,7 +4676,6 @@ class HfApi:
         ...     token="my_token",
         ...     delete_patterns="**/logs/*.txt",
         ... )
-        "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 
         # Upload checkpoints folder while creating a PR
         >>> upload_folder(
@@ -4667,8 +4686,6 @@ class HfApi:
         ...     token="my_token",
         ...     create_pr=True,
         ... )
-        "https://huggingface.co/datasets/username/my-dataset/tree/refs%2Fpr%2F1/remote/experiment/checkpoints"
-
         ```
         """
         if repo_type not in constants.REPO_TYPES:
@@ -4712,7 +4729,7 @@ class HfApi:
 
         commit_message = commit_message or "Upload folder using huggingface_hub"
 
-        commit_info = self.create_commit(
+        return self.create_commit(
             repo_type=repo_type,
             repo_id=repo_id,
             operations=commit_operations,
@@ -4722,24 +4739,6 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
             parent_commit=parent_commit,
-        )
-
-        # Create url to uploaded folder (for legacy return value)
-        if create_pr and commit_info.pr_url is not None:
-            revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
-        if repo_type in constants.REPO_TYPES_URL_PREFIXES:
-            repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-        revision = revision if revision is not None else constants.DEFAULT_REVISION
-
-        return CommitInfo(
-            commit_url=commit_info.commit_url,
-            commit_message=commit_info.commit_message,
-            commit_description=commit_info.commit_description,
-            oid=commit_info.oid,
-            pr_url=commit_info.pr_url,
-            # Similar to `hf_hub_url` but it's "tree" instead of "resolve"
-            # TODO: remove this in v1.0
-            _url=f"{self.endpoint}/{repo_id}/tree/{revision}/{path_in_repo}",
         )
 
     @validate_hf_hub_args
@@ -4766,7 +4765,7 @@ class HfApi:
             repo_id (`str`):
                 The repository from which the file will be deleted, for example:
                 `"username/custom_transformers"`
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -4795,23 +4794,20 @@ class HfApi:
                 especially useful if the repo is updated / committed to concurrently.
 
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-              If the revision to download from cannot be found.
-            - [`~utils.EntryNotFoundError`]
-              If the file to download cannot be found.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.RevisionNotFoundError`]
+        >       If the revision to download from cannot be found.
+        >     - [`~utils.EntryNotFoundError`]
+        >       If the file to download cannot be found.
 
         """
         commit_message = (
@@ -4836,7 +4832,7 @@ class HfApi:
     def delete_files(
         self,
         repo_id: str,
-        delete_patterns: List[str],
+        delete_patterns: list[str],
         *,
         token: Union[bool, str, None] = None,
         repo_type: Optional[str] = None,
@@ -4856,11 +4852,11 @@ class HfApi:
             repo_id (`str`):
                 The repository from which the folder will be deleted, for example:
                 `"username/custom_transformers"`
-            delete_patterns (`List[str]`):
+            delete_patterns (`list[str]`):
                 List of files or folders to delete. Each string can either be
                 a file path, a folder path or a Unix shell-style wildcard.
                 E.g. `["file.txt", "folder/", "data/*.parquet"]`
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -4933,7 +4929,7 @@ class HfApi:
             repo_id (`str`):
                 The repository from which the folder will be deleted, for example:
                 `"username/custom_transformers"`
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -4984,8 +4980,8 @@ class HfApi:
         repo_type: str,  # Repo type is required!
         revision: Optional[str] = None,
         private: Optional[bool] = None,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
         num_workers: Optional[int] = None,
         print_report: bool = True,
         print_report_every: int = 60,
@@ -5013,9 +5009,9 @@ class HfApi:
             private (`bool`, `optional`):
                 Whether the repository should be private.
                 If `None` (default), the repo will be public unless the organization's default is private.
-            allow_patterns (`List[str]` or `str`, *optional*):
+            allow_patterns (`list[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are uploaded.
-            ignore_patterns (`List[str]` or `str`, *optional*):
+            ignore_patterns (`list[str]` or `str`, *optional*):
                 If provided, files matching any of the patterns are not uploaded.
             num_workers (`int`, *optional*):
                 Number of workers to start. Defaults to `os.cpu_count() - 2` (minimum 2).
@@ -5028,25 +5024,19 @@ class HfApi:
             print_report_every (`int`, *optional*):
                 Frequency at which the report is printed. Defaults to 60 seconds.
 
-        <Tip>
+        > [!TIP]
+        > A few things to keep in mind:
+        >     - Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations
+        >     - Do not start several processes in parallel.
+        >     - You can interrupt and resume the process at any time.
+        >     - Do not upload the same folder to several repositories. If you need to do so, you must delete the local `.cache/.huggingface/` folder first.
 
-        A few things to keep in mind:
-            - Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations
-            - Do not start several processes in parallel.
-            - You can interrupt and resume the process at any time.
-            - Do not upload the same folder to several repositories. If you need to do so, you must delete the local `.cache/.huggingface/` folder first.
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        While being much more robust to upload large folders, `upload_large_folder` is more limited than [`upload_folder`] feature-wise. In practice:
-            - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
-            - you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
-            - you cannot delete from the repo while uploading. Please make a separate commit first.
-            - you cannot create a PR directly. Please create a PR first (from the UI or using [`create_pull_request`]) and then commit to it by passing `revision`.
-
-        </Tip>
+        > [!WARNING]
+        > While being much more robust to upload large folders, `upload_large_folder` is more limited than [`upload_folder`] feature-wise. In practice:
+        >     - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
+        >     - you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
+        >     - you cannot delete from the repo while uploading. Please make a separate commit first.
+        >     - you cannot create a PR directly. Please create a PR first (from the UI or using [`create_pull_request`]) and then commit to it by passing `revision`.
 
         **Technical details:**
 
@@ -5054,14 +5044,18 @@ class HfApi:
             1. (Check parameters and setup.)
             2. Create repo if missing.
             3. List local files to upload.
-            4. Start workers. Workers can perform the following tasks:
+            4. Run validation checks and display warnings if repository limits might be exceeded:
+                - Warns if the total number of files exceeds 100k (recommended limit).
+                - Warns if any folder contains more than 10k files (recommended limit).
+                - Warns about files larger than 20GB (recommended) or 50GB (hard limit).
+            5. Start workers. Workers can perform the following tasks:
                 - Hash a file.
                 - Get upload mode (regular or LFS) for a list of files.
                 - Pre-upload an LFS file.
                 - Commit a bunch of files.
             Once a worker finishes a task, it will move on to the next task based on the priority list (see below) until
             all files are uploaded and committed.
-            5. While workers are up, regularly print a report to sys.stdout.
+            6. While workers are up, regularly print a report to sys.stdout.
 
         Order of priority:
             1. Commit if more than 5 minutes since last commit attempt (and at least 1 file).
@@ -5070,14 +5064,13 @@ class HfApi:
             4. Pre-upload LFS file if at least 1 file and no worker is pre-uploading.
             5. Hash file if at least 1 file and no worker is hashing.
             6. Get upload mode if at least 1 file and no worker is getting upload mode.
-            7. Pre-upload LFS file if at least 1 file (exception: if hf_transfer is enabled, only 1 worker can preupload LFS at a time).
+            7. Pre-upload LFS file if at least 1 file.
             8. Hash file if at least 1 file to hash.
             9. Get upload mode if at least 1 file to get upload mode.
             10. Commit if at least 1 file to commit and at least 1 min since last commit attempt.
             11. Commit if at least 1 file to commit and all other queues are empty.
 
         Special rules:
-            - If `hf_transfer` is enabled, only 1 LFS uploader at a time. Otherwise the CPU would be bloated by `hf_transfer`.
             - Only one worker can commit at a time.
             - If no tasks are available, the worker waits for 10 seconds before checking again.
         """
@@ -5101,7 +5094,6 @@ class HfApi:
         *,
         url: str,
         token: Union[bool, str, None] = None,
-        proxies: Optional[Dict] = None,
         timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
     ) -> HfFileMetadata:
         """Fetch metadata of a file versioned on the Hub for a given url.
@@ -5109,13 +5101,11 @@ class HfApi:
         Args:
             url (`str`):
                 File url, for example returned by [`hf_hub_url`].
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
-            proxies (`dict`, *optional*):
-                Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
             timeout (`float`, *optional*, defaults to 10):
                 How many seconds to wait for the server to send metadata before giving up.
 
@@ -5129,12 +5119,48 @@ class HfApi:
         return get_hf_file_metadata(
             url=url,
             token=token,
-            proxies=proxies,
             timeout=timeout,
             library_name=self.library_name,
             library_version=self.library_version,
             user_agent=self.user_agent,
+            endpoint=self.endpoint,
         )
+
+    @overload
+    def hf_hub_download(
+        self,
+        repo_id: str,
+        filename: str,
+        *,
+        subfolder: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        force_download: bool = False,
+        etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+        token: Union[bool, str, None] = None,
+        local_files_only: bool = False,
+        dry_run: Literal[False] = False,
+    ) -> str: ...
+
+    @overload
+    def hf_hub_download(
+        self,
+        repo_id: str,
+        filename: str,
+        *,
+        subfolder: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        force_download: bool = False,
+        etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+        token: Union[bool, str, None] = None,
+        local_files_only: bool = False,
+        dry_run: Literal[True],
+    ) -> DryRunFileInfo: ...
 
     @validate_hf_hub_args
     def hf_hub_download(
@@ -5148,15 +5174,11 @@ class HfApi:
         cache_dir: Union[str, Path, None] = None,
         local_dir: Union[str, Path, None] = None,
         force_download: bool = False,
-        proxies: Optional[Dict] = None,
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         token: Union[bool, str, None] = None,
         local_files_only: bool = False,
-        # Deprecated args
-        resume_download: Optional[bool] = None,
-        force_filename: Optional[str] = None,
-        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
-    ) -> str:
+        dry_run: bool = False,
+    ) -> Union[str, DryRunFileInfo]:
         """Download a given file if it's not already present in the local cache.
 
         The new cache file layout looks like this:
@@ -5212,13 +5234,10 @@ class HfApi:
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether the file should be downloaded even if it already exists in
                 the local cache.
-            proxies (`dict`, *optional*):
-                Dictionary mapping protocol to the URL of the proxy passed to
-                `requests.request`.
             etag_timeout (`float`, *optional*, defaults to `10`):
                 When fetching ETag, how many seconds to wait for the server to send
-                data before giving up which is passed to `requests.request`.
-            token (Union[bool, str, None], optional):
+                data before giving up which is passed to `httpx.request`.
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -5226,9 +5245,14 @@ class HfApi:
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the
                 local cached file if it exists.
+            dry_run (`bool`, *optional*, defaults to `False`):
+                If `True`, perform a dry run without actually downloading the file. Returns a
+                [`DryRunFileInfo`] object containing information about what would be downloaded.
 
         Returns:
-            `str`: Local path of file or if networking is off, last version of file cached on disk.
+            `str` or [`DryRunFileInfo`]:
+                - If `dry_run=False`: Local path of file or if networking is off, last version of file cached on disk.
+                - If `dry_run=True`: A [`DryRunFileInfo`] object containing download information.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]
@@ -5236,7 +5260,7 @@ class HfApi:
                 or because it is set to `private` and you do not have access.
             [`~utils.RevisionNotFoundError`]
                 If the revision to download from cannot be found.
-            [`~utils.EntryNotFoundError`]
+            [`~utils.RemoteEntryNotFoundError`]
                 If the file to download cannot be found.
             [`~utils.LocalEntryNotFoundError`]
                 If network is disabled or unavailable and file is not found in cache.
@@ -5264,13 +5288,9 @@ class HfApi:
             library_version=self.library_version,
             cache_dir=cache_dir,
             local_dir=local_dir,
-            local_dir_use_symlinks=local_dir_use_symlinks,
             user_agent=self.user_agent,
             force_download=force_download,
-            force_filename=force_filename,
-            proxies=proxies,
             etag_timeout=etag_timeout,
-            resume_download=resume_download,
             token=token,
             headers=self.headers,
             local_files_only=local_files_only,
@@ -5285,18 +5305,14 @@ class HfApi:
         revision: Optional[str] = None,
         cache_dir: Union[str, Path, None] = None,
         local_dir: Union[str, Path, None] = None,
-        proxies: Optional[Dict] = None,
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         force_download: bool = False,
         token: Union[bool, str, None] = None,
         local_files_only: bool = False,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
         max_workers: int = 8,
-        tqdm_class: Optional[base_tqdm] = None,
-        # Deprecated args
-        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
-        resume_download: Optional[bool] = None,
+        tqdm_class: Optional[type[base_tqdm]] = None,
     ) -> str:
         """Download repo files.
 
@@ -5326,15 +5342,12 @@ class HfApi:
                 Path to the folder where cached files are stored.
             local_dir (`str` or `Path`, *optional*):
                 If provided, the downloaded files will be placed under this directory.
-            proxies (`dict`, *optional*):
-                Dictionary mapping protocol to the URL of the proxy passed to
-                `requests.request`.
             etag_timeout (`float`, *optional*, defaults to `10`):
                 When fetching ETag, how many seconds to wait for the server to send
-                data before giving up which is passed to `requests.request`.
+                data before giving up which is passed to `httpx.request`.
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether the file should be downloaded even if it already exists in the local cache.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -5342,9 +5355,9 @@ class HfApi:
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the
                 local cached file if it exists.
-            allow_patterns (`List[str]` or `str`, *optional*):
+            allow_patterns (`list[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are downloaded.
-            ignore_patterns (`List[str]` or `str`, *optional*):
+            ignore_patterns (`list[str]` or `str`, *optional*):
                 If provided, files matching any of the patterns are not downloaded.
             max_workers (`int`, *optional*):
                 Number of concurrent threads to download files (1 thread = 1 file download).
@@ -5385,13 +5398,10 @@ class HfApi:
             endpoint=self.endpoint,
             cache_dir=cache_dir,
             local_dir=local_dir,
-            local_dir_use_symlinks=local_dir_use_symlinks,
             library_name=self.library_name,
             library_version=self.library_version,
             user_agent=self.user_agent,
-            proxies=proxies,
             etag_timeout=etag_timeout,
-            resume_download=resume_download,
             force_download=force_download,
             token=token,
             local_files_only=local_files_only,
@@ -5429,7 +5439,7 @@ class HfApi:
             revision (`str`, *optional*):
                 The git revision to fetch the file from. Can be a branch name, a tag, or a commit hash. Defaults to the
                 head of the `"main"` branch.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -5568,7 +5578,7 @@ class HfApi:
             revision (`str`, *optional*):
                 The git revision to fetch the file from. Can be a branch name, a tag, or a commit hash. Defaults to the
                 head of the `"main"` branch.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -5672,7 +5682,7 @@ class HfApi:
                 the OID/SHA of a commit, as a hexadecimal string. Defaults to the head
                 of the `"main"` branch.
 
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -5744,7 +5754,7 @@ class HfApi:
             branch (`str`):
                 The name of the branch to delete.
 
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -5807,7 +5817,7 @@ class HfApi:
                 commit, as a hexadecimal string. Shorthands (7 first characters) are
                 also supported. Defaults to the head of the `"main"` branch.
 
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -5870,7 +5880,7 @@ class HfApi:
             tag (`str`):
                 The name of the tag to delete.
 
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -5917,7 +5927,7 @@ class HfApi:
             organization (`str`, *optional*):
                 If passed, the repository name will be in the organization
                 namespace instead of the user namespace.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -5971,7 +5981,7 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if fetching from a dataset or
                 space, `None` or `"model"` if fetching from a model. Default is
                 `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6008,7 +6018,7 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions"
 
-        params: Dict[str, Union[str, int]] = {}
+        params: dict[str, Union[str, int]] = {}
         if discussion_type is not None:
             params["type"] = discussion_type
         if discussion_status is not None:
@@ -6066,7 +6076,7 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6074,19 +6084,16 @@ class HfApi:
 
         Returns: [`DiscussionWithDetails`]
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         if not isinstance(discussion_num, int) or discussion_num <= 0:
             raise ValueError("Invalid discussion_num, must be a positive integer")
@@ -6149,7 +6156,7 @@ class HfApi:
                 The title of the discussion. It can be up to 200 characters long,
                 and must be at least 3 characters long. Leading and trailing whitespaces
                 will be stripped.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6167,19 +6174,16 @@ class HfApi:
 
         Returns: [`DiscussionWithDetails`]
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>"""
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access."""
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
@@ -6240,7 +6244,7 @@ class HfApi:
                 The title of the discussion. It can be up to 200 characters long,
                 and must be at least 3 characters long. Leading and trailing whitespaces
                 will be stripped.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6255,19 +6259,16 @@ class HfApi:
 
         Returns: [`DiscussionWithDetails`]
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>"""
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access."""
         return self.create_discussion(
             repo_id=repo_id,
             title=title,
@@ -6286,7 +6287,7 @@ class HfApi:
         body: Optional[dict] = None,
         token: Union[bool, str, None] = None,
         repo_type: Optional[str] = None,
-    ) -> requests.Response:
+    ) -> httpx.Response:
         """Internal utility to POST changes to a Discussion or Pull Request"""
         if not isinstance(discussion_num, int) or discussion_num <= 0:
             raise ValueError("Invalid discussion_num, must be a positive integer")
@@ -6299,7 +6300,7 @@ class HfApi:
         path = f"{self.endpoint}/api/{repo_id}/discussions/{discussion_num}/{resource}"
 
         headers = self._build_hf_headers(token=token)
-        resp = requests.post(path, headers=headers, json=body)
+        resp = get_session().post(path, headers=headers, json=body)
         hf_raise_for_status(resp)
         return resp
 
@@ -6327,7 +6328,7 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6358,19 +6359,16 @@ class HfApi:
 
             ```
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         resp = self._post_discussion_changes(
             repo_id=repo_id,
@@ -6406,7 +6404,7 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6428,19 +6426,16 @@ class HfApi:
 
             ```
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         resp = self._post_discussion_changes(
             repo_id=repo_id,
@@ -6479,7 +6474,7 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6501,23 +6496,20 @@ class HfApi:
 
             ```
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         if new_status not in ["open", "closed"]:
             raise ValueError("Invalid status, valid statuses are: 'open' and 'closed'")
-        body: Dict[str, str] = {"status": new_status}
+        body: dict[str, str] = {"status": new_status}
         if comment and comment.strip():
             body["comment"] = comment.strip()
         resp = self._post_discussion_changes(
@@ -6554,7 +6546,7 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6563,19 +6555,16 @@ class HfApi:
         Returns:
             [`DiscussionStatusChange`]: the status change event
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         self._post_discussion_changes(
             repo_id=repo_id,
@@ -6613,7 +6602,7 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6622,19 +6611,16 @@ class HfApi:
         Returns:
             [`DiscussionComment`]: the edited comment
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         resp = self._post_discussion_changes(
             repo_id=repo_id,
@@ -6658,9 +6644,8 @@ class HfApi:
     ) -> DiscussionComment:
         """Hides a comment on a Discussion / Pull Request.
 
-        <Tip warning={true}>
-        Hidden comments' content cannot be retrieved anymore. Hiding a comment is irreversible.
-        </Tip>
+        > [!WARNING]
+        > Hidden comments' content cannot be retrieved anymore. Hiding a comment is irreversible.
 
         Args:
             repo_id (`str`):
@@ -6674,7 +6659,7 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6683,19 +6668,16 @@ class HfApi:
         Returns:
             [`DiscussionComment`]: the hidden comment
 
-        <Tip>
-
-        Raises the following errors:
-
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        >       if the HuggingFace API returned an error
+        >     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        >       if some parameter value is invalid
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository to download from cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
         """
         warnings.warn(
             "Hidden comments' content cannot be retrieved anymore. Hiding a comment is irreversible.",
@@ -6734,7 +6716,7 @@ class HfApi:
                 Secret value. Example: `"your_github_api_key"`.
             description (`str`, *optional*):
                 Secret description. Example: `"Github API key to access the Github API"`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6762,13 +6744,14 @@ class HfApi:
                 ID of the repo to update. Example: `"bigcode/in-the-stack"`.
             key (`str`):
                 Secret key. Example: `"GITHUB_API_KEY"`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
         """
-        r = get_session().delete(
+        r = get_session().request(
+            "DELETE",
             f"{self.endpoint}/api/spaces/{repo_id}/secrets",
             headers=self._build_hf_headers(token=token),
             json={"key": key},
@@ -6776,7 +6759,7 @@ class HfApi:
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
-    def get_space_variables(self, repo_id: str, *, token: Union[bool, str, None] = None) -> Dict[str, SpaceVariable]:
+    def get_space_variables(self, repo_id: str, *, token: Union[bool, str, None] = None) -> dict[str, SpaceVariable]:
         """Gets all variables from a Space.
 
         Variables allow to set environment variables to a Space without hardcoding them.
@@ -6785,7 +6768,7 @@ class HfApi:
         Args:
             repo_id (`str`):
                 ID of the repo to query. Example: `"bigcode/in-the-stack"`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6807,7 +6790,7 @@ class HfApi:
         *,
         description: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> Dict[str, SpaceVariable]:
+    ) -> dict[str, SpaceVariable]:
         """Adds or updates a variable in a Space.
 
         Variables allow to set environment variables to a Space without hardcoding them.
@@ -6822,7 +6805,7 @@ class HfApi:
                 Variable value. Example: `"the_model_repo_id"`.
             description (`str`):
                 Description of the variable. Example: `"Model Repo ID of the implemented model"`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6842,7 +6825,7 @@ class HfApi:
     @validate_hf_hub_args
     def delete_space_variable(
         self, repo_id: str, key: str, *, token: Union[bool, str, None] = None
-    ) -> Dict[str, SpaceVariable]:
+    ) -> dict[str, SpaceVariable]:
         """Deletes a variable from a Space.
 
         Variables allow to set environment variables to a Space without hardcoding them.
@@ -6853,13 +6836,14 @@ class HfApi:
                 ID of the repo to update. Example: `"bigcode/in-the-stack"`.
             key (`str`):
                 Variable key. Example: `"MODEL_REPO_ID"`
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
         """
-        r = get_session().delete(
+        r = get_session().request(
+            "DELETE",
             f"{self.endpoint}/api/spaces/{repo_id}/variables",
             headers=self._build_hf_headers(token=token),
             json={"key": key},
@@ -6874,7 +6858,7 @@ class HfApi:
         Args:
             repo_id (`str`):
                 ID of the repo to update. Example: `"bigcode/in-the-stack"`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6904,7 +6888,7 @@ class HfApi:
                 ID of the repo to update. Example: `"bigcode/in-the-stack"`.
             hardware (`str` or [`SpaceHardware`]):
                 Hardware on which to run the Space. Example: `"t4-medium"`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6917,11 +6901,8 @@ class HfApi:
         Returns:
             [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
-        <Tip>
-
-        It is also possible to request hardware directly when creating the Space repo! See [`create_repo`] for details.
-
-        </Tip>
+        > [!TIP]
+        > It is also possible to request hardware directly when creating the Space repo! See [`create_repo`] for details.
         """
         if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
             warnings.warn(
@@ -6930,7 +6911,7 @@ class HfApi:
                 " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
                 UserWarning,
             )
-        payload: Dict[str, Any] = {"flavor": hardware}
+        payload: dict[str, Any] = {"flavor": hardware}
         if sleep_time is not None:
             payload["sleepTimeSeconds"] = sleep_time
         r = get_session().post(
@@ -6960,7 +6941,7 @@ class HfApi:
                 your Space to pause (default behavior for upgraded hardware). For free hardware, you can't configure
                 the sleep time (value is fixed to 48 hours of inactivity).
                 See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -6968,11 +6949,8 @@ class HfApi:
         Returns:
             [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
-        <Tip>
-
-        It is also possible to set a custom sleep time when requesting hardware with [`request_space_hardware`].
-
-        </Tip>
+        > [!TIP]
+        > It is also possible to set a custom sleep time when requesting hardware with [`request_space_hardware`].
         """
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/sleeptime",
@@ -7005,7 +6983,7 @@ class HfApi:
         Args:
             repo_id (`str`):
                 ID of the Space to pause. Example: `"Salesforce/BLIP2"`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7046,7 +7024,7 @@ class HfApi:
         Args:
             repo_id (`str`):
                 ID of the Space to restart. Example: `"Salesforce/BLIP2"`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7089,8 +7067,8 @@ class HfApi:
         hardware: Optional[SpaceHardware] = None,
         storage: Optional[SpaceStorage] = None,
         sleep_time: Optional[int] = None,
-        secrets: Optional[List[Dict[str, str]]] = None,
-        variables: Optional[List[Dict[str, str]]] = None,
+        secrets: Optional[list[dict[str, str]]] = None,
+        variables: Optional[list[dict[str, str]]] = None,
     ) -> RepoUrl:
         """Duplicate a Space.
 
@@ -7105,7 +7083,7 @@ class HfApi:
                 name as the original Space, but in your account.
             private (`bool`, *optional*):
                 Whether the new Space should be private or not. Defaults to the same privacy as the original Space.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7121,10 +7099,10 @@ class HfApi:
                 your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
                 the sleep time (value is fixed to 48 hours of inactivity).
                 See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
-            secrets (`List[Dict[str, str]]`, *optional*):
+            secrets (`list[dict[str, str]]`, *optional*):
                 A list of secret keys to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
-            variables (`List[Dict[str, str]]`, *optional*):
+            variables (`list[dict[str, str]]`, *optional*):
                 A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
 
@@ -7136,7 +7114,7 @@ class HfApi:
             [`~utils.RepositoryNotFoundError`]:
               If one of `from_id` or `to_id` cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
               If the HuggingFace API returned an error
 
         Example:
@@ -7164,7 +7142,7 @@ class HfApi:
         to_repo_name = parsed_to_id.repo_name if to_id is not None else RepoUrl(from_id).repo_name  # type: ignore
 
         # repository must be a valid repo_id (namespace/repo_name).
-        payload: Dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
+        payload: dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
 
         keys = ["private", "hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
         values = [private, hardware, storage, sleep_time, secrets, variables]
@@ -7186,7 +7164,7 @@ class HfApi:
 
         try:
             hf_raise_for_status(r)
-        except HTTPError as err:
+        except HfHubHTTPError as err:
             if exist_ok and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
@@ -7210,7 +7188,7 @@ class HfApi:
                 ID of the Space to update. Example: `"open-llm-leaderboard/open_llm_leaderboard"`.
             storage (`str` or [`SpaceStorage`]):
                Storage tier. Either 'small', 'medium', or 'large'.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7218,14 +7196,11 @@ class HfApi:
         Returns:
             [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
-        <Tip>
-
-        It is not possible to decrease persistent storage after its granted. To do so, you must delete it
-        via [`delete_space_storage`].
-
-        </Tip>
+        > [!TIP]
+        > It is not possible to decrease persistent storage after its granted. To do so, you must delete it
+        > via [`delete_space_storage`].
         """
-        payload: Dict[str, SpaceStorage] = {"tier": storage}
+        payload: dict[str, SpaceStorage] = {"tier": storage}
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/storage",
             headers=self._build_hf_headers(token=token),
@@ -7246,7 +7221,7 @@ class HfApi:
         Args:
             repo_id (`str`):
                 ID of the Space to update. Example: `"open-llm-leaderboard/open_llm_leaderboard"`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7271,21 +7246,21 @@ class HfApi:
 
     def list_inference_endpoints(
         self, namespace: Optional[str] = None, *, token: Union[bool, str, None] = None
-    ) -> List[InferenceEndpoint]:
+    ) -> list[InferenceEndpoint]:
         """Lists all inference endpoints for the given namespace.
 
         Args:
             namespace (`str`, *optional*):
                 The namespace to list endpoints for. Defaults to the current user. Set to `"*"` to list all endpoints
                 from all namespaces (i.e. personal namespace and all orgs the user belongs to).
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
         Returns:
-            List[`InferenceEndpoint`]: A list of all inference endpoints for the given namespace.
+            list[`InferenceEndpoint`]: A list of all inference endpoints for the given namespace.
 
         Example:
         ```python
@@ -7300,7 +7275,7 @@ class HfApi:
             user = self.whoami(token=token)
 
             # List personal endpoints first
-            endpoints: List[InferenceEndpoint] = list_inference_endpoints(namespace=self._get_namespace(token=token))
+            endpoints: list[InferenceEndpoint] = list_inference_endpoints(namespace=self._get_namespace(token=token))
 
             # Then list endpoints for all orgs the user belongs to and ignore 401 errors (no billing or no access)
             for org in user.get("orgs", []):
@@ -7339,14 +7314,19 @@ class HfApi:
         region: str,
         vendor: str,
         account_id: Optional[str] = None,
-        min_replica: int = 0,
+        min_replica: int = 1,
         max_replica: int = 1,
-        scale_to_zero_timeout: int = 15,
+        scale_to_zero_timeout: Optional[int] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
-        custom_image: Optional[Dict] = None,
-        secrets: Optional[Dict[str, str]] = None,
+        custom_image: Optional[dict] = None,
+        env: Optional[dict[str, str]] = None,
+        secrets: Optional[dict[str, str]] = None,
         type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
+        domain: Optional[str] = None,
+        path: Optional[str] = None,
+        cache_http_responses: Optional[bool] = None,
+        tags: Optional[list[str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
@@ -7372,25 +7352,37 @@ class HfApi:
             account_id (`str`, *optional*):
                 The account ID used to link a VPC to a private Inference Endpoint (if applicable).
             min_replica (`int`, *optional*):
-                The minimum number of replicas (instances) to keep running for the Inference Endpoint. Defaults to 0.
+                The minimum number of replicas (instances) to keep running for the Inference Endpoint. To enable
+                scaling to zero, set this value to 0 and adjust `scale_to_zero_timeout` accordingly. Defaults to 1.
             max_replica (`int`, *optional*):
                 The maximum number of replicas (instances) to scale to for the Inference Endpoint. Defaults to 1.
             scale_to_zero_timeout (`int`, *optional*):
-                The duration in minutes before an inactive endpoint is scaled to zero. Defaults to 15.
+                The duration in minutes before an inactive endpoint is scaled to zero, or no scaling to zero if
+                set to None and `min_replica` is not 0. Defaults to None.
             revision (`str`, *optional*):
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
-            custom_image (`Dict`, *optional*):
+            custom_image (`dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
-            secrets (`Dict[str, str]`, *optional*):
+            env (`dict[str, str]`, *optional*):
+                Non-secret environment variables to inject in the container environment.
+            secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
             type ([`InferenceEndpointType]`, *optional*):
                 The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
+            domain (`str`, *optional*):
+                The custom domain for the Inference Endpoint deployment, if setup the inference endpoint will be available at this domain (e.g. `"my-new-domain.cool-website.woof"`).
+            path (`str`, *optional*):
+                The custom path to the deployed model, should start with a `/` (e.g. `"/models/google-bert/bert-base-uncased"`).
+            cache_http_responses (`bool`, *optional*):
+                Whether to cache HTTP responses from the Inference Endpoint. Defaults to `False`.
+            tags (`list[str]`, *optional*):
+                A list of tags to associate with the Inference Endpoint.
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7438,25 +7430,58 @@ class HfApi:
             ...     type="protected",
             ...     instance_size="x1",
             ...     instance_type="nvidia-a10g",
+            ...     env={
+            ...           "MAX_BATCH_PREFILL_TOKENS": "2048",
+            ...           "MAX_INPUT_LENGTH": "1024",
+            ...           "MAX_TOTAL_TOKENS": "1512",
+            ...           "MODEL_ID": "/repository"
+            ...         },
             ...     custom_image={
             ...         "health_route": "/health",
-            ...         "env": {
-            ...             "MAX_BATCH_PREFILL_TOKENS": "2048",
-            ...             "MAX_INPUT_LENGTH": "1024",
-            ...             "MAX_TOTAL_TOKENS": "1512",
-            ...             "MODEL_ID": "/repository"
-            ...         },
             ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
             ...     },
             ...    secrets={"MY_SECRET_KEY": "secret_value"},
+            ...    tags=["dev", "text-generation"],
             ... )
-
             ```
+
+            ```python
+            # Start an Inference Endpoint running ProsusAI/finbert while scaling to zero in 15 minutes
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> endpoint = api.create_inference_endpoint(
+            ...     "finbert-classifier",
+            ...     repository="ProsusAI/finbert",
+            ...     framework="pytorch",
+            ...     task="text-classification",
+            ...     min_replica=0,
+            ...     scale_to_zero_timeout=15,
+            ...     accelerator="cpu",
+            ...     vendor="aws",
+            ...     region="us-east-1",
+            ...     type="protected",
+            ...     instance_size="x2",
+            ...     instance_type="intel-icl",
+            ... )
+            >>> endpoint.wait(timeout=300)
+            # Run inference on the endpoint
+            >>> endpoint.client.text_generation(...)
+            TextClassificationOutputElement(label='positive', score=0.8983615040779114)
+            ```
+
         """
         namespace = namespace or self._get_namespace(token=token)
 
-        image = {"custom": custom_image} if custom_image is not None else {"huggingface": {}}
-        payload: Dict = {
+        if custom_image is not None:
+            image = (
+                custom_image
+                if next(iter(custom_image)) in constants.INFERENCE_ENDPOINT_IMAGE_KEYS
+                else {"custom": custom_image}
+            )
+        else:
+            image = {"huggingface": {}}
+
+        payload: dict = {
             "accountId": account_id,
             "compute": {
                 "accelerator": accelerator,
@@ -7482,8 +7507,21 @@ class HfApi:
             },
             "type": type,
         }
+        if env:
+            payload["model"]["env"] = env
         if secrets:
             payload["model"]["secrets"] = secrets
+        if domain is not None or path is not None:
+            payload["route"] = {}
+            if domain is not None:
+                payload["route"]["domain"] = domain
+            if path is not None:
+                payload["route"]["path"] = path
+        if cache_http_responses is not None:
+            payload["cacheHttpResponses"] = cache_http_responses
+        if tags is not None:
+            payload["tags"] = tags
+
         response = get_session().post(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
             headers=self._build_hf_headers(token=token),
@@ -7514,7 +7552,7 @@ class HfApi:
                 The ID of the model in the catalog to deploy as an Inference Endpoint.
             name (`str`, *optional*):
                 The unique name for the new Inference Endpoint. If not provided, a random name will be generated.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7524,15 +7562,12 @@ class HfApi:
         Returns:
             [`InferenceEndpoint`]: information about the new Inference Endpoint.
 
-        <Tip warning={true}>
-
-        `create_inference_endpoint_from_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
-        if you have any suggestions or requests.
-
-        </Tip>
+        > [!WARNING]
+        > `create_inference_endpoint_from_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
+        > if you have any suggestions or requests.
         """
         token = token or self.token or get_token()
-        payload: Dict = {
+        payload: dict = {
             "namespace": namespace or self._get_namespace(token=token),
             "repoId": repo_id,
         }
@@ -7550,7 +7585,7 @@ class HfApi:
 
     @experimental
     @validate_hf_hub_args
-    def list_inference_catalog(self, *, token: Union[bool, str, None] = None) -> List[str]:
+    def list_inference_catalog(self, *, token: Union[bool, str, None] = None) -> list[str]:
         """List models available in the Hugging Face Inference Catalog.
 
         The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
@@ -7560,19 +7595,16 @@ class HfApi:
         Use [`create_inference_endpoint_from_catalog`] to deploy a model from the catalog.
 
         Args:
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
 
         Returns:
             List[`str`]: A list of model IDs available in the catalog.
-        <Tip warning={true}>
-
-        `list_inference_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
-        if you have any suggestions or requests.
-
-        </Tip>
+        > [!WARNING]
+        > `list_inference_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
+        > if you have any suggestions or requests.
         """
         response = get_session().get(
             f"{constants.INFERENCE_CATALOG_ENDPOINT}/repo-list",
@@ -7591,7 +7623,7 @@ class HfApi:
                 The name of the Inference Endpoint to retrieve information about.
             namespace (`str`, *optional*):
                 The namespace in which the Inference Endpoint is located. Defaults to the current user.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7644,16 +7676,22 @@ class HfApi:
         framework: Optional[str] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
-        custom_image: Optional[Dict] = None,
-        secrets: Optional[Dict[str, str]] = None,
+        custom_image: Optional[dict] = None,
+        env: Optional[dict[str, str]] = None,
+        secrets: Optional[dict[str, str]] = None,
+        # Route update
+        domain: Optional[str] = None,
+        path: Optional[str] = None,
         # Other
+        cache_http_responses: Optional[bool] = None,
+        tags: Optional[list[str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
         """Update an Inference Endpoint.
 
-        This method allows the update of either the compute configuration, the deployed model, or both. All arguments are
-        optional but at least one must be provided.
+        This method allows the update of either the compute configuration, the deployed model, the route, or any combination.
+        All arguments are optional but at least one must be provided.
 
         For convenience, you can also update an Inference Endpoint using [`InferenceEndpoint.update`].
 
@@ -7682,14 +7720,27 @@ class HfApi:
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
-            custom_image (`Dict`, *optional*):
+            custom_image (`dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
-            secrets (`Dict[str, str]`, *optional*):
+            env (`dict[str, str]`, *optional*):
+                Non-secret environment variables to inject in the container environment
+            secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
+
+            domain (`str`, *optional*):
+                The custom domain for the Inference Endpoint deployment, if setup the inference endpoint will be available at this domain (e.g. `"my-new-domain.cool-website.woof"`).
+            path (`str`, *optional*):
+                The custom path to the deployed model, should start with a `/` (e.g. `"/models/google-bert/bert-base-uncased"`).
+
+            cache_http_responses (`bool`, *optional*):
+                Whether to cache HTTP responses from the Inference Endpoint.
+            tags (`list[str]`, *optional*):
+                A list of tags to associate with the Inference Endpoint.
+
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be updated. Defaults to the current user's namespace.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7701,7 +7752,7 @@ class HfApi:
         namespace = namespace or self._get_namespace(token=token)
 
         # Populate only the fields that are not None
-        payload: Dict = defaultdict(lambda: defaultdict(dict))
+        payload: dict = defaultdict(lambda: defaultdict(dict))
         if accelerator is not None:
             payload["compute"]["accelerator"] = accelerator
         if instance_size is not None:
@@ -7724,8 +7775,18 @@ class HfApi:
             payload["model"]["task"] = task
         if custom_image is not None:
             payload["model"]["image"] = {"custom": custom_image}
+        if env is not None:
+            payload["model"]["env"] = env
         if secrets is not None:
             payload["model"]["secrets"] = secrets
+        if domain is not None:
+            payload["route"]["domain"] = domain
+        if path is not None:
+            payload["route"]["path"] = path
+        if cache_http_responses is not None:
+            payload["cacheHttpResponses"] = cache_http_responses
+        if tags is not None:
+            payload["tags"] = tags
 
         response = get_session().put(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
@@ -7751,7 +7812,7 @@ class HfApi:
                 The name of the Inference Endpoint to delete.
             namespace (`str`, *optional*):
                 The namespace in which the Inference Endpoint is located. Defaults to the current user.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7780,7 +7841,7 @@ class HfApi:
                 The name of the Inference Endpoint to pause.
             namespace (`str`, *optional*):
                 The namespace in which the Inference Endpoint is located. Defaults to the current user.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7819,7 +7880,7 @@ class HfApi:
             running_ok (`bool`, *optional*):
                 If `True`, the method will not raise an error if the Inference Endpoint is already running. Defaults to
                 `True`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7861,7 +7922,7 @@ class HfApi:
                 The name of the Inference Endpoint to scale to zero.
             namespace (`str`, *optional*):
                 The namespace in which the Inference Endpoint is located. Defaults to the current user.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7898,31 +7959,28 @@ class HfApi:
     def list_collections(
         self,
         *,
-        owner: Union[List[str], str, None] = None,
-        item: Union[List[str], str, None] = None,
+        owner: Union[list[str], str, None] = None,
+        item: Union[list[str], str, None] = None,
         sort: Optional[Literal["lastModified", "trending", "upvotes"]] = None,
         limit: Optional[int] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[Collection]:
         """List collections on the Huggingface Hub, given some filters.
 
-        <Tip warning={true}>
-
-        When listing collections, the item list per collection is truncated to 4 items maximum. To retrieve all items
-        from a collection, you must use [`get_collection`].
-
-        </Tip>
+        > [!WARNING]
+        > When listing collections, the item list per collection is truncated to 4 items maximum. To retrieve all items
+        > from a collection, you must use [`get_collection`].
 
         Args:
-            owner (`List[str]` or `str`, *optional*):
+            owner (`list[str]` or `str`, *optional*):
                 Filter by owner's username.
-            item (`List[str]` or `str`, *optional*):
+            item (`list[str]` or `str`, *optional*):
                 Filter collections containing a particular items. Example: `"models/teknium/OpenHermes-2.5-Mistral-7B"`, `"datasets/squad"` or `"papers/2311.12983"`.
             sort (`Literal["lastModified", "trending", "upvotes"]`, *optional*):
                 Sort collections by last modified, trending or upvotes.
             limit (`int`, *optional*):
                 Maximum number of collections to be returned.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -7934,7 +7992,7 @@ class HfApi:
         # Construct the API endpoint
         path = f"{self.endpoint}/api/collections"
         headers = self._build_hf_headers(token=token)
-        params: Dict = {}
+        params: dict = {}
         if owner is not None:
             params.update({"owner": owner})
         if item is not None:
@@ -7959,7 +8017,7 @@ class HfApi:
         Args:
             collection_slug (`str`):
                 Slug of the collection of the Hub. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -8015,7 +8073,7 @@ class HfApi:
                 Whether the collection should be private or not. Defaults to `False` (i.e. public collection).
             exists_ok (`bool`, *optional*):
                 If `True`, do not raise an error if collection already exists.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -8051,7 +8109,7 @@ class HfApi:
         )
         try:
             hf_raise_for_status(r)
-        except HTTPError as err:
+        except HfHubHTTPError as err:
             if exists_ok and err.response.status_code == 409:
                 # Collection already exists and `exists_ok=True`
                 slug = r.json()["slug"]
@@ -8088,7 +8146,7 @@ class HfApi:
                 Whether the collection should be private or not.
             theme (`str`, *optional*):
                 Theme of the collection on the Hub.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -8138,7 +8196,7 @@ class HfApi:
                 Slug of the collection to delete. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
             missing_ok (`bool`, *optional*):
                 If `True`, do not raise an error if collection doesn't exists.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -8151,18 +8209,15 @@ class HfApi:
         >>> collection = delete_collection("username/useless-collection-64f9a55bb3115b4f513ec026", missing_ok=True)
         ```
 
-        <Tip warning={true}>
-
-        This is a non-revertible action. A deleted collection cannot be restored.
-
-        </Tip>
+        > [!WARNING]
+        > This is a non-revertible action. A deleted collection cannot be restored.
         """
         r = get_session().delete(
             f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)
         )
         try:
             hf_raise_for_status(r)
-        except HTTPError as err:
+        except HfHubHTTPError as err:
             if missing_ok and err.response.status_code == 404:
                 # Collection doesn't exists and `missing_ok=True`
                 return
@@ -8193,7 +8248,7 @@ class HfApi:
                 A note to attach to the item in the collection. The maximum size for a note is 500 characters.
             exists_ok (`bool`, *optional*):
                 If `True`, do not raise an error if item already exists.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -8202,12 +8257,12 @@ class HfApi:
         Returns: [`Collection`]
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the item you try to add to the collection does not exist on the Hub.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 409 if the item you try to add to the collection is already in the collection (and exists_ok=False)
 
         Example:
@@ -8233,7 +8288,7 @@ class HfApi:
         (...)
         ```
         """
-        payload: Dict[str, Any] = {"item": {"id": item_id, "type": item_type}}
+        payload: dict[str, Any] = {"item": {"id": item_id, "type": item_type}}
         if note is not None:
             payload["note"] = note
         r = get_session().post(
@@ -8243,7 +8298,7 @@ class HfApi:
         )
         try:
             hf_raise_for_status(r)
-        except HTTPError as err:
+        except HfHubHTTPError as err:
             if exists_ok and err.response.status_code == 409:
                 # Item already exists and `exists_ok=True`
                 return self.get_collection(collection_slug, token=token)
@@ -8272,7 +8327,7 @@ class HfApi:
                 A note to attach to the item in the collection. The maximum size for a note is 500 characters.
             position (`int`, *optional*):
                 New position of the item in the collection.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -8322,7 +8377,7 @@ class HfApi:
                 It must be retrieved from a [`CollectionItem`] object. Example: `collection.items[0].item_object_id`.
             missing_ok (`bool`, *optional*):
                 If `True`, do not raise an error if item doesn't exists.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -8349,7 +8404,7 @@ class HfApi:
         )
         try:
             hf_raise_for_status(r)
-        except HTTPError as err:
+        except HfHubHTTPError as err:
             if missing_ok and err.response.status_code == 404:
                 # Item already deleted and `missing_ok=True`
                 return
@@ -8363,7 +8418,7 @@ class HfApi:
     @validate_hf_hub_args
     def list_pending_access_requests(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
-    ) -> List[AccessRequest]:
+    ) -> list[AccessRequest]:
         """
         Get pending access requests for a given gated repo.
 
@@ -8379,21 +8434,21 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repo to get access requests for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `list[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
@@ -8427,7 +8482,7 @@ class HfApi:
     @validate_hf_hub_args
     def list_accepted_access_requests(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
-    ) -> List[AccessRequest]:
+    ) -> list[AccessRequest]:
         """
         Get accepted access requests for a given gated repo.
 
@@ -8445,21 +8500,21 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repo to get access requests for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `list[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
@@ -8489,7 +8544,7 @@ class HfApi:
     @validate_hf_hub_args
     def list_rejected_access_requests(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
-    ) -> List[AccessRequest]:
+    ) -> list[AccessRequest]:
         """
         Get rejected access requests for a given gated repo.
 
@@ -8507,21 +8562,21 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repo to get access requests for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `list[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
@@ -8554,7 +8609,7 @@ class HfApi:
         status: Literal["accepted", "rejected", "pending"],
         repo_type: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> List[AccessRequest]:
+    ) -> list[AccessRequest]:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
@@ -8596,23 +8651,23 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repo to cancel access request for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user does not exist on the Hub.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user access request cannot be found.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user access request is already in the pending list.
         """
         self._handle_access_request(repo_id, user, "pending", repo_type=repo_type, token=token)
@@ -8638,23 +8693,23 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repo to accept access request for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user does not exist on the Hub.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user access request cannot be found.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user access request is already in the accepted list.
         """
         self._handle_access_request(repo_id, user, "accepted", repo_type=repo_type, token=token)
@@ -8688,23 +8743,23 @@ class HfApi:
                 Defaults to `model`.
             rejection_reason (`str`, *optional*):
                 Optional rejection reason that will be visible to the user (max 200 characters).
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user does not exist on the Hub.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user access request cannot be found.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user access request is already in the rejected list.
         """
         self._handle_access_request(
@@ -8761,21 +8816,21 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repo to grant access to. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the repo is not gated.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 400 if the user already has access to the repo.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 if the user does not exist on the Hub.
         """
         if repo_type not in constants.REPO_TYPES:
@@ -8802,7 +8857,7 @@ class HfApi:
         Args:
             webhook_id (`str`):
                 The unique identifier of the webhook to get.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token, which is the recommended
                 method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
@@ -8818,6 +8873,7 @@ class HfApi:
             >>> print(webhook)
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
+                job=None,
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
                 secret="my-secret",
@@ -8837,7 +8893,8 @@ class HfApi:
 
         webhook = WebhookInfo(
             id=webhook_data["id"],
-            url=webhook_data["url"],
+            url=webhook_data.get("url"),
+            job=JobSpec(**webhook_data["job"]) if webhook_data.get("job") else None,
             watched=watched_items,
             domains=webhook_data["domains"],
             secret=webhook_data.get("secret"),
@@ -8847,17 +8904,17 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def list_webhooks(self, *, token: Union[bool, str, None] = None) -> List[WebhookInfo]:
+    def list_webhooks(self, *, token: Union[bool, str, None] = None) -> list[WebhookInfo]:
         """List all configured webhooks.
 
         Args:
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token, which is the recommended
                 method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[WebhookInfo]`:
+            `list[WebhookInfo]`:
                 List of webhook info objects.
 
         Example:
@@ -8887,7 +8944,8 @@ class HfApi:
         return [
             WebhookInfo(
                 id=webhook["id"],
-                url=webhook["url"],
+                url=webhook.get("url"),
+                job=JobSpec(**webhook["job"]) if webhook.get("job") else None,
                 watched=[WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook["watched"]],
                 domains=webhook["domains"],
                 secret=webhook.get("secret"),
@@ -8900,25 +8958,32 @@ class HfApi:
     def create_webhook(
         self,
         *,
-        url: str,
-        watched: List[Union[Dict, WebhookWatchedItem]],
-        domains: Optional[List[constants.WEBHOOK_DOMAIN_T]] = None,
+        url: Optional[str] = None,
+        job_id: Optional[str] = None,
+        watched: list[Union[dict, WebhookWatchedItem]],
+        domains: Optional[list[constants.WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> WebhookInfo:
         """Create a new webhook.
 
+        The webhook can either send a payload to a URL, or trigger a Job to run on Hugging Face infrastructure.
+        This function should be called with one of `url` or `job_id`, but not both.
+
         Args:
             url (`str`):
                 URL to send the payload to.
-            watched (`List[WebhookWatchedItem]`):
+            job_id (`str`):
+                ID of the source Job to trigger with the webhook payload in the environment variable WEBHOOK_PAYLOAD.
+                Additional environment variables are available for convenience: WEBHOOK_REPO_ID, WEBHOOK_REPO_TYPE and WEBHOOK_SECRET.
+            watched (`list[WebhookWatchedItem]`):
                 List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets or spaces.
                 Watched items can also be provided as plain dictionaries.
-            domains (`List[Literal["repo", "discussion"]]`, optional):
+            domains (`list[Literal["repo", "discussion"]]`, optional):
                 List of domains to watch. It can be "repo", "discussion" or both.
             secret (`str`, optional):
                 A secret to sign the payload with.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token, which is the recommended
                 method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
@@ -8928,6 +8993,8 @@ class HfApi:
                 Info about the newly created webhook.
 
         Example:
+
+            Create a webhook that sends a payload to a URL
             ```python
             >>> from huggingface_hub import create_webhook
             >>> payload = create_webhook(
@@ -8940,6 +9007,43 @@ class HfApi:
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                job=None,
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+                domains=["repo", "discussion"],
+                secret="my-secret",
+                disabled=False,
+            )
+            ```
+
+            Run a Job and then create a webhook that triggers this Job
+            ```python
+            >>> from huggingface_hub import create_webhook, run_job
+            >>> job = run_job(
+            ...     image="ubuntu",
+            ...     command=["bash", "-c", r"echo An event occured in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD"],
+            ... )
+            >>> payload = create_webhook(
+            ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
+            ...     job_id=job.id,
+            ...     domains=["repo", "discussion"],
+            ...     secret="my-secret",
+            ... )
+            >>> print(payload)
+            WebhookInfo(
+                id="654bbbc16f2ec14d77f109cc",
+                url=None,
+                job=JobSpec(
+                    docker_image='ubuntu',
+                    space_id=None,
+                    command=['bash', '-c', 'echo An event occured in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD'],
+                    arguments=[],
+                    environment={},
+                    secrets=[],
+                    flavor='cpu-basic',
+                    timeout=None,
+                    tags=None,
+                    arch=None
+                ),
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 domains=["repo", "discussion"],
                 secret="my-secret",
@@ -8949,9 +9053,19 @@ class HfApi:
         """
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
+        post_webhooks_json = {"watched": watched_dicts, "domains": domains, "secret": secret}
+        if url is not None and job_id is not None:
+            raise ValueError("Set `url` or `job_id` but not both.")
+        elif url is not None:
+            post_webhooks_json["url"] = url
+        elif job_id is not None:
+            post_webhooks_json["jobSourceId"] = job_id
+        else:
+            raise ValueError("Missing argument for webhook: `url` or `job_id`.")
+
         response = get_session().post(
             f"{constants.ENDPOINT}/api/settings/webhooks",
-            json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
+            json=post_webhooks_json,
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -8960,7 +9074,8 @@ class HfApi:
 
         webhook = WebhookInfo(
             id=webhook_data["id"],
-            url=webhook_data["url"],
+            url=webhook_data.get("url"),
+            job=JobSpec(**webhook_data["job"]) if webhook_data.get("job") else None,
             watched=watched_items,
             domains=webhook_data["domains"],
             secret=webhook_data.get("secret"),
@@ -8975,8 +9090,8 @@ class HfApi:
         webhook_id: str,
         *,
         url: Optional[str] = None,
-        watched: Optional[List[Union[Dict, WebhookWatchedItem]]] = None,
-        domains: Optional[List[constants.WEBHOOK_DOMAIN_T]] = None,
+        watched: Optional[list[Union[dict, WebhookWatchedItem]]] = None,
+        domains: Optional[list[constants.WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> WebhookInfo:
@@ -8987,14 +9102,14 @@ class HfApi:
                 The unique identifier of the webhook to be updated.
             url (`str`, optional):
                 The URL to which the payload will be sent.
-            watched (`List[WebhookWatchedItem]`, optional):
+            watched (`list[WebhookWatchedItem]`, optional):
                 List of items to watch. It can be users, orgs, models, datasets, or spaces.
                 Refer to [`WebhookWatchedItem`] for more details. Watched items can also be provided as plain dictionaries.
-            domains (`List[Literal["repo", "discussion"]]`, optional):
+            domains (`list[Literal["repo", "discussion"]]`, optional):
                 The domains to watch. This can include "repo", "discussion", or both.
             secret (`str`, optional):
                 A secret to sign the payload with, providing an additional layer of security.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token, which is the recommended
                 method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
@@ -9016,6 +9131,7 @@ class HfApi:
             >>> print(updated_payload)
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
+                job=None,
                 url="https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 domains=["repo"],
@@ -9039,7 +9155,8 @@ class HfApi:
 
         webhook = WebhookInfo(
             id=webhook_data["id"],
-            url=webhook_data["url"],
+            url=webhook_data.get("url"),
+            job=JobSpec(**webhook_data["job"]) if webhook_data.get("job") else None,
             watched=watched_items,
             domains=webhook_data["domains"],
             secret=webhook_data.get("secret"),
@@ -9055,7 +9172,7 @@ class HfApi:
         Args:
             webhook_id (`str`):
                 The unique identifier of the webhook to enable.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token, which is the recommended
                 method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
@@ -9071,6 +9188,7 @@ class HfApi:
             >>> enabled_webhook
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
+                job=None,
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 domains=["repo", "discussion"],
@@ -9090,7 +9208,8 @@ class HfApi:
 
         webhook = WebhookInfo(
             id=webhook_data["id"],
-            url=webhook_data["url"],
+            url=webhook_data.get("url"),
+            job=JobSpec(**webhook_data["job"]) if webhook_data.get("job") else None,
             watched=watched_items,
             domains=webhook_data["domains"],
             secret=webhook_data.get("secret"),
@@ -9106,7 +9225,7 @@ class HfApi:
         Args:
             webhook_id (`str`):
                 The unique identifier of the webhook to disable.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token, which is the recommended
                 method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
@@ -9123,6 +9242,7 @@ class HfApi:
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                jon=None,
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 domains=["repo", "discussion"],
                 secret="my-secret",
@@ -9141,7 +9261,8 @@ class HfApi:
 
         webhook = WebhookInfo(
             id=webhook_data["id"],
-            url=webhook_data["url"],
+            url=webhook_data.get("url"),
+            job=JobSpec(**webhook_data["job"]) if webhook_data.get("job") else None,
             watched=watched_items,
             domains=webhook_data["domains"],
             secret=webhook_data.get("secret"),
@@ -9157,7 +9278,7 @@ class HfApi:
         Args:
             webhook_id (`str`):
                 The unique identifier of the webhook to delete.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token, which is the recommended
                 method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
@@ -9186,8 +9307,8 @@ class HfApi:
         token: Union[bool, str, None] = None,
         library_name: Optional[str] = None,
         library_version: Optional[str] = None,
-        user_agent: Union[Dict, str, None] = None,
-    ) -> Dict[str, str]:
+        user_agent: Union[dict, str, None] = None,
+    ) -> dict[str, str]:
         """
         Alias for [`build_hf_headers`] that uses the token from [`HfApi`] client
         when `token` is not provided.
@@ -9209,9 +9330,9 @@ class HfApi:
         repo_type: Optional[str],
         revision: Optional[str],
         path_in_repo: str,
-        delete_patterns: Optional[Union[List[str], str]],
+        delete_patterns: Optional[Union[list[str], str]],
         token: Union[bool, str, None] = None,
-    ) -> List[CommitOperationDelete]:
+    ) -> list[CommitOperationDelete]:
         """Generate the list of Delete operations for a commit to delete files from a repo.
 
         List remote files and match them against the `delete_patterns` constraints. Returns a list of [`CommitOperationDelete`]
@@ -9247,11 +9368,11 @@ class HfApi:
         self,
         folder_path: Union[str, Path],
         path_in_repo: str,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
         repo_type: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> List[CommitOperationAdd]:
+    ) -> list[CommitOperationAdd]:
         """Generate the list of Add operations for a commit to upload a folder.
 
         Files not matching the `allow_patterns` (allowlist) and `ignore_patterns` (denylist)
@@ -9292,7 +9413,7 @@ class HfApi:
             log(
                 "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
                 "the folder is too large. For such cases, it is recommended to upload in smaller batches or to use "
-                "`HfApi().upload_large_folder(...)`/`huggingface-cli upload-large-folder` instead. For more details, "
+                "`HfApi().upload_large_folder(...)`/`hf upload-large-folder` instead. For more details, "
                 "check out https://huggingface.co/docs/huggingface_hub/main/en/guides/upload#upload-a-large-folder."
             )
 
@@ -9317,7 +9438,7 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repo to grant access to. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -9356,7 +9477,7 @@ class HfApi:
         Args:
             username (`str`):
                 Username of the user to get an overview of.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -9366,7 +9487,7 @@ class HfApi:
             `User`: A [`User`] object with the user's overview.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 If the user does not exist on the Hub.
         """
         r = get_session().get(
@@ -9375,6 +9496,62 @@ class HfApi:
         hf_raise_for_status(r)
         return User(**r.json())
 
+    @validate_hf_hub_args
+    def get_organization_overview(self, organization: str, token: Union[bool, str, None] = None) -> Organization:
+        """
+        Get an overview of an organization on the Hub.
+
+        Args:
+            organization (`str`):
+                Name of the organization to get an overview of.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended method
+                for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Organization`: An [`Organization`] object with the organization's overview.
+
+        Raises:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+                HTTP 404 If the organization does not exist on the Hub.
+        """
+        r = get_session().get(
+            f"{constants.ENDPOINT}/api/organizations/{organization}/overview",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return Organization(**r.json())
+
+    @validate_hf_hub_args
+    def list_organization_followers(self, organization: str, token: Union[bool, str, None] = None) -> Iterable[User]:
+        """
+        List followers of an organization on the Hub.
+
+        Args:
+            organization (`str`):
+                Name of the organization to get the followers of.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[User]`: A list of [`User`] objects with the followers of the organization.
+
+        Raises:
+            [`HfHubHTTPError`]:
+                HTTP 404 If the organization does not exist on the Hub.
+
+        """
+        for follower in paginate(
+            path=f"{constants.ENDPOINT}/api/organizations/{organization}/followers",
+            params={},
+            headers=self._build_hf_headers(token=token),
+        ):
+            yield User(**follower)
+
     def list_organization_members(self, organization: str, token: Union[bool, str, None] = None) -> Iterable[User]:
         """
         List of members of an organization on the Hub.
@@ -9382,7 +9559,7 @@ class HfApi:
         Args:
             organization (`str`):
                 Name of the organization to get the members of.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -9392,7 +9569,7 @@ class HfApi:
             `Iterable[User]`: A list of [`User`] objects with the members of the organization.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 If the organization does not exist on the Hub.
 
         """
@@ -9410,7 +9587,7 @@ class HfApi:
         Args:
             username (`str`):
                 Username of the user to get the followers of.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -9420,7 +9597,7 @@ class HfApi:
             `Iterable[User]`: A list of [`User`] objects with the followers of the user.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 If the user does not exist on the Hub.
 
         """
@@ -9438,7 +9615,7 @@ class HfApi:
         Args:
             username (`str`):
                 Username of the user to get the users followed by.
-            token (Union[bool, str, None], optional):
+            token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -9448,7 +9625,7 @@ class HfApi:
             `Iterable[User]`: A list of [`User`] objects with the users followed by the user.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 If the user does not exist on the Hub.
 
         """
@@ -9517,7 +9694,7 @@ class HfApi:
             `PaperInfo`: A `PaperInfo` object.
 
         Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+            [`HfHubHTTPError`]:
                 HTTP 404 If the paper does not exist on the Hub.
         """
         path = f"{self.endpoint}/api/papers/{id}"
@@ -9589,6 +9766,931 @@ class HfApi:
         r = get_session().get(path, headers=headers)
         hf_raise_for_status(r)
 
+    def run_job(
+        self,
+        *,
+        image: str,
+        command: list[str],
+        env: Optional[dict[str, Any]] = None,
+        secrets: Optional[dict[str, Any]] = None,
+        flavor: Optional[SpaceHardware] = None,
+        timeout: Optional[Union[int, float, str]] = None,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> JobInfo:
+        """
+        Run compute Jobs on Hugging Face infrastructure.
+
+        Args:
+            image (`str`):
+                The Docker image to use.
+                Examples: `"ubuntu"`, `"python:3.12"`, `"pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"`.
+                Example with an image from a Space: `"hf.co/spaces/lhoestq/duckdb"`.
+
+            command (`list[str]`):
+                The command to run. Example: `["echo", "hello"]`.
+
+            env (`dict[str, Any]`, *optional*):
+                Defines the environment variables for the Job.
+
+            secrets (`dict[str, Any]`, *optional*):
+                Defines the secret environment variables for the Job.
+
+            flavor (`str`, *optional*):
+                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Defaults to `"cpu-basic"`.
+
+            timeout (`Union[int, float, str]`, *optional*):
+                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Example: `300` or `"5m"` for 5 minutes.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job will be created. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+            Run your first Job:
+
+            ```python
+            >>> from huggingface_hub import run_job
+            >>> run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
+            ```
+
+            Run a GPU Job:
+
+            ```python
+            >>> from huggingface_hub import run_job
+            >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
+            >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
+            >>> run_job(image=image, command=command, flavor="a10g-small")
+            ```
+
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        job_spec = _create_job_spec(
+            image=image,
+            command=command,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+        )
+        response = get_session().post(
+            f"https://huggingface.co/api/jobs/{namespace}",
+            json=job_spec,
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        job_info = response.json()
+        return JobInfo(**job_info, endpoint=self.endpoint)
+
+    def fetch_job_logs(
+        self,
+        *,
+        job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[str]:
+        """
+        Fetch all the logs from a compute Job on Hugging Face infrastructure.
+
+        Args:
+            job_id (`str`):
+                ID of the Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import fetch_job_logs, run_job
+            >>> job = run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
+            >>> for log in fetch_job_logs(job.id):
+            ...     print(log)
+            Hello from HF compute!
+            ```
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        logging_finished = logging_started = False
+        job_finished = False
+        # - We need to retry because sometimes the /logs doesn't return logs when the job just started.
+        #   (for example it can return only two lines: one for "Job started" and one empty line)
+        # - Timeouts can happen in case of build errors
+        # - ChunkedEncodingError can happen in case of stopped logging in the middle of streaming
+        # - Infinite empty log stream can happen in case of build error
+        #   (the logs stream is infinite and empty except for the Job started message)
+        # - there is a ": keep-alive" every 30 seconds
+
+        # We don't use http_backoff since we need to check ourselves if ConnectionError.__context__ is a TimeoutError
+        max_retries = 5
+        min_wait_time = 1
+        max_wait_time = 10
+        sleep_time = 0
+        for _ in range(max_retries):
+            time.sleep(sleep_time)
+            sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+            try:
+                with get_session().stream(
+                    "GET",
+                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}/logs",
+                    headers=self._build_hf_headers(token=token),
+                    timeout=120,
+                ) as response:
+                    log = None
+                    for line in response.iter_lines():
+                        if line and line.startswith("data: {"):
+                            data = json.loads(line[len("data: ") :])
+                            # timestamp = data["timestamp"]
+                            if not data["data"].startswith("===== Job started"):
+                                logging_started = True
+                                log = data["data"]
+                                yield log
+                    logging_finished = logging_started
+            except httpx.DecodingError:
+                # Response ended prematurely
+                break
+            except KeyboardInterrupt:
+                break
+            except httpx.NetworkError as err:
+                is_timeout = err.__context__ and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
+                if logging_started or not is_timeout:
+                    raise
+            if logging_finished or job_finished:
+                break
+            job_status = (
+                get_session()
+                .get(
+                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}",
+                    headers=self._build_hf_headers(token=token),
+                )
+                .json()
+            )
+            if "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING"):
+                job_finished = True
+
+    def list_jobs(
+        self,
+        *,
+        timeout: Optional[int] = None,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> list[JobInfo]:
+        """
+        List compute Jobs on Hugging Face infrastructure.
+
+        Args:
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+            namespace (`str`, *optional*):
+                The namespace from where it lists the jobs. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+        """
+        if namespace is None:
+            namespace = whoami(token=token)["name"]
+        response = get_session().get(
+            f"{self.endpoint}/api/jobs/{namespace}",
+            headers=self._build_hf_headers(token=token),
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
+
+    def inspect_job(
+        self,
+        *,
+        job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> JobInfo:
+        """
+        Inspect a compute Job on Hugging Face infrastructure.
+
+        Args:
+            job_id (`str`):
+                ID of the Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import inspect_job, run_job
+            >>> job = run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
+            >>> inspect_job(job.id)
+            JobInfo(
+                id='68780d00bbe36d38803f645f',
+                created_at=datetime.datetime(2025, 7, 16, 20, 35, 12, 808000, tzinfo=datetime.timezone.utc),
+                docker_image='python:3.12',
+                space_id=None,
+                command=['python', '-c', "print('Hello from HF compute!')"],
+                arguments=[],
+                environment={},
+                secrets={},
+                flavor='cpu-basic',
+                status=JobStatus(stage='RUNNING', message=None)
+            )
+            ```
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().get(
+            f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        response.raise_for_status()
+        return JobInfo(**response.json(), endpoint=self.endpoint)
+
+    def cancel_job(
+        self,
+        *,
+        job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        """
+        Cancel a compute Job on Hugging Face infrastructure.
+
+        Args:
+            job_id (`str`):
+                ID of the Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        get_session().post(
+            f"{self.endpoint}/api/jobs/{namespace}/{job_id}/cancel",
+            headers=self._build_hf_headers(token=token),
+        ).raise_for_status()
+
+    @experimental
+    def run_uv_job(
+        self,
+        script: str,
+        *,
+        script_args: Optional[list[str]] = None,
+        dependencies: Optional[list[str]] = None,
+        python: Optional[str] = None,
+        image: Optional[str] = None,
+        env: Optional[dict[str, Any]] = None,
+        secrets: Optional[dict[str, Any]] = None,
+        flavor: Optional[SpaceHardware] = None,
+        timeout: Optional[Union[int, float, str]] = None,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+        _repo: Optional[str] = None,
+    ) -> JobInfo:
+        """
+        Run a UV script Job on Hugging Face infrastructure.
+
+        Args:
+            script (`str`):
+                Path or URL of the UV script, or a command.
+
+            script_args (`list[str]`, *optional*)
+                Arguments to pass to the script or command.
+
+            dependencies (`list[str]`, *optional*)
+                Dependencies to use to run the UV script.
+
+            python (`str`, *optional*)
+                Use a specific Python version. Default is 3.12.
+
+            image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm"):
+                Use a custom Docker image with `uv` installed.
+
+            env (`dict[str, Any]`, *optional*):
+                Defines the environment variables for the Job.
+
+            secrets (`dict[str, Any]`, *optional*):
+                Defines the secret environment variables for the Job.
+
+            flavor (`str`, *optional*):
+                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Defaults to `"cpu-basic"`.
+
+            timeout (`Union[int, float, str]`, *optional*):
+                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Example: `300` or `"5m"` for 5 minutes.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job will be created. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+
+            Run a script from a URL:
+
+            ```python
+            >>> from huggingface_hub import run_uv_job
+            >>> script = "https://raw.githubusercontent.com/huggingface/trl/refs/heads/main/trl/scripts/sft.py"
+            >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
+            >>> run_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small")
+            ```
+
+            Run a local script:
+
+            ```python
+            >>> from huggingface_hub import run_uv_job
+            >>> script = "my_sft.py"
+            >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
+            >>> run_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small")
+            ```
+
+            Run a command:
+
+            ```python
+            >>> from huggingface_hub import run_uv_job
+            >>> script = "lighteval"
+            >>> script_args= ["endpoint", "inference-providers", "model_name=openai/gpt-oss-20b,provider=auto", "lighteval|gsm8k|0|0"]
+            >>> run_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small")
+            ```
+        """
+        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        env = env or {}
+        secrets = secrets or {}
+
+        # Build command
+        command, env, secrets = self._create_uv_command_env_and_secrets(
+            script=script,
+            script_args=script_args,
+            dependencies=dependencies,
+            python=python,
+            env=env,
+            secrets=secrets,
+            namespace=namespace,
+            token=token,
+            _repo=_repo,
+        )
+        # Create RunCommand args
+        return self.run_job(
+            image=image,
+            command=command,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+            namespace=namespace,
+            token=token,
+        )
+
+    def create_scheduled_job(
+        self,
+        *,
+        image: str,
+        command: list[str],
+        schedule: str,
+        suspend: Optional[bool] = None,
+        concurrency: Optional[bool] = None,
+        env: Optional[dict[str, Any]] = None,
+        secrets: Optional[dict[str, Any]] = None,
+        flavor: Optional[SpaceHardware] = None,
+        timeout: Optional[Union[int, float, str]] = None,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> ScheduledJobInfo:
+        """
+        Create scheduled compute Jobs on Hugging Face infrastructure.
+
+        Args:
+            image (`str`):
+                The Docker image to use.
+                Examples: `"ubuntu"`, `"python:3.12"`, `"pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"`.
+                Example with an image from a Space: `"hf.co/spaces/lhoestq/duckdb"`.
+
+            command (`list[str]`):
+                The command to run. Example: `["echo", "hello"]`.
+
+            schedule (`str`):
+                One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
+                CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
+
+            suspend (`bool`, *optional*):
+                If True, the scheduled Job is suspended (paused).  Defaults to False.
+
+            concurrency (`bool`, *optional*):
+                If True, multiple instances of this Job can run concurrently. Defaults to False.
+
+            env (`dict[str, Any]`, *optional*):
+                Defines the environment variables for the Job.
+
+            secrets (`dict[str, Any]`, *optional*):
+                Defines the secret environment variables for the Job.
+
+            flavor (`str`, *optional*):
+                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Defaults to `"cpu-basic"`.
+
+            timeout (`Union[int, float, str]`, *optional*):
+                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Example: `300` or `"5m"` for 5 minutes.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job will be created. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+            Create your first scheduled Job:
+
+            ```python
+            >>> from huggingface_hub import create_scheduled_job
+            >>> create_scheduled_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], schedule="@hourly")
+            ```
+
+            Use a CRON schedule expression:
+
+            ```python
+            >>> from huggingface_hub import create_scheduled_job
+            >>> create_scheduled_job(image="python:3.12", command=["python", "-c" ,"print('this runs every 5min')"], schedule="*/5 * * * *")
+            ```
+
+            Create a scheduled GPU Job:
+
+            ```python
+            >>> from huggingface_hub import create_scheduled_job
+            >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
+            >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
+            >>> create_scheduled_job(image, command, flavor="a10g-small", schedule="@hourly")
+            ```
+
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+
+        # prepare payload to send to HF Jobs API
+        job_spec = _create_job_spec(
+            image=image,
+            command=command,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+        )
+        input_json: dict[str, Any] = {
+            "jobSpec": job_spec,
+            "schedule": schedule,
+        }
+        if concurrency is not None:
+            input_json["concurrency"] = concurrency
+        if suspend is not None:
+            input_json["suspend"] = suspend
+        response = get_session().post(
+            f"https://huggingface.co/api/scheduled-jobs/{namespace}",
+            json=input_json,
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        scheduled_job_info = response.json()
+        return ScheduledJobInfo(**scheduled_job_info)
+
+    def list_scheduled_jobs(
+        self,
+        *,
+        timeout: Optional[int] = None,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> list[ScheduledJobInfo]:
+        """
+        List scheduled compute Jobs on Hugging Face infrastructure.
+
+        Args:
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+            namespace (`str`, *optional*):
+                The namespace from where it lists the jobs. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().get(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}",
+            headers=self._build_hf_headers(token=token),
+            timeout=timeout,
+        )
+        hf_raise_for_status(response)
+        return [ScheduledJobInfo(**scheduled_job_info) for scheduled_job_info in response.json()]
+
+    def inspect_scheduled_job(
+        self,
+        *,
+        scheduled_job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> ScheduledJobInfo:
+        """
+        Inspect a scheduled compute Job on Hugging Face infrastructure.
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import inspect_job, create_scheduled_job
+            >>> scheduled_job = create_scheduled_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], schedule="@hourly")
+            >>> inspect_scheduled_job(scheduled_job.id)
+            ```
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().get(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return ScheduledJobInfo(**response.json())
+
+    def delete_scheduled_job(
+        self,
+        *,
+        scheduled_job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        """
+        Delete a scheduled compute Job on Hugging Face infrastructure.
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().delete(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+    def suspend_scheduled_job(
+        self,
+        *,
+        scheduled_job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        """
+        Suspend (pause) a scheduled compute Job on Hugging Face infrastructure.
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        get_session().post(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/suspend",
+            headers=self._build_hf_headers(token=token),
+        ).raise_for_status()
+
+    def resume_scheduled_job(
+        self,
+        *,
+        scheduled_job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        """
+        Resume (unpause) a scheduled compute Job on Hugging Face infrastructure.
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        get_session().post(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/resume",
+            headers=self._build_hf_headers(token=token),
+        ).raise_for_status()
+
+    @experimental
+    def create_scheduled_uv_job(
+        self,
+        script: str,
+        *,
+        script_args: Optional[list[str]] = None,
+        schedule: str,
+        suspend: Optional[bool] = None,
+        concurrency: Optional[bool] = None,
+        dependencies: Optional[list[str]] = None,
+        python: Optional[str] = None,
+        image: Optional[str] = None,
+        env: Optional[dict[str, Any]] = None,
+        secrets: Optional[dict[str, Any]] = None,
+        flavor: Optional[SpaceHardware] = None,
+        timeout: Optional[Union[int, float, str]] = None,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+        _repo: Optional[str] = None,
+    ) -> ScheduledJobInfo:
+        """
+        Run a UV script Job on Hugging Face infrastructure.
+
+        Args:
+            script (`str`):
+                Path or URL of the UV script, or a command.
+
+            script_args (`list[str]`, *optional*)
+                Arguments to pass to the script, or a command.
+
+            schedule (`str`):
+                One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
+                CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
+
+            suspend (`bool`, *optional*):
+                If True, the scheduled Job is suspended (paused).  Defaults to False.
+
+            concurrency (`bool`, *optional*):
+                If True, multiple instances of this Job can run concurrently. Defaults to False.
+
+            dependencies (`list[str]`, *optional*)
+                Dependencies to use to run the UV script.
+
+            python (`str`, *optional*)
+                Use a specific Python version. Default is 3.12.
+
+            image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm"):
+                Use a custom Docker image with `uv` installed.
+
+            env (`dict[str, Any]`, *optional*):
+                Defines the environment variables for the Job.
+
+            secrets (`dict[str, Any]`, *optional*):
+                Defines the secret environment variables for the Job.
+
+            flavor (`str`, *optional*):
+                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Defaults to `"cpu-basic"`.
+
+            timeout (`Union[int, float, str]`, *optional*):
+                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Example: `300` or `"5m"` for 5 minutes.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job will be created. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+
+            Schedule a script from a URL:
+
+            ```python
+            >>> from huggingface_hub import create_scheduled_uv_job
+            >>> script = "https://raw.githubusercontent.com/huggingface/trl/refs/heads/main/trl/scripts/sft.py"
+            >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
+            >>> create_scheduled_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="@weekly")
+            ```
+
+            Schedule a local script:
+
+            ```python
+            >>> from huggingface_hub import create_scheduled_uv_job
+            >>> script = "my_sft.py"
+            >>> script_args = ["--model_name_or_path", "Qwen/Qwen2-0.5B", "--dataset_name", "trl-lib/Capybara", "--push_to_hub"]
+            >>> create_scheduled_uv_job(script, script_args=script_args, dependencies=["trl"], flavor="a10g-small", schedule="@weekly")
+            ```
+
+            Schedule a command:
+
+            ```python
+            >>> from huggingface_hub import create_scheduled_uv_job
+            >>> script = "lighteval"
+            >>> script_args= ["endpoint", "inference-providers", "model_name=openai/gpt-oss-20b,provider=auto", "lighteval|gsm8k|0|0"]
+            >>> create_scheduled_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small", schedule="@weekly")
+            ```
+        """
+        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        # Build command
+        command, env, secrets = self._create_uv_command_env_and_secrets(
+            script=script,
+            script_args=script_args,
+            dependencies=dependencies,
+            python=python,
+            env=env,
+            secrets=secrets,
+            namespace=namespace,
+            token=token,
+            _repo=_repo,
+        )
+        # Create RunCommand args
+        return self.create_scheduled_job(
+            image=image,
+            command=command,
+            schedule=schedule,
+            suspend=suspend,
+            concurrency=concurrency,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+            namespace=namespace,
+            token=token,
+        )
+
+    def _create_uv_command_env_and_secrets(
+        self,
+        *,
+        script: str,
+        script_args: Optional[list[str]],
+        dependencies: Optional[list[str]],
+        python: Optional[str],
+        env: Optional[dict[str, Any]],
+        secrets: Optional[dict[str, Any]],
+        namespace: Optional[str],
+        token: Union[bool, str, None],
+        _repo: Optional[str],
+    ) -> tuple[list[str], dict[str, Any], dict[str, Any]]:
+        env = env or {}
+        secrets = secrets or {}
+
+        # Build command
+        uv_args = []
+        if dependencies:
+            for dependency in dependencies:
+                uv_args += ["--with", dependency]
+        if python:
+            uv_args += ["--python", python]
+        script_args = script_args or []
+
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+
+        is_url = script.startswith("http://") or script.startswith("https://")
+        if is_url or not Path(script).is_file():
+            # Direct URL execution or command - no upload needed
+            command = ["uv", "run"] + uv_args + [script] + script_args
+        else:
+            # Local file - upload to HF
+            script_path = Path(script)
+            filename = script_path.name
+            # Parse repo
+            if _repo:
+                repo_id = _repo
+                if "/" not in repo_id:
+                    repo_id = f"{namespace}/{repo_id}"
+            else:
+                repo_id = f"{namespace}/hf-cli-jobs-uv-run-scripts"
+
+            # Create repo if needed
+            try:
+                self.repo_info(repo_id, repo_type="dataset")
+                logger.debug(f"Using existing repository: {repo_id}")
+            except RepositoryNotFoundError:
+                logger.info(f"Creating repository: {repo_id}")
+                create_repo(repo_id, repo_type="dataset", private=True, exist_ok=True)
+
+            # Upload script
+            logger.info(f"Uploading {script_path.name} to {repo_id}...")
+            with open(script_path, "r") as f:
+                script_content = f.read()
+
+            commit_hash = self.upload_file(
+                path_or_fileobj=script_content.encode(),
+                path_in_repo=filename,
+                repo_id=repo_id,
+                repo_type="dataset",
+            ).oid
+
+            script_url = f"{self.endpoint}/datasets/{repo_id}/resolve/{commit_hash}/{filename}"
+            repo_url = f"{self.endpoint}/datasets/{repo_id}"
+
+            logger.debug(f"✓ Script uploaded to: {repo_url}/blob/main/{filename}")
+
+            # Create and upload minimal README
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+            readme_content = dedent(
+                f"""
+                ---
+                tags:
+                - hf-cli-jobs-uv-script
+                - ephemeral
+                viewer: false
+                ---
+
+                # UV Script: {filename}
+
+                Executed via `hf jobs uv run` on {timestamp}
+
+                ## Run this script
+
+                ```bash
+                hf jobs uv run {filename}
+                ```
+
+                ---
+                *Created with [hf jobs](https://huggingface.co/docs/huggingface_hub/main/en/guides/jobs)*
+                """
+            )
+            self.upload_file(
+                path_or_fileobj=readme_content.encode(),
+                path_in_repo="README.md",
+                repo_id=repo_id,
+                repo_type="dataset",
+            )
+
+            secrets["UV_SCRIPT_HF_TOKEN"] = token or self.token or get_token()
+            env["UV_SCRIPT_URL"] = script_url
+
+            pre_command = (
+                dedent(
+                    """
+                    import urllib.request
+                    import os
+                    from pathlib import Path
+                    o = urllib.request.build_opener()
+                    o.addheaders = [("Authorization", "Bearer " + os.environ["UV_SCRIPT_HF_TOKEN"])]
+                    Path("/tmp/script.py").write_bytes(o.open(os.environ["UV_SCRIPT_URL"]).read())
+                    """
+                )
+                .strip()
+                .replace('"', r"\"")
+                .split("\n")
+            )
+            pre_command = ["python", "-c", '"' + "; ".join(pre_command) + '"']
+            command = ["uv", "run"] + uv_args + ["/tmp/script.py"] + script_args
+            command = ["bash", "-c", " ".join(pre_command) + " && " + " ".join(command)]
+        return command, env, secrets
+
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
     """Safely parse revision number from a PR url.
@@ -9609,7 +10711,6 @@ api = HfApi()
 
 whoami = api.whoami
 auth_check = api.auth_check
-get_token_permission = api.get_token_permission
 
 list_models = api.list_models
 model_info = api.model_info
@@ -9639,9 +10740,7 @@ get_dataset_tags = api.get_dataset_tags
 create_commit = api.create_commit
 create_repo = api.create_repo
 delete_repo = api.delete_repo
-update_repo_visibility = api.update_repo_visibility
 update_repo_settings = api.update_repo_settings
-super_squash_history = api.super_squash_history
 move_repo = api.move_repo
 upload_file = api.upload_file
 upload_folder = api.upload_folder
@@ -9655,6 +10754,11 @@ delete_branch = api.delete_branch
 create_tag = api.create_tag
 delete_tag = api.delete_tag
 get_full_repo_name = api.get_full_repo_name
+
+# Danger-zone API
+super_squash_history = api.super_squash_history
+list_lfs_files = api.list_lfs_files
+permanently_delete_lfs_files = api.permanently_delete_lfs_files
 
 # Safetensors helpers
 get_safetensors_metadata = api.get_safetensors_metadata
@@ -9738,6 +10842,23 @@ update_webhook = api.update_webhook
 
 # User API
 get_user_overview = api.get_user_overview
+get_organization_overview = api.get_organization_overview
+list_organization_followers = api.list_organization_followers
 list_organization_members = api.list_organization_members
 list_user_followers = api.list_user_followers
 list_user_following = api.list_user_following
+
+# Jobs API
+run_job = api.run_job
+fetch_job_logs = api.fetch_job_logs
+list_jobs = api.list_jobs
+inspect_job = api.inspect_job
+cancel_job = api.cancel_job
+run_uv_job = api.run_uv_job
+create_scheduled_job = api.create_scheduled_job
+list_scheduled_jobs = api.list_scheduled_jobs
+inspect_scheduled_job = api.inspect_scheduled_job
+delete_scheduled_job = api.delete_scheduled_job
+suspend_scheduled_job = api.suspend_scheduled_job
+resume_scheduled_job = api.resume_scheduled_job
+create_scheduled_uv_job = api.create_scheduled_uv_job

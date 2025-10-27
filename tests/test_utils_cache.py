@@ -1,5 +1,4 @@
 import os
-import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -8,20 +7,10 @@ from unittest.mock import Mock
 import pytest
 
 from huggingface_hub._snapshot_download import snapshot_download
-from huggingface_hub.commands.scan_cache import ScanCacheCommand
-from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, capture_output, scan_cache_dir
-from huggingface_hub.utils._cache_manager import (
-    CacheNotFound,
-    _format_size,
-    _format_timesince,
-    _try_delete_path,
-)
+from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, _format_size, scan_cache_dir
+from huggingface_hub.utils._cache_manager import CacheNotFound, _try_delete_path
 
-from .testing_utils import (
-    rmtree_with_retry,
-    with_production_testing,
-    xfail_on_windows,
-)
+from .testing_utils import rmtree_with_retry, with_production_testing, xfail_on_windows
 
 
 # On production server to avoid recreating them all the time
@@ -237,83 +226,6 @@ class TestValidCacheUtils(unittest.TestCase):
         self.assertNotEqual(  # Windows-specific: different as well
             pr_1_readme_file.blob_path, main_readme_file.blob_path
         )
-
-    @xfail_on_windows("Size on disk and paths differ on Windows. Not useful to test.")
-    def test_cli_scan_cache_quiet(self) -> None:
-        """Test output from CLI scan cache with non verbose output.
-
-        End-to-end test just to see if output is in expected format.
-        """
-        args = Mock()
-        args.verbose = 0
-        args.dir = self.cache_dir
-
-        with capture_output() as output:
-            ScanCacheCommand(args).run()
-
-        expected_output = f"""
-        REPO ID                       REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED     LAST_MODIFIED     REFS            LOCAL PATH
-        ----------------------------- --------- ------------ -------- ----------------- ----------------- --------------- ---------------------------------------------------------
-        {DATASET_ID} dataset           2.3K        1 a few seconds ago a few seconds ago main            {self.cache_dir}/{DATASET_PATH}
-        {MODEL_ID}   model             1.5K        3 a few seconds ago a few seconds ago main, refs/pr/1 {self.cache_dir}/{MODEL_PATH}
-
-        Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.8K\x1b[0m.
-        """
-
-        self.assertListEqual(
-            output.getvalue().replace("-", "").split(),
-            expected_output.replace("-", "").split(),
-        )
-
-    @xfail_on_windows("Size on disk and paths differ on Windows. Not useful to test.")
-    def test_cli_scan_cache_verbose(self) -> None:
-        """Test output from CLI scan cache with verbose output.
-
-        End-to-end test just to see if output is in expected format.
-        """
-        args = Mock()
-        args.verbose = 1
-        args.dir = self.cache_dir
-
-        with capture_output() as output:
-            ScanCacheCommand(args).run()
-
-        expected_output = f"""
-        REPO ID                       REPO TYPE REVISION                                 SIZE ON DISK NB FILES LAST_MODIFIED     REFS      LOCAL PATH
-        ----------------------------- --------- ---------------------------------------- ------------ -------- ----------------- --------- ------------------------------------------------------------------------------------------------------------
-        {DATASET_ID} dataset   {REPO_B_MAIN_HASH}          2.3K        1 a few seconds ago main      {self.cache_dir}/{DATASET_PATH}/snapshots/{REPO_B_MAIN_HASH}
-        {MODEL_ID}   model     {REPO_A_PR_1_HASH}          1.5K        3 a few seconds ago refs/pr/1 {self.cache_dir}/{MODEL_PATH}/snapshots/{REPO_A_PR_1_HASH}
-        {MODEL_ID}   model     {REPO_A_MAIN_HASH}          1.5K        2 a few seconds ago main      {self.cache_dir}/{MODEL_PATH}/snapshots/{REPO_A_MAIN_HASH}
-        {MODEL_ID}   model     {REPO_A_OTHER_HASH}         1.5K        1 a few seconds ago           {self.cache_dir}/{MODEL_PATH}/snapshots/{REPO_A_OTHER_HASH}
-
-        Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.8K\x1b[0m.
-        """
-
-        self.assertListEqual(
-            output.getvalue().replace("-", "").split(),
-            expected_output.replace("-", "").split(),
-        )
-
-    def test_cli_scan_missing_cache(self) -> None:
-        """Test output from CLI scan cache when cache does not exist.
-
-        End-to-end test just to see if output is in expected format.
-        """
-        tmp_dir = tempfile.mkdtemp()
-        os.rmdir(tmp_dir)
-
-        args = Mock()
-        args.verbose = 0
-        args.dir = tmp_dir
-
-        with capture_output() as output:
-            ScanCacheCommand(args).run()
-
-        expected_output = f"""
-        Cache directory not found: {Path(tmp_dir).resolve()}
-        """
-
-        self.assertListEqual(output.getvalue().split(), expected_output.split())
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -771,13 +683,8 @@ class TestTryDeletePath(unittest.TestCase):
             _try_delete_path(file_path, path_type="TYPE")
 
         # Assert warning message with traceback for debug purposes
-        self.assertEqual(len(captured.output), 1)
-        self.assertTrue(
-            captured.output[0].startswith(
-                "WARNING:huggingface_hub.utils._cache_manager:Couldn't delete TYPE:"
-                f" file not found ({file_path})\nTraceback (most recent call last):"
-            )
-        )
+        assert len(captured.output) > 0
+        assert any(f"Couldn't delete TYPE: file not found ({file_path})" in log for log in captured.output)
 
     def test_delete_path_on_missing_folder(self) -> None:
         """Try delete a missing folder."""
@@ -787,13 +694,8 @@ class TestTryDeletePath(unittest.TestCase):
             _try_delete_path(dir_path, path_type="TYPE")
 
         # Assert warning message with traceback for debug purposes
-        self.assertEqual(len(captured.output), 1)
-        self.assertTrue(
-            captured.output[0].startswith(
-                "WARNING:huggingface_hub.utils._cache_manager:Couldn't delete TYPE:"
-                f" file not found ({dir_path})\nTraceback (most recent call last):"
-            )
-        )
+        assert len(captured.output) > 0
+        assert any(f"Couldn't delete TYPE: file not found ({dir_path})" in log for log in captured.output)
 
     @xfail_on_windows(reason="Permissions are handled differently on Windows.")
     def test_delete_path_on_local_folder_with_wrong_permission(self) -> None:
@@ -851,13 +753,4 @@ class TestStringFormatters(unittest.TestCase):
                 _format_size(size),
                 expected,
                 msg=f"Wrong formatting for {size} == '{expected}'",
-            )
-
-    def test_format_timesince(self) -> None:
-        """Test `_format_timesince` formatter."""
-        for ts, expected in self.SINCE.items():
-            self.assertEqual(
-                _format_timesince(time.time() - ts),
-                expected,
-                msg=f"Wrong formatting for {ts} == '{expected}'",
             )

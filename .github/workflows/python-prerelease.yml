@@ -3,8 +3,12 @@ name: Python prerelease
 on:
   push:
     tags:
-      - "v*.rc*"
-
+      - v*rc*
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to test (e.g., 0.30.0rc2)"
+        required: true
 jobs:
   trigger_rc_testing:
     runs-on: ubuntu-latest
@@ -15,9 +19,16 @@ jobs:
         target-repo: ["transformers", "datasets", "diffusers"]
 
     steps:
-      - name: Extract version from tag
+      - name: Determine version from tag
         id: get-version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        env: 
+          TAG : ${{ inputs.tag }}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "VERSION=$TAG" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Checkout target repo
         uses: actions/checkout@v4
@@ -46,7 +57,7 @@ jobs:
         run: |
           cd ${{ matrix.target-repo }}
           VERSION=${{ steps.get-version.outputs.VERSION }}
-          BRANCH_NAME="ci-test-huggingface-hub-${VERSION}"
+          BRANCH_NAME="ci-test-huggingface-hub-${VERSION}-release"
 
           # Create and checkout new branch
           git checkout -b $BRANCH_NAME
@@ -80,4 +91,4 @@ jobs:
         run: |
           VERSION=${{ steps.get-version.outputs.VERSION }}
           echo "https://github.com/huggingface/${{ matrix.target-repo }}/actions"
-          echo "https://github.com/huggingface/${{ matrix.target-repo }}/compare/main...ci-test-huggingface-hub-${VERSION}"
+          echo "https://github.com/huggingface/${{ matrix.target-repo }}/compare/main...${BRANCH_NAME}"

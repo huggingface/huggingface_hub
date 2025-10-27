@@ -5,22 +5,21 @@ rendered properly in your Markdown viewer.
 # Intégrez votre framework de ML avec le Hub
 
 Le Hugging Face Hub facilite l'hébergement et le partage de modèles et de jeux de données.
-Des [dizaines de librairies](https://huggingface.co/docs/hub/models-libraries) sont intégrées à cet écosysteme. La communauté travaille constamment à en intégrer de nouvelles et contribue ainsi à faciliter la collaboration dans le milieu du machine learning. La librairie `huggingface_hub` joue un rôle clé dans ce processus puisqu'elle permet d'interagir avec le Hub depuis n'importe quel script Python.
+Des [dizaines de librairies](https://huggingface.co/docs/hub/models-libraries) sont intégrées à cet écosystème. La communauté travaille constamment à en intégrer de nouvelles et contribue ainsi à faciliter la collaboration dans le milieu du machine learning. La librairie `huggingface_hub` joue un rôle clé dans ce processus puisqu'elle permet d'interagir avec le Hub depuis n'importe quel script Python.
 
 Il existe quatre façons principales d'intégrer une bibliothèque au Hub :
-1. **Push to Hub**  implémente une méthode pour upload un modèle sur le Hub. Cela inclut les paramètres du modèle, sa fiche descriptive (appelée [Model Card](https://huggingface.co/docs/huggingface_hub/how-to-model-cards)) et toute autre information pertinente lié au modèle (par exemple, les logs d'entrainement). Cette méthode est souvent appelée `push_to_hub()`.
+1. **Push to Hub**  implémente une méthode pour upload un modèle sur le Hub. Cela inclut les paramètres du modèle, sa fiche descriptive (appelée [Model Card](https://huggingface.co/docs/huggingface_hub/how-to-model-cards)) et toute autre information pertinente liée au modèle (par exemple, les logs d'entraînement). Cette méthode est souvent appelée `push_to_hub()`.
 2. **Download from Hub** implémente une méthode pour charger un modèle depuis le Hub. La méthode doit télécharger la configuration et les poids du modèle puis instancier celui-ci. Cette méthode est souvent appelée `from_pretrained` ou `load_from_hub()`.
-3. **Inference API** utilise nos serveurs pour faire de l'inférence gratuitement sur des modèles supportés par votre librairie.
-4. **Widgets** affiche un widget sur la page d'accueil de votre modèle dans le Hub. Les widgets permettent aux utilisateurs de rapidement tester un modèle depuis le navigateur.
+3. **Widgets** affiche un widget sur la page d'accueil de votre modèle dans le Hub. Les widgets permettent aux utilisateurs de rapidement tester un modèle depuis le navigateur.
 
-Dans ce guide, nous nous concentreront sur les deux premiers sujets. Nous présenterons les deux approches principales que vous pouvez utiliser pour intégrer une librairie, avec leurs avantages et leurs inconvénients. Tout est résumé à la fin du guide pour vous aider à choisir entre les deux. Veuillez garder à l'esprit que ce ne sont que des conseils, et vous êtes libres de les adapter à votre cas d'usage.
+Dans ce guide, nous nous concentrerons sur les deux premiers sujets. Nous présenterons les deux approches principales que vous pouvez utiliser pour intégrer une librairie, avec leurs avantages et leurs inconvénients. Tout est résumé à la fin du guide pour vous aider à choisir entre les deux. Veuillez garder à l'esprit que ce ne sont que des conseils, et vous êtes libres de les adapter à votre cas d'usage.
 
-Si l'Inference API et les Widgets vous intéressent, vous pouvez suivre [ce guide](https://huggingface.co/docs/hub/models-adding-libraries#set-up-the-inference-api). Dans les deux cas, vous pouvez nous contacter si vous intégrez une librairie au Hub et que vous voulez être listée [dans la documentation officielle](https://huggingface.co/docs/hub/models-libraries).
+Si les Widgets vous intéressent, vous pouvez suivre [ce guide](https://huggingface.co/docs/hub/models-adding-libraries#set-up-the-inference-api). Dans les deux cas, vous pouvez nous contacter si vous intégrez une librairie au Hub et que vous voulez être listé [dans la documentation officielle](https://huggingface.co/docs/hub/models-libraries).
 
 ## Une approche flexible: les helpers
 
 La première approche pour intégrer une librairie au Hub est d'implémenter les méthodes `push_to_hub` et `from_pretrained` 
-vous même. Ceci vous donne une flexibilité totale sur le choix du fichier que vous voulez upload/download et sur comment
+vous-même. Ceci vous donne une flexibilité totale sur le choix du fichier que vous voulez upload/download et sur comment
 gérer les inputs spécifiques à votre framework. Vous pouvez vous référer aux guides : [upload des fichiers](./upload)
 et [télécharger des fichiers](./download) pour en savoir plus sur la manière de faire. Par example, c'est de cette manière que l'intégration
 de FastAI est implémentée (voir [`push_to_hub_fastai`] et [`from_pretrained_fastai`]).
@@ -81,8 +80,8 @@ upload des poids à la volée, maintenir les poids localement, etc.) consultez l
 
 ### Limitations
 
-Bien que très flexible, cette approche a quelques défauts, particulièrement en terme de maintenance. Les utilisateurs
-d'Hugging Face sont habitués à utiliser des certaines fonctionnalités lorsqu'ils travaillent avec `huggingface_hub`. Par exemple,
+Bien que très flexible, cette approche a quelques défauts, particulièrement en termes de maintenance. Les utilisateurs
+d'Hugging Face sont habitués à utiliser certaines fonctionnalités lorsqu'ils travaillent avec `huggingface_hub`. Par exemple,
 lors du chargement de fichiers depuis le Hub, il est commun de passer des paramètres tels que:
 - `token`: pour télécharger depuis un dépôt privé
 - `revision`: pour télécharger depuis une branche spécifique
@@ -92,15 +91,15 @@ lors du chargement de fichiers depuis le Hub, il est commun de passer des param�
 
 Lorsque vous pushez des modèles, des paramètres similaires sont utilisables:
 - `commit_message`: message de commit personnalisé
-- `private`: créé un dépôt privé s'il en manque un
-- `create_pr`: créé un pull request au lieu de push vers `main`
+- `private`: crée un dépôt privé s'il en manque un
+- `create_pr`: crée une pull request au lieu de push vers `main`
 - `branch`: push vers une branche au lieu de push sur `main`
 - `allow_patterns`/`ignore_patterns`: filtre les fichiers à upload
 - `token`
 - `api_endpoint`
 - ...
 
-Tous ces paramètres peuvent être ajoutés aux implémentations vues ci dessus et passés aux méthodes de `huggingface_hub`.
+Tous ces paramètres peuvent être ajoutés aux implémentations vues ci-dessus et passés aux méthodes de `huggingface_hub`.
 Toutefois, si un paramètre change ou qu'une nouvelle fonctionnalité est ajoutée, vous devrez mettre à jour votre package.
 Supporter ces paramètres implique aussi plus de documentation à maintenir de votre côté. Dans la prochaine section, nous allons voir comment dépasser ces limitations.
 
@@ -112,21 +111,21 @@ Vous pouvez implémenter ces méthodes vous-même mais cela a des inconvénients
 un outil qui utilise l'héritage de classe. Regardons comment ça marche !
 
 Dans beaucoup de cas, une librairie définit déjà les modèles comme des classes Python. La classe contient les
-propriétés du modèle et des méthodes pour charger, lancer, entrainer et évaluer le modèle. Notre approche est d'étendre
+propriétés du modèle et des méthodes pour charger, lancer, entraîner et évaluer le modèle. Notre approche est d'étendre
 cette classe pour inclure les fonctionnalités upload et download en utilisant les mixins. Une [mixin](https://stackoverflow.com/a/547714)
 est une classe qui est faite pour étendre une classe existante avec une liste de fonctionnalités spécifiques en utilisant l'héritage de classe.
 `huggingface_hub` offre son propre mixin, le [`ModelHubMixin`]. La clef ici est de comprendre son comportement et comment le customiser.
 
 La classe [`ModelHubMixin`] implémente 3 méthodes *public* (`push_to_hub`, `save_pretrained` et `from_pretrained`). Ce
-sont les méthodes que vos utilisateurs appeleront pour charger/enregistrer des modèles avec votre librairie.
-[`ModelHubMixin`] définit aussi 2 méthodes *private* (`_save_pretrained` et `from_pretrained`). Ce sont celle que vous
+sont les méthodes que vos utilisateurs appelleront pour charger/enregistrer des modèles avec votre librairie.
+[`ModelHubMixin`] définit aussi 2 méthodes *private* (`_save_pretrained` et `from_pretrained`). Ce sont celles que vous
 devez implémenter. Ainsi, pour intégrer votre librairie, vous devez :
 
 1. Faire en sorte que votre classe Model hérite de [`ModelHubMixin`].
 2. Implémenter les méthodes privées:
     - [`~ModelHubMixin._save_pretrained`]: méthode qui prend en entrée un chemin vers un directory et qui sauvegarde le modèle. 
     Vous devez écrire toute la logique pour dump votre modèle de cette manière: model card, poids du modèle, fichiers de configuration,
-    et logs d'entrainement. Toute information pertinente pour ce modèle doit être gérée par cette méthode. Les
+    et logs d'entraînement. Toute information pertinente pour ce modèle doit être gérée par cette méthode. Les
     [model cards](https://huggingface.co/docs/hub/model-cards) sont particulièrement importantes pour décrire votre modèle. Vérifiez
     [notre guide d'implémentation](./model-cards) pour plus de détails.
     - [`~ModelHubMixin._from_pretrained`]: **méthode de classe** prenant en entrée un `model_id` et qui retourne un modèle instancié.
@@ -224,8 +223,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
       revision: str,
       cache_dir: str,
       force_download: bool,
-      proxies: Optional[Dict],
-      resume_download: bool,
       local_files_only: bool,
       token: Union[str, bool, None],
       map_location: str = "cpu", # argument supplémentaire
@@ -243,8 +240,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
             revision=revision,
             cache_dir=cache_dir,
             force_download=force_download,
-            proxies=proxies,
-            resume_download=resume_download,
             token=token,
             local_files_only=local_files_only,
          )
@@ -262,14 +257,14 @@ Et c'est fini ! Votre librairie permet maintenant aux utilisateurs d'upload et d
 ## Comparaison
 
 Résumons rapidement les deux approches que nous avons vu avec leurs avantages et leurs défauts. Le tableau ci-dessous
-est purement indicatif. Votre framework aura peut-êre des spécifités à prendre en compte. Ce guide
+est purement indicatif. Votre framework aura peut-êre des spécificités à prendre en compte. Ce guide
 est ici pour vous donner des indications et des idées sur comment gérer l'intégration. Dans tous les cas,
 n'hésitez pas à nous contacter si vous avez une question !
 
 <!-- Généré en utilisant https://www.tablesgenerator.com/markdown_tables -->
-| Intégration | Utilisant des helpers | Utilisant [`ModelHubMixin`] |
-|:---:|:---:|:---:|
-| Expérience utilisateur | `model = load_from_hub(...)`<br>`push_to_hub(model, ...)` | `model = MyModel.from_pretrained(...)`<br>`model.push_to_hub(...)` |
-| Flexible | Très flexible.<br>Vous controllez complètement l'implémentation. | Moins flexible.<br>Votre framework doit avoir une classe de modèle. |
-| Maintenance | Plus de maintenance pour ajouter du support pour la configuration, et de nouvelles fonctionnalités. Peut aussi nécessiter de fixx des problèmes signalés par les utilisateurs.| Moins de maintenance vu que la plupart des intégrations avec le Hub sont implémentés dans `huggingface_hub` |
-| Documentation / Anotation de type| A écrire à la main | Géré partiellement par `huggingface_hub`. |
+|            Intégration            |                                                                             Utilisant des helpers                                                                              |                                         Utilisant [`ModelHubMixin`]                                         |
+| :-------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: |
+|      Expérience utilisateur       |                                                           `model = load_from_hub(...)`<br>`push_to_hub(model, ...)`                                                            |                     `model = MyModel.from_pretrained(...)`<br>`model.push_to_hub(...)`                      |
+|             Flexible              |                                                        Très flexible.<br>Vous controllez complètement l'implémentation.                                                        |                     Moins flexible.<br>Votre framework doit avoir une classe de modèle.                     |
+|            Maintenance            | Plus de maintenance pour ajouter du support pour la configuration, et de nouvelles fonctionnalités. Peut aussi nécessiter de fixx des problèmes signalés par les utilisateurs. | Moins de maintenance vu que la plupart des intégrations avec le Hub sont implémentés dans `huggingface_hub` |
+| Documentation / Anotation de type |                                                                               A écrire à la main                                                                               |                                  Géré partiellement par `huggingface_hub`.                                  |

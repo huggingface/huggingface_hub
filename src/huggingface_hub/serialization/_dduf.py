@@ -7,7 +7,7 @@ import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Generator, Iterable, Tuple, Union
+from typing import Any, Generator, Iterable, Union
 
 from ..errors import DDUFCorruptedFileError, DDUFExportError, DDUFInvalidEntryNameError
 
@@ -87,7 +87,7 @@ class DDUFEntry:
             return f.read(self.length).decode(encoding=encoding)
 
 
-def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> Dict[str, DDUFEntry]:
+def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> dict[str, DDUFEntry]:
     """
     Read a DDUF file and return a dictionary of entries.
 
@@ -98,7 +98,7 @@ def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> Dict[str, DDUFEntry]:
             The path to the DDUF file to read.
 
     Returns:
-        `Dict[str, DDUFEntry]`:
+        `dict[str, DDUFEntry]`:
             A dictionary of [`DDUFEntry`] indexed by filename.
 
     Raises:
@@ -157,7 +157,7 @@ def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> Dict[str, DDUFEntry]:
 
 
 def export_entries_as_dduf(
-    dduf_path: Union[str, os.PathLike], entries: Iterable[Tuple[str, Union[str, Path, bytes]]]
+    dduf_path: Union[str, os.PathLike], entries: Iterable[tuple[str, Union[str, Path, bytes]]]
 ) -> None:
     """Write a DDUF file from an iterable of entries.
 
@@ -167,7 +167,7 @@ def export_entries_as_dduf(
     Args:
         dduf_path (`str` or `os.PathLike`):
             The path to the DDUF file to write.
-        entries (`Iterable[Tuple[str, Union[str, Path, bytes]]]`):
+        entries (`Iterable[tuple[str, Union[str, Path, bytes]]]`):
             An iterable of entries to write in the DDUF file. Each entry is a tuple with the filename and the content.
             The filename should be the path to the file in the DDUF archive.
             The content can be a string or a pathlib.Path representing a path to a file on the local disk or directly the content as bytes.
@@ -201,7 +201,7 @@ def export_entries_as_dduf(
         >>> pipe = DiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4")
         ... # ... do some work with the pipeline
 
-        >>> def as_entries(pipe: DiffusionPipeline) -> Generator[Tuple[str, bytes], None, None]:
+        >>> def as_entries(pipe: DiffusionPipeline) -> Generator[tuple[str, bytes], None, None]:
         ...     # Build an generator that yields the entries to add to the DDUF file.
         ...     # The first element of the tuple is the filename in the DDUF archive (must use UNIX separator!). The second element is the content of the file.
         ...     # Entries will be evaluated lazily when the DDUF file is created (only 1 entry is loaded in memory at a time)
@@ -267,7 +267,7 @@ def export_folder_as_dduf(dduf_path: Union[str, os.PathLike], folder_path: Union
     """
     folder_path = Path(folder_path)
 
-    def _iterate_over_folder() -> Iterable[Tuple[str, Path]]:
+    def _iterate_over_folder() -> Iterable[tuple[str, Path]]:
         for path in Path(folder_path).glob("**/*"):
             if not path.is_file():
                 continue

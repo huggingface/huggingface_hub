@@ -26,6 +26,8 @@
       title: Inference
     - local: guides/inference_endpoints
       title: Inference Endpoints
+    - local: guides/jobs
+      title: Jobs
     - local: guides/community
       title: Community Tab
     - local: guides/collections
@@ -44,6 +46,8 @@
   sections:
     - local: concepts/git_vs_http
       title: Git vs HTTP paradigm
+    - local: concepts/migration
+      title: Migrating to huggingface_hub v1.0
 - title: 'Reference'
   sections:
     - local: package_reference/overview
@@ -52,10 +56,10 @@
       title: Authentication
     - local: package_reference/environment_variables
       title: Environment variables
-    - local: package_reference/repository
-      title: Managing local and online repositories
     - local: package_reference/hf_api
       title: Hugging Face Hub API
+    - local: package_reference/cli
+      title: CLI
     - local: package_reference/file_download
       title: Downloading files
     - local: package_reference/mixins
@@ -66,6 +70,8 @@
       title: Inference Client
     - local: package_reference/inference_endpoints
       title: Inference Endpoints
+    - local: package_reference/mcp
+      title: MCP Client
     - local: package_reference/hf_file_system
       title: HfFileSystem
     - local: package_reference/utilities
@@ -86,3 +92,9 @@
       title: Webhooks server
     - local: package_reference/serialization
       title: Serialization
+    - local: package_reference/dataclasses
+      title: Strict dataclasses
+    - local: package_reference/oauth
+      title: OAuth
+    - local: package_reference/jobs
+      title: Jobs

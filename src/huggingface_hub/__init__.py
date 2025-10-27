@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.30.0.dev0"
+__version__ = "1.0.0.rc7"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -62,6 +62,12 @@ _SUBMOD_ATTRS = {
         "InferenceEndpointTimeoutError",
         "InferenceEndpointType",
     ],
+    "_jobs_api": [
+        "JobInfo",
+        "JobOwner",
+        "JobStage",
+        "JobStatus",
+    ],
     "_login": [
         "auth_list",
         "auth_switch",
@@ -69,6 +75,13 @@ _SUBMOD_ATTRS = {
         "login",
         "logout",
         "notebook_login",
+    ],
+    "_oauth": [
+        "OAuthInfo",
+        "OAuthOrgInfo",
+        "OAuthUserInfo",
+        "attach_huggingface_oauth",
+        "parse_huggingface_oauth",
     ],
     "_snapshot_download": [
         "snapshot_download",
@@ -98,6 +111,9 @@ _SUBMOD_ATTRS = {
         "WebhooksServer",
         "webhook_endpoint",
     ],
+    "cli._cli_utils": [
+        "typer_factory",
+    ],
     "community": [
         "Discussion",
         "DiscussionComment",
@@ -125,6 +141,7 @@ _SUBMOD_ATTRS = {
         "push_to_hub_fastai",
     ],
     "file_download": [
+        "DryRunFileInfo",
         "HfFileMetadata",
         "_CACHED_NO_EXIST",
         "get_hf_file_metadata",
@@ -146,6 +163,7 @@ _SUBMOD_ATTRS = {
         "GitRefs",
         "HfApi",
         "ModelInfo",
+        "Organization",
         "RepoUrl",
         "SpaceInfo",
         "User",
@@ -158,6 +176,7 @@ _SUBMOD_ATTRS = {
         "add_space_variable",
         "auth_check",
         "cancel_access_request",
+        "cancel_job",
         "change_discussion_status",
         "comment_discussion",
         "create_branch",
@@ -168,6 +187,8 @@ _SUBMOD_ATTRS = {
         "create_inference_endpoint_from_catalog",
         "create_pull_request",
         "create_repo",
+        "create_scheduled_job",
+        "create_scheduled_uv_job",
         "create_tag",
         "create_webhook",
         "dataset_info",
@@ -178,6 +199,7 @@ _SUBMOD_ATTRS = {
         "delete_folder",
         "delete_inference_endpoint",
         "delete_repo",
+        "delete_scheduled_job",
         "delete_space_secret",
         "delete_space_storage",
         "delete_space_variable",
@@ -187,6 +209,7 @@ _SUBMOD_ATTRS = {
         "duplicate_space",
         "edit_discussion_comment",
         "enable_webhook",
+        "fetch_job_logs",
         "file_exists",
         "get_collection",
         "get_dataset_tags",
@@ -194,22 +217,27 @@ _SUBMOD_ATTRS = {
         "get_full_repo_name",
         "get_inference_endpoint",
         "get_model_tags",
+        "get_organization_overview",
         "get_paths_info",
         "get_repo_discussions",
         "get_safetensors_metadata",
         "get_space_runtime",
         "get_space_variables",
-        "get_token_permission",
         "get_user_overview",
         "get_webhook",
         "grant_access",
+        "inspect_job",
+        "inspect_scheduled_job",
         "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
         "list_inference_catalog",
         "list_inference_endpoints",
+        "list_jobs",
+        "list_lfs_files",
         "list_liked_repos",
         "list_models",
+        "list_organization_followers",
         "list_organization_members",
         "list_papers",
         "list_pending_access_requests",
@@ -230,6 +258,7 @@ _SUBMOD_ATTRS = {
         "parse_safetensors_file_metadata",
         "pause_inference_endpoint",
         "pause_space",
+        "permanently_delete_lfs_files",
         "preupload_lfs_files",
         "reject_access_request",
         "rename_discussion",
@@ -240,18 +269,21 @@ _SUBMOD_ATTRS = {
         "request_space_storage",
         "restart_space",
         "resume_inference_endpoint",
+        "resume_scheduled_job",
         "revision_exists",
         "run_as_future",
+        "run_job",
+        "run_uv_job",
         "scale_to_zero_inference_endpoint",
         "set_space_sleep_time",
         "space_info",
         "super_squash_history",
+        "suspend_scheduled_job",
         "unlike",
         "update_collection_item",
         "update_collection_metadata",
         "update_inference_endpoint",
         "update_repo_settings",
-        "update_repo_visibility",
         "update_webhook",
         "upload_file",
         "upload_folder",
@@ -292,10 +324,13 @@ _SUBMOD_ATTRS = {
         "ChatCompletionInputFunctionDefinition",
         "ChatCompletionInputFunctionName",
         "ChatCompletionInputGrammarType",
-        "ChatCompletionInputGrammarTypeType",
+        "ChatCompletionInputJSONSchema",
         "ChatCompletionInputMessage",
         "ChatCompletionInputMessageChunk",
         "ChatCompletionInputMessageChunkType",
+        "ChatCompletionInputResponseFormatJSONObject",
+        "ChatCompletionInputResponseFormatJSONSchema",
+        "ChatCompletionInputResponseFormatText",
         "ChatCompletionInputStreamOptions",
         "ChatCompletionInputTool",
         "ChatCompletionInputToolCall",
@@ -348,6 +383,10 @@ _SUBMOD_ATTRS = {
         "ImageToTextInput",
         "ImageToTextOutput",
         "ImageToTextParameters",
+        "ImageToVideoInput",
+        "ImageToVideoOutput",
+        "ImageToVideoParameters",
+        "ImageToVideoTargetSize",
         "ObjectDetectionBoundingBox",
         "ObjectDetectionInput",
         "ObjectDetectionOutputElement",
@@ -431,14 +470,11 @@ _SUBMOD_ATTRS = {
         "ZeroShotObjectDetectionOutputElement",
         "ZeroShotObjectDetectionParameters",
     ],
-    "inference_api": [
-        "InferenceApi",
+    "inference._mcp.agent": [
+        "Agent",
     ],
-    "keras_mixin": [
-        "KerasModelHubMixin",
-        "from_pretrained_keras",
-        "push_to_hub_keras",
-        "save_pretrained_keras",
+    "inference._mcp.mcp_client": [
+        "MCPClient",
     ],
     "repocard": [
         "DatasetCard",
@@ -457,12 +493,8 @@ _SUBMOD_ATTRS = {
         "ModelCardData",
         "SpaceCardData",
     ],
-    "repository": [
-        "Repository",
-    ],
     "serialization": [
         "StateDictSplit",
-        "get_tf_storage_size",
         "get_torch_storage_id",
         "get_torch_storage_size",
         "load_state_dict_from_file",
@@ -470,7 +502,6 @@ _SUBMOD_ATTRS = {
         "save_torch_model",
         "save_torch_state_dict",
         "split_state_dict_into_shards_factory",
-        "split_tf_state_dict_into_shards",
         "split_torch_state_dict_into_shards",
     ],
     "serialization._dduf": [
@@ -480,6 +511,8 @@ _SUBMOD_ATTRS = {
         "read_dduf_file",
     ],
     "utils": [
+        "ASYNC_CLIENT_FACTORY_T",
+        "CLIENT_FACTORY_T",
         "CacheNotFound",
         "CachedFileInfo",
         "CachedRepoInfo",
@@ -487,14 +520,17 @@ _SUBMOD_ATTRS = {
         "CorruptedCacheException",
         "DeleteCacheStrategy",
         "HFCacheInfo",
-        "HfFolder",
         "cached_assets_path",
-        "configure_http_backend",
+        "close_session",
         "dump_environment_info",
+        "get_async_session",
         "get_session",
         "get_token",
+        "hf_raise_for_status",
         "logging",
         "scan_cache_dir",
+        "set_async_client_factory",
+        "set_client_factory",
     ],
 }
 
@@ -510,6 +546,8 @@ _SUBMOD_ATTRS = {
 # ```
 
 __all__ = [
+    "ASYNC_CLIENT_FACTORY_T",
+    "Agent",
     "AsyncInferenceClient",
     "AudioClassificationInput",
     "AudioClassificationOutputElement",
@@ -523,6 +561,7 @@ __all__ = [
     "AutomaticSpeechRecognitionOutput",
     "AutomaticSpeechRecognitionOutputChunk",
     "AutomaticSpeechRecognitionParameters",
+    "CLIENT_FACTORY_T",
     "CONFIG_NAME",
     "CacheNotFound",
     "CachedFileInfo",
@@ -533,10 +572,13 @@ __all__ = [
     "ChatCompletionInputFunctionDefinition",
     "ChatCompletionInputFunctionName",
     "ChatCompletionInputGrammarType",
-    "ChatCompletionInputGrammarTypeType",
+    "ChatCompletionInputJSONSchema",
     "ChatCompletionInputMessage",
     "ChatCompletionInputMessageChunk",
     "ChatCompletionInputMessageChunkType",
+    "ChatCompletionInputResponseFormatJSONObject",
+    "ChatCompletionInputResponseFormatJSONSchema",
+    "ChatCompletionInputResponseFormatText",
     "ChatCompletionInputStreamOptions",
     "ChatCompletionInputTool",
     "ChatCompletionInputToolCall",
@@ -588,6 +630,7 @@ __all__ = [
     "DocumentQuestionAnsweringInputData",
     "DocumentQuestionAnsweringOutputElement",
     "DocumentQuestionAnsweringParameters",
+    "DryRunFileInfo",
     "EvalResult",
     "FLAX_WEIGHTS_NAME",
     "FeatureExtractionInput",
@@ -608,7 +651,6 @@ __all__ = [
     "HfFileSystemFile",
     "HfFileSystemResolvedPath",
     "HfFileSystemStreamFile",
-    "HfFolder",
     "ImageClassificationInput",
     "ImageClassificationOutputElement",
     "ImageClassificationOutputTransform",
@@ -626,7 +668,10 @@ __all__ = [
     "ImageToTextInput",
     "ImageToTextOutput",
     "ImageToTextParameters",
-    "InferenceApi",
+    "ImageToVideoInput",
+    "ImageToVideoOutput",
+    "ImageToVideoParameters",
+    "ImageToVideoTargetSize",
     "InferenceClient",
     "InferenceEndpoint",
     "InferenceEndpointError",
@@ -634,15 +679,23 @@ __all__ = [
     "InferenceEndpointTimeoutError",
     "InferenceEndpointType",
     "InferenceTimeoutError",
-    "KerasModelHubMixin",
+    "JobInfo",
+    "JobOwner",
+    "JobStage",
+    "JobStatus",
+    "MCPClient",
     "ModelCard",
     "ModelCardData",
     "ModelHubMixin",
     "ModelInfo",
+    "OAuthInfo",
+    "OAuthOrgInfo",
+    "OAuthUserInfo",
     "ObjectDetectionBoundingBox",
     "ObjectDetectionInput",
     "ObjectDetectionOutputElement",
     "ObjectDetectionParameters",
+    "Organization",
     "PYTORCH_WEIGHTS_NAME",
     "Padding",
     "PyTorchModelHubMixin",
@@ -655,7 +708,6 @@ __all__ = [
     "REPO_TYPE_SPACE",
     "RepoCard",
     "RepoUrl",
-    "Repository",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
     "SpaceCard",
@@ -760,14 +812,16 @@ __all__ = [
     "add_collection_item",
     "add_space_secret",
     "add_space_variable",
+    "attach_huggingface_oauth",
     "auth_check",
     "auth_list",
     "auth_switch",
     "cached_assets_path",
     "cancel_access_request",
+    "cancel_job",
     "change_discussion_status",
+    "close_session",
     "comment_discussion",
-    "configure_http_backend",
     "create_branch",
     "create_collection",
     "create_commit",
@@ -776,6 +830,8 @@ __all__ = [
     "create_inference_endpoint_from_catalog",
     "create_pull_request",
     "create_repo",
+    "create_scheduled_job",
+    "create_scheduled_uv_job",
     "create_tag",
     "create_webhook",
     "dataset_info",
@@ -786,6 +842,7 @@ __all__ = [
     "delete_folder",
     "delete_inference_endpoint",
     "delete_repo",
+    "delete_scheduled_job",
     "delete_space_secret",
     "delete_space_storage",
     "delete_space_variable",
@@ -798,9 +855,10 @@ __all__ = [
     "enable_webhook",
     "export_entries_as_dduf",
     "export_folder_as_dduf",
+    "fetch_job_logs",
     "file_exists",
     "from_pretrained_fastai",
-    "from_pretrained_keras",
+    "get_async_session",
     "get_collection",
     "get_dataset_tags",
     "get_discussion_details",
@@ -808,15 +866,14 @@ __all__ = [
     "get_hf_file_metadata",
     "get_inference_endpoint",
     "get_model_tags",
+    "get_organization_overview",
     "get_paths_info",
     "get_repo_discussions",
     "get_safetensors_metadata",
     "get_session",
     "get_space_runtime",
     "get_space_variables",
-    "get_tf_storage_size",
     "get_token",
-    "get_token_permission",
     "get_torch_storage_id",
     "get_torch_storage_size",
     "get_user_overview",
@@ -824,14 +881,20 @@ __all__ = [
     "grant_access",
     "hf_hub_download",
     "hf_hub_url",
+    "hf_raise_for_status",
+    "inspect_job",
+    "inspect_scheduled_job",
     "interpreter_login",
     "list_accepted_access_requests",
     "list_collections",
     "list_datasets",
     "list_inference_catalog",
     "list_inference_endpoints",
+    "list_jobs",
+    "list_lfs_files",
     "list_liked_repos",
     "list_models",
+    "list_organization_followers",
     "list_organization_members",
     "list_papers",
     "list_pending_access_requests",
@@ -859,12 +922,13 @@ __all__ = [
     "move_repo",
     "notebook_login",
     "paper_info",
+    "parse_huggingface_oauth",
     "parse_safetensors_file_metadata",
     "pause_inference_endpoint",
     "pause_space",
+    "permanently_delete_lfs_files",
     "preupload_lfs_files",
     "push_to_hub_fastai",
-    "push_to_hub_keras",
     "read_dduf_file",
     "reject_access_request",
     "rename_discussion",
@@ -875,27 +939,31 @@ __all__ = [
     "request_space_storage",
     "restart_space",
     "resume_inference_endpoint",
+    "resume_scheduled_job",
     "revision_exists",
     "run_as_future",
-    "save_pretrained_keras",
+    "run_job",
+    "run_uv_job",
     "save_torch_model",
     "save_torch_state_dict",
     "scale_to_zero_inference_endpoint",
     "scan_cache_dir",
+    "set_async_client_factory",
+    "set_client_factory",
     "set_space_sleep_time",
     "snapshot_download",
     "space_info",
     "split_state_dict_into_shards_factory",
-    "split_tf_state_dict_into_shards",
     "split_torch_state_dict_into_shards",
     "super_squash_history",
+    "suspend_scheduled_job",
     "try_to_load_from_cache",
+    "typer_factory",
     "unlike",
     "update_collection_item",
     "update_collection_metadata",
     "update_inference_endpoint",
     "update_repo_settings",
-    "update_repo_visibility",
     "update_webhook",
     "upload_file",
     "upload_folder",
@@ -1014,6 +1082,12 @@ if TYPE_CHECKING:  # pragma: no cover
         InferenceEndpointTimeoutError,  # noqa: F401
         InferenceEndpointType,  # noqa: F401
     )
+    from ._jobs_api import (
+        JobInfo,  # noqa: F401
+        JobOwner,  # noqa: F401
+        JobStage,  # noqa: F401
+        JobStatus,  # noqa: F401
+    )
     from ._login import (
         auth_list,  # noqa: F401
         auth_switch,  # noqa: F401
@@ -1021,6 +1095,13 @@ if TYPE_CHECKING:  # pragma: no cover
         login,  # noqa: F401
         logout,  # noqa: F401
         notebook_login,  # noqa: F401
+    )
+    from ._oauth import (
+        OAuthInfo,  # noqa: F401
+        OAuthOrgInfo,  # noqa: F401
+        OAuthUserInfo,  # noqa: F401
+        attach_huggingface_oauth,  # noqa: F401
+        parse_huggingface_oauth,  # noqa: F401
     )
     from ._snapshot_download import snapshot_download  # noqa: F401
     from ._space_api import (
@@ -1046,6 +1127,7 @@ if TYPE_CHECKING:  # pragma: no cover
         WebhooksServer,  # noqa: F401
         webhook_endpoint,  # noqa: F401
     )
+    from .cli._cli_utils import typer_factory  # noqa: F401
     from .community import (
         Discussion,  # noqa: F401
         DiscussionComment,  # noqa: F401
@@ -1074,6 +1156,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .file_download import (
         _CACHED_NO_EXIST,  # noqa: F401
+        DryRunFileInfo,  # noqa: F401
         HfFileMetadata,  # noqa: F401
         get_hf_file_metadata,  # noqa: F401
         hf_hub_download,  # noqa: F401
@@ -1094,6 +1177,7 @@ if TYPE_CHECKING:  # pragma: no cover
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
         ModelInfo,  # noqa: F401
+        Organization,  # noqa: F401
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
         User,  # noqa: F401
@@ -1106,6 +1190,7 @@ if TYPE_CHECKING:  # pragma: no cover
         add_space_variable,  # noqa: F401
         auth_check,  # noqa: F401
         cancel_access_request,  # noqa: F401
+        cancel_job,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
         create_branch,  # noqa: F401
@@ -1116,6 +1201,8 @@ if TYPE_CHECKING:  # pragma: no cover
         create_inference_endpoint_from_catalog,  # noqa: F401
         create_pull_request,  # noqa: F401
         create_repo,  # noqa: F401
+        create_scheduled_job,  # noqa: F401
+        create_scheduled_uv_job,  # noqa: F401
         create_tag,  # noqa: F401
         create_webhook,  # noqa: F401
         dataset_info,  # noqa: F401
@@ -1126,6 +1213,7 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_folder,  # noqa: F401
         delete_inference_endpoint,  # noqa: F401
         delete_repo,  # noqa: F401
+        delete_scheduled_job,  # noqa: F401
         delete_space_secret,  # noqa: F401
         delete_space_storage,  # noqa: F401
         delete_space_variable,  # noqa: F401
@@ -1135,6 +1223,7 @@ if TYPE_CHECKING:  # pragma: no cover
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
         enable_webhook,  # noqa: F401
+        fetch_job_logs,  # noqa: F401
         file_exists,  # noqa: F401
         get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401
@@ -1142,22 +1231,27 @@ if TYPE_CHECKING:  # pragma: no cover
         get_full_repo_name,  # noqa: F401
         get_inference_endpoint,  # noqa: F401
         get_model_tags,  # noqa: F401
+        get_organization_overview,  # noqa: F401
         get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
-        get_token_permission,  # noqa: F401
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
+        inspect_job,  # noqa: F401
+        inspect_scheduled_job,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
+        list_jobs,  # noqa: F401
+        list_lfs_files,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_models,  # noqa: F401
+        list_organization_followers,  # noqa: F401
         list_organization_members,  # noqa: F401
         list_papers,  # noqa: F401
         list_pending_access_requests,  # noqa: F401
@@ -1178,6 +1272,7 @@ if TYPE_CHECKING:  # pragma: no cover
         parse_safetensors_file_metadata,  # noqa: F401
         pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
+        permanently_delete_lfs_files,  # noqa: F401
         preupload_lfs_files,  # noqa: F401
         reject_access_request,  # noqa: F401
         rename_discussion,  # noqa: F401
@@ -1188,18 +1283,21 @@ if TYPE_CHECKING:  # pragma: no cover
         request_space_storage,  # noqa: F401
         restart_space,  # noqa: F401
         resume_inference_endpoint,  # noqa: F401
+        resume_scheduled_job,  # noqa: F401
         revision_exists,  # noqa: F401
         run_as_future,  # noqa: F401
+        run_job,  # noqa: F401
+        run_uv_job,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
         space_info,  # noqa: F401
         super_squash_history,  # noqa: F401
+        suspend_scheduled_job,  # noqa: F401
         unlike,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
         update_repo_settings,  # noqa: F401
-        update_repo_visibility,  # noqa: F401
         update_webhook,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
@@ -1238,10 +1336,13 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionInputFunctionDefinition,  # noqa: F401
         ChatCompletionInputFunctionName,  # noqa: F401
         ChatCompletionInputGrammarType,  # noqa: F401
-        ChatCompletionInputGrammarTypeType,  # noqa: F401
+        ChatCompletionInputJSONSchema,  # noqa: F401
         ChatCompletionInputMessage,  # noqa: F401
         ChatCompletionInputMessageChunk,  # noqa: F401
         ChatCompletionInputMessageChunkType,  # noqa: F401
+        ChatCompletionInputResponseFormatJSONObject,  # noqa: F401
+        ChatCompletionInputResponseFormatJSONSchema,  # noqa: F401
+        ChatCompletionInputResponseFormatText,  # noqa: F401
         ChatCompletionInputStreamOptions,  # noqa: F401
         ChatCompletionInputTool,  # noqa: F401
         ChatCompletionInputToolCall,  # noqa: F401
@@ -1294,6 +1395,10 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageToTextInput,  # noqa: F401
         ImageToTextOutput,  # noqa: F401
         ImageToTextParameters,  # noqa: F401
+        ImageToVideoInput,  # noqa: F401
+        ImageToVideoOutput,  # noqa: F401
+        ImageToVideoParameters,  # noqa: F401
+        ImageToVideoTargetSize,  # noqa: F401
         ObjectDetectionBoundingBox,  # noqa: F401
         ObjectDetectionInput,  # noqa: F401
         ObjectDetectionOutputElement,  # noqa: F401
@@ -1377,13 +1482,8 @@ if TYPE_CHECKING:  # pragma: no cover
         ZeroShotObjectDetectionOutputElement,  # noqa: F401
         ZeroShotObjectDetectionParameters,  # noqa: F401
     )
-    from .inference_api import InferenceApi  # noqa: F401
-    from .keras_mixin import (
-        KerasModelHubMixin,  # noqa: F401
-        from_pretrained_keras,  # noqa: F401
-        push_to_hub_keras,  # noqa: F401
-        save_pretrained_keras,  # noqa: F401
-    )
+    from .inference._mcp.agent import Agent  # noqa: F401
+    from .inference._mcp.mcp_client import MCPClient  # noqa: F401
     from .repocard import (
         DatasetCard,  # noqa: F401
         ModelCard,  # noqa: F401
@@ -1401,10 +1501,8 @@ if TYPE_CHECKING:  # pragma: no cover
         ModelCardData,  # noqa: F401
         SpaceCardData,  # noqa: F401
     )
-    from .repository import Repository  # noqa: F401
     from .serialization import (
         StateDictSplit,  # noqa: F401
-        get_tf_storage_size,  # noqa: F401
         get_torch_storage_id,  # noqa: F401
         get_torch_storage_size,  # noqa: F401
         load_state_dict_from_file,  # noqa: F401
@@ -1412,7 +1510,6 @@ if TYPE_CHECKING:  # pragma: no cover
         save_torch_model,  # noqa: F401
         save_torch_state_dict,  # noqa: F401
         split_state_dict_into_shards_factory,  # noqa: F401
-        split_tf_state_dict_into_shards,  # noqa: F401
         split_torch_state_dict_into_shards,  # noqa: F401
     )
     from .serialization._dduf import (
@@ -1422,6 +1519,8 @@ if TYPE_CHECKING:  # pragma: no cover
         read_dduf_file,  # noqa: F401
     )
     from .utils import (
+        ASYNC_CLIENT_FACTORY_T,  # noqa: F401
+        CLIENT_FACTORY_T,  # noqa: F401
         CachedFileInfo,  # noqa: F401
         CachedRepoInfo,  # noqa: F401
         CachedRevisionInfo,  # noqa: F401
@@ -1429,12 +1528,15 @@ if TYPE_CHECKING:  # pragma: no cover
         CorruptedCacheException,  # noqa: F401
         DeleteCacheStrategy,  # noqa: F401
         HFCacheInfo,  # noqa: F401
-        HfFolder,  # noqa: F401
         cached_assets_path,  # noqa: F401
-        configure_http_backend,  # noqa: F401
+        close_session,  # noqa: F401
         dump_environment_info,  # noqa: F401
+        get_async_session,  # noqa: F401
         get_session,  # noqa: F401
         get_token,  # noqa: F401
+        hf_raise_for_status,  # noqa: F401
         logging,  # noqa: F401
         scan_cache_dir,  # noqa: F401
+        set_async_client_factory,  # noqa: F401
+        set_client_factory,  # noqa: F401
     )

@@ -14,7 +14,7 @@
 """Contains helpers to split tensors into shards."""
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
+from typing import Any, Callable, Optional, TypeVar, Union
 
 from .. import logging
 
@@ -38,16 +38,16 @@ logger = logging.get_logger(__file__)
 @dataclass
 class StateDictSplit:
     is_sharded: bool = field(init=False)
-    metadata: Dict[str, Any]
-    filename_to_tensors: Dict[str, List[str]]
-    tensor_to_filename: Dict[str, str]
+    metadata: dict[str, Any]
+    filename_to_tensors: dict[str, list[str]]
+    tensor_to_filename: dict[str, str]
 
     def __post_init__(self):
         self.is_sharded = len(self.filename_to_tensors) > 1
 
 
 def split_state_dict_into_shards_factory(
-    state_dict: Dict[str, TensorT],
+    state_dict: dict[str, TensorT],
     *,
     get_storage_size: TensorSizeFn_T,
     filename_pattern: str,
@@ -62,15 +62,12 @@ def split_state_dict_into_shards_factory(
     have tensors of sizes [6GB, 6GB, 2GB, 6GB, 2GB, 2GB] they will get sharded as [6GB], [6+2GB], [6+2+2GB] and not
     [6+2+2GB], [6+2GB], [6GB].
 
-    <Tip warning={true}>
-
-    If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
-    size greater than `max_shard_size`.
-
-    </Tip>
+    > [!WARNING]
+    > If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
+    > size greater than `max_shard_size`.
 
     Args:
-        state_dict (`Dict[str, Tensor]`):
+        state_dict (`dict[str, Tensor]`):
             The state dictionary to save.
         get_storage_size (`Callable[[Tensor], int]`):
             A function that returns the size of a tensor when saved on disk in bytes.
@@ -87,10 +84,10 @@ def split_state_dict_into_shards_factory(
     Returns:
         [`StateDictSplit`]: A `StateDictSplit` object containing the shards and the index to retrieve them.
     """
-    storage_id_to_tensors: Dict[Any, List[str]] = {}
+    storage_id_to_tensors: dict[Any, list[str]] = {}
 
-    shard_list: List[Dict[str, TensorT]] = []
-    current_shard: Dict[str, TensorT] = {}
+    shard_list: list[dict[str, TensorT]] = []
+    current_shard: dict[str, TensorT] = {}
     current_shard_size = 0
     total_size = 0
 

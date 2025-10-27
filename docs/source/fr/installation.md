@@ -4,10 +4,10 @@ rendered properly in your Markdown viewer.
 
 # Installation
 
-Avant de commmencer, vous allez avoir besoin de préparer votre environnement
+Avant de commencer, vous allez avoir besoin de préparer votre environnement
 en installant les packages appropriés.
 
-`huggingface_hub` est testée sur **Python 3.8+**.
+`huggingface_hub` est testée sur **Python 3.9+**.
 
 ## Installation avec pip
 
@@ -44,21 +44,17 @@ Une fois l'installation terminée, rendez-vous à la section [vérification](#ve
 ### Installation des dépendances optionnelles
 
 Certaines dépendances de `huggingface_hub` sont [optionnelles](https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies) car elles ne sont pas nécessaire pour faire marcher les fonctionnalités principales de `huggingface_hub`.
-Toutefois, certaines fonctionnalités de `huggingface_hub` ne seront pas disponibles si les dépendancces optionnelles ne sont pas installées
+Toutefois, certaines fonctionnalités de `huggingface_hub` ne seront pas disponibles si les dépendances optionnelles ne sont pas installées
 
-Vous pouvez installer des dépendances optionelles via `pip`:
+Vous pouvez installer des dépendances optionnelles via `pip`:
 ```bash
-#Installation des dépendances pour les fonctionnalités spécifiques à Tensorflow.
-#/!\ Attention : cette commande n'est pas équivalente à `pip install tensorflow`.
-pip install 'huggingface_hub[tensorflow]'
-
 #Installation des dépendances spécifiques à Pytorch et au CLI.
 pip install 'huggingface_hub[cli,torch]'
 ```
 
 Voici une liste des dépendances optionnelles dans `huggingface_hub`:
 - `cli` fournit une interface d'invite de commande plus pratique pour `huggingface_hub`.
-- `fastai`, `torch` et `tensorflow` sont des dépendances pour utiliser des fonctionnalités spécifiques à un framework.
+- `fastai`, `torch` sont des dépendances pour utiliser des fonctionnalités spécifiques à un framework.
 - `dev` permet de contribuer à la librairie. Cette dépendance inclut `testing` (pour lancer des tests), `typing` (pour lancer le vérifieur de type) et `quality` (pour lancer des linters).
 
 
@@ -140,10 +136,10 @@ Task: text-generation
 Afin de démocratiser le machine learning au plus grand nombre, nous avons développé `huggingface_hub`
 de manière cross-platform et en particulier, pour qu'elle fonctionne sur une maximum de systèmes d'exploitation différents. Toutefois
 `huggingface_hub` connaît dans certains cas des limitations sur Windows.
-Nous avons listés ci-dessous les problèmes connus. N'hésitez pas à nous signaler si vous rencontrez un problème
+Nous avons listé ci-dessous les problèmes connus. N'hésitez pas à nous signaler si vous rencontrez un problème
 non documenté en ouvrant une [issue sur Github](https://github.com/huggingface/huggingface_hub/issues/new/choose).
 
-- Le cache de `huggingface_hub` a besoin des symlinks pour mettre en cache les fichiers installé depuis le Hub.
+- Le cache de `huggingface_hub` a besoin des symlinks pour mettre en cache les fichiers installés depuis le Hub.
 Sur windows, vous devez activer le mode développeur pour lancer ou lancer votre script en tant qu'administrateur
 afin de faire fonctionner les symlinks. S'ils ne sont pas activés, le système de cache fonctionnera toujours mais
 de manière sous-optimale. Consultez les [limitations du cache](./guides/manage-cache#limitations) pour plus de détails.

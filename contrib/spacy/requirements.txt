@@ -1,1 +1,0 @@
-git+https://github.com/explosion/spacy-huggingface-hub.git#egg=spacy-huggingface-hub

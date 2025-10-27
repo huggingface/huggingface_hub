@@ -6,10 +6,8 @@ rendered properly in your Markdown viewer.
 
 `huggingface_hub` 라이브러리는 모델 카드를 생성, 공유, 업데이트할 수 있는 파이썬 인터페이스를 제공합니다. Hub의 모델 카드가 무엇인지, 그리고 실제로 어떻게 작동하는지에 대한 자세한 내용을 확인하려면 [전용 설명 페이지](https://huggingface.co/docs/hub/models-cards)를 방문하세요.
 
-<Tip>
-[신규 (베타)! 우리의 실험적인 모델 카드 크리에이터 앱을 사용해 보세요](https://huggingface.co/spaces/huggingface/Model_Cards_Writing_Tool)
-
-</Tip>
+> [!TIP]
+> [신규 (베타)! 우리의 실험적인 모델 카드 크리에이터 앱을 사용해 보세요](https://huggingface.co/spaces/huggingface/Model_Cards_Writing_Tool)
 
 ## Hub에서 모델 카드 불러오기[[load-a-model-card-from-the-hub]]
 
@@ -167,11 +165,8 @@ library_name: timm
 
 자체 템플릿을 사용하는 대신에, 많은 섹션으로 구성된 기능이 풍부한 [기본 템플릿](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md)을 사용할 수도 있습니다. 내부적으론 [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) 를 사용하여 템플릿 파일을 작성합니다.
 
-<Tip>
-
-`from_template`를 사용하려면 jinja2를 설치해야 합니다. `pip install Jinja2`를 사용하면 됩니다.
-
-</Tip>
+> [!TIP]
+> `from_template`를 사용하려면 jinja2를 설치해야 합니다. `pip install Jinja2`를 사용하면 됩니다.
 
 ```python
 card_data = ModelCardData(language='en', license='mit', library_name='keras')
@@ -188,7 +183,7 @@ print(card)
 
 ## 모델 카드 공유하기[[share-model-cards]]
 
-Hugging Face Hub로 인증받은 경우(`huggingface-cli login` 또는 [`login`] 사용) 간단히 [`ModelCard.push_to_hub`]를 호출하여 카드를 Hub에 푸시할 수 있습니다. 이를 수행하는 방법을 살펴보겠습니다.
+Hugging Face Hub로 인증받은 경우(`hf auth login` 또는 [`login`] 사용) 간단히 [`ModelCard.push_to_hub`]를 호출하여 카드를 Hub에 푸시할 수 있습니다. 이를 수행하는 방법을 살펴보겠습니다.
 
 먼저 인증된 사용자의 네임스페이스 아래에 'hf-hub-modelcards-pr-test'라는 새로운 레포지토리를 만듭니다:
 
@@ -263,11 +258,8 @@ card.push_to_hub(repo_id, create_pr=True)
 
 메타데이터 `모델-인덱스`에 평가 결과를 포함하려면 관련 평가 결과와 함께 [EvalResult] 또는 `EvalResult` 목록을 전달하면 됩니다. 내부적으론 `card.data.to _dict()`를 호출하면 `모델-인덱스`가 생성됩니다. 자세한 내용은 [Hub 문서의 이 섹션](https://huggingface.co/docs/hub/models-cards#evaluation-results)을 참조하십시오.
 
-<Tip>
-
-이 기능을 사용하려면 [ModelCardData]에 `model_name` 속성을 포함해야 합니다.
-
-</Tip>
+> [!TIP]
+> 이 기능을 사용하려면 [ModelCardData]에 `model_name` 속성을 포함해야 합니다.
 
 ```python
 card_data = ModelCardData(

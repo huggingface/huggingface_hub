@@ -1,7 +1,7 @@
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from huggingface_hub.utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects
 
@@ -97,10 +97,10 @@ class TestPathsUtils(unittest.TestCase):
 
     def _check(
         self,
-        items: List[Any],
-        expected_items: List[Any],
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
+        items: list[Any],
+        expected_items: list[Any],
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
         key: Optional[Callable[[Any], str]] = None,
     ) -> None:
         """Run `filter_repo_objects` and check output against expected result."""

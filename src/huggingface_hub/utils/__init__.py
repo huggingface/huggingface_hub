@@ -14,7 +14,6 @@
 # limitations under the License
 
 # ruff: noqa: F401
-
 from huggingface_hub.errors import (
     BadRequestError,
     CacheNotFound,
@@ -43,6 +42,7 @@ from ._cache_manager import (
     CachedRevisionInfo,
     DeleteCacheStrategy,
     HFCacheInfo,
+    _format_size,
     scan_cache_dir,
 )
 from ._chunk_utils import chunk_iterable
@@ -51,14 +51,18 @@ from ._experimental import experimental
 from ._fixes import SoftTemporaryDirectory, WeakFileLock, yaml_dump
 from ._git_credential import list_credential_helpers, set_git_credential, unset_git_credential
 from ._headers import build_hf_headers, get_token_to_send
-from ._hf_folder import HfFolder
 from ._http import (
-    configure_http_backend,
+    ASYNC_CLIENT_FACTORY_T,
+    CLIENT_FACTORY_T,
+    close_session,
     fix_hf_endpoint_in_url,
+    get_async_session,
     get_session,
     hf_raise_for_status,
     http_backoff,
-    reset_sessions,
+    http_stream_backoff,
+    set_async_client_factory,
+    set_client_factory,
 )
 from ._pagination import paginate
 from ._paths import DEFAULT_IGNORE_PATTERNS, FORBIDDEN_FOLDERS, filter_repo_objects
@@ -71,7 +75,6 @@ from ._runtime import (
     get_gradio_version,
     get_graphviz_version,
     get_hf_hub_version,
-    get_hf_transfer_version,
     get_jinja_version,
     get_numpy_version,
     get_pillow_version,
@@ -81,6 +84,7 @@ from ._runtime import (
     get_tensorboard_version,
     get_tf_version,
     get_torch_version,
+    installation_method,
     is_aiohttp_available,
     is_colab_enterprise,
     is_fastai_available,
@@ -89,7 +93,6 @@ from ._runtime import (
     is_google_colab,
     is_gradio_available,
     is_graphviz_available,
-    is_hf_transfer_available,
     is_jinja_available,
     is_notebook,
     is_numpy_available,
@@ -105,6 +108,15 @@ from ._runtime import (
 from ._safetensors import SafetensorsFileMetadata, SafetensorsRepoMetadata, TensorInfo
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess
 from ._telemetry import send_telemetry
+from ._terminal import ANSI, tabulate
 from ._typing import is_jsonable, is_simple_optional_type, unwrap_simple_optional_type
-from ._validators import smoothly_deprecate_use_auth_token, validate_hf_hub_args, validate_repo_id
+from ._validators import validate_hf_hub_args, validate_repo_id
+from ._xet import (
+    XetConnectionInfo,
+    XetFileData,
+    XetTokenType,
+    fetch_xet_connection_info_from_repo_info,
+    parse_xet_file_data_from_response,
+    refresh_xet_connection_info,
+)
 from .tqdm import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars, tqdm, tqdm_stream_file
