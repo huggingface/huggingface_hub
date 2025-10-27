@@ -1,0 +1,22 @@
+name = "pokeforge-api"
+main = "src/index.ts"
+compatibility_date = "2023-10-30"
+
+# KV Namespaces
+# You will need to create these in your Cloudflare dashboard and add the IDs here as secrets.
+kv_namespaces = [
+  { binding = "API_KEYS", id = "", preview_id = "" },
+  { binding = "MONITORED_PRODUCTS", id = "", preview_id = "" }
+]
+
+# Secrets
+# These will be populated from your .env file or Cloudflare secrets
+# wrangler secret put GEMINI_API_KEY
+# wrangler secret put GOOGLE_API_KEY
+# ... etc
+[vars]
+ENCRYPTION_KEY = ""
+
+[[migrations]]
+tag = "v1"
+new_classes = ["ApiKeyManager"]
