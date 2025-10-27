@@ -21,10 +21,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.13"]
+        python-version: ["3.9", "3.14"]
         test_name: ["Everything else", "Inference only", "Xet only"]
         include:
-          - python-version: "3.13" # LFS not ran on 3.9
+          - python-version: "3.14" # LFS not ran on 3.9
             test_name: "lfs"
           - python-version: "3.9"
             test_name: "fastai"
