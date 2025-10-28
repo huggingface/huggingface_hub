@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -97,7 +97,7 @@ class AutomaticSpeechRecognitionInput(BaseInferenceType):
 class AutomaticSpeechRecognitionOutputChunk(BaseInferenceType):
     text: str
     """A chunk of text identified by the model"""
-    timestamp: list[float]
+    timestamp: List[float]
     """The start and end timestamps corresponding with the text"""
 
 
@@ -107,7 +107,7 @@ class AutomaticSpeechRecognitionOutput(BaseInferenceType):
 
     text: str
     """The recognized text."""
-    chunks: Optional[list[AutomaticSpeechRecognitionOutputChunk]] = None
+    chunks: Optional[List[AutomaticSpeechRecognitionOutputChunk]] = None
     """When returnTimestamps is enabled, chunks contains a list of audio chunks identified by
     the model.
     """
