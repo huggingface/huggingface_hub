@@ -21,12 +21,6 @@ class WavespeedAITask(TaskProviderHelper, ABC):
     def __init__(self, task: str):
         super().__init__(provider="wavespeed", base_url="https://api.wavespeed.ai", task=task)
 
-    def _prepare_headers(self, headers: dict, api_key: str) -> dict:
-        headers = super()._prepare_headers(headers, api_key)
-        if not api_key.startswith("hf_"):
-            headers["Authorization"] = f"Bearer {api_key}"
-        return headers
-
     def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return f"/api/v3/{mapped_model}"
 
