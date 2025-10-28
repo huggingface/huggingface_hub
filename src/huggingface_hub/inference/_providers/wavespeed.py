@@ -1,7 +1,7 @@
 import base64
 import time
 from abc import ABC
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 from urllib.parse import urlparse
 
 from huggingface_hub.hf_api import InferenceProviderMapping
@@ -21,7 +21,7 @@ class WavespeedAITask(TaskProviderHelper, ABC):
     def __init__(self, task: str):
         super().__init__(provider="wavespeed", base_url="https://api.wavespeed.ai", task=task)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+    def _prepare_headers(self, headers: dict, api_key: str) -> dict:
         headers = super()._prepare_headers(headers, api_key)
         if not api_key.startswith("hf_"):
             headers["Authorization"] = f"Bearer {api_key}"
@@ -32,7 +32,7 @@ class WavespeedAITask(TaskProviderHelper, ABC):
 
     def get_response(
         self,
-        response: Union[bytes, Dict],
+        response: Union[bytes, dict],
         request_params: Optional[RequestParameters] = None,
     ) -> Any:
         response_dict = _as_dict(response)
@@ -95,23 +95,15 @@ class WavespeedAITextToImageTask(WavespeedAITask):
     def _prepare_payload_as_dict(
         self,
         inputs: Any,
-        parameters: Dict,
+        parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         return {"prompt": inputs, **filter_none(parameters)}
 
 
-class WavespeedAITextToVideoTask(WavespeedAITask):
+class WavespeedAITextToVideoTask(WavespeedAITextToImageTask):
     def __init__(self):
-        super().__init__("text-to-video")
-
-    def _prepare_payload_as_dict(
-        self,
-        inputs: Any,
-        parameters: Dict,
-        provider_mapping_info: InferenceProviderMapping,
-    ) -> Optional[Dict]:
-        return {"prompt": inputs, **filter_none(parameters)}
+        WavespeedAITask.__init__(self, "text-to-video")
 
 
 class WavespeedAIImageToImageTask(WavespeedAITask):
@@ -121,9 +113,9 @@ class WavespeedAIImageToImageTask(WavespeedAITask):
     def _prepare_payload_as_dict(
         self,
         inputs: Any,
-        parameters: Dict,
+        parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         # Convert inputs to image (URL or base64)
         if isinstance(inputs, str) and inputs.startswith(("http://", "https://")):
             image = inputs
@@ -147,34 +139,6 @@ class WavespeedAIImageToImageTask(WavespeedAITask):
         return payload
 
 
-class WavespeedAIImageToVideoTask(WavespeedAITask):
+class WavespeedAIImageToVideoTask(WavespeedAIImageToImageTask):
     def __init__(self):
-        super().__init__("image-to-video")
-
-    def _prepare_payload_as_dict(
-        self,
-        inputs: Any,
-        parameters: Dict,
-        provider_mapping_info: InferenceProviderMapping,
-    ) -> Optional[Dict]:
-        # Convert inputs to image (URL or base64)
-        if isinstance(inputs, str) and inputs.startswith(("http://", "https://")):
-            image = inputs
-        elif isinstance(inputs, str):
-            # If input is a file path, read it first
-            with open(inputs, "rb") as f:
-                file_content = f.read()
-            image_b64 = base64.b64encode(file_content).decode("utf-8")
-            image = f"data:image/jpeg;base64,{image_b64}"
-        else:
-            # If input is binary data
-            image_b64 = base64.b64encode(inputs).decode("utf-8")
-            image = f"data:image/jpeg;base64,{image_b64}"
-
-        # Extract prompt from parameters if present
-        prompt = parameters.pop("prompt", None)
-        payload = {"image": image, **filter_none(parameters)}
-        if prompt is not None:
-            payload["prompt"] = prompt
-
-        return payload
+        WavespeedAITask.__init__(self, "image-to-video")
