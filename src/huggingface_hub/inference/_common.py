@@ -35,7 +35,7 @@ from huggingface_hub.errors import (
     ValidationError,
 )
 
-from ..utils import get_session, is_aiohttp_available, is_numpy_available, is_pillow_available
+from ..utils import get_session, is_numpy_available, is_pillow_available
 from ._generated.types import ChatCompletionStreamOutput, TextGenerationStreamOutput
 
 
@@ -89,15 +89,6 @@ class MimeBytes(bytes):
 
 
 ## IMPORT UTILS
-
-
-def _import_aiohttp():
-    # Make sure `aiohttp` is installed on the machine.
-    if not is_aiohttp_available():
-        raise ImportError("Please install aiohttp to use `AsyncInferenceClient` (`pip install aiohttp`).")
-    import aiohttp
-
-    return aiohttp
 
 
 def _import_numpy():
