@@ -28,10 +28,6 @@ install_requires = [
 
 extras = {}
 
-extras["inference"] = [
-    "aiohttp",  # for AsyncInferenceClient
-]
-
 extras["oauth"] = [
     "authlib>=1.3.2",  # minimum version to include https://github.com/lepture/authlib/pull/644
     "fastapi",
