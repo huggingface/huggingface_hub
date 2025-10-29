@@ -22,7 +22,6 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
 from typing import Annotated, Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 import typer
@@ -694,14 +693,15 @@ def verify(
         token=token,
     )
 
-    # Print mismatches first if any
-    if result.mismatches:
+    exit_code = 0
+
+    has_mismatches = bool(result.mismatches)
+    if has_mismatches:
         print("❌ Checksum verification failed for the following file(s):")
         for m in result.mismatches:
             print(f"  - {m['path']}: expected {m['expected']} ({m['algorithm']}), got {m['actual']}")
+        exit_code = 1
 
-    # Handle missing/extra
-    exit_code = 0
     if result.missing_paths:
         if fail_on_missing_files:
             print("Missing files (present remotely, absent locally):")
@@ -728,24 +728,13 @@ def verify(
             )
             print(f"⚠️  {warning}")
 
-    if result.mismatches:
-        exit_code = 1
+    verified_location = result.verified_path
 
     if exit_code != 0:
+        location_suffix_error = f" in {verified_location}" if verified_location is not None else ""
+        print(f"❌ Verification failed for '{repo_id}' ({repo_type.value}){location_suffix_error}.")
+        print(f"  Revision: {result.revision}")
         raise typer.Exit(code=exit_code)
 
-    repo_label = result.repo_id or repo_id
-    repo_type_label = result.repo_type or (repo_type.value if hasattr(repo_type, "value") else str(repo_type))
-    verified_location = result.verified_path
-    if verified_location is None:
-        if local_dir is not None:
-            verified_location = Path(local_dir).expanduser().resolve()
-        elif cache_dir is not None:
-            verified_location = Path(cache_dir).expanduser().resolve()
-
-    location_suffix = ""
-    if verified_location is not None:
-        location_suffix = f" in {verified_location}"
-
-    print(f"✅ Verified {result.checked_count} file(s) for '{repo_label}' ({repo_type_label}){location_suffix}")
+    print(f"✅ Verified {result.checked_count} file(s) for '{repo_id}' ({repo_type.value}) in {verified_location}")
     print("  All checksums match.")

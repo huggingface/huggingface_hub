@@ -224,8 +224,6 @@ class TestCacheCommand:
             missing_paths=[],
             extra_paths=[],
             verified_path=Path("/tmp/cache/user/model"),
-            repo_id=repo_id,
-            repo_type="model",
         )
 
         with patch("huggingface_hub.cli.cache.get_hf_api") as get_api_mock:
@@ -266,6 +264,8 @@ class TestCacheCommand:
         assert "Checksum verification failed" in result.stdout
         assert "pytorch_model.bin" in result.stdout
         assert "expected" in result.stdout
+        assert "Verification failed for 'user/model' (model)" in result.stdout
+        assert "Revision: main" in result.stdout
 
     def test_verify_reports_missing_local_file(self, runner: CliRunner) -> None:
         commit_hash = "4" * 40
@@ -335,6 +335,8 @@ class TestCacheCommand:
 
         assert result.exit_code == 1
         assert "missing locally" in result.stdout
+        assert "Verification failed for" in result.stdout
+        assert "Revision:" in result.stdout
 
 
 class TestUploadCommand:

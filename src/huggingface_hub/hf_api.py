@@ -3152,12 +3152,7 @@ class HfApi:
             remote_by_path=remote_by_path, local_by_path=local_by_path, revision=remote_revision
         )
 
-        return replace(
-            verification,
-            verified_path=root,
-            repo_id=repo_id,
-            repo_type=repo_type,
-        )
+        return replace(verification, verified_path=root)
 
     @validate_hf_hub_args
     def list_repo_refs(

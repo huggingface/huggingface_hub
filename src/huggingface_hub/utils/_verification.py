@@ -34,8 +34,6 @@ class FolderVerification:
     missing_paths: list[str]
     extra_paths: list[str]
     verified_path: Optional[Path] = None
-    repo_id: Optional[str] = None
-    repo_type: Optional[str] = None
 
 
 def collect_local_files(root: Path) -> dict[str, Path]:
