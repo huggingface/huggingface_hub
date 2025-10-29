@@ -652,6 +652,7 @@ def _get_fs_token_and_dircache(fs):
 
 
 def test_cache():
+    HfFileSystem.clear_instance_cache()
     fs = HfFileSystem()
     fs.dircache = {"dummy": []}
 
