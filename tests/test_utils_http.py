@@ -1,9 +1,7 @@
-import os
 import threading
 import time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from multiprocessing import Process, Queue
 from typing import Generator, Optional
 from unittest.mock import Mock, call, patch
 from urllib.parse import urlparse
