@@ -9585,7 +9585,7 @@ class HfApi:
         self,
         organization: str,
         *,
-        p: int = 1,
+        p: Optional[int] = None,
         sort: Optional[str] = None,
         search: Optional[str] = None,
         token: Union[bool, str, None] = None,
@@ -9597,7 +9597,7 @@ class HfApi:
             organization (`str`):
                 Organization name to list models for.
             p (`int`, *optional*):
-                Page index (1-based). Defaults to 1.
+                Page index
             sort (`str`, *optional*):
                 Sort order, for example `downloads`, `likes`, `created`,
                 `alphabetical`, or `modified`.
@@ -9613,11 +9613,13 @@ class HfApi:
         Raises:
             [`HfHubHTTPError`]: HTTP errors from the Hub (404 if the organization does not exist).
         """
-        params: dict[str, Any] = {"p": int(p)}
+        params: dict[str, Union[int, str]] = {}
         if sort is not None:
             params["sort"] = sort
         if search is not None:
             params["search"] = search
+        if p is not None:
+            params["p"] = p
 
         r = get_session().get(
             f"{constants.ENDPOINT}/api/organizations/{organization}/models-json",
