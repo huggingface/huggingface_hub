@@ -364,7 +364,7 @@ async def _async_yield_from(client: httpx.AsyncClient, response: httpx.Response)
 #
 # Both approaches have very similar APIs, but not exactly the same. What we do first in
 # the `text_generation` method is to assume the model is served via TGI. If we realize
-# it's not the case (i.e. we receive an HTTP 400 Bad Request), we fallback to the
+# it's not the case (i.e. we receive an HTTP 400 Bad Request), we fall back to the
 # default API with a warning message. When that's the case, We remember the unsupported
 # attributes for this model in the `_UNSUPPORTED_TEXT_GENERATION_KWARGS` global variable.
 #
