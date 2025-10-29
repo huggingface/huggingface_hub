@@ -9580,6 +9580,60 @@ class HfApi:
         ):
             yield User(**member)
 
+    @validate_hf_hub_args
+    def list_organization_spaces(
+        self,
+        organization: str,
+        *,
+        sort: Optional[str] = None,
+        search: Optional[str] = None,
+        p: Optional[int] = None,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[SpaceInfo]:
+        """
+        List spaces of an organization on the Hub.
+
+        Args:
+            organization (`str`):
+                Name of the organization to list the spaces of.
+            sort (`str`, *optional*):
+                Sorting criteria for the spaces. Supported values : modified , created, alphabetical, likes
+            search (`str`, *optional*):
+                Search query to filter spaces by name or description.
+            p (`int`, *optional*):
+                Page number for paginated results (optional).
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[SpaceInfo]`: A generator yielding [`SpaceInfo`] objects for each space in the organization.
+
+        Raises:
+            [`HfHubHTTPError`]: HTTP 404 If the organization does not exist on the Hub.
+        """
+        params: dict[str, Any] = {}
+        if sort is not None:
+            params["sort"] = sort
+        if search is not None:
+            params["search"] = search
+        if p is not None:
+            params["p"] = p
+
+        r = get_session().get(
+            f"{constants.ENDPOINT}/api/organizations/{organization}/spaces-json",
+            params=params,
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        data = r.json()
+        for sp in data.get("spaces", []):
+            if "siblings" not in sp:
+                sp["siblings"] = None
+            yield SpaceInfo(**sp)
+
     def list_user_followers(self, username: str, token: Union[bool, str, None] = None) -> Iterable[User]:
         """
         Get the list of followers of a user on the Hub.
