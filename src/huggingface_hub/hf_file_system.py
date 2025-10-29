@@ -73,6 +73,13 @@ class _Cached(type(fsspec.AbstractFileSystem)):
     robust to defaults values and the order of the args.
     """
 
+    def __init__(cls, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Note: we intentionally create a reference here, to avoid garbage
+        # collecting instances when all other references are gone. To really
+        # delete a FileSystem, the cache must be cleared.
+        cls._cache = {}
+
     def __call__(cls, *args, **kwargs):
         skip = kwargs.pop("skip_instance_cache", False)
         fs_token = cls._tokenize(cls, *args, **kwargs)
