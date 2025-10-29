@@ -706,7 +706,7 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, tuple[Any, ...]]:
             return tuple(_get_unique_id(getattr(tensor, attr)) for attr in attrs)
 
     except ImportError:
-        # for torch version less than 2.1, we can fallback to original implementation
+        # for torch version less than 2.1, we can fall back to original implementation
         pass
 
     if tensor.device.type == "xla" and is_torch_tpu_available():

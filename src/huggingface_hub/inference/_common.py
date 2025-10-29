@@ -35,7 +35,7 @@ from huggingface_hub.errors import (
     ValidationError,
 )
 
-from ..utils import get_session, is_aiohttp_available, is_numpy_available, is_pillow_available
+from ..utils import get_session, is_numpy_available, is_pillow_available
 from ._generated.types import ChatCompletionStreamOutput, TextGenerationStreamOutput
 
 
@@ -89,15 +89,6 @@ class MimeBytes(bytes):
 
 
 ## IMPORT UTILS
-
-
-def _import_aiohttp():
-    # Make sure `aiohttp` is installed on the machine.
-    if not is_aiohttp_available():
-        raise ImportError("Please install aiohttp to use `AsyncInferenceClient` (`pip install aiohttp`).")
-    import aiohttp
-
-    return aiohttp
 
 
 def _import_numpy():
@@ -373,7 +364,7 @@ async def _async_yield_from(client: httpx.AsyncClient, response: httpx.Response)
 #
 # Both approaches have very similar APIs, but not exactly the same. What we do first in
 # the `text_generation` method is to assume the model is served via TGI. If we realize
-# it's not the case (i.e. we receive an HTTP 400 Bad Request), we fallback to the
+# it's not the case (i.e. we receive an HTTP 400 Bad Request), we fall back to the
 # default API with a warning message. When that's the case, We remember the unsupported
 # attributes for this model in the `_UNSUPPORTED_TEXT_GENERATION_KWARGS` global variable.
 #

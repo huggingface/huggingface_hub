@@ -294,6 +294,19 @@ def fix_inference_classes(content: str, module_name: str) -> str:
     return content
 
 
+def fix_legacy_annotation(content: str) -> str:
+    """Fix legacy type annotations (e.g., `List` -> `list`)."""
+    lines = content.split("\n")
+    for i, line in enumerate(lines):
+        # Skip import lines
+        if line.strip().startswith(("from ", "import ")):
+            continue
+        for key in ["List", "Dict"]:
+            line = re.sub(r"\b" + key + r"\b", key.lower(), line)
+        lines[i] = line
+    return "\n".join(lines)
+
+
 def create_init_py(dataclasses: dict[str, list[str]]):
     """Create __init__.py file with all dataclasses."""
     content = INIT_PY_HEADER
@@ -344,6 +357,7 @@ def check_inference_types(update: bool) -> NoReturn:
         content = file.read_text()
         content = _clean_deprecated_fields(content)
         fixed_content = fix_inference_classes(content, module_name=file.stem)
+        fixed_content = fix_legacy_annotation(fixed_content)
         formatted_content = format_source_code(fixed_content)
         dataclasses[file.stem] = _list_dataclasses(formatted_content)
         aliases[file.stem] = _list_type_aliases(formatted_content)

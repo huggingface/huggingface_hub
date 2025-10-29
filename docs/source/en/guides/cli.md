@@ -26,7 +26,7 @@ Alternatively, you can install the `hf` CLI with a single command:
 On macOS and Linux:
 
 ```bash
->>> curl -LsSf https://hf.co/cli/install.sh | sh
+>>> curl -LsSf https://hf.co/cli/install.sh | bash
 ```
 
 On Windows:
