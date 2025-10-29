@@ -675,7 +675,7 @@ As with the other cache commands, `--dry-run`, `--yes`, and `--cache-dir` are av
 
 ## hf cache verify
 
-Use `hf cache verify` to validate local files against their checksums on the Hub. Target a single repo per invocation and choose between verifying the cache snapshot or a regular local directory.
+Use `hf cache verify` to validate local files against their checksums on the Hub. You can verify either a cache snapshot or a regular local directory.
 
 Examples:
 
@@ -684,8 +684,8 @@ Examples:
 >>> hf cache verify deepseek-ai/DeepSeek-OCR
 
 # Verify a specific revision
->>> hf cache verify deepseek-ai/DeepSeek-OCR --revision refs/pr/1
->>> hf cache verify deepseek-ai/DeepSeek-OCR --revision abcdef123
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --revision refs/pr/5
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --revision ef93bf4a377c5d5ed9dca78e0bc4ea50b26fe6a4
 
 # Verify a private repo
 >>> hf cache verify me/private-model --token hf_***
@@ -697,7 +697,7 @@ Examples:
 >>> hf cache verify deepseek-ai/DeepSeek-OCR --local-dir /path/to/repo
 ```
 
-By default, the command warns about missing or extra files but does not fail. Use flags to make these conditions fail the command:
+By default, the command warns about missing or extra files. Use flags to turn these warnings into errors:
 
 ```bash
 >>> hf cache verify deepseek-ai/DeepSeek-OCR --fail-on-missing-files --fail-on-extra-files
