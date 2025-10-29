@@ -58,7 +58,11 @@ class HfFileSystemResolvedPath:
             return f"{repo_path}/{self.path_in_repo}".rstrip("/")
 
 
-class _Cached(type(fsspec.AbstractFileSystem)):
+# We need to improve fsspec.spec._Cached which is AbstractFileSystem's metaclass
+_cached_base: Any = type(fsspec.AbstractFileSystem)
+
+
+class _Cached(_cached_base):
     """
     Metaclass for caching HfFileSystem instances according to the args.
 
@@ -67,7 +71,7 @@ class _Cached(type(fsspec.AbstractFileSystem)):
     A call to the :meth:`AbstractFileSystem.clear_instance_cache` must *also*
     be made for a filesystem instance to be garbage collected.
 
-    This is a slightly modified version of `fsspec.spec._Cache` to improve it.
+    This is a slightly modified version of `fsspec.spec._Cached` to improve it.
     In particular in `_tokenize` the pid isn't taken into account for the
     `fs_token` used to identify cache instances. The `fs_token` logic is also
     robust to defaults values and the order of the args.
