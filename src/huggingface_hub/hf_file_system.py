@@ -74,9 +74,9 @@ class _Cached(_cached_base):
 
     This is a slightly modified version of `fsspec.spec._Cached` to improve it.
     In particular in `_tokenize` the pid isn't taken into account for the
-    `fs_token` used to identify cache instances. The `fs_token` logic is also
+    `fs_token` used to identify cached instances. The `fs_token` logic is also
     robust to defaults values and the order of the args. Finally new instances
-    reuse the cache from instances in the main thread.
+    reuse the states from sister instances in the main thread.
     """
 
     def __init__(cls, *args, **kwargs):
@@ -99,9 +99,9 @@ class _Cached(_cached_base):
             obj = type.__call__(cls, *args, **kwargs)
             if not skip and cls.cachable and fs_token_main_thread in cls._cache:
                 # reuse the cache from the main thread instance in the new instance
-                instance_cache_attributes_dict = cls._cache[fs_token_main_thread]._get_instance_cache_attributes_dict()
-                for attr, cached_value in instance_cache_attributes_dict.items():
-                    setattr(obj, attr, cached_value)
+                instance_state = cls._cache[fs_token_main_thread]._get_instance_state()
+                for attr, state_value in instance_state.items():
+                    setattr(obj, attr, state_value)
             obj._fs_token_ = fs_token
             obj.storage_args = args
             obj.storage_options = kwargs
@@ -1002,15 +1002,15 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         raise NotImplementedError("Transactional commits are not supported.")
 
     def __reduce__(self):
-        # re-populate the instance cache at HfFileSystem._cache and re-populate the cache attributes of every instance
+        # re-populate the instance cache at HfFileSystem._cache and re-populate the state of every instance
         return make_instance, (
             type(self),
             self.storage_args,
             self.storage_options,
-            self._get_instance_cache_attributes_dict(),
+            self._get_instance_state(),
         )
 
-    def _get_instance_cache_attributes_dict(self):
+    def _get_instance_state(self):
         return {
             "dircache": deepcopy(self.dircache),
             "_repo_and_revision_exists_cache": deepcopy(self._repo_and_revision_exists_cache),
@@ -1252,8 +1252,8 @@ def _partial_read(response: httpx.Response, length: int = -1) -> bytes:
     return bytes(buf)  # may be < length if response ended
 
 
-def make_instance(cls, args, kwargs, instance_cache_attributes_dict):
+def make_instance(cls, args, kwargs, instance_state):
     fs = cls(*args, **kwargs)
-    for attr, cached_value in instance_cache_attributes_dict.items():
-        setattr(fs, attr, cached_value)
+    for attr, state_value in instance_state.items():
+        setattr(fs, attr, state_value)
     return fs
