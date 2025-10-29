@@ -75,7 +75,8 @@ class _Cached(_cached_base):
     This is a slightly modified version of `fsspec.spec._Cached` to improve it.
     In particular in `_tokenize` the pid isn't taken into account for the
     `fs_token` used to identify cache instances. The `fs_token` logic is also
-    robust to defaults values and the order of the args.
+    robust to defaults values and the order of the args. Finally new instances
+    reuse the cache from instances in the main thread.
     """
 
     def __init__(cls, *args, **kwargs):
