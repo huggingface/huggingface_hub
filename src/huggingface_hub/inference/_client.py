@@ -38,7 +38,7 @@ import os
 import re
 import warnings
 from contextlib import ExitStack
-from typing import TYPE_CHECKING, Any, Iterable, Literal, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Union, overload
 
 from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
@@ -947,7 +947,7 @@ class InferenceClient:
         max_question_len: Optional[int] = None,
         max_seq_len: Optional[int] = None,
         top_k: Optional[int] = None,
-        word_boxes: Optional[list[Union[list[float], str]]] = None,
+        word_boxes: Optional[List[Union[List[float], str]]] = None,
     ) -> list[DocumentQuestionAnsweringOutputElement]:
         """
         Answer questions on document images.
@@ -978,7 +978,7 @@ class InferenceClient:
             top_k (`int`, *optional*):
                 The number of answers to return (will be chosen by order of likelihood). Can return less than top_k
                 answers if there are not enough options available within the context.
-            word_boxes (`list[Union[list[float], str`, *optional*):
+            word_boxes (`List[Union[List[float], str]]`, *optional*):
                 A list of words and bounding boxes (normalized 0->1000). If provided, the inference will skip the OCR
                 step and use the provided bounding boxes instead.
         Returns:
@@ -1099,7 +1099,7 @@ class InferenceClient:
         text: str,
         *,
         model: Optional[str] = None,
-        targets: Optional[list[str]] = None,
+        targets: Optional[List[str]] = None,
         top_k: Optional[int] = None,
     ) -> list[FillMaskOutputElement]:
         """
@@ -1111,7 +1111,7 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for the fill mask task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended fill mask model will be used.
-            targets (`list[str`, *optional*):
+            targets (`List[str]`, *optional*):
                 When passed, the model will limit the scores to the passed targets instead of looking up in the whole
                 vocabulary. If the provided targets are not in the model vocab, they will be tokenized and the first
                 resulting token will be used (with a warning, and that might be slower).
@@ -1659,7 +1659,7 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         clean_up_tokenization_spaces: Optional[bool] = None,
-        generate_parameters: Optional[dict[str, Any]] = None,
+        generate_parameters: Optional[Dict[str, Any]] = None,
         truncation: Optional["SummarizationTruncationStrategy"] = None,
     ) -> SummarizationOutput:
         """
@@ -1673,7 +1673,7 @@ class InferenceClient:
                 Inference Endpoint. If not provided, the default recommended model for summarization will be used.
             clean_up_tokenization_spaces (`bool`, *optional*):
                 Whether to clean up the potential extra spaces in the text output.
-            generate_parameters (`dict[str, Any]`, *optional*):
+            generate_parameters (`Dict[str, Any]`, *optional*):
                 Additional parametrization of the text generation algorithm.
             truncation (`"SummarizationTruncationStrategy"`, *optional*):
                 The truncation strategy to use.
@@ -2571,7 +2571,7 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         guidance_scale: Optional[float] = None,
-        negative_prompt: Optional[list[str]] = None,
+        negative_prompt: Optional[List[str]] = None,
         num_frames: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
         seed: Optional[int] = None,
@@ -2593,7 +2593,7 @@ class InferenceClient:
             guidance_scale (`float`, *optional*):
                 A higher guidance scale value encourages the model to generate videos closely linked to the text
                 prompt, but values too high may cause saturation and other artifacts.
-            negative_prompt (`list[str]`, *optional*):
+            negative_prompt (`List[str]`, *optional*):
                 One or several prompt to guide what NOT to include in video generation.
             num_frames (`float`, *optional*):
                 The num_frames parameter determines how many video frames are generated.
@@ -2876,7 +2876,7 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         aggregation_strategy: Optional["TokenClassificationAggregationStrategy"] = None,
-        ignore_labels: Optional[list[str]] = None,
+        ignore_labels: Optional[List[str]] = None,
         stride: Optional[int] = None,
     ) -> list[TokenClassificationOutputElement]:
         """
@@ -2892,7 +2892,7 @@ class InferenceClient:
                 Defaults to None.
             aggregation_strategy (`"TokenClassificationAggregationStrategy"`, *optional*):
                 The strategy used to fuse tokens based on model predictions
-            ignore_labels (`list[str`, *optional*):
+            ignore_labels (`List[str]`, *optional*):
                 A list of labels to ignore
             stride (`int`, *optional*):
                 The number of overlapping tokens between chunks when splitting the input text.
@@ -2954,7 +2954,7 @@ class InferenceClient:
         tgt_lang: Optional[str] = None,
         clean_up_tokenization_spaces: Optional[bool] = None,
         truncation: Optional["TranslationTruncationStrategy"] = None,
-        generate_parameters: Optional[dict[str, Any]] = None,
+        generate_parameters: Optional[Dict[str, Any]] = None,
     ) -> TranslationOutput:
         """
         Convert text from one language to another.
@@ -2979,7 +2979,7 @@ class InferenceClient:
                 Whether to clean up the potential extra spaces in the text output.
             truncation (`"TranslationTruncationStrategy"`, *optional*):
                 The truncation strategy to use.
-            generate_parameters (`dict[str, Any]`, *optional*):
+            generate_parameters (`Dict[str, Any]`, *optional*):
                 Additional parametrization of the text generation algorithm.
 
         Returns:
@@ -3108,7 +3108,7 @@ class InferenceClient:
         Args:
             text (`str`):
                 The input text to classify.
-            candidate_labels (`list[str]`):
+            candidate_labels (`List[str]`):
                 The set of possible class labels to classify the text into.
             labels (`list[str]`, *optional*):
                 (deprecated) List of strings. Each string is the verbalization of a possible label for the input text.
@@ -3215,7 +3215,7 @@ class InferenceClient:
         Args:
             image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
                 The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
-            candidate_labels (`list[str]`):
+            candidate_labels (`List[str]`):
                 The candidate labels for this image
             labels (`list[str]`, *optional*):
                 (deprecated) List of string possible labels. There must be at least 2 labels.
