@@ -9580,6 +9580,57 @@ class HfApi:
         ):
             yield User(**member)
 
+    @validate_hf_hub_args
+    def list_organization_models(
+        self,
+        organization: str,
+        *,
+        p: int = 1,
+        sort: Optional[str] = None,
+        search: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[ModelInfo]:
+        """
+        List models for an organization using the Hub
+
+        Args:
+            organization (`str`):
+                Organization name to list models for.
+            p (`int`, *optional*):
+                Page index (1-based). Defaults to 1.
+            sort (`str`, *optional*):
+                Sort order, for example `downloads`, `likes`, `created`,
+                `alphabetical`, or `modified`.
+            search (`str`, *optional*):
+                Free-text filter to apply to model names and descriptions.
+            token (Union[bool, str, None], *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token. To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[ModelInfo]`: an iterable of [`ModelInfo`] objects for the page returned by the endpoint.
+
+        Raises:
+            [`HfHubHTTPError`]: HTTP errors from the Hub (404 if the organization does not exist).
+        """
+        params: dict[str, Any] = {"p": int(p)}
+        if sort is not None:
+            params["sort"] = sort
+        if search is not None:
+            params["search"] = search
+
+        r = get_session().get(
+            f"{constants.ENDPOINT}/api/organizations/{organization}/models-json",
+            params=params,
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        data = r.json()
+        for model in data.get("models", []):
+            if "siblings" not in model:
+                model["siblings"] = None
+            yield ModelInfo(**model)
+
     def list_user_followers(self, username: str, token: Union[bool, str, None] = None) -> Iterable[User]:
         """
         Get the list of followers of a user on the Hub.
@@ -10845,6 +10896,7 @@ get_user_overview = api.get_user_overview
 get_organization_overview = api.get_organization_overview
 list_organization_followers = api.list_organization_followers
 list_organization_members = api.list_organization_members
+list_organization_models = api.list_organization_models
 list_user_followers = api.list_user_followers
 list_user_following = api.list_user_following
 

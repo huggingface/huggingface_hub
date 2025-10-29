@@ -4198,6 +4198,12 @@ class UserApiTest(unittest.TestCase):
         assert first_follower.fullname
         assert first_follower.avatar_url
 
+    def test_list_organization_models(self) -> None:
+        models = list(self.api.list_organization_models("openai", p=1, sort="downloads"))
+        assert isinstance(models, list)
+        if models:
+            assert hasattr(models[0], "id")
+
     def test_user_followers(self) -> None:
         followers = self.api.list_user_followers("clem")
         assert len(list(followers)) > 500
