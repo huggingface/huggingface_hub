@@ -658,22 +658,26 @@ def test_cache():
     assert HfFileSystem() is fs
     assert HfFileSystem(endpoint=constants.ENDPOINT) is fs
     assert HfFileSystem(token=None, endpoint=constants.ENDPOINT) is fs
-    assert HfFileSystem(endpoint="something-else") is not fs
+
+    another_fs = HfFileSystem(endpoint="something-else")
+    assert another_fs is not fs
+    assert another_fs.dircache != fs.dircache
 
     with multiprocessing.get_context("spawn").Pool() as pool:
-        fs_token, dircache = pool.apply(_get_fs_token_and_dircache, (fs,))
-        assert fs_token == fs._fs_token
+        (fs_token, dircache), (_, another_dircache) = pool.map(_get_fs_token_and_dircache, [fs, another_fs])
         assert dircache == fs.dircache
+        assert another_dircache != fs.dircache
 
     with multiprocessing.get_context("fork").Pool() as pool:
-        fs_token, dircache = pool.apply(_get_fs_token_and_dircache, (fs,))
-        assert fs_token == fs._fs_token
+        (fs_token, dircache), (_, another_dircache) = pool.map(_get_fs_token_and_dircache, [fs, another_fs])
         assert dircache == fs.dircache
+        assert another_dircache != fs.dircache
 
     with multiprocessing.pool.ThreadPool() as pool:
-        fs_token, dircache = pool.apply(_get_fs_token_and_dircache, (fs,))
-        assert fs_token != fs._fs_token  # use a different instance for thread safety
+        (fs_token, dircache), (_, another_dircache) = pool.map(_get_fs_token_and_dircache, [fs, another_fs])
         assert dircache == fs.dircache
+        assert another_dircache != fs.dircache
+        assert fs_token != fs._fs_token  # use a different instance for thread safety
 
 
 @with_production_testing
