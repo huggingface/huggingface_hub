@@ -3123,8 +3123,6 @@ class HfApi:
                 does not exist.
             [`~utils.RevisionNotFoundError`]:
                 If revision is not found (error 404) on the repo.
-            [`~utils.RemoteEntryNotFoundError`]:
-                If the tree (folder) does not exist (error 404) on the repo.
 
         """
 

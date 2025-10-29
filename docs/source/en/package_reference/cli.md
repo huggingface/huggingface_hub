@@ -237,8 +237,8 @@ $ hf cache verify [OPTIONS] REPO_ID
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--cache-dir TEXT`: Cache directory to use when verifying files from cache (defaults to Hugging Face cache).
 * `--local-dir TEXT`: If set, verify files under this directory instead of the cache.
-* `--fail-on-missing-files / --no-fail-on-missing-files`: Fail if some files exist on the remote but are missing locally.  [default: no-fail-on-missing-files]
-* `--fail-on-extra-files / --no-fail-on-extra-files`: Fail if some files exist locally but are not present on the remote revision.  [default: no-fail-on-extra-files]
+* `--fail-on-missing-files`: Fail if some files exist on the remote but are missing locally.
+* `--fail-on-extra-files`: Fail if some files exist locally but are not present on the remote revision.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
