@@ -598,7 +598,7 @@ class RepoFile:
             The file's size, in bytes.
         blob_id (`str`):
             The file's git OID.
-        lfs (`BlobLfsInfo`):
+        lfs (`BlobLfsInfo`, *optional*):
             The file's LFS metadata.
         last_commit (`LastCommitInfo`, *optional*):
             The file's last commit metadata. Only defined if [`list_repo_tree`] and [`get_paths_info`]
@@ -3146,15 +3146,7 @@ class HfApi:
         for entry in self.list_repo_tree(
             repo_id=repo_id, recursive=True, revision=remote_revision, repo_type=repo_type, token=token
         ):
-            path = getattr(entry, "path", None)
-            if not path:
-                continue
-            lfs = getattr(entry, "lfs", None)
-            has_lfs_sha = (getattr(lfs, "sha256", None) is not None) or (
-                isinstance(lfs, dict) and lfs.get("sha256") is not None
-            )
-            if hasattr(entry, "blob_id") or has_lfs_sha:
-                remote_by_path[path] = entry
+            remote_by_path[entry.path] = entry
 
         return verify_maps(remote_by_path=remote_by_path, local_by_path=local_by_path, revision=remote_revision)
 

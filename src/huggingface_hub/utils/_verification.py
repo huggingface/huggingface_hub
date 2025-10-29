@@ -87,12 +87,8 @@ def resolve_expected_hash(entry: Union["RepoFile", "RepoFolder"]) -> tuple[HashA
 
     if lfs_sha:
         return ("sha256", str(lfs_sha).lower())
-
-    blob_id = getattr(entry, "blob_id", None)
-    if blob_id:
-        return ("git-sha1", str(blob_id).lower())
-
-    raise ValueError("Remote entry missing checksum (no blob_id or lfs.sha256)")
+    blob_id = entry.blob_id  # type: ignore
+    return ("git-sha1", str(blob_id).lower())
 
 
 def compute_file_hash(path: Path, algorithm: HashAlgo, *, git_hash_cache: dict[Path, str]) -> str:
@@ -139,14 +135,11 @@ def verify_maps(
             lfs_sha = getattr(lfs, "sha256", None) if lfs is not None else None
             if lfs_sha is None and isinstance(lfs, dict):
                 lfs_sha = lfs.get("sha256")
-
             if lfs_sha:
                 algorithm: HashAlgo = "sha256"
                 expected = str(lfs_sha).lower()
             else:
-                blob_id = getattr(remote_entry, "blob_id", None)
-                if not blob_id:
-                    raise ValueError("Remote entry missing checksum (no blob_id or lfs.sha256)")
+                blob_id = remote_entry.blob_id  # type: ignore
                 algorithm = "git-sha1"
                 expected = str(blob_id).lower()
 
@@ -155,11 +148,6 @@ def verify_maps(
         except OSError as exc:
             mismatches.append(
                 Mismatch(path=rel_path, expected="<unavailable>", actual=f"io-error:{exc}", algorithm="io")
-            )
-            continue
-        except ValueError as exc:
-            mismatches.append(
-                Mismatch(path=rel_path, expected="<unavailable>", actual=f"meta-error:{exc}", algorithm="meta")
             )
             continue
 
