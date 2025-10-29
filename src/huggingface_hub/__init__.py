@@ -969,6 +969,7 @@ __all__ = [
     "upload_file",
     "upload_folder",
     "upload_large_folder",
+    "verify_repo_checksums",
     "webhook_endpoint",
     "whoami",
 ]

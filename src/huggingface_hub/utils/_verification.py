@@ -130,21 +130,19 @@ def verify_maps(
         remote_entry = remote_by_path[rel_path]
         local_path = local_by_path[rel_path]
 
+        lfs = getattr(remote_entry, "lfs", None)
+        lfs_sha = getattr(lfs, "sha256", None) if lfs is not None else None
+        if lfs_sha is None and isinstance(lfs, dict):
+            lfs_sha = lfs.get("sha256")
+        if lfs_sha:
+            algorithm: HashAlgo = "sha256"
+            expected = str(lfs_sha).lower()
+        else:
+            blob_id = remote_entry.blob_id  # type: ignore
+            algorithm = "git-sha1"
+            expected = str(blob_id).lower()
         try:
-            lfs = getattr(remote_entry, "lfs", None)
-            lfs_sha = getattr(lfs, "sha256", None) if lfs is not None else None
-            if lfs_sha is None and isinstance(lfs, dict):
-                lfs_sha = lfs.get("sha256")
-            if lfs_sha:
-                algorithm: HashAlgo = "sha256"
-                expected = str(lfs_sha).lower()
-            else:
-                blob_id = remote_entry.blob_id  # type: ignore
-                algorithm = "git-sha1"
-                expected = str(blob_id).lower()
-
             actual = compute_file_hash(local_path, algorithm, git_hash_cache=git_hash_cache)
-
         except OSError as exc:
             mismatches.append(
                 Mismatch(path=rel_path, expected="<unavailable>", actual=f"io-error:{exc}", algorithm="io")
