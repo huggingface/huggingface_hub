@@ -84,6 +84,16 @@ class HfHubHTTPError(HTTPError, OSError):
         """Append additional information to the `HfHubHTTPError` initial message."""
         self.args = (self.args[0] + additional_message,) + self.args[1:]
 
+    def __reduce_ex__(self, protocol):
+        """Fix pickling of Exception subclass with kwargs"""
+        args = (str(self),)
+        kwargs = {"response": self.response, "server_message": self.server_message}
+        return self._from_args, (args, kwargs)
+
+    @classmethod
+    def _from_args(cls, args, kwargs):
+        return cls(*args, **kwargs)
+
 
 # INFERENCE CLIENT ERRORS
 
