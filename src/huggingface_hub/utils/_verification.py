@@ -75,22 +75,6 @@ def _resolve_commit_hash_from_cache(storage_folder: Path, revision: Optional[str
     )
 
 
-def resolve_expected_hash(entry: Union["RepoFile", "RepoFolder"]) -> tuple[HashAlgo, str]:
-    """
-    Return the algorithm and expected hash for a remote entry.
-    Prefers LFS sha256 if available; falls back to git blob_id (sha1).
-    """
-    lfs = getattr(entry, "lfs", None)
-    lfs_sha = getattr(lfs, "sha256", None) if lfs is not None else None
-    if lfs_sha is None and isinstance(lfs, dict):
-        lfs_sha = lfs.get("sha256")
-
-    if lfs_sha:
-        return ("sha256", str(lfs_sha).lower())
-    blob_id = entry.blob_id  # type: ignore
-    return ("git-sha1", str(blob_id).lower())
-
-
 def compute_file_hash(path: Path, algorithm: HashAlgo, *, git_hash_cache: dict[Path, str]) -> str:
     """
     Compute the checksum of a local file using the requested algorithm.
