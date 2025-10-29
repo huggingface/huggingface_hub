@@ -34,6 +34,8 @@ jobs:
             test_name: "Python 3.9, torch_1.11"
           - python-version: "3.12" # test torch latest on python 3.12 only.
             test_name: "torch_latest"
+          - python-version: "3.13" # gradio not supported on 3.14 -> test it on 3.13
+            test_name: "gradio"
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
@@ -68,6 +70,10 @@ jobs:
             fastai)
               uv pip install "huggingface_hub[fastai] @ ."
               ;;
+
+            gradio)
+              uv pip install "huggingface_hub[gradio] @ ."
+            ;;
 
             torch_latest)
               uv pip install "huggingface_hub[torch] @ ."
@@ -115,6 +121,10 @@ jobs:
 
             fastai)
               eval "$PYTEST ../tests/test_fastai*"
+            ;;
+
+            gradio)
+              eval "$PYTEST ../tests/test_webhooks_server.py"
             ;;
 
             "Python 3.9, torch_1.11" | torch_latest)
