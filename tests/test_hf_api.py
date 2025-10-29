@@ -64,6 +64,7 @@ from huggingface_hub.hf_api import (
     SpaceInfo,
     SpaceRuntime,
     User,
+    PaperInfo,
     WebhookInfo,
     WebhookWatchedItem,
     repo_type_and_id_from_hf_id,
@@ -4227,6 +4228,16 @@ class PaperApiTest(unittest.TestCase):
         with self.assertRaises(HfHubHTTPError) as context:
             self.api.paper_info("1234.56789")
         assert context.exception.response.status_code == 404
+
+    def test_list_daily_papers_by_date(self) -> None:
+        papers = list(self.api.list_daily_papers(date="2025-10-29"))
+        assert len(papers) > 0
+        assert hasattr(papers[0], "id")
+        assert hasattr(papers[0], "title")
+
+    def test_list_daily_papers_by_date_invalid_date(self) -> None:
+        with self.assertRaises(ValueError):
+            list(self.api.list_daily_papers(date="2025-13-40"))
 
 
 class WebhookApiTest(HfApiCommonTest):
