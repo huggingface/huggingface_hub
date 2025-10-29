@@ -28,10 +28,6 @@ install_requires = [
 
 extras = {}
 
-extras["inference"] = [
-    "aiohttp",  # for AsyncInferenceClient
-]
-
 extras["oauth"] = [
     "authlib>=1.3.2",  # minimum version to include https://github.com/lepture/authlib/pull/644
     "fastapi",
@@ -51,14 +47,10 @@ extras["fastai"] = [
 
 extras["hf_xet"] = ["hf-xet>=1.1.3,<2.0.0"]
 
-extras["mcp"] = [
-    "mcp>=1.8.0",
-    "typer",
-] + extras["inference"]
+extras["mcp"] = ["mcp>=1.8.0"]
 
 extras["testing"] = (
-    extras["inference"]
-    + extras["oauth"]
+    extras["oauth"]
     + [
         "jedi",
         "Jinja2",
