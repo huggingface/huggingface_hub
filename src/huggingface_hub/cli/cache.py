@@ -656,12 +656,14 @@ def verify(
     fail_on_missing_files: Annotated[
         bool,
         typer.Option(
+            "--fail-on-missing-files",
             help="Fail if some files exist on the remote but are missing locally.",
         ),
     ] = False,
     fail_on_extra_files: Annotated[
         bool,
         typer.Option(
+            "--fail-on-extra-files",
             help="Fail if some files exist locally but are not present on the remote revision.",
         ),
     ] = False,
