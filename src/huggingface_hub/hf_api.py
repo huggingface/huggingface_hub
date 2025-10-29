@@ -9580,6 +9580,52 @@ class HfApi:
         ):
             yield User(**member)
 
+    @validate_hf_hub_args
+    def list_organization_datasets(self, organization: str, *, sort: Optional[str] = None, search: Optional[str] = None, token: Union[bool, str, None] = None) -> Iterable[DatasetInfo]:
+        """
+        List datasets of an organization on the Hub.
+
+        Args:
+            organization (`str`):
+                Name of the organization to list the datasets of.
+            sort (`str`, *optional*):
+                Sorting criteria for the datasets. Supported values include:
+                `modified`, `created`, `alphabetical`, `likes`, `downloads`,
+                `most_rows`, `least_rows`.
+            search (`str`, *optional*):
+                Search query to filter datasets by name or description.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[DatasetInfo]`: A generator yielding [`DatasetInfo`] objects
+            for each dataset in the organization.
+
+        Raises:
+            [`HfHubHTTPError`]:
+            HTTP 404 If the organization does not exist on the Hub.
+        """
+        params: dict[str, Any] = {}
+        if sort is not None:
+            params["sort"] = sort
+        if search is not None:
+            params["search"] = search
+
+        r = get_session().get(
+            f"{constants.ENDPOINT}/api/organizations/{organization}/datasets-json",
+            params=params,
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        data = r.json()
+        for ds in data.get("datasets", []):
+            if "siblings" not in ds:
+                ds["siblings"] = None
+            yield DatasetInfo(**ds)
+
     def list_user_followers(self, username: str, token: Union[bool, str, None] = None) -> Iterable[User]:
         """
         Get the list of followers of a user on the Hub.
@@ -10845,6 +10891,7 @@ get_user_overview = api.get_user_overview
 get_organization_overview = api.get_organization_overview
 list_organization_followers = api.list_organization_followers
 list_organization_members = api.list_organization_members
+list_organization_datasets = api.list_organization_datasets
 list_user_followers = api.list_user_followers
 list_user_following = api.list_user_following
 
