@@ -123,7 +123,7 @@ def logout(token_name: Optional[str] = None) -> None:
 
     Args:
         token_name (`str`, *optional*):
-            Name of the access token to logout from. If `None`, will logout from all saved access tokens.
+            Name of the access token to logout from. If `None`, will log out from all saved access tokens.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
             If the access token name is not found.

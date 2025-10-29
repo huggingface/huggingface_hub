@@ -68,7 +68,7 @@ Note that it is used internally by [`hf_hub_download`].
 ## Download an entire repository
 
 [`snapshot_download`] downloads an entire repository at a given revision. It uses internally [`hf_hub_download`] which
-means all downloaded files are also cached on your local disk. Downloads are made concurrently to speed-up the process.
+means all downloaded files are also cached on your local disk. Downloads are made concurrently to speed up the process.
 
 To download a whole repository, just pass the `repo_id` and `repo_type`:
 
