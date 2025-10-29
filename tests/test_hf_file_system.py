@@ -2,6 +2,7 @@ import copy
 import datetime
 import io
 import multiprocessing
+import multiprocessing.pool
 import os
 import pickle
 import tempfile
@@ -667,6 +668,11 @@ def test_cache():
     with multiprocessing.get_context("fork").Pool() as pool:
         fs_token, dircache = pool.apply(_get_fs_token_and_dircache, (fs,))
         assert fs_token == fs._fs_token
+        assert dircache == fs.dircache
+
+    with multiprocessing.pool.ThreadPool() as pool:
+        fs_token, dircache = pool.apply(_get_fs_token_and_dircache, (fs,))
+        assert fs_token != fs._fs_token  # use a different instance for thread safety
         assert dircache == fs.dircache
 
 

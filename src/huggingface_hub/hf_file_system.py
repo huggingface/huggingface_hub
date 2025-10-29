@@ -4,6 +4,7 @@ import tempfile
 import threading
 from collections import deque
 from contextlib import ExitStack
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from hashlib import md5
@@ -86,12 +87,20 @@ class _Cached(_cached_base):
 
     def __call__(cls, *args, **kwargs):
         skip = kwargs.pop("skip_instance_cache", False)
-        fs_token = cls._tokenize(cls, *args, **kwargs)
+        fs_token = cls._tokenize(cls, threading.get_ident(), *args, **kwargs)
+        fs_token_main_thread = cls._tokenize(cls, threading.main_thread().ident, *args, **kwargs)
         if not skip and cls.cachable and fs_token in cls._cache:
+            # reuse cached instance
             cls._latest = fs_token
             return cls._cache[fs_token]
         else:
+            # create new instance
             obj = type.__call__(cls, *args, **kwargs)
+            if not skip and cls.cachable and fs_token_main_thread in cls._cache:
+                # reuse the cache from the main thread instance in the new instance
+                instance_cache_attributes_dict = cls._cache[fs_token_main_thread]._get_instance_cache_attributes_dict()
+                for attr, cached_value in instance_cache_attributes_dict.items():
+                    setattr(obj, attr, cached_value)
             obj._fs_token_ = fs_token
             obj.storage_args = args
             obj.storage_options = kwargs
@@ -165,14 +174,14 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         self.dircache: dict[str, list[dict[str, Any]]] = {}
 
     @classmethod
-    def _tokenize(cls, *args, **kwargs) -> str:
+    def _tokenize(cls, threading_ident: int, *args, **kwargs) -> str:
         """Deterministic token for caching"""
         # make fs_token robust to default values and to kwargs order
         kwargs["endpoint"] = kwargs.get("endpoint") or constants.ENDPOINT
         kwargs["token"] = kwargs.get("token")
         kwargs = {key: kwargs[key] for key in sorted(kwargs)}
         # contrary to fsspec, we don't include pid here
-        tokenize_args = (cls, threading.get_ident(), args, kwargs)
+        tokenize_args = (cls, threading_ident, args, kwargs)
         try:
             h = md5(str(tokenize_args).encode())
         except ValueError:
@@ -997,11 +1006,14 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
             type(self),
             self.storage_args,
             self.storage_options,
-            {
-                "dircache": self.dircache,
-                "_repo_and_revision_exists_cache": self._repo_and_revision_exists_cache,
-            },
+            self._get_instance_cache_attributes_dict(),
         )
+
+    def _get_instance_cache_attributes_dict(self):
+        return {
+            "dircache": deepcopy(self.dircache),
+            "_repo_and_revision_exists_cache": deepcopy(self._repo_and_revision_exists_cache),
+        }
 
 
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
