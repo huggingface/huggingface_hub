@@ -731,8 +731,7 @@ def verify(
     verified_location = result.verified_path
 
     if exit_code != 0:
-        location_suffix_error = f" in {verified_location}" if verified_location is not None else ""
-        print(f"❌ Verification failed for '{repo_id}' ({repo_type.value}){location_suffix_error}.")
+        print(f"❌ Verification failed for '{repo_id}' ({repo_type.value}) in {verified_location}.")
         print(f"  Revision: {result.revision}")
         raise typer.Exit(code=exit_code)
 
