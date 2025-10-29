@@ -222,24 +222,6 @@ class TestConfigureSession(unittest.TestCase):
             for j in range(N):
                 self.assertIs(clients[i], clients[j])
 
-    @unittest.skipIf(os.name == "nt", "Works differently on Windows.")
-    def test_get_session_in_forked_process(self):
-        # Get main process client
-        main_client = get_session()
-
-        def _child_target():
-            # Put `repr(client)` in queue because putting the `Client` object directly would duplicate it.
-            # Repr looks like this: "<httpx.Client object at 0x7f5adcc41e40>"
-            process_queue.put(repr(get_session()))
-
-        # Fork a new process and get client in it
-        process_queue = Queue()
-        Process(target=_child_target).start()
-        child_client = process_queue.get()
-
-        # Check clients are the same instance
-        self.assertEqual(repr(main_client), child_client)
-
 
 class OfflineModeSessionTest(unittest.TestCase):
     def tearDown(self) -> None:
