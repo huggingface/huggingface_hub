@@ -3,8 +3,17 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
+import huggingface_hub.utils._verification as verification_module
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.utils._verification import collect_local_files, resolve_local_root, verify_maps
+from huggingface_hub.utils._verification import (
+    HashAlgo,
+    collect_local_files,
+    compute_file_hash,
+    resolve_local_root,
+    verify_maps,
+)
 from huggingface_hub.utils.sha import git_hash
 
 
@@ -22,6 +31,43 @@ def test_collect_local_files_lists_all(tmp_path: Path) -> None:
     mapping = collect_local_files(base)
     assert mapping["a/b.txt"].read_text() == "x"
     assert mapping["c.bin"].read_bytes() == b"y"
+
+
+@pytest.mark.parametrize(
+    "algorithm,data,expected_fn",
+    [
+        ("sha256", b"hello", lambda d: hashlib.sha256(d).hexdigest()),
+        ("git-sha1", b"hello", lambda d: git_hash(d)),
+    ],
+)
+def test_compute_file_hash_algorithms(tmp_path: Path, algorithm: HashAlgo, data: bytes, expected_fn) -> None:
+    fp = tmp_path / "x.bin"
+    _write(fp, data)
+
+    cache: dict[Path, str] = {}
+    actual = compute_file_hash(fp, algorithm, git_hash_cache=cache)
+    assert actual == expected_fn(data)
+
+
+def test_compute_file_hash_git_sha1_uses_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fp = tmp_path / "x.txt"
+    data = b"cached!"
+    _write(fp, data)
+
+    calls = {"count": 0}
+
+    def fake_git_hash(b: bytes) -> str:
+        calls["count"] += 1
+        return git_hash(b)
+
+    monkeypatch.setattr(verification_module, "git_hash", fake_git_hash, raising=False)
+
+    cache: dict[Path, str] = {}
+    h1 = compute_file_hash(fp, "git-sha1", git_hash_cache=cache)
+    h2 = compute_file_hash(fp, "git-sha1", git_hash_cache=cache)
+
+    assert h1 == h2 == git_hash(data)
+    assert calls["count"] == 1
 
 
 def test_resolve_local_root_cache_single_snapshot(tmp_path: Path) -> None:
@@ -45,17 +91,24 @@ def test_resolve_local_root_cache_single_snapshot(tmp_path: Path) -> None:
 def test_verify_maps_success_local_dir(tmp_path: Path) -> None:
     # local
     loc = tmp_path / "loc"
-    loc.mkdir()
     _write(loc / "a.txt", b"aa")
     _write(loc / "b.txt", b"bb")
     local_by_path = collect_local_files(loc)
+
     # remote entries (non-LFS for a.txt; LFS for b.txt)
     remote_by_path = {
         "a.txt": SimpleNamespace(path="a.txt", blob_id=git_hash(b"aa"), lfs=None),
-        "b.txt": SimpleNamespace(path="b.txt", blob_id="unused", lfs={"sha256": hashlib.sha256(b"bb").hexdigest()}),
+        "b.txt": SimpleNamespace(
+            path="b.txt",
+            blob_id="unused",
+            lfs={"sha256": hashlib.sha256(b"bb").hexdigest()},
+        ),
     }
     res = verify_maps(remote_by_path=remote_by_path, local_by_path=local_by_path, revision="abc")
-    assert res.checked_count == 2 and not res.mismatches and not res.missing_paths and not res.extra_paths
+    assert res.checked_count == 2
+    assert res.mismatches == []
+    assert res.missing_paths == []
+    assert res.extra_paths == []
 
 
 def test_verify_maps_reports_mismatch(tmp_path: Path) -> None:
