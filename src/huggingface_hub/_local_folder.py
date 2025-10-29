@@ -206,7 +206,7 @@ def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFil
         [`LocalDownloadFilePaths`]: the paths to the files (file_path, lock_path, metadata_path, incomplete_path).
     """
     # filename is the path in the Hub repository (separated by '/')
-    # make sure to have a cross platform transcription
+    # make sure to have a cross-platform transcription
     sanitized_filename = os.path.join(*filename.split("/"))
     if os.name == "nt":
         if sanitized_filename.startswith("..\\") or "\\..\\" in sanitized_filename:
@@ -246,7 +246,7 @@ def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePat
         [`LocalUploadFilePaths`]: the paths to the files (file_path, lock_path, metadata_path).
     """
     # filename is the path in the Hub repository (separated by '/')
-    # make sure to have a cross platform transcription
+    # make sure to have a cross-platform transcription
     sanitized_filename = os.path.join(*filename.split("/"))
     if os.name == "nt":
         if sanitized_filename.startswith("..\\") or "\\..\\" in sanitized_filename:

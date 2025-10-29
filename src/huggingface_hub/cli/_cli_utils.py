@@ -50,7 +50,7 @@ class AlphabeticalMixedGroup(typer.core.TyperGroup):
     """
 
     def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
-        # click.Group stores both commands and sub-groups in `self.commands`
+        # click.Group stores both commands and subgroups in `self.commands`
         return sorted(self.commands.keys())
 
 

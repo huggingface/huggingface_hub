@@ -146,7 +146,7 @@ class RepoCard:
             repo_id_or_path (`Union[str, Path]`):
                 The repo ID associated with a Hugging Face Hub repo or a local filepath.
             repo_type (`str`, *optional*):
-                The type of Hugging Face repo to push to. Defaults to None, which will use use "model". Other options
+                The type of Hugging Face repo to push to. Defaults to None, which will use "model". Other options
                 are "dataset" and "space". Not used when loading from a local filepath. If this is called from a child
                 class, the default value will be the child class's `repo_type`.
             token (`str`, *optional*):

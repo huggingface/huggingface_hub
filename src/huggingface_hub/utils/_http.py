@@ -537,7 +537,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
     >         If the repository exists but is gated and the user is not on the authorized
     >         list.
     >     - [`~utils.RevisionNotFoundError`]
-    >         If the repository exists but the revision couldn't be find.
+    >         If the repository exists but the revision couldn't be found.
     >     - [`~utils.EntryNotFoundError`]
     >         If the repository exists but the entry (e.g. the requested file) couldn't be
     >         find.

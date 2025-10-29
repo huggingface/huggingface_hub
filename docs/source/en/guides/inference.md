@@ -152,7 +152,7 @@ You can use [`InferenceClient`] to run chat completion with local inference serv
 ```
 
 > [!TIP]
-> Similarily to the OpenAI Python client, [`InferenceClient`] can be used to run Chat Completion inference with any OpenAI REST API-compatible endpoint.
+> Similarly to the OpenAI Python client, [`InferenceClient`] can be used to run Chat Completion inference with any OpenAI REST API-compatible endpoint.
 
 ### Authentication
 
