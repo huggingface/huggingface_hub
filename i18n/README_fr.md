@@ -62,10 +62,10 @@ pip install huggingface_hub
 
 Si vous préférez, vous pouvez aussi l’installer avec [conda](https://huggingface.co/docs/huggingface_hub/en/installation#install-with-conda).
 
-Afin de garder le paquet minimal par défaut, `huggingface_hub` vient avec des dépendances optionnelles utiles pour certains cas d’usage. Par exemple, si vous voulez faire de l’inférence, exécutez :
+Afin de garder le paquet minimal par défaut, `huggingface_hub` vient avec des dépendances optionnelles utiles pour certains cas d’usage. Par exemple, si vous voulez utiliser le module MCP, exécutez :
 
 ```bash
-pip install "huggingface_hub[inference]"
+pip install "huggingface_hub[mcp]"
 ```
 
 Pour en savoir plus sur l'installation et les dépendances optionnelles, consultez le [guide d’installation](https://huggingface.co/docs/huggingface_hub/en/installation).

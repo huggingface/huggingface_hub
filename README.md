@@ -63,10 +63,10 @@ pip install huggingface_hub
 
 If you prefer, you can also install it with [conda](https://huggingface.co/docs/huggingface_hub/en/installation#install-with-conda).
 
-In order to keep the package minimal by default, `huggingface_hub` comes with optional dependencies useful for some use cases. For example, if you want have a complete experience for Inference, run:
+In order to keep the package minimal by default, `huggingface_hub` comes with optional dependencies useful for some use cases. For example, if you want to use the MCP module, run:
 
 ```bash
-pip install "huggingface_hub[inference]"
+pip install "huggingface_hub[mcp]"
 ```
 
 To learn more installation and optional dependencies, check out the [installation guide](https://huggingface.co/docs/huggingface_hub/en/installation).
