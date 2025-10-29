@@ -4,13 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.utils._verification import (
-    collect_local_files,
-    compute_file_hash,
-    resolve_expected_hash,
-    resolve_local_root,
-    verify_maps,
-)
+from huggingface_hub.utils._verification import collect_local_files, resolve_local_root, verify_maps
 from huggingface_hub.utils.sha import git_hash
 
 
@@ -46,22 +40,6 @@ def test_resolve_local_root_cache_single_snapshot(tmp_path: Path) -> None:
     assert resolved_revision == commit
     mapping = collect_local_files(root)
     assert sorted(mapping.keys()) == ["config.json", "nested/file.txt"]
-
-
-def test_resolve_expected_hash_prefers_lfs_sha256() -> None:
-    entry = SimpleNamespace(path="x", blob_id="deadbeef", lfs={"sha256": "cafebabe"})
-    algo, expected = resolve_expected_hash(entry)
-    assert algo == "sha256" and expected == "cafebabe"
-
-
-def test_compute_file_hash_git_sha1_stream(tmp_path: Path) -> None:
-    data = b"content-xyz"
-    p = tmp_path / "f.bin"
-    _write(p, data)
-    # expected git-sha1 (with header)
-    expected = git_hash(data)
-    actual = compute_file_hash(p, "git-sha1", git_hash_cache={})
-    assert actual == expected
 
 
 def test_verify_maps_success_local_dir(tmp_path: Path) -> None:

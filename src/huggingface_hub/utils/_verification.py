@@ -131,12 +131,27 @@ def verify_maps(
     git_hash_cache: dict[Path, str] = {}
 
     for rel_path in both:
-        entry = remote_by_path[rel_path]
+        remote_entry = remote_by_path[rel_path]
         local_path = local_by_path[rel_path]
 
         try:
-            algorithm, expected = resolve_expected_hash(entry)
+            lfs = getattr(remote_entry, "lfs", None)
+            lfs_sha = getattr(lfs, "sha256", None) if lfs is not None else None
+            if lfs_sha is None and isinstance(lfs, dict):
+                lfs_sha = lfs.get("sha256")
+
+            if lfs_sha:
+                algorithm: HashAlgo = "sha256"
+                expected = str(lfs_sha).lower()
+            else:
+                blob_id = getattr(remote_entry, "blob_id", None)
+                if not blob_id:
+                    raise ValueError("Remote entry missing checksum (no blob_id or lfs.sha256)")
+                algorithm = "git-sha1"
+                expected = str(blob_id).lower()
+
             actual = compute_file_hash(local_path, algorithm, git_hash_cache=git_hash_cache)
+
         except OSError as exc:
             mismatches.append(
                 Mismatch(path=rel_path, expected="<unavailable>", actual=f"io-error:{exc}", algorithm="io")
@@ -148,8 +163,8 @@ def verify_maps(
             )
             continue
 
-        if actual != expected:
-            mismatches.append(Mismatch(path=rel_path, expected=expected, actual=actual, algorithm=algorithm))
+    if actual != expected:
+        mismatches.append(Mismatch(path=rel_path, expected=expected, actual=actual, algorithm=algorithm))
 
     return FolderVerification(
         revision=revision,
