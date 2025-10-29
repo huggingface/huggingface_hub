@@ -160,7 +160,7 @@ def _check_cli_update() -> None:
         elif method == "hf_installer" and os.name == "nt":
             update_command = 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex"'
         elif method == "hf_installer":
-            update_command = "curl -LsSf https://hf.co/cli/install.sh | sh -"
+            update_command = "curl -LsSf https://hf.co/cli/install.sh | bash -"
         else:  # unknown => likely pip
             update_command = "pip install -U huggingface_hub"
 
