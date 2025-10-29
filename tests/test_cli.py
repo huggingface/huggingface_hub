@@ -218,7 +218,14 @@ class TestCacheCommand:
     def test_verify_success(self, runner: CliRunner) -> None:
         repo_id = "user/model"
         result_obj = FolderVerification(
-            revision="main", checked_count=1, mismatches=[], missing_paths=[], extra_paths=[]
+            revision="main",
+            checked_count=1,
+            mismatches=[],
+            missing_paths=[],
+            extra_paths=[],
+            verified_path=Path("/tmp/cache/user/model"),
+            repo_id=repo_id,
+            repo_type="model",
         )
 
         with patch("huggingface_hub.cli.cache.get_hf_api") as get_api_mock:
@@ -227,7 +234,9 @@ class TestCacheCommand:
             result = runner.invoke(app, ["cache", "verify", repo_id])
 
         assert result.exit_code == 0
-        assert "Verified 1 file(s)" in result.stdout
+        stdout = result.stdout
+        assert "✅ Verified 1 file(s) for 'user/model' (model) in /tmp/cache/user/model" in stdout
+        assert "  All checksums match." in stdout
         get_api_mock.assert_called_once()
         api.verify_repo_checksums.assert_called_once_with(
             repo_id=repo_id,

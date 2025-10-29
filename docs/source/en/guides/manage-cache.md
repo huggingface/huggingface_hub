@@ -486,7 +486,8 @@ HFCacheInfo(
 
 ```bash
 >>> hf cache verify meta-llama/Llama-3.2-1B-Instruct
-✅ Verified 13 file(s) at 9213176726f574b556790deb65791e0c5aa438b6; no checksum mismatches.
+✅ Verified 13 file(s) for 'meta-llama/Llama-3.2-1B-Instruct' (model) in ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6
+  All checksums match.
 ```
 
 Verify a specific cached revision:

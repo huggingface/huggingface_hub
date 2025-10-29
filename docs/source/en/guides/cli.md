@@ -706,7 +706,8 @@ By default, the command warns about missing or extra files. Use flags to turn th
 On success, you will see a summary:
 
 ```text
-✅ Verified 60 file(s) at e7da7f221d5bf496a48136c0cd264e630fe9fcc8; no checksum mismatches.
+✅ Verified 13 file(s) for 'deepseek-ai/DeepSeek-OCR' (model) in ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6
+  All checksums match.
 ```
 
 If mismatches are detected, the command prints a detailed list and exits with a non-zero status.

@@ -33,6 +33,9 @@ class FolderVerification:
     mismatches: list[Mismatch]
     missing_paths: list[str]
     extra_paths: list[str]
+    verified_path: Optional[Path] = None
+    repo_id: Optional[str] = None
+    repo_type: Optional[str] = None
 
 
 def collect_local_files(root: Path) -> dict[str, Path]:
@@ -133,8 +136,8 @@ def verify_maps(
             )
             continue
 
-    if actual != expected:
-        mismatches.append(Mismatch(path=rel_path, expected=expected, actual=actual, algorithm=algorithm))
+        if actual != expected:
+            mismatches.append(Mismatch(path=rel_path, expected=expected, actual=actual, algorithm=algorithm))
 
     return FolderVerification(
         revision=revision,
