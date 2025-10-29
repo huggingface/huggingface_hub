@@ -1,6 +1,7 @@
 import copy
 import datetime
 import io
+import multiprocessing
 import os
 import pickle
 import tempfile
@@ -642,6 +643,31 @@ def test_exists_after_repo_deletion():
     api.delete_repo(repo_id=repo_id, repo_type="model")
     # Verify that the repo no longer exists.
     assert not hffs.exists(repo_id, refresh=True)
+
+
+def _get_fs_token_and_dircache(fs):
+    fs = HfFileSystem(endpoint=fs.endpoint, token=fs.token)
+    return fs._fs_token, fs.dircache
+
+
+def test_cache():
+    fs = HfFileSystem()
+    fs.dircache = {"dummy": []}
+
+    assert HfFileSystem() is fs
+    assert HfFileSystem(endpoint=constants.ENDPOINT) is fs
+    assert HfFileSystem(token=None, endpoint=constants.ENDPOINT) is fs
+    assert HfFileSystem(endpoint="something-else") is not fs
+
+    with multiprocessing.get_context("spawn").Pool() as pool:
+        fs_token, dircache = pool.apply(_get_fs_token_and_dircache, (fs,))
+        assert fs_token == fs._fs_token
+        assert dircache == fs.dircache
+
+    with multiprocessing.get_context("fork").Pool() as pool:
+        fs_token, dircache = pool.apply(_get_fs_token_and_dircache, (fs,))
+        assert fs_token == fs._fs_token
+        assert dircache == fs.dircache
 
 
 @with_production_testing
