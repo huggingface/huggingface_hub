@@ -169,6 +169,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         """Deterministic token for caching"""
         # make fs_token robust to default values and to kwargs order
         kwargs["endpoint"] = kwargs.get("endpoint") or constants.ENDPOINT
+        kwargs["token"] = kwargs.get("token")
         kwargs = {key: kwargs[key] for key in sorted(kwargs)}
         # contrary to fsspec, we don't include pid here
         tokenize_args = (cls, threading.get_ident(), args, kwargs)
