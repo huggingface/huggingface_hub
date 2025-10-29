@@ -38,7 +38,7 @@ jobs:
 
           HF_VERSION_PATH="$HF_TEST_ROOT/hf-version.txt"
           hf version | tee "$HF_VERSION_PATH"
-          if ! grep -Eq 'huggingface_hub version: [0-9]+(\.[0-9]+){1,2}' "$HF_VERSION_PATH"; then
+          if ! grep -Eq 'huggingface_hub version: [0-9]+(\.[0-9]+){1,2}(\.[a-zA-Z]+[0-9]+)?' "$HF_VERSION_PATH"; then
             echo "hf version output missing huggingface_hub version" >&2
             cat "$HF_VERSION_PATH" >&2
             exit 1
@@ -74,7 +74,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw 'hf version failed'
           }
-          if (-not (Select-String -Path $hfVersionPath -Pattern 'huggingface_hub version: [0-9]+(\.[0-9]+){1,2}')) {
+          if (-not (Select-String -Path $hfVersionPath -Pattern 'huggingface_hub version: [0-9]+(\.[0-9]+){1,2}(\.[a-zA-Z]+[0-9]+)?')) {
             throw 'hf version output missing huggingface_hub version'
           }
 
