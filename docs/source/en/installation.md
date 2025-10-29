@@ -110,7 +110,7 @@ Use our one-liner installers to set up the `hf` CLI without touching your Python
 On macOS and Linux:
 
 ```bash
-curl -LsSf https://hf.co/cli/install.sh | sh
+curl -LsSf https://hf.co/cli/install.sh | bash
 ```
 
 On Windows:

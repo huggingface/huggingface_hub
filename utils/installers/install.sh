@@ -1,6 +1,6 @@
 #!/bin/sh
 # Hugging Face CLI Installer for Linux/MacOS
-# Usage: curl -LsSf https://hf.co/cli/install.sh | sh -s -- [OPTIONS]
+# Usage: curl -LsSf https://hf.co/cli/install.sh | bash -s -- [OPTIONS]
 
 
 if [ -z "$BASH_VERSION" ]; then
@@ -87,7 +87,7 @@ run_command() {
 
 usage() {
     cat <<'EOF'
-Usage: curl -LsSf https://hf.co/cli/install.sh | sh -s -- [OPTIONS]
+Usage: curl -LsSf https://hf.co/cli/install.sh | bash -s -- [OPTIONS]
 
 Options:
   --force           Recreate the Hugging Face CLI virtual environment if it exists
