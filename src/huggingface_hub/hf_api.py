@@ -239,6 +239,8 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
     input_hf_id = hf_id
 
     hub_url = hub_url if hub_url is not None else constants.ENDPOINT
+    is_hf_url = hub_url in hf_id and "@" not in hf_id
+    
     hub_url = hub_url.rstrip("/")
     if hf_id.startswith(hub_url):
         hf_id = hf_id[len(hub_url):].lstrip("/")
