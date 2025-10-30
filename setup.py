@@ -65,7 +65,6 @@ extras["testing"] = (
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
         "Pillow",
-        "requests",  # for gradio
         "numpy",  # for embeddings
         "fastapi",  # To build the documentation
     ]
@@ -74,8 +73,10 @@ extras["testing"] = (
 if sys.version_info >= (3, 10):
     # We need gradio to test webhooks server
     # But gradio 5.0+ only supports python 3.10+ so we don't want to test earlier versions
-    extras["testing"].append("gradio>=5.0.0")
-    extras["testing"].append("requests")  # see https://github.com/gradio-app/gradio/pull/11830
+    extras["gradio"] = [
+        "gradio>=5.0.0",
+        "requests",  # see https://github.com/gradio-app/gradio/pull/11830
+    ]
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
 # Please make sure to update the list there when adding a new typing dependency.
@@ -135,6 +136,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     include_package_data=True,
