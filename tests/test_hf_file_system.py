@@ -669,10 +669,11 @@ def test_cache():
         assert dircache == fs.dircache
         assert another_dircache != fs.dircache
 
-    with multiprocessing.get_context("fork").Pool() as pool:
-        (fs_token, dircache), (_, another_dircache) = pool.map(_get_fs_token_and_dircache, [fs, another_fs])
-        assert dircache == fs.dircache
-        assert another_dircache != fs.dircache
+    if os.name != "nt":  # "fork" is unavailable on windows
+        with multiprocessing.get_context("fork").Pool() as pool:
+            (fs_token, dircache), (_, another_dircache) = pool.map(_get_fs_token_and_dircache, [fs, another_fs])
+            assert dircache == fs.dircache
+            assert another_dircache != fs.dircache
 
     with multiprocessing.pool.ThreadPool() as pool:
         (fs_token, dircache), (_, another_dircache) = pool.map(_get_fs_token_and_dircache, [fs, another_fs])
