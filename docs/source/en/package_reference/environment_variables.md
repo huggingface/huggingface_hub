@@ -125,7 +125,7 @@ If `HF_HUB_OFFLINE=1` is set as environment variable and you call any method of 
 
 ### HF_HUB_DISABLE_IMPLICIT_TOKEN
 
-Authentication is not mandatory for every requests to the Hub. For instance, requesting
+Authentication is not mandatory for every request to the Hub. For instance, requesting
 details about `"gpt2"` model does not require to be authenticated. However, if a user is
 [logged in](../package_reference/login), the default behavior will be to always send the token
 in order to ease user experience (never get a HTTP 401 Unauthorized) when accessing private or gated repositories. For privacy, you can
@@ -138,7 +138,7 @@ would need to explicitly pass `token=True` argument in your script.
 
 ### HF_HUB_DISABLE_PROGRESS_BARS
 
-For time consuming tasks, `huggingface_hub` displays a progress bar by default (using tqdm).
+For time-consuming tasks, `huggingface_hub` displays a progress bar by default (using tqdm).
 You can disable all the progress bars at once by setting `HF_HUB_DISABLE_PROGRESS_BARS=1`.
 
 ### HF_HUB_DISABLE_SYMLINKS_WARNING
