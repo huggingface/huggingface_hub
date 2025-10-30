@@ -2758,6 +2758,9 @@ class HfLargefilesTest(HfApiCommonTest):
 class ParseHFUrlTest(unittest.TestCase):
     def test_repo_type_and_id_from_hf_id_on_correct_values(self):
         possible_values = {
+            "http://localhost:8080/hf/user/id": [None, "user", "id"],
+            "http://localhost:8080/hf/datasets/user/id": ["dataset", "user", "id"],
+            "http://localhost:8080/hf/models/user/id": ["model", "user", "id"],
             "https://huggingface.co/id": [None, None, "id"],
             "https://huggingface.co/user/id": [None, "user", "id"],
             "https://huggingface.co/datasets/user/id": ["dataset", "user", "id"],
