@@ -238,14 +238,14 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
 
     hub_url = hub_url if hub_url is not None else constants.ENDPOINT
     is_hf_url = hub_url in hf_id and "@" not in hf_id
-    
+
     hub_url = hub_url.rstrip("/")
     if hf_id.startswith(hub_url):
-        hf_id = hf_id[len(hub_url):].lstrip("/")
+        hf_id = hf_id[len(hub_url) :].lstrip("/")
     elif hf_id.startswith(hub_url.replace("https://", "").replace("http://", "")):
-        # Handle urls like "localhost:8080/hf/model/xxx" 
+        # Handle urls like "localhost:8080/hf/model/xxx"
         # https://github.com/huggingface/huggingface_hub/issues/3494
-        hf_id = hf_id[len(hub_url.replace("https://", "").replace("http://", "")):].lstrip("/")
+        hf_id = hf_id[len(hub_url.replace("https://", "").replace("http://", "")) :].lstrip("/")
 
     HFFS_PREFIX = "hf://"
     if hf_id.startswith(HFFS_PREFIX):  # Remove "hf://" prefix if exists
