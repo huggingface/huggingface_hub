@@ -1,6 +1,8 @@
 import copy
 import datetime
 import io
+import multiprocessing
+import multiprocessing.pool
 import os
 import pickle
 import tempfile
@@ -642,6 +644,42 @@ def test_exists_after_repo_deletion():
     api.delete_repo(repo_id=repo_id, repo_type="model")
     # Verify that the repo no longer exists.
     assert not hffs.exists(repo_id, refresh=True)
+
+
+def _get_fs_token_and_dircache(fs):
+    fs = HfFileSystem(endpoint=fs.endpoint, token=fs.token)
+    return fs._fs_token, fs.dircache
+
+
+def test_cache():
+    HfFileSystem.clear_instance_cache()
+    fs = HfFileSystem()
+    fs.dircache = {"dummy": []}
+
+    assert HfFileSystem() is fs
+    assert HfFileSystem(endpoint=constants.ENDPOINT) is fs
+    assert HfFileSystem(token=None, endpoint=constants.ENDPOINT) is fs
+
+    another_fs = HfFileSystem(endpoint="something-else")
+    assert another_fs is not fs
+    assert another_fs.dircache != fs.dircache
+
+    with multiprocessing.get_context("spawn").Pool() as pool:
+        (fs_token, dircache), (_, another_dircache) = pool.map(_get_fs_token_and_dircache, [fs, another_fs])
+        assert dircache == fs.dircache
+        assert another_dircache != fs.dircache
+
+    if os.name != "nt":  # "fork" is unavailable on windows
+        with multiprocessing.get_context("fork").Pool() as pool:
+            (fs_token, dircache), (_, another_dircache) = pool.map(_get_fs_token_and_dircache, [fs, another_fs])
+            assert dircache == fs.dircache
+            assert another_dircache != fs.dircache
+
+    with multiprocessing.pool.ThreadPool() as pool:
+        (fs_token, dircache), (_, another_dircache) = pool.map(_get_fs_token_and_dircache, [fs, another_fs])
+        assert dircache == fs.dircache
+        assert another_dircache != fs.dircache
+        assert fs_token != fs._fs_token  # use a different instance for thread safety
 
 
 @with_production_testing
