@@ -172,7 +172,7 @@ Running this will show the following output!
 This code ran with the following GPU: NVIDIA A10G
 ```
 
-Use this to run a fine tuning script like [trl/scripts/sft.py](https://github.com/huggingface/trl/blob/main/trl/scripts/sft.py) with UV:
+Use this to run a fine-tuning script like [trl/scripts/sft.py](https://github.com/huggingface/trl/blob/main/trl/scripts/sft.py) with UV:
 
 ```python
 >>> from huggingface_hub import run_uv_job

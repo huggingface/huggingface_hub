@@ -368,7 +368,7 @@ class InferenceEndpoint:
         """Scale Inference Endpoint to zero.
 
         An Inference Endpoint scaled to zero will not be charged. It will be resumed on the next request to it, with a
-        cold start delay. This is different than pausing the Inference Endpoint with [`InferenceEndpoint.pause`], which
+        cold start delay. This is different from pausing the Inference Endpoint with [`InferenceEndpoint.pause`], which
         would require a manual resume with [`InferenceEndpoint.resume`].
 
         This is an alias for [`HfApi.scale_to_zero_inference_endpoint`]. The current object is mutated in place with the

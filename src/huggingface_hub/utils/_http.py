@@ -17,6 +17,7 @@
 import atexit
 import io
 import json
+import os
 import re
 import threading
 import time
@@ -244,6 +245,8 @@ def close_session() -> None:
 
 
 atexit.register(close_session)
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=close_session)
 
 
 def _http_backoff_base(
