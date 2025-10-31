@@ -4,9 +4,14 @@ on:
   push:
     tags:
       - v*
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g., v0.30.0)"
+        required: true
 
 env:
-  PYPI_TOKEN: ${{ secrets.PYPI_TOKEN_DIST_HUGGINGFACE_HUB }}
+  PYPI_TOKEN: ${{ secrets.PYPI_TOKEN_DIST_HF }}
 
 jobs:
   python_release:
@@ -17,17 +22,17 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.9
+          python-version: 3.10
       - name: Install dependencies
         run: |
           pip install --upgrade pip
           pip install setuptools wheel
 
-      - run: python setup.py sdist bdist_wheel
+      - run: cd utils/hf && python setup.py sdist bdist_wheel
 
       - run: |
           pip install twine
 
-      - name: Upload to PyPi
+      - name: Upload to PyPI
         run: |
-          twine upload dist/* -u __token__ -p "$PYPI_TOKEN"
+          cd utils/hf && twine upload dist/* -u __token__ -p "$PYPI_TOKEN"
