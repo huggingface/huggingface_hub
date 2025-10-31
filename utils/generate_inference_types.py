@@ -304,7 +304,7 @@ def fix_legacy_annotation(content: str) -> str:
         for key in ["List", "Dict"]:
             line = re.sub(r"\b" + key + r"\b", key.lower(), line)
         lines[i] = line
-    return "\n".join(lines)
+    return "\n".join(line for line in lines if line.strip())
 
 
 def create_init_py(dataclasses: dict[str, list[str]]):
