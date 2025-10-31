@@ -13,10 +13,13 @@ Downloads and installs the `huggingface_hub` package into a dedicated virtual en
 Recreates the virtual environment even if it already exists. Off by default.
 
 .PARAMETER Verbose
-Enables verbose output, including detailed pip logs.
+Enables verbose output, including detailed logs.
 
 .PARAMETER NoModifyPath
 Skips PATH modifications; `hf` must be invoked via its full path unless you add it manually.
+
+.PARAMETER NoUv
+Use pip instead of uv for package installation.
 
 .EXAMPLE
 powershell -c "irm https://hf.co/cli/install.ps1 | iex"
@@ -28,25 +31,28 @@ Environment variables:
   HF_HOME           Installation base directory; installer uses $env:HF_HOME\cli when set
   HF_CLI_BIN_DIR    Directory for the hf wrapper (default: $env:USERPROFILE\.local\bin)
   HF_CLI_VERSION    Install a specific huggingface_hub version (default: latest)
+  HF_CLI_USE_UV     Use uv for package installation (default: true)
 #>
 
 param(
     [switch]$Force = $false,
     [switch]$Verbose,
-    [switch]$NoModifyPath
+    [switch]$NoModifyPath,
+    [switch]$NoUv
 )
 
 $script:LogLevel = if ($Verbose) { 2 } else { 1 }
 $script:PathUpdated = $false
+$script:UseUv = if ($NoUv) { $false } elseif ($env:HF_CLI_USE_UV -eq 'false') { $false } else { $true }
+$script:UvInstalled = $false
+$script:UvCmd = $null
 
 if ($Verbose) {
     $env:HF_CLI_VERBOSE_PIP = '1'
 }
 
-# Set error action preference
 $ErrorActionPreference = "Stop"
 
-# Colors for output
 $Colors = @{
     Red = 'Red'
     Green = 'Green'
@@ -83,7 +89,6 @@ function Write-Log {
     }
 }
 
-# Normalize user-supplied paths
 function Resolve-CliPath {
     param([string]$Path)
 
@@ -107,7 +112,6 @@ function Resolve-CliPath {
     return [System.IO.Path]::GetFullPath((Join-Path $base $expanded))
 }
 
-# Compose installer directories using environment variables only
 if ($env:HF_HOME) {
     $HF_CLI_DIR = Resolve-CliPath (Join-Path $env:HF_HOME "cli")
 } else {
@@ -136,7 +140,7 @@ function Test-PythonVersion {
         $version = & $PythonCmd --version 2>&1
         if ($version -match "Python 3\.(\d+)\.") {
             $minorVersion = [int]$matches[1]
-            return $minorVersion -ge 9 # Python 3.9+
+            return $minorVersion -ge 9
         }
         return $false
     } catch { return $false }
@@ -145,7 +149,6 @@ function Test-PythonVersion {
 function Find-Python {
     Write-Log "Looking for Python 3.9+ installation..."
 
-    # Try common Python commands
     $pythonCommands = @("python", "python3", "py")
 
     foreach ($cmd in $pythonCommands) {
@@ -158,7 +161,6 @@ function Find-Python {
         }
     }
 
-    # Try Python Launcher for Windows
     if (Test-Command "py") {
         try {
             $version = py -3 --version 2>&1
@@ -176,6 +178,68 @@ function Find-Python {
     Write-Log "Please install Python from https://python.org or Microsoft Store" "ERROR"
     Write-Log "Make sure to check 'Add Python to PATH' during installation" "ERROR"
     throw "Python 3.9+ not found"
+}
+
+function Install-Uv {
+    if (-not $script:UseUv) {
+        Write-Log "Using pip for package installation"
+        return
+    }
+
+    if (Test-Command "uv") {
+        try {
+            $uvVersion = & uv --version 2>&1
+            $script:UvCmd = "uv"
+            Write-Log "Using uv: $uvVersion"
+            return
+        } catch { }
+    }
+
+    Write-Log "Installing uv package manager..."
+
+    try {
+        $uvInstaller = Join-Path $env:TEMP "uv-installer.ps1"
+        
+        if (Test-Command "curl") {
+            & curl -LsSf https://astral.sh/uv/install.ps1 -o $uvInstaller 2>$null
+        } else {
+            Invoke-WebRequest -Uri "https://astral.sh/uv/install.ps1" -OutFile $uvInstaller -UseBasicParsing
+        }
+
+        if (-not (Test-Path $uvInstaller)) {
+            Write-Log "Failed to download uv installer, falling back to pip" "WARNING"
+            $script:UseUv = $false
+            return
+        }
+
+        $env:INSTALLER_NO_MODIFY_PATH = "1"
+        & powershell -ExecutionPolicy ByPass -File $uvInstaller *>$null
+
+        Remove-Item -Path $uvInstaller -Force -ErrorAction SilentlyContinue
+
+        $uvLocations = @(
+            (Join-Path $env:USERPROFILE ".cargo\bin\uv.exe"),
+            (Join-Path $env:USERPROFILE ".local\bin\uv.exe"),
+            "C:\Program Files\uv\uv.exe"
+        )
+
+        foreach ($location in $uvLocations) {
+            if (Test-Path $location) {
+                $script:UvCmd = $location
+                $script:UvInstalled = $true
+                $uvVersion = & $script:UvCmd --version 2>&1
+                Write-Log "uv installed: $uvVersion"
+                return
+            }
+        }
+
+        Write-Log "uv installation completed but command not found, falling back to pip" "WARNING"
+        $script:UseUv = $false
+    }
+    catch {
+        Write-Log "Failed to install uv, falling back to pip" "WARNING"
+        $script:UseUv = $false
+    }
 }
 
 function New-Directories {
@@ -200,38 +264,45 @@ function New-VirtualEnvironment {
         }
     }
 
-    # Fail fast when venv module is unavailable
-    try {
-        if ($PythonCmd -eq "py -3") {
-            & py -3 -c "import venv" | Out-Null
-        } else {
-            & $PythonCmd -c "import venv" | Out-Null
+    if ($script:UseUv) {
+        $uvArgs = @('venv', $VENV_DIR)
+        if ($script:LogLevel -lt 2) {
+            $uvArgs += '--quiet'
         }
-    } catch {
-        Write-Log "Python installation is missing the venv module." "ERROR"
-        Write-Log "Install the optional venv feature or repair Python before retrying." "ERROR"
-        Write-Log "Microsoft Store Python: Repair via Apps settings" "INFO"
-        Write-Log "python.org installer: Choose 'Modify' and enable 'pip/venv'." "INFO"
-        throw "Python venv module unavailable"
+
+        & $script:UvCmd @uvArgs
+        if (-not $?) { throw "Failed to create virtual environment with uv" }
+    }
+    else {
+        try {
+            if ($PythonCmd -eq "py -3") {
+                & py -3 -c "import venv" | Out-Null
+            } else {
+                & $PythonCmd -c "import venv" | Out-Null
+            }
+        } catch {
+            Write-Log "Python installation is missing the venv module." "ERROR"
+            Write-Log "Install the optional venv feature or repair Python before retrying." "ERROR"
+            Write-Log "Microsoft Store Python: Repair via Apps settings" "INFO"
+            Write-Log "python.org installer: Choose 'Modify' and enable 'pip/venv'." "INFO"
+            throw "Python venv module unavailable"
+        }
+
+        if ($PythonCmd -eq "py -3") {
+            & py -3 -m venv $VENV_DIR
+        } else {
+            & $PythonCmd -m venv $VENV_DIR
+        }
+        if (-not $?) { throw "Failed to create virtual environment" }
+
+        $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe"
+        Write-Log "Upgrading pip..."
+        & $script:VenvPython -m pip install --upgrade pip
+        if (-not $?) { throw "Failed to upgrade pip" }
     }
 
-    # Create virtual environment
-    if ($PythonCmd -eq "py -3") {
-        & py -3 -m venv $VENV_DIR
-    } else {
-        & $PythonCmd -m venv $VENV_DIR
-    }
-    if (-not $?) { throw "Failed to create virtual environment" }
-
-    # Mark this installation as installer-managed
     $markerFile = Join-Path $VENV_DIR ".hf_installer_marker"
     New-Item -Path $markerFile -ItemType File -Force | Out-Null
-
-    # Use the venv's python -m pip for deterministic upgrades
-    $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe"
-    Write-Log "Upgrading pip..."
-    & $script:VenvPython -m pip install --upgrade pip
-    if (-not $?) { throw "Failed to upgrade pip" }
 }
 
 function Install-HuggingFaceHub {
@@ -243,23 +314,35 @@ function Install-HuggingFaceHub {
     } else {
         Write-Log "Installing The Hugging Face CLI (latest)..."
     }
-    if (-not $script:VenvPython) { $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe" }
 
-    # Allow optional pip arguments via HF_CLI_PIP_ARGS/HF_PIP_ARGS env vars
-    $extraArgsRaw = if ($env:HF_CLI_PIP_ARGS) { $env:HF_CLI_PIP_ARGS } else { $env:HF_PIP_ARGS }
-    $pipArgs = @('-m', 'pip', 'install', '--upgrade')
-    if ($env:HF_CLI_VERBOSE_PIP -ne '1') {
-        $pipArgs += @('--quiet', '--progress-bar', 'off', '--disable-pip-version-check')
-        Write-Log "(pip output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs)"
-    }
-    $pipArgs += $packageSpec
-    if ($extraArgsRaw) {
-        Write-Log "Passing extra pip arguments: $extraArgsRaw"
-        $pipArgs += $extraArgsRaw -split '\s+'
-    }
+    if ($script:UseUv) {
+        if (-not $script:VenvPython) { $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe" }
 
-    & $script:VenvPython @pipArgs
-    if (-not $?) { throw "Failed to install huggingface_hub" }
+        $uvArgs = @('pip', 'install', '--python', $script:VenvPython, $packageSpec)
+        if ($env:HF_CLI_VERBOSE_PIP -ne '1') {
+            $uvArgs += '--quiet'
+        }
+
+        & $script:UvCmd @uvArgs
+        if (-not $?) { throw "Failed to install huggingface_hub with uv" }
+    }
+    else {
+        if (-not $script:VenvPython) { $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe" }
+
+        $extraArgsRaw = if ($env:HF_CLI_PIP_ARGS) { $env:HF_CLI_PIP_ARGS } else { $env:HF_PIP_ARGS }
+        $pipArgs = @('-m', 'pip', 'install', '--upgrade')
+        if ($env:HF_CLI_VERBOSE_PIP -ne '1') {
+            $pipArgs += @('--quiet', '--progress-bar', 'off', '--disable-pip-version-check')
+        }
+        $pipArgs += $packageSpec
+        if ($extraArgsRaw) {
+            Write-Log "Passing extra pip arguments: $extraArgsRaw"
+            $pipArgs += $extraArgsRaw -split '\s+'
+        }
+
+        & $script:VenvPython @pipArgs
+        if (-not $?) { throw "Failed to install huggingface_hub" }
+    }
 }
 
 function Publish-HfCommand {
@@ -285,7 +368,6 @@ function Publish-HfCommand {
 function Update-Path {
     Write-Log "Checking PATH configuration..."
 
-    # Get current user PATH
     $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
 
     if ($currentPath -notlike "*$BIN_DIR*") {
@@ -295,12 +377,10 @@ function Update-Path {
             $newPath = "$BIN_DIR;" + $currentPath
             [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
 
-            # Update PATH for current session
             $env:PATH = "$BIN_DIR;$env:PATH"
 
             Write-Log "Added $BIN_DIR to PATH. Changes will take effect in new terminals." "SUCCESS"
             Write-Log "Current PowerShell session already includes hf after this update." "INFO"
-            Write-Log "Undo later via Settings ▸ Environment Variables, or: [Environment]::SetEnvironmentVariable(`"PATH`", ($([Environment]::GetEnvironmentVariable('PATH','User')) -replace [regex]::Escape(`"$BIN_DIR;`"), ''), 'User')" "INFO"
             $script:PathUpdated = $true
         }
         catch {
@@ -321,7 +401,6 @@ function Test-Installation {
 
     if (Test-Path $hfExecutable) {
         try {
-            # Test the CLI
             $output = & $hfExecutable version 2>&1
             if ($?) {
                 Write-Log "CLI location: $hfExecutable"
@@ -347,8 +426,8 @@ function Show-UninstallInfo {
     Write-Log ""
     Write-Log "To uninstall the Hugging Face CLI:"
     Write-Log "  Remove-Item -Path '$HF_CLI_DIR' -Recurse -Force"
-    Write-Log "  Remove-Item -Path '$BIN_DIR\\hf.exe'"
-    Write-Log "  Remove-Item -Path '$BIN_DIR\\hf-script.py' (if present)"
+    Write-Log "  Remove-Item -Path '$BIN_DIR\hf.exe'"
+    Write-Log "  Remove-Item -Path '$BIN_DIR\hf-script.py' (if present)"
     Write-Log ""
     if ($script:PathUpdated) {
         Write-Log "Remove '$BIN_DIR' from your user PATH via Settings ▸ Environment Variables," "INFO"
@@ -375,13 +454,13 @@ function Show-Usage {
     Write-Log ('  & "{0}" --help' -f $hfExecutable)
 }
 
-# Main installation process
 function Main {
     try {
         Write-Log "Installing Hugging Face CLI for Windows..."
         Write-Log "PowerShell version: $($PSVersionTable.PSVersion)"
 
         $pythonCmd = Find-Python
+        Install-Uv
         New-Directories
         New-VirtualEnvironment -PythonCmd $pythonCmd
         Install-HuggingFaceHub
@@ -411,11 +490,9 @@ function Main {
     }
 }
 
-# Handle Ctrl+C
 $null = Register-ObjectEvent -InputObject ([Console]) -EventName CancelKeyPress -Action {
     Write-Log "Installation interrupted" "ERROR"
     exit 130
 }
 
-# Run main function
 Main
