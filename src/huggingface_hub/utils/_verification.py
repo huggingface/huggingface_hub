@@ -33,7 +33,7 @@ class FolderVerification:
     mismatches: list[Mismatch]
     missing_paths: list[str]
     extra_paths: list[str]
-    verified_path: Optional[Path] = None
+    verified_path: Path
 
 
 def collect_local_files(root: Path) -> dict[str, Path]:
@@ -76,7 +76,7 @@ def _resolve_commit_hash_from_cache(storage_folder: Path, revision: Optional[str
     )
 
 
-def compute_file_hash(path: Path, algorithm: HashAlgo, *, git_hash_cache: dict[Path, str]) -> str:
+def compute_file_hash(path: Path, algorithm: HashAlgo) -> str:
     """
     Compute the checksum of a local file using the requested algorithm.
     """
@@ -86,19 +86,18 @@ def compute_file_hash(path: Path, algorithm: HashAlgo, *, git_hash_cache: dict[P
             return sha_fileobj(stream).hex()
 
     if algorithm == "git-sha1":
-        try:
-            return git_hash_cache[path]
-        except KeyError:
-            with path.open("rb") as stream:
-                digest = git_hash(stream.read())
-            git_hash_cache[path] = digest
-            return digest
+        with path.open("rb") as stream:
+            return git_hash(stream.read())
 
     raise ValueError(f"Unsupported hash algorithm: {algorithm}")
 
 
 def verify_maps(
-    *, remote_by_path: dict[str, Union["RepoFile", "RepoFolder"]], local_by_path: dict[str, Path], revision: str
+    *,
+    remote_by_path: dict[str, Union["RepoFile", "RepoFolder"]],
+    local_by_path: dict[str, Path],
+    revision: str,
+    verified_path: Path,
 ) -> FolderVerification:
     """Compare remote entries and local files and return a verification result."""
     remote_paths = set(remote_by_path)
@@ -109,7 +108,6 @@ def verify_maps(
     both = sorted(remote_paths & local_paths)
 
     mismatches: list[Mismatch] = []
-    git_hash_cache: dict[Path, str] = {}
 
     for rel_path in both:
         remote_entry = remote_by_path[rel_path]
@@ -127,7 +125,7 @@ def verify_maps(
             algorithm = "git-sha1"
             expected = str(blob_id).lower()
         try:
-            actual = compute_file_hash(local_path, algorithm, git_hash_cache=git_hash_cache)
+            actual = compute_file_hash(local_path, algorithm)
         except OSError as exc:
             mismatches.append(
                 Mismatch(path=rel_path, expected="<unavailable>", actual=f"io-error:{exc}", algorithm="io")
@@ -143,6 +141,7 @@ def verify_maps(
         mismatches=mismatches,
         missing_paths=missing,
         extra_paths=extra,
+        verified_path=verified_path,
     )
 
 

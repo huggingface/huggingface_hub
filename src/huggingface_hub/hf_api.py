@@ -22,7 +22,7 @@ import time
 import warnings
 from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from functools import wraps
 from itertools import islice
@@ -3148,11 +3148,12 @@ class HfApi:
         ):
             remote_by_path[entry.path] = entry
 
-        verification = verify_maps(
-            remote_by_path=remote_by_path, local_by_path=local_by_path, revision=remote_revision
+        return verify_maps(
+            remote_by_path=remote_by_path,
+            local_by_path=local_by_path,
+            revision=remote_revision,
+            verified_path=root,
         )
-
-        return replace(verification, verified_path=root)
 
     @validate_hf_hub_args
     def list_repo_refs(
