@@ -837,7 +837,7 @@ class CommitApiTest(HfApiCommonTest):
     def test_create_commit_repo_id_case_insensitive(self):
         """Test create commit but repo_id is lowercased.
 
-        Regression test for #1371. Hub API is already case insensitive. Somehow the issue was with the `requests`
+        Regression test for #1371. Hub API is already case-insensitive. Somehow the issue was with the `requests`
         streaming implementation when generating the ndjson payload "on the fly". It seems that the server was
         receiving only the first line which causes a confusing "400 Bad Request - Add a line with the key `lfsFile`,
         `file` or `deletedFile`". Passing raw bytes instead of a generator fixes the problem.
@@ -3958,7 +3958,7 @@ class CollectionAPITest(HfApiCommonTest):
 
         self.assertEqual(collection_1.slug, collection_2.slug)
         self.assertIsNone(collection_1.description)
-        self.assertIsNone(collection_2.description)  # Did not got updated!
+        self.assertIsNone(collection_2.description)  # Did not get updated!
 
     def test_create_private_collection(self) -> None:
         collection = self._api.create_collection(self.title, private=True)
