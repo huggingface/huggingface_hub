@@ -22,21 +22,21 @@
 
 ---
 
-**Documentation**: <a href="https://hf.co/docs/huggingface_hub" target="_blank">https://hf.co/docs/huggingface_hub</a>
+**CLI Documentation**: <a href="https://huggingface.co/docs/huggingface_hub/guides/cli" target="_blank">https://huggingface.co/docs/huggingface_hub/guides/cli</a>
 
 **Source Code**: <a href="https://github.com/huggingface/huggingface_hub" target="_blank">https://github.com/huggingface/huggingface_hub</a>
 
 > [!TIP]
-> This package provides a clean CLI interface via `uv tool hf`. It is **not meant to be used as a package in scripts**—use `huggingface_hub` for that.
+> This package provides a clean CLI interface via `uvx hf`. It is **not meant to be used as a package in scripts**. Use `huggingface_hub` instead.
 
 ## Usage
 
 Install and use the CLI with `uv`:
 
 ```bash
-uv tool hf version
-uv tool hf auth whoami
-uv tool hf download MiniMaxAI/MiniMax-M2
+uvx hf version
+uvx hf auth whoami
+uvx hf download MiniMaxAI/MiniMax-M2
 ```
 
 This provides a cleaner alternative to `uvx --from huggingface_hub huggingface-cli`.
