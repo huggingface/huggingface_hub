@@ -152,6 +152,7 @@ $ hf cache [OPTIONS] COMMAND [ARGS]...
 * `ls`: List cached repositories or revisions.
 * `prune`: Remove detached revisions from the cache.
 * `rm`: Remove cached repositories or revisions.
+* `verify`: Verify checksums for a single repo...
 
 ### `hf cache ls`
 
@@ -208,6 +209,37 @@ $ hf cache rm [OPTIONS] TARGETS...
 * `--cache-dir TEXT`: Cache directory to scan (defaults to Hugging Face cache).
 * `-y, --yes`: Skip confirmation prompt.
 * `--dry-run / --no-dry-run`: Preview deletions without removing anything.  [default: no-dry-run]
+* `--help`: Show this message and exit.
+
+### `hf cache verify`
+
+Verify checksums for a single repo revision from cache or a local directory.
+
+Examples:
+  - Verify main revision in cache: `hf cache verify gpt2`
+  - Verify specific revision: `hf cache verify gpt2 --revision refs/pr/1`
+  - Verify dataset: `hf cache verify karpathy/fineweb-edu-100b-shuffle --repo-type dataset`
+  - Verify local dir: `hf cache verify deepseek-ai/DeepSeek-OCR --local-dir /path/to/repo`
+
+**Usage**:
+
+```console
+$ hf cache verify [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--cache-dir TEXT`: Cache directory to use when verifying files from cache (defaults to Hugging Face cache).
+* `--local-dir TEXT`: If set, verify files under this directory instead of the cache.
+* `--fail-on-missing-files`: Fail if some files exist on the remote but are missing locally.
+* `--fail-on-extra-files`: Fail if some files exist locally but are not present on the remote revision.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 ## `hf download`

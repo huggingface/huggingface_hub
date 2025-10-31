@@ -3,6 +3,7 @@ import os
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Generator, Optional
 from unittest.mock import Mock, patch
 
@@ -16,7 +17,14 @@ from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import RevisionNotFoundError
-from huggingface_hub.utils import CachedRepoInfo, CachedRevisionInfo, SoftTemporaryDirectory
+from huggingface_hub.utils import (
+    CachedFileInfo,
+    CachedRepoInfo,
+    CachedRevisionInfo,
+    HFCacheInfo,
+    SoftTemporaryDirectory,
+)
+from huggingface_hub.utils._verification import FolderVerification
 
 from .testing_utils import DUMMY_MODEL_ID
 
@@ -206,6 +214,133 @@ class TestCacheCommand:
         hf_cache_info.delete_revisions.assert_called_once_with(detached.commit_hash)
         strategy.execute.assert_not_called()
         print_mock.assert_called_once()
+
+    def test_verify_success(self, runner: CliRunner) -> None:
+        repo_id = "user/model"
+        verified_path = Path("/tmp/cache/user/model")
+        result_obj = FolderVerification(
+            revision="main",
+            checked_count=1,
+            mismatches=[],
+            missing_paths=[],
+            extra_paths=[],
+            verified_path=verified_path,
+        )
+
+        with patch("huggingface_hub.cli.cache.get_hf_api") as get_api_mock:
+            api = get_api_mock.return_value
+            api.verify_repo_checksums.return_value = result_obj
+            result = runner.invoke(app, ["cache", "verify", repo_id])
+
+        assert result.exit_code == 0
+        stdout = result.stdout
+        normalized_stdout = stdout.replace("\\", "/")
+        expected_path_str = verified_path.as_posix()
+        assert f"✅ Verified 1 file(s) for 'user/model' (model) in {expected_path_str}" in normalized_stdout
+        assert "  All checksums match." in stdout
+        get_api_mock.assert_called_once()
+        api.verify_repo_checksums.assert_called_once_with(
+            repo_id=repo_id,
+            repo_type="model",
+            revision=None,
+            cache_dir=None,
+            local_dir=None,
+            token=None,
+        )
+
+    def test_verify_reports_mismatch(self, runner: CliRunner) -> None:
+        repo_id = "user/model"
+        result_obj = FolderVerification(
+            revision="main",
+            checked_count=1,
+            mismatches=[{"path": "pytorch_model.bin", "expected": "dead", "actual": "beef", "algorithm": "sha256"}],
+            missing_paths=[],
+            extra_paths=[],
+            verified_path=Path("/tmp/cache/user/model"),
+        )
+
+        with patch("huggingface_hub.cli.cache.get_hf_api") as get_api_mock:
+            api = get_api_mock.return_value
+            api.verify_repo_checksums.return_value = result_obj
+            result = runner.invoke(app, ["cache", "verify", repo_id])
+
+        assert result.exit_code == 1
+        assert "Checksum verification failed" in result.stdout
+        assert "pytorch_model.bin" in result.stdout
+        assert "expected" in result.stdout
+        assert "Verification failed for 'user/model' (model)" in result.stdout
+        assert "Revision: main" in result.stdout
+
+    def test_verify_reports_missing_local_file(self, runner: CliRunner) -> None:
+        commit_hash = "4" * 40
+        repo_id = "user/model"
+        file_name = "config.json"
+
+        with SoftTemporaryDirectory() as tmp_dir:
+            base = Path(tmp_dir)
+            snapshot_path = base / "snapshots" / commit_hash
+            snapshot_path.mkdir(parents=True)
+
+            blob_dir = base / "blobs"
+            blob_dir.mkdir()
+
+            blob_path = blob_dir / ("a" * 64)
+            blob_path.write_bytes(b"hello")
+
+            file_path = snapshot_path / file_name
+            file_path.touch()
+
+            file_info = CachedFileInfo(
+                file_name=file_name,
+                file_path=file_path,
+                blob_path=blob_path,
+                size_on_disk=blob_path.stat().st_size,
+                blob_last_accessed=0.0,
+                blob_last_modified=0.0,
+            )
+            revision = CachedRevisionInfo(
+                commit_hash=commit_hash,
+                snapshot_path=snapshot_path,
+                size_on_disk=blob_path.stat().st_size,
+                files=frozenset({file_info}),
+                refs=frozenset({"main"}),
+                last_modified=0.0,
+            )
+            repo = CachedRepoInfo(
+                repo_id=repo_id,
+                repo_type="model",
+                repo_path=base,
+                size_on_disk=blob_path.stat().st_size,
+                nb_files=1,
+                revisions=frozenset({revision}),
+                last_accessed=0.0,
+                last_modified=0.0,
+            )
+            hf_cache_info = HFCacheInfo(
+                size_on_disk=blob_path.stat().st_size,
+                repos=frozenset({repo}),
+                warnings=[],
+            )
+
+            with (
+                patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
+                patch("huggingface_hub.cli.cache.get_hf_api") as get_api_mock,
+            ):
+                api = get_api_mock.return_value
+                api.list_repo_tree.return_value = [
+                    SimpleNamespace(path=file_name, blob_id="unused", lfs=None),
+                    SimpleNamespace(
+                        path="missing.txt",
+                        blob_id="blobid",
+                        lfs=None,
+                    ),
+                ]
+                result = runner.invoke(app, ["cache", "verify", repo.cache_id])
+
+        assert result.exit_code == 1
+        assert "missing locally" in result.stdout
+        assert "Verification failed for" in result.stdout
+        assert "Revision:" in result.stdout
 
 
 class TestUploadCommand:
