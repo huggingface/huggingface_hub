@@ -50,7 +50,7 @@ class TestValidCacheUtils(unittest.TestCase):
 
     @with_production_testing
     def setUp(self) -> None:
-        """Setup a clean cache for tests that will remain valid in all tests."""
+        """Set up a clean cache for tests that will remain valid in all tests."""
         # Download latest main
         snapshot_download(repo_id=MODEL_ID, repo_type="model", cache_dir=self.cache_dir)
 
@@ -71,7 +71,7 @@ class TestValidCacheUtils(unittest.TestCase):
         """Scan the cache dir without warnings (on unix-based platform).
 
         This test is duplicated and adapted for Windows in `test_scan_cache_on_valid_cache_windows`.
-        Note: Please make sure to updated both if any change is made.
+        Note: Please make sure to update both if any change is made.
         """
         report = scan_cache_dir(self.cache_dir)
 
@@ -104,7 +104,7 @@ class TestValidCacheUtils(unittest.TestCase):
         self.assertEqual(sum(rev.nb_files for rev in repo_a.revisions), 6)
 
         # 2 REFS in the repo: "main" and "refs/pr/1"
-        # We could have add a tag as well
+        # We could have added a tag as well
         self.assertEqual(set(repo_a.refs.keys()), {"main", REF_1_NAME})
         self.assertEqual(repo_a.refs["main"].commit_hash, REPO_A_MAIN_HASH)
         self.assertEqual(repo_a.refs[REF_1_NAME].commit_hash, REPO_A_PR_1_HASH)
@@ -139,7 +139,7 @@ class TestValidCacheUtils(unittest.TestCase):
         pr_1_readme_file = [file for file in pr_1_revision.files if file.file_name == "README.md"][0]
         pr_1_readme_file_path = pr_1_revision_path / "README.md"
 
-        # file_path in "refs/pr/1" revision is different than "main" but same blob path
+        # file_path in "refs/pr/1" revision is different from "main" but same blob path
         self.assertEqual(pr_1_readme_file.file_path, pr_1_readme_file_path)  # different
         self.assertEqual(pr_1_readme_file.blob_path, main_readme_blob_path)  # same
 
@@ -150,7 +150,7 @@ class TestValidCacheUtils(unittest.TestCase):
         Windows tests do not use symlinks which leads to duplication in the cache.
         This test is duplicated from `test_scan_cache_on_valid_cache_unix` with a few
         tweaks specific to windows.
-        Note: Please make sure to updated both if any change is made.
+        Note: Please make sure to update both if any change is made.
         """
         report = scan_cache_dir(self.cache_dir)
 
@@ -183,7 +183,7 @@ class TestValidCacheUtils(unittest.TestCase):
         self.assertEqual(sum(rev.nb_files for rev in repo_a.revisions), 6)
 
         # 2 REFS in the repo: "main" and "refs/pr/1"
-        # We could have add a tag as well
+        # We could have added a tag as well
         REF_1_NAME = "refs\\pr\\1"  # Windows-specific
         self.assertEqual(set(repo_a.refs.keys()), {"main", REF_1_NAME})
         self.assertEqual(repo_a.refs["main"].commit_hash, REPO_A_MAIN_HASH)
@@ -220,7 +220,7 @@ class TestValidCacheUtils(unittest.TestCase):
         pr_1_readme_file = [file for file in pr_1_revision.files if file.file_name == "README.md"][0]
         pr_1_readme_file_path = pr_1_revision_path / "README.md"
 
-        # file_path in "refs/pr/1" revision is different than "main"
+        # file_path in "refs/pr/1" revision is different from "main"
         # Windows-specific: even blob path is different
         self.assertEqual(pr_1_readme_file.file_path, pr_1_readme_file_path)
         self.assertNotEqual(  # Windows-specific: different as well
@@ -237,7 +237,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
 
     @with_production_testing
     def setUp(self) -> None:
-        """Setup a clean cache for tests that will get corrupted/modified in tests."""
+        """Set up a clean cache for tests that will get corrupted/modified in tests."""
         # Download latest main
         snapshot_download(repo_id=MODEL_ID, repo_type="model", cache_dir=self.cache_dir)
 
@@ -676,7 +676,7 @@ class TestTryDeletePath(unittest.TestCase):
         self.assertFalse(file_path_2.exists())
 
     def test_delete_path_on_missing_file(self) -> None:
-        """Try delete a missing file."""
+        """Try to delete a missing file."""
         file_path = self.cache_dir / "file.txt"
 
         with self.assertLogs() as captured:
@@ -687,7 +687,7 @@ class TestTryDeletePath(unittest.TestCase):
         assert any(f"Couldn't delete TYPE: file not found ({file_path})" in log for log in captured.output)
 
     def test_delete_path_on_missing_folder(self) -> None:
-        """Try delete a missing folder."""
+        """Try to delete a missing folder."""
         dir_path = self.cache_dir / "folder"
 
         with self.assertLogs() as captured:
@@ -699,7 +699,7 @@ class TestTryDeletePath(unittest.TestCase):
 
     @xfail_on_windows(reason="Permissions are handled differently on Windows.")
     def test_delete_path_on_local_folder_with_wrong_permission(self) -> None:
-        """Try delete a local folder that is protected."""
+        """Try to delete a local folder that is protected."""
         dir_path = self.cache_dir / "something"
         dir_path.mkdir()
         file_path_1 = dir_path / "file.txt"  # file at root
