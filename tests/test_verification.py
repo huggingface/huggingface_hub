@@ -44,12 +44,11 @@ def test_compute_file_hash_algorithms(tmp_path: Path, algorithm: HashAlgo, data:
     fp = tmp_path / "x.bin"
     _write(fp, data)
 
-    cache: dict[Path, str] = {}
-    actual = compute_file_hash(fp, algorithm, git_hash_cache=cache)
+    actual = compute_file_hash(fp, algorithm)
     assert actual == expected_fn(data)
 
 
-def test_compute_file_hash_git_sha1_uses_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_compute_file_hash_git_sha1_computes_hash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fp = tmp_path / "x.txt"
     data = b"cached!"
     _write(fp, data)
@@ -62,12 +61,12 @@ def test_compute_file_hash_git_sha1_uses_cache(tmp_path: Path, monkeypatch: pyte
 
     monkeypatch.setattr(verification_module, "git_hash", fake_git_hash, raising=False)
 
-    cache: dict[Path, str] = {}
-    h1 = compute_file_hash(fp, "git-sha1", git_hash_cache=cache)
-    h2 = compute_file_hash(fp, "git-sha1", git_hash_cache=cache)
+    h1 = compute_file_hash(fp, "git-sha1")
+    h2 = compute_file_hash(fp, "git-sha1")
 
     assert h1 == h2 == git_hash(data)
-    assert calls["count"] == 1
+    # Each call computes the hash independently (no cache)
+    assert calls["count"] == 2
 
 
 def test_resolve_local_root_cache_single_snapshot(tmp_path: Path) -> None:
@@ -104,11 +103,17 @@ def test_verify_maps_success_local_dir(tmp_path: Path) -> None:
             lfs={"sha256": hashlib.sha256(b"bb").hexdigest()},
         ),
     }
-    res = verify_maps(remote_by_path=remote_by_path, local_by_path=local_by_path, revision="abc")
+    res = verify_maps(
+        remote_by_path=remote_by_path,
+        local_by_path=local_by_path,
+        revision="abc",
+        verified_path=loc,
+    )
     assert res.checked_count == 2
     assert res.mismatches == []
     assert res.missing_paths == []
     assert res.extra_paths == []
+    assert res.verified_path == loc
 
 
 def test_verify_maps_reports_mismatch(tmp_path: Path) -> None:
@@ -117,10 +122,16 @@ def test_verify_maps_reports_mismatch(tmp_path: Path) -> None:
     _write(loc / "a.txt", b"wrong")
     local_by_path = collect_local_files(loc)
     remote_by_path = {"a.txt": SimpleNamespace(path="a.txt", blob_id=git_hash(b"right"), lfs=None)}
-    res = verify_maps(remote_by_path=remote_by_path, local_by_path=local_by_path, revision="r")
+    res = verify_maps(
+        remote_by_path=remote_by_path,
+        local_by_path=local_by_path,
+        revision="r",
+        verified_path=loc,
+    )
     assert len(res.mismatches) == 1
     m = res.mismatches[0]
     assert m["path"] == "a.txt" and m["algorithm"] == "git-sha1"
+    assert res.verified_path == loc
 
 
 def test_api_verify_repo_checksums_cache_mode(tmp_path: Path) -> None:

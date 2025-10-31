@@ -253,6 +253,7 @@ class TestCacheCommand:
             mismatches=[{"path": "pytorch_model.bin", "expected": "dead", "actual": "beef", "algorithm": "sha256"}],
             missing_paths=[],
             extra_paths=[],
+            verified_path=Path("/tmp/cache/user/model"),
         )
 
         with patch("huggingface_hub.cli.cache.get_hf_api") as get_api_mock:
