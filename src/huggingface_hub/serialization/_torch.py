@@ -710,7 +710,7 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, tuple[Any, ...]]:
         pass
 
     if tensor.device.type == "xla" and is_torch_tpu_available():
-        # NOTE: xla tensors dont have storage
+        # NOTE: xla tensors don't have storage
         # use some other unique id to distinguish.
         # this is a XLA tensor, it must be created using torch_xla's
         # device. So the following import is safe:
@@ -761,7 +761,7 @@ def get_torch_storage_size(tensor: "torch.Tensor") -> int:
             attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
             return sum(get_torch_storage_size(getattr(tensor, attr)) for attr in attrs)
     except ImportError:
-        # for torch version less than 2.1, we can fallback to original implementation
+        # for torch version less than 2.1, we can fall back to original implementation
         pass
 
     try:
@@ -808,7 +808,7 @@ def storage_ptr(tensor: "torch.Tensor") -> Union[int, tuple[Any, ...]]:
         if is_traceable_wrapper_subclass(tensor):
             return _get_unique_id(tensor)  # type: ignore
     except ImportError:
-        # for torch version less than 2.1, we can fallback to original implementation
+        # for torch version less than 2.1, we can fall back to original implementation
         pass
 
     try:
@@ -916,7 +916,7 @@ def _is_complete(tensor: "torch.Tensor") -> bool:
             attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
             return all(_is_complete(getattr(tensor, attr)) for attr in attrs)
     except ImportError:
-        # for torch version less than 2.1, we can fallback to original implementation
+        # for torch version less than 2.1, we can fall back to original implementation
         pass
 
     return tensor.data_ptr() == storage_ptr(tensor) and tensor.nelement() * _get_dtype_size(

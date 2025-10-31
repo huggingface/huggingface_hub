@@ -161,7 +161,7 @@ def smoothly_deprecate_legacy_arguments(fn_name: str, kwargs: dict[str, Any]) ->
             In particular, it is not possible to configure proxies on a per-request basis. The solution is to configure
             it globally using the [`set_client_factory`] function or using the HTTP_PROXY environment variable.
 
-            More more details, see:
+            For more details, see:
             - https://www.python-httpx.org/advanced/proxies/
             - https://www.python-httpx.org/compatibility/#proxy-keys.
 
