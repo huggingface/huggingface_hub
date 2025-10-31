@@ -71,7 +71,7 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           path: ./huggingface_hub
-          token: ${{ secrets.TOKEN_INFERENCE_SYNC_BOT }}
+          token: ${{ secrets.HF_STYLE_BOT_ACTION }}
           commit-message: Update inference types (automated commit)
           branch: update-inference-types-automated-pr
           delete-branch: true
