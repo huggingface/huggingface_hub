@@ -73,7 +73,7 @@ for key in sorted(_SORT_KEYS):
     _sort_options_dict[f"{key}_asc"] = f"{key}:asc"
     _sort_options_dict[f"{key}_desc"] = f"{key}:desc"
 
-SortOptions = Enum("SortOptions", _sort_options_dict, type=str, module=__name__)
+SortOptions = Enum("SortOptions", _sort_options_dict, type=str, module=__name__)  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -426,7 +426,7 @@ def compile_cache_sort(
 
         if key == "name":
             # Sort by cache_id (repo type/id)
-            value = repo.cache_id.lower()
+            value: Any = repo.cache_id.lower()
             return (value,)
 
         if key == "size":
