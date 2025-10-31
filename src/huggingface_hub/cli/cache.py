@@ -62,6 +62,18 @@ class _DeletionResolution:
 _FILTER_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)\s*(?P<op>==|!=|>=|<=|>|<|=)\s*(?P<value>.+)$")
 _ALLOWED_OPERATORS = {"=", "!=", ">", "<", ">=", "<="}
 _FILTER_KEYS = {"accessed", "modified", "refs", "size", "type"}
+_SORT_KEYS = {"accessed", "modified", "name", "size"}
+_SORT_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)(?::(?P<order>asc|desc))?$")
+
+
+# Dynamically generate SortOptions enum from _SORT_KEYS
+_sort_options_dict = {}
+for key in sorted(_SORT_KEYS):
+    _sort_options_dict[key] = key
+    _sort_options_dict[f"{key}_asc"] = f"{key}:asc"
+    _sort_options_dict[f"{key}_desc"] = f"{key}:desc"
+
+SortOptions = Enum("SortOptions", _sort_options_dict, type=str, module=__name__)
 
 
 @dataclass(frozen=True)
@@ -378,6 +390,70 @@ def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
     return comparisons[op]
 
 
+def compile_cache_sort(
+    sort_expr: str, *, include_revisions: bool
+) -> tuple[Callable[[CacheEntry], tuple[Any, ...]], bool]:
+    """Convert a `hf cache ls` sort expression into a key function for sorting entries.
+
+    Returns:
+        A tuple of (key_function, reverse_flag) where reverse_flag indicates whether
+        to sort in descending order (True) or ascending order (False).
+    """
+    match = _SORT_PATTERN.match(sort_expr.strip().lower())
+    if not match:
+        raise ValueError(f"Invalid sort expression: '{sort_expr}'. Expected format: 'key' or 'key:asc' or 'key:desc'.")
+
+    key = match.group("key").lower()
+    explicit_order = match.group("order")
+
+    if key not in _SORT_KEYS:
+        raise ValueError(f"Unsupported sort key '{key}' in '{sort_expr}'. Must be one of {list(_SORT_KEYS)}.")
+
+    # Default ordering: accessed/modified/size are descending (newest/biggest first), name is ascending
+    default_orders = {
+        "accessed": "desc",
+        "modified": "desc",
+        "size": "desc",
+        "name": "asc",
+    }
+
+    # Use explicit order if provided, otherwise use default for the key
+    order = explicit_order if explicit_order else default_orders[key]
+    reverse = order == "desc"
+
+    def _sort_key(entry: CacheEntry) -> tuple[Any, ...]:
+        repo, revision = entry
+
+        if key == "name":
+            # Sort by cache_id (repo type/id)
+            value = repo.cache_id.lower()
+            return (value,)
+
+        if key == "size":
+            # Use revision size if available, otherwise repo size
+            value = revision.size_on_disk if revision is not None else repo.size_on_disk
+            return (value,)
+
+        if key == "accessed":
+            # For revisions, accessed is not available per-revision, use repo's last_accessed
+            # For repos, use repo's last_accessed
+            value = repo.last_accessed if repo.last_accessed is not None else 0.0
+            return (value,)
+
+        if key == "modified":
+            # Use revision's last_modified if available, otherwise repo's last_modified
+            if revision is not None:
+                value = revision.last_modified if revision.last_modified is not None else 0.0
+            else:
+                value = repo.last_modified if repo.last_modified is not None else 0.0
+            return (value,)
+
+        # Should never reach here due to validation above
+        raise ValueError(f"Unsupported sort key: {key}")
+
+    return _sort_key, reverse
+
+
 def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) -> _DeletionResolution:
     """Resolve the deletion targets into a deletion resolution."""
     repo_lookup, revision_lookup = build_cache_index(hf_cache_info)
@@ -458,13 +534,28 @@ def ls(
             help="Print only IDs (repo IDs or revision hashes).",
         ),
     ] = False,
+    sort: Annotated[
+        Optional[SortOptions],
+        typer.Option(
+            help="Sort entries by key. Supported keys: 'accessed', 'modified', 'name', 'size'. "
+            "Append ':asc' or ':desc' to explicitly set the order (e.g., 'modified:asc'). "
+            "Defaults: 'accessed', 'modified', 'size' default to 'desc' (newest/biggest first); "
+            "'name' defaults to 'asc' (alphabetical).",
+        ),
+    ] = None,
+    limit: Annotated[
+        Optional[int],
+        typer.Option(
+            help="Limit the number of results returned. Returns only the top N entries after sorting.",
+        ),
+    ] = None,
 ) -> None:
     """List cached repositories or revisions."""
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
         print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
 
     filters = filter or []
 
@@ -477,6 +568,20 @@ def ls(
     now = time.time()
     for fn in filter_fns:
         entries = [entry for entry in entries if fn(entry[0], entry[1], now)]
+
+    # Apply sorting if requested
+    if sort:
+        try:
+            sort_key_fn, reverse = compile_cache_sort(sort.value, include_revisions=revisions)
+            entries.sort(key=sort_key_fn, reverse=reverse)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+
+    # Apply limit if requested
+    if limit is not None:
+        if limit < 0:
+            raise typer.BadParameter(f"Limit must be a positive integer, got {limit}.")
+        entries = entries[:limit]
 
     if quiet:
         for repo, revision in entries:
