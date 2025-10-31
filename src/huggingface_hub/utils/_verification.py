@@ -121,13 +121,8 @@ def verify_maps(
             blob_id = remote_entry.blob_id  # type: ignore
             algorithm = "git-sha1"
             expected = str(blob_id).lower()
-        try:
-            actual = compute_file_hash(local_path, algorithm)
-        except OSError as exc:
-            mismatches.append(
-                Mismatch(path=rel_path, expected="<unavailable>", actual=f"io-error:{exc}", algorithm="io")
-            )
-            continue
+
+        actual = compute_file_hash(local_path, algorithm)
 
         if actual != expected:
             mismatches.append(Mismatch(path=rel_path, expected=expected, actual=actual, algorithm=algorithm))
