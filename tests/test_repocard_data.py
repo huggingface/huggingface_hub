@@ -49,9 +49,9 @@ class BaseCardDataTest(unittest.TestCase):
 
         # .get and __getitem__
         self.assertEqual(metadata.get("foo"), "bar")
-        self.assertEqual(metadata.get("FOO"), None)  # case sensitive
+        self.assertEqual(metadata.get("FOO"), None)  # case-sensitive
         self.assertEqual(metadata["foo"], "bar")
-        with self.assertRaises(KeyError):  # case sensitive
+        with self.assertRaises(KeyError):  # case-sensitive
             _ = metadata["FOO"]
 
         # __setitem__

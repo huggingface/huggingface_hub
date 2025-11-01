@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Installation
 
-Before you start, you will need to setup your environment by installing the appropriate packages.
+Before you start, you will need to set up your environment by installing the appropriate packages.
 
 `huggingface_hub` is tested on **Python 3.9+**.
 
@@ -84,7 +84,7 @@ Once done, [check installation](#check-installation) is working correctly.
 
 ### Editable install
 
-Installing from source allows you to setup an [editable install](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs).
+Installing from source allows you to set up an [editable install](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs).
 This is a more advanced installation if you plan to contribute to `huggingface_hub`
 and need to test changes in the code. You need to clone a local copy of `huggingface_hub`
 on your machine.
@@ -168,5 +168,5 @@ a solution.
 
 ## Next steps
 
-Once `huggingface_hub` is properly installed on your machine, you might want
+Once `huggingface_hub` is properly installed on your machine, you might want to
 [configure environment variables](package_reference/environment_variables) or [check one of our guides](guides/overview) to get started.
