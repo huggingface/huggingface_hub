@@ -256,7 +256,7 @@ def expect_deprecation(function_name: str):
         function_name (`str`):
             Name of the function that we expect to use in a deprecated way.
 
-    NOTE: if a test is expected to warns FutureWarnings but is not, the test will fail.
+    NOTE: if a test is expected to warn FutureWarnings but is not, the test will fail.
 
     Context: over time, some arguments/methods become deprecated. In order to track
              deprecation in tests, we run pytest with flag `-Werror::FutureWarning`.

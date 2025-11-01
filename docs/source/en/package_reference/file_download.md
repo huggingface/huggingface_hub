@@ -34,5 +34,4 @@ The methods displayed above are designed to work with a caching system that prev
 re-downloading files. The caching system was updated in v0.8.0 to become the central
 cache-system shared across libraries that depend on the Hub.
 
-Read the [cache-system guide](../guides/manage-cache) for a detailed presentation of caching at
-at HF.
+Read the [cache-system guide](../guides/manage-cache) for a detailed presentation of caching at HF.
