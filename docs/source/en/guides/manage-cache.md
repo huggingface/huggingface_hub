@@ -401,7 +401,7 @@ Found 2 repo(s) for a total of 2 revision(s) and 3.0G on disk.
 
 Need machine-friendly output? Use `--format json` to get structured objects or
 `--format csv` for spreadsheets. Alternatively `--quiet` prints only identifiers (one
-per line) so you can pipe them into other tooling. Combine these options with
+per line) so you can pipe them into other tooling. Use `--sort` to order entries by `accessed`, `modified`, `name`, or `size` (append `:asc` or `:desc` to control order), and `--limit` to restrict results to the top N entries. Combine these options with
 `--cache-dir` when you need to inspect a cache stored outside of `HF_HOME`.
 
 **Filter with common shell tools**
