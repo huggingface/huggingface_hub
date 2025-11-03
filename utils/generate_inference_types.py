@@ -354,7 +354,7 @@ def check_inference_types(update: bool) -> NoReturn:
     for file in INFERENCE_TYPES_FOLDER_PATH.glob("*.py"):
         if file.name in IGNORE_FILES:
             continue
-        content = file.read_text()
+        content = file.read_text().lstrip("\r\n")
         content = _clean_deprecated_fields(content)
         fixed_content = fix_inference_classes(content, module_name=file.stem)
         fixed_content = fix_legacy_annotation(fixed_content)
