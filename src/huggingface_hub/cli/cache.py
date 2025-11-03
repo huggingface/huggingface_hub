@@ -37,7 +37,7 @@ from ..utils import (
     tabulate,
 )
 from ..utils._parsing import parse_duration, parse_size
-from ._cli_utils import typer_factory
+from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 
 
 cache_cli = typer_factory(help="Manage local cache directory.")
@@ -736,3 +736,106 @@ def prune(
 
     strategy.execute()
     print(f"Deleted {counts.total_revision_count} unreferenced revision(s); freed {strategy.expected_freed_size_str}.")
+
+
+@cache_cli.command()
+def verify(
+    repo_id: RepoIdArg,
+    repo_type: RepoTypeOpt = RepoTypeOpt.model,
+    revision: RevisionOpt = None,
+    cache_dir: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Cache directory to use when verifying files from cache (defaults to Hugging Face cache).",
+        ),
+    ] = None,
+    local_dir: Annotated[
+        Optional[str],
+        typer.Option(
+            help="If set, verify files under this directory instead of the cache.",
+        ),
+    ] = None,
+    fail_on_missing_files: Annotated[
+        bool,
+        typer.Option(
+            "--fail-on-missing-files",
+            help="Fail if some files exist on the remote but are missing locally.",
+        ),
+    ] = False,
+    fail_on_extra_files: Annotated[
+        bool,
+        typer.Option(
+            "--fail-on-extra-files",
+            help="Fail if some files exist locally but are not present on the remote revision.",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """Verify checksums for a single repo revision from cache or a local directory.
+
+    Examples:
+      - Verify main revision in cache: `hf cache verify gpt2`
+      - Verify specific revision: `hf cache verify gpt2 --revision refs/pr/1`
+      - Verify dataset: `hf cache verify karpathy/fineweb-edu-100b-shuffle --repo-type dataset`
+      - Verify local dir: `hf cache verify deepseek-ai/DeepSeek-OCR --local-dir /path/to/repo`
+    """
+
+    if local_dir is not None and cache_dir is not None:
+        print("Cannot pass both --local-dir and --cache-dir. Use one or the other.")
+        raise typer.Exit(code=2)
+
+    api = get_hf_api(token=token)
+
+    result = api.verify_repo_checksums(
+        repo_id=repo_id,
+        repo_type=repo_type.value if hasattr(repo_type, "value") else str(repo_type),
+        revision=revision,
+        local_dir=local_dir,
+        cache_dir=cache_dir,
+        token=token,
+    )
+
+    exit_code = 0
+
+    has_mismatches = bool(result.mismatches)
+    if has_mismatches:
+        print("❌ Checksum verification failed for the following file(s):")
+        for m in result.mismatches:
+            print(f"  - {m['path']}: expected {m['expected']} ({m['algorithm']}), got {m['actual']}")
+        exit_code = 1
+
+    if result.missing_paths:
+        if fail_on_missing_files:
+            print("Missing files (present remotely, absent locally):")
+            for p in result.missing_paths:
+                print(f"  - {p}")
+            exit_code = 1
+        else:
+            warning = (
+                f"{len(result.missing_paths)} remote file(s) are missing locally. "
+                "Use --fail-on-missing-files for details."
+            )
+            print(f"⚠️  {warning}")
+
+    if result.extra_paths:
+        if fail_on_extra_files:
+            print("Extra files (present locally, absent remotely):")
+            for p in result.extra_paths:
+                print(f"  - {p}")
+            exit_code = 1
+        else:
+            warning = (
+                f"{len(result.extra_paths)} local file(s) do not exist on the remote repo. "
+                "Use --fail-on-extra-files for details."
+            )
+            print(f"⚠️  {warning}")
+
+    verified_location = result.verified_path
+
+    if exit_code != 0:
+        print(f"❌ Verification failed for '{repo_id}' ({repo_type.value}) in {verified_location}.")
+        print(f"  Revision: {result.revision}")
+        raise typer.Exit(code=exit_code)
+
+    print(f"✅ Verified {result.checked_count} file(s) for '{repo_id}' ({repo_type.value}) in {verified_location}")
+    print("  All checksums match.")

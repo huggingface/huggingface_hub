@@ -479,6 +479,26 @@ HFCacheInfo(
 )
 ```
 
+### Verify your cache
+
+`huggingface_hub` can verify that your cached files match the checksums on the Hub. Use `hf cache verify` CLI to validate file consistency for a specific revision of a specific repository:
+
+
+```bash
+>>> hf cache verify meta-llama/Llama-3.2-1B-Instruct
+✅ Verified 13 file(s) for 'meta-llama/Llama-3.2-1B-Instruct' (model) in ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6
+  All checksums match.
+```
+
+Verify a specific cached revision:
+
+```bash
+>>> hf cache verify meta-llama/Llama-3.1-8B-Instruct --revision 0e9e39f249a16976918f6564b8830bc894c89659
+```
+
+> [!TIP]
+> Check the [`hf cache verify` CLI reference](../package_reference/cli#hf-cache-verify) for more details about the usage and a complete list of options.
+
 ### Clean your cache
 
 Scanning your cache is interesting but what you really want to do next is usually to

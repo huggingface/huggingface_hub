@@ -230,7 +230,7 @@ user as possible.
 
 ## Telemetry
 
-`huggingface_hub` includes an helper to send telemetry data. This information helps us debug issues and prioritize new features.
+`huggingface_hub` includes a helper to send telemetry data. This information helps us debug issues and prioritize new features.
 Users can disable telemetry collection at any time by setting the `HF_HUB_DISABLE_TELEMETRY=1` environment variable.
 Telemetry is also disabled in offline mode (i.e. when setting HF_HUB_OFFLINE=1).
 

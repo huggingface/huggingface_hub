@@ -1034,7 +1034,7 @@ def _hf_hub_download_to_cache_dir(
     locks_dir = os.path.join(cache_dir, ".locks")
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
-    # cross platform transcription of filename, to be used as a local file path.
+    # cross-platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
     if os.name == "nt":
         if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
@@ -1531,7 +1531,7 @@ def get_hf_file_metadata(
     # Return
     return HfFileMetadata(
         commit_hash=response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT),
-        # We favor a custom header indicating the etag of the linked resource, and we fallback to the regular etag header.
+        # We favor a custom header indicating the etag of the linked resource, and we fall back to the regular etag header.
         etag=_normalize_etag(
             response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
         ),

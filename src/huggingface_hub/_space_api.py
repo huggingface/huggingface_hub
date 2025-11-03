@@ -111,7 +111,7 @@ class SpaceRuntime:
             Current hardware of the space. Example: "cpu-basic". Can be `None` if Space
             is `BUILDING` for the first time.
         requested_hardware (`str` or `None`):
-            Requested hardware. Can be different than `hardware` especially if the request
+            Requested hardware. Can be different from `hardware` especially if the request
             has just been made. Example: "t4-medium". Can be `None` if no hardware has
             been requested yet.
         sleep_time (`int` or `None`):

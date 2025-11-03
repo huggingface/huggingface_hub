@@ -5,7 +5,7 @@
 
 if [ -z "$BASH_VERSION" ]; then
     if command -v bash >/dev/null 2>&1; then
-        if [ -f "$0" ] && [ "$0" != "sh" ]; then
+        if [ -f "$0" ] && [ "$0" != "sh" ] && [ "$0" != "bash" ]; then
             exec bash "$0" "$@"
         else
             tmp_dir=$(mktemp -d 2>/dev/null || mktemp -d -t hf-cli-install)
@@ -13,12 +13,13 @@ if [ -z "$BASH_VERSION" ]; then
             cat >"$tmp_script"
             chmod +x "$tmp_script"
             bash "$tmp_script" "$@"
-            status=$?
+            exit_code=$?
             rm -rf "$tmp_dir"
-            exit $status
+            exit $exit_code
         fi
     else
         echo "[ERROR] bash is required to run this installer." >&2
+        echo "[ERROR] Please run: curl -LsSf https://hf.co/cli/install.sh | bash" >&2
         exit 1
     fi
 fi
@@ -299,7 +300,7 @@ install_hf_hub() {
     fi
 
     if [ "${HF_CLI_VERBOSE_PIP:-}" != "1" ]; then
-        log_info "(pip output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs)"
+        log_info "pip output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs"
     fi
 
     if [ -n "$extra_pip_args" ]; then
