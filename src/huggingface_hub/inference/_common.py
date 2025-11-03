@@ -47,7 +47,7 @@ UrlT = str
 PathT = Union[str, Path]
 ContentT = Union[bytes, BinaryIO, PathT, UrlT, "Image", bytearray, memoryview]
 
-# Use to set a Accept: image/png header
+# Use to set an Accept: image/png header
 TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
 
 logger = logging.getLogger(__name__)
