@@ -64,6 +64,13 @@ _ALLOWED_OPERATORS = {"=", "!=", ">", "<", ">=", "<="}
 _FILTER_KEYS = {"accessed", "modified", "refs", "size", "type"}
 _SORT_KEYS = {"accessed", "modified", "name", "size"}
 _SORT_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)(?::(?P<order>asc|desc))?$")
+_SORT_DEFAULT_ORDER = {
+    # Default ordering: accessed/modified/size are descending (newest/biggest first), name is ascending
+    "accessed": "desc",
+    "modified": "desc",
+    "size": "desc",
+    "name": "asc",
+}
 
 
 # Dynamically generate SortOptions enum from _SORT_KEYS
@@ -390,9 +397,7 @@ def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
     return comparisons[op]
 
 
-def compile_cache_sort(
-    sort_expr: str, *, include_revisions: bool
-) -> tuple[Callable[[CacheEntry], tuple[Any, ...]], bool]:
+def compile_cache_sort(sort_expr: str) -> tuple[Callable[[CacheEntry], tuple[Any, ...]], bool]:
     """Convert a `hf cache ls` sort expression into a key function for sorting entries.
 
     Returns:
@@ -409,16 +414,8 @@ def compile_cache_sort(
     if key not in _SORT_KEYS:
         raise ValueError(f"Unsupported sort key '{key}' in '{sort_expr}'. Must be one of {list(_SORT_KEYS)}.")
 
-    # Default ordering: accessed/modified/size are descending (newest/biggest first), name is ascending
-    default_orders = {
-        "accessed": "desc",
-        "modified": "desc",
-        "size": "desc",
-        "name": "asc",
-    }
-
     # Use explicit order if provided, otherwise use default for the key
-    order = explicit_order if explicit_order else default_orders[key]
+    order = explicit_order if explicit_order else _SORT_DEFAULT_ORDER[key]
     reverse = order == "desc"
 
     def _sort_key(entry: CacheEntry) -> tuple[Any, ...]:
@@ -572,7 +569,7 @@ def ls(
     # Apply sorting if requested
     if sort:
         try:
-            sort_key_fn, reverse = compile_cache_sort(sort.value, include_revisions=revisions)
+            sort_key_fn, reverse = compile_cache_sort(sort.value)
             entries.sort(key=sort_key_fn, reverse=reverse)
         except ValueError as exc:
             raise typer.BadParameter(str(exc)) from exc
