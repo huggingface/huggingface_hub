@@ -80,6 +80,7 @@ class _Cached(_cached_base):
     """
 
     def __init__(cls, *args, **kwargs):
+        # Hack: override https://github.com/fsspec/filesystem_spec/blob/dcb167e8f50e6273d4cfdfc4cab8fc5aa4c958bf/fsspec/spec.py#L53
         super().__init__(*args, **kwargs)
         # Note: we intentionally create a reference here, to avoid garbage
         # collecting instances when all other references are gone. To really
@@ -87,6 +88,7 @@ class _Cached(_cached_base):
         cls._cache = {}
 
     def __call__(cls, *args, **kwargs):
+        # Hack: override https://github.com/fsspec/filesystem_spec/blob/dcb167e8f50e6273d4cfdfc4cab8fc5aa4c958bf/fsspec/spec.py#L65
         skip = kwargs.pop("skip_instance_cache", False)
         fs_token = cls._tokenize(cls, threading.get_ident(), *args, **kwargs)
         fs_token_main_thread = cls._tokenize(cls, threading.main_thread().ident, *args, **kwargs)
