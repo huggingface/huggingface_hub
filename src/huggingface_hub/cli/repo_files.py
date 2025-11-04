@@ -43,7 +43,7 @@ from huggingface_hub import logging
 from ._cli_utils import RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 
 
-repo_files_cli = typer_factory(help="Manage files in a repo on the Hub.")
+logger = logging.get_logger(__name__)
 
 
 repo_files_cli = typer_factory(help="Manage files in a repo on the Hub.")
