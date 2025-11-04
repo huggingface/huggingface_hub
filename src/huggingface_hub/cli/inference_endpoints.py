@@ -111,23 +111,19 @@ def deploy(
 ) -> None:
     """Deploy an Inference Endpoint from a Hub repository."""
     api = get_hf_api(token=token)
-    try:
-        endpoint = api.create_inference_endpoint(
-            name=name,
-            repository=repo,
-            framework=framework,
-            accelerator=accelerator,
-            instance_size=instance_size,
-            instance_type=instance_type,
-            region=region,
-            vendor=vendor,
-            namespace=namespace,
-            task=task,
-            token=token,
-        )
-    except HfHubHTTPError as error:
-        typer.echo(f"Deployment failed: {error}")
-        raise typer.Exit(code=error.response.status_code) from error
+    endpoint = api.create_inference_endpoint(
+        name=name,
+        repository=repo,
+        framework=framework,
+        accelerator=accelerator,
+        instance_size=instance_size,
+        instance_type=instance_type,
+        region=region,
+        vendor=vendor,
+        namespace=namespace,
+        task=task,
+        token=token,
+    )
 
     _print_endpoint(endpoint)
 
