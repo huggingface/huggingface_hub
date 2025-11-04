@@ -31,7 +31,6 @@ from urllib.parse import urlparse
 
 import pytest
 
-import huggingface_hub.lfs
 from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage, constants
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
@@ -260,13 +259,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
                 info = self._api.dataset_info(repo_id)
                 assert info.gated == gated_value
                 assert info.private == private_value
-
-    @use_tmp_repo(repo_type="model")
-    def test_update_repo_settings_xet_enabled(self, repo_url: RepoUrl):
-        repo_id = repo_url.repo_id
-        self._api.update_repo_settings(repo_id=repo_id, xet_enabled=True)
-        info = self._api.model_info(repo_id, expand="xetEnabled")
-        assert info.xet_enabled
 
 
 class CommitApiTest(HfApiCommonTest):
@@ -845,7 +837,7 @@ class CommitApiTest(HfApiCommonTest):
     def test_create_commit_repo_id_case_insensitive(self):
         """Test create commit but repo_id is lowercased.
 
-        Regression test for #1371. Hub API is already case insensitive. Somehow the issue was with the `requests`
+        Regression test for #1371. Hub API is already case-insensitive. Somehow the issue was with the `requests`
         streaming implementation when generating the ndjson payload "on the fly". It seems that the server was
         receiving only the first line which causes a confusing "400 Bad Request - Add a line with the key `lfsFile`,
         `file` or `deletedFile`". Passing raw bytes instead of a generator fixes the problem.
@@ -2499,7 +2491,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
             assert item.provider_id is not None
 
     def test_inference_provider_mapping_list_models(self):
-        models = list(self._api.list_models(author="deepseek-ai", expand="inferenceProviderMapping", limit=1))
+        models = list(
+            self._api.list_models(author="deepseek-ai", expand="inferenceProviderMapping", limit=1, inference="warm")
+        )
         assert len(models) > 0
         mapping = models[0].inference_provider_mapping
         assert isinstance(mapping, list)
@@ -2737,12 +2731,9 @@ class HfLargefilesTest(HfApiCommonTest):
         subprocess.run(["git", "lfs", "track", "*.epub"], check=True, cwd=self.cache_dir)
 
     @require_git_lfs
-    def test_end_to_end_thresh_6M(self):
-        # Little-hack: create repo with defined `_lfsmultipartthresh`. Only for tests purposes
-        self._api._lfsmultipartthresh = 6 * 10**6
+    def test_git_push_end_to_end(self):
         self.repo_url = self._api.create_repo(repo_id=repo_name())
         self.repo_id = self.repo_url.repo_id
-        self._api._lfsmultipartthresh = None
         self.setup_local_clone()
 
         subprocess.run(
@@ -2750,17 +2741,6 @@ class HfLargefilesTest(HfApiCommonTest):
         )
         subprocess.run(["git", "add", "*"], check=True, cwd=self.cache_dir)
         subprocess.run(["git", "commit", "-m", "commit message"], check=True, cwd=self.cache_dir)
-
-        # This will fail as we haven't set up our custom transfer agent yet.
-        failed_process = subprocess.run(
-            ["git", "push"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=self.cache_dir,
-        )
-        self.assertEqual(failed_process.returncode, 1)
-        self.assertIn('Run "hf lfs-enable-largefiles ./path/to/your/repo"', failed_process.stderr.decode())
-        # ^ Instructions on how to fix this are included in the error message.
         subprocess.run(["hf", "lfs-enable-largefiles", self.cache_dir], check=True)
 
         start_time = time.time()
@@ -2768,55 +2748,13 @@ class HfLargefilesTest(HfApiCommonTest):
         print("took", time.time() - start_time)
 
         # To be 100% sure, let's download the resolved file
-        pdf_url = f"{self.repo_url}/resolve/main/progit.pdf"
-        DEST_FILENAME = "uploaded.pdf"
-        subprocess.run(
-            ["wget", pdf_url, "-O", DEST_FILENAME],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=self.cache_dir,
-        )
-        dest_filesize = (self.cache_dir / DEST_FILENAME).stat().st_size
-        assert dest_filesize == 18685041
-
-    @require_git_lfs
-    def test_end_to_end_thresh_16M(self):
-        # Here we'll push one multipart and one non-multipart file in the same commit, and see what happens
-        # Little-hack: create repo with defined `_lfsmultipartthresh`. Only for tests purposes
-        self._api._lfsmultipartthresh = 16 * 10**6
-        self.repo_url = self._api.create_repo(repo_id=repo_name())
-        self.repo_id = self.repo_url.repo_id
-        self._api._lfsmultipartthresh = None
-        self.setup_local_clone()
-
-        subprocess.run(
-            ["wget", LARGE_FILE_18MB], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.cache_dir
-        )
-        subprocess.run(
-            ["wget", LARGE_FILE_14MB], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.cache_dir
-        )
-        subprocess.run(["git", "add", "*"], check=True, cwd=self.cache_dir)
-        subprocess.run(["git", "commit", "-m", "both files in same commit"], check=True, cwd=self.cache_dir)
-        subprocess.run(["hf", "lfs-enable-largefiles", self.cache_dir], check=True)
-
-        start_time = time.time()
-        subprocess.run(["git", "push"], check=True, cwd=self.cache_dir)
-        print("took", time.time() - start_time)
-
-    def test_upload_lfs_file_multipart(self):
-        """End to end test to check upload an LFS file using multipart upload works."""
-        self._api._lfsmultipartthresh = 16 * 10**6
-        self.repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
-        self._api._lfsmultipartthresh = None
-
-        with patch.object(
-            huggingface_hub.lfs,
-            "_upload_parts_iteratively",
-            wraps=huggingface_hub.lfs._upload_parts_iteratively,
-        ) as mock:
-            self._api.upload_file(repo_id=self.repo_id, path_or_fileobj=b"0" * 18 * 10**6, path_in_repo="lfs.bin")
-            mock.assert_called_once()  # It used multipart upload
+        with SoftTemporaryDirectory() as tmp_dir:
+            filepath = hf_hub_download(
+                repo_id=self.repo_id,
+                filename="progit.pdf",
+                cache_dir=tmp_dir,
+            )
+            assert Path(filepath).stat().st_size == 18685041
 
 
 class ParseHFUrlTest(unittest.TestCase):
@@ -4020,7 +3958,7 @@ class CollectionAPITest(HfApiCommonTest):
 
         self.assertEqual(collection_1.slug, collection_2.slug)
         self.assertIsNone(collection_1.description)
-        self.assertIsNone(collection_2.description)  # Did not got updated!
+        self.assertIsNone(collection_2.description)  # Did not get updated!
 
     def test_create_private_collection(self) -> None:
         collection = self._api.create_collection(self.title, private=True)
@@ -4239,9 +4177,26 @@ class UserApiTest(unittest.TestCase):
         assert overview.num_following > 300
         assert overview.num_followers > 1000
 
+    def test_organization_overview(self) -> None:
+        overview = self.api.get_organization_overview("huggingface")
+        assert overview.name == "huggingface"
+        assert overview.fullname == "Hugging Face"
+        assert overview.avatar_url.startswith("https://")
+        assert overview.num_users is None or overview.num_users > 10
+        assert overview.num_models is None or overview.num_models > 10
+        assert overview.num_followers is None or overview.num_followers > 1000
+
     def test_organization_members(self) -> None:
         members = self.api.list_organization_members("huggingface")
         assert len(list(members)) > 1
+
+    def test_organization_followers(self) -> None:
+        followers = self.api.list_organization_followers("huggingface")
+        first_follower = next(followers)
+        assert isinstance(first_follower, User)
+        assert first_follower.username
+        assert first_follower.fullname
+        assert first_follower.avatar_url
 
     def test_user_followers(self) -> None:
         followers = self.api.list_user_followers("clem")
@@ -4378,6 +4333,7 @@ class TestExpandPropertyType(HfApiCommonTest):
         defined_args = set(get_args(property_type))
         expected_args = set(message.replace('"expand" must be one of ', "").strip("[]").split(", "))
         expected_args.discard("gitalyUid")  # internal one, do not document
+        expected_args.discard("xetEnabled")  # all repos are xetEnabled now, so we don't document it anymore
 
         if defined_args != expected_args:
             should_be_removed = defined_args - expected_args
@@ -4646,3 +4602,27 @@ def test_create_inference_endpoint_custom_image_payload(
 
     assert "model" in payload and "image" in payload["model"]
     assert payload["model"]["image"] == expected_image_payload
+
+
+class HfApiVerifyChecksumsTest(HfApiCommonTest):
+    def test_verify_repo_checksums_with_local_cache(self) -> None:
+        repo_id = self._api.create_repo(repo_name()).repo_id
+        self._api.create_commit(
+            repo_id=repo_id,
+            commit_message="add file",
+            operations=[CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="file.txt")],
+        )
+
+        # minimal cache layout
+        info = self._api.repo_info(repo_id)
+        commit = info.sha
+        parts = [f"{constants.REPO_TYPE_MODEL}s", *repo_id.split("/")]
+        repo_folder_name = constants.REPO_ID_SEPARATOR.join(parts)
+
+        storage = Path(constants.HF_HUB_CACHE) / repo_folder_name
+        snapshot = storage / "snapshots" / commit
+        snapshot.mkdir(parents=True, exist_ok=True)
+        (snapshot / "file.txt").write_bytes(b"data")
+
+        res = self._api.verify_repo_checksums(repo_id=repo_id, revision=commit, cache_dir=storage.parent)
+        assert res.revision == commit and res.checked_count == 1 and not res.mismatches

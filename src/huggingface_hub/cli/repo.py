@@ -27,10 +27,25 @@ from typing import Annotated, Optional
 import typer
 
 from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
-from huggingface_hub.utils import ANSI
+from huggingface_hub.utils import ANSI, logging
 
-from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import (
+    PrivateOpt,
+    RepoIdArg,
+    RepoType,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    get_hf_api,
+    typer_factory,
+)
 
+
+repo_cli = typer_factory(help="Manage repos on the Hub.")
+tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
+branch_cli = typer_factory(help="Manage branches for a repo on the Hub.")
+repo_cli.add_typer(tag_cli, name="tag")
+repo_cli.add_typer(branch_cli, name="branch")
 
 repo_cli = typer_factory(help="Manage repos on the Hub.")
 tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
@@ -136,12 +151,6 @@ def repo_settings(
             help="Whether the repository should be private.",
         ),
     ] = None,
-    xet_enabled: Annotated[
-        Optional[bool],
-        typer.Option(
-            help=" Whether the repository should be enabled for Xet Storage.",
-        ),
-    ] = None,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
@@ -150,7 +159,6 @@ def repo_settings(
         repo_id=repo_id,
         gated=(gated.value if gated else None),  # type: ignore [arg-type]
         private=private,
-        xet_enabled=xet_enabled,
         repo_type=repo_type.value,
     )
     print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")

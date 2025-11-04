@@ -111,7 +111,7 @@ def _parse_credential_output(output: str) -> list[str]:
         output (`str`):
             The output of `git credential fill`.
     """
-    # NOTE: If user has set an helper for a custom URL, it will not we caught here.
+    # NOTE: If user has set a helper for a custom URL, it will not be caught here.
     #       Example: `credential.https://huggingface.co.helper=store`
     #       See: https://github.com/huggingface/huggingface_hub/pull/1138#discussion_r1013324508
     return sorted(  # Sort for nice printing

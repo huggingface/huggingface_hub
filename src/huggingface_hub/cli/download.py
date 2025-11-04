@@ -49,6 +49,9 @@ from huggingface_hub.utils import _format_size, disable_progress_bars, enable_pr
 from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
 
 
+logger = logging.get_logger(__name__)
+
+
 def download(
     repo_id: RepoIdArg,
     filenames: Annotated[
@@ -131,7 +134,7 @@ def download(
                 force_download=force_download,
                 token=token,
                 local_dir=local_dir,
-                library_name="hf",
+                library_name="huggingface-cli",
                 dry_run=dry_run,
             )
 
@@ -153,7 +156,7 @@ def download(
             cache_dir=cache_dir,
             token=token,
             local_dir=local_dir,
-            library_name="hf",
+            library_name="huggingface-cli",
             max_workers=max_workers,
             dry_run=dry_run,
         )

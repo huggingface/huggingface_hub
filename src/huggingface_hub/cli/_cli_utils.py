@@ -38,7 +38,7 @@ def get_hf_api(token: Optional[str] = None) -> "HfApi":
     # Import here to avoid circular import
     from huggingface_hub.hf_api import HfApi
 
-    return HfApi(token=token, library_name="hf", library_version=__version__)
+    return HfApi(token=token, library_name="huggingface-cli", library_version=__version__)
 
 
 #### TYPER UTILS
@@ -50,7 +50,7 @@ class AlphabeticalMixedGroup(typer.core.TyperGroup):
     """
 
     def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
-        # click.Group stores both commands and sub-groups in `self.commands`
+        # click.Group stores both commands and subgroups in `self.commands`
         return sorted(self.commands.keys())
 
 
@@ -160,7 +160,7 @@ def _check_cli_update() -> None:
         elif method == "hf_installer" and os.name == "nt":
             update_command = 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex"'
         elif method == "hf_installer":
-            update_command = "curl -LsSf https://hf.co/cli/install.sh | sh -"
+            update_command = "curl -LsSf https://hf.co/cli/install.sh | bash -"
         else:  # unknown => likely pip
             update_command = "pip install -U huggingface_hub"
 

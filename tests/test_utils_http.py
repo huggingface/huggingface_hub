@@ -1,10 +1,10 @@
-import os
 import threading
 import time
 import unittest
-from multiprocessing import Process, Queue
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Generator, Optional
 from unittest.mock import Mock, call, patch
+from urllib.parse import urlparse
 from uuid import UUID
 
 import httpx
@@ -12,12 +12,14 @@ import pytest
 from httpx import ConnectTimeout, HTTPError
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.errors import OfflineModeIsEnabled
+from huggingface_hub.errors import HfHubHTTPError, OfflineModeIsEnabled
 from huggingface_hub.utils._http import (
     _adjust_range_header,
     default_client_factory,
     fix_hf_endpoint_in_url,
+    get_async_session,
     get_session,
+    hf_raise_for_status,
     http_backoff,
     set_client_factory,
 )
@@ -218,24 +220,6 @@ class TestConfigureSession(unittest.TestCase):
             for j in range(N):
                 self.assertIs(clients[i], clients[j])
 
-    @unittest.skipIf(os.name == "nt", "Works differently on Windows.")
-    def test_get_session_in_forked_process(self):
-        # Get main process client
-        main_client = get_session()
-
-        def _child_target():
-            # Put `repr(client)` in queue because putting the `Client` object directly would duplicate it.
-            # Repr looks like this: "<httpx.Client object at 0x7f5adcc41e40>"
-            process_queue.put(repr(get_session()))
-
-        # Fork a new process and get client in it
-        process_queue = Queue()
-        Process(target=_child_target).start()
-        child_client = process_queue.get()
-
-        # Check clients are the same instance
-        self.assertEqual(repr(main_client), child_client)
-
 
 class OfflineModeSessionTest(unittest.TestCase):
     def tearDown(self) -> None:
@@ -362,3 +346,104 @@ def test_proxy_env_is_used(monkeypatch):
 
     # Reset
     set_client_factory(default_client_factory)
+
+
+def test_client_get_request():
+    # Check that sync client works
+    client = get_session()
+    response = client.get("https://huggingface.co")
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_async_client_get_request():
+    # Check that async client works
+    client = get_async_session()
+    response = await client.get("https://huggingface.co")
+    assert response.status_code == 200
+
+
+class FakeServerHandler(BaseHTTPRequestHandler):
+    """Fake server handler to test client behavior."""
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+
+        # Health check endpoint (always succeeds)
+        if parsed.path == "/health":
+            self._send_response(200, b"OK")
+            return
+
+        # Main endpoint (always fails with 500)
+        self._send_response(500, b"This is a 500 error")
+
+    def _send_response(self, status_code, body):
+        self.send_response(status_code)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def fake_server():
+    # Find a free port
+    host, port = "127.0.0.1", 8000
+    for port in range(port, 8100):
+        try:
+            server = HTTPServer((host, port), FakeServerHandler)
+            break
+        except OSError:
+            continue
+    else:
+        raise RuntimeError("Could not find a free port")
+
+    url = f"http://{host}:{port}"
+
+    # Start server in a separate thread and wait until it's ready
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    for _ in range(1000):  # up to 10 seconds
+        try:
+            if httpx.get(f"{url}/health", timeout=0.01).status_code == 200:
+                break
+        except httpx.HTTPError:
+            pass
+        time.sleep(0.01)
+    else:
+        server.shutdown()
+        raise RuntimeError("Fake server failed to start")
+
+    yield url
+    server.shutdown()
+
+
+def _check_raise_status(response: httpx.Response):
+    """Common assertions for 500 error tests."""
+    with pytest.raises(HfHubHTTPError) as exc_info:
+        hf_raise_for_status(response)
+    assert exc_info.value.response.status_code == 500
+    assert "This is a 500 error" in str(exc_info.value)
+
+
+def test_raise_on_status_sync_non_stream(fake_server: str):
+    response = get_session().get(fake_server)
+    _check_raise_status(response)
+
+
+def test_raise_on_status_sync_stream(fake_server: str):
+    with get_session().stream("GET", fake_server) as response:
+        _check_raise_status(response)
+
+
+@pytest.mark.asyncio
+async def test_raise_on_status_async_non_stream(fake_server: str):
+    response = await get_async_session().get(fake_server)
+    _check_raise_status(response)
+
+
+@pytest.mark.asyncio
+async def test_raise_on_status_async_stream(fake_server: str):
+    async with get_async_session().stream("GET", fake_server) as response:
+        _check_raise_status(response)

@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.0.0.rc4"
+__version__ = "1.1.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -111,6 +111,9 @@ _SUBMOD_ATTRS = {
         "WebhooksServer",
         "webhook_endpoint",
     ],
+    "cli._cli_utils": [
+        "typer_factory",
+    ],
     "community": [
         "Discussion",
         "DiscussionComment",
@@ -160,6 +163,7 @@ _SUBMOD_ATTRS = {
         "GitRefs",
         "HfApi",
         "ModelInfo",
+        "Organization",
         "RepoUrl",
         "SpaceInfo",
         "User",
@@ -213,6 +217,7 @@ _SUBMOD_ATTRS = {
         "get_full_repo_name",
         "get_inference_endpoint",
         "get_model_tags",
+        "get_organization_overview",
         "get_paths_info",
         "get_repo_discussions",
         "get_safetensors_metadata",
@@ -232,6 +237,7 @@ _SUBMOD_ATTRS = {
         "list_lfs_files",
         "list_liked_repos",
         "list_models",
+        "list_organization_followers",
         "list_organization_members",
         "list_papers",
         "list_pending_access_requests",
@@ -282,6 +288,7 @@ _SUBMOD_ATTRS = {
         "upload_file",
         "upload_folder",
         "upload_large_folder",
+        "verify_repo_checksums",
         "whoami",
     ],
     "hf_file_system": [
@@ -689,6 +696,7 @@ __all__ = [
     "ObjectDetectionInput",
     "ObjectDetectionOutputElement",
     "ObjectDetectionParameters",
+    "Organization",
     "PYTORCH_WEIGHTS_NAME",
     "Padding",
     "PyTorchModelHubMixin",
@@ -859,6 +867,7 @@ __all__ = [
     "get_hf_file_metadata",
     "get_inference_endpoint",
     "get_model_tags",
+    "get_organization_overview",
     "get_paths_info",
     "get_repo_discussions",
     "get_safetensors_metadata",
@@ -886,6 +895,7 @@ __all__ = [
     "list_lfs_files",
     "list_liked_repos",
     "list_models",
+    "list_organization_followers",
     "list_organization_members",
     "list_papers",
     "list_pending_access_requests",
@@ -949,6 +959,7 @@ __all__ = [
     "super_squash_history",
     "suspend_scheduled_job",
     "try_to_load_from_cache",
+    "typer_factory",
     "unlike",
     "update_collection_item",
     "update_collection_metadata",
@@ -958,6 +969,7 @@ __all__ = [
     "upload_file",
     "upload_folder",
     "upload_large_folder",
+    "verify_repo_checksums",
     "webhook_endpoint",
     "whoami",
 ]
@@ -1117,6 +1129,7 @@ if TYPE_CHECKING:  # pragma: no cover
         WebhooksServer,  # noqa: F401
         webhook_endpoint,  # noqa: F401
     )
+    from .cli._cli_utils import typer_factory  # noqa: F401
     from .community import (
         Discussion,  # noqa: F401
         DiscussionComment,  # noqa: F401
@@ -1166,6 +1179,7 @@ if TYPE_CHECKING:  # pragma: no cover
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
         ModelInfo,  # noqa: F401
+        Organization,  # noqa: F401
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
         User,  # noqa: F401
@@ -1219,6 +1233,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_full_repo_name,  # noqa: F401
         get_inference_endpoint,  # noqa: F401
         get_model_tags,  # noqa: F401
+        get_organization_overview,  # noqa: F401
         get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
@@ -1238,6 +1253,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_lfs_files,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_models,  # noqa: F401
+        list_organization_followers,  # noqa: F401
         list_organization_members,  # noqa: F401
         list_papers,  # noqa: F401
         list_pending_access_requests,  # noqa: F401
@@ -1288,6 +1304,7 @@ if TYPE_CHECKING:  # pragma: no cover
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
         upload_large_folder,  # noqa: F401
+        verify_repo_checksums,  # noqa: F401
         whoami,  # noqa: F401
     )
     from .hf_file_system import (

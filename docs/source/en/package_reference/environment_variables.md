@@ -71,10 +71,6 @@ Defaults to `"warning"`.
 
 For more details, see [logging reference](../package_reference/utilities#huggingface_hub.utils.logging.get_verbosity).
 
-### HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD
-
-This environment variable has been deprecated and is now ignored by `huggingface_hub`. Downloading files to the local dir does not rely on symlinks anymore.
-
 ### HF_HUB_ETAG_TIMEOUT
 
 Integer value to define the number of seconds to wait for server response when fetching the latest metadata from a repo before downloading a file. If the request times out, `huggingface_hub` will default to the locally cached files. Setting a lower value speeds up the workflow for machines with a slow connection that have already cached files. A higher value guarantees the metadata call to succeed in more cases. Default to 10s.
@@ -93,13 +89,13 @@ Integer value to define the number of seconds to wait for server response when d
 
 ### HF_XET_CHUNK_CACHE_SIZE_BYTES
 
-To set the size of the Xet chunk cache locally. Increasing this will give more space for caching terms/chunks fetched from S3. A larger cache can better take advantage of deduplication across repos & files. If your network speed is much greater than your local disk speed (ex 10Gbps vs SSD or worse) then consider disabling the Xet cache for increased performance. To disable the Xet cache, set `HF_XET_CHUNK_CACHE_SIZE_BYTES=0`.
+To set the size of the Xet chunk cache locally. By default, the chunk cache is disabled. The chunk cache can be beneficial if you are generating new revisions to existing models or datasets as this is used to cache terms/chunks that are fetched from S3. A larger cache can better take advantage of deduplication across repos & files. To enable the chunk cache set the environment variable to a large number (10GB) or greater. However, in most cases when downloading or uploading new data, disabling the chunk cache will have better performance, which is why it is disabled by default.
 
-Defaults to `10000000000` (10GB).
+Defaults to `0` (0 bytes, means chunk cache is disabled).
 
 ### HF_XET_SHARD_CACHE_SIZE_LIMIT
 
-To set the size of the Xet shard cache locally. Increasing this will improve upload effeciency as chunks referenced in cached shard files are not re-uploaded. Note that the default soft limit is likely sufficient for most workloads. 
+To set the size of the Xet shard cache locally. Increasing this will improve upload efficiency as chunks referenced in cached shard files are not re-uploaded. Note that the default soft limit is likely sufficient for most workloads. 
 
 Defaults to `4000000000` (4GB).
 
@@ -129,7 +125,7 @@ If `HF_HUB_OFFLINE=1` is set as environment variable and you call any method of 
 
 ### HF_HUB_DISABLE_IMPLICIT_TOKEN
 
-Authentication is not mandatory for every requests to the Hub. For instance, requesting
+Authentication is not mandatory for every request to the Hub. For instance, requesting
 details about `"gpt2"` model does not require to be authenticated. However, if a user is
 [logged in](../package_reference/login), the default behavior will be to always send the token
 in order to ease user experience (never get a HTTP 401 Unauthorized) when accessing private or gated repositories. For privacy, you can
@@ -142,7 +138,7 @@ would need to explicitly pass `token=True` argument in your script.
 
 ### HF_HUB_DISABLE_PROGRESS_BARS
 
-For time consuming tasks, `huggingface_hub` displays a progress bar by default (using tqdm).
+For time-consuming tasks, `huggingface_hub` displays a progress bar by default (using tqdm).
 You can disable all the progress bars at once by setting `HF_HUB_DISABLE_PROGRESS_BARS=1`.
 
 ### HF_HUB_DISABLE_SYMLINKS_WARNING
@@ -173,35 +169,22 @@ You can set `HF_HUB_DISABLE_TELEMETRY=1` as environment variable to globally dis
 
 ### HF_HUB_DISABLE_XET
 
-Set to disable using `hf-xet`, even if it is available in your Python environment. This is since `hf-xet` will be used automatically if it is found, this allows explicitly disabling its usage.
+Set to disable using `hf-xet`, even if it is available in your Python environment. This is since `hf-xet` will be used automatically if it is found, this allows explicitly disabling its usage. If you are disabling Xet, please consider [filing an issue and including the diagnostics](https://github.com/huggingface/xet-core?tab=readme-ov-file#issues-diagnostics--debugging) information to help us understand why Xet is not working for you.
 
 ### HF_HUB_ENABLE_HF_TRANSFER
 
-Set to `True` for faster uploads and downloads from the Hub using `hf_transfer`.
-
-By default, `huggingface_hub` uses the Python-based `httpx.get` and `httpx.post` functions.
-Although these are reliable and versatile,
-they may not be the most efficient choice for machines with high bandwidth.
-[`hf_transfer`](https://github.com/huggingface/hf_transfer) is a Rust-based package developed to
-maximize the bandwidth used by dividing large files into smaller parts
-and transferring them simultaneously using multiple threads.
-This approach can potentially double the transfer speed.
-To use `hf_transfer`:
-
-1. Specify the `hf_transfer` extra when installing `huggingface_hub`
-   (e.g. `pip install huggingface_hub[hf_transfer]`).
-2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
-
-Please note that using `hf_transfer` comes with certain limitations. Since it is not purely Python-based, debugging errors may be challenging. Additionally, `hf_transfer` lacks several user-friendly features such as resumable downloads and proxies. These omissions are intentional to maintain the simplicity and speed of the Rust logic. Consequently, `hf_transfer` is not enabled by default in `huggingface_hub`.
-
-> [!TIP]
-> `hf_xet` is an alternative to `hf_transfer`. It provides efficient file transfers through a chunk-based deduplication strategy, custom Xet storage (replacing Git LFS), and a seamless integration with `huggingface_hub`. 
->
-> [Read more about the package](https://huggingface.co/docs/hub/storage-backends) and enable with `pip install "huggingface_hub[hf_xet]"`.
+> [!WARNING]
+> This is a deprecated environment variable.
+> Now that the Hugging Face Hub is fully powered by the Xet storage backend, all file transfers go through the `hf-xet` binary package. It provides efficient transfers using a chunk-based deduplication strategy and integrates seamlessly with `huggingface_hub`.
+> This means `hf_transfer` can't be used anymore. If you are interested in higher performance, check out the [`HF_XET_HIGH_PERFORMANCE` section](#hf_xet_high_performance)
 
 ### HF_XET_HIGH_PERFORMANCE
 
-Set `hf-xet` to operate with increased settings to maximize network and disk resources on the machine. Enabling high performance mode will try to saturate the network bandwidth of this machine and utilize all CPU cores for parallel upload/download activity. Consider this analogous to setting `HF_HUB_ENABLE_HF_TRANSFER=True` when uploading / downloading using `hf-xet` to the Xet storage backend.
+Set `hf-xet` to operate with increased settings to maximize network and disk resources on the machine. Enabling high performance mode will try to saturate the network bandwidth of this machine and utilize all CPU cores for parallel upload/download activity.
+
+Consider this analogous to the legacy `HF_HUB_ENABLE_HF_TRANSFER=1` environment variable but applied to `hf-xet`.
+
+To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/xet/index).
 
 ### HF_XET_RECONSTRUCT_WRITE_SEQUENTIALLY
 

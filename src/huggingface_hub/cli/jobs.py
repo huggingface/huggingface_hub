@@ -63,6 +63,7 @@ import typer
 
 from huggingface_hub import SpaceHardware, get_token
 from huggingface_hub.errors import HfHubHTTPError
+from huggingface_hub.utils import logging
 from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._cli_utils import TokenOpt, get_hf_api, typer_factory

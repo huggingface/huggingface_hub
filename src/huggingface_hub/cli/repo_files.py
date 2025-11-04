@@ -46,6 +46,9 @@ from ._cli_utils import RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt,
 repo_files_cli = typer_factory(help="Manage files in a repo on the Hub.")
 
 
+repo_files_cli = typer_factory(help="Manage files in a repo on the Hub.")
+
+
 @repo_files_cli.command("delete")
 def repo_files_delete(
     repo_id: RepoIdArg,

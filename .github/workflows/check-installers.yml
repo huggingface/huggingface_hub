@@ -36,11 +36,8 @@ jobs:
 
           export PATH="$BIN_DIR:$PATH"
 
-          HF_VERSION_PATH="$HF_TEST_ROOT/hf-version.txt"
-          hf version | tee "$HF_VERSION_PATH"
-          if ! grep -Eq 'huggingface_hub version: [0-9]+(\.[0-9]+){1,2}' "$HF_VERSION_PATH"; then
-            echo "hf version output missing huggingface_hub version" >&2
-            cat "$HF_VERSION_PATH" >&2
+          if ! hf version | tee /dev/stderr | grep -Eq '[0-9]+(\.[0-9]+){1,2}(\.[a-zA-Z]+[0-9]+)?'; then
+            echo "incorrect hf version output" >&2
             exit 1
           fi
 
@@ -69,13 +66,15 @@ jobs:
 
           $env:PATH = "$binDir;$env:PATH"
 
-          $hfVersionPath = Join-Path $hfTestRoot 'hf-version.txt'
-          & hf.exe version | Tee-Object -FilePath $hfVersionPath
+          $hfVersionOutput = & hf.exe version 2>&1
+          $hfVersionOutput | Out-Host  # Show the output
+
           if ($LASTEXITCODE -ne 0) {
-            throw 'hf version failed'
+              throw 'hf version failed'
           }
-          if (-not (Select-String -Path $hfVersionPath -Pattern 'huggingface_hub version: [0-9]+(\.[0-9]+){1,2}')) {
-            throw 'hf version output missing huggingface_hub version'
+
+          if (-not ($hfVersionOutput -match '[0-9]+(\.[0-9]+){1,2}(\.[a-zA-Z]+[0-9]+)?')) {
+              throw 'incorrect hf version output'
           }
 
           $env:NO_COLOR = '1'

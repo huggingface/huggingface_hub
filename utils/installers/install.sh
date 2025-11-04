@@ -1,11 +1,11 @@
 #!/bin/sh
 # Hugging Face CLI Installer for Linux/MacOS
-# Usage: curl -LsSf https://hf.co/cli/install.sh | sh -s -- [OPTIONS]
+# Usage: curl -LsSf https://hf.co/cli/install.sh | bash -s -- [OPTIONS]
 
 
 if [ -z "$BASH_VERSION" ]; then
     if command -v bash >/dev/null 2>&1; then
-        if [ -f "$0" ] && [ "$0" != "sh" ]; then
+        if [ -f "$0" ] && [ "$0" != "sh" ] && [ "$0" != "bash" ]; then
             exec bash "$0" "$@"
         else
             tmp_dir=$(mktemp -d 2>/dev/null || mktemp -d -t hf-cli-install)
@@ -13,12 +13,13 @@ if [ -z "$BASH_VERSION" ]; then
             cat >"$tmp_script"
             chmod +x "$tmp_script"
             bash "$tmp_script" "$@"
-            status=$?
+            exit_code=$?
             rm -rf "$tmp_dir"
-            exit $status
+            exit $exit_code
         fi
     else
         echo "[ERROR] bash is required to run this installer." >&2
+        echo "[ERROR] Please run: curl -LsSf https://hf.co/cli/install.sh | bash" >&2
         exit 1
     fi
 fi
@@ -87,7 +88,7 @@ run_command() {
 
 usage() {
     cat <<'EOF'
-Usage: curl -LsSf https://hf.co/cli/install.sh | sh -s -- [OPTIONS]
+Usage: curl -LsSf https://hf.co/cli/install.sh | bash -s -- [OPTIONS]
 
 Options:
   --force           Recreate the Hugging Face CLI virtual environment if it exists
@@ -278,12 +279,12 @@ create_venv() {
 
 # Install huggingface_hub with CLI extras
 install_hf_hub() {
-    local package_spec="huggingface_hub[cli]"
+    local package_spec="huggingface_hub"
     if [ -n "$REQUESTED_VERSION" ]; then
-        package_spec="huggingface_hub[cli]==$REQUESTED_VERSION"
-        log_info "Installing huggingface_hub[cli] (version $REQUESTED_VERSION)..."
+        package_spec="huggingface_hub==$REQUESTED_VERSION"
+        log_info "Installing The Hugging Face CLI (version $REQUESTED_VERSION)..."
     else
-        log_info "Installing huggingface_hub[cli] (latest)..."
+        log_info "Installing The Hugging Face CLI (latest)..."
     fi
 
     local extra_pip_args="${HF_CLI_PIP_ARGS:-${HF_PIP_ARGS:-}}"
@@ -299,7 +300,7 @@ install_hf_hub() {
     fi
 
     if [ "${HF_CLI_VERBOSE_PIP:-}" != "1" ]; then
-        log_info "(pip output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs)"
+        log_info "pip output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs"
     fi
 
     if [ -n "$extra_pip_args" ]; then
@@ -318,7 +319,7 @@ expose_cli_command() {
     local source_cli="$VENV_DIR/bin/hf"
     if [ ! -x "$source_cli" ]; then
         log_error "hf command not found in the virtual environment at $source_cli"
-        log_error "Verify that huggingface_hub[cli] installed correctly."
+        log_error "Verify that The Hugging Face CLI is installed correctly."
         exit 1
     fi
 

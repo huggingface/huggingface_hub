@@ -379,38 +379,16 @@ def http_get(
         # If the file is already fully downloaded, we don't need to download it again.
         return
 
-    has_custom_range_header = headers is not None and any(h.lower() == "range" for h in headers)
-    hf_transfer = None
-    if constants.HF_HUB_ENABLE_HF_TRANSFER:
-        if resume_size != 0:
-            warnings.warn("'hf_transfer' does not support `resume_size`: falling back to regular download method")
-        elif has_custom_range_header:
-            warnings.warn("'hf_transfer' ignores custom 'Range' headers; falling back to regular download method")
-        else:
-            try:
-                import hf_transfer  # type: ignore[no-redef]
-            except ImportError:
-                raise ValueError(
-                    "Fast download using 'hf_transfer' is enabled"
-                    " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
-                    " available in your environment. Try `pip install hf_transfer`."
-                )
-
     initial_headers = headers
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
         headers["Range"] = _adjust_range_header(headers.get("Range"), resume_size)
     elif expected_size and expected_size > constants.MAX_HTTP_DOWNLOAD_SIZE:
-        # Any files over 50GB will not be available through basic http request.
-        # Setting the range header to 0-0 will force the server to return the file size in the Content-Range header.
-        # Since hf_transfer splits the download into chunks, the process will succeed afterwards.
-        if hf_transfer:
-            headers["Range"] = "bytes=0-0"
-        else:
-            raise ValueError(
-                "The file is too large to be downloaded using the regular download method. Use `hf_transfer` or `hf_xet` instead."
-                " Try `pip install hf_transfer` or `pip install hf_xet`."
-            )
+        # Any files over 50GB will not be available through basic http requests.
+        raise ValueError(
+            "The file is too large to be downloaded using the regular download method. "
+            " Install `hf_xet` with `pip install hf_xet` for xet-powered downloads."
+        )
 
     with http_stream_backoff(
         method="GET",
@@ -451,31 +429,6 @@ def http_get(
         )
 
         with progress_cm as progress:
-            if hf_transfer and total is not None and total > 5 * constants.DOWNLOAD_CHUNK_SIZE:
-                try:
-                    hf_transfer.download(
-                        url=url,
-                        filename=temp_file.name,
-                        max_files=constants.HF_TRANSFER_CONCURRENCY,
-                        chunk_size=constants.DOWNLOAD_CHUNK_SIZE,
-                        headers=initial_headers,
-                        parallel_failures=3,
-                        max_retries=5,
-                        callback=progress.update,
-                    )
-                except Exception as e:
-                    raise RuntimeError(
-                        "An error occurred while downloading using `hf_transfer`. Consider"
-                        " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
-                    ) from e
-                if expected_size is not None and expected_size != os.path.getsize(temp_file.name):
-                    raise EnvironmentError(
-                        consistency_error_message.format(
-                            actual_size=os.path.getsize(temp_file.name),
-                        )
-                    )
-                return
-
             new_resume_size = resume_size
             try:
                 for chunk in response.iter_bytes(chunk_size=constants.DOWNLOAD_CHUNK_SIZE):
@@ -1081,7 +1034,7 @@ def _hf_hub_download_to_cache_dir(
     locks_dir = os.path.join(cache_dir, ".locks")
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
-    # cross platform transcription of filename, to be used as a local file path.
+    # cross-platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
     if os.name == "nt":
         if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
@@ -1578,7 +1531,7 @@ def get_hf_file_metadata(
     # Return
     return HfFileMetadata(
         commit_hash=response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT),
-        # We favor a custom header indicating the etag of the linked resource, and we fallback to the regular etag header.
+        # We favor a custom header indicating the etag of the linked resource, and we fall back to the regular etag header.
         etag=_normalize_etag(
             response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
         ),
@@ -1780,7 +1733,7 @@ def _download_to_tmp_and_move(
     Internal logic:
     - return early if file is already downloaded
     - resume download if possible (from incomplete file)
-    - do not resume download if `force_download=True` or `HF_HUB_ENABLE_HF_TRANSFER=True`
+    - do not resume download if `force_download=True`
     - check disk space before downloading
     - download content to a temporary file
     - set correct permissions on temporary file
@@ -1792,16 +1745,11 @@ def _download_to_tmp_and_move(
         # Do nothing if already exists (except if force_download=True)
         return
 
-    if incomplete_path.exists() and (force_download or constants.HF_HUB_ENABLE_HF_TRANSFER):
+    if incomplete_path.exists() and force_download:
         # By default, we will try to resume the download if possible.
-        # However, if the user has set `force_download=True` or if `hf_transfer` is enabled, then we should
+        # However, if the user has set `force_download=True`, then we should
         # not resume the download => delete the incomplete file.
-        message = f"Removing incomplete file '{incomplete_path}'"
-        if force_download:
-            message += " (force_download=True)"
-        elif constants.HF_HUB_ENABLE_HF_TRANSFER:
-            message += " (hf_transfer=True)"
-        logger.info(message)
+        logger.info(f"Removing incomplete file '{incomplete_path}' (force_download=True)")
         incomplete_path.unlink(missing_ok=True)
 
     with incomplete_path.open("ab") as f:

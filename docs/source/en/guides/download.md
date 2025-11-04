@@ -68,7 +68,7 @@ Note that it is used internally by [`hf_hub_download`].
 ## Download an entire repository
 
 [`snapshot_download`] downloads an entire repository at a given revision. It uses internally [`hf_hub_download`] which
-means all downloaded files are also cached on your local disk. Downloads are made concurrently to speed-up the process.
+means all downloaded files are also cached on your local disk. Downloads are made concurrently to speed up the process.
 
 To download a whole repository, just pass the `repo_id` and `repo_type`:
 
@@ -243,17 +243,10 @@ Finally, you can also make a dry-run programmatically by passing `dry_run=True` 
 
 ## Faster downloads
 
-There are two options to speed up downloads. Both involve installing a Python package written in Rust.
-
-* `hf_xet` is newer and uses the Xet storage backend for upload/download. Xet storage is the [default for all new Hub users and organizations](https://huggingface.co/changelog/xet-default-for-new-users), and is in the process of being rolled out to all users. If you don't have access, join the [waitlist](https://huggingface.co/join/xet) to make Xet the default for all your repositories!
-* `hf_transfer` is a power-tool to download and upload to our LFS storage backend (note: this is less future-proof than Xet). It is thoroughly tested and has been in production for a long time, but it has some limitations. 
-
-### hf_xet
-
 Take advantage of faster downloads through `hf_xet`, the Python binding to the [`xet-core`](https://github.com/huggingface/xet-core) library that enables 
 chunk-based deduplication for faster downloads and uploads. `hf_xet` integrates seamlessly with `huggingface_hub`, but uses the Rust `xet-core` library and Xet storage instead of LFS.
 
-`hf_xet` uses the Xet storage system, which breaks files down into immutable chunks, storing collections of these chunks (called blocks or xorbs) remotely and retrieving them to reassemble the file when requested. When downloading, after confirming the user is authorized to access the files, `hf_xet` will query the Xet content-addressable service (CAS) with the LFS SHA256 hash for this file to receive the reconstruction metadata (ranges within xorbs) to assemble these files, along with presigned URLs to download the xorbs directly. Then `hf_xet` will efficiently download the xorb ranges necessary and will write out the files on disk. `hf_xet` uses a local disk cache to only download chunks once, learn more in the [Chunk-based caching(Xet)](./manage-cache#chunk-based-caching-xet) section.
+`hf_xet` uses the Xet storage system, which breaks files down into immutable chunks, storing collections of these chunks (called blocks or xorbs) remotely and retrieving them to reassemble the file when requested. When downloading, after confirming the user is authorized to access the files, `hf_xet` will query the Xet content-addressable service (CAS) with the LFS SHA256 hash for this file to receive the reconstruction metadata (ranges within xorbs) to assemble these files, along with presigned URLs to download the xorbs directly. Then `hf_xet` will efficiently download the xorb ranges necessary and will write out the files on disk.
 
 To enable it, simply install the latest version of `huggingface_hub`:
 
@@ -263,23 +256,6 @@ pip install -U "huggingface_hub"
 
 As of `huggingface_hub` 0.32.0, this will also install `hf_xet`.
 
-Note: `hf_xet` will only be utilized when the files being downloaded are being stored with Xet Storage.
+All other `huggingface_hub` APIs will continue to work without any modification. To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/xet/index).
 
-All other `huggingface_hub` APIs will continue to work without any modification. To learn more about the benefits of Xet storage and `hf_xet`, refer to this [section](https://huggingface.co/docs/hub/storage-backends).
-
-### hf_transfer
-
-If you are running on a machine with high bandwidth,
-you can increase your download speed with [`hf_transfer`](https://github.com/huggingface/hf_transfer),
-a Rust-based library developed to speed up file transfers with the Hub.
-To enable it:
-
-1. Specify the `hf_transfer` extra when installing `huggingface_hub`
-   (e.g. `pip install huggingface_hub[hf_transfer]`).
-2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
-
-> [!WARNING]
-> `hf_transfer` is a power user tool!
-> It is tested and production-ready,
-> but it lacks user-friendly features like advanced error handling or proxies.
-> For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
+Note: `hf_transfer` was formerly used with the LFS storage backend and is now deprecated; use `hf_xet` instead.

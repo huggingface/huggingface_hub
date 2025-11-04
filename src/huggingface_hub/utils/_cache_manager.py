@@ -16,7 +16,6 @@
 
 import os
 import shutil
-import time
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,6 +25,10 @@ from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
 from ..constants import HF_HUB_CACHE
 from . import logging
+<<<<<<< HEAD
+=======
+from ._parsing import format_timesince
+>>>>>>> e2f6f26716155f7404daca613ff7c279d3926c98
 from ._terminal import tabulate
 
 
@@ -79,7 +82,7 @@ class CachedFileInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_timesince(self.blob_last_accessed)
+        return format_timesince(self.blob_last_accessed)
 
     @property
     def blob_last_modified_str(self) -> str:
@@ -89,7 +92,7 @@ class CachedFileInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_timesince(self.blob_last_modified)
+        return format_timesince(self.blob_last_modified)
 
     @property
     def size_on_disk_str(self) -> str:
@@ -153,7 +156,7 @@ class CachedRevisionInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_timesince(self.last_modified)
+        return format_timesince(self.last_modified)
 
     @property
     def size_on_disk_str(self) -> str:
@@ -223,7 +226,7 @@ class CachedRepoInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_timesince(self.last_accessed)
+        return format_timesince(self.last_accessed)
 
     @property
     def last_modified_str(self) -> str:
@@ -233,7 +236,7 @@ class CachedRepoInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_timesince(self.last_modified)
+        return format_timesince(self.last_modified)
 
     @property
     def size_on_disk_str(self) -> str:
@@ -243,6 +246,11 @@ class CachedRepoInfo:
         Example: "42.2K".
         """
         return _format_size(self.size_on_disk)
+
+    @property
+    def cache_id(self) -> str:
+        """Canonical `type/id` identifier used across cache tooling."""
+        return f"{self.repo_type}/{self.repo_id}"
 
     @property
     def refs(self) -> dict[str, CachedRevisionInfo]:
@@ -607,15 +615,12 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
 
     You can also print a detailed report directly from the `hf` command line using:
     ```text
-    > hf cache scan
-    REPO ID                     REPO TYPE SIZE ON DISK NB FILES REFS                LOCAL PATH
-    --------------------------- --------- ------------ -------- ------------------- -------------------------------------------------------------------------
-    glue                        dataset         116.3K       15 1.17.0, main, 2.4.0 /Users/lucain/.cache/huggingface/hub/datasets--glue
-    google/fleurs               dataset          64.9M        6 main, refs/pr/1     /Users/lucain/.cache/huggingface/hub/datasets--google--fleurs
-    Jean-Baptiste/camembert-ner model           441.0M        7 main                /Users/lucain/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner
-    bert-base-cased             model             1.9G       13 main                /Users/lucain/.cache/huggingface/hub/models--bert-base-cased
-    t5-base                     model            10.1K        3 main                /Users/lucain/.cache/huggingface/hub/models--t5-base
-    t5-small                    model           970.7M       11 refs/pr/1, main     /Users/lucain/.cache/huggingface/hub/models--t5-small
+    > hf cache ls
+    ID                          SIZE     LAST_ACCESSED LAST_MODIFIED REFS
+    --------------------------- -------- ------------- ------------- -----------
+    dataset/nyu-mll/glue          157.4M 2 days ago    2 days ago    main script
+    model/LiquidAI/LFM2-VL-1.6B     3.2G 4 days ago    4 days ago    main
+    model/microsoft/UserLM-8b      32.1G 4 days ago    4 days ago    main
 
     Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
     Got 1 warning(s) while scanning. Use -vvv to print details.
@@ -816,37 +821,10 @@ def _format_size(num: int) -> str:
     return f"{num_f:.1f}Y"
 
 
-_TIMESINCE_CHUNKS = (
-    # Label, divider, max value
-    ("second", 1, 60),
-    ("minute", 60, 60),
-    ("hour", 60 * 60, 24),
-    ("day", 60 * 60 * 24, 6),
-    ("week", 60 * 60 * 24 * 7, 6),
-    ("month", 60 * 60 * 24 * 30, 11),
-    ("year", 60 * 60 * 24 * 365, None),
-)
-
-
-def _format_timesince(ts: float) -> str:
-    """Format timestamp in seconds into a human-readable string, relative to now.
-
-    Vaguely inspired by Django's `timesince` formatter.
-    """
-    delta = time.time() - ts
-    if delta < 20:
-        return "a few seconds ago"
-    for label, divider, max_value in _TIMESINCE_CHUNKS:  # noqa: B007
-        value = round(delta / divider)
-        if max_value is not None and value <= max_value:
-            break
-    return f"{value} {label}{'s' if value > 1 else ''} ago"
-
-
 def _try_delete_path(path: Path, path_type: str) -> None:
     """Try to delete a local file or folder.
 
-    If the path does not exists, error is logged as a warning and then ignored.
+    If the path does not exist, error is logged as a warning and then ignored.
 
     Args:
         path (`Path`)

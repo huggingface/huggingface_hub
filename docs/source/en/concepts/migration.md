@@ -45,6 +45,10 @@ The migration from `requests` to `httpx` brings several key improvements that en
 
 The transition to `httpx` positions `huggingface_hub` with a modern, efficient, and maintainable HTTP backend. While most users should experience seamless operation, the underlying improvements provide better performance and reliability for all Hub interactions.
 
+## `hf_transfer`
+
+Now that all repositories on the Hub are Xet-enabled and that `hf_xet` is the default way to download/upload files, we've removed support for the `hf_transfer` optional package. The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is therefore ignored. Use [`HF_XET_HIGH_PERFORMANCE`](../package_reference/environment_variables.md) instead.
+
 ## `Repository` class
 
 The `Repository` class has been removed in v1.0. It was a thin wrapper around the `git` CLI for managing repositories. You can still use `git` directly in the terminal, but the recommended approach is to use the HTTP-based API in the `huggingface_hub` library for a smoother experience, especially when dealing with large files.
@@ -79,6 +83,17 @@ Some methods and parameters have been removed in v1.0. The ones listed below hav
 - `new_session` parameter in `login` has been renamed to `skip_if_logged_in` for better clarity.
 - `resume_download`, `force_filename`, and `local_dir_use_symlinks` parameters have been removed from `hf_hub_download` and `snapshot_download`.
 - `library`, `language`, `tags`, and `task` parameters have been removed from `list_models`.
+
+## CLI cache commands
+
+Cache management from the CLI has been redesigned to follow a Docker-inspired workflow. The deprecated `huggingface-cli` has been removed, `hf` (introduced in v0.34) replaces it with a clearer ressource-action CLI. 
+The legacy `hf cache scan` and `hf cache delete` commands are also removed in v1.0 and are replaced with the new trio below:
+
+- `hf cache ls` lists cache entries with concise table, JSON, or CSV output. Use `--revisions` to inspect individual revisions, add `--filter` expressions such as `size>1GB` or `accessed>30d`, and combine them with `--quiet` when you only need the identifiers.
+- `hf cache rm` deletes selected cache entries. Pass one or more repo IDs (for example `model/bert-base-uncased`) or revision hashes, and optionally add `--dry-run` to preview or `--yes` to skip the confirmation prompt. This replaces both the interactive TUI and `--disable-tui` workflows from the previous command.
+- `hf cache prune` performs the common cleanup task of deleting unreferenced revisions in one shot. Add `--dry-run` or `--yes` in the same way as with `hf cache rm`.
+
+Finally, the `[cli]` extra has been removed - The CLI now ships with the core `huggingface_hub` package.
 
 ## TensorFlow and Keras 2.x support
 

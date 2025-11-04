@@ -4,18 +4,36 @@ rendered properly in your Markdown viewer.
 
 # Command Line Interface (CLI)
 
-The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This tool allows you to interact with the Hugging Face Hub directly from a terminal. For example, you can login to your account, create a repository, upload and download files, etc. It also comes with handy features to configure your machine or manage your cache. In this guide, we will have a look at the main features of the CLI and how to use them.
+The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This tool allows you to interact with the Hugging Face Hub directly from a terminal. For example, you can log in to your account, create a repository, upload and download files, etc. It also comes with handy features to configure your machine or manage your cache. In this guide, we will have a look at the main features of the CLI and how to use them.
+
+> [!TIP]
+> This guide covers the most important features of the `hf` CLI.
+> For a complete reference of all commands and options, see the [CLI reference](../package_reference/cli.md).
 
 ## Getting started
 
 First of all, let's install the CLI:
 
 ```
->>> pip install -U "huggingface_hub[cli]"
+>>> pip install -U "huggingface_hub"
 ```
 
 > [!TIP]
-> In the snippet above, we also installed the `[cli]` extra dependencies to make the user experience better, especially when using the `cache delete` command.
+> The CLI ships with the core `huggingface_hub` package.
+
+Alternatively, you can install the `hf` CLI with a single command:
+
+On macOS and Linux:
+
+```bash
+>>> curl -LsSf https://hf.co/cli/install.sh | bash
+```
+
+On Windows:
+
+```powershell
+>>> powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
+```
 
 Alternatively, you can install the `hf` CLI with a single command:
 
@@ -78,7 +96,7 @@ Make sure uv is installed (adds `uv` and `uvx` to your PATH):
 Then install the CLI globally and use it anywhere:
 
 ```bash
->>> uv tool install "huggingface_hub[cli]"
+>>> uv tool install "huggingface_hub"
 >>> hf auth whoami
 ```
 
@@ -170,7 +188,7 @@ hf download --help
 
 ### Download a single file
 
-To download a single file from a repo, simply provide the repo_id and filename as follow:
+To download a single file from a repo, simply provide the repo_id and filename as follows:
 
 ```bash
 >>> hf download gpt2 config.json
@@ -584,30 +602,129 @@ To delete files from a repo you must be authenticated and authorized. By default
 >>> hf repo-files delete --token=hf_**** Wauplin/my-cool-model file.txt
 ```
 
-## hf cache scan
+## hf cache ls
 
-Scanning your cache directory is useful if you want to know which repos you have downloaded and how much space it takes on your disk. You can do that by running `hf cache scan`:
+Use `hf cache ls` to inspect what is stored locally in your Hugging Face cache. By default it aggregates information by repository:
 
 ```bash
->>> hf cache scan
-REPO ID                     REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED LAST_MODIFIED REFS                LOCAL PATH
---------------------------- --------- ------------ -------- ------------- ------------- ------------------- -------------------------------------------------------------------------
-glue                        dataset         116.3K       15 4 days ago    4 days ago    2.4.0, main, 1.17.0 /home/wauplin/.cache/huggingface/hub/datasets--glue
-google/fleurs               dataset          64.9M        6 1 week ago    1 week ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/datasets--google--fleurs
-Jean-Baptiste/camembert-ner model           441.0M        7 2 weeks ago   16 hours ago  main                /home/wauplin/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner
-bert-base-cased             model             1.9G       13 1 week ago    2 years ago                       /home/wauplin/.cache/huggingface/hub/models--bert-base-cased
-t5-base                     model            10.1K        3 3 months ago  3 months ago  main                /home/wauplin/.cache/huggingface/hub/models--t5-base
-t5-small                    model           970.7M       11 3 days ago    3 days ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/models--t5-small
+>>> hf cache ls
+ID                          SIZE     LAST_ACCESSED LAST_MODIFIED REFS        
+--------------------------- -------- ------------- ------------- ----------- 
+dataset/nyu-mll/glue          157.4M 2 days ago    2 days ago    main script 
+model/LiquidAI/LFM2-VL-1.6B     3.2G 4 days ago    4 days ago    main        
+model/microsoft/UserLM-8b      32.1G 4 days ago    4 days ago    main  
 
-Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
-Got 1 warning(s) while scanning. Use -vvv to print details.
+Found 3 repo(s) for a total of 5 revision(s) and 35.5G on disk.
 ```
 
-For more details about how to scan your cache directory, please refer to the [Manage your cache](./manage-cache#scan-cache-from-the-terminal) guide.
+Add `--revisions` to drill down to specific snapshots, and chain filters to focus on what matters:
 
-## hf cache delete
+```bash
+>>> hf cache ls --filter "size>30g" --revisions
+ID                        REVISION                                 SIZE     LAST_MODIFIED REFS 
+------------------------- ---------------------------------------- -------- ------------- ---- 
+model/microsoft/UserLM-8b be8f2069189bdf443e554c24e488ff3ff6952691    32.1G 4 days ago    main 
 
-`hf cache delete` is a tool that helps you delete parts of your cache that you don't use anymore. This is useful for saving and freeing disk space. To learn more about using this command, please refer to the [Manage your cache](./manage-cache#clean-cache-from-the-terminal) guide.
+Found 1 repo(s) for a total of 1 revision(s) and 32.1G on disk.
+```
+
+The command supports several output formats for scripting: `--format json` prints structured objects, `--format csv` writes comma-separated rows, and `--quiet` prints only IDs. Use `--sort` to order entries by `accessed`, `modified`, `name`, or `size` (append `:asc` or `:desc` to control order), and `--limit` to restrict results to the top N entries. Combine these with `--cache-dir` to target alternative cache locations. See the [Manage your cache](./manage-cache) guide for advanced workflows.
+
+Delete cache entries selected with `hf cache ls --q` by piping the IDs into `hf cache rm`:
+
+```bash
+>>> hf cache rm $(hf cache ls --filter "accessed>1y" -q) -y
+About to delete 2 repo(s) totalling 5.31G.
+  - model/meta-llama/Llama-3.2-1B-Instruct (entire repo)
+  - model/hexgrad/Kokoro-82M (entire repo)
+Delete repo: ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct
+Delete repo: ~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
+Cache deletion done. Saved 5.31G.
+Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
+```
+
+## hf cache rm
+
+`hf cache rm` removes cached repositories or individual revisions. Pass one or more repo IDs (`model/bert-base-uncased`) or revision hashes:
+
+```bash
+>>> hf cache rm model/LiquidAI/LFM2-VL-1.6B
+About to delete 1 repo(s) totalling 3.2G.
+  - model/LiquidAI/LFM2-VL-1.6B (entire repo)
+Proceed with deletion? [y/N]: y
+Delete repo: ~/.cache/huggingface/hub/models--LiquidAI--LFM2-VL-1.6B
+Cache deletion done. Saved 3.2G.
+Deleted 1 repo(s) and 2 revision(s); freed 3.2G.
+```
+
+Mix repositories and specific revisions in the same call. Use `--dry-run` to preview the impact, or `--yes` to skip the confirmation prompt—handy in automated scripts:
+
+```bash
+>>> hf cache rm model/t5-small 8f3ad1c --dry-run
+About to delete 1 repo(s) and 1 revision(s) totalling 1.1G.
+  - model/t5-small:
+      8f3ad1c [main] 1.1G
+Dry run: no files were deleted.
+```
+
+When working outside the default cache location, pair the command with `--cache-dir PATH`.
+
+## hf cache prune
+
+`hf cache prune` is a convenience shortcut that deletes every detached (unreferenced) revision in your cache. This keeps only revisions that are still reachable through a branch or tag:
+
+```bash
+>>> hf cache prune
+About to delete 3 unreferenced revision(s) (2.4G total).
+  - model/t5-small:
+      1c610f6b [refs/pr/1] 820.1M
+      d4ec9b72 [(detached)] 640.5M
+  - dataset/google/fleurs:
+      2b91c8dd [(detached)] 937.6M
+Proceed? [y/N]: y
+Deleted 3 unreferenced revision(s); freed 2.4G.
+```
+
+As with the other cache commands, `--dry-run`, `--yes`, and `--cache-dir` are available. Refer to the [Manage your cache](./manage-cache) guide for more examples.
+
+## hf cache verify
+
+Use `hf cache verify` to validate local files against their checksums on the Hub. You can verify either a cache snapshot or a regular local directory.
+
+Examples:
+
+```bash
+# Verify main revision of a model in cache
+>>> hf cache verify deepseek-ai/DeepSeek-OCR
+
+# Verify a specific revision
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --revision refs/pr/5
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --revision ef93bf4a377c5d5ed9dca78e0bc4ea50b26fe6a4
+
+# Verify a private repo
+>>> hf cache verify me/private-model --token hf_***
+
+# Verify a dataset
+>>> hf cache verify karpathy/fineweb-edu-100b-shuffle --repo-type dataset
+
+# Verify files in a local directory
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --local-dir /path/to/repo
+```
+
+By default, the command warns about missing or extra files. Use flags to turn these warnings into errors:
+
+```bash
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --fail-on-missing-files --fail-on-extra-files
+```
+
+On success, you will see a summary:
+
+```text
+✅ Verified 13 file(s) for 'deepseek-ai/DeepSeek-OCR' (model) in ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6
+  All checksums match.
+```
+
+If mismatches are detected, the command prints a detailed list and exits with a non-zero status.
 
 ## hf repo tag create
 
@@ -680,39 +797,36 @@ The `hf env` command prints details about your machine setup. This is useful whe
 
 Copy-and-paste the text below in your GitHub issue.
 
-- huggingface_hub version: 0.19.0.dev0
-- Platform: Linux-6.2.0-36-generic-x86_64-with-glibc2.35
-- Python version: 3.10.12
+- huggingface_hub version: 1.0.0.rc6
+- Platform: Linux-6.8.0-85-generic-x86_64-with-glibc2.35
+- Python version: 3.11.14
 - Running in iPython ?: No
 - Running in notebook ?: No
 - Running in Google Colab ?: No
+- Running in Google Colab Enterprise ?: No
 - Token path ?: /home/wauplin/.cache/huggingface/token
 - Has saved token ?: True
 - Who am I ?: Wauplin
 - Configured git credential helpers: store
-- FastAI: N/A
-- Torch: 1.12.1
-- Jinja2: 3.1.2
-- Graphviz: 0.20.1
-- Pydot: 1.4.2
-- Pillow: 9.2.0
-- hf_transfer: 0.1.3
-- gradio: 4.0.2
-- tensorboard: 2.6
-- numpy: 1.23.2
-- pydantic: 2.4.2
-- aiohttp: 3.8.4
+- Installation method: unknown
+- Torch: N/A
+- httpx: 0.28.1
+- hf_xet: 1.1.10
+- gradio: 5.41.1
+- tensorboard: N/A
+- pydantic: 2.11.7
 - ENDPOINT: https://huggingface.co
 - HF_HUB_CACHE: /home/wauplin/.cache/huggingface/hub
 - HF_ASSETS_CACHE: /home/wauplin/.cache/huggingface/assets
 - HF_TOKEN_PATH: /home/wauplin/.cache/huggingface/token
+- HF_STORED_TOKENS_PATH: /home/wauplin/.cache/huggingface/stored_tokens
 - HF_HUB_OFFLINE: False
 - HF_HUB_DISABLE_TELEMETRY: False
 - HF_HUB_DISABLE_PROGRESS_BARS: None
 - HF_HUB_DISABLE_SYMLINKS_WARNING: False
 - HF_HUB_DISABLE_EXPERIMENTAL_WARNING: False
 - HF_HUB_DISABLE_IMPLICIT_TOKEN: False
-- HF_HUB_ENABLE_HF_TRANSFER: False
+- HF_HUB_DISABLE_XET: False
 - HF_HUB_ETAG_TIMEOUT: 10
 - HF_HUB_DOWNLOAD_TIMEOUT: 10
 ```

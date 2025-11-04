@@ -305,12 +305,7 @@ def validate_typed_dict(schema: type[TypedDictType], data: dict) -> None:
 @lru_cache
 def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type:
     # Extract type hints from the TypedDict class
-    type_hints = {
-        # We do not use `get_type_hints` here to avoid evaluating ForwardRefs (which might fail).
-        # ForwardRefs are not validated by @strict anyway.
-        name: value if value is not None else type(None)
-        for name, value in schema.__dict__.get("__annotations__", {}).items()
-    }
+    type_hints = _get_typed_dict_annotations(schema)
 
     # If the TypedDict is not total, wrap fields as NotRequired (unless explicitly Required or NotRequired)
     if not getattr(schema, "__total__", True):
@@ -336,6 +331,22 @@ def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type:
 
     # Create a strict dataclass from the TypedDict fields
     return strict(make_dataclass(schema.__name__, fields))
+
+
+def _get_typed_dict_annotations(schema: type[TypedDictType]) -> dict[str, Any]:
+    """Extract type annotations from a TypedDict class."""
+    try:
+        # Available in Python 3.14+
+        import annotationlib
+
+        return annotationlib.get_annotations(schema)
+    except ImportError:
+        return {
+            # We do not use `get_type_hints` here to avoid evaluating ForwardRefs (which might fail).
+            # ForwardRefs are not validated by @strict anyway.
+            name: value if value is not None else type(None)
+            for name, value in schema.__dict__.get("__annotations__", {}).items()
+        }
 
 
 def validated_field(

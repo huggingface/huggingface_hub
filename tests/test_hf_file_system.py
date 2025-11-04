@@ -1,7 +1,10 @@
 import copy
 import datetime
 import io
+import multiprocessing
+import multiprocessing.pool
 import os
+import pickle
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,7 +23,7 @@ from huggingface_hub.hf_file_system import (
 )
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
-from .testing_utils import repo_name, with_production_testing
+from .testing_utils import OfflineSimulationMode, offline, repo_name, with_production_testing
 
 
 class HfFileSystemTests(unittest.TestCase):
@@ -459,7 +462,7 @@ class HfFileSystemTests(unittest.TestCase):
             assert temp_file.read() == b"dummy text data"
 
     def test_get_file_with_temporary_folder(self):
-        # Test passing a file path works => compatible with hf_transfer
+        # Test passing a file path works
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = os.path.join(temp_dir, "temp_file.txt")
             self.hffs.get_file(self.text_file, temp_file)
@@ -485,6 +488,20 @@ class HfFileSystemTests(unittest.TestCase):
             assert not (Path(temp_dir) / "data").exists()
             self.hffs.get_file(self.hf_path + "/data", temp_dir + "/data")
             assert (Path(temp_dir) / "data").exists()
+
+    def test_pickle(self):
+        # Test that pickling re-populates the HfFileSystem cache and keeps the instance cache attributes
+        fs = HfFileSystem()
+        fs.isfile(self.text_file)
+        pickled = pickle.dumps(fs)
+        HfFileSystem.clear_instance_cache()
+        with offline(mode=OfflineSimulationMode.CONNECTION_FAILS):
+            fs = pickle.loads(pickled)
+            assert isinstance(fs, HfFileSystem)
+            assert fs in HfFileSystem._cache.values()
+            assert self.hf_path + "/data" in fs.dircache
+            assert list(fs._repo_and_revision_exists_cache)[0][1] == self.repo_id
+            assert fs.isfile(self.text_file)
 
 
 @pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file"])
@@ -627,6 +644,42 @@ def test_exists_after_repo_deletion():
     api.delete_repo(repo_id=repo_id, repo_type="model")
     # Verify that the repo no longer exists.
     assert not hffs.exists(repo_id, refresh=True)
+
+
+def _get_fs_token_and_dircache(fs):
+    fs = HfFileSystem(endpoint=fs.endpoint, token=fs.token)
+    return fs._fs_token, fs.dircache
+
+
+def test_cache():
+    HfFileSystem.clear_instance_cache()
+    fs = HfFileSystem()
+    fs.dircache = {"dummy": []}
+
+    assert HfFileSystem() is fs
+    assert HfFileSystem(endpoint=constants.ENDPOINT) is fs
+    assert HfFileSystem(token=None, endpoint=constants.ENDPOINT) is fs
+
+    another_fs = HfFileSystem(endpoint="something-else")
+    assert another_fs is not fs
+    assert another_fs.dircache != fs.dircache
+
+    with multiprocessing.get_context("spawn").Pool() as pool:
+        (fs_token, dircache), (_, another_dircache) = pool.map(_get_fs_token_and_dircache, [fs, another_fs])
+        assert dircache == fs.dircache
+        assert another_dircache != fs.dircache
+
+    if os.name != "nt":  # "fork" is unavailable on windows
+        with multiprocessing.get_context("fork").Pool() as pool:
+            (fs_token, dircache), (_, another_dircache) = pool.map(_get_fs_token_and_dircache, [fs, another_fs])
+            assert dircache == fs.dircache
+            assert another_dircache != fs.dircache
+
+    with multiprocessing.pool.ThreadPool() as pool:
+        (fs_token, dircache), (_, another_dircache) = pool.map(_get_fs_token_and_dircache, [fs, another_fs])
+        assert dircache == fs.dircache
+        assert another_dircache != fs.dircache
+        assert fs_token != fs._fs_token  # use a different instance for thread safety
 
 
 @with_production_testing

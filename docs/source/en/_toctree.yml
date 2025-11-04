@@ -58,6 +58,8 @@
       title: Environment variables
     - local: package_reference/hf_api
       title: Hugging Face Hub API
+    - local: package_reference/cli
+      title: CLI
     - local: package_reference/file_download
       title: Downloading files
     - local: package_reference/mixins

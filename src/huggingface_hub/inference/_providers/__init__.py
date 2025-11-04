@@ -6,12 +6,14 @@ from huggingface_hub.inference._providers.featherless_ai import (
 )
 from huggingface_hub.utils import logging
 
-from ._common import TaskProviderHelper, _fetch_inference_provider_mapping
+from ._common import AutoRouterConversationalTask, TaskProviderHelper, _fetch_inference_provider_mapping
 from .black_forest_labs import BlackForestLabsTextToImageTask
 from .cerebras import CerebrasConversationalTask
+from .clarifai import ClarifaiConversationalTask
 from .cohere import CohereConversationalTask
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
+    FalAIImageSegmentationTask,
     FalAIImageToImageTask,
     FalAIImageToVideoTask,
     FalAITextToImageTask,
@@ -41,6 +43,12 @@ from .replicate import ReplicateImageToImageTask, ReplicateTask, ReplicateTextTo
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
+from .wavespeed import (
+    WavespeedAIImageToImageTask,
+    WavespeedAIImageToVideoTask,
+    WavespeedAITextToImageTask,
+    WavespeedAITextToVideoTask,
+)
 from .zai_org import ZaiConversationalTask
 
 
@@ -50,6 +58,7 @@ logger = logging.get_logger(__name__)
 PROVIDER_T = Literal[
     "black-forest-labs",
     "cerebras",
+    "clarifai",
     "cohere",
     "fal-ai",
     "featherless-ai",
@@ -66,10 +75,13 @@ PROVIDER_T = Literal[
     "sambanova",
     "scaleway",
     "together",
+    "wavespeed",
     "zai-org",
 ]
 
 PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
+
+CONVERSATIONAL_AUTO_ROUTER = AutoRouterConversationalTask()
 
 PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     "black-forest-labs": {
@@ -77,6 +89,9 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     },
     "cerebras": {
         "conversational": CerebrasConversationalTask(),
+    },
+    "clarifai": {
+        "conversational": ClarifaiConversationalTask(),
     },
     "cohere": {
         "conversational": CohereConversationalTask(),
@@ -88,6 +103,7 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "text-to-video": FalAITextToVideoTask(),
         "image-to-video": FalAIImageToVideoTask(),
         "image-to-image": FalAIImageToImageTask(),
+        "image-segmentation": FalAIImageSegmentationTask(),
     },
     "featherless-ai": {
         "conversational": FeatherlessConversationalTask(),
@@ -172,6 +188,12 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "conversational": TogetherConversationalTask(),
         "text-generation": TogetherTextGenerationTask(),
     },
+    "wavespeed": {
+        "text-to-image": WavespeedAITextToImageTask(),
+        "text-to-video": WavespeedAITextToVideoTask(),
+        "image-to-image": WavespeedAIImageToImageTask(),
+        "image-to-video": WavespeedAIImageToVideoTask(),
+    },
     "zai-org": {
         "conversational": ZaiConversationalTask(),
     },
@@ -201,13 +223,19 @@ def get_provider_helper(
 
     if provider is None:
         logger.info(
-            "Defaulting to 'auto' which will select the first provider available for the model, sorted by the user's order in https://hf.co/settings/inference-providers."
+            "No provider specified for task `conversational`. Defaulting to server-side auto routing."
+            if task == "conversational"
+            else "Defaulting to 'auto' which will select the first provider available for the model, sorted by the user's order in https://hf.co/settings/inference-providers."
         )
         provider = "auto"
 
     if provider == "auto":
         if model is None:
             raise ValueError("Specifying a model is required when provider is 'auto'")
+        if task == "conversational":
+            # Special case: we have a dedicated auto-router for conversational models. No need to fetch provider mapping.
+            return CONVERSATIONAL_AUTO_ROUTER
+
         provider_mapping = _fetch_inference_provider_mapping(model)
         provider = next(iter(provider_mapping)).provider
 

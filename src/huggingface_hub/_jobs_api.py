@@ -30,7 +30,7 @@ class JobStage(str, Enum):
     ```py
     assert JobStage.COMPLETED == "COMPLETED"
     ```
-
+    Possible values are: `COMPLETED`, `CANCELED`, `ERROR`, `DELETED`, `RUNNING`.
     Taken from https://github.com/huggingface/moon-landing/blob/main/server/job_types/JobInfo.ts#L61 (private url).
     """
 

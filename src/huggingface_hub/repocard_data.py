@@ -387,7 +387,7 @@ class ModelCardData(CardData):
     def _to_dict(self, data_dict):
         """Format the internal data dict. In this case, we convert eval results to a valid model index"""
         if self.eval_results is not None:
-            data_dict["model-index"] = eval_results_to_model_index(self.model_name, self.eval_results)
+            data_dict["model-index"] = eval_results_to_model_index(self.model_name, self.eval_results)  # type: ignore
             del data_dict["eval_results"], data_dict["model_name"]
 
 

@@ -1,8 +1,10 @@
 import os
 import re
 import tempfile
+import threading
 from collections import deque
 from contextlib import ExitStack
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
@@ -21,6 +23,7 @@ from .errors import EntryNotFoundError, HfHubHTTPError, RepositoryNotFoundError,
 from .file_download import hf_hub_url, http_get
 from .hf_api import HfApi, LastCommitInfo, RepoFile
 from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff
+from .utils.insecure_hashlib import md5
 
 
 # Regex used to match special revisions with "/" in them (see #1710)
@@ -56,7 +59,61 @@ class HfFileSystemResolvedPath:
             return f"{repo_path}/{self.path_in_repo}".rstrip("/")
 
 
-class HfFileSystem(fsspec.AbstractFileSystem):
+# We need to improve fsspec.spec._Cached which is AbstractFileSystem's metaclass
+_cached_base: Any = type(fsspec.AbstractFileSystem)
+
+
+class _Cached(_cached_base):
+    """
+    Metaclass for caching HfFileSystem instances according to the args.
+
+    This creates an additional reference to the filesystem, which prevents the
+    filesystem from being garbage collected when all *user* references go away.
+    A call to the :meth:`AbstractFileSystem.clear_instance_cache` must *also*
+    be made for a filesystem instance to be garbage collected.
+
+    This is a slightly modified version of `fsspec.spec._Cached` to improve it.
+    In particular in `_tokenize` the pid isn't taken into account for the
+    `fs_token` used to identify cached instances. The `fs_token` logic is also
+    robust to defaults values and the order of the args. Finally new instances
+    reuse the states from sister instances in the main thread.
+    """
+
+    def __init__(cls, *args, **kwargs):
+        # Hack: override https://github.com/fsspec/filesystem_spec/blob/dcb167e8f50e6273d4cfdfc4cab8fc5aa4c958bf/fsspec/spec.py#L53
+        super().__init__(*args, **kwargs)
+        # Note: we intentionally create a reference here, to avoid garbage
+        # collecting instances when all other references are gone. To really
+        # delete a FileSystem, the cache must be cleared.
+        cls._cache = {}
+
+    def __call__(cls, *args, **kwargs):
+        # Hack: override https://github.com/fsspec/filesystem_spec/blob/dcb167e8f50e6273d4cfdfc4cab8fc5aa4c958bf/fsspec/spec.py#L65
+        skip = kwargs.pop("skip_instance_cache", False)
+        fs_token = cls._tokenize(cls, threading.get_ident(), *args, **kwargs)
+        fs_token_main_thread = cls._tokenize(cls, threading.main_thread().ident, *args, **kwargs)
+        if not skip and cls.cachable and fs_token in cls._cache:
+            # reuse cached instance
+            cls._latest = fs_token
+            return cls._cache[fs_token]
+        else:
+            # create new instance
+            obj = type.__call__(cls, *args, **kwargs)
+            if not skip and cls.cachable and fs_token_main_thread in cls._cache:
+                # reuse the cache from the main thread instance in the new instance
+                instance_state = cls._cache[fs_token_main_thread]._get_instance_state()
+                for attr, state_value in instance_state.items():
+                    setattr(obj, attr, state_value)
+            obj._fs_token_ = fs_token
+            obj.storage_args = args
+            obj.storage_options = kwargs
+            if cls.cachable and not skip:
+                cls._latest = fs_token
+                cls._cache[fs_token] = obj
+            return obj
+
+
+class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
     """
     Access a remote Hugging Face Hub repository as if were a local file system.
 
@@ -102,18 +159,34 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         *args,
         endpoint: Optional[str] = None,
         token: Union[bool, str, None] = None,
+        block_size: Optional[int] = None,
         **storage_options,
     ):
         super().__init__(*args, **storage_options)
         self.endpoint = endpoint or constants.ENDPOINT
         self.token = token
         self._api = HfApi(endpoint=endpoint, token=token)
+        self.block_size = block_size
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
         #  * the 1st element indicating whether the repositoy and the revision exist
         #  * the 2nd element being the exception raised if the repository or revision doesn't exist
         self._repo_and_revision_exists_cache: dict[
             tuple[str, str, Optional[str]], tuple[bool, Optional[Exception]]
         ] = {}
+        # Maps parent directory path to path infos
+        self.dircache: dict[str, list[dict[str, Any]]] = {}
+
+    @classmethod
+    def _tokenize(cls, threading_ident: int, *args, **kwargs) -> str:
+        """Deterministic token for caching"""
+        # make fs_token robust to default values and to kwargs order
+        kwargs["endpoint"] = kwargs.get("endpoint") or constants.ENDPOINT
+        kwargs["token"] = kwargs.get("token")
+        kwargs = {key: kwargs[key] for key in sorted(kwargs)}
+        # contrary to fsspec, we don't include pid here
+        tokenize_args = (cls, threading_ident, args, kwargs)
+        h = md5(str(tokenize_args).encode())
+        return h.hexdigest()
 
     def _repo_and_revision_exist(
         self, repo_type: str, repo_id: str, revision: Optional[str]
@@ -265,12 +338,15 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         block_size: Optional[int] = None,
         **kwargs,
     ) -> "HfFileSystemFile":
+        block_size = block_size if block_size is not None else self.block_size
+        if block_size is not None:
+            kwargs["block_size"] = block_size
         if "a" in mode:
             raise NotImplementedError("Appending to remote files is not yet supported.")
         if block_size == 0:
-            return HfFileSystemStreamFile(self, path, mode=mode, revision=revision, block_size=block_size, **kwargs)
+            return HfFileSystemStreamFile(self, path, mode=mode, revision=revision, **kwargs)
         else:
-            return HfFileSystemFile(self, path, mode=mode, revision=revision, block_size=block_size, **kwargs)
+            return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
 
     def _rm(self, path: str, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path = self.resolve_path(path, revision=revision)
@@ -439,7 +515,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     common_path_depth = common_path[len(path) :].count("/")
                     maxdepth -= common_path_depth
                 out = [o for o in out if not o["name"].startswith(common_path + "/")]
-                for cached_path in self.dircache:
+                for cached_path in list(self.dircache):
                     if cached_path.startswith(common_path + "/"):
                         self.dircache.pop(cached_path, None)
                 self.dircache.pop(common_path, None)
@@ -653,7 +729,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         Returns:
             `datetime`: Last commit date of the file.
         """
-        info = self.info(path, **{**kwargs, "expand_info": True})
+        info = self.info(path, **{**kwargs, "expand_info": True})  # type: ignore
         return info["last_commit"]["date"]
 
     def info(self, path: str, refresh: bool = False, revision: Optional[str] = None, **kwargs) -> dict[str, Any]:
@@ -923,6 +999,21 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         # See https://github.com/huggingface/huggingface_hub/issues/1733
         raise NotImplementedError("Transactional commits are not supported.")
 
+    def __reduce__(self):
+        # re-populate the instance cache at HfFileSystem._cache and re-populate the state of every instance
+        return make_instance, (
+            type(self),
+            self.storage_args,
+            self.storage_options,
+            self._get_instance_state(),
+        )
+
+    def _get_instance_state(self):
+        return {
+            "dircache": deepcopy(self.dircache),
+            "_repo_and_revision_exists_cache": deepcopy(self._repo_and_revision_exists_cache),
+        }
+
 
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def __init__(self, fs: HfFileSystem, path: str, revision: Optional[str] = None, **kwargs):
@@ -986,9 +1077,8 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def read(self, length=-1):
         """Read remote file.
 
-        If `length` is not provided or is -1, the entire file is downloaded and read. On POSIX systems and if
-        `hf_transfer` is not enabled, the file is loaded in memory directly. Otherwise, the file is downloaded to a
-        temporary file and read from there.
+        If `length` is not provided or is -1, the entire file is downloaded and read. On POSIX systems the file is
+        loaded in memory directly. Otherwise, the file is downloaded to a temporary file and read from there.
         """
         if self.mode == "rb" and (length is None or length == -1) and self.loc == 0:
             with self.fs.open(self.path, "rb", block_size=0) as f:  # block_size=0 enables fast streaming
@@ -1158,3 +1248,10 @@ def _partial_read(response: httpx.Response, length: int = -1) -> bytes:
             return bytes(buf[:length])
 
     return bytes(buf)  # may be < length if response ended
+
+
+def make_instance(cls, args, kwargs, instance_state):
+    fs = cls(*args, **kwargs)
+    for attr, state_value in instance_state.items():
+        setattr(fs, attr, state_value)
+    return fs
