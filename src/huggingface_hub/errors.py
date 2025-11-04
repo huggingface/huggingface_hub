@@ -86,11 +86,7 @@ class HfHubHTTPError(HTTPError, OSError):
 
     def __reduce_ex__(self, protocol):
         """Fix pickling of Exception subclass with kwargs. We need to override __reduce_ex__ of the parent class"""
-        return (
-            self.__class__,
-            (str(self),),
-            {"response": self.response, "server_message": self.server_message}
-        )
+        return (self.__class__, (str(self),), {"response": self.response, "server_message": self.server_message})
 
 
 # INFERENCE CLIENT ERRORS
