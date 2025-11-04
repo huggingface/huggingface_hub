@@ -246,3 +246,54 @@ class FalAIImageToVideoTask(FalAIQueueTask):
         output = super().get_response(response, request_params)
         url = _as_dict(output)["video"]["url"]
         return get_session().get(url).content
+
+
+class FalAIImageSegmentationTask(FalAIQueueTask):
+    def __init__(self):
+        super().__init__("image-segmentation")
+
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[dict]:
+        image_url = _as_url(inputs, default_mime_type="image/png")
+        payload: dict[str, Any] = {
+            "image_url": image_url,
+            **filter_none(parameters),
+            "sync_mode": True,
+        }
+        return payload
+
+    def get_response(
+        self,
+        response: Union[bytes, dict],
+        request_params: Optional[RequestParameters] = None,
+    ) -> Any:
+        result = super().get_response(response, request_params)
+        result_dict = _as_dict(result)
+
+        if "image" not in result_dict:
+            raise ValueError(f"Response from fal ai image-segmentation API does not contain an image: {result_dict}")
+
+        image_data = result_dict["image"]
+        if "url" not in image_data:
+            raise ValueError(f"Image data from fal ai image-segmentation API does not contain a URL: {image_data}")
+
+        image_url = image_data["url"]
+
+        if isinstance(image_url, str) and image_url.startswith("data:"):
+            if "," in image_url:
+                mask_base64 = image_url.split(",", 1)[1]
+            else:
+                raise ValueError(f"Invalid data URL format: {image_url}")
+        else:
+            # or it's a regular URL, fetch it
+            mask_response = get_session().get(image_url)
+            hf_raise_for_status(mask_response)
+            mask_base64 = base64.b64encode(mask_response.content).decode()
+
+        return [
+            {
+                "label": "mask",
+                "mask": mask_base64,
+            }
+        ]

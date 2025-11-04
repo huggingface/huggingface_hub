@@ -1293,6 +1293,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
+        response = provider_helper.get_response(response, request_parameters)
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
             item.mask = _b64_to_image(item.mask)  # type: ignore [assignment]
