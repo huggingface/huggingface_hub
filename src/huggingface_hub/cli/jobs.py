@@ -69,6 +69,8 @@ from huggingface_hub.utils._dotenv import load_dotenv
 from ._cli_utils import TokenOpt, get_hf_api, typer_factory
 
 
+logger = logging.get_logger(__name__)
+
 SUGGESTED_FLAVORS = [item.value for item in SpaceHardware if item.value != "zero-a10g"]
 
 # Common job-related options

@@ -25,10 +25,7 @@ from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
 from ..constants import HF_HUB_CACHE
 from . import logging
-<<<<<<< HEAD
-=======
 from ._parsing import format_timesince
->>>>>>> e2f6f26716155f7404daca613ff7c279d3926c98
 from ._terminal import tabulate
 
 

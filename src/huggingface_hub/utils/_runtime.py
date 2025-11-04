@@ -153,15 +153,6 @@ def get_httpx_version() -> str:
     return _get_version("httpx")
 
 
-# httpx
-def is_httpx_available() -> bool:
-    return is_package_available("httpx")
-
-
-def get_httpx_version() -> str:
-    return _get_version("httpx")
-
-
 # xet
 def is_xet_available() -> bool:
     # since hf_xet is automatically used if available, allow explicit disabling via environment variable

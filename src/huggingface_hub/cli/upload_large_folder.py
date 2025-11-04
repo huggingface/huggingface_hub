@@ -25,52 +25,7 @@ from huggingface_hub.utils import ANSI, disable_progress_bars
 from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api
 
 
-def upload_large_folder(
-    repo_id: RepoIdArg,
-    local_path: Annotated[
-        str,
-        typer.Argument(
-            help="Local path to the folder to upload.",
-        ),
-    ],
-    repo_type: RepoTypeOpt = RepoType.model,
-    revision: RevisionOpt = None,
-    private: PrivateOpt = False,
-    include: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            help="Glob patterns to match files to upload.",
-        ),
-    ] = None,
-    exclude: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            help="Glob patterns to exclude from files to upload.",
-        ),
-    ] = None,
-    token: TokenOpt = None,
-    num_workers: Annotated[
-        Optional[int],
-        typer.Option(
-            help="Number of workers to use to hash, upload and commit files.",
-        ),
-    ] = None,
-    no_report: Annotated[
-        bool,
-        typer.Option(
-            help="Whether to disable regular status report.",
-        ),
-    ] = False,
-    no_bars: Annotated[
-        bool,
-        typer.Option(
-            help="Whether to disable progress bars.",
-        ),
-    ] = False,
-) -> None:
-    """Upload a large folder to the Hub. Recommended for resumable uploads."""
-    if not os.path.isdir(local_path):
-        raise typer.BadParameter("Large upload is only supported for folders.", param_hint="local_path")
+logger = logging.get_logger(__name__)
 
 
 def upload_large_folder(

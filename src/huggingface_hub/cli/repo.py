@@ -29,23 +29,10 @@ import typer
 from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.utils import ANSI, logging
 
-from ._cli_utils import (
-    PrivateOpt,
-    RepoIdArg,
-    RepoType,
-    RepoTypeOpt,
-    RevisionOpt,
-    TokenOpt,
-    get_hf_api,
-    typer_factory,
-)
+from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 
 
-repo_cli = typer_factory(help="Manage repos on the Hub.")
-tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
-branch_cli = typer_factory(help="Manage branches for a repo on the Hub.")
-repo_cli.add_typer(tag_cli, name="tag")
-repo_cli.add_typer(branch_cli, name="branch")
+logger = logging.get_logger(__name__)
 
 repo_cli = typer_factory(help="Manage repos on the Hub.")
 tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
