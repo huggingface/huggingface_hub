@@ -379,10 +379,13 @@ def snapshot_download(
 
     results: List[Union[str, DryRunFileInfo]] = []
 
+    # User can use its own tqdm class or the default one from `huggingface_hub.utils`
+    tqdm_class = tqdm_class or hf_tqdm
+
     # Create a progress bar for the bytes downloaded
     # This progress bar is shared across threads/files and gets updated each time we fetch
     # metadata for a file.
-    bytes_progress = hf_tqdm(
+    bytes_progress = tqdm_class(
         desc="Downloading (incomplete total...)",
         disable=is_tqdm_disabled(log_level=logger.getEffectiveLevel()),
         total=0,
@@ -393,6 +396,12 @@ def snapshot_download(
     )
 
     class _AggregatedTqdm:
+        """Fake tqdm object to aggregate progress into the parent `bytes_progress` bar.
+
+        In practice the `_AggregatedTqdm` object won't be displayed, it's just used to update
+        the `bytes_progress` bar from each thread/file download.
+        """
+
         def __init__(self, *args, **kwargs):
             # Adjust the total of the parent progress bar
             total = kwargs.pop("total", None)
@@ -444,8 +453,7 @@ def snapshot_download(
         filtered_repo_files,
         desc=tqdm_desc,
         max_workers=max_workers,
-        # User can use its own tqdm class or the default one from `huggingface_hub.utils`
-        tqdm_class=tqdm_class or hf_tqdm,
+        tqdm_class=tqdm_class,
     )
 
     bytes_progress.set_description("Download complete")
