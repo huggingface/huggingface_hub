@@ -294,7 +294,6 @@ class FalAIImageSegmentationTask(FalAIQueueTask):
         return [
             {
                 "label": "mask",
-                "score": 1.0,
                 "mask": mask_base64,
             }
         ]
