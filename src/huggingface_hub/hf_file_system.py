@@ -7,7 +7,6 @@ from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
-from hashlib import md5
 from itertools import chain
 from pathlib import Path
 from typing import Any, Iterator, NoReturn, Optional, Union
@@ -24,6 +23,7 @@ from .errors import EntryNotFoundError, HfHubHTTPError, RepositoryNotFoundError,
 from .file_download import hf_hub_url, http_get
 from .hf_api import HfApi, LastCommitInfo, RepoFile
 from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff
+from .utils.insecure_hashlib import md5
 
 
 # Regex used to match special revisions with "/" in them (see #1710)
@@ -185,11 +185,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         kwargs = {key: kwargs[key] for key in sorted(kwargs)}
         # contrary to fsspec, we don't include pid here
         tokenize_args = (cls, threading_ident, args, kwargs)
-        try:
-            h = md5(str(tokenize_args).encode())
-        except ValueError:
-            # FIPS systems: https://github.com/fsspec/filesystem_spec/issues/380
-            h = md5(str(tokenize_args).encode(), usedforsecurity=False)
+        h = md5(str(tokenize_args).encode())
         return h.hexdigest()
 
     def _repo_and_revision_exist(
