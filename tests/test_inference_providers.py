@@ -694,7 +694,7 @@ class TestFalAIProvider:
             ]
         )
         mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
-        assert response == [{"label": "mask", "score": 1.0, "mask": dummy_mask_base64}]
+        assert response == [{"label": "mask", "mask": dummy_mask_base64}]
 
     def test_image_segmentation_response_with_regular_url(self, mocker):
         """Test image segmentation response when image URL is a regular HTTP URL."""
@@ -746,7 +746,7 @@ class TestFalAIProvider:
             ]
         )
         mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
-        assert response == [{"label": "mask", "score": 1.0, "mask": dummy_mask_base64}]
+        assert response == [{"label": "mask", "mask": dummy_mask_base64}]
 
 
 class TestFeatherlessAIProvider:
