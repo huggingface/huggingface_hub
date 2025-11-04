@@ -119,4 +119,11 @@ from ._xet import (
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
 )
-from .tqdm import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars, tqdm, tqdm_stream_file
+from .tqdm import (
+    are_progress_bars_disabled,
+    disable_progress_bars,
+    enable_progress_bars,
+    is_tqdm_disabled,
+    tqdm,
+    tqdm_stream_file,
+)
