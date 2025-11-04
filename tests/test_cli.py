@@ -126,6 +126,31 @@ class TestCacheCommand:
         assert result.exit_code == 0
         assert result.stdout.strip() == revision.commit_hash
 
+    def test_ls_with_sort(self, runner: CliRunner) -> None:
+        repo1 = _make_repo("user/model1", revisions=[_make_revision("d" * 40)])
+        repo2 = _make_repo("user/model2", revisions=[_make_revision("e" * 40)])
+        repo3 = _make_repo("user/model3", revisions=[_make_revision("f" * 40)])
+        entries = [(repo1, None), (repo2, None), (repo3, None)]
+        repo_refs_map = {repo1: frozenset(), repo2: frozenset(), repo3: frozenset()}
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir"),
+            patch(
+                "huggingface_hub.cli.cache.collect_cache_entries",
+                return_value=(entries, repo_refs_map),
+            ),
+        ):
+            result = runner.invoke(app, ["cache", "ls", "--sort", "name:desc", "--limit", "2"])
+
+        assert result.exit_code == 0
+        stdout = result.stdout
+
+        # Check alphabetical order
+        assert stdout.index("model3") < stdout.index("model2")  # descending order
+
+        # Check limit of 2 entries
+        assert "model1" not in stdout
+
     def test_rm_revision_executes_strategy(self, runner: CliRunner) -> None:
         revision = _make_revision("c" * 40)
         repo = _make_repo("user/model", revisions=[revision])
