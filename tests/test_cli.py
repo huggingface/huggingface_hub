@@ -1283,7 +1283,7 @@ class TestInferenceEndpointsCommands:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_inference_endpoints.return_value = [endpoint]
-            result = runner.invoke(app, ["inference-endpoints", "ls"])
+            result = runner.invoke(app, ["endpoints", "ls"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.list_inference_endpoints.assert_called_once_with(namespace=None, token=None)

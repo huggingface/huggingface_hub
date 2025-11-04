@@ -11,7 +11,7 @@ from huggingface_hub.errors import HfHubHTTPError
 from ._cli_utils import TokenOpt, get_hf_api, typer_factory
 
 
-app = typer_factory(help="Manage Hugging Face Inference Endpoints.")
+ie_cli = typer_factory(help="Manage Hugging Face Inference Endpoints.")
 
 catalog_app = typer_factory(help="Interact with the Inference Endpoints catalog.")
 
@@ -32,7 +32,7 @@ def _print_endpoint(endpoint: InferenceEndpoint) -> None:
     typer.echo(json.dumps(endpoint.raw, indent=2, sort_keys=True))
 
 
-@app.command()
+@ie_cli.command()
 def ls(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
@@ -54,7 +54,7 @@ def ls(
     )
 
 
-@app.command(name="deploy", help="Deploy an Inference Endpoint from a Hub repository.")
+@ie_cli.command(name="deploy")
 def deploy(
     name: NameArg,
     repo: Annotated[
@@ -109,6 +109,7 @@ def deploy(
     ] = None,
     token: TokenOpt = None,
 ) -> None:
+    """Deploy an Inference Endpoint from a Hub repository."""
     api = get_hf_api(token=token)
     try:
         endpoint = api.create_inference_endpoint(
@@ -131,7 +132,7 @@ def deploy(
     _print_endpoint(endpoint)
 
 
-@catalog_app.command(name="deploy", help="Deploy an Inference Endpoint from the Model Catalog.")
+@catalog_app.command(name="deploy")
 def deploy_from_catalog(
     name: NameArg,
     repo: Annotated[
@@ -143,6 +144,7 @@ def deploy_from_catalog(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Deploy an Inference Endpoint from the Model Catalog."""
     api = get_hf_api(token=token)
     try:
         endpoint = api.create_inference_endpoint_from_catalog(
@@ -173,13 +175,13 @@ def list_catalog(
 
 
 catalog_app.command(name="ls")(list_catalog)
-app.command(name="list-catalog", help="List available Catalog models.", hidden=True)(list_catalog)
+ie_cli.command(name="list-catalog", help="List available Catalog models.", hidden=True)(list_catalog)
 
 
-app.add_typer(catalog_app, name="catalog")
+ie_cli.add_typer(catalog_app, name="catalog")
 
 
-@app.command()
+@ie_cli.command()
 def describe(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -196,7 +198,7 @@ def describe(
     _print_endpoint(endpoint)
 
 
-@app.command()
+@ie_cli.command()
 def update(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -286,7 +288,7 @@ def update(
     _print_endpoint(endpoint)
 
 
-@app.command()
+@ie_cli.command()
 def delete(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -313,7 +315,7 @@ def delete(
     typer.echo(f"Deleted '{name}'.")
 
 
-@app.command()
+@ie_cli.command()
 def pause(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -330,7 +332,7 @@ def pause(
     _print_endpoint(endpoint)
 
 
-@app.command()
+@ie_cli.command()
 def resume(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -358,7 +360,7 @@ def resume(
     _print_endpoint(endpoint)
 
 
-@app.command()
+@ie_cli.command()
 def scale_to_zero(
     name: NameArg,
     namespace: NamespaceOpt = None,
