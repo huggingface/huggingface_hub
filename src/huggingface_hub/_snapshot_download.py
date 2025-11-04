@@ -17,7 +17,7 @@ from .errors import (
 )
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, ModelInfo, RepoFile, SpaceInfo
-from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
+from .utils import OfflineModeIsEnabled, filter_repo_objects, is_tqdm_disabled, logging, validate_hf_hub_args
 from .utils import tqdm as hf_tqdm
 
 
@@ -379,12 +379,47 @@ def snapshot_download(
 
     results: List[Union[str, DryRunFileInfo]] = []
 
+    # Create a progress bar for the bytes downloaded
+    # This progress bar is shared across threads/files and gets updated each time we fetch
+    # metadata for a file.
+    bytes_progress = hf_tqdm(
+        desc="Downloading (incomplete total...)",
+        disable=is_tqdm_disabled(log_level=logger.getEffectiveLevel()),
+        total=0,
+        initial=0,
+        unit="B",
+        unit_scale=True,
+        name="huggingface_hub.snapshot_download",
+    )
+
+    class _AggregatedTqdm:
+        def __init__(self, *args, **kwargs):
+            # Adjust the total of the parent progress bar
+            total = kwargs.pop("total", None)
+            if total is not None:
+                bytes_progress.total += total
+                bytes_progress.refresh()
+
+            # Adjust initial of the parent progress bar
+            initial = kwargs.pop("initial", 0)
+            if initial:
+                bytes_progress.update(initial)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+        def update(self, n: Optional[Union[int, float]] = 1) -> None:
+            bytes_progress.update(n)
+
     # we pass the commit_hash to hf_hub_download
     # so no network call happens if we already
     # have the file locally.
     def _inner_hf_hub_download(repo_file: str) -> None:
         results.append(
-            hf_hub_download(  # type: ignore[no-matching-overload] # ty not happy, don't know why :/
+            hf_hub_download(  # type: ignore
                 repo_id,
                 filename=repo_file,
                 repo_type=repo_type,
@@ -399,6 +434,7 @@ def snapshot_download(
                 force_download=force_download,
                 token=token,
                 headers=headers,
+                tqdm_class=_AggregatedTqdm,  # type: ignore
                 dry_run=dry_run,
             )
         )
@@ -411,6 +447,8 @@ def snapshot_download(
         # User can use its own tqdm class or the default one from `huggingface_hub.utils`
         tqdm_class=tqdm_class or hf_tqdm,
     )
+
+    bytes_progress.set_description("Download complete")
 
     if dry_run:
         assert all(isinstance(r, DryRunFileInfo) for r in results)
