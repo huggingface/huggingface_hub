@@ -62,13 +62,13 @@ jobs:
           # Create and checkout new branch
           git checkout -b $BRANCH_NAME
 
-          # Update dependencies using sed
-          sed -i -E "s/\"huggingface-hub>=0.*\"/\"huggingface-hub==${VERSION}\"/" setup.py
+          # Update dependencies using sed - match both >= and == patterns
+          sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" setup.py
           git add setup.py
 
           # Only if the target repo is transformers
           if [ "${{ matrix.target-repo }}" = "transformers" ]; then
-            sed -i -E "s/\"huggingface-hub>=0.*\"/\"huggingface-hub==${VERSION}\"/" src/transformers/dependency_versions_table.py
+            sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" src/transformers/dependency_versions_table.py
             git add src/transformers/dependency_versions_table.py
           fi
 
