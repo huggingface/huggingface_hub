@@ -26,6 +26,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `auth`: Manage authentication (login, logout, etc.).
 * `cache`: Manage local cache directory.
 * `download`: Download files from the Hub.
+* `endpoints`: Manage Hugging Face Inference Endpoints.
 * `env`: Print information about the environment.
 * `jobs`: Run and manage Jobs on the Hub.
 * `lfs-enable-largefiles`: Configure your repository to enable upload...
@@ -272,6 +273,279 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--quiet / --no-quiet`: If True, progress bars are disabled and only the path to the download files is printed.  [default: no-quiet]
 * `--max-workers INTEGER`: Maximum number of workers to use for downloading files. Default is 8.  [default: 8]
+* `--help`: Show this message and exit.
+
+## `hf endpoints`
+
+Manage Hugging Face Inference Endpoints.
+
+**Usage**:
+
+```console
+$ hf endpoints [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `catalog`: Interact with the Inference Endpoints...
+* `delete`: Delete an Inference Endpoint permanently.
+* `deploy`: Deploy an Inference Endpoint from a Hub...
+* `describe`: Get information about an existing endpoint.
+* `list-catalog`: List available Catalog models.
+* `ls`: Lists all Inference Endpoints for the...
+* `pause`: Pause an Inference Endpoint.
+* `resume`: Resume an Inference Endpoint.
+* `scale-to-zero`: Scale an Inference Endpoint to zero.
+* `update`: Update an existing endpoint.
+
+### `hf endpoints catalog`
+
+Interact with the Inference Endpoints catalog.
+
+**Usage**:
+
+```console
+$ hf endpoints catalog [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `deploy`: Deploy an Inference Endpoint from the...
+* `ls`: List available Catalog models.
+
+#### `hf endpoints catalog deploy`
+
+Deploy an Inference Endpoint from the Model Catalog.
+
+**Usage**:
+
+```console
+$ hf endpoints catalog deploy [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').  [required]
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+#### `hf endpoints catalog ls`
+
+List available Catalog models.
+
+**Usage**:
+
+```console
+$ hf endpoints catalog ls [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf endpoints delete`
+
+Delete an Inference Endpoint permanently.
+
+**Usage**:
+
+```console
+$ hf endpoints delete [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--yes`: Skip confirmation prompts.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf endpoints deploy`
+
+Deploy an Inference Endpoint from a Hub repository.
+
+**Usage**:
+
+```console
+$ hf endpoints deploy [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').  [required]
+* `--framework TEXT`: The machine learning framework used for the model (e.g. 'vllm').  [required]
+* `--accelerator TEXT`: The hardware accelerator to be used for inference (e.g. 'cpu').  [required]
+* `--instance-size TEXT`: The size or type of the instance to be used for hosting the model (e.g. 'x4').  [required]
+* `--instance-type TEXT`: The cloud instance type where the Inference Endpoint will be deployed (e.g. 'intel-icl').  [required]
+* `--region TEXT`: The cloud region in which the Inference Endpoint will be created (e.g. 'us-east-1').  [required]
+* `--vendor TEXT`: The cloud provider or vendor where the Inference Endpoint will be hosted (e.g. 'aws').  [required]
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--task TEXT`: The task on which to deploy the model (e.g. 'text-classification').
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf endpoints describe`
+
+Get information about an existing endpoint.
+
+**Usage**:
+
+```console
+$ hf endpoints describe [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf endpoints list-catalog`
+
+List available Catalog models.
+
+**Usage**:
+
+```console
+$ hf endpoints list-catalog [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf endpoints ls`
+
+Lists all Inference Endpoints for the given namespace.
+
+**Usage**:
+
+```console
+$ hf endpoints ls [OPTIONS]
+```
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf endpoints pause`
+
+Pause an Inference Endpoint.
+
+**Usage**:
+
+```console
+$ hf endpoints pause [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf endpoints resume`
+
+Resume an Inference Endpoint.
+
+**Usage**:
+
+```console
+$ hf endpoints resume [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--fail-if-already-running`: If `True`, the method will raise an error if the Inference Endpoint is already running.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf endpoints scale-to-zero`
+
+Scale an Inference Endpoint to zero.
+
+**Usage**:
+
+```console
+$ hf endpoints scale-to-zero [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf endpoints update`
+
+Update an existing endpoint.
+
+**Usage**:
+
+```console
+$ hf endpoints update [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').
+* `--accelerator TEXT`: The hardware accelerator to be used for inference (e.g. 'cpu').
+* `--instance-size TEXT`: The size or type of the instance to be used for hosting the model (e.g. 'x4').
+* `--instance-type TEXT`: The cloud instance type where the Inference Endpoint will be deployed (e.g. 'intel-icl').
+* `--framework TEXT`: The machine learning framework used for the model (e.g. 'custom').
+* `--revision TEXT`: The specific model revision to deploy on the Inference Endpoint (e.g. '6c0e6080953db56375760c0471a8c5f2929baf11').
+* `--task TEXT`: The task on which to deploy the model (e.g. 'text-classification').
+* `--min-replica INTEGER`: The minimum number of replicas (instances) to keep running for the Inference Endpoint.
+* `--max-replica INTEGER`: The maximum number of replicas (instances) to scale to for the Inference Endpoint.
+* `--scale-to-zero-timeout INTEGER`: The duration in minutes before an inactive endpoint is scaled to zero.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 ## `hf env`
