@@ -1,4 +1,4 @@
-name: Python release
+name: hf PyPI release
 
 on:
   push:
