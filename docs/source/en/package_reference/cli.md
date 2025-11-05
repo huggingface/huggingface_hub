@@ -401,6 +401,11 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--task TEXT`: The task on which to deploy the model (e.g. 'text-classification').
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--min-replica INTEGER`: The minimum number of replicas (instances) to keep running for the Inference Endpoint.  [default: 1]
+* `--max-replica INTEGER`: The maximum number of replicas (instances) to scale to for the Inference Endpoint.  [default: 1]
+* `--scale-to-zero-timeout INTEGER`: The duration in minutes before an inactive endpoint is scaled to zero.
+* `--scaling-metric TEXT`: The metric reference for scaling. Either 'pendingRequests' or 'hardwareUsage' when provided.
+* `--scaling-threshold FLOAT`: The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.
 * `--help`: Show this message and exit.
 
 ### `hf endpoints describe`
@@ -542,6 +547,8 @@ $ hf endpoints update [OPTIONS] NAME
 * `--min-replica INTEGER`: The minimum number of replicas (instances) to keep running for the Inference Endpoint.
 * `--max-replica INTEGER`: The maximum number of replicas (instances) to scale to for the Inference Endpoint.
 * `--scale-to-zero-timeout INTEGER`: The duration in minutes before an inactive endpoint is scaled to zero.
+* `--scaling-metric TEXT`: The metric reference for scaling. Either 'pendingRequests' or 'hardwareUsage' when provided.
+* `--scaling-threshold FLOAT`: The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
