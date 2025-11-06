@@ -1344,7 +1344,6 @@ class TestInferenceEndpointsCommands:
                     "endpoints",
                     "catalog",
                     "deploy",
-                    "catalog-endpoint",
                     "--repo",
                     "catalog/model",
                 ],
@@ -1353,7 +1352,7 @@ class TestInferenceEndpointsCommands:
         api_cls.assert_called_once_with(token=None)
         api.create_inference_endpoint_from_catalog.assert_called_once_with(
             repo_id="catalog/model",
-            name="catalog-endpoint",
+            name=None,
             namespace=None,
             token=None,
         )

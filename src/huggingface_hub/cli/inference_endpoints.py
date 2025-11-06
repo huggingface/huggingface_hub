@@ -19,6 +19,10 @@ NameArg = Annotated[
     str,
     typer.Argument(help="Endpoint name."),
 ]
+NameOpt = Annotated[
+    Optional[str],
+    typer.Option(help="Endpoint name."),
+]
 
 NamespaceOpt = Annotated[
     Optional[str],
@@ -130,13 +134,13 @@ def deploy(
 
 @catalog_app.command(name="deploy")
 def deploy_from_catalog(
-    name: NameArg,
     repo: Annotated[
         str,
         typer.Option(
             help="The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').",
         ),
     ],
+    name: NameOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
