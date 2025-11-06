@@ -328,16 +328,13 @@ Deploy an Inference Endpoint from the Model Catalog.
 **Usage**:
 
 ```console
-$ hf endpoints catalog deploy [OPTIONS] NAME
+$ hf endpoints catalog deploy [OPTIONS]
 ```
-
-**Arguments**:
-
-* `NAME`: Endpoint name.  [required]
 
 **Options**:
 
 * `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').  [required]
+* `--name TEXT`: Endpoint name.
 * `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
