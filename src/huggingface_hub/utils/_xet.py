@@ -200,7 +200,6 @@ def _fetch_xet_connection_info_with_url(
             return cached_info
 
     # Fetch from server
-    print(f"Cache key: {cache_key}. Cache miss or expired. Fetching from server...")
     resp = get_session().get(headers=headers, url=url, params=params)
     hf_raise_for_status(resp)
 
