@@ -208,8 +208,8 @@ def _fetch_xet_connection_info_with_url(
         raise ValueError("Xet headers have not been correctly set by the server.")
 
     # Delete expired cache entries
-    for k in list(XET_CONNECTION_INFO_CACHE.keys()):
-        if _is_expired(XET_CONNECTION_INFO_CACHE[k]):
+    for k, v in list(XET_CONNECTION_INFO_CACHE.items()):
+        if _is_expired(v):
             XET_CONNECTION_INFO_CACHE.pop(k, None)
 
     # Enforce cache size limit
