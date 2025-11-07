@@ -48,6 +48,7 @@ from huggingface_hub.inference._providers.nscale import NscaleConversationalTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
 from huggingface_hub.inference._providers.publicai import PublicAIConversationalTask
 from huggingface_hub.inference._providers.replicate import (
+    ReplicateAutomaticSpeechRecognitionTask,
     ReplicateImageToImageTask,
     ReplicateTask,
     ReplicateTextToSpeechTask,
@@ -1423,6 +1424,74 @@ class TestOpenAIProvider:
 
 
 class TestReplicateProvider:
+    def test_automatic_speech_recognition_payload(self):
+        helper = ReplicateAutomaticSpeechRecognitionTask()
+
+        mapping_info = InferenceProviderMapping(
+            provider="replicate",
+            hf_model_id="openai/whisper-large-v3",
+            providerId="openai/whisper-large-v3",
+            task="automatic-speech-recognition",
+            status="live",
+        )
+
+        payload = helper._prepare_payload_as_dict(
+            "https://example.com/audio.mp3",
+            {"language": "en"},
+            mapping_info,
+        )
+
+        assert payload == {"input": {"audio": "https://example.com/audio.mp3", "language": "en"}}
+
+        mapping_with_version = InferenceProviderMapping(
+            provider="replicate",
+            hf_model_id="openai/whisper-large-v3",
+            providerId="openai/whisper-large-v3:123",
+            task="automatic-speech-recognition",
+            status="live",
+        )
+
+        audio_bytes = b"dummy-audio"
+        encoded_audio = base64.b64encode(audio_bytes).decode()
+
+        payload = helper._prepare_payload_as_dict(
+            audio_bytes,
+            {},
+            mapping_with_version,
+        )
+
+        assert payload == {
+            "input": {"audio": f"data:audio/wav;base64,{encoded_audio}"},
+            "version": "123",
+        }
+
+    def test_automatic_speech_recognition_get_response_variants(self, mocker):
+        helper = ReplicateAutomaticSpeechRecognitionTask()
+
+        result = helper.get_response({"output": "hello"})
+        assert result == {"text": "hello"}
+
+        result = helper.get_response({"output": ["hello-world"]})
+        assert result == {"text": "hello-world"}
+
+        result = helper.get_response({"output": {"transcription": "bonjour"}})
+        assert result == {"text": "bonjour"}
+
+        result = helper.get_response({"output": {"translation": "hola"}})
+        assert result == {"text": "hola"}
+
+        mock_session = mocker.patch("huggingface_hub.inference._providers.replicate.get_session")
+        mock_response = mocker.Mock(text="file text")
+        mock_response.raise_for_status = lambda: None
+        mock_session.return_value.get.return_value = mock_response
+
+        result = helper.get_response({"output": {"txt_file": "https://example.com/output.txt"}})
+        mock_session.return_value.get.assert_called_once_with("https://example.com/output.txt")
+        assert result == {"text": "file text"}
+
+        with pytest.raises(ValueError):
+            helper.get_response({"output": 123})
+
     def test_prepare_headers(self):
         helper = ReplicateTask("text-to-image")
         headers = helper._prepare_headers({}, "my_replicate_key")

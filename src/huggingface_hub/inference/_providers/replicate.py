@@ -72,6 +72,67 @@ class ReplicateTextToSpeechTask(ReplicateTask):
         return payload
 
 
+class ReplicateAutomaticSpeechRecognitionTask(ReplicateTask):
+    def __init__(self) -> None:
+        super().__init__("automatic-speech-recognition")
+
+    def _prepare_payload_as_dict(
+        self,
+        inputs: Any,
+        parameters: dict,
+        provider_mapping_info: InferenceProviderMapping,
+    ) -> Optional[dict]:
+        mapped_model = provider_mapping_info.provider_id
+        audio_url = _as_url(inputs, default_mime_type="audio/wav")
+
+        payload: dict[str, Any] = {
+            "input": {
+                **{"audio": audio_url},
+                **filter_none(parameters),
+            }
+        }
+
+        if ":" in mapped_model:
+            payload["version"] = mapped_model.split(":", 1)[1]
+
+        return payload
+
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
+        response_dict = _as_dict(response)
+        output = response_dict.get("output")
+
+        if isinstance(output, str):
+            return {"text": output}
+
+        if isinstance(output, list) and output:
+            first_item = output[0]
+            if isinstance(first_item, str):
+                return {"text": first_item}
+            if isinstance(first_item, dict):
+                output = first_item
+
+        text: Optional[str] = None
+        if isinstance(output, dict):
+            transcription = output.get("transcription")
+            if isinstance(transcription, str):
+                text = transcription
+
+            translation = output.get("translation")
+            if isinstance(translation, str):
+                text = translation
+
+            txt_file = output.get("txt_file")
+            if isinstance(txt_file, str):
+                text_response = get_session().get(txt_file)
+                text_response.raise_for_status()
+                text = text_response.text
+
+        if text is not None:
+            return {"text": text}
+
+        raise ValueError("Received malformed response from Replicate automatic-speech-recognition API")
+
+
 class ReplicateImageToImageTask(ReplicateTask):
     def __init__(self):
         super().__init__("image-to-image")
