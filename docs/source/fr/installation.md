@@ -48,7 +48,7 @@ Toutefois, certaines fonctionnalités de `huggingface_hub` ne seront pas disponi
 
 Vous pouvez installer des dépendances optionnelles via `pip`:
 ```bash
-#Installation des dépendances spécifiques à Pytorch et à MCP.
+# Installation des dépendances spécifiques à Pytorch et à MCP.
 pip install 'huggingface_hub[mcp,torch]'
 ```
 
