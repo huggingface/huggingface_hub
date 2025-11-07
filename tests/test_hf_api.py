@@ -4095,18 +4095,18 @@ class AccessRequestAPITest(HfApiCommonTest):
 
     def test_access_requests_normal_usage(self) -> None:
         # No access requests initially
-        requests = self._api.list_accepted_access_requests(self.repo_id)
+        requests = list(self._api.list_accepted_access_requests(self.repo_id))
         assert len(requests) == 0
-        requests = self._api.list_pending_access_requests(self.repo_id)
+        requests = list(self._api.list_pending_access_requests(self.repo_id))
         assert len(requests) == 0
-        requests = self._api.list_rejected_access_requests(self.repo_id)
+        requests = list(self._api.list_rejected_access_requests(self.repo_id))
         assert len(requests) == 0
 
         # Grant access to a user
         self._api.grant_access(self.repo_id, OTHER_USER)
 
         # User is in accepted list
-        requests = self._api.list_accepted_access_requests(self.repo_id)
+        requests = list(self._api.list_accepted_access_requests(self.repo_id))
         assert len(requests) == 1
         request = requests[0]
         assert isinstance(request, AccessRequest)
@@ -4117,23 +4117,23 @@ class AccessRequestAPITest(HfApiCommonTest):
 
         # Cancel access
         self._api.cancel_access_request(self.repo_id, OTHER_USER)
-        requests = self._api.list_accepted_access_requests(self.repo_id)
+        requests = list(self._api.list_accepted_access_requests(self.repo_id))
         assert len(requests) == 0  # not accepted anymore
-        requests = self._api.list_pending_access_requests(self.repo_id)
+        requests = list(self._api.list_pending_access_requests(self.repo_id))
         assert len(requests) == 1
         assert requests[0].username == OTHER_USER
 
         # Reject access
         self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
-        requests = self._api.list_pending_access_requests(self.repo_id)
+        requests = list(self._api.list_pending_access_requests(self.repo_id))
         assert len(requests) == 0  # not pending anymore
-        requests = self._api.list_rejected_access_requests(self.repo_id)
+        requests = list(self._api.list_rejected_access_requests(self.repo_id))
         assert len(requests) == 1
         assert requests[0].username == OTHER_USER
 
         # Accept again
         self._api.accept_access_request(self.repo_id, OTHER_USER)
-        requests = self._api.list_accepted_access_requests(self.repo_id)
+        requests = list(self._api.list_accepted_access_requests(self.repo_id))
         assert len(requests) == 1
         assert requests[0].username == OTHER_USER
 
