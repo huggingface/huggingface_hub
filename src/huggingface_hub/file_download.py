@@ -13,6 +13,7 @@ from typing import Any, BinaryIO, Literal, NoReturn, Optional, Union, overload
 from urllib.parse import quote, urlparse
 
 import httpx
+from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
 from ._local_folder import get_local_download_paths, read_download_metadata, write_download_metadata
@@ -348,6 +349,7 @@ def http_get(
     headers: Optional[dict[str, Any]] = None,
     expected_size: Optional[int] = None,
     displayed_filename: Optional[str] = None,
+    tqdm_class: Optional[type[base_tqdm]] = None,
     _nb_retries: int = 5,
     _tqdm_bar: Optional[tqdm] = None,
 ) -> None:
@@ -425,6 +427,7 @@ def http_get(
             total=total,
             initial=resume_size,
             name="huggingface_hub.http_get",
+            tqdm_class=tqdm_class,
             _tqdm_bar=_tqdm_bar,
         )
 
@@ -453,6 +456,7 @@ def http_get(
                     resume_size=new_resume_size,
                     headers=initial_headers,
                     expected_size=expected_size,
+                    tqdm_class=tqdm_class,
                     _nb_retries=_nb_retries - 1,
                     _tqdm_bar=_tqdm_bar,
                 )
@@ -472,6 +476,7 @@ def xet_get(
     headers: dict[str, str],
     expected_size: Optional[int] = None,
     displayed_filename: Optional[str] = None,
+    tqdm_class: Optional[type[base_tqdm]] = None,
     _tqdm_bar: Optional[tqdm] = None,
 ) -> None:
     """
@@ -554,6 +559,7 @@ def xet_get(
         total=expected_size,
         initial=0,
         name="huggingface_hub.xet_get",
+        tqdm_class=tqdm_class,
         _tqdm_bar=_tqdm_bar,
     )
 
@@ -685,10 +691,10 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
 
     # Symlinks are not supported => let's move or copy the file.
     if new_blob:
-        logger.info(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
+        logger.debug(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
         shutil.move(abs_src, abs_dst, copy_function=_copy_no_matter_what)
     else:
-        logger.info(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
+        logger.debug(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
         shutil.copyfile(abs_src, abs_dst)
 
 
@@ -763,6 +769,7 @@ def hf_hub_download(
     local_files_only: bool = False,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
+    tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: Literal[False] = False,
 ) -> str: ...
 
@@ -786,6 +793,7 @@ def hf_hub_download(
     local_files_only: bool = False,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
+    tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: Literal[True] = True,
 ) -> DryRunFileInfo: ...
 
@@ -809,6 +817,7 @@ def hf_hub_download(
     local_files_only: bool = False,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
+    tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: bool = False,
 ) -> Union[str, DryRunFileInfo]: ...
 
@@ -832,6 +841,7 @@ def hf_hub_download(
     local_files_only: bool = False,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
+    tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: bool = False,
 ) -> Union[str, DryRunFileInfo]:
     """Download a given file if it's not already present in the local cache.
@@ -908,6 +918,11 @@ def hf_hub_download(
             local cached file if it exists.
         headers (`dict`, *optional*):
             Additional headers to be sent with the request.
+        tqdm_class (`tqdm`, *optional*):
+            If provided, overwrites the default behavior for the progress bar. Passed
+            argument must inherit from `tqdm.auto.tqdm` or at least mimic its behavior.
+            Defaults to the custom HF progress bar that can be disabled by setting
+            `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
         dry_run (`bool`, *optional*, defaults to `False`):
             If `True`, perform a dry run without actually downloading the file. Returns a
             [`DryRunFileInfo`] object containing information about what would be downloaded.
@@ -985,6 +1000,7 @@ def hf_hub_download(
             cache_dir=cache_dir,
             force_download=force_download,
             local_files_only=local_files_only,
+            tqdm_class=tqdm_class,
             dry_run=dry_run,
         )
     else:
@@ -1004,6 +1020,7 @@ def hf_hub_download(
             # Additional options
             local_files_only=local_files_only,
             force_download=force_download,
+            tqdm_class=tqdm_class,
             dry_run=dry_run,
         )
 
@@ -1025,6 +1042,7 @@ def _hf_hub_download_to_cache_dir(
     # Additional options
     local_files_only: bool,
     force_download: bool,
+    tqdm_class: Optional[type[base_tqdm]],
     dry_run: bool,
 ) -> Union[str, DryRunFileInfo]:
     """Download a given file to a cache folder, if not already present.
@@ -1034,7 +1052,7 @@ def _hf_hub_download_to_cache_dir(
     locks_dir = os.path.join(cache_dir, ".locks")
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
-    # cross platform transcription of filename, to be used as a local file path.
+    # cross-platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
     if os.name == "nt":
         if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
@@ -1189,6 +1207,7 @@ def _hf_hub_download_to_cache_dir(
             force_download=force_download,
             etag=etag,
             xet_file_data=xet_file_data,
+            tqdm_class=tqdm_class,
         )
         if not os.path.exists(pointer_path):
             _create_symlink(blob_path, pointer_path, new_blob=True)
@@ -1214,6 +1233,7 @@ def _hf_hub_download_to_local_dir(
     cache_dir: str,
     force_download: bool,
     local_files_only: bool,
+    tqdm_class: Optional[type[base_tqdm]],
     dry_run: bool,
 ) -> Union[str, DryRunFileInfo]:
     """Download a given file to a local folder, if not already present.
@@ -1377,6 +1397,7 @@ def _hf_hub_download_to_local_dir(
             force_download=force_download,
             etag=etag,
             xet_file_data=xet_file_data,
+            tqdm_class=tqdm_class,
         )
 
     write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
@@ -1531,7 +1552,7 @@ def get_hf_file_metadata(
     # Return
     return HfFileMetadata(
         commit_hash=response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT),
-        # We favor a custom header indicating the etag of the linked resource, and we fallback to the regular etag header.
+        # We favor a custom header indicating the etag of the linked resource, and we fall back to the regular etag header.
         etag=_normalize_etag(
             response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
         ),
@@ -1727,6 +1748,7 @@ def _download_to_tmp_and_move(
     force_download: bool,
     etag: Optional[str],
     xet_file_data: Optional[XetFileData],
+    tqdm_class: Optional[type[base_tqdm]] = None,
 ) -> None:
     """Download content from a URL to a destination path.
 
@@ -1749,7 +1771,7 @@ def _download_to_tmp_and_move(
         # By default, we will try to resume the download if possible.
         # However, if the user has set `force_download=True`, then we should
         # not resume the download => delete the incomplete file.
-        logger.info(f"Removing incomplete file '{incomplete_path}' (force_download=True)")
+        logger.debug(f"Removing incomplete file '{incomplete_path}' (force_download=True)")
         incomplete_path.unlink(missing_ok=True)
 
     with incomplete_path.open("ab") as f:
@@ -1757,7 +1779,7 @@ def _download_to_tmp_and_move(
         message = f"Downloading '{filename}' to '{incomplete_path}'"
         if resume_size > 0 and expected_size is not None:
             message += f" (resume from {resume_size}/{expected_size})"
-        logger.info(message)
+        logger.debug(message)
 
         if expected_size is not None:  # might be None if HTTP header not set correctly
             # Check disk space in both tmp and destination path
@@ -1772,6 +1794,7 @@ def _download_to_tmp_and_move(
                 headers=headers,
                 expected_size=expected_size,
                 displayed_filename=filename,
+                tqdm_class=tqdm_class,
             )
         else:
             if xet_file_data is not None and not constants.HF_HUB_DISABLE_XET:
@@ -1787,9 +1810,10 @@ def _download_to_tmp_and_move(
                 resume_size=resume_size,
                 headers=headers,
                 expected_size=expected_size,
+                tqdm_class=tqdm_class,
             )
 
-    logger.info(f"Download complete. Moving file to {destination_path}")
+    logger.debug(f"Download complete. Moving file to {destination_path}")
     _chmod_and_move(incomplete_path, destination_path)
 
 

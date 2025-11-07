@@ -6,28 +6,28 @@ on:
       - v*
 
 env:
-  PYPI_TOKEN: ${{ secrets.PYPI_TOKEN_DIST }}
+  PYPI_TOKEN: ${{ secrets.PYPI_TOKEN_DIST_HUGGINGFACE_HUB }}
 
 jobs:
   python_release:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install setuptools wheel
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install setuptools wheel
 
-    - run: python setup.py sdist bdist_wheel
+      - run: python setup.py sdist bdist_wheel
 
-    - run: |
-        pip install twine
+      - run: |
+          pip install twine
 
-    - name: Upload to PyPi
-      run: |
+      - name: Upload to PyPi
+        run: |
           twine upload dist/* -u __token__ -p "$PYPI_TOKEN"

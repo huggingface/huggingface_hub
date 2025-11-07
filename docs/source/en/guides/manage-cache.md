@@ -401,7 +401,7 @@ Found 2 repo(s) for a total of 2 revision(s) and 3.0G on disk.
 
 Need machine-friendly output? Use `--format json` to get structured objects or
 `--format csv` for spreadsheets. Alternatively `--quiet` prints only identifiers (one
-per line) so you can pipe them into other tooling. Combine these options with
+per line) so you can pipe them into other tooling. Use `--sort` to order entries by `accessed`, `modified`, `name`, or `size` (append `:asc` or `:desc` to control order), and `--limit` to restrict results to the top N entries. Combine these options with
 `--cache-dir` when you need to inspect a cache stored outside of `HF_HOME`.
 
 **Filter with common shell tools**
@@ -478,6 +478,26 @@ HFCacheInfo(
     ],
 )
 ```
+
+### Verify your cache
+
+`huggingface_hub` can verify that your cached files match the checksums on the Hub. Use `hf cache verify` CLI to validate file consistency for a specific revision of a specific repository:
+
+
+```bash
+>>> hf cache verify meta-llama/Llama-3.2-1B-Instruct
+✅ Verified 13 file(s) for 'meta-llama/Llama-3.2-1B-Instruct' (model) in ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6
+  All checksums match.
+```
+
+Verify a specific cached revision:
+
+```bash
+>>> hf cache verify meta-llama/Llama-3.1-8B-Instruct --revision 0e9e39f249a16976918f6564b8830bc894c89659
+```
+
+> [!TIP]
+> Check the [`hf cache verify` CLI reference](../package_reference/cli#hf-cache-verify) for more details about the usage and a complete list of options.
 
 ### Clean your cache
 

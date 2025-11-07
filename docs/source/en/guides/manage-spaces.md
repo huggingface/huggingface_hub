@@ -10,7 +10,7 @@ In this guide, we will see how to manage your Space runtime
 
 ## A simple example: configure secrets and hardware.
 
-Here is an end-to-end example to create and setup a Space on the Hub.
+Here is an end-to-end example to create and set up a Space on the Hub.
 
 **1. Create a Space on the Hub.**
 

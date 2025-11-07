@@ -190,7 +190,7 @@ def attach_huggingface_oauth(app: "fastapi.FastAPI", route_prefix: str = "/"):
 
 def parse_huggingface_oauth(request: "fastapi.Request") -> Optional[OAuthInfo]:
     """
-    Returns the information from a logged in user as a [`OAuthInfo`] object.
+    Returns the information from a logged-in user as a [`OAuthInfo`] object.
 
     For flexibility and future-proofing, this method is very lax in its parsing and does not raise errors.
     Missing fields are set to `None` without a warning.

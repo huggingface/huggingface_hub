@@ -329,7 +329,7 @@ class InferenceEndpoint:
         """Pause the Inference Endpoint.
 
         A paused Inference Endpoint will not be charged. It can be resumed at any time using [`InferenceEndpoint.resume`].
-        This is different than scaling the Inference Endpoint to zero with [`InferenceEndpoint.scale_to_zero`], which
+        This is different from scaling the Inference Endpoint to zero with [`InferenceEndpoint.scale_to_zero`], which
         would be automatically restarted when a request is made to it.
 
         This is an alias for [`HfApi.pause_inference_endpoint`]. The current object is mutated in place with the
@@ -367,8 +367,8 @@ class InferenceEndpoint:
     def scale_to_zero(self) -> "InferenceEndpoint":
         """Scale Inference Endpoint to zero.
 
-        An Inference Endpoint scaled to zero will not be charged. It will be resume on the next request to it, with a
-        cold start delay. This is different than pausing the Inference Endpoint with [`InferenceEndpoint.pause`], which
+        An Inference Endpoint scaled to zero will not be charged. It will be resumed on the next request to it, with a
+        cold start delay. This is different from pausing the Inference Endpoint with [`InferenceEndpoint.pause`], which
         would require a manual resume with [`InferenceEndpoint.resume`].
 
         This is an alias for [`HfApi.scale_to_zero_inference_endpoint`]. The current object is mutated in place with the

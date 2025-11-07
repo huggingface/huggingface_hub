@@ -17,6 +17,7 @@
 import atexit
 import io
 import json
+import os
 import re
 import threading
 import time
@@ -244,6 +245,8 @@ def close_session() -> None:
 
 
 atexit.register(close_session)
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=close_session)
 
 
 def _http_backoff_base(
@@ -537,7 +540,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
     >         If the repository exists but is gated and the user is not on the authorized
     >         list.
     >     - [`~utils.RevisionNotFoundError`]
-    >         If the repository exists but the revision couldn't be find.
+    >         If the repository exists but the revision couldn't be found.
     >     - [`~utils.EntryNotFoundError`]
     >         If the repository exists but the entry (e.g. the requested file) couldn't be
     >         find.

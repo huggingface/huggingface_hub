@@ -13,6 +13,7 @@ from .clarifai import ClarifaiConversationalTask
 from .cohere import CohereConversationalTask
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
+    FalAIImageSegmentationTask,
     FalAIImageToImageTask,
     FalAIImageToVideoTask,
     FalAITextToImageTask,
@@ -102,6 +103,7 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "text-to-video": FalAITextToVideoTask(),
         "image-to-video": FalAIImageToVideoTask(),
         "image-to-image": FalAIImageToImageTask(),
+        "image-segmentation": FalAIImageSegmentationTask(),
     },
     "featherless-ai": {
         "conversational": FeatherlessConversationalTask(),

@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Command Line Interface (CLI)
 
-The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This tool allows you to interact with the Hugging Face Hub directly from a terminal. For example, you can login to your account, create a repository, upload and download files, etc. It also comes with handy features to configure your machine or manage your cache. In this guide, we will have a look at the main features of the CLI and how to use them.
+The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This tool allows you to interact with the Hugging Face Hub directly from a terminal. For example, you can log in to your account, create a repository, upload and download files, etc. It also comes with handy features to configure your machine or manage your cache. In this guide, we will have a look at the main features of the CLI and how to use them.
 
 > [!TIP]
 > This guide covers the most important features of the `hf` CLI.
@@ -20,6 +20,20 @@ First of all, let's install the CLI:
 
 > [!TIP]
 > The CLI ships with the core `huggingface_hub` package.
+
+Alternatively, you can install the `hf` CLI with a single command:
+
+On macOS and Linux:
+
+```bash
+>>> curl -LsSf https://hf.co/cli/install.sh | bash
+```
+
+On Windows:
+
+```powershell
+>>> powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
+```
 
 Alternatively, you can install the `hf` CLI with a single command:
 
@@ -174,7 +188,7 @@ hf download --help
 
 ### Download a single file
 
-To download a single file from a repo, simply provide the repo_id and filename as follow:
+To download a single file from a repo, simply provide the repo_id and filename as follows:
 
 ```bash
 >>> hf download gpt2 config.json
@@ -614,7 +628,7 @@ model/microsoft/UserLM-8b be8f2069189bdf443e554c24e488ff3ff6952691    32.1G 4 da
 Found 1 repo(s) for a total of 1 revision(s) and 32.1G on disk.
 ```
 
-The command supports several output formats for scripting: `--format json` prints structured objects, `--format csv` writes comma-separated rows, and `--quiet` prints only IDs. Combine these with `--cache-dir` to target alternative cache locations. See the [Manage your cache](./manage-cache) guide for advanced workflows.
+The command supports several output formats for scripting: `--format json` prints structured objects, `--format csv` writes comma-separated rows, and `--quiet` prints only IDs. Use `--sort` to order entries by `accessed`, `modified`, `name`, or `size` (append `:asc` or `:desc` to control order), and `--limit` to restrict results to the top N entries. Combine these with `--cache-dir` to target alternative cache locations. See the [Manage your cache](./manage-cache) guide for advanced workflows.
 
 Delete cache entries selected with `hf cache ls --q` by piping the IDs into `hf cache rm`:
 
@@ -672,6 +686,45 @@ Deleted 3 unreferenced revision(s); freed 2.4G.
 ```
 
 As with the other cache commands, `--dry-run`, `--yes`, and `--cache-dir` are available. Refer to the [Manage your cache](./manage-cache) guide for more examples.
+
+## hf cache verify
+
+Use `hf cache verify` to validate local files against their checksums on the Hub. You can verify either a cache snapshot or a regular local directory.
+
+Examples:
+
+```bash
+# Verify main revision of a model in cache
+>>> hf cache verify deepseek-ai/DeepSeek-OCR
+
+# Verify a specific revision
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --revision refs/pr/5
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --revision ef93bf4a377c5d5ed9dca78e0bc4ea50b26fe6a4
+
+# Verify a private repo
+>>> hf cache verify me/private-model --token hf_***
+
+# Verify a dataset
+>>> hf cache verify karpathy/fineweb-edu-100b-shuffle --repo-type dataset
+
+# Verify files in a local directory
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --local-dir /path/to/repo
+```
+
+By default, the command warns about missing or extra files. Use flags to turn these warnings into errors:
+
+```bash
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --fail-on-missing-files --fail-on-extra-files
+```
+
+On success, you will see a summary:
+
+```text
+✅ Verified 13 file(s) for 'deepseek-ai/DeepSeek-OCR' (model) in ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6
+  All checksums match.
+```
+
+If mismatches are detected, the command prints a detailed list and exits with a non-zero status.
 
 ## hf repo tag create
 
@@ -977,3 +1030,34 @@ Manage scheduled jobs using
 # Delete a scheduled job
 >>> hf jobs scheduled delete <scheduled_job_id>
 ```
+
+## hf endpoints
+
+Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints directly from the terminal. The legacy
+`hf inference-endpoints` alias remains available for compatibility.
+
+```bash
+# Lists endpoints in your namespace
+>>> hf endpoints ls
+
+# Deploy an endpoint from Model Catalog
+>>> hf endpoints catalog deploy --repo openai/gpt-oss-120b --name my-endpoint
+
+# Deploy an endpoint from the Hugging Face Hub 
+>>> hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch --accelerator cpu --instance-size x2 --instance-type intel-icl
+
+# List catalog entries
+>>> hf endpoints catalog ls
+
+# Show status and metadata
+>>> hf endpoints describe my-endpoint
+
+# Pause the endpoint
+>>> hf endpoints pause my-endpoint
+
+# Delete without confirmation prompt
+>>> hf endpoints delete my-endpoint --yes
+```
+
+> [!TIP]
+> Add `--namespace` to target an organization, `--token` to override authentication.

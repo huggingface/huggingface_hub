@@ -152,7 +152,7 @@ You can use [`InferenceClient`] to run chat completion with local inference serv
 ```
 
 > [!TIP]
-> Similarily to the OpenAI Python client, [`InferenceClient`] can be used to run Chat Completion inference with any OpenAI REST API-compatible endpoint.
+> Similarly to the OpenAI Python client, [`InferenceClient`] can be used to run Chat Completion inference with any OpenAI REST API-compatible endpoint.
 
 ### Authentication
 
@@ -202,7 +202,7 @@ For more details, refer to the [Inference Providers pricing documentation](https
 | [`~InferenceClient.feature_extraction`]             | ❌                 | ❌        | ❌        | ❌      | ❌      | ❌              | ❌            | ❌    | ✅            | ❌          | ✅                | ❌         | ❌      | ❌          | ❌         | ✅         | ✅         | ❌        | ❌         | ❌   |
 | [`~InferenceClient.fill_mask`]                      | ❌                 | ❌        | ❌        | ❌      | ❌      | ❌              | ❌            | ❌    | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        | ❌      | ❌          | ❌         | ❌         | ❌   |
 | [`~InferenceClient.image_classification`]           | ❌                 | ❌        | ❌        | ❌      | ❌      | ❌              | ❌            | ❌    | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        | ❌      | ❌          | ❌         | ❌         | ❌   |
-| [`~InferenceClient.image_segmentation`]             | ❌                 | ❌        | ❌        | ❌      | ❌      | ❌              | ❌            | ❌    | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        | ❌      | ❌          | ❌         | ❌         | ❌   |
+| [`~InferenceClient.image_segmentation`]             | ❌                 | ❌        | ❌        | ❌      | ✅      | ❌              | ❌            | ❌    | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        | ❌      | ❌          | ❌         | ❌         | ❌   |
 | [`~InferenceClient.image_to_image`]                 | ❌                 | ❌        | ❌        | ❌      | ✅      | ❌              | ❌            | ❌    | ✅            | ❌          | ❌                | ❌         | ❌      | ❌          | ✅         | ❌         | ❌         | ❌        | ✅         | ❌   |
 | [`~InferenceClient.image_to_video`]                 | ❌                 | ❌        | ❌        | ❌      | ✅      | ❌              | ❌            | ❌    | ❌            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        | ❌      | ❌          | ❌         | ✅         | ❌   |
 | [`~InferenceClient.image_to_text`]                  | ❌                 | ❌        | ❌        | ❌      | ❌      | ❌              | ❌            | ❌    | ✅            | ❌          | ❌                | ❌         | ❌         | ❌         | ❌        | ❌      | ❌          | ❌         | ❌         | ❌   |
@@ -389,17 +389,7 @@ print(completion.choices[0].message)
 
 ## Async client
 
-An async version of the client is also provided, based on `asyncio` and `aiohttp`. You can either install `aiohttp`
-directly or use the `[inference]` extra:
-
-```sh
-pip install --upgrade huggingface_hub[inference]
-# or
-# pip install aiohttp
-```
-
-After installation all async API endpoints are available via [`AsyncInferenceClient`]. Its initialization and APIs are
-strictly the same as the sync-only version.
+An async version of the client is also provided, based on `asyncio` and `httpx`. All async API endpoints are available via [`AsyncInferenceClient`]. Its initialization and APIs are strictly the same as the sync-only version.
 
 ```py
 # Code must be run in an asyncio concurrent context.

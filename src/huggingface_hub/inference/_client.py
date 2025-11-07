@@ -190,7 +190,7 @@ class InferenceClient:
             )
         token = token if token is not None else api_key
         if isinstance(token, bool):
-            # Legacy behavior: previously is was possible to pass `token=False` to disable authentication. This is not
+            # Legacy behavior: previously it was possible to pass `token=False` to disable authentication. This is not
             # supported anymore as authentication is required. Better to explicitly raise here rather than risking
             # sending the locally saved token without the user knowing about it.
             if token is False:
@@ -859,7 +859,7 @@ class InferenceClient:
         >>> messages = [
         ...     {
         ...         "role": "user",
-        ...         "content": "I saw a puppy a cat and a raccoon during my bike ride in the park. What did I saw and when?",
+        ...         "content": "I saw a puppy a cat and a raccoon during my bike ride in the park. What did I see and when?",
         ...     },
         ... ]
         >>> response_format = {
@@ -1262,6 +1262,7 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
+        response = provider_helper.get_response(response, request_parameters)
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
             item.mask = _b64_to_image(item.mask)  # type: ignore [assignment]
@@ -1427,7 +1428,7 @@ class InferenceClient:
         Takes an input image and return text.
 
         Models can have very different outputs depending on your use case (image captioning, optical character recognition
-        (OCR), Pix2Struct, etc). Please have a look to the model card to learn more about a model's specificities.
+        (OCR), Pix2Struct, etc.). Please have a look to the model card to learn more about a model's specificities.
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):

@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.1.0.dev0"
+__version__ = "1.2.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -288,6 +288,7 @@ _SUBMOD_ATTRS = {
         "upload_file",
         "upload_folder",
         "upload_large_folder",
+        "verify_repo_checksums",
         "whoami",
     ],
     "hf_file_system": [
@@ -968,6 +969,7 @@ __all__ = [
     "upload_file",
     "upload_folder",
     "upload_large_folder",
+    "verify_repo_checksums",
     "webhook_endpoint",
     "whoami",
 ]
@@ -1302,6 +1304,7 @@ if TYPE_CHECKING:  # pragma: no cover
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
         upload_large_folder,  # noqa: F401
+        verify_repo_checksums,  # noqa: F401
         whoami,  # noqa: F401
     )
     from .hf_file_system import (

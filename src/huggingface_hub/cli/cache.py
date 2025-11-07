@@ -37,7 +37,7 @@ from ..utils import (
     tabulate,
 )
 from ..utils._parsing import parse_duration, parse_size
-from ._cli_utils import typer_factory
+from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 
 
 cache_cli = typer_factory(help="Manage local cache directory.")
@@ -62,6 +62,25 @@ class _DeletionResolution:
 _FILTER_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)\s*(?P<op>==|!=|>=|<=|>|<|=)\s*(?P<value>.+)$")
 _ALLOWED_OPERATORS = {"=", "!=", ">", "<", ">=", "<="}
 _FILTER_KEYS = {"accessed", "modified", "refs", "size", "type"}
+_SORT_KEYS = {"accessed", "modified", "name", "size"}
+_SORT_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)(?::(?P<order>asc|desc))?$")
+_SORT_DEFAULT_ORDER = {
+    # Default ordering: accessed/modified/size are descending (newest/biggest first), name is ascending
+    "accessed": "desc",
+    "modified": "desc",
+    "size": "desc",
+    "name": "asc",
+}
+
+
+# Dynamically generate SortOptions enum from _SORT_KEYS
+_sort_options_dict = {}
+for key in sorted(_SORT_KEYS):
+    _sort_options_dict[key] = key
+    _sort_options_dict[f"{key}_asc"] = f"{key}:asc"
+    _sort_options_dict[f"{key}_desc"] = f"{key}:desc"
+
+SortOptions = Enum("SortOptions", _sort_options_dict, type=str, module=__name__)  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -378,6 +397,60 @@ def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
     return comparisons[op]
 
 
+def compile_cache_sort(sort_expr: str) -> tuple[Callable[[CacheEntry], tuple[Any, ...]], bool]:
+    """Convert a `hf cache ls` sort expression into a key function for sorting entries.
+
+    Returns:
+        A tuple of (key_function, reverse_flag) where reverse_flag indicates whether
+        to sort in descending order (True) or ascending order (False).
+    """
+    match = _SORT_PATTERN.match(sort_expr.strip().lower())
+    if not match:
+        raise ValueError(f"Invalid sort expression: '{sort_expr}'. Expected format: 'key' or 'key:asc' or 'key:desc'.")
+
+    key = match.group("key").lower()
+    explicit_order = match.group("order")
+
+    if key not in _SORT_KEYS:
+        raise ValueError(f"Unsupported sort key '{key}' in '{sort_expr}'. Must be one of {list(_SORT_KEYS)}.")
+
+    # Use explicit order if provided, otherwise use default for the key
+    order = explicit_order if explicit_order else _SORT_DEFAULT_ORDER[key]
+    reverse = order == "desc"
+
+    def _sort_key(entry: CacheEntry) -> tuple[Any, ...]:
+        repo, revision = entry
+
+        if key == "name":
+            # Sort by cache_id (repo type/id)
+            value: Any = repo.cache_id.lower()
+            return (value,)
+
+        if key == "size":
+            # Use revision size if available, otherwise repo size
+            value = revision.size_on_disk if revision is not None else repo.size_on_disk
+            return (value,)
+
+        if key == "accessed":
+            # For revisions, accessed is not available per-revision, use repo's last_accessed
+            # For repos, use repo's last_accessed
+            value = repo.last_accessed if repo.last_accessed is not None else 0.0
+            return (value,)
+
+        if key == "modified":
+            # Use revision's last_modified if available, otherwise repo's last_modified
+            if revision is not None:
+                value = revision.last_modified if revision.last_modified is not None else 0.0
+            else:
+                value = repo.last_modified if repo.last_modified is not None else 0.0
+            return (value,)
+
+        # Should never reach here due to validation above
+        raise ValueError(f"Unsupported sort key: {key}")
+
+    return _sort_key, reverse
+
+
 def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) -> _DeletionResolution:
     """Resolve the deletion targets into a deletion resolution."""
     repo_lookup, revision_lookup = build_cache_index(hf_cache_info)
@@ -458,13 +531,28 @@ def ls(
             help="Print only IDs (repo IDs or revision hashes).",
         ),
     ] = False,
+    sort: Annotated[
+        Optional[SortOptions],
+        typer.Option(
+            help="Sort entries by key. Supported keys: 'accessed', 'modified', 'name', 'size'. "
+            "Append ':asc' or ':desc' to explicitly set the order (e.g., 'modified:asc'). "
+            "Defaults: 'accessed', 'modified', 'size' default to 'desc' (newest/biggest first); "
+            "'name' defaults to 'asc' (alphabetical).",
+        ),
+    ] = None,
+    limit: Annotated[
+        Optional[int],
+        typer.Option(
+            help="Limit the number of results returned. Returns only the top N entries after sorting.",
+        ),
+    ] = None,
 ) -> None:
     """List cached repositories or revisions."""
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
         print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
 
     filters = filter or []
 
@@ -477,6 +565,20 @@ def ls(
     now = time.time()
     for fn in filter_fns:
         entries = [entry for entry in entries if fn(entry[0], entry[1], now)]
+
+    # Apply sorting if requested
+    if sort:
+        try:
+            sort_key_fn, reverse = compile_cache_sort(sort.value)
+            entries.sort(key=sort_key_fn, reverse=reverse)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+
+    # Apply limit if requested
+    if limit is not None:
+        if limit < 0:
+            raise typer.BadParameter(f"Limit must be a positive integer, got {limit}.")
+        entries = entries[:limit]
 
     if quiet:
         for repo, revision in entries:
@@ -634,3 +736,106 @@ def prune(
 
     strategy.execute()
     print(f"Deleted {counts.total_revision_count} unreferenced revision(s); freed {strategy.expected_freed_size_str}.")
+
+
+@cache_cli.command()
+def verify(
+    repo_id: RepoIdArg,
+    repo_type: RepoTypeOpt = RepoTypeOpt.model,
+    revision: RevisionOpt = None,
+    cache_dir: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Cache directory to use when verifying files from cache (defaults to Hugging Face cache).",
+        ),
+    ] = None,
+    local_dir: Annotated[
+        Optional[str],
+        typer.Option(
+            help="If set, verify files under this directory instead of the cache.",
+        ),
+    ] = None,
+    fail_on_missing_files: Annotated[
+        bool,
+        typer.Option(
+            "--fail-on-missing-files",
+            help="Fail if some files exist on the remote but are missing locally.",
+        ),
+    ] = False,
+    fail_on_extra_files: Annotated[
+        bool,
+        typer.Option(
+            "--fail-on-extra-files",
+            help="Fail if some files exist locally but are not present on the remote revision.",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """Verify checksums for a single repo revision from cache or a local directory.
+
+    Examples:
+      - Verify main revision in cache: `hf cache verify gpt2`
+      - Verify specific revision: `hf cache verify gpt2 --revision refs/pr/1`
+      - Verify dataset: `hf cache verify karpathy/fineweb-edu-100b-shuffle --repo-type dataset`
+      - Verify local dir: `hf cache verify deepseek-ai/DeepSeek-OCR --local-dir /path/to/repo`
+    """
+
+    if local_dir is not None and cache_dir is not None:
+        print("Cannot pass both --local-dir and --cache-dir. Use one or the other.")
+        raise typer.Exit(code=2)
+
+    api = get_hf_api(token=token)
+
+    result = api.verify_repo_checksums(
+        repo_id=repo_id,
+        repo_type=repo_type.value if hasattr(repo_type, "value") else str(repo_type),
+        revision=revision,
+        local_dir=local_dir,
+        cache_dir=cache_dir,
+        token=token,
+    )
+
+    exit_code = 0
+
+    has_mismatches = bool(result.mismatches)
+    if has_mismatches:
+        print("❌ Checksum verification failed for the following file(s):")
+        for m in result.mismatches:
+            print(f"  - {m['path']}: expected {m['expected']} ({m['algorithm']}), got {m['actual']}")
+        exit_code = 1
+
+    if result.missing_paths:
+        if fail_on_missing_files:
+            print("Missing files (present remotely, absent locally):")
+            for p in result.missing_paths:
+                print(f"  - {p}")
+            exit_code = 1
+        else:
+            warning = (
+                f"{len(result.missing_paths)} remote file(s) are missing locally. "
+                "Use --fail-on-missing-files for details."
+            )
+            print(f"⚠️  {warning}")
+
+    if result.extra_paths:
+        if fail_on_extra_files:
+            print("Extra files (present locally, absent remotely):")
+            for p in result.extra_paths:
+                print(f"  - {p}")
+            exit_code = 1
+        else:
+            warning = (
+                f"{len(result.extra_paths)} local file(s) do not exist on the remote repo. "
+                "Use --fail-on-extra-files for details."
+            )
+            print(f"⚠️  {warning}")
+
+    verified_location = result.verified_path
+
+    if exit_code != 0:
+        print(f"❌ Verification failed for '{repo_id}' ({repo_type.value}) in {verified_location}.")
+        print(f"  Revision: {result.revision}")
+        raise typer.Exit(code=exit_code)
+
+    print(f"✅ Verified {result.checked_count} file(s) for '{repo_id}' ({repo_type.value}) in {verified_location}")
+    print("  All checksums match.")

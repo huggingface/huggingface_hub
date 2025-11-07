@@ -288,6 +288,7 @@ def _get_progress_bar_context(
     unit: str = "B",
     unit_scale: bool = True,
     name: Optional[str] = None,
+    tqdm_class: Optional[type[old_tqdm]] = None,
     _tqdm_bar: Optional[tqdm] = None,
 ) -> ContextManager[tqdm]:
     if _tqdm_bar is not None:
@@ -296,7 +297,7 @@ def _get_progress_bar_context(
         #   Makes it easier to use the same code path for both cases but in the later
         #   case, the progress bar is not closed when exiting the context manager.
 
-    return tqdm(
+    return (tqdm_class or tqdm)(  # type: ignore[return-value]
         unit=unit,
         unit_scale=unit_scale,
         total=total,

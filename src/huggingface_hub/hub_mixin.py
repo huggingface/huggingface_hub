@@ -117,7 +117,7 @@ class ModelHubMixin:
             Tags to be added to the model card. Used to generate model card. E.g. ["computer-vision"]
         coders (`dict[Type, tuple[Callable, Callable]]`, *optional*):
             Dictionary of custom types and their encoders/decoders. Used to encode/decode arguments that are not
-            jsonable by default. E.g dataclasses, argparse.Namespace, OmegaConf, etc.
+            jsonable by default. E.g. dataclasses, argparse.Namespace, OmegaConf, etc.
 
     Example:
 

@@ -156,7 +156,7 @@ class TestHfHubHTTPError(unittest.TestCase):
         assert str(error) == "this is a message (Request ID: test-id)\n\nthis is more details"
 
     def test_hf_hub_http_error_init_with_request_id_already_in_message(self) -> None:
-        """Test request id is not duplicated in error message (case insensitive)"""
+        """Test request id is not duplicated in error message (case-insensitive)"""
         self.response.headers = {X_REQUEST_ID: "test-id"}
         error = _format(HfHubHTTPError, "this is a message on request TEST-ID", response=self.response)
         assert str(error) == "this is a message on request TEST-ID"
@@ -196,7 +196,7 @@ class TestHfHubHTTPError(unittest.TestCase):
     ) -> None:
         """Test server error is not duplicated if already in details.
 
-        Case insensitive.
+        Case-insensitive.
         """
         self.response._content = b'{"error": "repo NOT found"}'
         error = _format(
@@ -256,14 +256,14 @@ class TestHfHubHTTPError(unittest.TestCase):
         assert error.server_message == "Error message duplicated in headers and body."
 
     def test_hf_hub_http_error_without_request_id_with_amzn_trace_id(self) -> None:
-        """Test request id is not duplicated in error message (case insensitive)"""
+        """Test request id is not duplicated in error message (case-insensitive)"""
         self.response.headers = {X_AMZN_TRACE_ID: "test-trace-id"}
         error = _format(HfHubHTTPError, "this is a message", response=self.response)
         assert str(error) == "this is a message (Amzn Trace ID: test-trace-id)"
         assert error.request_id == "test-trace-id"
 
     def test_hf_hub_http_error_with_request_id_and_amzn_trace_id(self) -> None:
-        """Test request id is not duplicated in error message (case insensitive)"""
+        """Test request id is not duplicated in error message (case-insensitive)"""
         self.response.headers = {X_AMZN_TRACE_ID: "test-trace-id", X_REQUEST_ID: "test-id"}
         error = _format(HfHubHTTPError, "this is a message", response=self.response)
         assert str(error) == "this is a message (Request ID: test-id)"

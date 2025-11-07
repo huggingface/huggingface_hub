@@ -22,6 +22,7 @@ from huggingface_hub.inference._providers.cohere import CohereConversationalTask
 from huggingface_hub.inference._providers.fal_ai import (
     _POLLING_INTERVAL,
     FalAIAutomaticSpeechRecognitionTask,
+    FalAIImageSegmentationTask,
     FalAIImageToImageTask,
     FalAIImageToVideoTask,
     FalAITextToImageTask,
@@ -628,6 +629,124 @@ class TestFalAIProvider:
         )
         mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
         assert response == b"video_content"
+
+    def test_image_segmentation_payload(self):
+        helper = FalAIImageSegmentationTask()
+        mapping_info = InferenceProviderMapping(
+            provider="fal-ai",
+            hf_model_id="briaai/RMBG-2.0",
+            providerId="fal-ai/rmbg-2.0",
+            task="image-segmentation",
+            status="live",
+        )
+        payload = helper._prepare_payload_as_dict("https://example.com/image.png", {"threshold": 0.5}, mapping_info)
+        assert payload == {"image_url": "https://example.com/image.png", "threshold": 0.5, "sync_mode": True}
+
+        payload = helper._prepare_payload_as_dict(b"dummy_image_data", {"mask_threshold": 0.8}, mapping_info)
+        assert payload == {
+            "image_url": f"data:image/png;base64,{base64.b64encode(b'dummy_image_data').decode()}",
+            "mask_threshold": 0.8,
+            "sync_mode": True,
+        }
+
+    def test_image_segmentation_response_with_data_url(self, mocker):
+        """Test image segmentation response when image URL is a data URL."""
+        helper = FalAIImageSegmentationTask()
+        mock_session = mocker.patch("huggingface_hub.inference._providers.fal_ai.get_session")
+        mock_sleep = mocker.patch("huggingface_hub.inference._providers.fal_ai.time.sleep")
+        dummy_mask_base64 = base64.b64encode(b"mask_content").decode()
+        data_url = f"data:image/png;base64,{dummy_mask_base64}"
+        mock_session.return_value.get.side_effect = [
+            # First call: status
+            mocker.Mock(json=lambda: {"status": "COMPLETED"}, headers={"Content-Type": "application/json"}),
+            # Second call: get result
+            mocker.Mock(json=lambda: {"image": {"url": data_url}}, headers={"Content-Type": "application/json"}),
+        ]
+        api_key = helper._prepare_api_key("hf_token")
+        headers = helper._prepare_headers({}, api_key)
+        url = helper._prepare_url(api_key, "username/repo_name")
+
+        request_params = RequestParameters(
+            url=url,
+            headers=headers,
+            task="image-segmentation",
+            model="username/repo_name",
+            data=None,
+            json=None,
+        )
+        response = helper.get_response(
+            b'{"request_id": "test_request_id", "status": "PROCESSING", "response_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id", "status_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id/status"}',
+            request_params,
+        )
+
+        # Verify the correct URLs were called (only status and result, no fetch needed for data URL)
+        assert mock_session.return_value.get.call_count == 2
+        mock_session.return_value.get.assert_has_calls(
+            [
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id/status?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+            ]
+        )
+        mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
+        assert response == [{"label": "mask", "mask": dummy_mask_base64}]
+
+    def test_image_segmentation_response_with_regular_url(self, mocker):
+        """Test image segmentation response when image URL is a regular HTTP URL."""
+        helper = FalAIImageSegmentationTask()
+        mock_session = mocker.patch("huggingface_hub.inference._providers.fal_ai.get_session")
+        mock_sleep = mocker.patch("huggingface_hub.inference._providers.fal_ai.time.sleep")
+        dummy_mask_base64 = base64.b64encode(b"mask_content").decode()
+        mock_session.return_value.get.side_effect = [
+            # First call: status
+            mocker.Mock(json=lambda: {"status": "COMPLETED"}, headers={"Content-Type": "application/json"}),
+            # Second call: get result
+            mocker.Mock(
+                json=lambda: {"image": {"url": "https://example.com/mask.png"}},
+                headers={"Content-Type": "application/json"},
+            ),
+            # Third call: get mask content
+            mocker.Mock(content=b"mask_content", raise_for_status=lambda: None),
+        ]
+        api_key = helper._prepare_api_key("hf_token")
+        headers = helper._prepare_headers({}, api_key)
+        url = helper._prepare_url(api_key, "username/repo_name")
+
+        request_params = RequestParameters(
+            url=url,
+            headers=headers,
+            task="image-segmentation",
+            model="username/repo_name",
+            data=None,
+            json=None,
+        )
+        response = helper.get_response(
+            b'{"request_id": "test_request_id", "status": "PROCESSING", "response_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id", "status_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id/status"}',
+            request_params,
+        )
+
+        # Verify the correct URLs were called (status, result, and mask fetch)
+        assert mock_session.return_value.get.call_count == 3
+        mock_session.return_value.get.assert_has_calls(
+            [
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id/status?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+                mocker.call("https://example.com/mask.png"),
+            ]
+        )
+        mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
+        assert response == [{"label": "mask", "mask": dummy_mask_base64}]
 
 
 class TestFeatherlessAIProvider:

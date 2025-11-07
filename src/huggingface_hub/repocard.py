@@ -146,7 +146,7 @@ class RepoCard:
             repo_id_or_path (`Union[str, Path]`):
                 The repo ID associated with a Hugging Face Hub repo or a local filepath.
             repo_type (`str`, *optional*):
-                The type of Hugging Face repo to push to. Defaults to None, which will use use "model". Other options
+                The type of Hugging Face repo to push to. Defaults to None, which will use "model". Other options
                 are "dataset" and "space". Not used when loading from a local filepath. If this is called from a child
                 class, the default value will be the child class's `repo_type`.
             token (`str`, *optional*):
@@ -258,7 +258,7 @@ class RepoCard:
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
                 If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
-                especially useful if the repo is updated / committed to concurrently.
+                especially useful if the repo is updated / committed too concurrently.
         Returns:
             `str`: URL of the commit which updated the card metadata.
         """
@@ -692,7 +692,7 @@ def metadata_update(
 ) -> str:
     """
     Updates the metadata in the README.md of a repository on the Hugging Face Hub.
-    If the README.md file doesn't exist yet, a new one is created with metadata and an
+    If the README.md file doesn't exist yet, a new one is created with metadata and
     the default ModelCard or DatasetCard template. For `space` repo, an error is thrown
     as a Space cannot exist without a `README.md` file.
 
@@ -725,7 +725,7 @@ def metadata_update(
             If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
             If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
             Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
-            especially useful if the repo is updated / committed to concurrently.
+            especially useful if the repo is updated / committed too concurrently.
     Returns:
         `str`: URL of the commit which updated the card metadata.
 

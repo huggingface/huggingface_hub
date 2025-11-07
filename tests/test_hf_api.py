@@ -837,7 +837,7 @@ class CommitApiTest(HfApiCommonTest):
     def test_create_commit_repo_id_case_insensitive(self):
         """Test create commit but repo_id is lowercased.
 
-        Regression test for #1371. Hub API is already case insensitive. Somehow the issue was with the `requests`
+        Regression test for #1371. Hub API is already case-insensitive. Somehow the issue was with the `requests`
         streaming implementation when generating the ndjson payload "on the fly". It seems that the server was
         receiving only the first line which causes a confusing "400 Bad Request - Add a line with the key `lfsFile`,
         `file` or `deletedFile`". Passing raw bytes instead of a generator fixes the problem.
@@ -3958,7 +3958,7 @@ class CollectionAPITest(HfApiCommonTest):
 
         self.assertEqual(collection_1.slug, collection_2.slug)
         self.assertIsNone(collection_1.description)
-        self.assertIsNone(collection_2.description)  # Did not got updated!
+        self.assertIsNone(collection_2.description)  # Did not get updated!
 
     def test_create_private_collection(self) -> None:
         collection = self._api.create_collection(self.title, private=True)
@@ -4095,18 +4095,18 @@ class AccessRequestAPITest(HfApiCommonTest):
 
     def test_access_requests_normal_usage(self) -> None:
         # No access requests initially
-        requests = self._api.list_accepted_access_requests(self.repo_id)
+        requests = list(self._api.list_accepted_access_requests(self.repo_id))
         assert len(requests) == 0
-        requests = self._api.list_pending_access_requests(self.repo_id)
+        requests = list(self._api.list_pending_access_requests(self.repo_id))
         assert len(requests) == 0
-        requests = self._api.list_rejected_access_requests(self.repo_id)
+        requests = list(self._api.list_rejected_access_requests(self.repo_id))
         assert len(requests) == 0
 
         # Grant access to a user
         self._api.grant_access(self.repo_id, OTHER_USER)
 
         # User is in accepted list
-        requests = self._api.list_accepted_access_requests(self.repo_id)
+        requests = list(self._api.list_accepted_access_requests(self.repo_id))
         assert len(requests) == 1
         request = requests[0]
         assert isinstance(request, AccessRequest)
@@ -4117,23 +4117,23 @@ class AccessRequestAPITest(HfApiCommonTest):
 
         # Cancel access
         self._api.cancel_access_request(self.repo_id, OTHER_USER)
-        requests = self._api.list_accepted_access_requests(self.repo_id)
+        requests = list(self._api.list_accepted_access_requests(self.repo_id))
         assert len(requests) == 0  # not accepted anymore
-        requests = self._api.list_pending_access_requests(self.repo_id)
+        requests = list(self._api.list_pending_access_requests(self.repo_id))
         assert len(requests) == 1
         assert requests[0].username == OTHER_USER
 
         # Reject access
         self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
-        requests = self._api.list_pending_access_requests(self.repo_id)
+        requests = list(self._api.list_pending_access_requests(self.repo_id))
         assert len(requests) == 0  # not pending anymore
-        requests = self._api.list_rejected_access_requests(self.repo_id)
+        requests = list(self._api.list_rejected_access_requests(self.repo_id))
         assert len(requests) == 1
         assert requests[0].username == OTHER_USER
 
         # Accept again
         self._api.accept_access_request(self.repo_id, OTHER_USER)
-        requests = self._api.list_accepted_access_requests(self.repo_id)
+        requests = list(self._api.list_accepted_access_requests(self.repo_id))
         assert len(requests) == 1
         assert requests[0].username == OTHER_USER
 
@@ -4602,3 +4602,27 @@ def test_create_inference_endpoint_custom_image_payload(
 
     assert "model" in payload and "image" in payload["model"]
     assert payload["model"]["image"] == expected_image_payload
+
+
+class HfApiVerifyChecksumsTest(HfApiCommonTest):
+    def test_verify_repo_checksums_with_local_cache(self) -> None:
+        repo_id = self._api.create_repo(repo_name()).repo_id
+        self._api.create_commit(
+            repo_id=repo_id,
+            commit_message="add file",
+            operations=[CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="file.txt")],
+        )
+
+        # minimal cache layout
+        info = self._api.repo_info(repo_id)
+        commit = info.sha
+        parts = [f"{constants.REPO_TYPE_MODEL}s", *repo_id.split("/")]
+        repo_folder_name = constants.REPO_ID_SEPARATOR.join(parts)
+
+        storage = Path(constants.HF_HUB_CACHE) / repo_folder_name
+        snapshot = storage / "snapshots" / commit
+        snapshot.mkdir(parents=True, exist_ok=True)
+        (snapshot / "file.txt").write_bytes(b"data")
+
+        res = self._api.verify_repo_checksums(repo_id=repo_id, revision=commit, cache_dir=storage.parent)
+        assert res.revision == commit and res.checked_count == 1 and not res.mismatches
