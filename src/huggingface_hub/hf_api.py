@@ -8511,7 +8511,7 @@ class HfApi:
     @validate_hf_hub_args
     def list_pending_access_requests(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
-    ) -> list[AccessRequest]:
+    ) -> Iterable[AccessRequest]:
         """
         Get pending access requests for a given gated repo.
 
@@ -8534,7 +8534,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `list[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each time contains a `username`, `email`,
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
 
@@ -8550,7 +8550,7 @@ class HfApi:
         >>> from huggingface_hub import list_pending_access_requests, accept_access_request
 
         # List pending requests
-        >>> requests = list_pending_access_requests("meta-llama/Llama-2-7b")
+        >>> requests = list(list_pending_access_requests("meta-llama/Llama-2-7b"))
         >>> len(requests)
         411
         >>> requests[0]
@@ -8570,12 +8570,12 @@ class HfApi:
         >>> accept_access_request("meta-llama/Llama-2-7b", "clem")
         ```
         """
-        return self._list_access_requests(repo_id, "pending", repo_type=repo_type, token=token)
+        yield from self._list_access_requests(repo_id, "pending", repo_type=repo_type, token=token)
 
     @validate_hf_hub_args
     def list_accepted_access_requests(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
-    ) -> list[AccessRequest]:
+    ) -> Iterable[AccessRequest]:
         """
         Get accepted access requests for a given gated repo.
 
@@ -8600,7 +8600,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `list[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each time contains a `username`, `email`,
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
 
@@ -8615,7 +8615,7 @@ class HfApi:
         ```py
         >>> from huggingface_hub import list_accepted_access_requests
 
-        >>> requests = list_accepted_access_requests("meta-llama/Llama-2-7b")
+        >>> requests = list(list_accepted_access_requests("meta-llama/Llama-2-7b"))
         >>> len(requests)
         411
         >>> requests[0]
@@ -8632,12 +8632,12 @@ class HfApi:
         ]
         ```
         """
-        return self._list_access_requests(repo_id, "accepted", repo_type=repo_type, token=token)
+        yield from self._list_access_requests(repo_id, "accepted", repo_type=repo_type, token=token)
 
     @validate_hf_hub_args
     def list_rejected_access_requests(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
-    ) -> list[AccessRequest]:
+    ) -> Iterable[AccessRequest]:
         """
         Get rejected access requests for a given gated repo.
 
@@ -8662,7 +8662,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `list[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each time contains a `username`, `email`,
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
 
@@ -8677,7 +8677,7 @@ class HfApi:
         ```py
         >>> from huggingface_hub import list_rejected_access_requests
 
-        >>> requests = list_rejected_access_requests("meta-llama/Llama-2-7b")
+        >>> requests = list(list_rejected_access_requests("meta-llama/Llama-2-7b"))
         >>> len(requests)
         411
         >>> requests[0]
@@ -8694,7 +8694,7 @@ class HfApi:
         ]
         ```
         """
-        return self._list_access_requests(repo_id, "rejected", repo_type=repo_type, token=token)
+        yield from self._list_access_requests(repo_id, "rejected", repo_type=repo_type, token=token)
 
     def _list_access_requests(
         self,
@@ -8702,19 +8702,18 @@ class HfApi:
         status: Literal["accepted", "rejected", "pending"],
         repo_type: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> list[AccessRequest]:
+    ) -> Iterable[AccessRequest]:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
 
-        response = get_session().get(
+        for request in paginate(
             f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
+            params={},
             headers=self._build_hf_headers(token=token),
-        )
-        hf_raise_for_status(response)
-        return [
-            AccessRequest(
+        ):
+            yield AccessRequest(
                 username=request["user"]["user"],
                 fullname=request["user"]["fullname"],
                 email=request["user"].get("email"),
@@ -8722,8 +8721,6 @@ class HfApi:
                 timestamp=parse_datetime(request["timestamp"]),
                 fields=request.get("fields"),  # only if custom fields in form
             )
-            for request in response.json()
-        ]
 
     @validate_hf_hub_args
     def cancel_access_request(
