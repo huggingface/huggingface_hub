@@ -12,16 +12,9 @@ The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This
 
 ## Getting started
 
-First of all, let's install the CLI:
+### Standalone installer (Recommended)
 
-```
->>> pip install -U "huggingface_hub"
-```
-
-> [!TIP]
-> The CLI ships with the core `huggingface_hub` package.
-
-Alternatively, you can install the `hf` CLI with a single command:
+You can install the `hf` CLI with a single command:
 
 On macOS and Linux:
 
@@ -35,23 +28,9 @@ On Windows:
 >>> powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
 ```
 
-Alternatively, you can install the `hf` CLI with a single command:
-
-On macOS and Linux:
+Once installed, you can check that the CLI is correctly set up:
 
 ```bash
->>> curl -LsSf https://hf.co/cli/install.sh | sh
-```
-
-On Windows:
-
-```powershell
->>> powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
-```
-
-Once installed, you can check that the CLI is correctly setup:
-
-```
 >>> hf --help
 Usage: hf [OPTIONS] COMMAND [ARGS]...
 
@@ -67,6 +46,7 @@ Commands:
   auth                 Manage authentication (login, logout, etc.).
   cache                Manage local cache directory.
   download             Download files from the Hub.
+  endpoints            Manage Hugging Face Inference Endpoints.
   env                  Print information about the environment.
   jobs                 Run and manage Jobs on the Hub.
   repo                 Manage repos on the Hub.
@@ -81,32 +61,32 @@ If the CLI is correctly installed, you should see a list of all the options avai
 > [!TIP]
 > The `--help` option is very convenient for getting more details about a command. You can use it anytime to list all available options and their details. For example, `hf upload --help` provides more information on how to upload files using the CLI.
 
-### Other installation methods
+### Using uv
 
-#### Using uv
+The easiest way to use the `hf` CLI is with [`uvx`](https://docs.astral.sh/uv/concepts/tools/). It always runs the latest version in an isolated environment - no installation needed!
 
-You can install and run the `hf` CLI with [uv](https://docs.astral.sh/uv/). 
+Make sure `uv` is installed first. See the [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/) for instructions.
 
-Make sure uv is installed (adds `uv` and `uvx` to your PATH):
-
-```bash
->>> curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Then install the CLI globally and use it anywhere:
+Then use the CLI directly:
 
 ```bash
->>> uv tool install "huggingface_hub"
->>> hf auth whoami
+>>> uvx hf auth login
+>>> uvx hf download
+>>> uvx hf ...
 ```
 
-Alternatively, run the CLI ephemerally with `uvx` (no global install):
+> [!TIP]
+> `uvx hf` uses the [`hf` PyPI package](https://pypi.org/project/hf/).
+
+### Install with pip
+
+The CLI is also shipped with the core `huggingface_hub` package:
 
 ```bash
->>> uvx --from huggingface_hub hf auth whoami
+>>> pip install -U "huggingface_hub"
 ```
 
-#### Using Homebrew
+### Using Homebrew
 
 You can also install the CLI using [Homebrew](https://brew.sh/):
 
