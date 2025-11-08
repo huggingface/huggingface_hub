@@ -1935,7 +1935,7 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
-        return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
+        return TextClassificationOutputElement.parse_obj_as_list(response)  # type: ignore [return-value]
 
     @overload
     def text_generation(
