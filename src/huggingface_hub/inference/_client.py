@@ -1710,7 +1710,7 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
-        return SummarizationOutput.parse_obj_as_list(response)[0]
+        return SummarizationOutput.parse_obj_as_list(response)
 
     def table_question_answering(
         self,
@@ -3033,7 +3033,7 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
-        return TranslationOutput.parse_obj_as_list(response)[0]
+        return TranslationOutput.parse_obj_as_list(response)
 
     def visual_question_answering(
         self,

@@ -1748,7 +1748,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        return SummarizationOutput.parse_obj_as_list(response)[0]
+        return SummarizationOutput.parse_obj_as_list(response)
 
     async def table_question_answering(
         self,
@@ -1977,7 +1977,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
+        return TextClassificationOutputElement.parse_obj_as_list(response)  # type: ignore [return-value]
 
     @overload
     async def text_generation(
