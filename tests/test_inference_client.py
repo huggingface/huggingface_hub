@@ -118,10 +118,8 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "conversational": "meta-llama/Llama-3.1-8B-Instruct",
     },
     "ovhcloud": {
-        "automatic-speech-recognition": "openai/whisper-large-v3",
         "conversational": "meta-llama/Llama-3.1-8B-Instruct",
-        "feature-extraction": "BAAI/bge-m3",
-        "text-to-image": "stabilityai/stable-diffusion-xl-base-1.0",
+        "text-generation": "meta-llama/Llama-3.1-8B-Instruct",
     },
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",

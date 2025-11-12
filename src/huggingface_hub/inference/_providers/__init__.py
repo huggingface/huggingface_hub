@@ -38,7 +38,7 @@ from .nebius import (
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .nscale import NscaleConversationalTask, NscaleTextToImageTask
 from .openai import OpenAIConversationalTask
-from .ovhcloud import OVHcloudAIEndpointsAutomaticSpeechRecognitionTask, OVHcloudAIEndpointsConversationalTask, OVHcloudAIEndpointsFeatureExtractionTask, OVHcloudAIEndpointsTextToImageTask
+from .ovhcloud import OVHcloudAIEndpointsConversationalTask, OVHcloudAIEndpointsTextGenerationTask
 from .publicai import PublicAIConversationalTask
 from .replicate import (
     ReplicateAutomaticSpeechRecognitionTask,
@@ -176,9 +176,7 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     },
     "ovhcloud": {
         "conversational": OVHcloudAIEndpointsConversationalTask(),
-        "text-to-image": OVHcloudAIEndpointsTextToImageTask(),
-        "feature-extraction": OVHcloudAIEndpointsFeatureExtractionTask(),
-        "automatic-speech-recognition": OVHcloudAIEndpointsAutomaticSpeechRecognitionTask(),
+        "text-generation": OVHcloudAIEndpointsTextGenerationTask(),
     },
     "publicai": {
         "conversational": PublicAIConversationalTask(),

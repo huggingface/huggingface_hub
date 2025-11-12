@@ -46,7 +46,10 @@ from huggingface_hub.inference._providers.nebius import NebiusFeatureExtractionT
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
-from huggingface_hub.inference._providers.ovhcloud import OVHcloudAIEndpointsAutomaticSpeechRecognitionTask, OVHcloudAIEndpointsConversationalTask, OVHcloudAIEndpointsFeatureExtractionTask, OVHcloudAIEndpointsTextToImageTask
+from huggingface_hub.inference._providers.ovhcloud import (
+    OVHcloudAIEndpointsConversationalTask,
+    OVHcloudAIEndpointsTextGenerationTask,
+)
 from huggingface_hub.inference._providers.publicai import PublicAIConversationalTask
 from huggingface_hub.inference._providers.replicate import (
     ReplicateAutomaticSpeechRecognitionTask,
@@ -1470,94 +1473,62 @@ class TestOVHcloudAIEndpointsProvider:
             "top_p": 1,
         }
 
-    def test_prepare_url_feature_extraction(self):
-        helper = OVHcloudAIEndpointsFeatureExtractionTask()
-        assert (
-            helper._prepare_url("hf_token", "username/repo_name")
-            == "https://router.huggingface.co/ovhcloud/v1/embeddings"
-        )
+    def test_prepare_route_conversational(self):
+        helper = OVHcloudAIEndpointsConversationalTask()
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/chat/completions"
 
-    def test_prepare_payload_as_dict_feature_extraction(self):
-        helper = OVHcloudAIEndpointsFeatureExtractionTask()
+    def test_prepare_url_text_generation(self):
+        helper = OVHcloudAIEndpointsTextGenerationTask()
+        url = helper._prepare_url("hf_token", "username/repo_name")
+        assert url == "https://router.huggingface.co/ovhcloud/v1/chat/completions"
+
+        url = helper._prepare_url("ovhcloud_token", "username/repo_name")
+        assert url == "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions"
+
+    def test_prepare_route_text_generation(self):
+        helper = OVHcloudAIEndpointsTextGenerationTask()
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/chat/completions"
+
+    def test_prepare_payload_as_dict_text_generation(self):
+        helper = OVHcloudAIEndpointsTextGenerationTask()
         payload = helper._prepare_payload_as_dict(
-            "Example text to embed",
-            {"truncate": True},
+            "Once upon a time",
+            {"temperature": 0.7, "max_tokens": 100},
             InferenceProviderMapping(
                 provider="ovhcloud",
-                hf_model_id="BAAI/bge-m3",
-                providerId="BGE-M3",
-                task="feature-extraction",
-                status="live",
-            ),
-        )
-        assert payload == {"input": "Example text to embed", "model": "BGE-M3", "truncate": True}
-
-    def test_prepare_url_text_to_image(self):
-        helper = OVHcloudAIEndpointsTextToImageTask()
-        assert (
-            helper._prepare_url("hf_token", "username/repo_name")
-            == "https://router.huggingface.co/ovhcloud/v1/images/generations"
-        )
-        
-        url = helper._prepare_url("ovhcloud_token", "username/repo_name")
-        assert url == "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/images/generations"
-
-    def test_prepare_payload_as_dict_text_to_image(self):
-        helper = OVHcloudAIEndpointsTextToImageTask()
-        payload = helper._prepare_payload_as_dict(
-            inputs="a beautiful cat",
-            provider_mapping_info=InferenceProviderMapping(
-                provider="ovhcloud",
-                hf_model_id="stabilityai/stable-diffusion-xl-base-1.0",
-                providerId="stable-diffusion-xl-base-v10",
-                task="text-to-image",
-                status="live",
-            ),
-            parameters={}
-        )
-        assert payload == {
-            "prompt": "a beautiful cat",
-            "model": "stable-diffusion-xl-base-v10",
-        }
-
-    def test_text_to_image_get_response(self):
-        helper = OVHcloudAIEndpointsTextToImageTask()
-        response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
-        assert response == b"image_bytes"
-
-    def test_prepare_url_automatic_speech_recognition(self):
-        helper = OVHcloudAIEndpointsAutomaticSpeechRecognitionTask()
-        assert (
-            helper._prepare_url("hf_token", "username/repo_name")
-            == "https://router.huggingface.co/ovhcloud/v1/audio/transcriptions"
-        )
-        
-        url = helper._prepare_url("ovhcloud_token", "username/repo_name")
-        assert url == "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/audio/transcriptions"
-
-    def test_prepare_payload_as_dict_automatic_speech_recognition(self):
-        helper = OVHcloudAIEndpointsAutomaticSpeechRecognitionTask()
-        
-        payload = helper._prepare_payload_as_dict(
-            f"data:audio/mpeg;base64,{base64.b64encode(b'dummy_audio_data').decode()}",
-            {},
-            InferenceProviderMapping(
-                provider="ovhcloud",
-                hf_model_id="openai/whisper-large-v3",
-                providerId="whisper-large-v3",
-                task="automatic-speech-recognition",
+                hf_model_id="meta-llama/Llama-3.1-8B-Instruct",
+                providerId="Llama-3.1-8B-Instruct",
+                task="text-generation",
                 status="live",
             ),
         )
         assert payload == {
-            "file": f"data:audio/mpeg;base64,{base64.b64encode(b'dummy_audio_data').decode()}",
-            "model": "whisper-large-v3",
+            "prompt": "Once upon a time",
+            "temperature": 0.7,
+            "max_tokens": 100,
+            "model": "Llama-3.1-8B-Instruct",
         }
 
-    def test_automatic_speech_recognition_get_response(self):
-        helper = OVHcloudAIEndpointsAutomaticSpeechRecognitionTask()
-        response = helper.get_response({"text": "Hello world"})
-        assert response == "Hello world"
+    def test_text_generation_get_response(self):
+        helper = OVHcloudAIEndpointsTextGenerationTask()
+        response = helper.get_response(
+            {
+                "choices": [
+                    {
+                        "text": " there was a beautiful princess",
+                        "finish_reason": "stop",
+                        "seed": 42,
+                    }
+                ]
+            }
+        )
+        assert response == {
+            "generated_text": " there was a beautiful princess",
+            "details": {
+                "finish_reason": "stop",
+                "seed": 42,
+            },
+        }
 
 
 class TestReplicateProvider:
