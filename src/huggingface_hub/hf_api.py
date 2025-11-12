@@ -5089,7 +5089,7 @@ class HfApi:
             ignore_patterns (`list[str]` or `str`, *optional*):
                 If provided, files matching any of the patterns are not uploaded.
             num_workers (`int`, *optional*):
-                Number of workers to start. Defaults to `os.cpu_count() - 2` (minimum 2).
+                Number of workers to start. Defaults to half of CPU cores (minimum 1).
                 A higher number of workers may speed up the process if your machine allows it. However, on machines with a
                 slower connection, it is recommended to keep the number of workers low to ensure better resumability.
                 Indeed, partially uploaded files will have to be completely re-uploaded if the process is interrupted.
