@@ -133,7 +133,7 @@ def requires(package_name: str):
 
     def _inner(test_case):
         if not is_package_available(package_name):
-            return pytest.mark.skip(reason=f"Test requires '{package_name}'")(test_case)
+            return pytest.mark.skip(f"Test requires '{package_name}'")(test_case)
         else:
             return test_case
 
