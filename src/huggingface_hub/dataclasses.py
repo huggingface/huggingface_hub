@@ -316,7 +316,7 @@ def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type:
                 base, *meta = get_args(value)
                 if not _is_required_or_notrequired(base):
                     base = NotRequired[base]
-                type_hints[key] = Annotated[tuple([base] + list(meta))]
+                type_hints[key] = Annotated.__class_getitem__((base, *meta))
             elif not _is_required_or_notrequired(value):
                 type_hints[key] = NotRequired[value]
 
