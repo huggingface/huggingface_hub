@@ -46,8 +46,8 @@ Some dependencies of `huggingface_hub` are [optional](https://setuptools.pypa.io
 
 You can install optional dependencies via `pip`:
 ```bash
-# Install dependencies for both torch-specific and CLI-specific features.
-pip install 'huggingface_hub[cli,torch]'
+# Install dependencies for both torch-specific and MCP-specific features.
+pip install 'huggingface_hub[mcp,torch]'
 ```
 
 Here is the list of optional dependencies in `huggingface_hub`:
