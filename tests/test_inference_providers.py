@@ -47,8 +47,8 @@ from huggingface_hub.inference._providers.novita import NovitaConversationalTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
 from huggingface_hub.inference._providers.ovhcloud import (
-    OVHcloudAIEndpointsConversationalTask,
-    OVHcloudAIEndpointsTextGenerationTask,
+    OVHcloudConversationalTask,
+    OVHcloudTextGenerationTask,
 )
 from huggingface_hub.inference._providers.publicai import PublicAIConversationalTask
 from huggingface_hub.inference._providers.replicate import (
@@ -1429,17 +1429,17 @@ class TestOpenAIProvider:
 
 class TestOVHcloudAIEndpointsProvider:
     def test_prepare_hf_url_conversational(self):
-        helper = OVHcloudAIEndpointsConversationalTask()
+        helper = OVHcloudConversationalTask()
         url = helper._prepare_url("hf_token", "username/repo_name")
         assert url == "https://router.huggingface.co/ovhcloud/v1/chat/completions"
 
     def test_prepare_url_conversational(self):
-        helper = OVHcloudAIEndpointsConversationalTask()
+        helper = OVHcloudConversationalTask()
         url = helper._prepare_url("ovhcloud_token", "username/repo_name")
         assert url == "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions"
 
     def test_prepare_payload_as_dict(self):
-        helper = OVHcloudAIEndpointsConversationalTask()
+        helper = OVHcloudConversationalTask()
         payload = helper._prepare_payload_as_dict(
             [
                 {"role": "system", "content": "You are a helpful assistant"},
@@ -1474,23 +1474,23 @@ class TestOVHcloudAIEndpointsProvider:
         }
 
     def test_prepare_route_conversational(self):
-        helper = OVHcloudAIEndpointsConversationalTask()
+        helper = OVHcloudConversationalTask()
         assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/chat/completions"
 
     def test_prepare_url_text_generation(self):
-        helper = OVHcloudAIEndpointsTextGenerationTask()
+        helper = OVHcloudTextGenerationTask()
         url = helper._prepare_url("hf_token", "username/repo_name")
-        assert url == "https://router.huggingface.co/ovhcloud/v1/chat/completions"
+        assert url == "https://router.huggingface.co/ovhcloud/v1/completions"
 
         url = helper._prepare_url("ovhcloud_token", "username/repo_name")
-        assert url == "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions"
+        assert url == "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/completions"
 
     def test_prepare_route_text_generation(self):
-        helper = OVHcloudAIEndpointsTextGenerationTask()
-        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/chat/completions"
+        helper = OVHcloudTextGenerationTask()
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/completions"
 
     def test_prepare_payload_as_dict_text_generation(self):
-        helper = OVHcloudAIEndpointsTextGenerationTask()
+        helper = OVHcloudTextGenerationTask()
         payload = helper._prepare_payload_as_dict(
             "Once upon a time",
             {"temperature": 0.7, "max_tokens": 100},
@@ -1510,7 +1510,7 @@ class TestOVHcloudAIEndpointsProvider:
         }
 
     def test_text_generation_get_response(self):
-        helper = OVHcloudAIEndpointsTextGenerationTask()
+        helper = OVHcloudTextGenerationTask()
         response = helper.get_response(
             {
                 "choices": [
