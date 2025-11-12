@@ -112,7 +112,7 @@ class FalAIAutomaticSpeechRecognitionTask(FalAITask):
         text = _as_dict(response)["text"]
         if not isinstance(text, str):
             raise ValueError(f"Unexpected output format from FalAI API. Expected string, got {type(text)}.")
-        return text
+        return {"text": text}
 
 
 class FalAITextToImageTask(FalAITask):
