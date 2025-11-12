@@ -397,7 +397,7 @@ class TestFalAIProvider:
     def test_automatic_speech_recognition_response(self):
         helper = FalAIAutomaticSpeechRecognitionTask()
         response = helper.get_response({"text": "Hello world"})
-        assert response == "Hello world"
+        assert response == {"text": "Hello world"}
 
         with pytest.raises(ValueError):
             helper.get_response({"text": 123})
