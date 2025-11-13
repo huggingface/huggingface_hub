@@ -119,7 +119,6 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     },
     "ovhcloud": {
         "conversational": "meta-llama/Llama-3.1-8B-Instruct",
-        "text-generation": "meta-llama/Llama-3.1-8B-Instruct",
     },
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",
