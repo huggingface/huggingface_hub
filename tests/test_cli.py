@@ -1330,6 +1330,11 @@ class TestInferenceEndpointsCommands:
             namespace=None,
             token=None,
             task=None,
+            min_replica=1,
+            max_replica=1,
+            scaling_metric=None,
+            scaling_threshold=None,
+            scale_to_zero_timeout=None,
         )
         assert '"name": "hub"' in result.stdout
 
@@ -1404,6 +1409,8 @@ class TestInferenceEndpointsCommands:
             max_replica=None,
             scale_to_zero_timeout=None,
             token=None,
+            scaling_metric=None,
+            scaling_threshold=None,
         )
         assert '"name": "updated"' in result.stdout
 
