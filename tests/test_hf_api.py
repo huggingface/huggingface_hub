@@ -3359,6 +3359,8 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             etag_timeout=10,
             local_files_only=False,
             headers=None,
+            tqdm_class=None,
+            dry_run=False,
         )
 
     @patch("huggingface_hub._snapshot_download.snapshot_download")
@@ -3385,6 +3387,8 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             ignore_patterns=None,
             max_workers=8,
             tqdm_class=None,
+            headers=None,
+            dry_run=False,
         )
 
 

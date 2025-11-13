@@ -472,6 +472,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
+        response = provider_helper.get_response(response, request_params=request_parameters)
         return AutomaticSpeechRecognitionOutput.parse_obj_as_instance(response)
 
     @overload

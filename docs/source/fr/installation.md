@@ -48,12 +48,12 @@ Toutefois, certaines fonctionnalités de `huggingface_hub` ne seront pas disponi
 
 Vous pouvez installer des dépendances optionnelles via `pip`:
 ```bash
-#Installation des dépendances spécifiques à Pytorch et au CLI.
-pip install 'huggingface_hub[cli,torch]'
+# Installation des dépendances spécifiques à Pytorch et à MCP.
+pip install 'huggingface_hub[mcp,torch]'
 ```
 
 Voici une liste des dépendances optionnelles dans `huggingface_hub`:
-- `cli` fournit une interface d'invite de commande plus pratique pour `huggingface_hub`.
+- `mcp`: fonctionnalités spécifiques à MCP pour `huggingface_hub`.
 - `fastai`, `torch` sont des dépendances pour utiliser des fonctionnalités spécifiques à un framework.
 - `dev` permet de contribuer à la librairie. Cette dépendance inclut `testing` (pour lancer des tests), `typing` (pour lancer le vérifieur de type) et `quality` (pour lancer des linters).
 

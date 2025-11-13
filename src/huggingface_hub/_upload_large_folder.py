@@ -191,7 +191,7 @@ def upload_large_folder_internal(
 
     if num_workers is None:
         nb_cores = os.cpu_count() or 1
-        num_workers = max(nb_cores - 2, 2)  # Use all but 2 cores, or at least 2 cores
+        num_workers = max(nb_cores // 2, 1)  # Use at most half of cpu cores
 
     # 2. Create repo if missing
     repo_url = api.create_repo(repo_id=repo_id, repo_type=repo_type, private=private, exist_ok=True)

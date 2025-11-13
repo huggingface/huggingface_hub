@@ -44,13 +44,13 @@ Einige Abhängigkeiten von `huggingface_hub` sind [optional](https://setuptools.
 
 Sie können optionale Abhängigkeiten über `pip` installieren:
 ```bash
-# Abhängigkeiten sowohl für torch-spezifische als auch für CLI-spezifische Funktionen installieren.
-pip install 'huggingface_hub[cli,torch]'
+# Abhängigkeiten sowohl für torch-spezifische als auch für MCP-spezifische Funktionen installieren.
+pip install 'huggingface_hub[mcp,torch]'
 ```
 
 Hier ist die Liste der optionalen Abhängigkeiten in huggingface_hub:
 
-- `cli`: bietet eine komfortablere CLI-Schnittstelle für huggingface_hub.
+- `mcp`: MCP-spezifische Funktionen für huggingface_hub.
 - `fastai`, `torch`: Abhängigkeiten, um framework-spezifische Funktionen auszuführen.
 - `dev`: Abhängigkeiten, um zur Bibliothek beizutragen. Enthält `testing` (um Tests auszuführen), `typing` (um den Type Checker auszuführen) und `quality` (um Linters auszuführen).
 

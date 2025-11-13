@@ -5089,7 +5089,7 @@ class HfApi:
             ignore_patterns (`list[str]` or `str`, *optional*):
                 If provided, files matching any of the patterns are not uploaded.
             num_workers (`int`, *optional*):
-                Number of workers to start. Defaults to `os.cpu_count() - 2` (minimum 2).
+                Number of workers to start. Defaults to half of CPU cores (minimum 1).
                 A higher number of workers may speed up the process if your machine allows it. However, on machines with a
                 slower connection, it is recommended to keep the number of workers low to ensure better resumability.
                 Indeed, partially uploaded files will have to be completely re-uploaded if the process is interrupted.
@@ -5216,6 +5216,7 @@ class HfApi:
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         token: Union[bool, str, None] = None,
         local_files_only: bool = False,
+        tqdm_class: Optional[type[base_tqdm]] = None,
         dry_run: Literal[False] = False,
     ) -> str: ...
 
@@ -5234,6 +5235,7 @@ class HfApi:
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         token: Union[bool, str, None] = None,
         local_files_only: bool = False,
+        tqdm_class: Optional[type[base_tqdm]] = None,
         dry_run: Literal[True],
     ) -> DryRunFileInfo: ...
 
@@ -5252,6 +5254,7 @@ class HfApi:
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         token: Union[bool, str, None] = None,
         local_files_only: bool = False,
+        tqdm_class: Optional[type[base_tqdm]] = None,
         dry_run: bool = False,
     ) -> Union[str, DryRunFileInfo]:
         """Download a given file if it's not already present in the local cache.
@@ -5320,6 +5323,11 @@ class HfApi:
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the
                 local cached file if it exists.
+            tqdm_class (`tqdm`, *optional*):
+                If provided, overwrites the default behavior for the progress bar. Passed
+                argument must inherit from `tqdm.auto.tqdm` or at least mimic its behavior.
+                Defaults to the custom HF progress bar that can be disabled by setting
+                `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
             dry_run (`bool`, *optional*, defaults to `False`):
                 If `True`, perform a dry run without actually downloading the file. Returns a
                 [`DryRunFileInfo`] object containing information about what would be downloaded.
@@ -5369,6 +5377,8 @@ class HfApi:
             token=token,
             headers=self.headers,
             local_files_only=local_files_only,
+            tqdm_class=tqdm_class,
+            dry_run=dry_run,
         )
 
     @validate_hf_hub_args
@@ -5388,7 +5398,8 @@ class HfApi:
         ignore_patterns: Optional[Union[list[str], str]] = None,
         max_workers: int = 8,
         tqdm_class: Optional[type[base_tqdm]] = None,
-    ) -> str:
+        dry_run: bool = False,
+    ) -> Union[str, list[DryRunFileInfo]]:
         """Download repo files.
 
         Download a whole snapshot of a repo's files at the specified revision. This is useful when you want all files from
@@ -5443,9 +5454,14 @@ class HfApi:
                 Note that the `tqdm_class` is not passed to each individual download.
                 Defaults to the custom HF progress bar that can be disabled by setting
                 `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
+            dry_run (`bool`, *optional*, defaults to `False`):
+                If `True`, perform a dry run without actually downloading the files. Returns a list of
+                [`DryRunFileInfo`] objects containing information about what would be downloaded.
 
         Returns:
-            `str`: folder path of the repo snapshot.
+            `str` or list of [`DryRunFileInfo`]:
+                - If `dry_run=False`: Folder path of the repo snapshot.
+                - If `dry_run=True`: A list of [`DryRunFileInfo`] objects containing download information.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]
@@ -5484,6 +5500,8 @@ class HfApi:
             ignore_patterns=ignore_patterns,
             max_workers=max_workers,
             tqdm_class=tqdm_class,
+            headers=self.headers,
+            dry_run=dry_run,
         )
 
     def get_safetensors_metadata(
