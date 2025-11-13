@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 
 import typer
 
-from huggingface_hub._inference_endpoints import InferenceEndpoint
+from huggingface_hub._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric
 from huggingface_hub.errors import HfHubHTTPError
 
 from ._cli_utils import TokenOpt, get_hf_api, typer_factory
@@ -131,9 +131,9 @@ def deploy(
         ),
     ] = None,
     scaling_metric: Annotated[
-        Optional[str],
+        Optional[InferenceEndpointScalingMetric],
         typer.Option(
-            help="The metric reference for scaling. Either 'pendingRequests' or 'hardwareUsage' when provided.",
+            help="The metric reference for scaling.",
         ),
     ] = None,
     scaling_threshold: Annotated[
@@ -298,9 +298,9 @@ def update(
         ),
     ] = None,
     scaling_metric: Annotated[
-        Optional[str],
+        Optional[InferenceEndpointScalingMetric],
         typer.Option(
-            help="The metric reference for scaling. Either 'pendingRequests' or 'hardwareUsage' when provided.",
+            help="The metric reference for scaling.",
         ),
     ] = None,
     scaling_threshold: Annotated[

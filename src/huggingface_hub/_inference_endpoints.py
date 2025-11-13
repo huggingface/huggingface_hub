@@ -34,6 +34,11 @@ class InferenceEndpointType(str, Enum):
     PRIVATE = "private"
 
 
+class InferenceEndpointScalingMetric(str, Enum):
+    PENDING_REQUESTS = "pendingRequests"
+    HARDWARE_USAGE = "hardwareUsage"
+
+
 @dataclass
 class InferenceEndpoint:
     """
