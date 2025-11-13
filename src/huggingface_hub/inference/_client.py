@@ -1029,7 +1029,7 @@ class InferenceClient:
         normalize: Optional[bool] = None,
         prompt_name: Optional[str] = None,
         truncate: Optional[bool] = None,
-        truncation_direction: Optional[Literal["Left", "Right"]] = None,
+        truncation_direction: Optional[Literal["left", "right"]] = None,
         model: Optional[str] = None,
     ) -> "np.ndarray":
         """
@@ -1054,7 +1054,7 @@ class InferenceClient:
             truncate (`bool`, *optional*):
                 Whether to truncate the embeddings or not.
                 Only available on server powered by Text-Embedding-Inference.
-            truncation_direction (`Literal["Left", "Right"]`, *optional*):
+            truncation_direction (`Literal["left", "right"]`, *optional*):
                 Which side of the input should be truncated when `truncate=True` is passed.
 
         Returns:
