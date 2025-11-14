@@ -59,7 +59,7 @@ from ._commit_api import (
     _upload_files,
     _warn_on_overwriting_operations,
 )
-from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
+from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from ._upload_large_folder import upload_large_folder_internal
@@ -7409,6 +7409,8 @@ class HfApi:
         account_id: Optional[str] = None,
         min_replica: int = 1,
         max_replica: int = 1,
+        scaling_metric: Optional[InferenceEndpointScalingMetric] = None,
+        scaling_threshold: Optional[float] = None,
         scale_to_zero_timeout: Optional[int] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
@@ -7449,6 +7451,12 @@ class HfApi:
                 scaling to zero, set this value to 0 and adjust `scale_to_zero_timeout` accordingly. Defaults to 1.
             max_replica (`int`, *optional*):
                 The maximum number of replicas (instances) to scale to for the Inference Endpoint. Defaults to 1.
+            scaling_metric (`str` or [`InferenceEndpointScalingMetric `], *optional*):
+                The metric reference for scaling. Either "pendingRequests" or "hardwareUsage" when provided. Defaults to
+                None (meaning: let the HF Endpoints service specify the metric).
+            scaling_threshold (`float`, *optional*):
+                The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.
+                Defaults to None (meaning: let the HF Endpoints service specify the threshold).
             scale_to_zero_timeout (`int`, *optional*):
                 The duration in minutes before an inactive endpoint is scaled to zero, or no scaling to zero if
                 set to None and `min_replica` is not 0. Defaults to None.
@@ -7600,6 +7608,8 @@ class HfApi:
             },
             "type": type,
         }
+        if scaling_metric:
+            payload["compute"]["scaling"]["measure"] = {scaling_metric: scaling_threshold}
         if env:
             payload["model"]["env"] = env
         if secrets:
@@ -7764,6 +7774,8 @@ class HfApi:
         min_replica: Optional[int] = None,
         max_replica: Optional[int] = None,
         scale_to_zero_timeout: Optional[int] = None,
+        scaling_metric: Optional[InferenceEndpointScalingMetric] = None,
+        scaling_threshold: Optional[float] = None,
         # Model update
         repository: Optional[str] = None,
         framework: Optional[str] = None,
@@ -7804,7 +7816,12 @@ class HfApi:
                 The maximum number of replicas (instances) to scale to for the Inference Endpoint.
             scale_to_zero_timeout (`int`, *optional*):
                 The duration in minutes before an inactive endpoint is scaled to zero.
-
+            scaling_metric (`str` or [`InferenceEndpointScalingMetric `], *optional*):
+                The metric reference for scaling. Either "pendingRequests" or "hardwareUsage" when provided.
+                Defaults to None.
+            scaling_threshold (`float`, *optional*):
+                The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.
+                Defaults to None.
             repository (`str`, *optional*):
                 The name of the model repository associated with the Inference Endpoint (e.g. `"gpt2"`).
             framework (`str`, *optional*):
@@ -7858,6 +7875,8 @@ class HfApi:
             payload["compute"]["scaling"]["minReplica"] = min_replica
         if scale_to_zero_timeout is not None:
             payload["compute"]["scaling"]["scaleToZeroTimeout"] = scale_to_zero_timeout
+        if scaling_metric:
+            payload["compute"]["scaling"]["measure"] = {scaling_metric: scaling_threshold}
         if repository is not None:
             payload["model"]["repository"] = repository
         if framework is not None:

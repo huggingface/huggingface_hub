@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 
 import typer
 
-from huggingface_hub._inference_endpoints import InferenceEndpoint
+from huggingface_hub._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric
 from huggingface_hub.errors import HfHubHTTPError
 
 from ._cli_utils import TokenOpt, get_hf_api, typer_factory
@@ -112,6 +112,36 @@ def deploy(
         ),
     ] = None,
     token: TokenOpt = None,
+    min_replica: Annotated[
+        int,
+        typer.Option(
+            help="The minimum number of replicas (instances) to keep running for the Inference Endpoint.",
+        ),
+    ] = 1,
+    max_replica: Annotated[
+        int,
+        typer.Option(
+            help="The maximum number of replicas (instances) to scale to for the Inference Endpoint.",
+        ),
+    ] = 1,
+    scale_to_zero_timeout: Annotated[
+        Optional[int],
+        typer.Option(
+            help="The duration in minutes before an inactive endpoint is scaled to zero.",
+        ),
+    ] = None,
+    scaling_metric: Annotated[
+        Optional[InferenceEndpointScalingMetric],
+        typer.Option(
+            help="The metric reference for scaling.",
+        ),
+    ] = None,
+    scaling_threshold: Annotated[
+        Optional[float],
+        typer.Option(
+            help="The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.",
+        ),
+    ] = None,
 ) -> None:
     """Deploy an Inference Endpoint from a Hub repository."""
     api = get_hf_api(token=token)
@@ -127,6 +157,11 @@ def deploy(
         namespace=namespace,
         task=task,
         token=token,
+        min_replica=min_replica,
+        max_replica=max_replica,
+        scaling_metric=scaling_metric,
+        scaling_threshold=scaling_threshold,
+        scale_to_zero_timeout=scale_to_zero_timeout,
     )
 
     _print_endpoint(endpoint)
@@ -262,6 +297,18 @@ def update(
             help="The duration in minutes before an inactive endpoint is scaled to zero.",
         ),
     ] = None,
+    scaling_metric: Annotated[
+        Optional[InferenceEndpointScalingMetric],
+        typer.Option(
+            help="The metric reference for scaling.",
+        ),
+    ] = None,
+    scaling_threshold: Annotated[
+        Optional[float],
+        typer.Option(
+            help="The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.",
+        ),
+    ] = None,
     token: TokenOpt = None,
 ) -> None:
     """Update an existing endpoint."""
@@ -280,6 +327,8 @@ def update(
             min_replica=min_replica,
             max_replica=max_replica,
             scale_to_zero_timeout=scale_to_zero_timeout,
+            scaling_metric=scaling_metric,
+            scaling_threshold=scaling_threshold,
             token=token,
         )
     except HfHubHTTPError as error:
