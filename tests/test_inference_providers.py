@@ -46,6 +46,7 @@ from huggingface_hub.inference._providers.nebius import NebiusFeatureExtractionT
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
+from huggingface_hub.inference._providers.ovhcloud import OVHcloudConversationalTask
 from huggingface_hub.inference._providers.publicai import PublicAIConversationalTask
 from huggingface_hub.inference._providers.replicate import (
     ReplicateImageToImageTask,
@@ -1420,6 +1421,57 @@ class TestOpenAIProvider:
     def test_prepare_url(self):
         helper = OpenAIConversationalTask()
         assert helper._prepare_url("sk-XXXXXX", "gpt-4o-mini") == "https://api.openai.com/v1/chat/completions"
+
+
+class TestOVHcloudAIEndpointsProvider:
+    def test_prepare_hf_url_conversational(self):
+        helper = OVHcloudConversationalTask()
+        url = helper._prepare_url("hf_token", "username/repo_name")
+        assert url == "https://router.huggingface.co/ovhcloud/v1/chat/completions"
+
+    def test_prepare_url_conversational(self):
+        helper = OVHcloudConversationalTask()
+        url = helper._prepare_url("ovhcloud_token", "username/repo_name")
+        assert url == "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions"
+
+    def test_prepare_payload_as_dict(self):
+        helper = OVHcloudConversationalTask()
+        payload = helper._prepare_payload_as_dict(
+            [
+                {"role": "system", "content": "You are a helpful assistant"},
+                {"role": "user", "content": "Hello!"},
+            ],
+            {
+                "max_tokens": 512,
+                "temperature": 0.15,
+                "top_p": 1,
+                "presence_penalty": 0,
+                "stream": True,
+            },
+            InferenceProviderMapping(
+                provider="ovhcloud",
+                hf_model_id="meta-llama/Llama-3.1-8B-Instruct",
+                providerId="Llama-3.1-8B-Instruct",
+                task="conversational",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "max_tokens": 512,
+            "messages": [
+                {"content": "You are a helpful assistant", "role": "system"},
+                {"role": "user", "content": "Hello!"},
+            ],
+            "model": "Llama-3.1-8B-Instruct",
+            "presence_penalty": 0,
+            "stream": True,
+            "temperature": 0.15,
+            "top_p": 1,
+        }
+
+    def test_prepare_route_conversational(self):
+        helper = OVHcloudConversationalTask()
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/chat/completions"
 
 
 class TestReplicateProvider:
