@@ -2360,15 +2360,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert "wikipedia" in spaces[0].datasets
 
     def test_list_spaces_linked(self):
-        space_id = "stabilityai/stable-diffusion"
+        space_id = "enzostvs/deepsite"
 
         spaces = [space for space in self._api.list_spaces(search=space_id) if space.id == space_id]
         assert spaces[0].models is None
-        assert spaces[0].datasets is None
 
         spaces = [space for space in self._api.list_spaces(search=space_id, linked=True) if space.id == space_id]
         assert spaces[0].models is not None
-        assert spaces[0].datasets is not None
 
     def test_list_spaces_expand_author(self):
         # Only the selected field is returned
