@@ -8,7 +8,7 @@ from typing import Literal, Optional, Union
 from .base import BaseInferenceType, dataclass_with_extra
 
 
-FeatureExtractionInputTruncationDirection = Literal["Left", "Right"]
+FeatureExtractionInputTruncationDirection = Literal["left", "right"]
 
 
 @dataclass_with_extra

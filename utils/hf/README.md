@@ -39,8 +39,6 @@ uvx hf auth whoami
 uvx hf download MiniMaxAI/MiniMax-M2
 ```
 
-This provides a cleaner alternative to `uvx --from huggingface_hub huggingface-cli`.
-
 ## Note
 
 The legacy `hf` package (which provided a Mapping interface to HuggingFace) has been moved to [hfdol](https://pypi.org/project/hfdol/).

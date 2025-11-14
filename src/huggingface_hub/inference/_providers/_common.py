@@ -32,6 +32,7 @@ HARDCODED_MODEL_INFERENCE_MAPPING: dict[str, dict[str, InferenceProviderMapping]
     "hyperbolic": {},
     "nebius": {},
     "nscale": {},
+    "ovhcloud": {},
     "replicate": {},
     "sambanova": {},
     "scaleway": {},
