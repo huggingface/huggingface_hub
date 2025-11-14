@@ -245,21 +245,34 @@ function Install-HuggingFaceHub {
     }
     if (-not $script:VenvPython) { $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe" }
 
-    # Allow optional pip arguments via HF_CLI_PIP_ARGS/HF_PIP_ARGS env vars
-    $extraArgsRaw = if ($env:HF_CLI_PIP_ARGS) { $env:HF_CLI_PIP_ARGS } else { $env:HF_PIP_ARGS }
-    $pipArgs = @('-m', 'pip', 'install', '--upgrade')
-    if ($env:HF_CLI_VERBOSE_PIP -ne '1') {
-        $pipArgs += @('--quiet', '--progress-bar', 'off', '--disable-pip-version-check')
-        Write-Log "(pip output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs)"
-    }
-    $pipArgs += $packageSpec
-    if ($extraArgsRaw) {
-        Write-Log "Passing extra pip arguments: $extraArgsRaw"
-        $pipArgs += $extraArgsRaw -split '\s+'
-    }
+    # Check if uv is available and use it for faster installation
+    if (Test-Command "uv") {
+        Write-Log "Using uv for faster installation"
+        $uvArgs = @('pip', 'install', '--python', $script:VenvPython, $packageSpec)
+        if ($env:HF_CLI_VERBOSE_PIP -ne '1') {
+            $uvArgs += '--quiet'
+        }
 
-    & $script:VenvPython @pipArgs
-    if (-not $?) { throw "Failed to install huggingface_hub" }
+        & uv @uvArgs
+        if (-not $?) { throw "Failed to install huggingface_hub with uv" }
+    }
+    else {
+        # Allow optional pip arguments via HF_CLI_PIP_ARGS/HF_PIP_ARGS env vars
+        $extraArgsRaw = if ($env:HF_CLI_PIP_ARGS) { $env:HF_CLI_PIP_ARGS } else { $env:HF_PIP_ARGS }
+        $pipArgs = @('-m', 'pip', 'install', '--upgrade')
+        if ($env:HF_CLI_VERBOSE_PIP -ne '1') {
+            $pipArgs += @('--quiet', '--progress-bar', 'off', '--disable-pip-version-check')
+            Write-Log "(pip output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs)"
+        }
+        $pipArgs += $packageSpec
+        if ($extraArgsRaw) {
+            Write-Log "Passing extra pip arguments: $extraArgsRaw"
+            $pipArgs += $extraArgsRaw -split '\s+'
+        }
+
+        & $script:VenvPython @pipArgs
+        if (-not $?) { throw "Failed to install huggingface_hub" }
+    }
 }
 
 function Publish-HfCommand {
@@ -347,8 +360,8 @@ function Show-UninstallInfo {
     Write-Log ""
     Write-Log "To uninstall the Hugging Face CLI:"
     Write-Log "  Remove-Item -Path '$HF_CLI_DIR' -Recurse -Force"
-    Write-Log "  Remove-Item -Path '$BIN_DIR\\hf.exe'"
-    Write-Log "  Remove-Item -Path '$BIN_DIR\\hf-script.py' (if present)"
+    Write-Log "  Remove-Item -Path '$BIN_DIR\hf.exe'"
+    Write-Log "  Remove-Item -Path '$BIN_DIR\hf-script.py' (if present)"
     Write-Log ""
     if ($script:PathUpdated) {
         Write-Log "Remove '$BIN_DIR' from your user PATH via Settings ▸ Environment Variables," "INFO"
