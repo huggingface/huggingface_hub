@@ -8352,7 +8352,7 @@ class HfApi:
             collection_slug (`str`):
                 Slug of the collection to update. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
             item_id (`str`):
-                Identifier of the item to add to the collection. Use the repo_id for repos/spaces/datasets,
+                Id of the item to add to the collection. Use the repo_id for repos/spaces/datasets,
                 the paper id for papers, or the slug of another collection (e.g. `"moonshotai/kimi-k2"`).
             item_type (`str`):
                 Type of the item to add. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"` or `"collection"`.
