@@ -4022,15 +4022,17 @@ class CollectionAPITest(HfApiCommonTest):
         # Create some repos
         model_id = self._api.create_repo(repo_name()).repo_id
         dataset_id = self._api.create_repo(repo_name(), repo_type="dataset").repo_id
+        collection_id = self._api.create_collection("nested collection", exists_ok=True).slug
 
         # Create collection + add items to it
         collection = self._api.create_collection(self.title)
         self._api.add_collection_item(collection.slug, model_id, "model", note="This is my model")
         self._api.add_collection_item(collection.slug, dataset_id, "dataset")  # note is optional
+        self._api.add_collection_item(collection.slug, collection_id, "collection")
 
         # Check consistency
         collection = self._api.get_collection(collection.slug)
-        self.assertEqual(len(collection.items), 2)
+        self.assertEqual(len(collection.items), 3)
         self.assertEqual(collection.items[0].item_id, model_id)
         self.assertEqual(collection.items[0].item_type, "model")
         self.assertEqual(collection.items[0].note, "This is my model")
@@ -4038,6 +4040,9 @@ class CollectionAPITest(HfApiCommonTest):
         self.assertEqual(collection.items[1].item_id, dataset_id)
         self.assertEqual(collection.items[1].item_type, "dataset")
         self.assertIsNone(collection.items[1].note)
+
+        self.assertEqual(collection.items[2].item_id, collection_id)
+        self.assertEqual(collection.items[2].item_type, "collection")
 
         # Add existing item fails (except if ignore error)
         with self.assertRaises(HfHubHTTPError):
@@ -4065,7 +4070,7 @@ class CollectionAPITest(HfApiCommonTest):
 
         # Check consistency
         collection = self._api.get_collection(collection.slug)
-        self.assertEqual(len(collection.items), 1)  # only 1 item remaining
+        self.assertEqual(len(collection.items), 2)  # only 1 item remaining
         self.assertEqual(collection.items[0].item_id, dataset_id)  # position got updated
 
         # Delete everything
