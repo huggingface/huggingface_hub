@@ -48,6 +48,72 @@ from ._typing import HTTP_METHOD_T
 
 logger = logging.get_logger(__name__)
 
+
+class _IPv4FallbackTransport(httpx.BaseTransport):
+    """
+    Wrapper around `httpx.HTTPTransport` to transparently retry using IPv4-only
+    connections if IPv6 dial-up hangs.
+    """
+
+    def __init__(self, **kwargs):
+        self._ipv6_transport = httpx.HTTPTransport(**kwargs)
+        self._ipv4_transport = httpx.HTTPTransport(local_address="0.0.0.0", **kwargs)
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        transport = self._ipv4_transport if _FORCE_IPV4 else self._ipv6_transport
+        try:
+            return transport.handle_request(request)
+        except httpx.ConnectTimeout as err:
+            if _FORCE_IPV4:
+                raise
+            _enable_ipv4_fallback(str(err))
+            return self._ipv4_transport.handle_request(request)
+
+    def close(self) -> None:
+        self._ipv6_transport.close()
+        self._ipv4_transport.close()
+
+
+class _IPv4FallbackAsyncTransport(httpx.AsyncBaseTransport):
+    """
+    Async counterpart to `_IPv4FallbackTransport`.
+    """
+
+    def __init__(self, **kwargs):
+        self._ipv6_transport = httpx.AsyncHTTPTransport(**kwargs)
+        self._ipv4_transport = httpx.AsyncHTTPTransport(local_address="0.0.0.0", **kwargs)
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        transport = self._ipv4_transport if _FORCE_IPV4 else self._ipv6_transport
+        try:
+            return await transport.handle_async_request(request)
+        except httpx.ConnectTimeout as err:
+            if _FORCE_IPV4:
+                raise
+            _enable_ipv4_fallback(str(err))
+            return await self._ipv4_transport.handle_async_request(request)
+
+    async def aclose(self) -> None:  # type: ignore[override]
+        await self._ipv6_transport.aclose()
+        await self._ipv4_transport.aclose()
+
+
+_FORCE_IPV4: bool = False
+
+
+def _enable_ipv4_fallback(reason: Optional[str] = None) -> None:
+    global _FORCE_IPV4
+    if _FORCE_IPV4:
+        return
+    _FORCE_IPV4 = True
+    if reason is not None:
+        logger.warning(
+            f"IPv6 connection timed out ({reason}). Falling back to IPv4 for subsequent Hugging Face Hub requests."
+        )
+    else:
+        logger.info("IPv4 fallback has been enabled for Hugging Face Hub requests.")
+
+
 # Both headers are used by the Hub to debug failed requests.
 # `X_AMZN_TRACE_ID` is better as it also works to debug on Cloudfront and ALB.
 # If `X_AMZN_TRACE_ID` is set, the Hub will use it as well.
@@ -128,7 +194,9 @@ def default_client_factory() -> httpx.Client:
     """
     Factory function to create a `httpx.Client` with the default transport.
     """
+    transport = _IPv4FallbackTransport()
     return httpx.Client(
+        transport=transport,
         event_hooks={"request": [hf_request_event_hook]},
         follow_redirects=True,
         timeout=httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
@@ -139,7 +207,9 @@ def default_async_client_factory() -> httpx.AsyncClient:
     """
     Factory function to create a `httpx.AsyncClient` with the default transport.
     """
+    transport = _IPv4FallbackAsyncTransport()
     return httpx.AsyncClient(
+        transport=transport,
         event_hooks={"request": [async_hf_request_event_hook], "response": [async_hf_response_event_hook]},
         follow_redirects=True,
         timeout=httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
@@ -318,6 +388,8 @@ def _http_backoff_base(
                     return
 
         except retry_on_exceptions as err:
+            if isinstance(err, httpx.ConnectTimeout):
+                _enable_ipv4_fallback(str(err))
             logger.warning(f"'{err}' thrown while requesting {method} {url}")
 
             if isinstance(err, httpx.ConnectError):

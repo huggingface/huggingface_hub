@@ -39,7 +39,7 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._http import _adjust_range_header, http_backoff, http_stream_backoff
+from .utils._http import _adjust_range_header, _enable_ipv4_fallback, http_backoff, http_stream_backoff
 from .utils._runtime import is_xet_available
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
@@ -445,6 +445,8 @@ def http_get(
                 # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
                 # a transient error (network outage?). We log a warning message and try to resume the download a few times
                 # before giving up. Tre retry mechanism is basic but should be enough in most cases.
+                if isinstance(e, httpx.ConnectTimeout):
+                    _enable_ipv4_fallback(str(e))
                 if _nb_retries <= 0:
                     logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
                     raise
