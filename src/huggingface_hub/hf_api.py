@@ -8352,10 +8352,10 @@ class HfApi:
             collection_slug (`str`):
                 Slug of the collection to update. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
             item_id (`str`):
-                ID of the item to add to the collection. It can be the ID of a repo on the Hub (e.g. `"facebook/bart-large-mnli"`)
-                or a paper id (e.g. `"2307.09288"`).
+                Identifier of the item to add to the collection. Use the repo_id for repos/spaces/datasets,
+                the paper id for papers, or the slug of another collection (e.g. `"moonshotai/kimi-k2"`).
             item_type (`str`):
-                Type of the item to add. Can be one of `"model"`, `"dataset"`, `"space"` or `"paper"`.
+                Type of the item to add. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"` or `"collection"`.
             note (`str`, *optional*):
                 A note to attach to the item in the collection. The maximum size for a note is 500 characters.
             exists_ok (`bool`, *optional*):
