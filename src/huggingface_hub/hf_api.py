@@ -238,64 +238,72 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
     """
     input_hf_id = hf_id
 
-    hub_url = hub_url if hub_url is not None else constants.ENDPOINT
-    is_hf_url = hub_url in hf_id and "@" not in hf_id
-    
-    hub_url = hub_url.rstrip("/")
-    if hf_id.startswith(hub_url):
-        hf_id = hf_id[len(hub_url):].lstrip("/")
-    elif hf_id.startswith(hub_url.replace("https://", "").replace("http://", "")):
-        # Handle urls like "localhost:8080/hf/model/xxx" 
-        # https://github.com/huggingface/huggingface_hub/issues/3494
-        hf_id = hf_id[len(hub_url.replace("https://", "").replace("http://", "")):].lstrip("/")
+    hub_url = hub_url or constants.ENDPOINT
+    hub_url_no_proto = re.sub(r"^https?://", "", hub_url).rstrip("/")
+
+    hf_id_no_proto = re.sub(r"^https?://", "", hf_id)
+
+    is_hf_url = hf_id_no_proto.startswith(hub_url_no_proto) and "@" not in hf_id
+
+    if is_hf_url:
+        hf_id = hf_id_no_proto[len(hub_url_no_proto):].lstrip("/")
 
     HFFS_PREFIX = "hf://"
     if hf_id.startswith(HFFS_PREFIX):  # Remove "hf://" prefix if exists
-        hf_id = hf_id[len(HFFS_PREFIX) :]
+        hf_id = hf_id[len(HFFS_PREFIX):]
 
-    url_segments = hf_id.split("/")
-    is_hf_id = len(url_segments) <= 3
+    url_segments = [s for s in hf_id.split("/") if s]
+    seg_len = len(url_segments)
 
-    namespace: Optional[str]
+    repo_type: Optional[str] = None
+    namespace: Optional[str] = None
+    repo_id: str
+
     if is_hf_url:
-        namespace, repo_id = url_segments[-2:]
-        if namespace == hub_url:
+        if seg_len == 1:
+            repo_id = url_segments[0]
             namespace = None
-        if len(url_segments) > 2 and hub_url not in url_segments[-3]:
-            repo_type = url_segments[-3]
-        elif namespace in constants.REPO_TYPES_MAPPING:
-            # Mean canonical dataset or model
-            repo_type = constants.REPO_TYPES_MAPPING[namespace]
-            namespace = None
-        else:
             repo_type = None
-    elif is_hf_id:
-        if len(url_segments) == 3:
+        elif seg_len == 2:
+            namespace, repo_id = url_segments
+            repo_type = None
+        else:
+            namespace, repo_id = url_segments[-2:]
+            repo_type = url_segments[-3] if seg_len >= 3 else None
+            if namespace in constants.REPO_TYPES_MAPPING:
+                # canonical dataset/model
+                repo_type = constants.REPO_TYPES_MAPPING[namespace]
+                namespace = None
+
+    elif seg_len <= 3:
+        if seg_len == 3:
             # Passed <repo_type>/<user>/<model_id> or <repo_type>/<org>/<model_id>
-            repo_type, namespace, repo_id = url_segments[-3:]
-        elif len(url_segments) == 2:
+            repo_type, namespace, repo_id = url_segments
+        elif seg_len == 2:
             if url_segments[0] in constants.REPO_TYPES_MAPPING:
                 # Passed '<model_id>' or 'datasets/<dataset_id>' for a canonical model or dataset
                 repo_type = constants.REPO_TYPES_MAPPING[url_segments[0]]
                 namespace = None
-                repo_id = hf_id.split("/")[-1]
+                repo_id = url_segments[1]
             else:
                 # Passed <user>/<model_id> or <org>/<model_id>
-                namespace, repo_id = hf_id.split("/")[-2:]
+                namespace, repo_id = url_segments
                 repo_type = None
         else:
-            # Passed <model_id>
             repo_id = url_segments[0]
-            namespace, repo_type = None, None
+            namespace = None
+            repo_type = None
     else:
-        raise ValueError(f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}")
+        raise ValueError(
+            f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}"
+        )
 
     # Check if repo type is known (mapping "spaces" => "space" + empty value => `None`)
     if repo_type in constants.REPO_TYPES_MAPPING:
         repo_type = constants.REPO_TYPES_MAPPING[repo_type]
     if repo_type == "":
         repo_type = None
-    if repo_type not in constants.REPO_TYPES:
+    if repo_type not in constants.REPO_TYPES and repo_type is not None:
         raise ValueError(f"Unknown `repo_type`: '{repo_type}' ('{input_hf_id}')")
 
     return repo_type, namespace, repo_id

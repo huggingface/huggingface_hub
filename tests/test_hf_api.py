@@ -2758,28 +2758,34 @@ class HfLargefilesTest(HfApiCommonTest):
 class ParseHFUrlTest(unittest.TestCase):
     def test_repo_type_and_id_from_hf_id_on_correct_values(self):
         possible_values = {
-            "http://localhost:8080/hf/user/id": [None, "user", "id"],
-            "http://localhost:8080/hf/datasets/user/id": ["dataset", "user", "id"],
-            "http://localhost:8080/hf/models/user/id": ["model", "user", "id"],
-            "https://huggingface.co/id": [None, None, "id"],
-            "https://huggingface.co/user/id": [None, "user", "id"],
-            "https://huggingface.co/datasets/user/id": ["dataset", "user", "id"],
-            "https://huggingface.co/spaces/user/id": ["space", "user", "id"],
-            "user/id": [None, "user", "id"],
-            "dataset/user/id": ["dataset", "user", "id"],
-            "space/user/id": ["space", "user", "id"],
-            "id": [None, None, "id"],
-            "hf://id": [None, None, "id"],
-            "hf://user/id": [None, "user", "id"],
-            "hf://model/user/name": ["model", "user", "name"],  # 's' is optional
-            "hf://models/user/name": ["model", "user", "name"],
+            "saas": {
+                "https://huggingface.co/id": [None, None, "id"],
+                "https://huggingface.co/user/id": [None, "user", "id"],
+                "https://huggingface.co/datasets/user/id": ["dataset", "user", "id"],
+                "https://huggingface.co/spaces/user/id": ["space", "user", "id"],
+                "user/id": [None, "user", "id"],
+                "dataset/user/id": ["dataset", "user", "id"],
+                "space/user/id": ["space", "user", "id"],
+                "id": [None, None, "id"],
+                "hf://id": [None, None, "id"],
+                "hf://user/id": [None, "user", "id"],
+                "hf://model/user/name": ["model", "user", "name"],  # 's' is optional
+                "hf://models/user/name": ["model", "user", "name"]
+            },
+            "self-hosted": {
+                "http://localhost:8080/hf/user/id": [None, "user", "id"],
+                "http://localhost:8080/hf/datasets/user/id": ["dataset", "user", "id"],
+                "http://localhost:8080/hf/models/user/id": ["model", "user", "id"],
+            },
         }
 
         for key, value in possible_values.items():
-            self.assertEqual(
-                repo_type_and_id_from_hf_id(key, hub_url=ENDPOINT_PRODUCTION),
-                tuple(value),
-            )
+            hub_url = ENDPOINT_PRODUCTION if key == "saas" else "http://localhost:8080/hf"
+            for key, value in value.items():
+                self.assertEqual(
+                    repo_type_and_id_from_hf_id(key, hub_url=hub_url),
+                    tuple(value),
+                )
 
     def test_repo_type_and_id_from_hf_id_on_wrong_values(self):
         for hub_id in [
