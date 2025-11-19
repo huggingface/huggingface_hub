@@ -296,6 +296,7 @@ _SUBMOD_ATTRS = {
         "HfFileSystemFile",
         "HfFileSystemResolvedPath",
         "HfFileSystemStreamFile",
+        "hffs",
     ],
     "hub_mixin": [
         "ModelHubMixin",
@@ -1312,6 +1313,7 @@ if TYPE_CHECKING:  # pragma: no cover
         HfFileSystemFile,  # noqa: F401
         HfFileSystemResolvedPath,  # noqa: F401
         HfFileSystemStreamFile,  # noqa: F401
+        hffs,  # noqa: F401
     )
     from .hub_mixin import (
         ModelHubMixin,  # noqa: F401

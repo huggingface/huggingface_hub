@@ -1255,3 +1255,5 @@ def make_instance(cls, args, kwargs, instance_state):
     for attr, state_value in instance_state.items():
         setattr(fs, attr, state_value)
     return fs
+
+hffs = HfFileSystem()
