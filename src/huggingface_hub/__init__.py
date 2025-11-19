@@ -884,6 +884,7 @@ __all__ = [
     "hf_hub_download",
     "hf_hub_url",
     "hf_raise_for_status",
+    "hffs",
     "inspect_job",
     "inspect_scheduled_job",
     "interpreter_login",
