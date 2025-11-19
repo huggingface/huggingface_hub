@@ -238,61 +238,81 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
     """
     input_hf_id = hf_id
 
-    hub_url = hub_url or constants.ENDPOINT
-    hub_url_no_proto = re.sub(r"^https?://", "", hub_url).rstrip("/")
+    # Get the hub_url (with or without protocol)
+    full_hub_url = hub_url if hub_url is not None else constants.ENDPOINT
+    hub_url_without_protocol = re.sub(r"https?://", "", full_hub_url)
 
-    hf_id_no_proto = re.sub(r"^https?://", "", hf_id)
-
-    is_hf_url = hf_id_no_proto.startswith(hub_url_no_proto) and "@" not in hf_id
-
-    if is_hf_url:
-        hf_id = hf_id_no_proto[len(hub_url_no_proto) :].lstrip("/")
+    # Check if hf_id is a URL containing the hub_url (check both with and without protocol)
+    hf_id_without_protocol = re.sub(r"https?://", "", hf_id)
+    is_hf_url = hub_url_without_protocol in hf_id_without_protocol and "@" not in hf_id
 
     HFFS_PREFIX = "hf://"
     if hf_id.startswith(HFFS_PREFIX):  # Remove "hf://" prefix if exists
         hf_id = hf_id[len(HFFS_PREFIX) :]
 
-    url_segments = [s for s in hf_id.split("/") if s]
-    seg_len = len(url_segments)
-
-    repo_type: Optional[str] = None
-    namespace: Optional[str] = None
-    repo_id: str
-
+    # If it's a URL, strip the endpoint prefix to get the path
     if is_hf_url:
-        if seg_len == 1:
+        # Remove protocol if present
+        hf_id_normalized = re.sub(r"https?://", "", hf_id)
+
+        # Remove the hub_url prefix to get the relative path
+        if hf_id_normalized.startswith(hub_url_without_protocol):
+            # Strip the hub URL and any leading slashes
+            hf_id = hf_id_normalized[len(hub_url_without_protocol) :].lstrip("/")
+
+    url_segments = hf_id.split("/")
+    is_hf_id = len(url_segments) <= 3
+
+    namespace: Optional[str]
+    if is_hf_url:
+        # For URLs, we need to extract repo_type, namespace, repo_id
+        # Expected format after stripping endpoint: [repo_type]/namespace/repo_id or namespace/repo_id
+
+        if len(url_segments) >= 3:
+            # Check if first segment is a repo type
+            if url_segments[0] in constants.REPO_TYPES_MAPPING:
+                repo_type = constants.REPO_TYPES_MAPPING[url_segments[0]]
+                namespace = url_segments[1]
+                repo_id = url_segments[2]
+            else:
+                # First segment is namespace
+                namespace = url_segments[0]
+                repo_id = url_segments[1]
+                repo_type = None
+        elif len(url_segments) == 2:
+            namespace = url_segments[0]
+            repo_id = url_segments[1]
+
+            # Check if namespace is actually a repo type mapping
+            if namespace in constants.REPO_TYPES_MAPPING:
+                # Mean canonical dataset or model
+                repo_type = constants.REPO_TYPES_MAPPING[namespace]
+                namespace = None
+            else:
+                repo_type = None
+        else:
+            # Single segment
             repo_id = url_segments[0]
             namespace = None
             repo_type = None
-        elif seg_len == 2:
-            namespace, repo_id = url_segments
-            repo_type = None
-        else:
-            namespace, repo_id = url_segments[-2:]
-            repo_type = url_segments[-3] if seg_len >= 3 else None
-            if namespace in constants.REPO_TYPES_MAPPING:
-                # canonical dataset/model
-                repo_type = constants.REPO_TYPES_MAPPING[namespace]
-                namespace = None
-
-    elif seg_len <= 3:
-        if seg_len == 3:
+    elif is_hf_id:
+        if len(url_segments) == 3:
             # Passed <repo_type>/<user>/<model_id> or <repo_type>/<org>/<model_id>
-            repo_type, namespace, repo_id = url_segments
-        elif seg_len == 2:
+            repo_type, namespace, repo_id = url_segments[-3:]
+        elif len(url_segments) == 2:
             if url_segments[0] in constants.REPO_TYPES_MAPPING:
                 # Passed '<model_id>' or 'datasets/<dataset_id>' for a canonical model or dataset
                 repo_type = constants.REPO_TYPES_MAPPING[url_segments[0]]
                 namespace = None
-                repo_id = url_segments[1]
+                repo_id = hf_id.split("/")[-1]
             else:
                 # Passed <user>/<model_id> or <org>/<model_id>
-                namespace, repo_id = url_segments
+                namespace, repo_id = hf_id.split("/")[-2:]
                 repo_type = None
         else:
+            # Passed <model_id>
             repo_id = url_segments[0]
-            namespace = None
-            repo_type = None
+            namespace, repo_type = None, None
     else:
         raise ValueError(f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}")
 
@@ -301,7 +321,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
         repo_type = constants.REPO_TYPES_MAPPING[repo_type]
     if repo_type == "":
         repo_type = None
-    if repo_type not in constants.REPO_TYPES and repo_type is not None:
+    if repo_type not in constants.REPO_TYPES:
         raise ValueError(f"Unknown `repo_type`: '{repo_type}' ('{input_hf_id}')")
 
     return repo_type, namespace, repo_id
