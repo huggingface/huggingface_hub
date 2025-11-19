@@ -133,21 +133,25 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
     Usage:
 
     ```python
-    >>> from huggingface_hub import HfFileSystem
-
-    >>> fs = HfFileSystem()
+    >>> from huggingface_hub import hffs
 
     >>> # List files
-    >>> fs.glob("my-username/my-model/*.bin")
+    >>> hffs.glob("my-username/my-model/*.bin")
     ['my-username/my-model/pytorch_model.bin']
-    >>> fs.ls("datasets/my-username/my-dataset", detail=False)
+    >>> hffs.ls("datasets/my-username/my-dataset", detail=False)
     ['datasets/my-username/my-dataset/.gitattributes', 'datasets/my-username/my-dataset/README.md', 'datasets/my-username/my-dataset/data.json']
 
     >>> # Read/write files
-    >>> with fs.open("my-username/my-model/pytorch_model.bin") as f:
+    >>> with hffs.open("my-username/my-model/pytorch_model.bin") as f:
     ...     data = f.read()
-    >>> with fs.open("my-username/my-model/pytorch_model.bin", "wb") as f:
+    >>> with hffs.open("my-username/my-model/pytorch_model.bin", "wb") as f:
     ...     f.write(data)
+    ```
+
+    Specify a token for authentication:
+    ```python
+    >>> from huggingface_hub import HfFileSystem
+    >>> hffs = HfFileSystem(token=token)
     ```
     """
 
