@@ -302,22 +302,17 @@ def expect_deprecation(function_name: str):
     return _inner_decorator
 
 
-def xfail_on_windows(reason: str, raises: Optional[type[Exception]] = None):
+def skip_on_windows(reason: str):
     """
-    Decorator to flag tests that we expect to fail on Windows.
-
-    Will not raise an error if the expected error happens while running on Windows machine.
-    If error is expected but does not happen, the test fails as well.
+    Decorator to flag tests that we want to skip on Windows.
 
     Args:
         reason (`str`):
-            Reason why it should fail.
-        raises (`type[Exception]`):
-            The error type we except to happen.
+            Reason to skip it.
     """
 
     def _inner_decorator(test_function: Callable) -> Callable:
-        return pytest.mark.xfail(os.name == "nt", reason=reason, raises=raises, strict=True, run=True)(test_function)
+        return pytest.mark.skipif(os.name == "nt", reason=reason)(test_function)
 
     return _inner_decorator
 

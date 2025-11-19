@@ -10,7 +10,7 @@ from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, _format_size, scan_cache_dir
 from huggingface_hub.utils._cache_manager import CacheNotFound, _try_delete_path
 
-from .testing_utils import rmtree_with_retry, with_production_testing, xfail_on_windows
+from .testing_utils import rmtree_with_retry, skip_on_windows, with_production_testing
 
 
 # On production server to avoid recreating them all the time
@@ -372,7 +372,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
             + f"({self.repo_path}).",
         )
 
-    @xfail_on_windows("Last modified/last accessed work a bit differently on Windows.")
+    @skip_on_windows("Last modified/last accessed work a bit differently on Windows.")
     def test_scan_cache_last_modified_and_last_accessed(self) -> None:
         """Scan the last_modified and last_accessed properties when scanning."""
         TIME_GAP = 0.1
@@ -697,7 +697,7 @@ class TestTryDeletePath(unittest.TestCase):
         assert len(captured.output) > 0
         assert any(f"Couldn't delete TYPE: file not found ({dir_path})" in log for log in captured.output)
 
-    @xfail_on_windows(reason="Permissions are handled differently on Windows.")
+    @skip_on_windows(reason="Permissions are handled differently on Windows.")
     def test_delete_path_on_local_folder_with_wrong_permission(self) -> None:
         """Try to delete a local folder that is protected."""
         dir_path = self.cache_dir / "something"
