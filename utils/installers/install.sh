@@ -287,41 +287,39 @@ install_hf_hub() {
         log_info "Installing The Hugging Face CLI (latest)..."
     fi
 
+    local extra_pip_args="${HF_CLI_PIP_ARGS:-${HF_PIP_ARGS:-}}"
+    local verbose="${HF_CLI_VERBOSE_PIP:-}"
+
+    if [ -n "$extra_pip_args" ]; then
+        log_info "Passing extra arguments: $extra_pip_args"
+    fi
+
+    if [ "$verbose" != "1" ]; then
+        log_info "Installation output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs"
+    fi
+
     # Check if uv is available and use it for faster installation
     if command_exists uv; then
         log_info "Using uv for faster installation"
         local -a uv_flags
-        if [ "${HF_CLI_VERBOSE_PIP:-}" = "1" ]; then
-            uv_flags=()
-        else
+        if [ "$verbose" != "1" ]; then
             uv_flags=(--quiet)
+        else
+            uv_flags=()
         fi
 
-        run_command "Failed to install $package_spec" uv pip install --python "$VENV_DIR/bin/python" ${uv_flags[*]} "$package_spec"
+        # shellcheck disable=SC2086
+        run_command "Failed to install $package_spec" uv pip install --python "$VENV_DIR/bin/python" --upgrade ${uv_flags[*]} "$package_spec" $extra_pip_args
     else
-        local extra_pip_args="${HF_CLI_PIP_ARGS:-${HF_PIP_ARGS:-}}"
         local -a pip_flags
-        if [ "${HF_CLI_VERBOSE_PIP:-}" = "1" ]; then
-            pip_flags=()
-        else
+        if [ "$verbose" != "1" ]; then
             pip_flags=(--quiet --progress-bar off --disable-pip-version-check)
-        fi
-
-        if [ -n "$extra_pip_args" ]; then
-            log_info "Passing extra pip arguments: $extra_pip_args"
-        fi
-
-        if [ "${HF_CLI_VERBOSE_PIP:-}" != "1" ]; then
-            log_info "pip output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs"
-        fi
-
-        if [ -n "$extra_pip_args" ]; then
-            # shellcheck disable=SC2086
-            run_command "Failed to install $package_spec" "$VENV_DIR/bin/python" -m pip install --upgrade "$package_spec" ${pip_flags[*]} $extra_pip_args
         else
-            # shellcheck disable=SC2086
-            run_command "Failed to install $package_spec" "$VENV_DIR/bin/python" -m pip install --upgrade "$package_spec" ${pip_flags[*]}
+            pip_flags=()
         fi
+
+        # shellcheck disable=SC2086
+        run_command "Failed to install $package_spec" "$VENV_DIR/bin/python" -m pip install --upgrade "$package_spec" ${pip_flags[*]} $extra_pip_args
     fi
 }
 

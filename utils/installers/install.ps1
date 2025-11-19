@@ -245,28 +245,44 @@ function Install-HuggingFaceHub {
     }
     if (-not $script:VenvPython) { $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe" }
 
+    $extraArgsRaw = if ($env:HF_CLI_PIP_ARGS) { $env:HF_CLI_PIP_ARGS } else { $env:HF_PIP_ARGS }
+    
+    if ($extraArgsRaw) {
+        Write-Log "Passing extra arguments: $extraArgsRaw"
+    }
+
+    if ($env:HF_CLI_VERBOSE_PIP -ne '1') {
+        Write-Log "Installation output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs"
+    }
+
     # Check if uv is available and use it for faster installation
     if (Test-Command "uv") {
         Write-Log "Using uv for faster installation"
-        $uvArgs = @('pip', 'install', '--python', $script:VenvPython, $packageSpec)
+        $uvArgs = @('pip', 'install', '--python', $script:VenvPython, '--upgrade')
+        
         if ($env:HF_CLI_VERBOSE_PIP -ne '1') {
             $uvArgs += '--quiet'
+        }
+        
+        $uvArgs += $packageSpec
+
+        if ($extraArgsRaw) {
+            $uvArgs += $extraArgsRaw -split '\s+'
         }
 
         & uv @uvArgs
         if (-not $?) { throw "Failed to install huggingface_hub with uv" }
     }
     else {
-        # Allow optional pip arguments via HF_CLI_PIP_ARGS/HF_PIP_ARGS env vars
-        $extraArgsRaw = if ($env:HF_CLI_PIP_ARGS) { $env:HF_CLI_PIP_ARGS } else { $env:HF_PIP_ARGS }
         $pipArgs = @('-m', 'pip', 'install', '--upgrade')
+        
         if ($env:HF_CLI_VERBOSE_PIP -ne '1') {
             $pipArgs += @('--quiet', '--progress-bar', 'off', '--disable-pip-version-check')
-            Write-Log "(pip output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs)"
         }
+        
         $pipArgs += $packageSpec
+        
         if ($extraArgsRaw) {
-            Write-Log "Passing extra pip arguments: $extraArgsRaw"
             $pipArgs += $extraArgsRaw -split '\s+'
         }
 
