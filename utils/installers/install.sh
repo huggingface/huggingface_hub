@@ -311,9 +311,9 @@ install_hf_hub() {
             log_info "Passing extra pip arguments: $extra_pip_args"
         fi
 
-    if [ "${HF_CLI_VERBOSE_PIP:-}" != "1" ]; then
-        log_info "pip output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs"
-    fi
+        if [ "${HF_CLI_VERBOSE_PIP:-}" != "1" ]; then
+            log_info "pip output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs"
+        fi
 
         if [ -n "$extra_pip_args" ]; then
             # shellcheck disable=SC2086
