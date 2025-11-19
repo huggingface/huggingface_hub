@@ -102,7 +102,7 @@ def split_state_dict_into_shards_factory(
             continue
 
         # If a `tensor` shares the same underlying storage as another tensor, we put `tensor` in the same `block`
-        storage_id = get_storage_id(tensor)
+        storage_id = get_storage_id(tensor)  # type: ignore[invalid-argument-type]
         if storage_id is not None:
             if storage_id in storage_id_to_tensors:
                 # We skip this tensor for now and will reassign to correct shard later
@@ -114,7 +114,7 @@ def split_state_dict_into_shards_factory(
                 storage_id_to_tensors[storage_id] = [key]
 
         # Compute tensor size
-        tensor_size = get_storage_size(tensor)
+        tensor_size = get_storage_size(tensor)  # type: ignore[invalid-argument-type]
 
         # If this tensor is bigger than the maximal size, we put it in its own shard
         if tensor_size > max_shard_size:
