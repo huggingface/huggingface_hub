@@ -337,7 +337,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         revision: Optional[str] = None,
         block_size: Optional[int] = None,
         **kwargs,
-    ) -> "HfFileSystemFile":
+    ) -> Union["HfFileSystemFile" | "HfFileSystemStreamFile"]:
         block_size = block_size if block_size is not None else self.block_size
         if block_size is not None:
             kwargs["block_size"] = block_size

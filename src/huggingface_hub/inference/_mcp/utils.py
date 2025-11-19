@@ -57,10 +57,10 @@ def format_result(result: "mcp_types.CallToolResult") -> str:
         elif item.type == "resource":
             resource = item.resource
 
-            if hasattr(resource, "text"):
+            if hasattr(resource, "text") and isinstance(resource.text, str):
                 formatted_parts.append(resource.text)
 
-            elif hasattr(resource, "blob"):
+            elif hasattr(resource, "blob") and isinstance(resource.blob, str):
                 formatted_parts.append(
                     f"[Binary Content ({resource.uri}): {resource.mimeType}, {_get_base64_size(resource.blob)} bytes]\n"
                     f"The task is complete and the content accessible to the User"
