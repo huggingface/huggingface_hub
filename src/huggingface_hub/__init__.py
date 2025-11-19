@@ -296,6 +296,7 @@ _SUBMOD_ATTRS = {
         "HfFileSystemFile",
         "HfFileSystemResolvedPath",
         "HfFileSystemStreamFile",
+        "hffs",
     ],
     "hub_mixin": [
         "ModelHubMixin",
@@ -883,6 +884,7 @@ __all__ = [
     "hf_hub_download",
     "hf_hub_url",
     "hf_raise_for_status",
+    "hffs",
     "inspect_job",
     "inspect_scheduled_job",
     "interpreter_login",
@@ -1312,6 +1314,7 @@ if TYPE_CHECKING:  # pragma: no cover
         HfFileSystemFile,  # noqa: F401
         HfFileSystemResolvedPath,  # noqa: F401
         HfFileSystemStreamFile,  # noqa: F401
+        hffs,  # noqa: F401
     )
     from .hub_mixin import (
         ModelHubMixin,  # noqa: F401

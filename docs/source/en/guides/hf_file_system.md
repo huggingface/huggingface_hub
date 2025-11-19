@@ -14,26 +14,25 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 ## Usage
 
 ```python
->>> from huggingface_hub import HfFileSystem
->>> fs = HfFileSystem()
+>>> from huggingface_hub import hffs
 
 >>> # List all files in a directory
->>> fs.ls("datasets/my-username/my-dataset-repo/data", detail=False)
+>>> hffs.ls("datasets/my-username/my-dataset-repo/data", detail=False)
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # List all ".csv" files in a repo
->>> fs.glob("datasets/my-username/my-dataset-repo/**/*.csv")
+>>> hffs.glob("datasets/my-username/my-dataset-repo/**/*.csv")
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # Read a remote file
->>> with fs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
+>>> with hffs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
 ...     train_data = f.readlines()
 
 >>> # Read the content of a remote file as a string
->>> train_data = fs.read_text("datasets/my-username/my-dataset-repo/data/train.csv", revision="dev")
+>>> train_data = hffs.read_text("datasets/my-username/my-dataset-repo/data/train.csv", revision="dev")
 
 >>> # Write a remote file
->>> with fs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
+>>> with hffs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
 ...     f.write("text,label")
 ...     f.write("Fantastic movie!,good")
 ```
@@ -112,7 +111,7 @@ It is also possible to log in programmatically by passing your `token` as an arg
 
 ```python
 >>> from huggingface_hub import HfFileSystem
->>> fs = HfFileSystem(token=token)
+>>> hffs = HfFileSystem(token=token)
 ```
 
 If you log in this way, be careful not to accidentally leak the token when sharing your source code!
