@@ -2770,7 +2770,7 @@ class ParseHFUrlTest(unittest.TestCase):
                 "hf://id": [None, None, "id"],
                 "hf://user/id": [None, "user", "id"],
                 "hf://model/user/name": ["model", "user", "name"],  # 's' is optional
-                "hf://models/user/name": ["model", "user", "name"]
+                "hf://models/user/name": ["model", "user", "name"],
             },
             "self-hosted": {
                 "http://localhost:8080/hf/user/id": [None, "user", "id"],

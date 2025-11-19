@@ -246,11 +246,11 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
     is_hf_url = hf_id_no_proto.startswith(hub_url_no_proto) and "@" not in hf_id
 
     if is_hf_url:
-        hf_id = hf_id_no_proto[len(hub_url_no_proto):].lstrip("/")
+        hf_id = hf_id_no_proto[len(hub_url_no_proto) :].lstrip("/")
 
     HFFS_PREFIX = "hf://"
     if hf_id.startswith(HFFS_PREFIX):  # Remove "hf://" prefix if exists
-        hf_id = hf_id[len(HFFS_PREFIX):]
+        hf_id = hf_id[len(HFFS_PREFIX) :]
 
     url_segments = [s for s in hf_id.split("/") if s]
     seg_len = len(url_segments)
@@ -294,9 +294,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
             namespace = None
             repo_type = None
     else:
-        raise ValueError(
-            f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}"
-        )
+        raise ValueError(f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}")
 
     # Check if repo type is known (mapping "spaces" => "space" + empty value => `None`)
     if repo_type in constants.REPO_TYPES_MAPPING:
