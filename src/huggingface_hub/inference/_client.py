@@ -101,12 +101,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provider_helper
-from huggingface_hub.utils import (
-    build_hf_headers,
-    get_session,
-    hf_raise_for_status,
-    validate_hf_hub_args,
-)
+from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status, validate_hf_hub_args
 from huggingface_hub.utils._auth import get_token
 
 
@@ -3196,10 +3191,7 @@ class InferenceClient:
         )
         response = self._inner_post(request_parameters)
         output = _bytes_to_dict(response)
-        return [
-            ZeroShotClassificationOutputElement.parse_obj_as_instance({"label": label, "score": score})
-            for label, score in zip(output["labels"], output["scores"])
-        ]
+        return ZeroShotClassificationOutputElement.parse_obj_as_list(output)
 
     def zero_shot_image_classification(
         self,
