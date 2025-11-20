@@ -3196,10 +3196,7 @@ class InferenceClient:
         )
         response = self._inner_post(request_parameters)
         output = _bytes_to_dict(response)
-        return [
-            ZeroShotClassificationOutputElement.parse_obj_as_instance({"label": label, "score": score})
-            for label, score in zip(output["labels"], output["scores"])
-        ]
+        return ZeroShotClassificationOutputElement.parse_obj_as_list(output)
 
     def zero_shot_image_classification(
         self,
