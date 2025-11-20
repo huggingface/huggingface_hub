@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+from huggingface_hub import constants
 from huggingface_hub.cli._cli_utils import check_cli_update, typer_factory
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.cache import cache_cli
@@ -51,7 +52,8 @@ app.add_typer(ie_cli, name="endpoints")
 
 
 def main():
-    logging.set_verbosity_info()
+    if not constants.HF_DEBUG:
+        logging.set_verbosity_info()        
     check_cli_update()
     app()
 
