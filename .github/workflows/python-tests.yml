@@ -53,7 +53,7 @@ jobs:
       # Install dependencies
       - name: Install dependencies
         run: |
-          uv pip install "huggingface_hub[testing] @ ."
+          uv pip install --prerelease=allow "huggingface_hub[testing] @ ."
 
           case "${{ matrix.test_name }}" in
 
@@ -68,21 +68,21 @@ jobs:
               ;;
 
             fastai)
-              uv pip install "huggingface_hub[fastai] @ ."
+              uv pip install --prerelease=allow "huggingface_hub[fastai] @ ."
               ;;
 
             gradio)
-              uv pip install "huggingface_hub[gradio] @ ."
+              uv pip install --prerelease=allow "huggingface_hub[gradio] @ ."
             ;;
 
             torch_latest)
-              uv pip install "huggingface_hub[torch] @ ."
-              uv pip install --upgrade torch
+              uv pip install --prerelease=allow "huggingface_hub[torch] @ ."
+              uv pip install --prerelease=allow --upgrade torch
               ;;
 
             "Python 3.9, torch_1.11")
-              uv pip install "huggingface_hub[torch] @ ."
-              uv pip install torch~=1.11
+              uv pip install --prerelease=allow "huggingface_hub[torch] @ ."
+              uv pip install --prerelease=allow torch~=1.11
               ;;
 
           esac
@@ -178,9 +178,9 @@ jobs:
       # Install dependencies
       - name: Install dependencies
         run: |
-          uv pip install "huggingface_hub[testing] @ ."
+          uv pip install --prerelease=allow "huggingface_hub[testing] @ ."
           if ("${{ matrix.test_name }}" -eq "Xet only") {
-            uv pip install hf_xet
+            uv pip install --prerelease=allow hf_xet
           }
 
       # Run tests
