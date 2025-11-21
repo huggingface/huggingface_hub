@@ -164,6 +164,8 @@ _SUBMOD_ATTRS = {
         "HfApi",
         "ModelInfo",
         "Organization",
+        "RepoFile",
+        "RepoFolder",
         "RepoUrl",
         "SpaceInfo",
         "User",
@@ -709,6 +711,8 @@ __all__ = [
     "REPO_TYPE_MODEL",
     "REPO_TYPE_SPACE",
     "RepoCard",
+    "RepoFile",
+    "RepoFolder",
     "RepoUrl",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
@@ -1182,6 +1186,8 @@ if TYPE_CHECKING:  # pragma: no cover
         HfApi,  # noqa: F401
         ModelInfo,  # noqa: F401
         Organization,  # noqa: F401
+        RepoFile,  # noqa: F401
+        RepoFolder,  # noqa: F401
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
         User,  # noqa: F401
