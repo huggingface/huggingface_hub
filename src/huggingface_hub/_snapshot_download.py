@@ -23,7 +23,7 @@ from .utils import tqdm as hf_tqdm
 
 logger = logging.get_logger(__name__)
 
-VERY_LARGE_REPO_THRESHOLD = 50000  # After this limit, we don't consider `repo_info.siblings` to be reliable enough
+LARGE_REPO_THRESHOLD = 1000  # After this limit, we don't consider `repo_info.siblings` to be reliable enough
 
 
 @overload
@@ -335,9 +335,7 @@ def snapshot_download(
     # In that case, we need to use the `list_repo_tree` method to prevent caching issues.
     repo_files: Iterable[str] = [f.rfilename for f in repo_info.siblings] if repo_info.siblings is not None else []
     unreliable_nb_files = (
-        repo_info.siblings is None
-        or len(repo_info.siblings) == 0
-        or len(repo_info.siblings) > VERY_LARGE_REPO_THRESHOLD
+        repo_info.siblings is None or len(repo_info.siblings) == 0 or len(repo_info.siblings) > LARGE_REPO_THRESHOLD
     )
     if unreliable_nb_files:
         logger.info(
