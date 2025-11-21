@@ -23,7 +23,7 @@ from .utils import tqdm as hf_tqdm
 
 logger = logging.get_logger(__name__)
 
-VERY_LARGE_REPO_THRESHOLD = 50000  # After this limit, we don't consider `repo_info.siblings` to be reliable enough
+VERY_LARGE_REPO_THRESHOLD = 1000  # After this limit, we don't consider `repo_info.siblings` to be reliable enough
 
 
 @overload
