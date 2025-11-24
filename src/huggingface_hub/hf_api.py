@@ -1770,7 +1770,6 @@ class HfApi:
                 )
             token = effective_token
 
-        # Check cache
         if cache:
             if token in self._whoami_cache:
                 return self._whoami_cache[token]
