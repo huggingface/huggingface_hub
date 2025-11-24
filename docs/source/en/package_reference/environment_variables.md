@@ -73,7 +73,11 @@ For more details, see [logging reference](../package_reference/utilities#hugging
 
 ### HF_HUB_ETAG_TIMEOUT
 
-Integer value to define the number of seconds to wait for server response when fetching the latest metadata from a repo before downloading a file. If the request times out, `huggingface_hub` will default to the locally cached files. Setting a lower value speeds up the workflow for machines with a slow connection that have already cached files. A higher value guarantees the metadata call to succeed in more cases. Default to 10s.
+Integer value to define the initial number of seconds to wait for server response when fetching the latest metadata from a repo before downloading a file. If the request times out, `huggingface_hub` will default to the locally cached files. If no cached file is found, a retry is attempted with a longer timeout (see `HF_HUB_ETAG_TIMEOUT_RETRY`). Setting a lower value speeds up the workflow for machines with a slow connection that have already cached files. Default to 10s.
+
+### HF_HUB_ETAG_TIMEOUT_RETRY
+
+Integer value to define the number of seconds to wait when retrying metadata fetch after an initial timeout. When the initial metadata request times out and no local cached file is found, `huggingface_hub` will retry with this longer timeout before failing. This helps handle transient network slowdowns while keeping the initial timeout fast for cached files. Default to 60s.
 
 ### HF_HUB_DOWNLOAD_TIMEOUT
 

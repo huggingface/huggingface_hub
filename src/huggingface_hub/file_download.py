@@ -1131,8 +1131,28 @@ def _hf_hub_download_to_cache_dir(
                     if not force_download:
                         return pointer_path
 
-        # Otherwise, raise appropriate error
-        _raise_on_head_call_error(head_call_error, force_download, local_files_only)
+            # No local file found, retry with longer timeout if it was a timeout error
+            if isinstance(head_call_error, httpx.TimeoutException):
+                logger.info("Metadata fetch timed out and no local file found. Retrying with longer timeout..")
+                (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
+                    _get_metadata_or_catch_error(
+                        repo_id=repo_id,
+                        filename=filename,
+                        repo_type=repo_type,
+                        revision=revision,
+                        endpoint=endpoint,
+                        etag_timeout=constants.HF_HUB_ETAG_TIMEOUT_RETRY,
+                        headers=headers,
+                        token=token,
+                        local_files_only=local_files_only,
+                        storage_folder=storage_folder,
+                        relative_filename=relative_filename,
+                    )
+                )
+
+        # If still error, raise
+        if head_call_error is not None:
+            _raise_on_head_call_error(head_call_error, force_download, local_files_only)
 
     # From now on, etag, commit_hash, url and size are not None.
     assert etag is not None, "etag must have been retrieved from server"
@@ -1300,9 +1320,26 @@ def _hf_hub_download_to_local_dir(
                 )
             if not force_download:
                 return local_path
+        elif not force_download and isinstance(head_call_error, httpx.TimeoutException):
+            # No local file found, retry with longer timeout if it was a timeout error
+            logger.info("Metadata fetch timed out and no local file found. Retrying with longer timeout...")
+            (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
+                _get_metadata_or_catch_error(
+                    repo_id=repo_id,
+                    filename=filename,
+                    repo_type=repo_type,
+                    revision=revision,
+                    endpoint=endpoint,
+                    etag_timeout=constants.HF_HUB_ETAG_TIMEOUT_RETRY,
+                    headers=headers,
+                    token=token,
+                    local_files_only=local_files_only,
+                )
+            )
 
-        # Otherwise => raise
-        _raise_on_head_call_error(head_call_error, force_download, local_files_only)
+        # If still error, raise
+        if head_call_error is not None:
+            _raise_on_head_call_error(head_call_error, force_download, local_files_only)
 
     # From now on, etag, commit_hash, url and size are not None.
     assert etag is not None, "etag must have been retrieved from server"

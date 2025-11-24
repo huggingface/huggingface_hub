@@ -32,6 +32,7 @@ FLAX_WEIGHTS_NAME = "flax_model.msgpack"
 CONFIG_NAME = "config.json"
 REPOCARD_NAME = "README.md"
 DEFAULT_ETAG_TIMEOUT = 10
+DEFAULT_ETAG_TIMEOUT_RETRY = 60
 DEFAULT_DOWNLOAD_TIMEOUT = 10
 DEFAULT_REQUEST_TIMEOUT = 10
 DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024
@@ -229,6 +230,9 @@ if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")) and not HF_XET_HIGH_PER
 
 # Used to override the etag timeout on a system level
 HF_HUB_ETAG_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_ETAG_TIMEOUT")) or DEFAULT_ETAG_TIMEOUT
+
+# Used to override the etag retry timeout on a system level (for retrying after initial timeout when no local file)
+HF_HUB_ETAG_TIMEOUT_RETRY: int = _as_int(os.environ.get("HF_HUB_ETAG_TIMEOUT_RETRY")) or DEFAULT_ETAG_TIMEOUT_RETRY
 
 # Used to override the get request timeout on a system level
 HF_HUB_DOWNLOAD_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_DOWNLOAD_TIMEOUT")) or DEFAULT_DOWNLOAD_TIMEOUT
