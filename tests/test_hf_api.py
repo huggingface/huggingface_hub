@@ -2758,7 +2758,7 @@ class HfLargefilesTest(HfApiCommonTest):
 class ParseHFUrlTest(unittest.TestCase):
     def test_repo_type_and_id_from_hf_id_on_correct_values(self):
         possible_values = {
-            "saas": {
+            "hub": {
                 "https://huggingface.co/id": [None, None, "id"],
                 "https://huggingface.co/user/id": [None, "user", "id"],
                 "https://huggingface.co/datasets/user/id": ["dataset", "user", "id"],
@@ -2780,12 +2780,9 @@ class ParseHFUrlTest(unittest.TestCase):
         }
 
         for key, value in possible_values.items():
-            hub_url = ENDPOINT_PRODUCTION if key == "saas" else "http://localhost:8080/hf"
+            hub_url = ENDPOINT_PRODUCTION if key == "hub" else "http://localhost:8080/hf"
             for key, value in value.items():
-                self.assertEqual(
-                    repo_type_and_id_from_hf_id(key, hub_url=hub_url),
-                    tuple(value),
-                )
+                assert repo_type_and_id_from_hf_id(key, hub_url=hub_url) == tuple(value)
 
     def test_repo_type_and_id_from_hf_id_on_wrong_values(self):
         for hub_id in [
