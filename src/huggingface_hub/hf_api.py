@@ -7643,7 +7643,7 @@ class HfApi:
             "type": type,
         }
         if scaling_metric:
-            payload["compute"]["scaling"]["measure"] = {scaling_metric: scaling_threshold}
+            payload["compute"]["scaling"]["measure"] = {scaling_metric: scaling_threshold}  # type: ignore
         if env:
             payload["model"]["env"] = env
         if secrets:

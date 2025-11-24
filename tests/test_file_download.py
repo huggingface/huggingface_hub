@@ -55,9 +55,9 @@ from .testing_utils import (
     DUMMY_RENAMED_OLD_MODEL_ID,
     SAMPLE_DATASET_IDENTIFIER,
     repo_name,
+    skip_on_windows,
     use_tmp_repo,
     with_production_testing,
-    xfail_on_windows,
 )
 
 
@@ -224,7 +224,7 @@ class CachedDownloadTests(unittest.TestCase):
             # Set permission back for cleanup
             _recursive_chmod(tmpdir, 0o777)
 
-    @xfail_on_windows(reason="umask is UNIX-specific")
+    @skip_on_windows(reason="umask is UNIX-specific")
     def test_hf_hub_download_custom_cache_permission(self):
         """Checks `hf_hub_download` respect the cache dir permission.
 
@@ -951,13 +951,13 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
             self.expected_resolve_url,
         )
 
-    @xfail_on_windows(reason="Windows paths cannot contain a '?'.")
+    @skip_on_windows(reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_filepath(self):
         local_path = hf_hub_download(self.repo_url.repo_id, self.filepath, cache_dir=self.cache_dir)
         # Local path is not url-encoded
         self.assertTrue(local_path.endswith(self.filepath))
 
-    @xfail_on_windows(reason="Windows paths cannot contain a '?'.")
+    @skip_on_windows(reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_subfolder_and_filename(self):
         local_path = hf_hub_download(
             self.repo_url.repo_id,
@@ -991,11 +991,11 @@ class TestHfHubDownloadRelativePaths(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.api.delete_repo(repo_id=cls.repo_id)
 
-    @xfail_on_windows(reason="Windows paths cannot contain '\\..\\'.", raises=ValueError)
+    @skip_on_windows(reason="Windows paths cannot contain '\\..\\'.")
     def test_download_folder_file_in_cache_dir(self) -> None:
         hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=self.cache_dir)
 
-    @xfail_on_windows(reason="Windows paths cannot contain '\\..\\'.", raises=ValueError)
+    @skip_on_windows(reason="Windows paths cannot contain '\\..\\'.")
     def test_download_folder_file_to_local_dir(self) -> None:
         with SoftTemporaryDirectory() as local_dir:
             hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=self.cache_dir, local_dir=local_dir)

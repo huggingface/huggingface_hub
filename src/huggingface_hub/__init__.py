@@ -164,6 +164,8 @@ _SUBMOD_ATTRS = {
         "HfApi",
         "ModelInfo",
         "Organization",
+        "RepoFile",
+        "RepoFolder",
         "RepoUrl",
         "SpaceInfo",
         "User",
@@ -296,6 +298,7 @@ _SUBMOD_ATTRS = {
         "HfFileSystemFile",
         "HfFileSystemResolvedPath",
         "HfFileSystemStreamFile",
+        "hffs",
     ],
     "hub_mixin": [
         "ModelHubMixin",
@@ -708,6 +711,8 @@ __all__ = [
     "REPO_TYPE_MODEL",
     "REPO_TYPE_SPACE",
     "RepoCard",
+    "RepoFile",
+    "RepoFolder",
     "RepoUrl",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
@@ -883,6 +888,7 @@ __all__ = [
     "hf_hub_download",
     "hf_hub_url",
     "hf_raise_for_status",
+    "hffs",
     "inspect_job",
     "inspect_scheduled_job",
     "interpreter_login",
@@ -1180,6 +1186,8 @@ if TYPE_CHECKING:  # pragma: no cover
         HfApi,  # noqa: F401
         ModelInfo,  # noqa: F401
         Organization,  # noqa: F401
+        RepoFile,  # noqa: F401
+        RepoFolder,  # noqa: F401
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
         User,  # noqa: F401
@@ -1312,6 +1320,7 @@ if TYPE_CHECKING:  # pragma: no cover
         HfFileSystemFile,  # noqa: F401
         HfFileSystemResolvedPath,  # noqa: F401
         HfFileSystemStreamFile,  # noqa: F401
+        hffs,  # noqa: F401
     )
     from .hub_mixin import (
         ModelHubMixin,  # noqa: F401
