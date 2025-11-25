@@ -14,6 +14,7 @@ from httpx import ConnectTimeout, HTTPError
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.errors import HfHubHTTPError, OfflineModeIsEnabled
 from huggingface_hub.utils._http import (
+    RateLimitInfo,
     _adjust_range_header,
     default_client_factory,
     fix_hf_endpoint_in_url,
@@ -21,6 +22,7 @@ from huggingface_hub.utils._http import (
     get_session,
     hf_raise_for_status,
     http_backoff,
+    parse_ratelimit_headers,
     set_client_factory,
 )
 
@@ -447,3 +449,80 @@ async def test_raise_on_status_async_non_stream(fake_server: str):
 async def test_raise_on_status_async_stream(fake_server: str):
     async with get_async_session().stream("GET", fake_server) as response:
         _check_raise_status(response)
+
+
+class TestParseRatelimitHeaders:
+    def test_parse_full_headers(self):
+        """Test parsing both ratelimit and ratelimit-policy headers."""
+        headers = httpx.Headers(
+            {
+                "ratelimit": '"api";r=0;t=55',
+                "ratelimit-policy": '"fixed window";"api";q=500;w=300',
+            }
+        )
+        info = parse_ratelimit_headers(headers)
+        assert info == RateLimitInfo(
+            endpoint_group="api",
+            remaining=0,
+            reset_in_seconds=55,
+            limit=500,
+            window_seconds=300,
+        )
+
+    def test_parse_ratelimit_only(self):
+        """Test parsing with only ratelimit header (no policy)."""
+        headers = httpx.Headers({"ratelimit": '"api";r=489;t=189'})
+        info = parse_ratelimit_headers(headers)
+        assert info is not None
+        assert info.endpoint_group == "api"
+        assert info.remaining == 489
+        assert info.reset_in_seconds == 189
+        assert info.limit is None
+        assert info.window_seconds is None
+
+    def test_parse_missing_header(self):
+        """Test returns None when ratelimit header is missing."""
+        headers = httpx.Headers({})
+        assert parse_ratelimit_headers(headers) is None
+
+    def test_parse_malformed_header(self):
+        """Test returns None when ratelimit header is malformed."""
+        headers = httpx.Headers({"ratelimit": "malformed"})
+        assert parse_ratelimit_headers(headers) is None
+
+
+class TestRateLimitErrorMessage:
+    def test_429_with_ratelimit_headers(self):
+        """Test 429 error includes rate limit info when headers present."""
+        response = Mock(spec=httpx.Response)
+        response.status_code = 429
+        response.headers = httpx.Headers(
+            {
+                "ratelimit": '"api";r=0;t=55',
+                "ratelimit-policy": '"fixed window";"api";q=500;w=300',
+            }
+        )
+        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.json.return_value = {}
+
+        with pytest.raises(HfHubHTTPError) as exc_info:
+            hf_raise_for_status(response)
+
+        error_msg = str(exc_info.value)
+        assert "429" in error_msg
+        assert "api" in error_msg
+        assert "55 seconds" in error_msg
+        assert "0/500" in error_msg
+
+    def test_429_without_ratelimit_headers(self):
+        """Test 429 error fallback when headers missing."""
+        response = Mock(spec=httpx.Response)
+        response.status_code = 429
+        response.headers = httpx.Headers({})
+        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.json.return_value = {}
+
+        with pytest.raises(HfHubHTTPError) as exc_info:
+            hf_raise_for_status(response)
+
+        assert "429 Too Many Requests" in str(exc_info.value)
