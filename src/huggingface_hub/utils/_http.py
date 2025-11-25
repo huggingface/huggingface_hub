@@ -98,7 +98,7 @@ def parse_ratelimit_headers(headers: Mapping[str, str]) -> Optional[RateLimitInf
     55
     ```
     """
-    # Case-insensitive header lookup
+
     ratelimit: Optional[str] = None
     policy: Optional[str] = None
     for key in headers:
