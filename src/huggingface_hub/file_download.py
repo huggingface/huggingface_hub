@@ -1333,7 +1333,7 @@ def _hf_hub_download_to_local_dir(
                     repo_type=repo_type,
                     revision=revision,
                     endpoint=endpoint,
-                    etag_timeout=constants.HF_HUB_ETAG_TIMEOUT_RETRY,
+                    etag_timeout=_ETAG_RETRY_TIMEOUT,
                     headers=headers,
                     token=token,
                     local_files_only=local_files_only,
