@@ -454,14 +454,13 @@ async def test_raise_on_status_async_stream(fake_server: str):
 class TestParseRatelimitHeaders:
     def test_parse_full_headers(self):
         """Test parsing both ratelimit and ratelimit-policy headers."""
-        headers = httpx.Headers(
-            {
-                "ratelimit": '"api";r=0;t=55',
-                "ratelimit-policy": '"fixed window";"api";q=500;w=300',
-            }
-        )
+        headers = {
+            "ratelimit": '"api";r=0;t=55',
+            "ratelimit-policy": '"fixed window";"api";q=500;w=300',
+        }
         info = parse_ratelimit_headers(headers)
         assert info == RateLimitInfo(
+            resource_type="api",
             remaining=0,
             reset_in_seconds=55,
             limit=500,
@@ -470,9 +469,10 @@ class TestParseRatelimitHeaders:
 
     def test_parse_ratelimit_only(self):
         """Test parsing with only ratelimit header (no policy)."""
-        headers = httpx.Headers({"ratelimit": '"api";r=489;t=189'})
+        headers = {"ratelimit": '"api";r=489;t=189'}
         info = parse_ratelimit_headers(headers)
         assert info is not None
+        assert info.resource_type == "api"
         assert info.remaining == 489
         assert info.reset_in_seconds == 189
         assert info.limit is None
@@ -480,13 +480,18 @@ class TestParseRatelimitHeaders:
 
     def test_parse_missing_header(self):
         """Test returns None when ratelimit header is missing."""
-        headers = httpx.Headers({})
-        assert parse_ratelimit_headers(headers) is None
+        assert parse_ratelimit_headers({}) is None
 
     def test_parse_malformed_header(self):
         """Test returns None when ratelimit header is malformed."""
-        headers = httpx.Headers({"ratelimit": "malformed"})
-        assert parse_ratelimit_headers(headers) is None
+        assert parse_ratelimit_headers({"ratelimit": "malformed"}) is None
+
+    def test_parse_case_insensitive(self):
+        """Test header lookup is case-insensitive."""
+        headers = {"RateLimit": '"api";r=10;t=100', "RateLimit-Policy": '"fixed window";"api";q=500;w=300'}
+        info = parse_ratelimit_headers(headers)
+        assert info is not None
+        assert info.remaining == 10
 
 
 class TestRateLimitErrorMessage:
@@ -509,9 +514,10 @@ class TestRateLimitErrorMessage:
 
         error_msg = str(exc_info.value)
         assert "429 Too Many Requests" in error_msg
-        assert "api/models/username/reponame" in error_msg
+        assert "'api' rate limit" in error_msg
         assert "55 seconds" in error_msg
         assert "0/500" in error_msg
+        assert "api/models/username/reponame" in error_msg
 
     def test_429_without_ratelimit_headers(self):
         """Test 429 error fallback when headers missing."""

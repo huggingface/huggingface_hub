@@ -26,7 +26,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from http import HTTPStatus
 from shlex import quote
-from typing import Any, Callable, Generator, Optional, Union
+from typing import Any, Callable, Generator, Mapping, Optional, Union
 
 import httpx
 
@@ -54,8 +54,17 @@ logger = logging.get_logger(__name__)
 class RateLimitInfo:
     """
     Parsed rate limit information from HTTP response headers.
+
+    Attributes:
+        `resource_type` (`str`): The type of resource being rate limited.
+        `remaining` (`int`): The number of requests remaining in the current window.
+        `reset_in_seconds` (`int`): The number of seconds until the rate limit resets.
+        `limit` (`int`, *optional*): The maximum number of requests allowed in the current window.
+        `window_seconds` (`int`, *optional*): The number of seconds in the current window.
+
     """
 
+    resource_type: str
     remaining: int
     reset_in_seconds: int
     limit: Optional[int] = None
@@ -63,47 +72,63 @@ class RateLimitInfo:
 
 
 # Regex patterns for parsing rate limit headers
-# e.g.: "api";r=0;t=55 --> r=0, t=55
-_RATELIMIT_HEADER_REGEX = re.compile(r"r\s*=\s*(\d+)\s*;\s*t\s*=\s*(\d+)")
+# e.g.: "api";r=0;t=55 --> resource_type="api", r=0, t=55
+_RATELIMIT_REGEX = re.compile(r"\"(?P<resource_type>\w+)\"\s*;\s*r\s*=\s*(?P<r>\d+)\s*;\s*t\s*=\s*(?P<t>\d+)")
 # e.g.: "fixed window";"api";q=500;w=300 --> q=500, w=300
-_RATELIMIT_POLICY_REGEX = re.compile(r"q\s*=\s*(\d+).*?w\s*=\s*(\d+)")
+_RATELIMIT_POLICY_REGEX = re.compile(r"q\s*=\s*(?P<q>\d+).*?w\s*=\s*(?P<w>\d+)")
 
 
-def parse_ratelimit_headers(headers: httpx.Headers) -> Optional[RateLimitInfo]:
+def parse_ratelimit_headers(headers: Mapping[str, str]) -> Optional[RateLimitInfo]:
     """Parse rate limit information from HTTP response headers.
 
     Follows IETF draft: https://www.ietf.org/archive/id/draft-ietf-httpapi-ratelimit-headers-09.html
 
     Example:
-        >>> headers = httpx.Headers({"ratelimit": '"api";r=0;t=55', "ratelimit-policy": '"fixed window";"api";q=500;w=300'})
+    ```python
+        >>> from huggingface_hub.utils import parse_ratelimit_headers
+        >>> headers = {
+        ...     "ratelimit": '"api";r=0;t=55',
+        ...     "ratelimit-policy": '"fixed window";"api";q=500;w=300',
+        ... }
         >>> info = parse_ratelimit_headers(headers)
         >>> info.remaining
         0
         >>> info.reset_in_seconds
         55
+    ```
     """
-    ratelimit = headers.get("ratelimit")
+    # Case-insensitive header lookup
+    ratelimit: Optional[str] = None
+    policy: Optional[str] = None
+    for key in headers:
+        lower_key = key.lower()
+        if lower_key == "ratelimit":
+            ratelimit = headers[key]
+        elif lower_key == "ratelimit-policy":
+            policy = headers[key]
+
     if not ratelimit:
         return None
 
-    match = _RATELIMIT_HEADER_REGEX.search(ratelimit)
+    match = _RATELIMIT_REGEX.search(ratelimit)
     if not match:
         return None
 
-    remaining = int(match.group(1))
-    reset_in_seconds = int(match.group(2))
+    resource_type = match.group("resource_type")
+    remaining = int(match.group("r"))
+    reset_in_seconds = int(match.group("t"))
 
     limit: Optional[int] = None
     window_seconds: Optional[int] = None
 
-    policy = headers.get("ratelimit-policy")
     if policy:
         policy_match = _RATELIMIT_POLICY_REGEX.search(policy)
         if policy_match:
-            limit = int(policy_match.group(1))
-            window_seconds = int(policy_match.group(2))
+            limit = int(policy_match.group("q"))
+            window_seconds = int(policy_match.group("w"))
 
     return RateLimitInfo(
+        resource_type=resource_type,
         remaining=remaining,
         reset_in_seconds=reset_in_seconds,
         limit=limit,
@@ -685,7 +710,9 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
         elif response.status_code == 429:
             ratelimit_info = parse_ratelimit_headers(response.headers)
             if ratelimit_info is not None:
-                message = f"\n\n429 Too Many Requests for url: {response.url}."
+                message = (
+                    f"\n\n429 Too Many Requests: you have reached your '{ratelimit_info.resource_type}' rate limit."
+                )
                 message += f"\nRetry after {ratelimit_info.reset_in_seconds} seconds"
                 if ratelimit_info.limit is not None and ratelimit_info.window_seconds is not None:
                     message += (
@@ -694,6 +721,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
                     )
                 else:
                     message += "."
+                message += f"\nUrl: {response.url}."
             else:
                 message = f"\n\n429 Too Many Requests for url: {response.url}."
             raise _format(HfHubHTTPError, message, response) from e
