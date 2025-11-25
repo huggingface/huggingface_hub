@@ -170,25 +170,67 @@ class HfApiRepoFileExistsTest(HfApiCommonTest):
 class HfApiEndpointsTest(HfApiCommonTest):
     def test_whoami_with_passing_token(self):
         info = self._api.whoami(token=self._token)
-        self.assertEqual(info["name"], USER)
-        self.assertEqual(info["fullname"], FULL_NAME)
-        self.assertIsInstance(info["orgs"], list)
+        assert info["name"] == USER
+        assert info["fullname"] == FULL_NAME
+        assert isinstance(info["orgs"], list)
         valid_org = [org for org in info["orgs"] if org["name"] == "valid_org"][0]
-        self.assertEqual(valid_org["fullname"], "Dummy Org")
+        assert valid_org["fullname"] == "Dummy Org"
 
-    @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
+    @patch("huggingface_hub.hf_api.get_token", return_value=TOKEN)
     def test_whoami_with_implicit_token_from_login(self, mock_get_token: Mock) -> None:
         """Test using `whoami` after a `hf auth login`."""
         with patch.object(self._api, "token", None):  # no default token
             info = self._api.whoami()
-        self.assertEqual(info["name"], USER)
+        assert info["name"] == USER
 
     @patch("huggingface_hub.utils._headers.get_token")
     def test_whoami_with_implicit_token_from_hf_api(self, mock_get_token: Mock) -> None:
         """Test using `whoami` with token from the HfApi client."""
         info = self._api.whoami()
-        self.assertEqual(info["name"], USER)
+        assert info["name"] == USER
         mock_get_token.assert_not_called()
+
+    def test_whoami_with_caching(self) -> None:
+        # Don't use class instance to avoid cache sharing
+        api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+        assert api._whoami_cache == {}
+
+        assert api.whoami(cache=True)["name"] == USER
+
+        # Value in cache
+        assert len(api._whoami_cache) == 1
+        assert TOKEN in api._whoami_cache
+        mocked_value = Mock()
+        api._whoami_cache[TOKEN] = mocked_value
+
+        # Call again => use cache
+        assert api.whoami(cache=True) == mocked_value
+
+        # Cache not shared between HfApi instances
+        api_bis = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+        assert api_bis._whoami_cache == {}
+        assert api_bis.whoami(cache=True)["name"] == USER
+
+    def test_whoami_rate_limit_suggest_caching(self) -> None:
+        with patch("huggingface_hub.hf_api.hf_raise_for_status") as mock:
+            mock.side_effect = HfHubHTTPError(message="Fake error.", response=Mock(status_code=429))
+            with pytest.raises(
+                HfHubHTTPError, match=r".*consider caching the response with `whoami\(..., cache=True\)`.*"
+            ):
+                self._api.whoami()
+
+    def test_whoami_with_token_false(self):
+        """Test that using `token=False` raises an error.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/pull/3568#discussion_r2557248898.
+
+        Before the fix, local token was used even when `token=False` was passed (which is not intended).
+        """
+        with self.assertRaises(ValueError):
+            self._api.whoami(token=False)
+
+        with self.assertRaises(ValueError):
+            HfApi(token=False).whoami()
 
     def test_delete_repo_error_message(self):
         # test for #751
