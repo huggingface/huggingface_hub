@@ -42,6 +42,7 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceTask,
 )
 from huggingface_hub.inference._providers.hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
+from huggingface_hub.inference._providers.mokzu import MokzuTextToVideoTask, MokzuImageToVideoTask
 from huggingface_hub.inference._providers.nebius import NebiusFeatureExtractionTask, NebiusTextToImageTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
@@ -1209,6 +1210,19 @@ class TestHyperbolicProvider:
         response = helper.get_response({"images": [{"image": base64.b64encode(dummy_image).decode()}]})
         assert response == dummy_image
 
+
+class TestMokzuProvider:
+    def test_mokzu_text_to_video_payload():
+        helper = MokzuTextToVideoTask()
+        helper.task = "text-to-video"
+        payload = helper._prepare_payload_as_dict("Hello world", {}, "mokzu")
+        assert payload == {"prompt": "Hello world"}
+
+    def test_mokzu_image_to_video_payload():
+        helper = MokzuImageToVideoTask()
+        helper.task = "image-to-video"
+        payload = helper._prepare_payload_as_dict(b"binarydata", {}, "mokzu")
+        assert "file" in payload
 
 class TestNebiusProvider:
     def test_prepare_route_text_to_image(self):

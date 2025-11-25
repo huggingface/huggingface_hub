@@ -30,6 +30,7 @@ HARDCODED_MODEL_INFERENCE_MAPPING: dict[str, dict[str, InferenceProviderMapping]
     "groq": {},
     "hf-inference": {},
     "hyperbolic": {},
+    "mokzu": {},
     "nebius": {},
     "nscale": {},
     "ovhcloud": {},
