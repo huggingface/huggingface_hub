@@ -1758,7 +1758,7 @@ class HfApi:
                 Defaults to `False`.
         """
         # Get the effective token using the helper function get_token
-        token = token or self.token
+        token = self.token if token is None else token
         if token is False:
             raise ValueError("Cannot use `token=False` with `whoami` method as it requires authentication.")
         if token is True or token is None:
