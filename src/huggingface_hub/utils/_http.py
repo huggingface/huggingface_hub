@@ -23,9 +23,10 @@ import threading
 import time
 import uuid
 from contextlib import contextmanager
+from dataclasses import dataclass
 from http import HTTPStatus
 from shlex import quote
-from typing import Any, Callable, Generator, Optional, Union
+from typing import Any, Callable, Generator, Mapping, Optional, Union
 
 import httpx
 
@@ -47,6 +48,94 @@ from ._typing import HTTP_METHOD_T
 
 
 logger = logging.get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class RateLimitInfo:
+    """
+    Parsed rate limit information from HTTP response headers.
+
+    Attributes:
+        resource_type (`str`): The type of resource being rate limited.
+        remaining (`int`): The number of requests remaining in the current window.
+        reset_in_seconds (`int`): The number of seconds until the rate limit resets.
+        limit (`int`, *optional*): The maximum number of requests allowed in the current window.
+        window_seconds (`int`, *optional*): The number of seconds in the current window.
+
+    """
+
+    resource_type: str
+    remaining: int
+    reset_in_seconds: int
+    limit: Optional[int] = None
+    window_seconds: Optional[int] = None
+
+
+# Regex patterns for parsing rate limit headers
+# e.g.: "api";r=0;t=55 --> resource_type="api", r=0, t=55
+_RATELIMIT_REGEX = re.compile(r"\"(?P<resource_type>\w+)\"\s*;\s*r\s*=\s*(?P<r>\d+)\s*;\s*t\s*=\s*(?P<t>\d+)")
+# e.g.: "fixed window";"api";q=500;w=300 --> q=500, w=300
+_RATELIMIT_POLICY_REGEX = re.compile(r"q\s*=\s*(?P<q>\d+).*?w\s*=\s*(?P<w>\d+)")
+
+
+def parse_ratelimit_headers(headers: Mapping[str, str]) -> Optional[RateLimitInfo]:
+    """Parse rate limit information from HTTP response headers.
+
+    Follows IETF draft: https://www.ietf.org/archive/id/draft-ietf-httpapi-ratelimit-headers-09.html
+    Only a subset is implemented.
+
+    Example:
+    ```python
+    >>> from huggingface_hub.utils import parse_ratelimit_headers
+    >>> headers = {
+    ...     "ratelimit": '"api";r=0;t=55',
+    ...     "ratelimit-policy": '"fixed window";"api";q=500;w=300',
+    ... }
+    >>> info = parse_ratelimit_headers(headers)
+    >>> info.remaining
+    0
+    >>> info.reset_in_seconds
+    55
+    ```
+    """
+
+    ratelimit: Optional[str] = None
+    policy: Optional[str] = None
+    for key in headers:
+        lower_key = key.lower()
+        if lower_key == "ratelimit":
+            ratelimit = headers[key]
+        elif lower_key == "ratelimit-policy":
+            policy = headers[key]
+
+    if not ratelimit:
+        return None
+
+    match = _RATELIMIT_REGEX.search(ratelimit)
+    if not match:
+        return None
+
+    resource_type = match.group("resource_type")
+    remaining = int(match.group("r"))
+    reset_in_seconds = int(match.group("t"))
+
+    limit: Optional[int] = None
+    window_seconds: Optional[int] = None
+
+    if policy:
+        policy_match = _RATELIMIT_POLICY_REGEX.search(policy)
+        if policy_match:
+            limit = int(policy_match.group("q"))
+            window_seconds = int(policy_match.group("w"))
+
+    return RateLimitInfo(
+        resource_type=resource_type,
+        remaining=remaining,
+        reset_in_seconds=reset_in_seconds,
+        limit=limit,
+        window_seconds=window_seconds,
+    )
+
 
 # Both headers are used by the Hub to debug failed requests.
 # `X_AMZN_TRACE_ID` is better as it also works to debug on Cloudfront and ALB.
@@ -617,6 +706,25 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
                 + f"\nCannot access content at: {response.url}."
                 + "\nMake sure your token has the correct permissions."
             )
+            raise _format(HfHubHTTPError, message, response) from e
+
+        elif response.status_code == 429:
+            ratelimit_info = parse_ratelimit_headers(response.headers)
+            if ratelimit_info is not None:
+                message = (
+                    f"\n\n429 Too Many Requests: you have reached your '{ratelimit_info.resource_type}' rate limit."
+                )
+                message += f"\nRetry after {ratelimit_info.reset_in_seconds} seconds"
+                if ratelimit_info.limit is not None and ratelimit_info.window_seconds is not None:
+                    message += (
+                        f" ({ratelimit_info.remaining}/{ratelimit_info.limit} requests remaining"
+                        f" in current {ratelimit_info.window_seconds}s window)."
+                    )
+                else:
+                    message += "."
+                message += f"\nUrl: {response.url}."
+            else:
+                message = f"\n\n429 Too Many Requests for url: {response.url}."
             raise _format(HfHubHTTPError, message, response) from e
 
         elif response.status_code == 416:
