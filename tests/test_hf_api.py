@@ -219,6 +219,19 @@ class HfApiEndpointsTest(HfApiCommonTest):
             ):
                 self._api.whoami()
 
+    def test_whoami_with_token_false(self):
+        """Test that using `token=False` raises an error.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/pull/3568#discussion_r2557248898.
+
+        Before the fix, local token was used even when `token=False` was passed (which is not intended).
+        """
+        with self.assertRaises(ValueError):
+            self._api.whoami(token=False)
+
+        with self.assertRaises(ValueError):
+            HfApi(token=False).whoami()
+
     def test_delete_repo_error_message(self):
         # test for #751
         # See https://github.com/huggingface/huggingface_hub/issues/751
