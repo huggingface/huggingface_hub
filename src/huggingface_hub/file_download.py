@@ -63,6 +63,9 @@ REGEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 _are_symlinks_supported_in_dir: dict[str, bool] = {}
 
+# Internal retry timeout for metadata fetch when no local file exists
+_ETAG_RETRY_TIMEOUT = 60
+
 
 def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
     """Return whether the symlinks are supported on the machine.
@@ -1141,7 +1144,7 @@ def _hf_hub_download_to_cache_dir(
                         repo_type=repo_type,
                         revision=revision,
                         endpoint=endpoint,
-                        etag_timeout=constants.HF_HUB_ETAG_TIMEOUT_RETRY,
+                        etag_timeout=_ETAG_RETRY_TIMEOUT,
                         headers=headers,
                         token=token,
                         local_files_only=local_files_only,
