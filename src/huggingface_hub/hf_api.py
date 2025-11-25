@@ -1762,13 +1762,12 @@ class HfApi:
         if token is False:
             raise ValueError("Cannot use `token=False` with `whoami` method as it requires authentication.")
         if token is True or token is None:
-            effective_token = get_token()
-            if effective_token is None:
-                raise LocalTokenNotFoundError(
+            token = get_token()
+        if token is None:
+           raise LocalTokenNotFoundError(
                     "Token is required to call the /whoami-v2 endpoint, but no token found. You must provide a token or be logged in to "
                     "Hugging Face with `hf auth login` or `huggingface_hub.login`. See https://huggingface.co/settings/tokens."
-                )
-            token = effective_token
+                ) 
 
         if cache:
             if token in self._whoami_cache:
