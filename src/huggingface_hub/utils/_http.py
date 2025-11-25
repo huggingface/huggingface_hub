@@ -56,7 +56,6 @@ class RateLimitInfo:
     Parsed rate limit information from HTTP response headers.
     """
 
-    endpoint_group: str
     remaining: int
     reset_in_seconds: int
     limit: Optional[int] = None
@@ -64,8 +63,8 @@ class RateLimitInfo:
 
 
 # Regex patterns for parsing rate limit headers
-# e.g.: "api";r=0;t=55 --> endpoint_group="api", r=0, t=55
-_RATELIMIT_HEADER_REGEX = re.compile(r'"([^"]+)"\s*;\s*r\s*=\s*(\d+)\s*;\s*t\s*=\s*(\d+)')
+# e.g.: "api";r=0;t=55 --> r=0, t=55
+_RATELIMIT_HEADER_REGEX = re.compile(r"r\s*=\s*(\d+)\s*;\s*t\s*=\s*(\d+)")
 # e.g.: "fixed window";"api";q=500;w=300 --> q=500, w=300
 _RATELIMIT_POLICY_REGEX = re.compile(r"q\s*=\s*(\d+).*?w\s*=\s*(\d+)")
 
@@ -91,9 +90,8 @@ def parse_ratelimit_headers(headers: httpx.Headers) -> Optional[RateLimitInfo]:
     if not match:
         return None
 
-    endpoint_group = match.group(1)
-    remaining = int(match.group(2))
-    reset_in_seconds = int(match.group(3))
+    remaining = int(match.group(1))
+    reset_in_seconds = int(match.group(2))
 
     limit: Optional[int] = None
     window_seconds: Optional[int] = None
@@ -106,7 +104,6 @@ def parse_ratelimit_headers(headers: httpx.Headers) -> Optional[RateLimitInfo]:
             window_seconds = int(policy_match.group(2))
 
     return RateLimitInfo(
-        endpoint_group=endpoint_group,
         remaining=remaining,
         reset_in_seconds=reset_in_seconds,
         limit=limit,
@@ -688,15 +685,17 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
         elif response.status_code == 429:
             ratelimit_info = parse_ratelimit_headers(response.headers)
             if ratelimit_info is not None:
-                message = f"\n\n429 Too Many Requests. Rate limited on '{ratelimit_info.endpoint_group}' endpoint."
-                message += f"\nRetry after {ratelimit_info.reset_in_seconds} seconds."
+                message = f"\n\n429 Too Many Requests for url: {response.url}."
+                message += f"\nRetry after {ratelimit_info.reset_in_seconds} seconds"
                 if ratelimit_info.limit is not None and ratelimit_info.window_seconds is not None:
                     message += (
-                        f" {ratelimit_info.remaining}/{ratelimit_info.limit} requests remaining"
-                        f" in current {ratelimit_info.window_seconds}s window."
+                        f" ({ratelimit_info.remaining}/{ratelimit_info.limit} requests remaining"
+                        f" in current {ratelimit_info.window_seconds}s window)."
                     )
+                else:
+                    message += "."
             else:
-                message = "\n\n429 Too Many Requests."
+                message = f"\n\n429 Too Many Requests for url: {response.url}."
             raise _format(HfHubHTTPError, message, response) from e
 
         elif response.status_code == 416:

@@ -462,7 +462,6 @@ class TestParseRatelimitHeaders:
         )
         info = parse_ratelimit_headers(headers)
         assert info == RateLimitInfo(
-            endpoint_group="api",
             remaining=0,
             reset_in_seconds=55,
             limit=500,
@@ -474,7 +473,6 @@ class TestParseRatelimitHeaders:
         headers = httpx.Headers({"ratelimit": '"api";r=489;t=189'})
         info = parse_ratelimit_headers(headers)
         assert info is not None
-        assert info.endpoint_group == "api"
         assert info.remaining == 489
         assert info.reset_in_seconds == 189
         assert info.limit is None
@@ -496,6 +494,7 @@ class TestRateLimitErrorMessage:
         """Test 429 error includes rate limit info when headers present."""
         response = Mock(spec=httpx.Response)
         response.status_code = 429
+        response.url = "https://huggingface.co/api/models/username/reponame"
         response.headers = httpx.Headers(
             {
                 "ratelimit": '"api";r=0;t=55',
@@ -509,8 +508,8 @@ class TestRateLimitErrorMessage:
             hf_raise_for_status(response)
 
         error_msg = str(exc_info.value)
-        assert "429" in error_msg
-        assert "api" in error_msg
+        assert "429 Too Many Requests" in error_msg
+        assert "api/models/username/reponame" in error_msg
         assert "55 seconds" in error_msg
         assert "0/500" in error_msg
 
@@ -518,6 +517,7 @@ class TestRateLimitErrorMessage:
         """Test 429 error fallback when headers missing."""
         response = Mock(spec=httpx.Response)
         response.status_code = 429
+        response.url = "https://huggingface.co/api/models"
         response.headers = httpx.Headers({})
         response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
         response.json.return_value = {}
@@ -526,3 +526,4 @@ class TestRateLimitErrorMessage:
             hf_raise_for_status(response)
 
         assert "429 Too Many Requests" in str(exc_info.value)
+        assert "api/models" in str(exc_info.value)
