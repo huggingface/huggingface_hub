@@ -56,11 +56,11 @@ class RateLimitInfo:
     Parsed rate limit information from HTTP response headers.
 
     Attributes:
-        `resource_type` (`str`): The type of resource being rate limited.
-        `remaining` (`int`): The number of requests remaining in the current window.
-        `reset_in_seconds` (`int`): The number of seconds until the rate limit resets.
-        `limit` (`int`, *optional*): The maximum number of requests allowed in the current window.
-        `window_seconds` (`int`, *optional*): The number of seconds in the current window.
+        resource_type (`str`): The type of resource being rate limited.
+        remaining (`int`): The number of requests remaining in the current window.
+        reset_in_seconds (`int`): The number of seconds until the rate limit resets.
+        limit (`int`, *optional*): The maximum number of requests allowed in the current window.
+        window_seconds (`int`, *optional*): The number of seconds in the current window.
 
     """
 
@@ -85,16 +85,16 @@ def parse_ratelimit_headers(headers: Mapping[str, str]) -> Optional[RateLimitInf
 
     Example:
     ```python
-        >>> from huggingface_hub.utils import parse_ratelimit_headers
-        >>> headers = {
-        ...     "ratelimit": '"api";r=0;t=55',
-        ...     "ratelimit-policy": '"fixed window";"api";q=500;w=300',
-        ... }
-        >>> info = parse_ratelimit_headers(headers)
-        >>> info.remaining
-        0
-        >>> info.reset_in_seconds
-        55
+    >>> from huggingface_hub.utils import parse_ratelimit_headers
+    >>> headers = {
+    ...     "ratelimit": '"api";r=0;t=55',
+    ...     "ratelimit-policy": '"fixed window";"api";q=500;w=300',
+    ... }
+    >>> info = parse_ratelimit_headers(headers)
+    >>> info.remaining
+    0
+    >>> info.reset_in_seconds
+    55
     ```
     """
     # Case-insensitive header lookup
