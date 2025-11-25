@@ -1764,10 +1764,10 @@ class HfApi:
         if token is True or token is None:
             token = get_token()
         if token is None:
-           raise LocalTokenNotFoundError(
-                    "Token is required to call the /whoami-v2 endpoint, but no token found. You must provide a token or be logged in to "
-                    "Hugging Face with `hf auth login` or `huggingface_hub.login`. See https://huggingface.co/settings/tokens."
-                ) 
+            raise LocalTokenNotFoundError(
+                "Token is required to call the /whoami-v2 endpoint, but no token found. You must provide a token or be logged in to "
+                "Hugging Face with `hf auth login` or `huggingface_hub.login`. See https://huggingface.co/settings/tokens."
+            )
 
         if cache and (cached_token := self._whoami_cache.get(token)):
             return cached_token
