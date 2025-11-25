@@ -52,16 +52,8 @@ logger = logging.get_logger(__name__)
 
 @dataclass(frozen=True)
 class RateLimitInfo:
-    """Parsed rate limit information from HTTP response headers.
-
-    Follows IETF draft: https://www.ietf.org/archive/id/draft-ietf-httpapi-ratelimit-headers-09.html
-
-    Attributes:
-        endpoint_group: The endpoint group that triggered the rate limit (e.g., "api").
-        remaining: Number of remaining calls before being rate limited.
-        reset_in_seconds: Seconds until the rate limit window resets.
-        limit: Maximum number of requests allowed per window (from policy header).
-        window_seconds: Duration of the rate limit window in seconds (from policy header).
+    """
+    Parsed rate limit information from HTTP response headers.
     """
 
     endpoint_group: str
@@ -72,9 +64,9 @@ class RateLimitInfo:
 
 
 # Regex patterns for parsing rate limit headers
-# Example: "api";r=0;t=55 -> endpoint_group="api", r=0, t=55
+# e.g.: "api";r=0;t=55 --> endpoint_group="api", r=0, t=55
 _RATELIMIT_HEADER_REGEX = re.compile(r'"([^"]+)"\s*;\s*r\s*=\s*(\d+)\s*;\s*t\s*=\s*(\d+)')
-# Example: "fixed window";"api";q=500;w=300 -> q=500, w=300
+# e.g.: "fixed window";"api";q=500;w=300 --> q=500, w=300
 _RATELIMIT_POLICY_REGEX = re.compile(r"q\s*=\s*(\d+).*?w\s*=\s*(\d+)")
 
 
@@ -82,12 +74,6 @@ def parse_ratelimit_headers(headers: httpx.Headers) -> Optional[RateLimitInfo]:
     """Parse rate limit information from HTTP response headers.
 
     Follows IETF draft: https://www.ietf.org/archive/id/draft-ietf-httpapi-ratelimit-headers-09.html
-
-    Args:
-        headers: HTTP response headers.
-
-    Returns:
-        RateLimitInfo if headers are present and valid, None otherwise.
 
     Example:
         >>> headers = httpx.Headers({"ratelimit": '"api";r=0;t=55', "ratelimit-policy": '"fixed window";"api";q=500;w=300'})
@@ -109,7 +95,6 @@ def parse_ratelimit_headers(headers: httpx.Headers) -> Optional[RateLimitInfo]:
     remaining = int(match.group(2))
     reset_in_seconds = int(match.group(3))
 
-    # Parse optional policy header for limit and window
     limit: Optional[int] = None
     window_seconds: Optional[int] = None
 
@@ -701,7 +686,6 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
             raise _format(HfHubHTTPError, message, response) from e
 
         elif response.status_code == 429:
-            # Rate limited - parse headers for informative message
             ratelimit_info = parse_ratelimit_headers(response.headers)
             if ratelimit_info is not None:
                 message = f"\n\n429 Too Many Requests. Rate limited on '{ratelimit_info.endpoint_group}' endpoint."
