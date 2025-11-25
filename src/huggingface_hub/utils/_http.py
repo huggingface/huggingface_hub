@@ -82,6 +82,7 @@ def parse_ratelimit_headers(headers: Mapping[str, str]) -> Optional[RateLimitInf
     """Parse rate limit information from HTTP response headers.
 
     Follows IETF draft: https://www.ietf.org/archive/id/draft-ietf-httpapi-ratelimit-headers-09.html
+    Only a subset is implemented.
 
     Example:
     ```python
