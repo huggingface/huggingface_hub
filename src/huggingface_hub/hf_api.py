@@ -1743,7 +1743,7 @@ class HfApi:
         """
         Call HF API to know "whoami".
 
-        If passing `cache=True`, the result will be cached for subsequent calls. This is useful if you plan to call
+        If passing `cache=True`, the result will be cached for subsequent calls for the duration of the Python process. This is useful if you plan to call
         `whoami` multiple times as this endpoint is heavily rate-limited for security reasons.
 
         Args:
@@ -1770,7 +1770,6 @@ class HfApi:
                 )
             token = effective_token
 
-        # Check cache
         if cache:
             if token in self._whoami_cache:
                 return self._whoami_cache[token]
