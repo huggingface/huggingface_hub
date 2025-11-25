@@ -1769,9 +1769,8 @@ class HfApi:
                     "Hugging Face with `hf auth login` or `huggingface_hub.login`. See https://huggingface.co/settings/tokens."
                 ) 
 
-        if cache:
-            if token in self._whoami_cache:
-                return self._whoami_cache[token]
+        if cache and (cached_token := self._whoami_cache.get(token)):
+            return cached_token
 
         # Call Hub
         output = self._inner_whoami(token=token)
