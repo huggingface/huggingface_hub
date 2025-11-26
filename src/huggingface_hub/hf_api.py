@@ -75,6 +75,7 @@ from .errors import (
     BadRequestError,
     GatedRepoError,
     HfHubHTTPError,
+    LocalTokenNotFoundError,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -1729,6 +1730,9 @@ class HfApi:
         self.headers = headers
         self._thread_pool: Optional[ThreadPoolExecutor] = None
 
+        # /whoami-v2 is the only endpoint for which we may want to cache results
+        self._whoami_cache: dict[str, dict] = {}
+
     def run_as_future(self, fn: Callable[..., R], *args, **kwargs) -> Future[R]:
         """
         Run a method in the background and return a Future instance.
@@ -1770,9 +1774,12 @@ class HfApi:
         return self._thread_pool.submit(fn, *args, **kwargs)
 
     @validate_hf_hub_args
-    def whoami(self, token: Union[bool, str, None] = None) -> dict:
+    def whoami(self, token: Union[bool, str, None] = None, *, cache: bool = False) -> dict:
         """
         Call HF API to know "whoami".
+
+        If passing `cache=True`, the result will be cached for subsequent calls for the duration of the Python process. This is useful if you plan to call
+        `whoami` multiple times as this endpoint is heavily rate-limited for security reasons.
 
         Args:
             token (`bool` or `str`, *optional*):
@@ -1780,12 +1787,38 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
+            cache (`bool`, *optional*):
+                Whether to cache the result of the `whoami` call for subsequent calls.
+                If an error occurs during the first call, it won't be cached.
+                Defaults to `False`.
         """
         # Get the effective token using the helper function get_token
-        effective_token = token or self.token or get_token() or True
+        token = self.token if token is None else token
+        if token is False:
+            raise ValueError("Cannot use `token=False` with `whoami` method as it requires authentication.")
+        if token is True or token is None:
+            token = get_token()
+        if token is None:
+            raise LocalTokenNotFoundError(
+                "Token is required to call the /whoami-v2 endpoint, but no token found. You must provide a token or be logged in to "
+                "Hugging Face with `hf auth login` or `huggingface_hub.login`. See https://huggingface.co/settings/tokens."
+            )
+
+        if cache and (cached_token := self._whoami_cache.get(token)):
+            return cached_token
+
+        # Call Hub
+        output = self._inner_whoami(token=token)
+
+        # Cache result and return
+        if cache:
+            self._whoami_cache[token] = output
+        return output
+
+    def _inner_whoami(self, token: str) -> dict:
         r = get_session().get(
             f"{self.endpoint}/api/whoami-v2",
-            headers=self._build_hf_headers(token=effective_token),
+            headers=self._build_hf_headers(token=token),
         )
         try:
             hf_raise_for_status(r)
@@ -1793,15 +1826,21 @@ class HfApi:
             if e.response.status_code == 401:
                 error_message = "Invalid user token."
                 # Check which token is the effective one and generate the error message accordingly
-                if effective_token == _get_token_from_google_colab():
+                if token == _get_token_from_google_colab():
                     error_message += " The token from Google Colab vault is invalid. Please update it from the UI."
-                elif effective_token == _get_token_from_environment():
+                elif token == _get_token_from_environment():
                     error_message += (
                         " The token from HF_TOKEN environment variable is invalid. "
                         "Note that HF_TOKEN takes precedence over `hf auth login`."
                     )
-                elif effective_token == _get_token_from_file():
+                elif token == _get_token_from_file():
                     error_message += " The token stored is invalid. Please run `hf auth login` to update it."
+                raise HfHubHTTPError(error_message, response=e.response) from e
+            if e.response.status_code == 429:
+                error_message = (
+                    "You've hit the rate limit for the /whoami-v2 endpoint, which is intentionally strict for security reasons."
+                    " If you're calling it often, consider caching the response with `whoami(..., cache=True)`."
+                )
                 raise HfHubHTTPError(error_message, response=e.response) from e
             raise
         return r.json()
