@@ -164,6 +164,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         endpoint: Optional[str] = None,
         token: Union[bool, str, None] = None,
         block_size: Optional[int] = None,
+        expand_info: Optional[bool] = None,
         **storage_options,
     ):
         super().__init__(*args, **storage_options)
@@ -171,6 +172,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         self.token = token
         self._api = HfApi(endpoint=endpoint, token=token)
         self.block_size = block_size
+        self.expand_info = expand_info
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
         #  * the 1st element indicating whether the repositoy and the revision exist
         #  * the 2nd element being the exception raised if the repository or revision doesn't exist
@@ -457,9 +459,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         recursive: bool = False,
         refresh: bool = False,
         revision: Optional[str] = None,
-        expand_info: bool = False,
+        expand_info: Optional[bool] = None,
         maxdepth: Optional[int] = None,
     ):
+        expand_info = self.expand_info if self.expand_info is not None else (expand_info if expand_info is not None else False)
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         root_path = HfFileSystemResolvedPath(
@@ -760,7 +763,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         expand_info = kwargs.get(
-            "expand_info", False
+            "expand_info", self.expand_info if self.expand_info is not None else False
         )  # don't expose it as a parameter in the public API to follow the spec
         if not resolved_path.path_in_repo:
             # Path is the root directory
