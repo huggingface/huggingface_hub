@@ -22,11 +22,17 @@ class ANSI:
     Helper for en.wikipedia.org/wiki/ANSI_escape_code
     """
 
+    _blue = "\u001b[34m"
     _bold = "\u001b[1m"
     _gray = "\u001b[90m"
+    _green = "\u001b[32m"
     _red = "\u001b[31m"
     _reset = "\u001b[0m"
     _yellow = "\u001b[33m"
+
+    @classmethod
+    def blue(cls, s: str) -> str:
+        return cls._format(s, cls._blue)
 
     @classmethod
     def bold(cls, s: str) -> str:
@@ -35,6 +41,10 @@ class ANSI:
     @classmethod
     def gray(cls, s: str) -> str:
         return cls._format(s, cls._gray)
+
+    @classmethod
+    def green(cls, s: str) -> str:
+        return cls._format(s, cls._green)
 
     @classmethod
     def red(cls, s: str) -> str:
