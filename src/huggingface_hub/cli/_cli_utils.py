@@ -144,6 +144,7 @@ def _check_cli_update() -> None:
             return
 
     # Touch the file to mark that we did the check now
+    Path(constants.CHECK_FOR_UPDATE_DONE_PATH).parent.mkdir(parents=True, exist_ok=True)
     Path(constants.CHECK_FOR_UPDATE_DONE_PATH).touch()
 
     # Check latest version from PyPI
