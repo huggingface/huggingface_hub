@@ -144,7 +144,7 @@ def _open_as_mime_bytes(content: Optional[ContentT]) -> Optional[MimeBytes]:
     if hasattr(content, "read"):  # duck-typing instead of isinstance(content, BinaryIO)
         logger.debug("Reading content from BinaryIO")
         data = content.read()
-        mime_type = mimetypes.guess_type(content.name)[0] if hasattr(content, "name") else None
+        mime_type = mimetypes.guess_type(str(content.name))[0] if hasattr(content, "name") else None
         if isinstance(data, str):
             raise TypeError("Expected binary stream (bytes), but got text stream")
         return MimeBytes(data, mime_type=mime_type)

@@ -334,7 +334,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                     (resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision), None
                 )
 
-    def _open(
+    def _open(  # type: ignore[override]
         self,
         path: str,
         mode: str = "rb",
@@ -585,7 +585,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
         yield from super().walk(path, *args, **kwargs)
 
-    def glob(self, path: str, **kwargs) -> list[str]:
+    def glob(self, path: str, maxdepth: Optional[int] = None, **kwargs) -> list[str]:
         """
         Find files by glob-matching.
 
@@ -599,7 +599,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
             `list[str]`: List of paths matching the pattern.
         """
         path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
-        return super().glob(path, **kwargs)
+        return super().glob(path, maxdepth=maxdepth, **kwargs)
 
     def find(
         self,
