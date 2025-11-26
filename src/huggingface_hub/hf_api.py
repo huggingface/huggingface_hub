@@ -194,6 +194,7 @@ ExpandSpaceProperty_T = Literal[
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
+_REGEX_HTTP_PROTOCOL = re.compile(r"https?://")
 
 _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
     "\nNote: Creating a commit assumes that the repo already exists on the"
@@ -240,10 +241,10 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
 
     # Get the hub_url (with or without protocol)
     full_hub_url = hub_url if hub_url is not None else constants.ENDPOINT
-    hub_url_without_protocol = re.sub(r"https?://", "", full_hub_url)
+    hub_url_without_protocol = _REGEX_HTTP_PROTOCOL.sub("", full_hub_url)
 
     # Check if hf_id is a URL containing the hub_url (check both with and without protocol)
-    hf_id_without_protocol = re.sub(r"https?://", "", hf_id)
+    hf_id_without_protocol = _REGEX_HTTP_PROTOCOL.sub("", hf_id)
     is_hf_url = hub_url_without_protocol in hf_id_without_protocol and "@" not in hf_id
 
     HFFS_PREFIX = "hf://"
@@ -253,7 +254,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
     # If it's a URL, strip the endpoint prefix to get the path
     if is_hf_url:
         # Remove protocol if present
-        hf_id_normalized = re.sub(r"https?://", "", hf_id)
+        hf_id_normalized = _REGEX_HTTP_PROTOCOL.sub("", hf_id)
 
         # Remove the hub_url prefix to get the relative path
         if hf_id_normalized.startswith(hub_url_without_protocol):
