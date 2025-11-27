@@ -425,7 +425,6 @@ def _http_backoff_base(
             if nb_tries > max_retries:
                 raise err
 
-        # use rate limit reset if available, otherwise exponential backoff
         if ratelimit_reset is not None:
             actual_sleep = min(max_wait_time, float(ratelimit_reset))
             logger.warning(f"Rate limited. Waiting {actual_sleep}s before retry [Retry {nb_tries}/{max_retries}].")
