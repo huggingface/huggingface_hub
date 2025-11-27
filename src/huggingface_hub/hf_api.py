@@ -49,6 +49,7 @@ from tqdm.contrib.concurrent import thread_map
 
 from . import constants
 from ._commit_api import (
+    CommitMode,
     CommitOperation,
     CommitOperationAdd,
     CommitOperationCopy,
@@ -4011,6 +4012,43 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
+        commit_mode: Literal["queued"],
+        run_as_future: Literal[False] = ...,
+    ) -> None: ...
+
+    @overload
+    def create_commit(
+        self,
+        repo_id: str,
+        operations: Iterable[CommitOperation],
+        *,
+        commit_message: str,
+        commit_description: Optional[str] = None,
+        token: Union[str, bool, None] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        num_threads: int = 5,
+        parent_commit: Optional[str] = None,
+        commit_mode: Literal["queued"],
+        run_as_future: Literal[True],
+    ) -> Future[None]: ...
+
+    @overload
+    def create_commit(
+        self,
+        repo_id: str,
+        operations: Iterable[CommitOperation],
+        *,
+        commit_message: str,
+        commit_description: Optional[str] = None,
+        token: Union[str, bool, None] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        num_threads: int = 5,
+        parent_commit: Optional[str] = None,
+        commit_mode: Optional[CommitMode] = None,
         run_as_future: Literal[False] = ...,
     ) -> CommitInfo: ...
 
@@ -4028,7 +4066,8 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
-        run_as_future: Literal[True] = ...,
+        commit_mode: Optional[CommitMode] = None,
+        run_as_future: Literal[True],
     ) -> Future[CommitInfo]: ...
 
     @validate_hf_hub_args
@@ -4046,8 +4085,9 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
+        commit_mode: Optional[CommitMode] = None,
         run_as_future: bool = False,
-    ) -> Union[CommitInfo, Future[CommitInfo]]:
+    ) -> Union[CommitInfo, Future[CommitInfo], None, Future[None]]:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
 
@@ -4117,6 +4157,13 @@ class HfApi:
                 is `True`, the pull request will be created from `parent_commit`. Specifying `parent_commit`
                 ensures the repo has not changed before committing the changes, and can be especially useful
                 if the repo is updated / committed to concurrently.
+
+            commit_mode (`str`, *optional*):
+                The commit mode to use. Possible values are:
+                    - `"immediate"`: commit is processed immediately (default)
+                    - `"queued"`: commit is pending. No commit info returned.
+                    - `"flush"`: all pending commits are processed and merged into one commit
+
             run_as_future (`bool`, *optional*):
                 Whether or not to run this method in the background. Background jobs are run sequentially without
                 blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
@@ -4185,7 +4232,7 @@ class HfApi:
 
         logger.debug(
             f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and"
-            f" {nb_deletions} deletion(s)."
+            f" {nb_deletions} deletion(s) (mode: {commit_mode or 'immediate'})."
         )
 
         # If updating a README.md file, make sure the metadata format is valid
@@ -4275,6 +4322,7 @@ class HfApi:
             commit_message=commit_message,
             commit_description=commit_description,
             parent_commit=parent_commit,
+            commit_mode=commit_mode,
         )
         commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
 
@@ -4308,6 +4356,9 @@ class HfApi:
         # Mark additions as committed (cannot be reused in another commit)
         for addition in additions:
             addition._is_committed = True
+
+        if commit_mode == "queued":
+            return None  # TODO: return something (there is a queue commit id in the payload)
 
         commit_data = commit_resp.json()
         return CommitInfo(
