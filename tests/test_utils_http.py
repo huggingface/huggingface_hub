@@ -151,6 +151,62 @@ class TestHttpBackoff(unittest.TestCase):
         expected_sleep_times = [0.1, 0.2, 0.4, 0.5, 0.5]
         self.assertListEqual(sleep_times, expected_sleep_times)
 
+    def test_backoff_on_429_uses_ratelimit_header_capped(self) -> None:
+        """Test that 429 wait time is capped by max_wait_time."""
+        sleep_times = []
+
+        def _side_effect_timer() -> Generator:
+            t0 = time.time()
+            mock_429 = Mock()
+            mock_429.status_code = 429
+            mock_429.headers = {"ratelimit": '"api";r=0;t=1'}  # Server says wait 1s
+            yield mock_429
+            t1 = time.time()
+            sleep_times.append(round(t1 - t0, 1))
+            t0 = t1
+            mock_200 = Mock()
+            mock_200.status_code = 200
+            yield mock_200
+
+        self.mock_request.side_effect = _side_effect_timer()
+
+        # max_wait_time=0.5 is less than t=1, so wait should be capped at 0.5
+        response = http_backoff(
+            "GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=3, retry_on_status_codes=429
+        )
+
+        self.assertEqual(self.mock_request.call_count, 2)
+        self.assertEqual(sleep_times, [0.5])  # Capped at max_wait_time
+        self.assertEqual(response.status_code, 200)
+
+    def test_backoff_on_429_uses_ratelimit_header_not_capped(self) -> None:
+        """Test that 429 wait time uses full reset time when under max_wait_time."""
+        sleep_times = []
+
+        def _side_effect_timer() -> Generator:
+            t0 = time.time()
+            mock_429 = Mock()
+            mock_429.status_code = 429
+            mock_429.headers = {"ratelimit": '"api";r=0;t=1'}  # Server says wait 1s
+            yield mock_429
+            t1 = time.time()
+            sleep_times.append(round(t1 - t0, 1))
+            t0 = t1
+            mock_200 = Mock()
+            mock_200.status_code = 200
+            yield mock_200
+
+        self.mock_request.side_effect = _side_effect_timer()
+
+        # max_wait_time=5 is greater than t=1, so wait should be full 1s
+        response = http_backoff(
+            "GET", URL, base_wait_time=0.1, max_wait_time=5.0, max_retries=3, retry_on_status_codes=429
+        )
+
+        self.assertEqual(self.mock_request.call_count, 2)
+        self.assertEqual(sleep_times, [1.0])  # Full reset time (not capped)
+        self.assertEqual(response.status_code, 200)
+
 
 class TestConfigureSession(unittest.TestCase):
     def setUp(self) -> None:
