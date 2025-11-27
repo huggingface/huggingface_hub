@@ -426,7 +426,7 @@ def _http_backoff_base(
                 raise err
 
         if ratelimit_reset is not None:
-            actual_sleep = min(max_wait_time, float(ratelimit_reset))
+            actual_sleep = float(ratelimit_reset) + 1  # +1s to avoid rounding issues
             logger.warning(f"Rate limited. Waiting {actual_sleep}s before retry [Retry {nb_tries}/{max_retries}].")
         else:
             actual_sleep = min(max_wait_time, sleep_time)
