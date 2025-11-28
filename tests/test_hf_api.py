@@ -64,7 +64,6 @@ from huggingface_hub.hf_api import (
     SpaceInfo,
     SpaceRuntime,
     User,
-    PaperInfo,
     WebhookInfo,
     WebhookWatchedItem,
     repo_type_and_id_from_hf_id,
