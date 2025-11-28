@@ -45,6 +45,13 @@ logger = logging.get_logger(__name__)
 
 UploadMode = Literal["lfs", "regular"]
 
+# Type alias for commit modes
+#   immediate: commit is processed immediately (default)
+#   queued: commit is pending
+#   flush: all pending commits are processed and merged into one commit
+CommitMode = Literal["immediate", "queued", "flush"]
+
+
 # Max is 1,000 per request on the Hub for HfApi.get_paths_info
 # Otherwise we get:
 # HfHubHTTPError: 413 Client Error: Payload Too Large for url: https://huggingface.co/api/datasets/xxx (Request ID: xxx)\n\ntoo many parameters
@@ -872,6 +879,7 @@ def _prepare_commit_payload(
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
+    commit_mode: Optional[CommitMode] = None,
 ) -> Iterable[dict[str, Any]]:
     """
     Builds the payload to POST to the `/commit` API of the Hub.
@@ -889,6 +897,8 @@ def _prepare_commit_payload(
     header_value = {"summary": commit_message, "description": commit_description}
     if parent_commit is not None:
         header_value["parentCommit"] = parent_commit
+    if commit_mode is not None:
+        header_value["mode"] = commit_mode
     yield {"key": "header", "value": header_value}
 
     nb_ignored_files = 0
