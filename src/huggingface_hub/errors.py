@@ -85,7 +85,9 @@ class HfHubHTTPError(HTTPError, OSError):
         self.args = (self.args[0] + additional_message,) + self.args[1:]
 
     @classmethod
-    def _reconstruct_hf_hub_http_error(cls, message: str, response: Response, server_message: Optional[str]) -> "HfHubHTTPError":
+    def _reconstruct_hf_hub_http_error(
+        cls, message: str, response: Response, server_message: Optional[str]
+    ) -> "HfHubHTTPError":
         return cls(message, response=response, server_message=server_message)
 
     def __reduce_ex__(self, protocol):

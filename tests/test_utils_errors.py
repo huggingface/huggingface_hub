@@ -272,6 +272,7 @@ class TestHfHubHTTPError(unittest.TestCase):
     def test_hf_hub_error_reconstruction(self) -> None:
         """Test HfHubHTTPError is reconstructed properly."""
         from copy import deepcopy
+
         mock_response = Response(status_code=404, request=Request(method="GET", url="https://huggingface.co/fake"))
         error = HfHubHTTPError("this is a message", response=mock_response)
         copy_error = deepcopy(error)
