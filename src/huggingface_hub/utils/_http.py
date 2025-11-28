@@ -362,6 +362,7 @@ def _http_backoff_base(
 
     nb_tries = 0
     sleep_time = base_wait_time
+    ratelimit_reset: Optional[int] = None  # seconds to wait for rate limit reset if 429 response
 
     # If `data` is used and is a file object (or any IO), it will be consumed on the
     # first HTTP request. We need to save the initial position so that the full content
@@ -373,6 +374,7 @@ def _http_backoff_base(
     client = get_session()
     while True:
         nb_tries += 1
+        ratelimit_reset = None
         try:
             # If `data` is used and is a file object (or any IO), set back cursor to
             # initial position.
@@ -382,6 +384,8 @@ def _http_backoff_base(
             # Perform request and handle response
             def _should_retry(response: httpx.Response) -> bool:
                 """Handle response and return True if should retry, False if should return/yield."""
+                nonlocal ratelimit_reset
+
                 if response.status_code not in retry_on_status_codes:
                     return False  # Success, don't retry
 
@@ -392,6 +396,12 @@ def _http_backoff_base(
                     # Return/yield response to avoid infinite loop in the corner case where the
                     # user ask for retry on a status code that doesn't raise_for_status.
                     return False  # Don't retry, return/yield response
+
+                # get rate limit reset time from headers if 429 response
+                if response.status_code == 429:
+                    ratelimit_info = parse_ratelimit_headers(response.headers)
+                    if ratelimit_info is not None:
+                        ratelimit_reset = ratelimit_info.reset_in_seconds
 
                 return True  # Should retry
 
@@ -415,9 +425,14 @@ def _http_backoff_base(
             if nb_tries > max_retries:
                 raise err
 
-        # Sleep for X seconds
-        logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
-        time.sleep(sleep_time)
+        if ratelimit_reset is not None:
+            actual_sleep = float(ratelimit_reset) + 1  # +1s to avoid rounding issues
+            logger.warning(f"Rate limited. Waiting {actual_sleep}s before retry [Retry {nb_tries}/{max_retries}].")
+        else:
+            actual_sleep = sleep_time
+            logger.warning(f"Retrying in {actual_sleep}s [Retry {nb_tries}/{max_retries}].")
+
+        time.sleep(actual_sleep)
 
         # Update sleep time for next retry
         sleep_time = min(max_wait_time, sleep_time * 2)  # Exponential backoff

@@ -151,6 +151,33 @@ class TestHttpBackoff(unittest.TestCase):
         expected_sleep_times = [0.1, 0.2, 0.4, 0.5, 0.5]
         self.assertListEqual(sleep_times, expected_sleep_times)
 
+    def test_backoff_on_429_uses_ratelimit_header(self) -> None:
+        """Test that 429 wait time uses full reset time from ratelimit header."""
+        sleep_times = []
+
+        def _side_effect_timer() -> Generator:
+            t0 = time.time()
+            mock_429 = Mock()
+            mock_429.status_code = 429
+            mock_429.headers = {"ratelimit": '"api";r=0;t=1'}  # Server says wait 1s
+            yield mock_429
+            t1 = time.time()
+            sleep_times.append(round(t1 - t0, 1))
+            t0 = t1
+            mock_200 = Mock()
+            mock_200.status_code = 200
+            yield mock_200
+
+        self.mock_request.side_effect = _side_effect_timer()
+
+        response = http_backoff(
+            "GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=3, retry_on_status_codes=429
+        )
+
+        assert self.mock_request.call_count == 2
+        assert sleep_times == [2.0]
+        assert response.status_code == 200
+
 
 class TestConfigureSession(unittest.TestCase):
     def setUp(self) -> None:
