@@ -9885,6 +9885,42 @@ class HfApi:
         hf_raise_for_status(r)
         return PaperInfo(**r.json())
 
+    def list_daily_papers(
+        self,
+        *,
+        date: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[PaperInfo]:
+        """
+        List the daily papers published on a given date on the Hugging Face Hub.
+
+        Args:
+            date (`str`, *optional*):
+                Date in ISO format (YYYY-MM-DD) for which to fetch daily papers.
+                Defaults to most recent ones.
+            token (Union[bool, str, None], *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token. To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[PaperInfo]`: an iterable of [`huggingface_hub.hf_api.PaperInfo`] objects.
+
+        Example:
+
+        ```python
+        >>> from huggingface_hub import HfApi
+
+        >>> api = HfApi()
+        >>> list(api.list_daily_papers(date="2025-10-29"))
+        ```
+        """
+        path = f"{self.endpoint}/api/daily_papers"
+        params = {"date": date} if date is not None else {}
+        r = get_session().get(path, params=params, headers=self._build_hf_headers(token=token))
+        hf_raise_for_status(r)
+        for paper in r.json():
+            yield PaperInfo(**paper)
+
     def auth_check(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
     ) -> None:
@@ -10906,6 +10942,7 @@ space_info = api.space_info
 
 list_papers = api.list_papers
 paper_info = api.paper_info
+list_daily_papers = api.list_daily_papers
 
 repo_exists = api.repo_exists
 revision_exists = api.revision_exists
