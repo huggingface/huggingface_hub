@@ -123,13 +123,20 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
     >     layer. For better performance and reliability, it's recommended to use `HfApi` methods when possible.
 
     Args:
-        token (`str` or `bool`, *optional*):
+        endpoint (`str`, *optional*):
+                Endpoint of the Hub. Defaults to <https://huggingface.co>.
+        token (`bool` or `str`, *optional*):
             A valid user access token (string). Defaults to the locally saved
             token, which is the recommended method for authentication (see
             https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
             To disable authentication, pass `False`.
-        endpoint (`str`, *optional*):
-            Endpoint of the Hub. Defaults to <https://huggingface.co>.
+        block_size (`int`, *optional*):
+            Block size for reading and writing files.
+        expand_info (`bool`, *optional*):
+            Whether to expand the information of the files.
+        **storage_options (`dict`, *optional*):
+            Additional options for the filesystem. See [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.__init__).
+
     Usage:
 
     ```python
