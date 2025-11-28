@@ -9712,7 +9712,7 @@ class HfApi:
         List the daily papers published on a given date on the Hugging Face Hub.
 
         Args:
-            date (`str`):
+            date (`str`, *optional*):
                 Date in ISO format (YYYY-MM-DD) for which to fetch daily papers.
                 Defaults to most recent ones.
             token (Union[bool, str, None], *optional*):
