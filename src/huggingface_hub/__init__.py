@@ -230,8 +230,8 @@ _SUBMOD_ATTRS = {
         "inspect_scheduled_job",
         "list_accepted_access_requests",
         "list_collections",
-        "list_datasets",
         "list_daily_papers",
+        "list_datasets",
         "list_inference_catalog",
         "list_inference_endpoints",
         "list_jobs",
@@ -888,8 +888,8 @@ __all__ = [
     "interpreter_login",
     "list_accepted_access_requests",
     "list_collections",
-    "list_datasets",
     "list_daily_papers",
+    "list_datasets",
     "list_inference_catalog",
     "list_inference_endpoints",
     "list_jobs",
@@ -1246,8 +1246,8 @@ if TYPE_CHECKING:  # pragma: no cover
         inspect_scheduled_job,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
-        list_datasets,  # noqa: F401
         list_daily_papers,  # noqa: F401
+        list_datasets,  # noqa: F401
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_jobs,  # noqa: F401
