@@ -463,7 +463,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         maxdepth: Optional[int] = None,
     ):
         expand_info = (
-            self.expand_info if self.expand_info is not None else (expand_info if expand_info is not None else False)
+            expand_info if expand_info is not None else (self.expand_info if self.expand_info is not None else False)
         )
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
