@@ -4236,8 +4236,14 @@ class PaperApiTest(unittest.TestCase):
         assert hasattr(papers[0], "title")
 
     def test_list_daily_papers_by_date_invalid_date(self) -> None:
-        with self.assertRaises(ValueError):
+        with self.assertRaises(BadRequestError):
             list(self.api.list_daily_papers(date="2025-13-40"))
+
+    def test_list_daily_papers_default_date(self) -> None:
+        papers = list(self.api.list_daily_papers())
+        assert len(papers) > 0
+        assert hasattr(papers[0], "id")
+        assert hasattr(papers[0], "title")
 
 
 class WebhookApiTest(HfApiCommonTest):

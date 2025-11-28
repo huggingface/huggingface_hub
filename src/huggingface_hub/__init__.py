@@ -231,6 +231,7 @@ _SUBMOD_ATTRS = {
         "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
+        "list_daily_papers",
         "list_inference_catalog",
         "list_inference_endpoints",
         "list_jobs",
@@ -888,6 +889,7 @@ __all__ = [
     "list_accepted_access_requests",
     "list_collections",
     "list_datasets",
+    "list_daily_papers",
     "list_inference_catalog",
     "list_inference_endpoints",
     "list_jobs",
@@ -1245,6 +1247,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
+        list_daily_papers,  # noqa: F401
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_jobs,  # noqa: F401

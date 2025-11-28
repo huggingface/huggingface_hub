@@ -9705,7 +9705,7 @@ class HfApi:
     def list_daily_papers(
         self,
         *,
-        date: str,
+        date: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[PaperInfo]:
         """
@@ -9714,6 +9714,7 @@ class HfApi:
         Args:
             date (`str`):
                 Date in ISO format (YYYY-MM-DD) for which to fetch daily papers.
+                Defaults to most recent ones.
             token (Union[bool, str, None], *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token. To disable authentication, pass `False`.
@@ -9731,7 +9732,7 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/daily_papers"
-        params = {"date": date}
+        params = {"date": date} if date is not None else {}
         r = get_session().get(path, params=params, headers=self._build_hf_headers(token=token))
         hf_raise_for_status(r)
         for paper in r.json():
