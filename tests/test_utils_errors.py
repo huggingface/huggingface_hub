@@ -269,6 +269,16 @@ class TestHfHubHTTPError(unittest.TestCase):
         assert str(error) == "this is a message (Request ID: test-id)"
         assert error.request_id == "test-id"
 
+    def test_hf_hub_error_reconstruction(self) -> None:
+        """Test HfHubHTTPError is reconstructed properly."""
+        from copy import deepcopy
+        mock_response = Response(status_code=404, request=Request(method="GET", url="https://huggingface.co/fake"))
+        error = HfHubHTTPError("this is a message", response=mock_response)
+        copy_error = deepcopy(error)
+        assert str(copy_error) == str(error)
+        assert copy_error.request_id == error.request_id
+        assert copy_error.server_message == error.server_message
+
 
 @pytest.mark.parametrize(
     ("url", "should_match"),
