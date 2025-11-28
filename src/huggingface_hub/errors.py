@@ -84,9 +84,15 @@ class HfHubHTTPError(HTTPError, OSError):
         """Append additional information to the `HfHubHTTPError` initial message."""
         self.args = (self.args[0] + additional_message,) + self.args[1:]
 
+    @classmethod
+    def _reconstruct_hf_hub_http_error(
+        cls, message: str, response: Response, server_message: Optional[str]
+    ) -> "HfHubHTTPError":
+        return cls(message, response=response, server_message=server_message)
+
     def __reduce_ex__(self, protocol):
         """Fix pickling of Exception subclass with kwargs. We need to override __reduce_ex__ of the parent class"""
-        return (self.__class__, (str(self),), {"response": self.response, "server_message": self.server_message})
+        return (self.__class__._reconstruct_hf_hub_http_error, (str(self), self.response, self.server_message))
 
 
 # INFERENCE CLIENT ERRORS
