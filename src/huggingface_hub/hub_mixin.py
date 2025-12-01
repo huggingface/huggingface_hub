@@ -367,7 +367,7 @@ class ModelHubMixin:
         if is_simple_optional_type(expected_type):
             if value is None:
                 return None
-            expected_type = unwrap_simple_optional_type(expected_type)
+            expected_type = unwrap_simple_optional_type(expected_type)  # type: ignore[assignment]
         # Dataclass => handle it
         if is_dataclass(expected_type):
             return _load_dataclass(expected_type, value)  # type: ignore[return-value]
