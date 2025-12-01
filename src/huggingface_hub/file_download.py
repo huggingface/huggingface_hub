@@ -39,7 +39,13 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._http import _adjust_range_header, http_backoff, http_stream_backoff
+from .utils._http import (
+    _DEFAULT_RETRY_ON_EXCEPTIONS,
+    _DEFAULT_RETRY_ON_STATUS_CODES,
+    _adjust_range_header,
+    http_backoff,
+    http_stream_backoff,
+)
 from .utils._runtime import is_xet_available
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
@@ -1142,9 +1148,9 @@ def _hf_hub_download_to_cache_dir(
                     if not force_download:
                         return pointer_path
 
-            if isinstance(head_call_error, (httpx.TimeoutException, httpx.NetworkError)) or (
+            if isinstance(head_call_error, _DEFAULT_RETRY_ON_EXCEPTIONS) or (
                 isinstance(head_call_error, HfHubHTTPError)
-                and head_call_error.response.status_code in (429, 500, 502, 503, 504)
+                and head_call_error.response.status_code in _DEFAULT_RETRY_ON_STATUS_CODES
             ):
                 logger.info("No local file found. Retrying..")
                 (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
@@ -1335,9 +1341,9 @@ def _hf_hub_download_to_local_dir(
             if not force_download:
                 return local_path
         elif not force_download:
-            if isinstance(head_call_error, (httpx.TimeoutException, httpx.NetworkError)) or (
+            if isinstance(head_call_error, _DEFAULT_RETRY_ON_EXCEPTIONS) or (
                 isinstance(head_call_error, HfHubHTTPError)
-                and head_call_error.response.status_code in (429, 500, 502, 503, 504)
+                and head_call_error.response.status_code in _DEFAULT_RETRY_ON_STATUS_CODES
             ):
                 logger.info("No local file found. Retrying..")
                 (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
