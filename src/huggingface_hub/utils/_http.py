@@ -24,7 +24,6 @@ import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
-from http import HTTPStatus
 from shlex import quote
 from typing import Any, Callable, Generator, Mapping, Optional, Union
 
@@ -338,6 +337,10 @@ if hasattr(os, "register_at_fork"):
     os.register_at_fork(after_in_child=close_session)
 
 
+_DEFAULT_RETRY_ON_EXCEPTIONS: tuple[type[Exception], ...] = (httpx.TimeoutException, httpx.NetworkError)
+_DEFAULT_RETRY_ON_STATUS_CODES: tuple[int, ...] = (429, 500, 502, 503, 504)
+
+
 def _http_backoff_base(
     method: HTTP_METHOD_T,
     url: str,
@@ -345,11 +348,8 @@ def _http_backoff_base(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = (
-        httpx.TimeoutException,
-        httpx.NetworkError,
-    ),
-    retry_on_status_codes: Union[int, tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
+    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = _DEFAULT_RETRY_ON_EXCEPTIONS,
+    retry_on_status_codes: Union[int, tuple[int, ...]] = _DEFAULT_RETRY_ON_STATUS_CODES,
     stream: bool = False,
     **kwargs,
 ) -> Generator[httpx.Response, None, None]:
@@ -445,11 +445,8 @@ def http_backoff(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = (
-        httpx.TimeoutException,
-        httpx.NetworkError,
-    ),
-    retry_on_status_codes: Union[int, tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
+    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = _DEFAULT_RETRY_ON_EXCEPTIONS,
+    retry_on_status_codes: Union[int, tuple[int, ...]] = _DEFAULT_RETRY_ON_STATUS_CODES,
     **kwargs,
 ) -> httpx.Response:
     """Wrapper around httpx to retry calls on an endpoint, with exponential backoff.
@@ -478,9 +475,9 @@ def http_backoff(
         retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
             By default, retry on `httpx.TimeoutException` and `httpx.NetworkError`.
-        retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `503`):
-            Define on which status codes the request must be retried. By default, only
-            HTTP 503 Service Unavailable is retried.
+        retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `(429, 500, 502, 503, 504)`):
+            Define on which status codes the request must be retried. By default, retries
+            on rate limit (429) and server errors (5xx).
         **kwargs (`dict`, *optional*):
             kwargs to pass to `httpx.request`.
 
@@ -529,11 +526,8 @@ def http_stream_backoff(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = (
-        httpx.TimeoutException,
-        httpx.NetworkError,
-    ),
-    retry_on_status_codes: Union[int, tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
+    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = _DEFAULT_RETRY_ON_EXCEPTIONS,
+    retry_on_status_codes: Union[int, tuple[int, ...]] = _DEFAULT_RETRY_ON_STATUS_CODES,
     **kwargs,
 ) -> Generator[httpx.Response, None, None]:
     """Wrapper around httpx to retry calls on an endpoint, with exponential backoff.
@@ -561,10 +555,10 @@ def http_stream_backoff(
             Maximum duration (in seconds) to wait before retrying.
         retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
-            By default, retry on `httpx.Timeout` and `httpx.NetworkError`.
-        retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `503`):
-            Define on which status codes the request must be retried. By default, only
-            HTTP 503 Service Unavailable is retried.
+            By default, retry on `httpx.TimeoutException` and `httpx.NetworkError`.
+        retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `(429, 500, 502, 503, 504)`):
+            Define on which status codes the request must be retried. By default, retries
+            on rate limit (429) and server errors (5xx).
         **kwargs (`dict`, *optional*):
             kwargs to pass to `httpx.request`.
 
