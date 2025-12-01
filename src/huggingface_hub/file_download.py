@@ -1158,8 +1158,7 @@ def _hf_hub_download_to_cache_dir(
                     )
                 )
 
-            # No local file found, retry with 429 handling if it was a rate limit error
-            # http_backoff will automatically wait for rate limit reset based on headers
+            # No local file found, retry with 429 if it was a rate limit error
             elif isinstance(head_call_error, HfHubHTTPError) and head_call_error.response.status_code == 429:
                 logger.info("Rate limited and no local file found. Retrying..")
                 (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
