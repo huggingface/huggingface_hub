@@ -288,7 +288,9 @@ def _httpx_follow_relative_redirects(
             Params to pass to `httpx.request`.
     """
     # if `retry_on_errors=False`, disable all retries for fast fallback to cache
-    no_retry_kwargs = {} if retry_on_errors else {"retry_on_exceptions": (), "retry_on_status_codes": ()}
+    no_retry_kwargs: dict[str, Any] = (
+        {} if retry_on_errors else {"retry_on_exceptions": (), "retry_on_status_codes": ()}
+    )
 
     while True:
         response = http_backoff(
