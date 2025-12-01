@@ -1062,12 +1062,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             repo_type=self.resolved_path.repo_type,
             endpoint=self.fs.endpoint,
         )
-        r = http_backoff(
-            "GET",
-            url,
-            headers=headers,
-            timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
-        )
+        r = http_backoff("GET", url, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT)
         hf_raise_for_status(r)
         return r.content
 
