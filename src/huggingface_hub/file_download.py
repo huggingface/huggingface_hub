@@ -1146,7 +1146,7 @@ def _hf_hub_download_to_cache_dir(
                 isinstance(head_call_error, HfHubHTTPError)
                 and head_call_error.response.status_code in (429, 500, 502, 503, 504)
             ):
-                logger.info("No local file found. Retrying with full retry policy..")
+                logger.info("No local file found. Retrying..")
                 (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
                     _get_metadata_or_catch_error(
                         repo_id=repo_id,
@@ -1339,7 +1339,7 @@ def _hf_hub_download_to_local_dir(
                 isinstance(head_call_error, HfHubHTTPError)
                 and head_call_error.response.status_code in (429, 500, 502, 503, 504)
             ):
-                logger.info("No local file found. Retrying with full retry policy..")
+                logger.info("No local file found. Retrying..")
                 (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
                     _get_metadata_or_catch_error(
                         repo_id=repo_id,
