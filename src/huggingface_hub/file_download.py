@@ -39,7 +39,13 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._http import _adjust_range_header, http_backoff, http_stream_backoff
+from .utils._http import (
+    _DEFAULT_RETRY_ON_EXCEPTIONS,
+    _DEFAULT_RETRY_ON_STATUS_CODES,
+    _adjust_range_header,
+    http_backoff,
+    http_stream_backoff,
+)
 from .utils._runtime import is_xet_available
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
@@ -267,30 +273,38 @@ def hf_hub_url(
     return url
 
 
-def _httpx_follow_relative_redirects(method: HTTP_METHOD_T, url: str, **httpx_kwargs) -> httpx.Response:
+def _httpx_follow_relative_redirects(
+    method: HTTP_METHOD_T, url: str, *, retry_on_errors: bool = False, **httpx_kwargs
+) -> httpx.Response:
     """Perform an HTTP request with backoff and follow relative redirects only.
 
     This is useful to follow a redirection to a renamed repository without following redirection to a CDN.
 
-    A backoff mechanism retries the HTTP call on 5xx errors and network errors.
+    A backoff mechanism retries the HTTP call on errors (429, 5xx, timeout, network errors).
 
     Args:
         method (`str`):
             HTTP method, such as 'GET' or 'HEAD'.
         url (`str`):
             The URL of the resource to fetch.
+        retry_on_errors (`bool`, *optional*, defaults to `False`):
+            Whether to retry on errors. If False, no retry is performed (fast fallback to local cache).
+            If True, uses default retry behavior (429, 5xx, timeout, network errors).
         **httpx_kwargs (`dict`, *optional*):
             Params to pass to `httpx.request`.
     """
+    # if `retry_on_errors=False`, disable all retries for fast fallback to cache
+    no_retry_kwargs: dict[str, Any] = (
+        {} if retry_on_errors else {"retry_on_exceptions": (), "retry_on_status_codes": ()}
+    )
+
     while True:
-        # Make the request
         response = http_backoff(
             method=method,
             url=url,
             **httpx_kwargs,
             follow_redirects=False,
-            retry_on_exceptions=(),
-            retry_on_status_codes=(429,),
+            **no_retry_kwargs,
         )
         hf_raise_for_status(response)
 
@@ -1134,9 +1148,11 @@ def _hf_hub_download_to_cache_dir(
                     if not force_download:
                         return pointer_path
 
-            # No local file found, retry with longer timeout if it was a timeout error
-            if isinstance(head_call_error, httpx.TimeoutException):
-                logger.info("Metadata fetch timed out and no local file found. Retrying with longer timeout..")
+            if isinstance(head_call_error, _DEFAULT_RETRY_ON_EXCEPTIONS) or (
+                isinstance(head_call_error, HfHubHTTPError)
+                and head_call_error.response.status_code in _DEFAULT_RETRY_ON_STATUS_CODES
+            ):
+                logger.info("No local file found. Retrying..")
                 (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
                     _get_metadata_or_catch_error(
                         repo_id=repo_id,
@@ -1150,6 +1166,7 @@ def _hf_hub_download_to_cache_dir(
                         local_files_only=local_files_only,
                         storage_folder=storage_folder,
                         relative_filename=relative_filename,
+                        retry_on_errors=True,
                     )
                 )
 
@@ -1323,22 +1340,26 @@ def _hf_hub_download_to_local_dir(
                 )
             if not force_download:
                 return local_path
-        elif not force_download and isinstance(head_call_error, httpx.TimeoutException):
-            # No local file found, retry with longer timeout if it was a timeout error
-            logger.info("Metadata fetch timed out and no local file found. Retrying with longer timeout...")
-            (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
-                _get_metadata_or_catch_error(
-                    repo_id=repo_id,
-                    filename=filename,
-                    repo_type=repo_type,
-                    revision=revision,
-                    endpoint=endpoint,
-                    etag_timeout=_ETAG_RETRY_TIMEOUT,
-                    headers=headers,
-                    token=token,
-                    local_files_only=local_files_only,
+        elif not force_download:
+            if isinstance(head_call_error, _DEFAULT_RETRY_ON_EXCEPTIONS) or (
+                isinstance(head_call_error, HfHubHTTPError)
+                and head_call_error.response.status_code in _DEFAULT_RETRY_ON_STATUS_CODES
+            ):
+                logger.info("No local file found. Retrying..")
+                (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
+                    _get_metadata_or_catch_error(
+                        repo_id=repo_id,
+                        filename=filename,
+                        repo_type=repo_type,
+                        revision=revision,
+                        endpoint=endpoint,
+                        etag_timeout=_ETAG_RETRY_TIMEOUT,
+                        headers=headers,
+                        token=token,
+                        local_files_only=local_files_only,
+                        retry_on_errors=True,
+                    )
                 )
-            )
 
         # If still error, raise
         if head_call_error is not None:
@@ -1547,6 +1568,7 @@ def get_hf_file_metadata(
     user_agent: Union[dict, str, None] = None,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
+    retry_on_errors: bool = False,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -1571,6 +1593,9 @@ def get_hf_file_metadata(
             Additional headers to be sent with the request.
         endpoint (`str`, *optional*):
             Endpoint of the Hub. Defaults to <https://huggingface.co>.
+        retry_on_errors (`bool`, *optional*, defaults to `False`):
+            Whether to retry on errors (429, 5xx, timeout, network errors).
+            If False, no retry for fast fallback to local cache.
 
     Returns:
         A [`HfFileMetadata`] object containing metadata such as location, etag, size and
@@ -1586,7 +1611,9 @@ def get_hf_file_metadata(
     hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
-    response = _httpx_follow_relative_redirects(method="HEAD", url=url, headers=hf_headers, timeout=timeout)
+    response = _httpx_follow_relative_redirects(
+        method="HEAD", url=url, headers=hf_headers, timeout=timeout, retry_on_errors=retry_on_errors
+    )
     hf_raise_for_status(response)
 
     # Return
@@ -1619,6 +1646,7 @@ def _get_metadata_or_catch_error(
     local_files_only: bool,
     relative_filename: Optional[str] = None,  # only used to store `.no_exists` in cache
     storage_folder: Optional[str] = None,  # only used to store `.no_exists` in cache
+    retry_on_errors: bool = False,
 ) -> Union[
     # Either an exception is caught and returned
     tuple[None, None, None, None, None, Exception],
@@ -1661,7 +1689,12 @@ def _get_metadata_or_catch_error(
         try:
             try:
                 metadata = get_hf_file_metadata(
-                    url=url, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
+                    url=url,
+                    timeout=etag_timeout,
+                    headers=headers,
+                    token=token,
+                    endpoint=endpoint,
+                    retry_on_errors=retry_on_errors,
                 )
             except RemoteEntryNotFoundError as http_error:
                 if storage_folder is not None and relative_filename is not None:

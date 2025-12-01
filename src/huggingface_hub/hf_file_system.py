@@ -1205,7 +1205,6 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 "GET",
                 url,
                 headers=headers,
-                retry_on_status_codes=(500, 502, 503, 504),
                 timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
             )
         )
