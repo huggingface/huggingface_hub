@@ -267,7 +267,9 @@ def hf_hub_url(
     return url
 
 
-def _httpx_follow_relative_redirects(method: HTTP_METHOD_T, url: str, **httpx_kwargs) -> httpx.Response:
+def _httpx_follow_relative_redirects(
+    method: HTTP_METHOD_T, url: str, *, retry_on_429: bool = False, **httpx_kwargs
+) -> httpx.Response:
     """Perform an HTTP request with backoff and follow relative redirects only.
 
     This is useful to follow a redirection to a renamed repository without following redirection to a CDN.
@@ -279,6 +281,9 @@ def _httpx_follow_relative_redirects(method: HTTP_METHOD_T, url: str, **httpx_kw
             HTTP method, such as 'GET' or 'HEAD'.
         url (`str`):
             The URL of the resource to fetch.
+        retry_on_429 (`bool`, *optional*, defaults to `False`):
+            Whether to retry on 429 status code. If True, `http_backoff` will wait for the rate limit
+            reset time from headers before retrying.
         **httpx_kwargs (`dict`, *optional*):
             Params to pass to `httpx.request`.
     """
@@ -290,7 +295,7 @@ def _httpx_follow_relative_redirects(method: HTTP_METHOD_T, url: str, **httpx_kw
             **httpx_kwargs,
             follow_redirects=False,
             retry_on_exceptions=(),
-            retry_on_status_codes=(429,),
+            retry_on_status_codes=(429,) if retry_on_429 else (),
         )
         hf_raise_for_status(response)
 
@@ -1153,6 +1158,27 @@ def _hf_hub_download_to_cache_dir(
                     )
                 )
 
+            # No local file found, retry with 429 handling if it was a rate limit error
+            # http_backoff will automatically wait for rate limit reset based on headers
+            elif isinstance(head_call_error, HfHubHTTPError) and head_call_error.response.status_code == 429:
+                logger.info("Rate limited and no local file found. Retrying..")
+                (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
+                    _get_metadata_or_catch_error(
+                        repo_id=repo_id,
+                        filename=filename,
+                        repo_type=repo_type,
+                        revision=revision,
+                        endpoint=endpoint,
+                        etag_timeout=_ETAG_RETRY_TIMEOUT,
+                        headers=headers,
+                        token=token,
+                        local_files_only=local_files_only,
+                        storage_folder=storage_folder,
+                        relative_filename=relative_filename,
+                        retry_on_429=True,
+                    )
+                )
+
         # If still error, raise
         if head_call_error is not None:
             _raise_on_head_call_error(head_call_error, force_download, local_files_only)
@@ -1547,6 +1573,7 @@ def get_hf_file_metadata(
     user_agent: Union[dict, str, None] = None,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
+    retry_on_429: bool = False,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -1571,6 +1598,9 @@ def get_hf_file_metadata(
             Additional headers to be sent with the request.
         endpoint (`str`, *optional*):
             Endpoint of the Hub. Defaults to <https://huggingface.co>.
+        retry_on_429 (`bool`, *optional*, defaults to `False`):
+            Whether to retry on 429 status code. If True, will wait for the rate limit
+            reset time from headers before retrying.
 
     Returns:
         A [`HfFileMetadata`] object containing metadata such as location, etag, size and
@@ -1586,7 +1616,9 @@ def get_hf_file_metadata(
     hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
-    response = _httpx_follow_relative_redirects(method="HEAD", url=url, headers=hf_headers, timeout=timeout)
+    response = _httpx_follow_relative_redirects(
+        method="HEAD", url=url, headers=hf_headers, timeout=timeout, retry_on_429=retry_on_429
+    )
     hf_raise_for_status(response)
 
     # Return
@@ -1619,6 +1651,7 @@ def _get_metadata_or_catch_error(
     local_files_only: bool,
     relative_filename: Optional[str] = None,  # only used to store `.no_exists` in cache
     storage_folder: Optional[str] = None,  # only used to store `.no_exists` in cache
+    retry_on_429: bool = False,
 ) -> Union[
     # Either an exception is caught and returned
     tuple[None, None, None, None, None, Exception],
@@ -1661,7 +1694,12 @@ def _get_metadata_or_catch_error(
         try:
             try:
                 metadata = get_hf_file_metadata(
-                    url=url, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
+                    url=url,
+                    timeout=etag_timeout,
+                    headers=headers,
+                    token=token,
+                    endpoint=endpoint,
+                    retry_on_429=retry_on_429,
                 )
             except RemoteEntryNotFoundError as http_error:
                 if storage_folder is not None and relative_filename is not None:
