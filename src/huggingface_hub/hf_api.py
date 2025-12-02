@@ -1532,30 +1532,45 @@ class PaperInfo:
     Attributes:
         id (`str`):
             arXiv paper ID.
-        authors (`list[str]`, **optional**):
+        authors (`list[str]`, *optional*):
             Names of paper authors
-        published_at (`datetime`, **optional**):
+        authors_users (`list[User]`, *optional*):
+            Information about paper authors as a list of [`User`] objects.
+        published_at (`datetime`, *optional*):
             Date paper published.
-        title (`str`, **optional**):
+        title (`str`, *optional*):
             Title of the paper.
-        summary (`str`, **optional**):
+        summary (`str`, *optional*):
             Summary of the paper.
-        upvotes (`int`, **optional**):
+        upvotes (`int`, *optional*):
             Number of upvotes for the paper on the Hub.
-        discussion_id (`str`, **optional**):
+        discussion_id (`str`, *optional*):
             Discussion ID for the paper on the Hub.
-        source (`str`, **optional**):
+        source (`str`, *optional*):
             Source of the paper.
-        comments (`int`, **optional**):
+        comments (`int`, *optional*):
             Number of comments for the paper on the Hub.
-        submitted_at (`datetime`, **optional**):
+        submitted_at (`datetime`, *optional*):
             Date paper appeared in daily papers on the Hub.
-        submitted_by (`User`, **optional**):
+        submitted_by (`User`, *optional*):
             Information about who submitted the daily paper.
+        ai_summary (`str`, *optional*):
+            AI summary of the paper.
+        ai_keywords (`list[str]`, *optional*):
+            AI keywords of the paper.
+        organization (`Organization`, *optional*):
+            Information about the organization associated with the paper.
+        project_page (`str`, *optional*):
+            URL of the project page for the paper.
+        github_repo (`str`, *optional*):
+            URL of the GitHub repository for the paper.
+        github_stars (`int`, *optional*):
+            Number of stars of the GitHub repository for the paper.
     """
 
     id: str
     authors: Optional[list[str]]
+    authors_users: Optional[list[User]]
     published_at: Optional[datetime]
     title: Optional[str]
     summary: Optional[str]
@@ -1565,12 +1580,21 @@ class PaperInfo:
     comments: Optional[int]
     submitted_at: Optional[datetime]
     submitted_by: Optional[User]
+    ai_summary: Optional[str]
+    ai_keywords: Optional[list[str]]
+    organization: Optional[Organization]
+    project_page: Optional[str]
+    github_repo: Optional[str]
+    github_stars: Optional[int]
 
     def __init__(self, **kwargs) -> None:
         paper = kwargs.pop("paper", {})
         self.id = kwargs.pop("id", None) or paper.pop("id", None)
         authors = paper.pop("authors", None) or kwargs.pop("authors", None)
         self.authors = [author.pop("name", None) for author in authors] if authors else None
+        self.authors_users = (
+            [User(**author.pop("user")) for author in authors if author.pop("user")] if authors else None
+        )
         published_at = paper.pop("publishedAt", None) or kwargs.pop("publishedAt", None)
         self.published_at = parse_datetime(published_at) if published_at else None
         self.title = kwargs.pop("title", None)
@@ -1583,6 +1607,13 @@ class PaperInfo:
         self.submitted_at = parse_datetime(submitted_at) if submitted_at else None
         submitted_by = kwargs.pop("submittedBy", None) or kwargs.pop("submittedOnDailyBy", None)
         self.submitted_by = User(**submitted_by) if submitted_by else None
+        self.ai_summary = kwargs.pop("ai_summary", None)
+        self.ai_keywords = kwargs.pop("ai_keywords", None)
+        organization = kwargs.pop("organization", None)
+        self.organization = Organization(**organization) if organization else None
+        self.project_page = kwargs.pop("projectPage", None)
+        self.github_repo = kwargs.pop("githubRepo", None)
+        self.github_stars = kwargs.pop("githubStars", None)
 
         # forward compatibility
         self.__dict__.update(**kwargs)
