@@ -4309,12 +4309,8 @@ class PaperApiTest(unittest.TestCase):
         # friday of previous week
         week_start = datetime.datetime.fromisocalendar(2025, week - 1, 5).replace(tzinfo=datetime.timezone.utc)
         week_end = datetime.datetime.fromisocalendar(2025, week, 7).replace(tzinfo=datetime.timezone.utc)
-        assert week_start <= first_paper.submitted_at <= week_end, (
-            f"First paper {first_paper.submitted_at}. Week number: {first_paper.submitted_at.isocalendar().week} != {week}"
-        )
-        assert week_start <= last_paper.submitted_at <= week_end, (
-            f"Last paper {last_paper.submitted_at}. Week number: {last_paper.submitted_at.isocalendar().week} != {week}"
-        )
+        assert week_start <= first_paper.submitted_at <= week_end
+        assert week_start <= last_paper.submitted_at <= week_end
 
     def test_list_daily_papers_month(self) -> None:
         month = 10
@@ -4325,17 +4321,13 @@ class PaperApiTest(unittest.TestCase):
         # last day of previous month
         month_start = datetime.datetime(2025, month, 1, tzinfo=datetime.timezone.utc) - datetime.timedelta(days=1)
         month_end = datetime.datetime(2025, month + 1, 1, tzinfo=datetime.timezone.utc) - datetime.timedelta(days=1)
-        assert month_start <= first_paper.submitted_at <= month_end, (
-            f"First paper {first_paper.submitted_at}. Month: {first_paper.submitted_at.month} != {month}"
-        )
-        assert month_start <= last_paper.submitted_at <= month_end, (
-            f"Last paper {last_paper.submitted_at}. Month: {last_paper.submitted_at.month} != {month}"
-        )
+        assert month_start <= first_paper.submitted_at <= month_end
+        assert month_start <= last_paper.submitted_at <= month_end
 
     def test_daily_papers_submitter(self) -> None:
         papers = list(self.api.list_daily_papers(submitter="akhaliq"))
         assert len(papers) > 0
-        assert papers[0].submitted_by.fullname == "AK", f"Paper submitter {papers[0].submitted_by.fullname} != AK"
+        assert papers[0].submitted_by.fullname == "AK"
 
     def test_daily_papers_sort(self) -> None:
         papers = list(self.api.list_daily_papers(date="2025-10-29", sort="trending"))

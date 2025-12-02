@@ -9889,13 +9889,13 @@ class HfApi:
         self,
         *,
         date: Optional[str] = None,
-        token: Optional[Union[bool, str]] = None,
+        token: Union[bool, str, None] = None,
         week: Optional[str] = None,
         month: Optional[str] = None,
         submitter: Optional[str] = None,
-        sort: Literal["publishedAt", "trending"] = "publishedAt",
-        p: int = 0,
-        limit: int = 50,
+        sort: Optional[Literal["publishedAt", "trending"]] = None,
+        p: Optional[int] = None,
+        limit: Optional[int] = None,
     ) -> Iterable[PaperInfo]:
         """
         List the daily papers published on a given date on the Hugging Face Hub.
@@ -9917,9 +9917,9 @@ class HfApi:
                 Sort order for the daily papers. Can be either by `publishedAt` or by `trending`.
                 Defaults to `"publishedAt"`
             p (`int`, *optional*):
-                Page number for pagination. Defaults to 0
+                Page number for pagination. Defaults to 0.
             limit (`int`, *optional*):
-                Limit of papers to fetch. Defaults to 50
+                Limit of papers to fetch. Defaults to 50.
 
         Returns:
             `Iterable[PaperInfo]`: an iterable of [`huggingface_hub.hf_api.PaperInfo`] objects.
@@ -9935,19 +9935,20 @@ class HfApi:
         """
         path = f"{self.endpoint}/api/daily_papers"
 
-        params: dict[str, Any] = {"p": p, "limit": limit, "sort": sort}
-        if date:
-            params["date"] = date
-        if week:
-            params["week"] = week
-        if month:
-            params["month"] = month
-        if submitter:
-            params["submitter"] = submitter
+    params = {
+        k: v for k, v in {
+            "p": p,
+            "limit": limit,
+            "sort": sort,
+            "date": date,
+            "week": week,
+            "month": month,
+            "submitter": submitter,
+        }.items() if v is not None
+    }
 
         r = get_session().get(path, params=params, headers=self._build_hf_headers(token=token))
         hf_raise_for_status(r)
-
         for paper in r.json():
             yield PaperInfo(**paper)
 
