@@ -27,6 +27,7 @@ from .utils import (
     fetch_xet_connection_info_from_repo_info,
     get_session,
     hf_raise_for_status,
+    http_backoff,
     logging,
     sha,
     tqdm_stream_file,
@@ -739,7 +740,8 @@ def _fetch_upload_modes(
         if gitignore_content is not None:
             payload["gitIgnore"] = gitignore_content
 
-        resp = get_session().post(
+        resp = http_backoff(
+            "POST",
             f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
             json=payload,
             headers=headers,
