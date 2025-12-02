@@ -9889,7 +9889,13 @@ class HfApi:
         self,
         *,
         date: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        token: Optional[Union[bool, str]] = None,
+        week: Optional[str] = None,
+        month: Optional[str] = None,
+        submitter: Optional[str] = None,
+        sort: Literal["publishedAt", "trending"] = "publishedAt",
+        p: int = 0,
+        limit: int = 50,
     ) -> Iterable[PaperInfo]:
         """
         List the daily papers published on a given date on the Hugging Face Hub.
@@ -9901,6 +9907,19 @@ class HfApi:
             token (Union[bool, str, None], *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token. To disable authentication, pass `False`.
+            week (`str`, *optional*):
+                Week in ISO format (YYYY-Www) for which to fetch daily papers. Example, `2025-W09`.
+            month (`str`, *optional*):
+                Month in ISO format (YYYY-MM) for which to fetch daily papers. Example, `2025-02`.
+            submitter (`str`, *optional*):
+                Username of the submitter to filter daily papers.
+            sort (`Literal["publishedAt", "trending"]`, *optional*):
+                Sort order for the daily papers. Can be either by `publishedAt` or by `trending`.
+                Defaults to `"publishedAt"`
+            p (`int`, *optional*):
+                Page number for pagination. Defaults to 0
+            limit (`int`, *optional*):
+                Limit of papers to fetch. Defaults to 50
 
         Returns:
             `Iterable[PaperInfo]`: an iterable of [`huggingface_hub.hf_api.PaperInfo`] objects.
@@ -9915,9 +9934,20 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/daily_papers"
-        params = {"date": date} if date is not None else {}
+
+        params: dict[str, Any] = {"p": p, "limit": limit, "sort": sort}
+        if date:
+            params["date"] = date
+        if week:
+            params["week"] = week
+        if month:
+            params["month"] = month
+        if submitter:
+            params["submitter"] = submitter
+
         r = get_session().get(path, params=params, headers=self._build_hf_headers(token=token))
         hf_raise_for_status(r)
+
         for paper in r.json():
             yield PaperInfo(**paper)
 

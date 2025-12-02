@@ -4299,6 +4299,52 @@ class PaperApiTest(unittest.TestCase):
         assert hasattr(papers[0], "id")
         assert hasattr(papers[0], "title")
 
+    def test_list_daily_papers_week(self) -> None:
+        week = 44
+        papers = list(self.api.list_daily_papers(week=f"2025-W{week}"))
+        assert len(papers) > 0
+        first_paper = papers[0]
+        last_paper = papers[-1]
+        assert first_paper.submitted_at.isocalendar().week == week, (
+            f"First paper {first_paper.submitted_at}. Week number: {first_paper.submitted_at.isocalendar().week} != {week}. Week range from {datetime.date.fromisocalendar(2025, week, 1)} to {datetime.date.fromisocalendar(2025, week, 7)}"
+        )
+        assert last_paper.submitted_at.isocalendar().week == week, (
+            f"Last paper {last_paper.submitted_at}. Week number: {last_paper.submitted_at.isocalendar().week} != {week}. Week range from {datetime.date.fromisocalendar(2025, week, 1)} to {datetime.date.fromisocalendar(2025, week, 7)}"
+        )
+
+    def test_list_daily_papers_month(self) -> None:
+        month = 10
+        papers = list(self.api.list_daily_papers(month=f"2025-{month}"))
+        assert len(papers) > 0
+        first_paper = papers[0]
+        last_paper = papers[-1]
+        assert first_paper.submitted_at.month == month, (
+            f"First paper {first_paper.submitted_at}. Month: {first_paper.submitted_at.month} != {month}"
+        )
+        assert last_paper.submitted_at.month == month, (
+            f"Last paper {last_paper.submitted_at}. Month: {last_paper.submitted_at.month} != {month}"
+        )
+
+    def test_daily_papers_submitter(self) -> None:
+        papers = list(self.api.list_daily_papers(submitter="akhaliq"))
+        assert len(papers) > 0
+        assert papers[0].submitted_by.fullname == "AK", f"Paper submitter {papers[0].submitted_by.fullname} != AK"
+
+    def test_daily_papers_sort(self) -> None:
+        papers = list(self.api.list_daily_papers(date="2025-10-29", sort="trending"))
+        assert len(papers) > 0
+        first_paper = papers[0]
+        last_paper = papers[-1]
+        assert first_paper.upvotes >= last_paper.upvotes
+
+    def test_daily_papers_p(self) -> None:
+        papers = list(self.api.list_daily_papers(date="2025-10-29", p=100))
+        assert len(papers) == 0
+
+    def test_daily_papers_limit(self) -> None:
+        papers = list(self.api.list_daily_papers(date="2025-10-29", limit=10))
+        assert len(papers) == 10
+
 
 class WebhookApiTest(HfApiCommonTest):
     def setUp(self) -> None:
