@@ -405,6 +405,8 @@ class TestXetE2E:
             )
         )
 
+        assert head_call_error is None  # ensure we got metadata successfully
+
         xet_connection_info = refresh_xet_connection_info(file_data=xet_filedata, headers=headers)
 
         # manually construct parameters to hf_xet.download_files and use a locally defined token_refresher function
