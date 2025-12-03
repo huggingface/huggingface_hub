@@ -9936,7 +9936,8 @@ class HfApi:
         path = f"{self.endpoint}/api/daily_papers"
 
         params = {
-            k: v for k, v in {
+            k: v
+            for k, v in {
                 "p": p,
                 "limit": limit,
                 "sort": sort,
@@ -9944,7 +9945,8 @@ class HfApi:
                 "week": week,
                 "month": month,
                 "submitter": submitter,
-            }.items() if v is not None
+            }.items()
+            if v is not None
         }
 
         r = get_session().get(path, params=params, headers=self._build_hf_headers(token=token))
