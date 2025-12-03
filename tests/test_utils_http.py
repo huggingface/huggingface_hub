@@ -14,8 +14,10 @@ from httpx import ConnectTimeout, HTTPError
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.errors import HfHubHTTPError, OfflineModeIsEnabled
 from huggingface_hub.utils._http import (
+    _WARNED_TOPICS,
     RateLimitInfo,
     _adjust_range_header,
+    _warn_on_warning_headers,
     default_client_factory,
     fix_hf_endpoint_in_url,
     get_async_session,
@@ -560,3 +562,46 @@ class TestRateLimitErrorMessage:
 
         assert "429 Too Many Requests" in str(exc_info.value)
         assert "api/models" in str(exc_info.value)
+
+
+class TestWarnOnWarningHeaders:
+    def test_warn_on_warning_headers(self, caplog):
+        # Request #1 (multiple warnings)
+        response = Mock(spec=httpx.Response)
+        response.headers = httpx.Headers(
+            [
+                ("X-HF-Warning", "Topic1; This is the first warning message."),
+                ("X-HF-Warning", "Topic2; This is the second warning message."),
+                ("X-HF-Warning", "Topic1; This is a repeated warning message for Topic1."),
+                ("X-HF-Warning", "This is a warning without a topic."),
+                ("X-HF-Warning", "This is another warning without a topic."),
+            ]
+        )
+
+        with caplog.at_level("WARNING"):
+            _warn_on_warning_headers(response)
+
+        assert _WARNED_TOPICS == {"Topic1", "Topic2", ""}
+        warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert "This is the first warning message." in warnings
+        assert "This is the second warning message." in warnings
+        assert "This is a repeated warning message for Topic1." not in warnings
+        assert "This is a warning without a topic." in warnings
+        assert "This is another warning without a topic." not in warnings
+
+        # Request #2 (exact same warnings, should not warn again)
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            _warn_on_warning_headers(response)
+        warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert len(warnings) == 0  # No new warnings should be added
+
+        # Request #3 (single warning with new topic, should warn)
+        response.headers = httpx.Headers({"X-HF-Warning": "Topic4; Another warning."})
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            _warn_on_warning_headers(response)
+        warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert len(warnings) == 1
+        assert warnings == ["Another warning."]
+        assert "Topic4" in _WARNED_TOPICS
