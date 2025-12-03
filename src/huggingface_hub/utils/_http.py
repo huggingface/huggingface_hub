@@ -650,6 +650,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
     try:
         _warn_on_warning_headers(response)
     except Exception:
+        # Never raise on warning parsing
         logger.debug("Failed to parse warning headers", exc_info=True)
 
     try:
@@ -775,7 +776,7 @@ def _warn_on_warning_headers(response: httpx.Response) -> None:
             message = message.strip()
             if message:
                 _WARNED_TOPICS.add(topic)
-                logger.warning(message)
+                logger.warning("WARNING: %s", message)
 
 
 def _format(error_type: type[HfHubHTTPError], custom_message: str, response: httpx.Response) -> HfHubHTTPError:

@@ -583,12 +583,11 @@ class TestWarnOnWarningHeaders:
 
         assert _WARNED_TOPICS == {"Topic1", "Topic2", ""}
         warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
-        assert "This is the first warning message." in warnings
-        assert "This is the second warning message." in warnings
-        assert "This is a repeated warning message for Topic1." not in warnings
-        assert "This is a warning without a topic." in warnings
-        assert "This is another warning without a topic." not in warnings
-
+        assert "WARNING: This is the first warning message." in warnings
+        assert "WARNING: This is the second warning message." in warnings
+        assert "WARNING: This is a repeated warning message for Topic1." not in warnings
+        assert "WARNING: This is a warning without a topic." in warnings
+        assert "WARNING: This is another warning without a topic." not in warnings
         # Request #2 (exact same warnings, should not warn again)
         caplog.clear()
         with caplog.at_level("WARNING"):
@@ -603,5 +602,5 @@ class TestWarnOnWarningHeaders:
             _warn_on_warning_headers(response)
         warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
         assert len(warnings) == 1
-        assert warnings == ["Another warning."]
+        assert warnings == ["WARNING: Another warning."]
         assert "Topic4" in _WARNED_TOPICS
