@@ -776,7 +776,7 @@ def _warn_on_warning_headers(response: httpx.Response) -> None:
             message = message.strip()
             if message:
                 _WARNED_TOPICS.add(topic)
-                logger.warning("WARNING: %s", message)
+                logger.warning(message)
 
 
 def _format(error_type: type[HfHubHTTPError], custom_message: str, response: httpx.Response) -> HfHubHTTPError:
