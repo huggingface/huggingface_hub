@@ -392,7 +392,7 @@ function Show-UninstallInfo {
 function Show-Usage {
     Write-Log ''
     Write-Log 'Usage examples:'
-    Write-Log '  hf login'
+    Write-Log '  hf auth login'
     Write-Log '  hf download deepseek-ai/DeepSeek-R1'
     Write-Log '  hf jobs run python:3.12 python -c ''print("Hello from HF CLI!")'''
     Write-Log ''
