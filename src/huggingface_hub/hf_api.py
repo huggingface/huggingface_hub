@@ -5243,7 +5243,7 @@ class HfApi:
         *,
         url: str,
         token: Union[bool, str, None] = None,
-        timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
+        timeout: Optional[float] = constants.HF_HUB_ETAG_TIMEOUT,
     ) -> HfFileMetadata:
         """Fetch metadata of a file versioned on the Hub for a given url.
 
