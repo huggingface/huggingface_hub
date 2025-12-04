@@ -162,6 +162,26 @@ HF_ASSETS_CACHE = os.path.expandvars(
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
 
+
+def offline_mode() -> bool:
+    """Returns whether we are in offline mode for the Hub.
+
+    When offline mode is enabled, all HTTP requests made with `get_session` will raise an `OfflineModeIsEnabled` exception.
+
+    Example:
+        ```py
+        from huggingface_hub import offline_mode
+
+        def list_files(repo_id: str):
+            if offline_mode():
+                ... # list files from local cache (degraded experience but still functional)
+            else:
+                ... # list files from Hub (complete experience)
+        ```
+    """
+    return HF_HUB_OFFLINE
+
+
 # File created to mark that the version check has been done.
 # Check is performed once per 24 hours at most.
 CHECK_FOR_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_update_done")

@@ -184,6 +184,12 @@ except HfHubHTTPError as e:
 
 [[autodoc]] huggingface_hub.utils.hf_raise_for_status
 
+### Check offline mode
+
+You can programmatically check if offline mode is enabled using `offline_mode`. Offline mode is enabled by setting `HF_HUB_OFFLINE=1` as environment variable.
+
+[[autodoc]] offline_mode
+
 ### HTTP errors
 
 Here is a list of HTTP errors thrown in `huggingface_hub`.
