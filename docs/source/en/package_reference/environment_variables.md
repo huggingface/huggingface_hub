@@ -123,7 +123,7 @@ If `HF_HUB_OFFLINE=1` is set as environment variable and you call any method of 
 
 **Note:** even if the latest version of a file is cached, calling `hf_hub_download` still triggers a HTTP request to check that a new version is not available. Setting `HF_HUB_OFFLINE=1` will skip this call which speeds up your loading time.
 
-If you want to check if offline mode is enabled or not, you can use the [`offline_mode`] helper.
+If you want to check if offline mode is enabled or not, you can use the [`is_offline_mode`] helper.
 
 ### HF_HUB_DISABLE_IMPLICIT_TOKEN
 

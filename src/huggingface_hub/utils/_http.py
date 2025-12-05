@@ -167,7 +167,7 @@ def hf_request_event_hook(request: httpx.Request) -> None:
     - Add a request ID to the request headers
     - Log the request if debug mode is enabled
     """
-    if constants.offline_mode():
+    if constants.is_offline_mode():
         raise OfflineModeIsEnabled(
             f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
         )
