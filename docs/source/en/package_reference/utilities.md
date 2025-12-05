@@ -186,9 +186,9 @@ except HfHubHTTPError as e:
 
 ### Check offline mode
 
-You can programmatically check if offline mode is enabled using `offline_mode`. Offline mode is enabled by setting `HF_HUB_OFFLINE=1` as environment variable.
+You can programmatically check if offline mode is enabled using `is_offline_mode`. Offline mode is enabled by setting `HF_HUB_OFFLINE=1` as environment variable.
 
-[[autodoc]] offline_mode
+[[autodoc]] is_offline_mode
 
 ### HTTP errors
 
