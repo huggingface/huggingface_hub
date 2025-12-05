@@ -134,7 +134,7 @@ _SUBMOD_ATTRS = {
         "REPO_TYPE_SPACE",
         "TF2_WEIGHTS_NAME",
         "TF_WEIGHTS_NAME",
-        "offline_mode",
+        "is_offline_mode",
     ],
     "fastai_utils": [
         "_save_pretrained_fastai",
@@ -894,6 +894,7 @@ __all__ = [
     "inspect_job",
     "inspect_scheduled_job",
     "interpreter_login",
+    "is_offline_mode",
     "list_accepted_access_requests",
     "list_collections",
     "list_daily_papers",
@@ -931,7 +932,6 @@ __all__ = [
     "model_info",
     "move_repo",
     "notebook_login",
-    "offline_mode",
     "paper_info",
     "parse_huggingface_oauth",
     "parse_safetensors_file_metadata",
@@ -1160,7 +1160,7 @@ if TYPE_CHECKING:  # pragma: no cover
         REPO_TYPE_SPACE,  # noqa: F401
         TF2_WEIGHTS_NAME,  # noqa: F401
         TF_WEIGHTS_NAME,  # noqa: F401
-        offline_mode,  # noqa: F401
+        is_offline_mode,  # noqa: F401
     )
     from .fastai_utils import (
         _save_pretrained_fastai,  # noqa: F401
