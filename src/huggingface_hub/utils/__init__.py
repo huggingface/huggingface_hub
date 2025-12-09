@@ -86,6 +86,7 @@ from ._runtime import (
     get_tensorboard_version,
     get_tf_version,
     get_torch_version,
+    get_transformers_version,
     installation_method,
     is_aiohttp_available,
     is_colab_enterprise,
@@ -106,6 +107,7 @@ from ._runtime import (
     is_tensorboard_available,
     is_tf_available,
     is_torch_available,
+    is_transformers_available,
 )
 from ._safetensors import SafetensorsFileMetadata, SafetensorsRepoMetadata, TensorInfo
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess

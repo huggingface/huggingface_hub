@@ -59,6 +59,7 @@ _CANDIDATES = {
         "tensorflow-macos",
     ),
     "torch": {"torch"},
+    "transformers": {"transformers"},
 }
 
 # Check once at runtime
@@ -267,6 +268,15 @@ def get_torch_version() -> str:
     return _get_version("torch")
 
 
+# Transformers
+def is_transformers_available() -> bool:
+    return is_package_available("transformers")
+
+
+def get_transformers_version() -> str:
+    return _get_version("transformers")
+
+
 # Safetensors
 def is_safetensors_available() -> bool:
     return is_package_available("safetensors")
@@ -408,6 +418,7 @@ def dump_environment_info() -> dict[str, Any]:
     info["hf_xet"] = get_xet_version()
     info["gradio"] = get_gradio_version()
     info["tensorboard"] = get_tensorboard_version()
+    info["transformers"] = get_transformers_version()
 
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT
