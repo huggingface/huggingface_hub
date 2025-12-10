@@ -192,7 +192,11 @@ def auth_list() -> None:
     tokens = get_stored_tokens()
 
     if not tokens:
-        logger.info("No access tokens found.")
+        if _get_token_from_environment():
+            logger.info("No stored access tokens found.")
+            logger.warning("Note: Environment variable `HF_TOKEN` is set and is the current active token.")
+        else:
+            logger.info("No access tokens found.")
         return
     # Find current token
     current_token = get_token()
