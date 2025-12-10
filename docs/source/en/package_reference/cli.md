@@ -267,7 +267,7 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 * `--include TEXT`: Glob patterns to include from files to download. eg: *.json
 * `--exclude TEXT`: Glob patterns to exclude from files to download.
 * `--cache-dir TEXT`: Directory where to save files.
-* `--local-dir TEXT`: If set, the downloaded file will be placed under this directory. Check out https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder for more details.
+* `--local-dir TEXT`: If set, the downloaded file will be placed under this directory. Check out https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-a-local-folder for more details.
 * `--force-download / --no-force-download`: If True, the files will be downloaded even if they are already cached.  [default: no-force-download]
 * `--dry-run / --no-dry-run`: If True, perform a dry run without actually downloading the file.  [default: no-dry-run]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
