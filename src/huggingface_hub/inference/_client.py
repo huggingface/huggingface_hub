@@ -101,12 +101,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provider_helper
-from huggingface_hub.utils import (
-    build_hf_headers,
-    get_session,
-    hf_raise_for_status,
-    validate_hf_hub_args,
-)
+from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status, validate_hf_hub_args
 from huggingface_hub.utils._auth import get_token
 
 
@@ -159,6 +154,8 @@ class InferenceClient:
             Token to use for authentication. This is a duplicated argument from `token` to make [`InferenceClient`]
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `token` is set. Defaults to None.
     """
+
+    provider: Optional[PROVIDER_OR_POLICY_T]
 
     @validate_hf_hub_args
     def __init__(
@@ -227,7 +224,7 @@ class InferenceClient:
                 )
 
         # Configure provider
-        self.provider = provider
+        self.provider = provider  # type: ignore[assignment]
 
         self.cookies = cookies
         self.timeout = timeout

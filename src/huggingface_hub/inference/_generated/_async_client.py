@@ -151,6 +151,8 @@ class AsyncInferenceClient:
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `token` is set. Defaults to None.
     """
 
+    provider: Optional[PROVIDER_OR_POLICY_T]
+
     @validate_hf_hub_args
     def __init__(
         self,
@@ -218,7 +220,7 @@ class AsyncInferenceClient:
                 )
 
         # Configure provider
-        self.provider = provider
+        self.provider = provider  # type: ignore[assignment]
 
         self.cookies = cookies
         self.timeout = timeout
