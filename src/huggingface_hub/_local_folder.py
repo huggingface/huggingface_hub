@@ -308,6 +308,7 @@ def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDown
                     paths.metadata_path.unlink()
                 except Exception as e:
                     logger.warning(f"Could not remove corrupted metadata file {paths.metadata_path}: {e}")
+                return None
 
             try:
                 # check if the file exists and hasn't been modified since the metadata was saved
@@ -382,6 +383,9 @@ def read_upload_metadata(local_dir: Path, filename: str) -> LocalUploadFileMetad
                     paths.metadata_path.unlink()
                 except Exception as e:
                     logger.warning(f"Could not remove corrupted metadata file {paths.metadata_path}: {e}")
+
+                # corrupted metadata => we don't know anything expect its size
+                return LocalUploadFileMetadata(size=paths.file_path.stat().st_size)
 
             # TODO: can we do better?
             if (
