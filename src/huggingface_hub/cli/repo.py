@@ -22,6 +22,9 @@ Usage:
 """
 
 import enum
+import json
+import re
+from datetime import timezone
 from typing import Annotated, Optional
 
 import typer
@@ -42,6 +45,8 @@ from ._cli_utils import (
 
 
 logger = logging.get_logger(__name__)
+
+_SORT_PATTERN = re.compile(r"^(?P<key>[a-zA-Z0-9_-]+)(?::(?P<order>asc|desc))?$")
 
 repo_cli = typer_factory(help="Manage repos on the Hub.")
 tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
@@ -158,6 +163,92 @@ def repo_settings(
         repo_type=repo_type.value,
     )
     print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")
+
+
+@repo_cli.command("list", help="List repositories (models, datasets, spaces) hosted on the Hub.")
+def repo_list(
+    repo_type: RepoTypeOpt = RepoType.model,
+    limit: Annotated[int, typer.Option(help="Limit the number of results.")] = 10,
+    filter: Annotated[
+        Optional[list[str]],
+        typer.Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
+    ] = None,
+    search: Annotated[Optional[str], typer.Option(help="Search by name.")] = None,
+    author: Annotated[Optional[str], typer.Option(help="Filter by author or organization.")] = None,
+    sort: Annotated[
+        Optional[str],
+        typer.Option(help="Sort results key, optionally with direction (e.g. 'likes', 'downloads:asc')."),
+    ] = None,
+    token: TokenOpt = None,
+) -> None:
+    api = get_hf_api(token=token)
+
+    sort_key = None
+    direction = None
+
+    if sort:
+        match = _SORT_PATTERN.match(sort)
+        if not match:
+            typer.echo(
+                f"Error: Invalid sort format '{sort}'. Expected 'field' or 'field:direction' (e.g. 'downloads:desc')."
+            )
+            raise typer.Exit(1)
+
+        sort_key = match.group("key")
+        order = match.group("order")
+
+        if order == "desc":
+            direction = -1
+
+    output_data = []
+
+    try:
+        if repo_type == RepoType.model:
+            list_method = api.list_models
+        elif repo_type == RepoType.dataset:
+            list_method = api.list_datasets
+        elif repo_type == RepoType.space:
+            list_method = api.list_spaces
+
+        results = list_method(
+            filter=filter,
+            author=author,
+            search=search,
+            sort=sort_key,
+            direction=direction,
+            limit=limit,
+        )
+
+        for repo in results:
+            created_at_str = None
+            if getattr(repo, "created_at", None):
+                dt = repo.created_at
+                if dt.tzinfo:
+                    dt = dt.astimezone(timezone.utc)
+                created_at_str = dt.isoformat().replace("+00:00", "Z")
+
+            item = {
+                "id": repo.id,
+                "downloads": getattr(repo, "downloads", 0),
+                "likes": getattr(repo, "likes", 0),
+                "trendingScore": getattr(repo, "trending_score", None),
+                "createdAt": created_at_str,
+                "private": getattr(repo, "private", False),
+            }
+
+            if hasattr(repo, "pipeline_tag") and repo.pipeline_tag:
+                item["pipeline_tag"] = repo.pipeline_tag
+
+            if hasattr(repo, "library_name") and repo.library_name:
+                item["library_name"] = repo.library_name
+
+            output_data.append(item)
+
+    except Exception as e:
+        typer.echo(f"Error fetching {repo_type.value}s: {e}")
+        raise typer.Exit(1)
+
+    typer.echo(json.dumps(output_data, indent=2))
 
 
 @branch_cli.command("create", help="Create a new branch for a repo on the Hub.")

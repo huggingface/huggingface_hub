@@ -1265,6 +1265,103 @@ class TestRepoDeleteCommand:
         )
 
 
+class TestRepoListCommand:
+    def test_repo_list_basic(self, runner: CliRunner) -> None:
+        """Test basic listing of models with defaults and JSON output verification."""
+        from datetime import datetime, timezone
+
+        # Mock a repo object (simulating ModelInfo)
+        repo = Mock()
+        repo.id = "user/model-id"
+        repo.downloads = 100
+        repo.likes = 50
+        repo.trending_score = 10
+        repo.created_at = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        repo.private = False
+        repo.pipeline_tag = "text-classification"
+        repo.library_name = "transformers"
+
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([repo])
+
+            result = runner.invoke(app, ["repo", "list"])
+
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token=None)
+
+        # Verify API was called with correct default arguments
+        api.list_models.assert_called_once()
+        _, kwargs = api.list_models.call_args
+        assert kwargs["limit"] == 10
+        assert kwargs["sort"] is None
+
+        # Verify JSON output
+        output = json.loads(result.stdout)
+        assert len(output) == 1
+        assert output[0]["id"] == "user/model-id"
+        assert output[0]["createdAt"] == "2024-01-01T12:00:00Z"
+        assert output[0]["pipeline_tag"] == "text-classification"
+
+    def test_repo_list_sorting_parsing(self, runner: CliRunner) -> None:
+        """Test that 'downloads:asc' is correctly parsed into sort='downloads', direction=1."""
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
+
+            # Test Ascending
+            result = runner.invoke(app, ["repo", "list", "--sort", "downloads:asc"])
+            assert result.exit_code == 0
+            _, kwargs = api.list_models.call_args
+            assert kwargs["sort"] == "downloads"
+            assert kwargs["direction"] == 1
+
+            # Test Descending
+            result = runner.invoke(app, ["repo", "list", "--sort", "likes:desc"])
+            assert result.exit_code == 0
+            _, kwargs = api.list_models.call_args
+            assert kwargs["sort"] == "likes"
+            assert kwargs["direction"] == -1
+
+    def test_repo_list_datasets_with_filter(self, runner: CliRunner) -> None:
+        """Test listing datasets with multiple filters."""
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_datasets.return_value = iter([])
+
+            result = runner.invoke(
+                app, ["repo", "list", "--repo-type", "dataset", "--filter", "text-classification", "--filter", "en"]
+            )
+
+        assert result.exit_code == 0
+        api.list_datasets.assert_called_once()
+        _, kwargs = api.list_datasets.call_args
+        # Typer passes multiple --filter flags as a list
+        assert kwargs["filter"] == ["text-classification", "en"]
+
+    def test_repo_list_invalid_sort(self, runner: CliRunner) -> None:
+        """Test that invalid sort string raises a user-friendly error."""
+        result = runner.invoke(app, ["repo", "list", "--sort", "bad:format:here"])
+        assert result.exit_code == 1
+        assert "Error: Invalid sort format" in result.stdout
+
+    def test_repo_list_api_error_handling(self, runner: CliRunner) -> None:
+        """Test graceful handling of API errors (like BadRequest during iteration)."""
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+
+            def error_generator(**kwargs):
+                raise Exception("Invalid sort direction")
+                yield
+
+            api.list_models.side_effect = error_generator
+
+            result = runner.invoke(app, ["repo", "list"])
+
+        assert result.exit_code == 1
+        assert "Error fetching models" in result.stdout
+
+
 class TestInferenceEndpointsCommands:
     def test_list(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "demo"})
