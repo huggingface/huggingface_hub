@@ -509,7 +509,7 @@ scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.
 jobs_cli.add_typer(scheduled_app, name="scheduled")
 
 
-@scheduled_app.command("run", help="Schedule a Job")
+@scheduled_app.command("run", help="Schedule a Job", context_settings={"ignore_unknown_options": True})
 def scheduled_run(
     schedule: ScheduleArg,
     image: ImageArg,
@@ -687,7 +687,11 @@ scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure"
 scheduled_app.add_typer(scheduled_uv_app, name="uv")
 
 
-@scheduled_uv_app.command("run", help="Run a UV script (local file or URL) on HF infrastructure")
+@scheduled_uv_app.command(
+    "run",
+    help="Run a UV script (local file or URL) on HF infrastructure",
+    context_settings={"ignore_unknown_options": True},
+)
 def scheduled_uv_run(
     schedule: ScheduleArg,
     script: ScriptArg,
