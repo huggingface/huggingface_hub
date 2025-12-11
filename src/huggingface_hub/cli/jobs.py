@@ -235,7 +235,7 @@ RepoOpt = Annotated[
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
 
-@jobs_cli.command("run", help="Run a Job")
+@jobs_cli.command("run", help="Run a Job", context_settings={"ignore_unknown_options": True})
 def jobs_run(
     image: ImageArg,
     command: CommandArg,
@@ -447,7 +447,11 @@ uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on
 jobs_cli.add_typer(uv_app, name="uv")
 
 
-@uv_app.command("run", help="Run a UV script (local file or URL) on HF infrastructure")
+@uv_app.command(
+    "run",
+    help="Run a UV script (local file or URL) on HF infrastructure",
+    context_settings={"ignore_unknown_options": True},
+)
 def jobs_uv_run(
     script: ScriptArg,
     script_args: ScriptArgsArg = None,
