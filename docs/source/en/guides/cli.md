@@ -819,17 +819,17 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 
 ```bash
 # Directly run Python code
->>> hf jobs run python:3.12 -- python -c 'print("Hello from the cloud!")'
+>>> hf jobs run python:3.12 python -c 'print("Hello from the cloud!")'
 
 # Use GPUs without any setup
->>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel -- \
+>>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
 ... python -c "import torch; print(torch.cuda.get_device_name())"
 
 # Run in an organization account
->>> hf jobs run --namespace my-org-name python:3.12 -- python -c 'print("Running in an org account")'
+>>> hf jobs run --namespace my-org-name python:3.12 python -c 'print("Running in an org account")'
 
 # Run from Hugging Face Spaces
->>> hf jobs run hf.co/spaces/lhoestq/duckdb -- duckdb -c 'select "hello world"'
+>>> hf jobs run hf.co/spaces/lhoestq/duckdb duckdb -c 'select "hello world"'
 
 # Run a Python script with `uv` (experimental)
 >>> hf jobs uv run my_script.py
@@ -853,7 +853,7 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 
 ```bash
 # Run a simple Python script
->>> hf jobs run python:3.12 -- python -c 'print("Hello from HF compute!")'
+>>> hf jobs run python:3.12 python -c 'print("Hello from HF compute!")'
 ```
 
 This command runs the job and shows the logs. You can pass `--detach` to run the Job in the background and only print the Job ID.
@@ -880,7 +880,7 @@ You can also run jobs on GPUs or TPUs with the `--flavor` option. For example, t
 
 ```bash
 # Use an A10G GPU to check PyTorch CUDA
->>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel -- \
+>>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
 ... python -c 'import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")'
 ```
 
@@ -907,22 +907,22 @@ You can pass environment variables to your job using
 
 ```bash
 # Pass environment variables
->>> hf jobs run -e FOO=foo -e BAR=bar python:3.12 -- python -c 'import os; print(os.environ["FOO"], os.environ["BAR"])'
+>>> hf jobs run -e FOO=foo -e BAR=bar python:3.12 python -c 'import os; print(os.environ["FOO"], os.environ["BAR"])'
 ```
 
 ```bash
 # Pass an environment from a local .env file
->>> hf jobs run --env-file .env python:3.12 -- python -c 'import os; print(os.environ["FOO"], os.environ["BAR"])'
+>>> hf jobs run --env-file .env python:3.12 python -c 'import os; print(os.environ["FOO"], os.environ["BAR"])'
 ```
 
 ```bash
 # Pass secrets - they will be encrypted server side
->>> hf jobs run -s MY_SECRET=psswrd python:3.12 -- python -c 'import os; print(os.environ["MY_SECRET"])'
+>>> hf jobs run -s MY_SECRET=psswrd python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
 ```
 
 ```bash
 # Pass secrets from a local .env.secrets file - they will be encrypted server side
->>> hf jobs run --secrets-file .env.secrets python:3.12 -- python -c 'import os; print(os.environ["MY_SECRET"])'
+>>> hf jobs run --secrets-file .env.secrets python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
 ```
 
 > [!TIP]
@@ -964,7 +964,7 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 >>> hf jobs uv run https://huggingface.co/datasets/username/scripts/resolve/main/example.py
 
 # Run a command
->>> hf jobs uv run --with lighteval -- python -c 'import lighteval'
+>>> hf jobs uv run --with lighteval python -c 'import lighteval'
 ```
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
