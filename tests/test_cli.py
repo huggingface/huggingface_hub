@@ -1270,7 +1270,6 @@ class TestRepoListCommand:
         """Test basic listing of models with defaults and JSON output verification."""
         from datetime import datetime, timezone
 
-        # Mock a repo object (simulating ModelInfo)
         repo = Mock()
         repo.id = "user/model-id"
         repo.downloads = 100
@@ -1290,13 +1289,11 @@ class TestRepoListCommand:
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
 
-        # Verify API was called with correct default arguments
         api.list_models.assert_called_once()
         _, kwargs = api.list_models.call_args
         assert kwargs["limit"] == 10
         assert kwargs["sort"] is None
 
-        # Verify JSON output
         output = json.loads(result.stdout)
         assert len(output) == 1
         assert output[0]["id"] == "user/model-id"
@@ -1309,14 +1306,12 @@ class TestRepoListCommand:
             api = api_cls.return_value
             api.list_models.return_value = iter([])
 
-            # Test Ascending
             result = runner.invoke(app, ["repo", "list", "--sort", "downloads:asc"])
             assert result.exit_code == 0
             _, kwargs = api.list_models.call_args
             assert kwargs["sort"] == "downloads"
             assert kwargs["direction"] == 1
 
-            # Test Descending
             result = runner.invoke(app, ["repo", "list", "--sort", "likes:desc"])
             assert result.exit_code == 0
             _, kwargs = api.list_models.call_args
@@ -1336,7 +1331,6 @@ class TestRepoListCommand:
         assert result.exit_code == 0
         api.list_datasets.assert_called_once()
         _, kwargs = api.list_datasets.call_args
-        # Typer passes multiple --filter flags as a list
         assert kwargs["filter"] == ["text-classification", "en"]
 
     def test_repo_list_invalid_sort(self, runner: CliRunner) -> None:
