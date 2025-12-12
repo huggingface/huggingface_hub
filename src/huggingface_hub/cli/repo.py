@@ -25,10 +25,11 @@ import enum
 import json
 import re
 from datetime import timezone
-from typing import Annotated, Optional
+from typing import Annotated, Iterable, Literal, Optional, Union
 
 import typer
 
+from huggingface_hub import DatasetInfo, ModelInfo, SpaceInfo
 from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.utils import ANSI, logging
 
@@ -168,7 +169,10 @@ def repo_settings(
 @repo_cli.command("list", help="List repositories (models, datasets, spaces) hosted on the Hub.")
 def repo_list(
     repo_type: RepoTypeOpt = RepoType.model,
-    limit: Annotated[int, typer.Option(help="Limit the number of results.")] = 10,
+    limit: Annotated[
+        int,
+        typer.Option(help="Limit the number of results."),
+    ] = 10,
     filter: Annotated[
         Optional[list[str]],
         typer.Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
@@ -181,10 +185,11 @@ def repo_list(
     ] = None,
     token: TokenOpt = None,
 ) -> None:
+    """List repositories of the requested type and print them as JSON."""
     api = get_hf_api(token=token)
 
-    sort_key = None
-    direction = None
+    sort_key: Optional[str] = None
+    direction: Optional[Literal[-1, 1]] = None
 
     if sort:
         match = _SORT_PATTERN.match(sort)
@@ -197,37 +202,55 @@ def repo_list(
         sort_key = match.group("key")
         order = match.group("order")
 
-        if order == "desc":
+        if order == "asc":
+            direction = 1
+        elif order == "desc":
             direction = -1
 
-    output_data = []
+    output_data: list[dict[str, object]] = []
 
     try:
-        if repo_type == RepoType.model:
-            list_method = api.list_models
-        elif repo_type == RepoType.dataset:
-            list_method = api.list_datasets
-        elif repo_type == RepoType.space:
-            list_method = api.list_spaces
+        results: Iterable[Union[ModelInfo, DatasetInfo, SpaceInfo]]
 
-        results = list_method(
-            filter=filter,
-            author=author,
-            search=search,
-            sort=sort_key,
-            direction=direction,
-            limit=limit,
-        )
+        if repo_type is RepoType.model:
+            results = api.list_models(
+                filter=filter,
+                author=author,
+                search=search,
+                sort=sort_key,
+                direction=direction,  # type: ignore [arg-type]
+                limit=limit,
+            )
+        elif repo_type is RepoType.dataset:
+            results = api.list_datasets(
+                filter=filter,
+                author=author,
+                search=search,
+                sort=sort_key,
+                direction=direction,  # type: ignore [arg-type]
+                limit=limit,
+            )
+        elif repo_type is RepoType.space:
+            results = api.list_spaces(
+                filter=filter,
+                author=author,
+                search=search,
+                sort=sort_key,
+                direction=direction,  # type: ignore [arg-type]
+                limit=limit,
+            )
+        else:
+            raise AssertionError("Unreachable: Invalid repo_type")
 
         for repo in results:
-            created_at_str = None
-            if getattr(repo, "created_at", None):
-                dt = repo.created_at
-                if dt.tzinfo:
-                    dt = dt.astimezone(timezone.utc)
-                created_at_str = dt.isoformat().replace("+00:00", "Z")
+            created_at_str: Optional[str] = None
+            created = getattr(repo, "created_at", None)
+            if created is not None:
+                if created.tzinfo is not None:
+                    created = created.astimezone(timezone.utc)
+                created_at_str = created.isoformat().replace("+00:00", "Z")
 
-            item = {
+            item: dict[str, object] = {
                 "id": repo.id,
                 "downloads": getattr(repo, "downloads", 0),
                 "likes": getattr(repo, "likes", 0),
@@ -244,11 +267,11 @@ def repo_list(
 
             output_data.append(item)
 
-    except Exception as e:
-        typer.echo(f"Error fetching {repo_type.value}s: {e}")
-        raise typer.Exit(1)
+    except Exception as exc:
+        typer.echo(f"Error fetching {repo_type.value}s: {exc}")
+        raise typer.Exit(1) from exc
 
-    typer.echo(json.dumps(output_data, indent=2))
+    typer.echo(json.dumps(output_data, indent=2, ensure_ascii=False))
 
 
 @branch_cli.command("create", help="Create a new branch for a repo on the Hub.")
