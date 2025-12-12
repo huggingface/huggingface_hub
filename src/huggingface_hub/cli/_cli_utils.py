@@ -96,7 +96,7 @@ TokenOpt = Annotated[
 ]
 
 PrivateOpt = Annotated[
-    bool,
+    Optional[bool],
     typer.Option(
         help="Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.",
     ),
