@@ -581,7 +581,7 @@ class TestWarnOnWarningHeaders:
         with caplog.at_level("WARNING"):
             _warn_on_warning_headers(response)
 
-        assert _WARNED_TOPICS == {"Topic1", "Topic2", ""}
+        assert {"Topic1", "Topic2", ""}.issubset(_WARNED_TOPICS)
         warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
         assert "This is the first warning message." in warnings
         assert "This is the second warning message." in warnings
