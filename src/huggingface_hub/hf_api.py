@@ -10850,12 +10850,12 @@ class HfApi:
             # Local file - embed as env variable
             script_content = base64.b64encode(Path(script).read_bytes()).decode()
             env["UV_SCRIPT_ENCODED"] = script_content
+
             command = [
                 "bash",
                 "-c",
-                'echo "$UV_SCRIPT_ENCODED" | base64 -d > /tmp/script.py && uv run /tmp/script.py',
+                f'echo "$UV_SCRIPT_ENCODED" | base64 -d > /tmp/script.py && uv run {" ".join(uv_args)} /tmp/script.py {" ".join(script_args)}',
             ]
-
         return command, env, secrets
 
 
