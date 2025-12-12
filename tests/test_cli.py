@@ -397,7 +397,7 @@ class TestUploadCommand:
             repo_id=DUMMY_MODEL_ID,
             repo_type="model",
             exist_ok=True,
-            private=False,
+            private=None,
             space_sdk=None,
         )
         api.upload_folder.assert_called_once_with(
@@ -483,7 +483,7 @@ class TestUploadCommand:
             allow_patterns=["*.json", "*.yaml"],
             ignore_patterns=["*.log", "*.txt"],
             path_in_repo="data/",
-            private=False,
+            private=None,
             every=5,
             hf_api=api,
         )
@@ -706,7 +706,7 @@ class TestUploadImpl:
             repo_id="my-dataset",
             repo_type="dataset",
             exist_ok=True,
-            private=False,
+            private=None,
             space_sdk=None,
         )
         api.upload_file.assert_called_once_with(
