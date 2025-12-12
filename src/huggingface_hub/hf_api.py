@@ -14,6 +14,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import base64
 import inspect
 import json
 import re
@@ -10319,7 +10320,6 @@ class HfApi:
         timeout: Optional[Union[int, float, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
-        _repo: Optional[str] = None,
     ) -> JobInfo:
         """
         Run a UV script Job on Hugging Face infrastructure.
@@ -10405,7 +10405,6 @@ class HfApi:
             secrets=secrets,
             namespace=namespace,
             token=token,
-            _repo=_repo,
         )
         # Create RunCommand args
         return self.run_job(
@@ -10709,7 +10708,6 @@ class HfApi:
         timeout: Optional[Union[int, float, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
-        _repo: Optional[str] = None,
     ) -> ScheduledJobInfo:
         """
         Run a UV script Job on Hugging Face infrastructure.
@@ -10802,7 +10800,6 @@ class HfApi:
             secrets=secrets,
             namespace=namespace,
             token=token,
-            _repo=_repo,
         )
         # Create RunCommand args
         return self.create_scheduled_job(
@@ -10830,7 +10827,6 @@ class HfApi:
         secrets: Optional[dict[str, Any]],
         namespace: Optional[str],
         token: Union[bool, str, None],
-        _repo: Optional[str],
     ) -> tuple[list[str], dict[str, Any], dict[str, Any]]:
         env = env or {}
         secrets = secrets or {}
@@ -10852,95 +10848,15 @@ class HfApi:
             # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
         else:
-            # Local file - upload to HF
-            script_path = Path(script)
-            filename = script_path.name
-            # Parse repo
-            if _repo:
-                repo_id = _repo
-                if "/" not in repo_id:
-                    repo_id = f"{namespace}/{repo_id}"
-            else:
-                repo_id = f"{namespace}/hf-cli-jobs-uv-run-scripts"
+            # Local file - embed as env variable
+            script_content = base64.b64encode(Path(script).read_bytes()).decode()
+            env["UV_SCRIPT_ENCODED"] = script_content
+            command = [
+                "bash",
+                "-c",
+                'echo "$UV_SCRIPT_ENCODED" | base64 -d > /tmp/script.py && uv run /tmp/script.py',
+            ]
 
-            # Create repo if needed
-            try:
-                self.repo_info(repo_id, repo_type="dataset")
-                logger.debug(f"Using existing repository: {repo_id}")
-            except RepositoryNotFoundError:
-                logger.info(f"Creating repository: {repo_id}")
-                create_repo(repo_id, repo_type="dataset", private=True, exist_ok=True)
-
-            # Upload script
-            logger.info(f"Uploading {script_path.name} to {repo_id}...")
-            with open(script_path, "r") as f:
-                script_content = f.read()
-
-            commit_hash = self.upload_file(
-                path_or_fileobj=script_content.encode(),
-                path_in_repo=filename,
-                repo_id=repo_id,
-                repo_type="dataset",
-            ).oid
-
-            script_url = f"{self.endpoint}/datasets/{repo_id}/resolve/{commit_hash}/{filename}"
-            repo_url = f"{self.endpoint}/datasets/{repo_id}"
-
-            logger.debug(f"✓ Script uploaded to: {repo_url}/blob/main/{filename}")
-
-            # Create and upload minimal README
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-            readme_content = dedent(
-                f"""
-                ---
-                tags:
-                - hf-cli-jobs-uv-script
-                - ephemeral
-                viewer: false
-                ---
-
-                # UV Script: {filename}
-
-                Executed via `hf jobs uv run` on {timestamp}
-
-                ## Run this script
-
-                ```bash
-                hf jobs uv run {filename}
-                ```
-
-                ---
-                *Created with [hf jobs](https://huggingface.co/docs/huggingface_hub/main/en/guides/jobs)*
-                """
-            )
-            self.upload_file(
-                path_or_fileobj=readme_content.encode(),
-                path_in_repo="README.md",
-                repo_id=repo_id,
-                repo_type="dataset",
-            )
-
-            secrets["UV_SCRIPT_HF_TOKEN"] = token or self.token or get_token()
-            env["UV_SCRIPT_URL"] = script_url
-
-            pre_command = (
-                dedent(
-                    """
-                    import urllib.request
-                    import os
-                    from pathlib import Path
-                    o = urllib.request.build_opener()
-                    o.addheaders = [("Authorization", "Bearer " + os.environ["UV_SCRIPT_HF_TOKEN"])]
-                    Path("/tmp/script.py").write_bytes(o.open(os.environ["UV_SCRIPT_URL"]).read())
-                    """
-                )
-                .strip()
-                .replace('"', r"\"")
-                .split("\n")
-            )
-            pre_command = ["python", "-c", '"' + "; ".join(pre_command) + '"']
-            command = ["uv", "run"] + uv_args + ["/tmp/script.py"] + script_args
-            command = ["bash", "-c", " ".join(pre_command) + " && " + " ".join(command)]
         return command, env, secrets
 
 
