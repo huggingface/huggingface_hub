@@ -22,10 +22,14 @@ Usage:
 """
 
 import enum
-from typing import Annotated, Optional
+import json
+import re
+from datetime import timezone
+from typing import Annotated, Literal, Optional, Union
 
 import typer
 
+from huggingface_hub import DatasetInfo, ModelInfo, SpaceInfo
 from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.utils import ANSI, logging
 
@@ -42,6 +46,41 @@ from ._cli_utils import (
 
 
 logger = logging.get_logger(__name__)
+
+_SORT_PATTERN = re.compile(r"^(?P<key>[a-z_]+)(?::(?P<order>asc|desc))?$")
+_REPO_LIST_SORT_KEYS = {"last_modified", "trending_score", "created_at", "likes", "downloads"}
+
+_repo_list_sort_dict = {}
+for key in sorted(_REPO_LIST_SORT_KEYS):
+    _repo_list_sort_dict[key] = key
+    _repo_list_sort_dict[f"{key}_asc"] = f"{key}:asc"
+    _repo_list_sort_dict[f"{key}_desc"] = f"{key}:desc"
+
+RepoListSort = enum.Enum("RepoListSort", _repo_list_sort_dict, type=str, module=__name__)  # type: ignore
+
+
+def _repo_info_to_dict(info: Union[ModelInfo, DatasetInfo, SpaceInfo]) -> dict[str, object]:
+    """Convert repo info dataclasses to json-serializable dicts."""
+    created_at_str: str | None = None
+    if info.created_at is not None:
+        dt = info.created_at
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        created_at_str = dt.isoformat().replace("+00:00", "Z")
+
+    return {
+        "id": info.id,
+        "downloads": getattr(info, "downloads", None),
+        "likes": getattr(info, "likes", None),
+        "trendingScore": getattr(info, "trending_score", None),
+        "createdAt": created_at_str,
+        "private": getattr(info, "private", False),
+        "pipeline_tag": getattr(info, "pipeline_tag", None),
+        "library_name": getattr(info, "library_name", None),
+    }
+
 
 repo_cli = typer_factory(help="Manage repos on the Hub.")
 tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
@@ -158,6 +197,82 @@ def repo_settings(
         repo_type=repo_type.value,
     )
     print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")
+
+
+@repo_cli.command("list", help="List repositories (models, datasets, spaces) hosted on the Hub.")
+def repo_list(
+    repo_type: RepoTypeOpt = RepoType.model,
+    limit: Annotated[
+        int,
+        typer.Option(help="Limit the number of results."),
+    ] = 10,
+    filter: Annotated[
+        Optional[list[str]],
+        typer.Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
+    ] = None,
+    search: Annotated[
+        Optional[str],
+        typer.Option(help="Search by name."),
+    ] = None,
+    author: Annotated[
+        Optional[str],
+        typer.Option(help="Filter by author or organization."),
+    ] = None,
+    sort: Annotated[
+        Optional[RepoListSort],
+        typer.Option(help="Sort key, optionally with direction (e.g. 'likes:desc')."),
+    ] = None,
+    token: TokenOpt = None,
+) -> None:
+    """List repositories of the requested type and print them as JSON."""
+    api = get_hf_api(token=token)
+
+    sort_key: str | None = None
+    direction: Literal[-1] | None = None
+
+    if sort:
+        match = _SORT_PATTERN.match(sort.value)
+        if not match:
+            print(f"Invalid sort format: {sort.value}")
+            raise typer.Exit(code=1)
+
+        sort_key = match.group("key")
+
+        if sort_key not in _REPO_LIST_SORT_KEYS:
+            print(f"Invalid sort key: {sort_key}")
+            raise typer.Exit(code=1)
+
+        if match.group("order") == "desc":
+            direction = -1
+
+        if sort_key == "downloads" and repo_type == RepoType.space:
+            print("Sort key 'downloads' is not valid for spaces.")
+            raise typer.Exit(code=1)
+
+    try:
+        results: list[dict] = []
+
+        if repo_type == RepoType.model:
+            for model_info in api.list_models(
+                filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
+            ):
+                results.append(_repo_info_to_dict(model_info))
+        elif repo_type == RepoType.dataset:
+            for dataset_info in api.list_datasets(
+                filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
+            ):
+                results.append(_repo_info_to_dict(dataset_info))
+        elif repo_type == RepoType.space:
+            for space_info in api.list_spaces(
+                filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
+            ):
+                results.append(_repo_info_to_dict(space_info))
+
+        print(json.dumps(results, indent=2))
+
+    except HfHubHTTPError as e:
+        print(f"Error fetching {repo_type.value}s: {e}")
+        raise typer.Exit(code=1)
 
 
 @branch_cli.command("create", help="Create a new branch for a repo on the Hub.")
