@@ -113,10 +113,23 @@ On macOS and Linux:
 curl -LsSf https://hf.co/cli/install.sh | bash
 ```
 
+To install with `transformers[serving]`:
+
+```bash
+curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers
+```
+
 On Windows:
 
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
+```
+
+To install with `transformers[serving]`, download the script first:
+
+```powershell
+irm https://hf.co/cli/install.ps1 -OutFile install.ps1
+.\install.ps1 -WithTransformers
 ```
 
 ## Install with conda

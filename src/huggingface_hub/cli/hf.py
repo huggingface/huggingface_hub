@@ -11,8 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 from huggingface_hub import constants
 from huggingface_hub.cli._cli_utils import check_cli_update, typer_factory
 from huggingface_hub.cli.auth import auth_cli
@@ -24,9 +22,10 @@ from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
 from huggingface_hub.cli.repo import repo_cli
 from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.system import env, version
+from huggingface_hub.cli.transformers import lazy_transformers
 from huggingface_hub.cli.upload import upload
 from huggingface_hub.cli.upload_large_folder import upload_large_folder
-from huggingface_hub.utils import logging
+from huggingface_hub.utils import is_transformers_available, logging
 
 
 app = typer_factory(help="Hugging Face Hub CLI")
@@ -49,6 +48,9 @@ app.add_typer(repo_cli, name="repo")
 app.add_typer(repo_files_cli, name="repo-files")
 app.add_typer(jobs_cli, name="jobs")
 app.add_typer(ie_cli, name="endpoints")
+
+# add external CLIs
+app.add_typer(lazy_transformers, name="transformers")
 
 
 def main():

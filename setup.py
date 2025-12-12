@@ -96,6 +96,10 @@ extras["quality"] = [
     "ty",
 ]
 
+extras["transformers-cli"] = [
+    "transformers[serving]",
+]
+
 extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
 
 extras["dev"] = extras["all"]
