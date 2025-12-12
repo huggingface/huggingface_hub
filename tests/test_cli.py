@@ -1696,7 +1696,6 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             namespace=None,
-            _repo=None,
         )
         api.fetch_job_logs.assert_not_called()
 
@@ -1721,7 +1720,6 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             namespace=None,
-            _repo=None,
         )
 
     def test_uv_local_script(self, runner: CliRunner, tmp_path: Path) -> None:
@@ -1748,6 +1746,5 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             namespace=None,
-            _repo=None,
         )
         api.fetch_job_logs.assert_not_called()

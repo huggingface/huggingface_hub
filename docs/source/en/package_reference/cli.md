@@ -889,7 +889,6 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--suspend / --no-suspend`: Suspend (pause) the scheduled Job
 * `--concurrency / --no-concurrency`: Allow multiple instances of this Job to run concurrently
 * `--image TEXT`: Use a custom Docker image with `uv` installed.
-* `--repo TEXT`: Repository name for the script (creates ephemeral if not specified)
 * `--flavor [cpu-basic|cpu-upgrade|cpu-xl|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|h100|h100x8]`: Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: cpu-basic, cpu-upgrade, cpu-xl, t4-small, t4-medium, l4x1, l4x4, l40sx1, l40sx4, l40sx8, a10g-small, a10g-large, a10g-largex2, a10g-largex4, a100-large, h100, h100x8.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
@@ -938,7 +937,6 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 **Options**:
 
 * `--image TEXT`: Use a custom Docker image with `uv` installed.
-* `--repo TEXT`: Repository name for the script (creates ephemeral if not specified)
 * `--flavor [cpu-basic|cpu-upgrade|cpu-xl|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|h100|h100x8]`: Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: cpu-basic, cpu-upgrade, cpu-xl, t4-small, t4-medium, l4x1, l4x4, l40sx1, l40sx4, l40sx8, a10g-small, a10g-large, a10g-largex2, a10g-largex4, a100-large, h100, h100x8.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
