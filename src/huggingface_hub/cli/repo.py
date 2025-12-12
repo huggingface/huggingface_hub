@@ -25,7 +25,7 @@ import enum
 import json
 import re
 from datetime import timezone
-from typing import Annotated, List, Literal, Optional, Union
+from typing import Annotated, Literal, Optional, Union
 
 import typer
 
@@ -60,18 +60,20 @@ RepoListSort = enum.Enum("RepoListSort", _repo_list_sort_dict, type=str, module=
 
 
 def _repo_info_to_dict(info: Union[ModelInfo, DatasetInfo, SpaceInfo]) -> dict[str, object]:
-    """Helper to convert repo info dataclasses to json-serializable dicts."""
+    """Convert repo info dataclasses to json-serializable dicts."""
     created_at_str: str | None = None
     if info.created_at is not None:
         dt = info.created_at
-        if dt.tzinfo is not None:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
             dt = dt.astimezone(timezone.utc)
         created_at_str = dt.isoformat().replace("+00:00", "Z")
 
     return {
         "id": info.id,
-        "downloads": getattr(info, "downloads", 0),
-        "likes": getattr(info, "likes", 0),
+        "downloads": getattr(info, "downloads", None),
+        "likes": getattr(info, "likes", None),
         "trendingScore": getattr(info, "trending_score", None),
         "createdAt": created_at_str,
         "private": getattr(info, "private", False),
@@ -200,14 +202,22 @@ def repo_settings(
 @repo_cli.command("list", help="List repositories (models, datasets, spaces) hosted on the Hub.")
 def repo_list(
     repo_type: RepoTypeOpt = RepoType.model,
-    limit: Annotated[int, typer.Option(help="Limit the number of results.")] = 10,
-    # RENAME 'filter' to 'tags' to avoid shadowing python built-in
-    tags: Annotated[
-        Optional[List[str]],
-        typer.Option("--filter", help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
+    limit: Annotated[
+        int,
+        typer.Option(help="Limit the number of results."),
+    ] = 10,
+    filter: Annotated[
+        Optional[list[str]],
+        typer.Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
     ] = None,
-    search: Annotated[Optional[str], typer.Option(help="Search by name.")] = None,
-    author: Annotated[Optional[str], typer.Option(help="Filter by author or organisation.")] = None,
+    search: Annotated[
+        Optional[str],
+        typer.Option(help="Search by name."),
+    ] = None,
+    author: Annotated[
+        Optional[str],
+        typer.Option(help="Filter by author or organization."),
+    ] = None,
     sort: Annotated[
         Optional[RepoListSort],
         typer.Option(help="Sort key, optionally with direction (e.g. 'likes:desc')."),
@@ -221,42 +231,48 @@ def repo_list(
     direction: Literal[-1] | None = None
 
     if sort:
-        sort_value = sort.value
-        match = _SORT_PATTERN.match(sort_value.lower())
+        match = _SORT_PATTERN.match(sort.value)
         if not match:
-            typer.echo(f"Error: Invalid sort format '{sort_value}'. Expected 'field' or 'field:direction'.")
-            raise typer.Exit(1)
+            print(f"Invalid sort format: {sort.value}")
+            raise typer.Exit(code=1)
 
         sort_key = match.group("key")
 
-        if sort_key == "downloads" and repo_type is RepoType.space:
-            typer.echo("Error: Sort key 'downloads' is not valid for spaces.")
-            raise typer.Exit(1)
+        if sort_key not in _REPO_LIST_SORT_KEYS:
+            print(f"Invalid sort key: {sort_key}")
+            raise typer.Exit(code=1)
 
         if match.group("order") == "desc":
             direction = -1
 
+        if sort_key == "downloads" and repo_type == RepoType.space:
+            print("Sort key 'downloads' is not valid for spaces.")
+            raise typer.Exit(code=1)
+
     try:
-        results: List[dict[str, object]] = []
+        results: list[dict] = []
 
-        list_functions = {
-            RepoType.model: api.list_models,
-            RepoType.dataset: api.list_datasets,
-            RepoType.space: api.list_spaces,
-        }
+        if repo_type == RepoType.model:
+            for model_info in api.list_models(
+                filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
+            ):
+                results.append(_repo_info_to_dict(model_info))
+        elif repo_type == RepoType.dataset:
+            for dataset_info in api.list_datasets(
+                filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
+            ):
+                results.append(_repo_info_to_dict(dataset_info))
+        elif repo_type == RepoType.space:
+            for space_info in api.list_spaces(
+                filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
+            ):
+                results.append(_repo_info_to_dict(space_info))
 
-        list_fn = list_functions[repo_type]
+        print(json.dumps(results, indent=2))
 
-        iterable = list_fn(filter=tags, author=author, search=search, sort=sort_key, direction=direction, limit=limit)
-
-        for repo_info in iterable:
-            results.append(_repo_info_to_dict(repo_info))
-
-        typer.echo(json.dumps(results, indent=2))
-
-    except Exception as exc:
-        typer.echo(f"Error fetching {repo_type.value}s: {exc}")
-        raise typer.Exit(1) from exc
+    except HfHubHTTPError as e:
+        print(f"Error fetching {repo_type.value}s: {e}")
+        raise typer.Exit(code=1)
 
 
 @branch_cli.command("create", help="Create a new branch for a repo on the Hub.")

@@ -2,9 +2,10 @@ import json
 import os
 import warnings
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Generator, Iterable, Optional
+from typing import Generator, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -16,7 +17,7 @@ from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import RevisionNotFoundError
+from huggingface_hub.errors import HfHubHTTPError, RevisionNotFoundError
 from huggingface_hub.utils import (
     CachedFileInfo,
     CachedRepoInfo,
@@ -1266,11 +1267,8 @@ class TestRepoDeleteCommand:
 
 
 class TestRepoListCommand:
-    """Test suite for `huggingface-cli repo list`."""
-
     def test_repo_list_basic(self, runner: CliRunner) -> None:
-        from datetime import datetime, timezone
-
+        """Test basic repo listing with default parameters."""
         repo = SimpleNamespace(
             id="user/model-id",
             downloads=100,
@@ -1295,31 +1293,111 @@ class TestRepoListCommand:
         _, kwargs = api.list_models.call_args
         assert kwargs["limit"] == 10
         assert kwargs["sort"] is None
+        assert kwargs["direction"] is None
 
         output = json.loads(result.stdout)
         assert len(output) == 1
         assert output[0]["id"] == "user/model-id"
+        assert output[0]["downloads"] == 100
+        assert output[0]["likes"] == 50
+        assert output[0]["trendingScore"] == 10
         assert output[0]["createdAt"] == "2024-01-01T12:00:00Z"
         assert output[0]["pipeline_tag"] == "text-classification"
+        assert output[0]["library_name"] == "transformers"
+        assert output[0]["private"] is False
 
-    def test_repo_list_sorting_parsing(self, runner: CliRunner) -> None:
+    def test_repo_list_with_naive_datetime(self, runner: CliRunner) -> None:
+        """Test repo listing handles naive datetimes correctly."""
+        repo = SimpleNamespace(
+            id="user/model-id",
+            downloads=100,
+            likes=50,
+            trending_score=10,
+            created_at=datetime(2024, 1, 1, 12, 0, 0),  # Naive datetime
+            private=False,
+            pipeline_tag="text-classification",
+            library_name="transformers",
+        )
+
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([repo])
+
+            result = runner.invoke(app, ["repo", "list"])
+
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        assert output[0]["createdAt"] == "2024-01-01T12:00:00Z"
+
+    def test_repo_list_with_none_fields(self, runner: CliRunner) -> None:
+        """Test repo listing handles missing optional fields."""
+        repo = SimpleNamespace(
+            id="user/model-id",
+            downloads=None,
+            likes=None,
+            trending_score=None,
+            created_at=None,
+            private=False,
+            pipeline_tag=None,
+            library_name=None,
+        )
+
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([repo])
+
+            result = runner.invoke(app, ["repo", "list"])
+
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        assert output[0]["downloads"] is None
+        assert output[0]["likes"] is None
+        assert output[0]["trendingScore"] is None
+        assert output[0]["createdAt"] is None
+        assert output[0]["pipeline_tag"] is None
+        assert output[0]["library_name"] is None
+
+    def test_repo_list_sorting_ascending(self, runner: CliRunner) -> None:
+        """Test sorting with explicit ascending order."""
         with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_models.return_value = iter([])
 
             result = runner.invoke(app, ["repo", "list", "--sort", "downloads:asc"])
-            assert result.exit_code == 0
-            _, kwargs = api.list_models.call_args
-            assert kwargs["sort"] == "downloads"
-            assert kwargs["direction"] is None
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_models.call_args
+        assert kwargs["sort"] == "downloads"
+        assert kwargs["direction"] is None  # asc is default (None)
+
+    def test_repo_list_sorting_descending(self, runner: CliRunner) -> None:
+        """Test sorting with explicit descending order."""
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
 
             result = runner.invoke(app, ["repo", "list", "--sort", "likes:desc"])
-            assert result.exit_code == 0
-            _, kwargs = api.list_models.call_args
-            assert kwargs["sort"] == "likes"
-            assert kwargs["direction"] == -1
 
-    def test_repo_list_datasets_with_filter(self, runner: CliRunner) -> None:
+        assert result.exit_code == 0
+        _, kwargs = api.list_models.call_args
+        assert kwargs["sort"] == "likes"
+        assert kwargs["direction"] == -1
+
+    def test_repo_list_sorting_without_direction(self, runner: CliRunner) -> None:
+        """Test sorting without specifying direction."""
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
+
+            result = runner.invoke(app, ["repo", "list", "--sort", "trending_score"])
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_models.call_args
+        assert kwargs["sort"] == "trending_score"
+        assert kwargs["direction"] is None
+
+    def test_repo_list_datasets_with_filters(self, runner: CliRunner) -> None:
+        """Test listing datasets with multiple filters."""
         with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_datasets.return_value = iter([])
@@ -1334,25 +1412,188 @@ class TestRepoListCommand:
         _, kwargs = api.list_datasets.call_args
         assert kwargs["filter"] == ["text-classification", "en"]
 
-    def test_repo_list_invalid_sort(self, runner: CliRunner) -> None:
-        """Invalid sort format produces Typer error."""
-        result = runner.invoke(app, ["repo", "list", "--sort", "bad:format:here"])
-        assert result.exit_code == 2
-        assert "Invalid value for '--sort'" in result.output
+    def test_repo_list_with_author(self, runner: CliRunner) -> None:
+        """Test listing repos filtered by author."""
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
 
-    def test_repo_list_api_error_handling(self, runner: CliRunner) -> None:
+            result = runner.invoke(app, ["repo", "list", "--author", "google"])
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_models.call_args
+        assert kwargs["author"] == "google"
+
+    def test_repo_list_with_search(self, runner: CliRunner) -> None:
+        """Test listing repos with search term."""
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
+
+            result = runner.invoke(app, ["repo", "list", "--search", "bert"])
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_models.call_args
+        assert kwargs["search"] == "bert"
+
+    def test_repo_list_combined_filters(self, runner: CliRunner) -> None:
+        """Test listing repos with multiple filter types combined."""
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
+
+            result = runner.invoke(
+                app,
+                [
+                    "repo",
+                    "list",
+                    "--author",
+                    "google",
+                    "--search",
+                    "embeddingemma",
+                    "--filter",
+                    "sentence-similarity",
+                    "--limit",
+                    "5",
+                    "--sort",
+                    "likes:desc",
+                ],
+            )
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_models.call_args
+        assert kwargs["author"] == "google"
+        assert kwargs["search"] == "embeddingemma"
+        assert kwargs["filter"] == ["sentence-similarity"]
+        assert kwargs["limit"] == 5
+        assert kwargs["sort"] == "likes"
+        assert kwargs["direction"] == -1
+
+    def test_repo_list_spaces(self, runner: CliRunner) -> None:
+        """Test listing spaces."""
+        space = SimpleNamespace(
+            id="user/space-id",
+            likes=25,
+            trending_score=5,
+            created_at=datetime(2024, 6, 1, 10, 0, 0, tzinfo=timezone.utc),
+            private=False,
+        )
+
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_spaces.return_value = iter([space])
+
+            result = runner.invoke(app, ["repo", "list", "--repo-type", "space"])
+
+        assert result.exit_code == 0
+        api.list_spaces.assert_called_once()
+
+        output = json.loads(result.stdout)
+        assert len(output) == 1
+        assert output[0]["id"] == "user/space-id"
+
+    def test_repo_list_custom_limit(self, runner: CliRunner) -> None:
+        """Test listing repos with custom limit."""
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
+
+            result = runner.invoke(app, ["repo", "list", "--limit", "25"])
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_models.call_args
+        assert kwargs["limit"] == 25
+
+    def test_repo_list_invalid_sort_format(self, runner: CliRunner) -> None:
+        """Typer should reject invalid sort values at CLI parsing."""
+        result = runner.invoke(app, ["repo", "list", "--sort", "likes:invalid"])
+        assert result.exit_code == 2
+        assert "Invalid value" in result.stderr
+
+    def test_repo_list_invalid_sort_key(self, runner: CliRunner) -> None:
+        """Typer should reject unknown sort keys."""
+        result = runner.invoke(app, ["repo", "list", "--sort", "invalid_key"])
+        assert result.exit_code == 2
+        assert "Invalid value" in result.stderr
+
+    def test_repo_list_downloads_sort_for_spaces_fails(self, runner: CliRunner) -> None:
+        """Downloads sort should fail for spaces."""
+        result = runner.invoke(
+            app,
+            ["repo", "list", "--repo-type", "space", "--sort", "downloads"],
+        )
+
+        assert result.exit_code == 1
+        assert "Sort key 'downloads' is not valid for spaces" in result.stdout
+
+    def test_repo_list_downloads_sort_for_models_succeeds(self, runner: CliRunner) -> None:
+        """Downloads sort should work for models."""
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
+
+            result = runner.invoke(app, ["repo", "list", "--sort", "downloads:desc"])
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_models.call_args
+        assert kwargs["sort"] == "downloads"
+        assert kwargs["direction"] == -1
+
+    def test_repo_list_downloads_sort_for_datasets_succeeds(self, runner: CliRunner) -> None:
+        """Downloads sort should work for datasets."""
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_datasets.return_value = iter([])
+
+            result = runner.invoke(
+                app,
+                ["repo", "list", "--repo-type", "dataset", "--sort", "downloads"],
+            )
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_datasets.call_args
+        assert kwargs["sort"] == "downloads"
+
+    def test_repo_list_http_error_handling(self, runner: CliRunner) -> None:
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_response.headers = {}
+        mock_response.text = "Internal Server Error"
+
         with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
             api = api_cls.return_value
 
-            def boom(**_: object) -> Iterable[object]:
-                raise RuntimeError("Invalid sort direction")
+            def raise_http_error(**_: object):
+                raise HfHubHTTPError("API request failed", response=mock_response)
 
-            api.list_models.side_effect = boom
-
+            api.list_models.side_effect = raise_http_error
             result = runner.invoke(app, ["repo", "list"])
 
         assert result.exit_code == 1
         assert "Error fetching models" in result.stdout
+
+    def test_repo_list_with_token(self, runner: CliRunner) -> None:
+        """Test listing repos with authentication token."""
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
+
+            result = runner.invoke(app, ["repo", "list", "--token", "hf_test_token"])
+
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token="hf_test_token")
+
+    def test_repo_list_empty_results(self, runner: CliRunner) -> None:
+        """Test listing when no repos match the criteria."""
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
+
+            result = runner.invoke(app, ["repo", "list"])
+
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        assert output == []
 
 
 class TestInferenceEndpointsCommands:
