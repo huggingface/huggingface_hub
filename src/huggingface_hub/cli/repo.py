@@ -25,7 +25,7 @@ import enum
 import json
 import re
 from datetime import timezone
-from typing import Annotated, Iterable, Literal, Optional, Union
+from typing import Annotated, List, Literal, Optional, Union
 
 import typer
 
@@ -47,7 +47,38 @@ from ._cli_utils import (
 
 logger = logging.get_logger(__name__)
 
-_SORT_PATTERN = re.compile(r"^(?P<key>[a-zA-Z0-9_-]+)(?::(?P<order>asc|desc))?$")
+_SORT_PATTERN = re.compile(r"^(?P<key>[a-z_]+)(?::(?P<order>asc|desc))?$")
+_REPO_LIST_SORT_KEYS = {"last_modified", "trending_score", "created_at", "likes", "downloads"}
+
+_repo_list_sort_dict = {}
+for key in sorted(_REPO_LIST_SORT_KEYS):
+    _repo_list_sort_dict[key] = key
+    _repo_list_sort_dict[f"{key}_asc"] = f"{key}:asc"
+    _repo_list_sort_dict[f"{key}_desc"] = f"{key}:desc"
+
+RepoListSort = enum.Enum("RepoListSort", _repo_list_sort_dict, type=str, module=__name__)  # type: ignore
+
+
+def _repo_info_to_dict(info: Union[ModelInfo, DatasetInfo, SpaceInfo]) -> dict[str, object]:
+    """Helper to convert repo info dataclasses to json-serializable dicts."""
+    created_at_str: str | None = None
+    if info.created_at is not None:
+        dt = info.created_at
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc)
+        created_at_str = dt.isoformat().replace("+00:00", "Z")
+
+    return {
+        "id": info.id,
+        "downloads": getattr(info, "downloads", 0),
+        "likes": getattr(info, "likes", 0),
+        "trendingScore": getattr(info, "trending_score", None),
+        "createdAt": created_at_str,
+        "private": getattr(info, "private", False),
+        "pipeline_tag": getattr(info, "pipeline_tag", None),
+        "library_name": getattr(info, "library_name", None),
+    }
+
 
 repo_cli = typer_factory(help="Manage repos on the Hub.")
 tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
@@ -169,109 +200,63 @@ def repo_settings(
 @repo_cli.command("list", help="List repositories (models, datasets, spaces) hosted on the Hub.")
 def repo_list(
     repo_type: RepoTypeOpt = RepoType.model,
-    limit: Annotated[
-        int,
-        typer.Option(help="Limit the number of results."),
-    ] = 10,
-    filter: Annotated[
-        Optional[list[str]],
-        typer.Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
+    limit: Annotated[int, typer.Option(help="Limit the number of results.")] = 10,
+    # RENAME 'filter' to 'tags' to avoid shadowing python built-in
+    tags: Annotated[
+        Optional[List[str]],
+        typer.Option("--filter", help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
     ] = None,
     search: Annotated[Optional[str], typer.Option(help="Search by name.")] = None,
-    author: Annotated[Optional[str], typer.Option(help="Filter by author or organization.")] = None,
+    author: Annotated[Optional[str], typer.Option(help="Filter by author or organisation.")] = None,
     sort: Annotated[
-        Optional[str],
-        typer.Option(help="Sort results key, optionally with direction (e.g. 'likes', 'downloads:asc')."),
+        Optional[RepoListSort],
+        typer.Option(help="Sort key, optionally with direction (e.g. 'likes:desc')."),
     ] = None,
     token: TokenOpt = None,
 ) -> None:
     """List repositories of the requested type and print them as JSON."""
     api = get_hf_api(token=token)
 
-    sort_key: Optional[str] = None
-    direction: Optional[Literal[-1, 1]] = None
+    sort_key: str | None = None
+    direction: Literal[-1] | None = None
 
     if sort:
-        match = _SORT_PATTERN.match(sort)
+        sort_value = sort.value
+        match = _SORT_PATTERN.match(sort_value.lower())
         if not match:
-            typer.echo(
-                f"Error: Invalid sort format '{sort}'. Expected 'field' or 'field:direction' (e.g. 'downloads:desc')."
-            )
+            typer.echo(f"Error: Invalid sort format '{sort_value}'. Expected 'field' or 'field:direction'.")
             raise typer.Exit(1)
 
         sort_key = match.group("key")
-        order = match.group("order")
 
-        if order == "asc":
-            direction = 1
-        elif order == "desc":
+        if sort_key == "downloads" and repo_type is RepoType.space:
+            typer.echo("Error: Sort key 'downloads' is not valid for spaces.")
+            raise typer.Exit(1)
+
+        if match.group("order") == "desc":
             direction = -1
 
-    output_data: list[dict[str, object]] = []
-
     try:
-        results: Iterable[Union[ModelInfo, DatasetInfo, SpaceInfo]]
+        results: List[dict[str, object]] = []
 
-        if repo_type is RepoType.model:
-            results = api.list_models(
-                filter=filter,
-                author=author,
-                search=search,
-                sort=sort_key,
-                direction=direction,  # type: ignore [arg-type]
-                limit=limit,
-            )
-        elif repo_type is RepoType.dataset:
-            results = api.list_datasets(
-                filter=filter,
-                author=author,
-                search=search,
-                sort=sort_key,
-                direction=direction,  # type: ignore [arg-type]
-                limit=limit,
-            )
-        elif repo_type is RepoType.space:
-            results = api.list_spaces(
-                filter=filter,
-                author=author,
-                search=search,
-                sort=sort_key,
-                direction=direction,  # type: ignore [arg-type]
-                limit=limit,
-            )
-        else:
-            raise AssertionError("Unreachable: Invalid repo_type")
+        list_functions = {
+            RepoType.model: api.list_models,
+            RepoType.dataset: api.list_datasets,
+            RepoType.space: api.list_spaces,
+        }
 
-        for repo in results:
-            created_at_str: Optional[str] = None
-            created = getattr(repo, "created_at", None)
-            if created is not None:
-                if created.tzinfo is not None:
-                    created = created.astimezone(timezone.utc)
-                created_at_str = created.isoformat().replace("+00:00", "Z")
+        list_fn = list_functions[repo_type]
 
-            item: dict[str, object] = {
-                "id": repo.id,
-                "downloads": getattr(repo, "downloads", 0),
-                "likes": getattr(repo, "likes", 0),
-                "trendingScore": getattr(repo, "trending_score", None),
-                "createdAt": created_at_str,
-                "private": getattr(repo, "private", False),
-            }
+        iterable = list_fn(filter=tags, author=author, search=search, sort=sort_key, direction=direction, limit=limit)
 
-            if hasattr(repo, "pipeline_tag") and repo.pipeline_tag:
-                item["pipeline_tag"] = repo.pipeline_tag
+        for repo_info in iterable:
+            results.append(_repo_info_to_dict(repo_info))
 
-            if hasattr(repo, "library_name") and repo.library_name:
-                item["library_name"] = repo.library_name
-
-            output_data.append(item)
+        typer.echo(json.dumps(results, indent=2))
 
     except Exception as exc:
         typer.echo(f"Error fetching {repo_type.value}s: {exc}")
         raise typer.Exit(1) from exc
-
-    typer.echo(json.dumps(output_data, indent=2, ensure_ascii=False))
 
 
 @branch_cli.command("create", help="Create a new branch for a repo on the Hub.")

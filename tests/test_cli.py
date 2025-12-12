@@ -4,7 +4,7 @@ import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Generator, Optional
+from typing import Generator, Iterable, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -1266,19 +1266,21 @@ class TestRepoDeleteCommand:
 
 
 class TestRepoListCommand:
+    """Test suite for `huggingface-cli repo list`."""
+
     def test_repo_list_basic(self, runner: CliRunner) -> None:
-        """Test basic listing of models with defaults and JSON output verification."""
         from datetime import datetime, timezone
 
-        repo = Mock()
-        repo.id = "user/model-id"
-        repo.downloads = 100
-        repo.likes = 50
-        repo.trending_score = 10
-        repo.created_at = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-        repo.private = False
-        repo.pipeline_tag = "text-classification"
-        repo.library_name = "transformers"
+        repo = SimpleNamespace(
+            id="user/model-id",
+            downloads=100,
+            likes=50,
+            trending_score=10,
+            created_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            private=False,
+            pipeline_tag="text-classification",
+            library_name="transformers",
+        )
 
         with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
             api = api_cls.return_value
@@ -1301,7 +1303,6 @@ class TestRepoListCommand:
         assert output[0]["pipeline_tag"] == "text-classification"
 
     def test_repo_list_sorting_parsing(self, runner: CliRunner) -> None:
-        """Test that 'downloads:asc' is correctly parsed into sort='downloads', direction=1."""
         with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_models.return_value = iter([])
@@ -1310,7 +1311,7 @@ class TestRepoListCommand:
             assert result.exit_code == 0
             _, kwargs = api.list_models.call_args
             assert kwargs["sort"] == "downloads"
-            assert kwargs["direction"] == 1
+            assert kwargs["direction"] is None
 
             result = runner.invoke(app, ["repo", "list", "--sort", "likes:desc"])
             assert result.exit_code == 0
@@ -1319,13 +1320,13 @@ class TestRepoListCommand:
             assert kwargs["direction"] == -1
 
     def test_repo_list_datasets_with_filter(self, runner: CliRunner) -> None:
-        """Test listing datasets with multiple filters."""
         with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_datasets.return_value = iter([])
 
             result = runner.invoke(
-                app, ["repo", "list", "--repo-type", "dataset", "--filter", "text-classification", "--filter", "en"]
+                app,
+                ["repo", "list", "--repo-type", "dataset", "--filter", "text-classification", "--filter", "en"],
             )
 
         assert result.exit_code == 0
@@ -1334,21 +1335,19 @@ class TestRepoListCommand:
         assert kwargs["filter"] == ["text-classification", "en"]
 
     def test_repo_list_invalid_sort(self, runner: CliRunner) -> None:
-        """Test that invalid sort string raises a user-friendly error."""
+        """Invalid sort format produces Typer error."""
         result = runner.invoke(app, ["repo", "list", "--sort", "bad:format:here"])
-        assert result.exit_code == 1
-        assert "Error: Invalid sort format" in result.stdout
+        assert result.exit_code == 2
+        assert "Invalid value for '--sort'" in result.output
 
     def test_repo_list_api_error_handling(self, runner: CliRunner) -> None:
-        """Test graceful handling of API errors (like BadRequest during iteration)."""
         with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
             api = api_cls.return_value
 
-            def error_generator(**kwargs):
-                raise Exception("Invalid sort direction")
-                yield
+            def boom(**_: object) -> Iterable[object]:
+                raise RuntimeError("Invalid sort direction")
 
-            api.list_models.side_effect = error_generator
+            api.list_models.side_effect = boom
 
             result = runner.invoke(app, ["repo", "list"])
 

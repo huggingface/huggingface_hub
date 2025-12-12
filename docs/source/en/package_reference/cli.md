@@ -1132,8 +1132,8 @@ $ hf repo list [OPTIONS]
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--search TEXT`: Search by name.
-* `--author TEXT`: Filter by author or organization.
-* `--sort TEXT`: Sort results key, optionally with direction (e.g. 'likes', 'downloads:asc').
+* `--author TEXT`: Filter by author or organisation.
+* `--sort [created_at|created_at:asc|created_at:desc|downloads|downloads:asc|downloads:desc|last_modified|last_modified:asc|last_modified:desc|likes|likes:asc|likes:desc|trending_score|trending_score:asc|trending_score:desc]`: Sort key, optionally with direction (e.g. 'likes:desc').
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
