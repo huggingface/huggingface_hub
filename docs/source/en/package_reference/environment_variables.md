@@ -79,7 +79,7 @@ Integer value to define the number of seconds to wait for server response when f
 
 Integer value to define the number of seconds to wait for server response when downloading a file. If the request times out, a TimeoutError is raised. Setting a higher value is beneficial on machine with a slow connection. A smaller value makes the process fail quicker in case of complete network outage. Default to 10s.
 
-## Xet 
+## Xet
 
 ### Other Xet environment variables
 * [`HF_HUB_DISABLE_XET`](../package_reference/environment_variables#hfhubdisablexet)
@@ -95,13 +95,13 @@ Defaults to `0` (0 bytes, means chunk cache is disabled).
 
 ### HF_XET_SHARD_CACHE_SIZE_LIMIT
 
-To set the size of the Xet shard cache locally. Increasing this will improve upload efficiency as chunks referenced in cached shard files are not re-uploaded. Note that the default soft limit is likely sufficient for most workloads. 
+To set the size of the Xet shard cache locally. Increasing this will improve upload efficiency as chunks referenced in cached shard files are not re-uploaded. Note that the default soft limit is likely sufficient for most workloads.
 
 Defaults to `4000000000` (4GB).
 
 ### HF_XET_NUM_CONCURRENT_RANGE_GETS
 
-To set the number of concurrent terms (range of bytes from within a xorb, often called a chunk) downloaded from S3 per file. Increasing this will help with the speed of downloading a file if there is network bandwidth available. 
+To set the number of concurrent terms (range of bytes from within a xorb, often called a chunk) downloaded from S3 per file. Increasing this will help with the speed of downloading a file if there is network bandwidth available.
 
 Defaults to `16`.
 

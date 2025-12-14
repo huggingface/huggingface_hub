@@ -2,8 +2,9 @@ import os
 import unittest
 from hashlib import sha256
 from io import BytesIO
+from unittest.mock import MagicMock, patch
 
-from huggingface_hub.lfs import UploadInfo
+from huggingface_hub.lfs import UploadInfo, post_lfs_batch_info
 from huggingface_hub.utils import SoftTemporaryDirectory
 from huggingface_hub.utils._lfs import SliceFileObj
 
@@ -177,3 +178,146 @@ class TestSliceFileObj(unittest.TestCase):
                     fileobj_slice.seek(-200, os.SEEK_END)
                     self.assertEqual(fileobj_slice.tell(), 0)
                     self.assertEqual(fileobj_slice.fileobj.tell(), 100)
+
+
+class TestLfsHttpBackoff(unittest.TestCase):
+    """Test that LFS endpoints use http_backoff for retry behavior."""
+
+    @patch("huggingface_hub.lfs.hf_raise_for_status")
+    @patch("huggingface_hub.lfs.http_backoff")
+    def test_post_lfs_batch_info_uses_http_backoff(self, mock_http_backoff, mock_raise_for_status):
+        """Test that post_lfs_batch_info uses http_backoff for retry on transient failures."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"objects": []}
+        mock_http_backoff.return_value = mock_response
+
+        upload_info = UploadInfo(sha256=b"\x00" * 32, size=100, sample=b"test")
+        post_lfs_batch_info(
+            upload_infos=[upload_info],
+            token="test_token",
+            repo_type="model",
+            repo_id="test/repo",
+        )
+
+        # Verify http_backoff was called with POST method
+        mock_http_backoff.assert_called_once()
+        call_args = mock_http_backoff.call_args
+        self.assertEqual(call_args[0][0], "POST")  # First positional arg is method
+        self.assertIn("/info/lfs/objects/batch", call_args[0][1])  # Second positional arg is URL
+
+    @patch("huggingface_hub.lfs.hf_raise_for_status")
+    @patch("huggingface_hub.lfs.http_backoff")
+    def test_upload_single_part_uses_http_backoff(self, mock_http_backoff, mock_raise_for_status):
+        """Test that _upload_single_part uses http_backoff for retry on transient failures."""
+        mock_http_backoff.return_value = MagicMock()
+
+        class _FakeOperation:
+            def __init__(self, data: bytes):
+                self._data = data
+
+            def as_file(self, *args, **kwargs):
+                from contextlib import contextmanager
+
+                @contextmanager
+                def _cm():
+                    yield BytesIO(self._data)
+
+                return _cm()
+
+        from huggingface_hub.lfs import _upload_single_part
+
+        _upload_single_part(operation=_FakeOperation(b"content"), upload_url="https://example.com/upload")
+
+        # Verify http_backoff was called with PUT method
+        mock_http_backoff.assert_called_once()
+        call_args = mock_http_backoff.call_args
+        self.assertEqual(call_args[0][0], "PUT")
+        self.assertEqual(call_args[0][1], "https://example.com/upload")
+
+    @patch("huggingface_hub.lfs.hf_raise_for_status")
+    @patch("huggingface_hub.lfs.http_backoff")
+    def test_lfs_upload_verify_uses_http_backoff(self, mock_http_backoff, mock_raise_for_status):
+        """Test that lfs_upload verify step uses http_backoff for retry on transient failures."""
+        mock_http_backoff.return_value = MagicMock()
+
+        class _FakeOperation:
+            def __init__(self):
+                self.path_in_repo = "test.bin"
+                self.upload_info = UploadInfo(sha256=b"\x00" * 32, size=100, sample=b"test")
+
+            def as_file(self, *args, **kwargs):
+                from contextlib import contextmanager
+
+                @contextmanager
+                def _cm():
+                    yield BytesIO(b"content")
+
+                return _cm()
+
+        from huggingface_hub.lfs import lfs_upload
+
+        # Mock batch action with upload + verify actions
+        lfs_batch_action = {
+            "oid": "00" * 32,
+            "size": 100,
+            "actions": {
+                "upload": {"href": "https://example.com/upload"},
+                "verify": {"href": "https://example.com/verify"},
+            },
+        }
+
+        lfs_upload(operation=_FakeOperation(), lfs_batch_action=lfs_batch_action)
+
+        # Should have 2 calls: PUT upload + POST verify
+        self.assertEqual(mock_http_backoff.call_count, 2)
+        calls = mock_http_backoff.call_args_list
+        # First call: PUT upload
+        self.assertEqual(calls[0][0][0], "PUT")
+        # Second call: POST verify
+        self.assertEqual(calls[1][0][0], "POST")
+        self.assertIn("verify", calls[1][0][1])
+
+    @patch("huggingface_hub.lfs.hf_raise_for_status")
+    @patch("huggingface_hub.lfs.http_backoff")
+    def test_upload_multi_part_completion_uses_http_backoff(self, mock_http_backoff, mock_raise_for_status):
+        """Test that _upload_multi_part completion step uses http_backoff for retry on transient failures."""
+        # Mock response with etag header for part uploads
+        mock_part_response = MagicMock()
+        mock_part_response.headers = {"etag": '"abc123"'}
+        mock_completion_response = MagicMock()
+        mock_http_backoff.side_effect = [mock_part_response, mock_completion_response]
+
+        class _FakeOperation:
+            def __init__(self):
+                self.upload_info = UploadInfo(sha256=b"\x00" * 32, size=100, sample=b"test")
+
+            def as_file(self, *args, **kwargs):
+                from contextlib import contextmanager
+
+                @contextmanager
+                def _cm():
+                    yield BytesIO(b"content")
+
+                return _cm()
+
+        from huggingface_hub.lfs import _upload_multi_part
+
+        # header with 1 part URL (chunk_size >= file size means 1 part)
+        header = {"1": "https://example.com/part1"}
+
+        _upload_multi_part(
+            operation=_FakeOperation(),
+            header=header,
+            chunk_size=1000,  # Larger than file size (100)
+            upload_url="https://example.com/complete",
+        )
+
+        # Should have 2 calls: PUT part + POST completion
+        self.assertEqual(mock_http_backoff.call_count, 2)
+        calls = mock_http_backoff.call_args_list
+        # First call: PUT part upload
+        self.assertEqual(calls[0][0][0], "PUT")
+        self.assertIn("part1", calls[0][0][1])
+        # Second call: POST completion
+        self.assertEqual(calls[1][0][0], "POST")
+        self.assertIn("complete", calls[1][0][1])
