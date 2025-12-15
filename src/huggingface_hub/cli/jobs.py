@@ -235,7 +235,7 @@ RepoOpt = Annotated[
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
 
-@jobs_cli.command("run", help="Run a Job")
+@jobs_cli.command("run", help="Run a Job", context_settings={"ignore_unknown_options": True})
 def jobs_run(
     image: ImageArg,
     command: CommandArg,
@@ -447,7 +447,11 @@ uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on
 jobs_cli.add_typer(uv_app, name="uv")
 
 
-@uv_app.command("run", help="Run a UV script (local file or URL) on HF infrastructure")
+@uv_app.command(
+    "run",
+    help="Run a UV script (local file or URL) on HF infrastructure",
+    context_settings={"ignore_unknown_options": True},
+)
 def jobs_uv_run(
     script: ScriptArg,
     script_args: ScriptArgsArg = None,
@@ -505,7 +509,7 @@ scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.
 jobs_cli.add_typer(scheduled_app, name="scheduled")
 
 
-@scheduled_app.command("run", help="Schedule a Job")
+@scheduled_app.command("run", help="Schedule a Job", context_settings={"ignore_unknown_options": True})
 def scheduled_run(
     schedule: ScheduleArg,
     image: ImageArg,
@@ -683,7 +687,11 @@ scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure"
 scheduled_app.add_typer(scheduled_uv_app, name="uv")
 
 
-@scheduled_uv_app.command("run", help="Run a UV script (local file or URL) on HF infrastructure")
+@scheduled_uv_app.command(
+    "run",
+    help="Run a UV script (local file or URL) on HF infrastructure",
+    context_settings={"ignore_unknown_options": True},
+)
 def scheduled_uv_run(
     schedule: ScheduleArg,
     script: ScriptArg,
