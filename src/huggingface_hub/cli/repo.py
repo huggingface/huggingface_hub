@@ -21,10 +21,11 @@ Usage:
     hf repo create my-cool-model --private
 """
 
+import dataclasses
+import datetime
 import enum
 import json
 import re
-from datetime import timezone
 from typing import Annotated, Literal, Optional, Union
 
 import typer
@@ -61,24 +62,10 @@ RepoListSort = enum.Enum("RepoListSort", _repo_list_sort_dict, type=str, module=
 
 def _repo_info_to_dict(info: Union[ModelInfo, DatasetInfo, SpaceInfo]) -> dict[str, object]:
     """Convert repo info dataclasses to json-serializable dicts."""
-    created_at_str: str | None = None
-    if info.created_at is not None:
-        dt = info.created_at
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        else:
-            dt = dt.astimezone(timezone.utc)
-        created_at_str = dt.isoformat().replace("+00:00", "Z")
-
     return {
-        "id": info.id,
-        "downloads": getattr(info, "downloads", None),
-        "likes": getattr(info, "likes", None),
-        "trendingScore": getattr(info, "trending_score", None),
-        "createdAt": created_at_str,
-        "private": getattr(info, "private", False),
-        "pipeline_tag": getattr(info, "pipeline_tag", None),
-        "library_name": getattr(info, "library_name", None),
+        k: v.isoformat() if isinstance(v, datetime.datetime) else v
+        for k, v in dataclasses.asdict(info).items()
+        if v is not None
     }
 
 
@@ -249,30 +236,25 @@ def repo_list(
             print("Sort key 'downloads' is not valid for spaces.")
             raise typer.Exit(code=1)
 
-    try:
-        results: list[dict] = []
+    results: list[dict] = []
 
-        if repo_type == RepoType.model:
-            for model_info in api.list_models(
-                filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
-            ):
-                results.append(_repo_info_to_dict(model_info))
-        elif repo_type == RepoType.dataset:
-            for dataset_info in api.list_datasets(
-                filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
-            ):
-                results.append(_repo_info_to_dict(dataset_info))
-        elif repo_type == RepoType.space:
-            for space_info in api.list_spaces(
-                filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
-            ):
-                results.append(_repo_info_to_dict(space_info))
+    if repo_type == RepoType.model:
+        for model_info in api.list_models(
+            filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
+        ):
+            results.append(_repo_info_to_dict(model_info))
+    elif repo_type == RepoType.dataset:
+        for dataset_info in api.list_datasets(
+            filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
+        ):
+            results.append(_repo_info_to_dict(dataset_info))
+    elif repo_type == RepoType.space:
+        for space_info in api.list_spaces(
+            filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
+        ):
+            results.append(_repo_info_to_dict(space_info))
 
-        print(json.dumps(results, indent=2))
-
-    except HfHubHTTPError as e:
-        print(f"Error fetching {repo_type.value}s: {e}")
-        raise typer.Exit(code=1)
+    print(json.dumps(results, indent=2))
 
 
 @branch_cli.command("create", help="Create a new branch for a repo on the Hub.")
