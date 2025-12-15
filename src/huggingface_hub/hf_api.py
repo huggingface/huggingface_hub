@@ -5717,7 +5717,12 @@ class HfApi:
 
             def _parse(filename: str) -> None:
                 files_metadata[filename] = self.parse_safetensors_file_metadata(
-                    repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token, local_dir=local_dir,
+                    repo_id=repo_id,
+                    filename=filename,
+                    repo_type=repo_type,
+                    revision=revision,
+                    token=token,
+                    local_dir=local_dir,
                 )
 
             thread_map(
@@ -5786,6 +5791,7 @@ class HfApi:
             [`SafetensorsParsingError`]:
                 If a safetensors file header couldn't be parsed correctly.
         """
+
         # Helper function to validate header and get metadata size
         def _validate_header_and_get_metadata_size(header_bytes: bytes) -> int:
             """Validate header bytes and return metadata size."""
@@ -5804,7 +5810,11 @@ class HfApi:
                 )
             return metadata_size
 
-        error_path_info = "local path" + repo_id if local_dir else "repo " + repo_id + ", revision " + (revision or constants.DEFAULT_REVISION)
+        error_path_info = (
+            "local path" + repo_id
+            if local_dir
+            else "repo " + repo_id + ", revision " + (revision or constants.DEFAULT_REVISION)
+        )
         if local_dir:
             # Read from local file
             file_path = os.path.join(repo_id, filename)
@@ -5818,8 +5828,7 @@ class HfApi:
                     metadata_as_bytes = f.read(metadata_size)
             except FileNotFoundError:
                 raise SafetensorsParsingError(
-                    f"Failed to parse safetensors header for '{filename}' (local path '{repo_id}'): "
-                    "file not found."
+                    f"Failed to parse safetensors header for '{filename}' (local path '{repo_id}'): file not found."
                 )
         else:
             url = hf_hub_url(
