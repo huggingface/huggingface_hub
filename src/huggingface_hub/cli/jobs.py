@@ -224,13 +224,6 @@ ScheduledJobIdArg = Annotated[
     ),
 ]
 
-RepoOpt = Annotated[
-    Optional[str],
-    typer.Option(
-        help="Repository name for the script (creates ephemeral if not specified)",
-    ),
-]
-
 
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
@@ -456,7 +449,6 @@ def jobs_uv_run(
     script: ScriptArg,
     script_args: ScriptArgsArg = None,
     image: ImageOpt = None,
-    repo: RepoOpt = None,
     flavor: FlavorOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
@@ -493,7 +485,6 @@ def jobs_uv_run(
         flavor=flavor,  # type: ignore[arg-type]
         timeout=timeout,
         namespace=namespace,
-        _repo=repo,
     )
     # Always print the job ID to the user
     print(f"Job started with ID: {job.id}")
@@ -699,7 +690,6 @@ def scheduled_uv_run(
     suspend: SuspendOpt = None,
     concurrency: ConcurrencyOpt = None,
     image: ImageOpt = None,
-    repo: RepoOpt = None,
     flavor: FlavorOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
@@ -738,7 +728,6 @@ def scheduled_uv_run(
         flavor=flavor,  # type: ignore[arg-type]
         timeout=timeout,
         namespace=namespace,
-        _repo=repo,
     )
     print(f"Scheduled Job created with ID: {job.id}")
 
