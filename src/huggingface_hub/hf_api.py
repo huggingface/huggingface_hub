@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 import re
 import struct
 import time
@@ -5585,9 +5586,10 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         token: Union[bool, str, None] = None,
+        local_dir: bool = False,
     ) -> SafetensorsRepoMetadata:
         """
-        Parse metadata for a safetensors repo on the Hub.
+        Parse metadata for a safetensors repo on the Hub or from a local directory.
 
         We first check if the repo has a single safetensors file or a sharded safetensors repo. If it's a single
         safetensors file, we parse the metadata from this file. If it's a sharded safetensors repo, we parse the
@@ -5600,17 +5602,20 @@ class HfApi:
         Args:
             repo_id (`str`):
                 A user or an organization name and a repo name separated by a `/`.
+                If `local_dir` is True, this is treated as a local directory path.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if the file is in a dataset or space, `None` or `"model"` if in a
-                model. Default is `None`.
+                model. Default is `None`. Ignored if `local_dir` is True.
             revision (`str`, *optional*):
                 The git revision to fetch the file from. Can be a branch name, a tag, or a commit hash. Defaults to the
-                head of the `"main"` branch.
+                head of the `"main"` branch. Ignored if `local_dir` is True.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
+                To disable authentication, pass `False`. Ignored if `local_dir` is True.
+            local_dir (`bool`, *optional*, defaults to `False`):
+                If True, treat `repo_id` as a local directory path and read the safetensors files from there.
 
         Returns:
             [`SafetensorsRepoMetadata`]: information related to safetensors repo.
@@ -5649,19 +5654,26 @@ class HfApi:
             NotASafetensorsRepoError: 'runwayml/stable-diffusion-v1-5' is not a safetensors repo. Couldn't find 'model.safetensors.index.json' or 'model.safetensors' files.
             ```
         """
-        if self.file_exists(  # Single safetensors file => non-sharded model
-            repo_id=repo_id,
-            filename=constants.SAFETENSORS_SINGLE_FILE,
-            repo_type=repo_type,
-            revision=revision,
-            token=token,
-        ):
+        # Check for single safetensors file
+        if local_dir:
+            single_file_exists = Path(repo_id, constants.SAFETENSORS_SINGLE_FILE).exists()
+        else:
+            single_file_exists = self.file_exists(
+                repo_id=repo_id,
+                filename=constants.SAFETENSORS_SINGLE_FILE,
+                repo_type=repo_type,
+                revision=revision,
+                token=token,
+            )
+
+        if single_file_exists:  # Single safetensors file => non-sharded model
             file_metadata = self.parse_safetensors_file_metadata(
                 repo_id=repo_id,
                 filename=constants.SAFETENSORS_SINGLE_FILE,
                 repo_type=repo_type,
                 revision=revision,
                 token=token,
+                local_dir=local_dir,
             )
             return SafetensorsRepoMetadata(
                 metadata=None,
@@ -5671,21 +5683,30 @@ class HfApi:
                 },
                 files_metadata={constants.SAFETENSORS_SINGLE_FILE: file_metadata},
             )
-        elif self.file_exists(  # Multiple safetensors files => sharded with index
-            repo_id=repo_id,
-            filename=constants.SAFETENSORS_INDEX_FILE,
-            repo_type=repo_type,
-            revision=revision,
-            token=token,
-        ):
-            # Fetch index
-            index_file = self.hf_hub_download(
+        # Check for sharded safetensors with index file
+        if local_dir:
+            index_file_exists = Path(repo_id, constants.SAFETENSORS_INDEX_FILE).exists()
+        else:
+            index_file_exists = self.file_exists(
                 repo_id=repo_id,
                 filename=constants.SAFETENSORS_INDEX_FILE,
                 repo_type=repo_type,
                 revision=revision,
                 token=token,
             )
+
+        if index_file_exists:  # Multiple safetensors files => sharded with index
+            # Fetch or read index
+            if local_dir:
+                index_file = os.path.join(repo_id, constants.SAFETENSORS_INDEX_FILE)
+            else:
+                index_file = self.hf_hub_download(
+                    repo_id=repo_id,
+                    filename=constants.SAFETENSORS_INDEX_FILE,
+                    repo_type=repo_type,
+                    revision=revision,
+                    token=token,
+                )
             with open(index_file) as f:
                 index = json.load(f)
 
@@ -5696,7 +5717,7 @@ class HfApi:
 
             def _parse(filename: str) -> None:
                 files_metadata[filename] = self.parse_safetensors_file_metadata(
-                    repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
+                    repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token, local_dir=local_dir,
                 )
 
             thread_map(
@@ -5726,9 +5747,10 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         token: Union[bool, str, None] = None,
+        local_dir: bool = False,
     ) -> SafetensorsFileMetadata:
         """
-        Parse metadata from a safetensors file on the Hub.
+        Parse metadata from a safetensors file on the Hub or from a local directory.
 
         To parse metadata from all safetensors files in a repo at once, use [`get_safetensors_metadata`].
 
@@ -5737,19 +5759,22 @@ class HfApi:
         Args:
             repo_id (`str`):
                 A user or an organization name and a repo name separated by a `/`.
+                If `local_dir` is True, this is treated as a local directory path.
             filename (`str`):
                 The name of the file in the repo.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if the file is in a dataset or space, `None` or `"model"` if in a
-                model. Default is `None`.
+                model. Default is `None`. Ignored if `local_dir` is True.
             revision (`str`, *optional*):
                 The git revision to fetch the file from. Can be a branch name, a tag, or a commit hash. Defaults to the
-                head of the `"main"` branch.
+                head of the `"main"` branch. Ignored if `local_dir` is True.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
+                To disable authentication, pass `False`. Ignored if `local_dir` is True.
+            local_dir (`bool`, *optional*, defaults to `False`):
+                If True, treat `repo_id` as a local directory path and read the safetensors file from there.
 
         Returns:
             [`SafetensorsFileMetadata`]: information related to a safetensors file.
@@ -5761,45 +5786,80 @@ class HfApi:
             [`SafetensorsParsingError`]:
                 If a safetensors file header couldn't be parsed correctly.
         """
-        url = hf_hub_url(
-            repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, endpoint=self.endpoint
-        )
-        _headers = self._build_hf_headers(token=token)
+        # Helper function to validate header and get metadata size
+        def _validate_header_and_get_metadata_size(header_bytes: bytes) -> int:
+            """Validate header bytes and return metadata size."""
+            if len(header_bytes) < 8:
+                raise SafetensorsParsingError(
+                    f"Failed to parse safetensors header for '{filename}' ({'local path' if local_dir else 'repo'} '{repo_id}'{'' if local_dir else f', revision {revision or constants.DEFAULT_REVISION}'}): "
+                    "file is too small to contain a valid header."
+                )
+            metadata_size = struct.unpack("<Q", header_bytes[:8])[0]
 
-        # 1. Fetch first 100kb
-        # Empirically, 97% of safetensors files have a metadata size < 100kb (over the top 1000 models on the Hub).
-        # We assume fetching 100kb is faster than making 2 GET requests. Therefore we always fetch the first 100kb to
-        # avoid the 2nd GET in most cases.
-        # See https://github.com/huggingface/huggingface_hub/pull/1855#discussion_r1404286419.
-        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
-        hf_raise_for_status(response)
+            if metadata_size > constants.SAFETENSORS_MAX_HEADER_LENGTH:
+                raise SafetensorsParsingError(
+                    f"Failed to parse safetensors header for '{filename}' ({'local path' if local_dir else 'repo'} '{repo_id}'{'' if local_dir else f', revision {revision or constants.DEFAULT_REVISION}'}): "
+                    f"safetensors header is too big. Maximum supported size is "
+                    f"{constants.SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
+                )
+            return metadata_size
 
-        # 2. Parse metadata size
-        metadata_size = struct.unpack("<Q", response.content[:8])[0]
-        if metadata_size > constants.SAFETENSORS_MAX_HEADER_LENGTH:
-            raise SafetensorsParsingError(
-                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
-                f"'{revision or constants.DEFAULT_REVISION}'): safetensors header is too big. Maximum supported size is "
-                f"{constants.SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
+        if local_dir:
+            # Read from local file
+            file_path = os.path.join(repo_id, filename)
+            try:
+                with open(file_path, "rb") as f:
+                    # Read first 8 bytes for metadata size
+                    header_bytes = f.read(8)
+                    metadata_size = _validate_header_and_get_metadata_size(header_bytes)
+
+                    # Read the metadata
+                    metadata_as_bytes = f.read(metadata_size)
+            except FileNotFoundError:
+                raise SafetensorsParsingError(
+                    f"Failed to parse safetensors header for '{filename}' (local path '{repo_id}'): "
+                    "file not found."
+                )
+        else:
+            url = hf_hub_url(
+                repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, endpoint=self.endpoint
             )
+            _headers = self._build_hf_headers(token=token)
 
-        # 3.a. Get metadata from payload
-        if metadata_size <= 100000:
-            metadata_as_bytes = response.content[8 : 8 + metadata_size]
-        else:  # 3.b. Request full metadata
-            response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"})
+            # 1. Fetch first 100kb
+            # Empirically, 97% of safetensors files have a metadata size < 100kb (over the top 1000 models on the Hub).
+            # We assume fetching 100kb is faster than making 2 GET requests. Therefore we always fetch the first 100kb to
+            # avoid the 2nd GET in most cases.
+            # See https://github.com/huggingface/huggingface_hub/pull/1855#discussion_r1404286419.
+            response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
             hf_raise_for_status(response)
-            metadata_as_bytes = response.content
+
+            # 2. Parse metadata size
+            metadata_size = _validate_header_and_get_metadata_size(response.content[:8])
+
+            # 3.a. Get metadata from payload
+            if metadata_size <= 100000:
+                metadata_as_bytes = response.content[8 : 8 + metadata_size]
+            else:  # 3.b. Request full metadata
+                response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"})
+                hf_raise_for_status(response)
+                metadata_as_bytes = response.content
 
         # 4. Parse json header
         try:
             metadata_as_dict = json.loads(metadata_as_bytes.decode(errors="ignore"))
         except json.JSONDecodeError as e:
-            raise SafetensorsParsingError(
-                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
-                f"'{revision or constants.DEFAULT_REVISION}'): header is not json-encoded string. Please make sure this is a "
-                "correctly formatted safetensors file."
-            ) from e
+            if local_dir:
+                raise SafetensorsParsingError(
+                    f"Failed to parse safetensors header for '{filename}' (local path '{repo_id}'): "
+                    "header is not json-encoded string. Please make sure this is a correctly formatted safetensors file."
+                ) from e
+            else:
+                raise SafetensorsParsingError(
+                    f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
+                    f"'{revision or constants.DEFAULT_REVISION}'): header is not json-encoded string. Please make sure this is a "
+                    "correctly formatted safetensors file."
+                ) from e
 
         try:
             return SafetensorsFileMetadata(
@@ -5815,11 +5875,17 @@ class HfApi:
                 },
             )
         except (KeyError, IndexError) as e:
-            raise SafetensorsParsingError(
-                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
-                f"'{revision or constants.DEFAULT_REVISION}'): header format not recognized. Please make sure this is a correctly"
-                " formatted safetensors file."
-            ) from e
+            if local_dir:
+                raise SafetensorsParsingError(
+                    f"Failed to parse safetensors header for '{filename}' (local path '{repo_id}'): "
+                    "header format not recognized. Please make sure this is a correctly formatted safetensors file."
+                ) from e
+            else:
+                raise SafetensorsParsingError(
+                    f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
+                    f"'{revision or constants.DEFAULT_REVISION}'): header format not recognized. Please make sure this is a correctly"
+                    " formatted safetensors file."
+                ) from e
 
     @validate_hf_hub_args
     def create_branch(
