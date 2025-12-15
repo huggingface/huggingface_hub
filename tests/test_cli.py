@@ -1745,7 +1745,6 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             namespace=None,
-            _repo=None,
         )
         api.fetch_job_logs.assert_not_called()
 
