@@ -5804,6 +5804,7 @@ class HfApi:
                 )
             return metadata_size
 
+        error_path_info = "local path" + repo_id if local_dir else "repo " + repo_id + ", revision " + (revision or constants.DEFAULT_REVISION)
         if local_dir:
             # Read from local file
             file_path = os.path.join(repo_id, filename)
@@ -5849,17 +5850,10 @@ class HfApi:
         try:
             metadata_as_dict = json.loads(metadata_as_bytes.decode(errors="ignore"))
         except json.JSONDecodeError as e:
-            if local_dir:
-                raise SafetensorsParsingError(
-                    f"Failed to parse safetensors header for '{filename}' (local path '{repo_id}'): "
-                    "header is not json-encoded string. Please make sure this is a correctly formatted safetensors file."
-                ) from e
-            else:
-                raise SafetensorsParsingError(
-                    f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
-                    f"'{revision or constants.DEFAULT_REVISION}'): header is not json-encoded string. Please make sure this is a "
-                    "correctly formatted safetensors file."
-                ) from e
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' ({error_path_info}): "
+                "header is not json-encoded string. Please make sure this is a correctly formatted safetensors file."
+            ) from e
 
         try:
             return SafetensorsFileMetadata(
@@ -5875,17 +5869,10 @@ class HfApi:
                 },
             )
         except (KeyError, IndexError) as e:
-            if local_dir:
-                raise SafetensorsParsingError(
-                    f"Failed to parse safetensors header for '{filename}' (local path '{repo_id}'): "
-                    "header format not recognized. Please make sure this is a correctly formatted safetensors file."
-                ) from e
-            else:
-                raise SafetensorsParsingError(
-                    f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
-                    f"'{revision or constants.DEFAULT_REVISION}'): header format not recognized. Please make sure this is a correctly"
-                    " formatted safetensors file."
-                ) from e
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' ({error_path_info}): "
+                "header format not recognized. Please make sure this is a correctly formatted safetensors file."
+            ) from e
 
     @validate_hf_hub_args
     def create_branch(
