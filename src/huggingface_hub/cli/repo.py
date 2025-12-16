@@ -25,8 +25,7 @@ import dataclasses
 import datetime
 import enum
 import json
-import re
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Optional, Union
 
 import typer
 
@@ -34,30 +33,18 @@ from huggingface_hub import DatasetInfo, ModelInfo, SpaceInfo
 from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.utils import ANSI, logging
 
-from ._cli_utils import (
-    PrivateOpt,
-    RepoIdArg,
-    RepoType,
-    RepoTypeOpt,
-    RevisionOpt,
-    TokenOpt,
-    get_hf_api,
-    typer_factory,
-)
+from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 
 
 logger = logging.get_logger(__name__)
 
-_SORT_PATTERN = re.compile(r"^(?P<key>[a-z_]+)(?::(?P<order>asc|desc))?$")
-_REPO_LIST_SORT_KEYS = {"last_modified", "trending_score", "created_at", "likes", "downloads"}
 
-_repo_list_sort_dict = {}
-for key in sorted(_REPO_LIST_SORT_KEYS):
-    _repo_list_sort_dict[key] = key
-    _repo_list_sort_dict[f"{key}_asc"] = f"{key}:asc"
-    _repo_list_sort_dict[f"{key}_desc"] = f"{key}:desc"
-
-RepoListSort = enum.Enum("RepoListSort", _repo_list_sort_dict, type=str, module=__name__)  # type: ignore
+class RepoListSort(str, enum.Enum):
+    created_at = "created_at"
+    downloads = "downloads"
+    last_modified = "last_modified"
+    likes = "likes"
+    trending_score = "trending_score"
 
 
 def _repo_info_to_dict(info: Union[ModelInfo, DatasetInfo, SpaceInfo]) -> dict[str, object]:
@@ -207,50 +194,28 @@ def repo_list(
     ] = None,
     sort: Annotated[
         Optional[RepoListSort],
-        typer.Option(help="Sort key, optionally with direction (e.g. 'likes:desc')."),
+        typer.Option(help="Sort key in descending order"),
     ] = None,
     token: TokenOpt = None,
 ) -> None:
     """List repositories of the requested type and print them as JSON."""
     api = get_hf_api(token=token)
 
-    sort_key: Optional[str] = None
-    direction: Optional[Literal[-1]] = None
-    if sort:
-        match = _SORT_PATTERN.match(sort.value)
-        if not match:
-            print(f"Invalid sort format: {sort.value}")
-            raise typer.Exit(code=1)
-
-        sort_key = match.group("key")
-
-        if sort_key not in _REPO_LIST_SORT_KEYS:
-            print(f"Invalid sort key: {sort_key}")
-            raise typer.Exit(code=1)
-
-        if match.group("order") == "desc":
-            direction = -1
-
-        if sort_key == "downloads" and repo_type == RepoType.space:
-            print("Sort key 'downloads' is not valid for spaces.")
-            raise typer.Exit(code=1)
+    sort_key: Optional[str] = sort.value if sort else None
+    if sort_key == "downloads" and repo_type == RepoType.space:
+        print("Sort key 'downloads' is not valid for spaces.")
+        raise typer.Exit(code=1)
 
     results: list[dict] = []
 
     if repo_type == RepoType.model:
-        for model_info in api.list_models(
-            filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
-        ):
+        for model_info in api.list_models(filter=filter, author=author, search=search, sort=sort_key, limit=limit):
             results.append(_repo_info_to_dict(model_info))
     elif repo_type == RepoType.dataset:
-        for dataset_info in api.list_datasets(
-            filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
-        ):
+        for dataset_info in api.list_datasets(filter=filter, author=author, search=search, sort=sort_key, limit=limit):
             results.append(_repo_info_to_dict(dataset_info))
     elif repo_type == RepoType.space:
-        for space_info in api.list_spaces(
-            filter=filter, author=author, search=search, sort=sort_key, direction=direction, limit=limit
-        ):
+        for space_info in api.list_spaces(filter=filter, author=author, search=search, sort=sort_key, limit=limit):
             results.append(_repo_info_to_dict(space_info))
 
     print(json.dumps(results, indent=2))
