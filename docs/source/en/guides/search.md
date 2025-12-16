@@ -40,7 +40,7 @@ While filtering, you can also sort the models and take only the top results. For
 the following example fetches the top 5 most downloaded datasets on the Hub:
 
 ```py
->>> list(list_datasets(sort="downloads", direction=-1, limit=5))
+>>> list(list_datasets(sort="downloads", limit=5))
 [DatasetInfo(
 	id='argilla/databricks-dolly-15k-curated-en',
 	author='argilla',
