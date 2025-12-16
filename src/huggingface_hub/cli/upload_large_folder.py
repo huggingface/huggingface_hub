@@ -38,7 +38,7 @@ def upload_large_folder(
     ],
     repo_type: RepoTypeOpt = RepoType.model,
     revision: RevisionOpt = None,
-    private: PrivateOpt = False,
+    private: PrivateOpt = None,
     include: Annotated[
         Optional[list[str]],
         typer.Option(

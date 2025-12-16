@@ -79,7 +79,7 @@ def repo_create(
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
         ),
     ] = None,
-    private: PrivateOpt = False,
+    private: PrivateOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,

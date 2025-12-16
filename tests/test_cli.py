@@ -398,7 +398,7 @@ class TestUploadCommand:
             repo_id=DUMMY_MODEL_ID,
             repo_type="model",
             exist_ok=True,
-            private=False,
+            private=None,
             space_sdk=None,
         )
         api.upload_folder.assert_called_once_with(
@@ -484,7 +484,7 @@ class TestUploadCommand:
             allow_patterns=["*.json", "*.yaml"],
             ignore_patterns=["*.log", "*.txt"],
             path_in_repo="data/",
-            private=False,
+            private=None,
             every=5,
             hf_api=api,
         )
@@ -707,7 +707,7 @@ class TestUploadImpl:
             repo_id="my-dataset",
             repo_type="dataset",
             exist_ok=True,
-            private=False,
+            private=None,
             space_sdk=None,
         )
         api.upload_file.assert_called_once_with(
@@ -1768,6 +1768,29 @@ class TestJobsCommand:
         )
         api.fetch_job_logs.assert_not_called()
 
+    def test_run_with_extra_args(self, runner: CliRunner) -> None:
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.run_job.return_value = job
+            result = runner.invoke(
+                app, ["jobs", "run", "--detach", "python:3.12", "python", "-c", "'print(\"Hello from the cloud!\")'"]
+            )
+        assert result.exit_code == 0
+        api.run_job.assert_called_once_with(
+            image="python:3.12",
+            command=["python", "-c", "'print(\"Hello from the cloud!\")'"],
+            env={},
+            secrets={},
+            flavor=None,
+            timeout=None,
+            namespace=None,
+        )
+        api.fetch_job_logs.assert_not_called()
+
     def test_create_scheduled_job(self, runner: CliRunner) -> None:
         scheduled_job = Mock(id="my-job-id")
         with (
@@ -1815,7 +1838,32 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             namespace=None,
-            _repo=None,
+        )
+        api.fetch_job_logs.assert_not_called()
+
+    def test_uv_command_with_extra_args(self, runner: CliRunner) -> None:
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.run_uv_job.return_value = job
+            result = runner.invoke(
+                app, ["jobs", "uv", "run", "--detach", "python", "-c", "'print(\"Hello from the cloud!\")'"]
+            )
+        assert result.exit_code == 0
+        api.run_uv_job.assert_called_once_with(
+            script="python",
+            script_args=["-c", "'print(\"Hello from the cloud!\")'"],
+            dependencies=None,
+            python=None,
+            image=None,
+            env={},
+            secrets={},
+            flavor=None,
+            timeout=None,
+            namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
 
@@ -1840,7 +1888,6 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             namespace=None,
-            _repo=None,
         )
 
     def test_uv_local_script(self, runner: CliRunner, tmp_path: Path) -> None:
@@ -1867,6 +1914,5 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             namespace=None,
-            _repo=None,
         )
         api.fetch_job_logs.assert_not_called()
