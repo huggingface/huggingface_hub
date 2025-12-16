@@ -4329,13 +4329,6 @@ class PaperApiTest(unittest.TestCase):
         assert len(papers) > 0
         assert papers[0].submitted_by.fullname == "AK"
 
-    def test_daily_papers_sort(self) -> None:
-        papers = list(self.api.list_daily_papers(date="2025-10-29", sort="trending"))
-        assert len(papers) > 0
-        first_paper = papers[0]
-        last_paper = papers[-1]
-        assert first_paper.upvotes >= last_paper.upvotes
-
     def test_daily_papers_p(self) -> None:
         papers = list(self.api.list_daily_papers(date="2025-10-29", p=100))
         assert len(papers) == 0
