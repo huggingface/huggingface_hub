@@ -214,7 +214,7 @@ def repo_list(
     elif repo_type == RepoType.dataset:
         for dataset_info in api.list_datasets(filter=filter, author=author, search=search, sort=sort_key, limit=limit):
             results.append(_repo_info_to_dict(dataset_info))
-    elif repo_type == RepoType.space:
+    else:
         for space_info in api.list_spaces(filter=filter, author=author, search=search, sort=sort_key, limit=limit):
             results.append(_repo_info_to_dict(space_info))
 
