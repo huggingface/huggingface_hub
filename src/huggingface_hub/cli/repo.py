@@ -214,9 +214,8 @@ def repo_list(
     """List repositories of the requested type and print them as JSON."""
     api = get_hf_api(token=token)
 
-    sort_key: str | None = None
-    direction: Literal[-1] | None = None
-
+    sort_key: Optional[str] = None
+    direction: Optional[Literal[-1]] = None
     if sort:
         match = _SORT_PATTERN.match(sort.value)
         if not match:
