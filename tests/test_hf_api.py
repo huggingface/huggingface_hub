@@ -99,7 +99,6 @@ from .testing_utils import (
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     ENDPOINT_PRODUCTION,
     SAMPLE_DATASET_IDENTIFIER,
-    expect_deprecation,
     repo_name,
     require_git_lfs,
     rmtree_with_retry,
@@ -2176,9 +2175,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert any(dataset.card_data is not None for dataset in self._api.list_datasets(full=True, limit=50))
         assert all(dataset.card_data is None for dataset in self._api.list_datasets(full=False, limit=50))
 
-    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_tag(self):
-        for dataset in self._api.list_datasets(tags="fiftyone", limit=5):
+        for dataset in self._api.list_datasets(filter="fiftyone", limit=5):
             assert "fiftyone" in dataset.tags
 
     def test_dataset_info(self):
