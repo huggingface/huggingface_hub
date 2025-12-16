@@ -1001,6 +1001,7 @@ $ hf repo [OPTIONS] COMMAND [ARGS]...
 * `branch`: Manage branches for a repo on the Hub.
 * `create`: Create a new repo on the Hub.
 * `delete`: Delete a repo from the Hub.
+* `list`: List repositories (models, datasets,...
 * `move`: Move a repository from a namespace to...
 * `settings`: Update the settings of a repository.
 * `tag`: Manage tags for a repo on the Hub.
@@ -1111,6 +1112,27 @@ $ hf repo delete [OPTIONS] REPO_ID
 * `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--missing-ok / --no-missing-ok`: If set to True, do not raise an error if repo does not exist.  [default: no-missing-ok]
+* `--help`: Show this message and exit.
+
+### `hf repo list`
+
+List repositories (models, datasets, spaces) hosted on the Hub.
+
+**Usage**:
+
+```console
+$ hf repo list [OPTIONS]
+```
+
+**Options**:
+
+* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--limit INTEGER`: Limit the number of results.  [default: 10]
+* `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
+* `--search TEXT`: Search by name.
+* `--author TEXT`: Filter by author or organization.
+* `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort key in descending order
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 ### `hf repo move`
