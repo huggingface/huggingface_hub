@@ -1854,7 +1854,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
         # ordered by last modified date.
-        models = list(self._api.list_models(filter=("bert", "jax"), sort="last_modified", direction=-1, limit=10))
+        models = list(self._api.list_models(filter=("bert", "jax"), sort="last_modified", limit=10))
         # we have at least 1 models
         assert len(models) > 1
         assert len(models) <= 10
@@ -2384,9 +2384,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
         spaces = list(self._api.list_spaces(search="wikipedia", limit=10))
         assert "wikipedia" in spaces[0].id.lower()
 
-    def test_list_spaces_sort_and_direction(self):
-        # Descending order => first item has more likes than second
-        spaces_descending_likes = list(self._api.list_spaces(sort="likes", direction=-1, limit=100))
+    def test_list_spaces_sort(self):
+        # sort by likes in descending order => first item has more likes than second
+        spaces_descending_likes = list(self._api.list_spaces(sort="likes", limit=100))
         assert spaces_descending_likes[0].likes > spaces_descending_likes[1].likes
 
     def test_list_spaces_limit(self):

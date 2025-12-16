@@ -1863,6 +1863,7 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
+    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -1927,10 +1928,9 @@ class HfApi:
                 carbon footprint to filter the resulting models with in grams.
             sort (`Literal["last_modified"]` or `str`, *optional*):
                 The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
-                "created_at", "downloads" and "likes".
+                "created_at", "downloads" and "likes". Sorting is always descending.
             direction (`Literal[-1]` or `int`, *optional*):
-                Direction in which to sort. The value `-1` sorts by descending
-                order while all other values sort by ascending order.
+                Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
                 The limit on the number of models fetched. Leaving this option
                 to `None` fetches all models.
@@ -2063,7 +2063,7 @@ class HfApi:
             if emissions_thresholds is None or _is_emission_within_threshold(model_info, *emissions_thresholds):
                 yield model_info
 
-    @_deprecate_arguments(version="1.0", deprecated_args=["tags"], custom_message="Use `filter` instead.")
+    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
     def list_datasets(
         self,
@@ -2089,8 +2089,6 @@ class HfApi:
         expand: Optional[list[ExpandDatasetProperty_T]] = None,
         full: Optional[bool] = None,
         token: Union[bool, str, None] = None,
-        # Deprecated arguments - use `filter` instead
-        tags: Optional[Union[str, list[str]]] = None,
     ) -> Iterable[DatasetInfo]:
         """
         List datasets hosted on the Huggingface Hub, given some filters.
@@ -2137,11 +2135,10 @@ class HfApi:
             search (`str`, *optional*):
                 A string that will be contained in the returned datasets.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
-                "created_at", "downloads" and "likes".
+                The key with which to sort the resulting datasets. Possible values are "last_modified", "trending_score",
+                "created_at", "downloads" and "likes". Sorting is always descending.
             direction (`Literal[-1]` or `int`, *optional*):
-                Direction in which to sort. The value `-1` sorts by descending
-                order while all other values sort by ascending order.
+                Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
@@ -2230,8 +2227,6 @@ class HfApi:
                     if not value_item.startswith(f"{key}:"):
                         data = f"{key}:{value_item}"
                     filter_list.append(data)
-        if tags is not None:
-            filter_list.extend([tags] if isinstance(tags, str) else tags)
         if len(filter_list) > 0:
             params["filter"] = filter_list
 
@@ -2276,6 +2271,7 @@ class HfApi:
                 item["siblings"] = None
             yield DatasetInfo(**item)
 
+    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
     def list_spaces(
         self,
@@ -2315,11 +2311,10 @@ class HfApi:
             linked (`bool`, *optional*):
                 Whether to return Spaces that make use of either a model or a dataset.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
-                "created_at" and "likes".
+                The key with which to sort the resulting spaces. Possible values are "last_modified", "trending_score",
+                "created_at" and "likes". Sorting is always descending.
             direction (`Literal[-1]` or `int`, *optional*):
-                Direction in which to sort. The value `-1` sorts by descending
-                order while all other values sort by ascending order.
+                Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
                 The limit on the number of Spaces fetched. Leaving this option
                 to `None` fetches all Spaces.
