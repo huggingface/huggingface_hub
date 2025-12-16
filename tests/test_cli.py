@@ -1376,7 +1376,7 @@ class TestRepoListCommand:
     def test_repo_list_invalid_sort_key(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["repo", "list", "--sort", "invalid_key"])
         assert result.exit_code == 2
-        assert "Invalid value" in result.stderr
+        assert "Invalid value" in result.output
 
     def test_repo_list_downloads_sort_invalid_for_spaces(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["repo", "list", "--repo-type", "space", "--sort", "downloads"])
