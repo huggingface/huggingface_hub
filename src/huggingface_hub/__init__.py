@@ -177,6 +177,7 @@ _SUBMOD_ATTRS = {
         "add_collection_item",
         "add_space_secret",
         "add_space_variable",
+        "as_job",
         "auth_check",
         "cancel_access_request",
         "cancel_job",
@@ -820,6 +821,7 @@ __all__ = [
     "add_collection_item",
     "add_space_secret",
     "add_space_variable",
+    "as_job",
     "attach_huggingface_oauth",
     "auth_check",
     "auth_list",
@@ -1203,6 +1205,7 @@ if TYPE_CHECKING:  # pragma: no cover
         add_collection_item,  # noqa: F401
         add_space_secret,  # noqa: F401
         add_space_variable,  # noqa: F401
+        as_job,  # noqa: F401
         auth_check,  # noqa: F401
         cancel_access_request,  # noqa: F401
         cancel_job,  # noqa: F401
