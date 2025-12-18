@@ -98,3 +98,5 @@
       title: OAuth
     - local: package_reference/jobs
       title: Jobs
+    - local: package_reference/eval_results
+      title: Evaluation Results
