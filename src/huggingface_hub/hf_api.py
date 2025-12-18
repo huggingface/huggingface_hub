@@ -3796,9 +3796,7 @@ class HfApi:
                     self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
                     if repo_type is None or repo_type == constants.REPO_TYPE_MODEL:
                         return RepoUrl(f"{self.endpoint}/{repo_id}")
-                    # Use REPO_TYPES_URL_PREFIXES to get the plural form (e.g., "datasets/")
-                    url_prefix = constants.REPO_TYPES_URL_PREFIXES.get(repo_type, "")
-                    return RepoUrl(f"{self.endpoint}/{url_prefix}{repo_id}")
+                    return RepoUrl(f"{self.endpoint}/{constants.REPO_TYPES_URL_PREFIXES[repo_type]}{repo_id}")
                 except HfHubHTTPError:
                     raise err
             else:
