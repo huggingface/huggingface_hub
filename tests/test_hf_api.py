@@ -429,22 +429,29 @@ class CommitApiTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=url.repo_id)
 
     def test_create_repo_already_exists_but_no_write_permission(self):
-        """Test create_repo with exist_ok=True when user lacks write permission but repo exists.
-
-        Regression test for https://github.com/huggingface/huggingface_hub/issues/2988
-        The 403 error path was constructing URLs with singular repo type (e.g., "dataset/")
-        instead of plural (e.g., "datasets/"), causing RepoUrl to parse the repo_id incorrectly.
-        """
         # Create under other user namespace
         repo_id = self._api.create_repo(repo_id=repo_name(), token=OTHER_TOKEN).repo_id
 
-        returned_url = self._api.create_repo(repo_id=repo_id, token=TOKEN, exist_ok=True)
-
-        # Verify the returned RepoUrl has the correct repo_id
-        self.assertEqual(returned_url.repo_id, repo_id)
+        # Try to create with our namespace -> should not fail as the repo already exists
+        self._api.create_repo(repo_id=repo_id, token=TOKEN, exist_ok=True)
 
         # Clean up
         self._api.delete_repo(repo_id=repo_id, token=OTHER_TOKEN)
+
+    def test_create_repo_already_exists_but_no_write_permission_returns_correct_repo_id(self):
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/3632."""
+        # Create dataset under other user namespace
+        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type="dataset", token=OTHER_TOKEN).repo_id
+
+        # Try to create with our token -> triggers 403 fallback path
+        returned_url = self._api.create_repo(repo_id=repo_id, repo_type="dataset", token=TOKEN, exist_ok=True)
+
+        # Verify the returned RepoUrl has the correct repo_id
+        self.assertEqual(returned_url.repo_id, repo_id)
+        self.assertEqual(returned_url.repo_type, "dataset")
+
+        # Clean up
+        self._api.delete_repo(repo_id=repo_id, repo_type="dataset", token=OTHER_TOKEN)
 
     def test_create_repo_private_by_default(self):
         """Enterprise Hub allows creating private repos by default. Let's test that."""
