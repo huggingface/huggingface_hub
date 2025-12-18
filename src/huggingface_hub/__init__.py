@@ -496,8 +496,11 @@ _SUBMOD_ATTRS = {
         "CardData",
         "DatasetCardData",
         "EvalResult",
+        "EvalResultEntry",
         "ModelCardData",
         "SpaceCardData",
+        "eval_result_entries_to_yaml",
+        "yaml_to_eval_result_entries",
     ],
     "serialization": [
         "StateDictSplit",
@@ -638,6 +641,7 @@ __all__ = [
     "DocumentQuestionAnsweringParameters",
     "DryRunFileInfo",
     "EvalResult",
+    "EvalResultEntry",
     "FLAX_WEIGHTS_NAME",
     "FeatureExtractionInput",
     "FeatureExtractionInputTruncationDirection",
@@ -861,6 +865,7 @@ __all__ = [
     "duplicate_space",
     "edit_discussion_comment",
     "enable_webhook",
+    "eval_result_entries_to_yaml",
     "export_entries_as_dduf",
     "export_folder_as_dduf",
     "fetch_job_logs",
@@ -982,6 +987,7 @@ __all__ = [
     "verify_repo_checksums",
     "webhook_endpoint",
     "whoami",
+    "yaml_to_eval_result_entries",
 ]
 
 
@@ -1516,8 +1522,11 @@ if TYPE_CHECKING:  # pragma: no cover
         CardData,  # noqa: F401
         DatasetCardData,  # noqa: F401
         EvalResult,  # noqa: F401
+        EvalResultEntry,  # noqa: F401
         ModelCardData,  # noqa: F401
         SpaceCardData,  # noqa: F401
+        eval_result_entries_to_yaml,  # noqa: F401
+        yaml_to_eval_result_entries,  # noqa: F401
     )
     from .serialization import (
         StateDictSplit,  # noqa: F401
