@@ -1,0 +1,211 @@
+"""Evaluation results utilities for the `.eval_results/*.yaml` format.
+
+See https://huggingface.co/docs/hub/eval-results for more details.
+Specifications are available at https://github.com/huggingface/hub-docs/blob/main/eval_results.yaml.
+"""
+
+from dataclasses import dataclass
+from typing import Any, Optional
+
+
+@dataclass
+class EvalResultEntry:
+    """
+    Evaluation result entry for the `.eval_results/*.yaml` format.
+
+    Represents evaluation scores stored in model repos that automatically appear on
+    the model page and the benchmark dataset's leaderboard.
+
+    For the legacy `model-index` format in `README.md`, use [`EvalResult`] instead.
+
+    See https://huggingface.co/docs/hub/eval-results for more details.
+
+    Args:
+        dataset_id (`str`):
+            Benchmark dataset ID from the Hub. Example: "cais/hle", "Idavidrein/gpqa".
+        value (`Any`):
+            The metric value. Example: 20.90 or 0.412.
+        task_id (`str`, *optional*):
+            Task identifier within the benchmark. Example: "gpqa_diamond".
+        dataset_revision (`str`, *optional*):
+            Git SHA of the benchmark dataset.
+        verify_token (`str`, *optional*):
+            Cryptographic proof that the evaluation is auditable and reproducible.
+        date (`str`, *optional*):
+            When the evaluation was run (ISO-8601 datetime). Defaults to git commit time.
+        source_url (`str`, *optional*):
+            Link to the evaluation source (e.g., logs). Required if `source_name` or `source_user` is provided.
+        source_name (`str`, *optional*):
+            Display name for the source. Example: "Eval Logs".
+        source_user (`str`, *optional*):
+            HF user or org name for attribution. Example: "cais".
+
+    Example:
+        ```python
+        >>> from huggingface_hub import EvalResultEntry
+        >>> # Minimal example with required fields only
+        >>> result = EvalResultEntry(
+        ...     dataset_id="Idavidrein/gpqa",
+        ...     value=0.412,
+        ...     task_id="gpqa_diamond",
+        ... )
+        >>> # Full example with all fields
+        >>> result = EvalResultEntry(
+        ...     dataset_id="cais/hle",
+        ...     value=20.90,
+        ...     task_id="default",
+        ...     dataset_revision="5503434ddd753f426f4b38109466949a1217c2bb",
+        ...     verify_token="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        ...     date="2025-01-15T10:30:00Z",
+        ...     source_url="https://huggingface.co/datasets/cais/hle",
+        ...     source_name="CAIS HLE",
+        ...     source_user="cais",
+        ... )
+
+        ```
+    """
+
+    dataset_id: str
+    value: Any
+    task_id: Optional[str] = None
+    dataset_revision: Optional[str] = None
+    verify_token: Optional[str] = None
+    date: Optional[str] = None
+    source_url: Optional[str] = None
+    source_name: Optional[str] = None
+    source_user: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if (self.source_name is not None or self.source_user is not None) and self.source_url is None:
+            raise ValueError("If `source_name` or `source_user` is provided, `source_url` must also be provided.")
+
+
+def eval_result_entries_to_yaml(entries: list[EvalResultEntry]) -> list[dict[str, Any]]:
+    """Convert a list of [`EvalResultEntry`] objects to a YAML-serializable list of dicts.
+
+    This produces the format expected in `.eval_results/*.yaml` files.
+
+    Args:
+        entries (`list[EvalResultEntry]`):
+            List of evaluation result entries to serialize.
+
+    Returns:
+        `list[dict[str, Any]]`: A list of dictionaries ready to be dumped to YAML.
+
+    Example:
+        ```python
+        >>> from huggingface_hub import EvalResultEntry, eval_result_entries_to_yaml
+        >>> entries = [
+        ...     EvalResultEntry(dataset_id="cais/hle", value=20.90, task_id="default"),
+        ...     EvalResultEntry(dataset_id="Idavidrein/gpqa", value=0.412, task_id="gpqa_diamond"),
+        ... ]
+        >>> yaml_data = eval_result_entries_to_yaml(entries)
+        >>> yaml_data[0]
+        {'dataset': {'id': 'cais/hle', 'task_id': 'default'}, 'value': 20.9}
+
+        ```
+    """
+    result = []
+    for entry in entries:
+        data: dict[str, Any] = {}
+
+        # Build dataset object
+        dataset: dict[str, Any] = {"id": entry.dataset_id}
+        if entry.task_id is not None:
+            dataset["task_id"] = entry.task_id
+        if entry.dataset_revision is not None:
+            dataset["revision"] = entry.dataset_revision
+        data["dataset"] = dataset
+        data["value"] = entry.value
+
+        # Optional fields
+        if entry.verify_token is not None:
+            data["verifyToken"] = entry.verify_token
+        if entry.date is not None:
+            data["date"] = entry.date
+
+        # Source object
+        if entry.source_url is not None:
+            source: dict[str, Any] = {"url": entry.source_url}
+            if entry.source_name is not None:
+                source["name"] = entry.source_name
+            if entry.source_user is not None:
+                source["user"] = entry.source_user
+            data["source"] = source
+
+        result.append(data)
+    return result
+
+
+def parse_eval_result_entries(data: list[dict[str, Any]]) -> list[EvalResultEntry]:
+    """Parse a list of dicts into [`EvalResultEntry`] objects.
+
+    Supports both the new `.eval_results/*.yaml` format and the legacy `model-index` format.
+
+    Args:
+        data (`list[dict[str, Any]]`):
+            A list of dictionaries (e.g., parsed from YAML or API response).
+
+    Returns:
+        `list[EvalResultEntry]`: A list of evaluation result entry objects.
+
+    Example:
+        ```python
+        >>> from huggingface_hub import parse_eval_result_entries
+        >>> # New format
+        >>> data = [
+        ...     {"dataset": {"id": "cais/hle", "task_id": "default"}, "value": 20.90},
+        ...     {"dataset": {"id": "Idavidrein/gpqa", "task_id": "gpqa_diamond"}, "value": 0.412},
+        ... ]
+        >>> entries = parse_eval_result_entries(data)
+        >>> entries[0].dataset_id
+        'cais/hle'
+        >>> entries[0].value
+        20.9
+        >>> # Legacy format (model-index style)
+        >>> legacy_data = [
+        ...     {
+        ...         "task": {"type": "text-generation"},
+        ...         "dataset": {"type": "Idavidrein/gpqa", "config": "gpqa_diamond"},
+        ...         "metrics": [{"type": "accuracy", "value": 0.412}],
+        ...     }
+        ... ]
+        >>> entries = parse_eval_result_entries(legacy_data)
+        >>> entries[0].dataset_id
+        'Idavidrein/gpqa'
+
+        ```
+    """
+    entries = []
+    for item in data:
+        dataset = item.get("dataset", {})
+        if "id" in dataset:
+            # New format
+            source = item.get("source", {})
+            entry = EvalResultEntry(
+                dataset_id=dataset["id"],
+                value=item["value"],
+                task_id=dataset.get("task_id"),
+                dataset_revision=dataset.get("revision"),
+                verify_token=item.get("verifyToken"),
+                date=item.get("date"),
+                source_url=source.get("url") if source else None,
+                source_name=source.get("name") if source else None,
+                source_user=source.get("user") if source else None,
+            )
+            entries.append(entry)
+        else:
+            # Legacy format (model-index style)
+            source = item.get("source", {})
+            for metric in item.get("metrics", []):
+                entry = EvalResultEntry(
+                    dataset_id=dataset["type"],
+                    value=metric["value"],
+                    task_id=dataset.get("config"),
+                    dataset_revision=dataset.get("revision"),
+                    verify_token=metric.get("verifyToken"),
+                    source_url=source.get("url") if source else None,
+                    source_name=source.get("name") if source else None,
+                )
+                entries.append(entry)
+    return entries

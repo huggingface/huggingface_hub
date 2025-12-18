@@ -136,6 +136,11 @@ _SUBMOD_ATTRS = {
         "TF_WEIGHTS_NAME",
         "is_offline_mode",
     ],
+    "eval_results": [
+        "EvalResultEntry",
+        "eval_result_entries_to_yaml",
+        "parse_eval_result_entries",
+    ],
     "fastai_utils": [
         "_save_pretrained_fastai",
         "from_pretrained_fastai",
@@ -496,11 +501,8 @@ _SUBMOD_ATTRS = {
         "CardData",
         "DatasetCardData",
         "EvalResult",
-        "EvalResultEntry",
         "ModelCardData",
         "SpaceCardData",
-        "eval_result_entries_to_yaml",
-        "yaml_to_eval_result_entries",
     ],
     "serialization": [
         "StateDictSplit",
@@ -938,6 +940,7 @@ __all__ = [
     "move_repo",
     "notebook_login",
     "paper_info",
+    "parse_eval_result_entries",
     "parse_huggingface_oauth",
     "parse_safetensors_file_metadata",
     "pause_inference_endpoint",
@@ -987,7 +990,6 @@ __all__ = [
     "verify_repo_checksums",
     "webhook_endpoint",
     "whoami",
-    "yaml_to_eval_result_entries",
 ]
 
 
@@ -1167,6 +1169,11 @@ if TYPE_CHECKING:  # pragma: no cover
         TF2_WEIGHTS_NAME,  # noqa: F401
         TF_WEIGHTS_NAME,  # noqa: F401
         is_offline_mode,  # noqa: F401
+    )
+    from .eval_results import (
+        EvalResultEntry,  # noqa: F401
+        eval_result_entries_to_yaml,  # noqa: F401
+        parse_eval_result_entries,  # noqa: F401
     )
     from .fastai_utils import (
         _save_pretrained_fastai,  # noqa: F401
@@ -1522,11 +1529,8 @@ if TYPE_CHECKING:  # pragma: no cover
         CardData,  # noqa: F401
         DatasetCardData,  # noqa: F401
         EvalResult,  # noqa: F401
-        EvalResultEntry,  # noqa: F401
         ModelCardData,  # noqa: F401
         SpaceCardData,  # noqa: F401
-        eval_result_entries_to_yaml,  # noqa: F401
-        yaml_to_eval_result_entries,  # noqa: F401
     )
     from .serialization import (
         StateDictSplit,  # noqa: F401
