@@ -2,8 +2,9 @@ import os
 import unittest
 from hashlib import sha256
 from io import BytesIO
+from unittest.mock import MagicMock, patch
 
-from huggingface_hub.lfs import UploadInfo
+from huggingface_hub.lfs import UploadInfo, post_lfs_batch_info
 from huggingface_hub.utils import SoftTemporaryDirectory
 from huggingface_hub.utils._lfs import SliceFileObj
 
@@ -177,3 +178,21 @@ class TestSliceFileObj(unittest.TestCase):
                     fileobj_slice.seek(-200, os.SEEK_END)
                     self.assertEqual(fileobj_slice.tell(), 0)
                     self.assertEqual(fileobj_slice.fileobj.tell(), 100)
+
+
+@patch("huggingface_hub.lfs.hf_raise_for_status")
+@patch("huggingface_hub.lfs.http_backoff")
+def test_post_lfs_batch_info_uses_http_backoff(mock_http_backoff, mock_raise_for_status):
+    """post_lfs_batch_info uses http_backoff for retry on transient failures."""
+    mock_http_backoff.return_value = MagicMock(json=lambda: {"objects": []})
+
+    post_lfs_batch_info(
+        upload_infos=[UploadInfo(sha256=b"\x00" * 32, size=100, sample=b"test")],
+        token="test_token",
+        repo_type="model",
+        repo_id="test/repo",
+    )
+
+    mock_http_backoff.assert_called_once()
+    assert mock_http_backoff.call_args[0][0] == "POST"
+    assert "/info/lfs/objects/batch" in mock_http_backoff.call_args[0][1]
