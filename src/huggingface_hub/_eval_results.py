@@ -24,17 +24,17 @@ class EvalResultEntry:
         dataset_id (`str`):
             Benchmark dataset ID from the Hub. Example: "cais/hle", "Idavidrein/gpqa".
         value (`Any`):
-            The metric value. Example: 20.90 or 0.412.
+            The metric value. Example: 20.90.
         task_id (`str`, *optional*):
             Task identifier within the benchmark. Example: "gpqa_diamond".
         dataset_revision (`str`, *optional*):
             Git SHA of the benchmark dataset.
         verify_token (`str`, *optional*):
-            Cryptographic proof that the evaluation is auditable and reproducible.
+            A signature that can be used to prove that evaluation is provably auditable and reproducible.
         date (`str`, *optional*):
             When the evaluation was run (ISO-8601 datetime). Defaults to git commit time.
         source_url (`str`, *optional*):
-            Link to the evaluation source (e.g., logs). Required if `source_name` or `source_user` is provided.
+            Link to the evaluation source (e.g., https://huggingface.co/spaces/SaylorTwift/smollm3-mmlu-pro). Required if `source_name` or `source_user` is provided.
         source_name (`str`, *optional*):
             Display name for the source. Example: "Eval Logs".
         source_user (`str`, *optional*):
