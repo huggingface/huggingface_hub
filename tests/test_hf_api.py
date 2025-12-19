@@ -2566,27 +2566,6 @@ class HfApiPublicProductionTest(unittest.TestCase):
             assert model.inference_provider_mapping is not None
             assert any(mapping.provider == "hf-inference" for mapping in model.inference_provider_mapping)
 
-    @patch("huggingface_hub.hf_api.HfApi.model_info")
-    @patch("huggingface_hub.hf_api.HfApi.list_repo_files")
-    def test_get_eval_results(self, mock_list_files, mock_model_info):
-        mock_list_files.return_value = []
-        mock_model_info.return_value = Mock(
-            model_index=[
-                {
-                    "results": [
-                        {
-                            "dataset": {"type": "test/dataset", "config": "default"},
-                            "metrics": [{"type": "accuracy", "value": 0.95}],
-                        }
-                    ],
-                }
-            ]
-        )
-        results = self._api.get_eval_results("test/model")
-        assert len(results) == 1
-        assert results[0].dataset_id == "test/dataset"
-        assert results[0].value == 0.95
-
 
 class HfApiPrivateTest(HfApiCommonTest):
     def setUp(self) -> None:

@@ -222,7 +222,6 @@ _SUBMOD_ATTRS = {
         "get_collection",
         "get_dataset_tags",
         "get_discussion_details",
-        "get_eval_results",
         "get_full_repo_name",
         "get_inference_endpoint",
         "get_model_tags",
@@ -878,7 +877,6 @@ __all__ = [
     "get_collection",
     "get_dataset_tags",
     "get_discussion_details",
-    "get_eval_results",
     "get_full_repo_name",
     "get_hf_file_metadata",
     "get_inference_endpoint",
@@ -1258,7 +1256,6 @@ if TYPE_CHECKING:  # pragma: no cover
         get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
-        get_eval_results,  # noqa: F401
         get_full_repo_name,  # noqa: F401
         get_inference_endpoint,  # noqa: F401
         get_model_tags,  # noqa: F401
