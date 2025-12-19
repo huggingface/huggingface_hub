@@ -108,13 +108,12 @@ def eval_result_entries_to_yaml(entries: list[EvalResultEntry]) -> list[dict[str
         To upload eval results to the Hub:
         ```python
         >>> import yaml
-        >>> from huggingface_hub import HfApi, EvalResultEntry, eval_result_entries_to_yaml
+        >>> from huggingface_hub import upload_file, EvalResultEntry, eval_result_entries_to_yaml
         >>> entries = [
         ...     EvalResultEntry(dataset_id="cais/hle", value=20.90, task_id="default"),
         ... ]
         >>> yaml_content = yaml.dump(eval_result_entries_to_yaml(entries))
-        >>> api = HfApi()
-        >>> api.upload_file(  # doctest: +SKIP
+        >>> upload_file(
         ...     path_or_fileobj=yaml_content.encode(),
         ...     path_in_repo=".eval_results/hle.yaml",
         ...     repo_id="your-username/your-model",

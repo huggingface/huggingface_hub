@@ -10987,6 +10987,9 @@ permanently_delete_lfs_files = api.permanently_delete_lfs_files
 get_safetensors_metadata = api.get_safetensors_metadata
 parse_safetensors_file_metadata = api.parse_safetensors_file_metadata
 
+# Eval results
+get_eval_results = api.get_eval_results
+
 # Background jobs
 run_as_future = api.run_as_future
 
