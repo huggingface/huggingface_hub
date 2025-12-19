@@ -123,24 +123,19 @@ def eval_result_entries_to_yaml(entries: list[EvalResultEntry]) -> list[dict[str
     """
     result = []
     for entry in entries:
-        data: dict[str, Any] = {}
-
-        # Build dataset object
+        # build the dataset object
         dataset: dict[str, Any] = {"id": entry.dataset_id}
         if entry.task_id is not None:
             dataset["task_id"] = entry.task_id
         if entry.dataset_revision is not None:
             dataset["revision"] = entry.dataset_revision
-        data["dataset"] = dataset
-        data["value"] = entry.value
 
-        # Optional fields
+        data: dict[str, Any] = {"dataset": dataset, "value": entry.value}
         if entry.verify_token is not None:
             data["verifyToken"] = entry.verify_token
         if entry.date is not None:
             data["date"] = entry.date
-
-        # Source object
+        # build the source object
         if entry.source_url is not None:
             source: dict[str, Any] = {"url": entry.source_url}
             if entry.source_name is not None:
@@ -196,7 +191,7 @@ def parse_eval_result_entries(data: list[dict[str, Any]]) -> list[EvalResultEntr
     for item in data:
         dataset = item.get("dataset", {})
         if "id" in dataset:
-            # New format
+            # https://github.com/huggingface/hub-docs/blob/main/eval_results.yaml format
             source = item.get("source", {})
             entry = EvalResultEntry(
                 dataset_id=dataset["id"],
@@ -211,7 +206,7 @@ def parse_eval_result_entries(data: list[dict[str, Any]]) -> list[EvalResultEntr
             )
             entries.append(entry)
         else:
-            # Legacy format (model-index style)
+            # https://github.com/huggingface/hub-docs/blob/434609e6d09f7c1203ea59fcc32c7ff4d308a68e/modelcard.md?plain=1#L23 format
             source = item.get("source", {})
             for metric in item.get("metrics", []):
                 entry = EvalResultEntry(
