@@ -38,7 +38,7 @@ class EvalResultEntry:
         source_name (`str`, *optional*):
             Display name for the source. Example: "Eval Logs".
         source_user (`str`, *optional*):
-            HF user or org name for attribution. Example: "cais".
+            HF user or org name for attribution. Example: "celinah".
 
     Example:
         ```python
