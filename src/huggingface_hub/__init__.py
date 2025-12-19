@@ -55,6 +55,11 @@ _SUBMOD_ATTRS = {
     "_commit_scheduler": [
         "CommitScheduler",
     ],
+    "_eval_results": [
+        "EvalResultEntry",
+        "eval_result_entries_to_yaml",
+        "parse_eval_result_entries",
+    ],
     "_inference_endpoints": [
         "InferenceEndpoint",
         "InferenceEndpointError",
@@ -135,11 +140,6 @@ _SUBMOD_ATTRS = {
         "TF2_WEIGHTS_NAME",
         "TF_WEIGHTS_NAME",
         "is_offline_mode",
-    ],
-    "eval_results": [
-        "EvalResultEntry",
-        "eval_result_entries_to_yaml",
-        "parse_eval_result_entries",
     ],
     "fastai_utils": [
         "_save_pretrained_fastai",
@@ -222,6 +222,7 @@ _SUBMOD_ATTRS = {
         "get_collection",
         "get_dataset_tags",
         "get_discussion_details",
+        "get_eval_results",
         "get_full_repo_name",
         "get_inference_endpoint",
         "get_model_tags",
@@ -877,6 +878,7 @@ __all__ = [
     "get_collection",
     "get_dataset_tags",
     "get_discussion_details",
+    "get_eval_results",
     "get_full_repo_name",
     "get_hf_file_metadata",
     "get_inference_endpoint",
@@ -1095,6 +1097,11 @@ if os.environ.get("EAGER_IMPORT", ""):
 # ```
 if TYPE_CHECKING:  # pragma: no cover
     from ._commit_scheduler import CommitScheduler  # noqa: F401
+    from ._eval_results import (
+        EvalResultEntry,  # noqa: F401
+        eval_result_entries_to_yaml,  # noqa: F401
+        parse_eval_result_entries,  # noqa: F401
+    )
     from ._inference_endpoints import (
         InferenceEndpoint,  # noqa: F401
         InferenceEndpointError,  # noqa: F401
@@ -1169,11 +1176,6 @@ if TYPE_CHECKING:  # pragma: no cover
         TF2_WEIGHTS_NAME,  # noqa: F401
         TF_WEIGHTS_NAME,  # noqa: F401
         is_offline_mode,  # noqa: F401
-    )
-    from .eval_results import (
-        EvalResultEntry,  # noqa: F401
-        eval_result_entries_to_yaml,  # noqa: F401
-        parse_eval_result_entries,  # noqa: F401
     )
     from .fastai_utils import (
         _save_pretrained_fastai,  # noqa: F401
@@ -1256,6 +1258,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
+        get_eval_results,  # noqa: F401
         get_full_repo_name,  # noqa: F401
         get_inference_endpoint,  # noqa: F401
         get_model_tags,  # noqa: F401

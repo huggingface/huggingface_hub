@@ -44,6 +44,7 @@ from typing import (
 from urllib.parse import quote
 
 import httpx
+import yaml
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
@@ -59,6 +60,7 @@ from ._commit_api import (
     _upload_files,
     _warn_on_overwriting_operations,
 )
+from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
@@ -5712,6 +5714,63 @@ class HfApi:
             raise NotASafetensorsRepoError(
                 f"'{repo_id}' is not a safetensors repo. Couldn't find '{constants.SAFETENSORS_INDEX_FILE}' or '{constants.SAFETENSORS_SINGLE_FILE}' files."
             )
+
+    @validate_hf_hub_args
+    def get_eval_results(
+        self,
+        repo_id: str,
+        *,
+        revision: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> list["EvalResultEntry"]:
+        """
+        Get evaluation results from a model repository.
+        It retrieves evaluation results from both the `.eval_results/*.yaml` files
+        and the `model-index` metadata in the README.md file.
+
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            revision (`str`, *optional*):
+                The git revision to fetch from. Can be a branch name, a tag, or a commit hash.
+                Defaults to the head of the `"main"` branch.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `list[EvalResultEntry]`: A list of evaluation result entries from the repository.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> results = api.get_eval_results("Qwen/Qwen2.5-72B-Instruct")
+            >>> for result in results:
+            ...     print(f"{result.dataset_id}: {result.value}")
+
+            ```
+        """
+        entries: list[EvalResultEntry] = []
+
+        files = self.list_repo_files(repo_id=repo_id, revision=revision, token=token)
+        for filename in files:
+            if filename.startswith(".eval_results/") and filename.endswith(".yaml"):
+                with open(
+                    self.hf_hub_download(repo_id=repo_id, filename=filename, revision=revision, token=token)
+                ) as f:
+                    data = yaml.safe_load(f)
+                if isinstance(data, list):
+                    entries.extend(parse_eval_result_entries(data))
+
+        model_info = self.model_info(repo_id=repo_id, revision=revision, token=token, expand=["model-index"])
+        if model_info.model_index:
+            for model_entry in model_info.model_index:
+                entries.extend(parse_eval_result_entries(model_entry.get("results", [])))
+
+        return entries
 
     def parse_safetensors_file_metadata(
         self,
