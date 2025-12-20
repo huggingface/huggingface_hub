@@ -71,6 +71,25 @@ pip install "huggingface_hub[mcp]"
 
 To learn more installation and optional dependencies, check out the [installation guide](https://huggingface.co/docs/huggingface_hub/en/installation).
 
+> [!NOTE]
+> For Windows users: to avoid HF_HUB_DISABLE_SYMLINKS_WARNING
+> 
+> On Windows you will get a warning like to following when downloading models:
+> 
+> ```
+> UserWarning: `huggingface_hub` cache-system uses symlinks by default to efficiently store duplicated files but your machine does not support them in C:\Users\name\.cache\huggingface\hub\model-name. 
+> Caching files will still work but in a degraded version that might require more space on your disk. This warning can be disabled by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For more details, see https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations.
+> ```
+> 
+> You can fix this warning using the 3 options below. Note that option 1+2 saves diskspace, while option3 only supresses the warning
+> 
+> 1. Enable Developer Mode on Windows (one-time setup) https://learn.microsoft.com/en-us/windows/advanced-settings/developer-mode
+> 2. Run Python as administrator when using the huggingface_hub library
+> 3. Keep using HF_HUB_DISABLE_SYMLINKS_WARNING=1 to suppress the warning and accept the extra disk usage
+> 
+> regarding the options, you should decide what is possible in your environment (e.g. company policiesy) and what fits best for you 
+
+
 ## Quick start
 
 ### Download files
