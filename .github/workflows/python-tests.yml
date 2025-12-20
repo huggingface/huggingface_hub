@@ -142,7 +142,7 @@ jobs:
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
           verbose: true
@@ -211,7 +211,7 @@ jobs:
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
           verbose: true
