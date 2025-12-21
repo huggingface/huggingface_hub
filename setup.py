@@ -23,7 +23,7 @@ install_requires = [
     "shellingham",
     "tqdm>=4.42.1",
     "typer-slim",
-    "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
+    "typing-extensions>=4.1.0",  # to be able to import TypeAlias, dataclass_transform
 ]
 
 extras = {}
