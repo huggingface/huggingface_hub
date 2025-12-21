@@ -193,15 +193,43 @@ def repo_list(
         typer.Option(help="Filter by author or organization."),
     ] = None,
     sort: Annotated[
-        Optional[RepoListSort],
-        typer.Option(help="Sort key in descending order"),
+        Optional[str],
+        typer.Option(help="Sort key. Add ':asc' for ascending or ':desc' for descending (default: descending). Valid keys: created_at, downloads, last_modified, likes, trending_score"),
     ] = None,
     token: TokenOpt = None,
 ) -> None:
     """List repositories of the requested type and print them as JSON."""
     api = get_hf_api(token=token)
 
-    sort_key: Optional[str] = sort.value if sort else None
+    # Parse sort parameter to extract key and direction
+    sort_key: Optional[str] = None
+    ascending: bool = False
+    
+    if sort:
+        # Check if sort has direction suffix
+        if sort.endswith(":asc"):
+            sort_key = sort[:-4]  # Remove ":asc" suffix
+            ascending = True
+        elif sort.endswith(":desc"):
+            sort_key = sort[:-5]  # Remove ":desc" suffix
+            ascending = False
+        else:
+            # No suffix, check if it's a valid enum value (backward compatibility)
+            try:
+                sort_enum = RepoListSort(sort)
+                sort_key = sort_enum.value
+                ascending = False  # Default to descending
+            except ValueError:
+                # Not an enum value, treat as string sort key
+                sort_key = sort
+                ascending = False  # Default to descending
+        
+        # Validate sort key
+        valid_sort_keys = ["created_at", "downloads", "last_modified", "likes", "trending_score"]
+        if sort_key not in valid_sort_keys:
+            print(f"Invalid sort key: {sort_key}. Valid keys are: {', '.join(valid_sort_keys)}")
+            raise typer.Exit(code=1)
+    
     if sort_key == "downloads" and repo_type == RepoType.space:
         print("Sort key 'downloads' is not valid for spaces.")
         raise typer.Exit(code=1)
@@ -217,6 +245,10 @@ def repo_list(
     else:
         for space_info in api.list_spaces(filter=filter, author=author, search=search, sort=sort_key, limit=limit):
             results.append(_repo_info_to_dict(space_info))
+    
+    # Reverse results if ascending order requested
+    if ascending:
+        results.reverse()
 
     print(json.dumps(results, indent=2))
 

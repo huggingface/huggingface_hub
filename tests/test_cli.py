@@ -1375,13 +1375,98 @@ class TestRepoListCommand:
 
     def test_repo_list_invalid_sort_key(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["repo", "list", "--sort", "invalid_key"])
-        assert result.exit_code == 2
-        assert "Invalid value" in result.output
+        assert result.exit_code == 1
+        assert "Invalid sort key" in result.stdout
 
     def test_repo_list_downloads_sort_invalid_for_spaces(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["repo", "list", "--repo-type", "space", "--sort", "downloads"])
         assert result.exit_code == 1
         assert "Sort key 'downloads' is not valid for spaces" in result.stdout
+
+    def test_repo_list_with_ascending_sort(self, runner: CliRunner) -> None:
+        # Create repos with different likes values
+        repo1 = ModelInfo(
+            id="user/model1",
+            downloads=100,
+            likes=10,
+            trending_score=5,
+            created_at="2025-01-01T12:00:00Z",
+            private=False,
+            tags=[],
+            siblings=[],
+            spaces=[],
+        )
+        repo2 = ModelInfo(
+            id="user/model2",
+            downloads=200,
+            likes=20,
+            trending_score=10,
+            created_at="2025-01-02T12:00:00Z",
+            private=False,
+            tags=[],
+            siblings=[],
+            spaces=[],
+        )
+        repo3 = ModelInfo(
+            id="user/model3",
+            downloads=300,
+            likes=30,
+            trending_score=15,
+            created_at="2025-01-03T12:00:00Z",
+            private=False,
+            tags=[],
+            siblings=[],
+            spaces=[],
+        )
+
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            # API returns in descending order (highest first)
+            api.list_models.return_value = iter([repo3, repo2, repo1])
+            result = runner.invoke(app, ["repo", "list", "--sort", "likes:asc", "--limit", "3"])
+
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        # With ascending sort, results should be reversed (lowest first)
+        assert output[0]["id"] == "user/model1"
+        assert output[1]["id"] == "user/model2"
+        assert output[2]["id"] == "user/model3"
+        # Verify API was called with correct sort key (without :asc suffix)
+        _, kwargs = api.list_models.call_args
+        assert kwargs["sort"] == "likes"
+
+    def test_repo_list_with_descending_sort(self, runner: CliRunner) -> None:
+        repo1 = ModelInfo(
+            id="user/model1",
+            downloads=100,
+            likes=10,
+            private=False,
+            tags=[],
+            siblings=[],
+            spaces=[],
+        )
+        repo2 = ModelInfo(
+            id="user/model2",
+            downloads=200,
+            likes=20,
+            private=False,
+            tags=[],
+            siblings=[],
+            spaces=[],
+        )
+
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([repo2, repo1])
+            result = runner.invoke(app, ["repo", "list", "--sort", "likes:desc", "--limit", "2"])
+
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        # With descending sort (default), results should not be reversed
+        assert output[0]["id"] == "user/model2"
+        assert output[1]["id"] == "user/model1"
+        _, kwargs = api.list_models.call_args
+        assert kwargs["sort"] == "likes"
 
 
 class TestInferenceEndpointsCommands:
