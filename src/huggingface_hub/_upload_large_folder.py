@@ -255,6 +255,10 @@ def upload_large_folder_internal(
 
     for thread in threads:
         thread.join()
+    
+    # if a fatal error occured (e.g storage limit 403), surface it instead of looping silently
+    if status.fatal_error is not None:
+        raise status.fatal_error
 
     logger.info(status.current_report())
     logging.info("Upload is complete!")
@@ -294,6 +298,10 @@ class LargeUploadStatus:
         self.nb_workers_commit: int = 0
         self.nb_workers_waiting: int = 0
         self.last_commit_attempt: Optional[float] = None
+
+        # Abort / fatal error state
+        self.fatal_error: Optional[BaseException] = None
+        self.aborted: bool = False
 
         self._started_at = datetime.now()
         self._chunk_idx: int = 1
@@ -393,6 +401,8 @@ class LargeUploadStatus:
 
     def is_done(self) -> bool:
         with self.lock:
+            if self.aborted:
+                return True
             return all(metadata.is_committed or metadata.should_ignore for _, metadata in self.items)
 
 
@@ -490,9 +500,32 @@ def _worker_job(
             except Exception as e:
                 logger.error(f"Failed to commit: {e}")
                 traceback.format_exc()
-                for item in items:
-                    status.queue_commit.put(item)
+
+                # treat some errors as fatal (non‑retryable)
+                from .errors import HfHubHTTPError
+
+                is_fatal = False
+                if isinstance(e, HfHubHTTPError):
+                    response = getattr(e, "response", None)
+                    status_code = getattr(response, "status_code", None)
+                    text = getattr(response, "text", "") or ""
+
+                    # Storage limit / internal systems block => will not be fixed by retries
+                    if status_code == 403 and "storage patterns tripped our internal systems" in text:
+                        is_fatal = True
+
+                if is_fatal:
+                    # Mark upload as aborted and do NOT requeue items
+                    with status.lock:
+                        status.fatal_error = e
+                        status.aborted = True
+                else:
+                    # Transient / unknown error: keep current retry behavior
+                    for item in items:
+                        status.queue_commit.put(item)
+
                 success = False
+
             duration = time.time() - start_ts
             status.update_chunk(success, len(items), duration)
             with status.lock:
