@@ -402,3 +402,39 @@ class XetRefreshTokenError(XetError):
 
 class XetDownloadError(Exception):
     """Exception thrown when the download from Xet Storage fails."""
+
+
+# CHECKSUM ERRORS
+
+
+class ChecksumMismatchError(OSError):
+    """
+    Raised when a downloaded file's checksum does not match the expected value.
+
+    This error indicates that the file was corrupted during download or transfer.
+    The download should be retried.
+
+    Example:
+
+    ```py
+    >>> from huggingface_hub import hf_hub_download
+    >>> hf_hub_download('model', 'file.bin')
+    (...)
+    huggingface_hub.errors.ChecksumMismatchError: Downloaded file checksum does not match expected SHA-256.
+    Expected: abc123...
+    Actual: def456...
+    File: /path/to/file.bin
+    ```
+    """
+
+    def __init__(
+        self,
+        message: str,
+        expected_checksum: Optional[str] = None,
+        actual_checksum: Optional[str] = None,
+        file_path: Optional[Union[str, Path]] = None,
+    ):
+        super().__init__(message)
+        self.expected_checksum = expected_checksum
+        self.actual_checksum = actual_checksum
+        self.file_path = file_path

@@ -523,6 +523,7 @@ _SUBMOD_ATTRS = {
         "CachedFileInfo",
         "CachedRepoInfo",
         "CachedRevisionInfo",
+        "ChecksumMismatchError",
         "CorruptedCacheException",
         "DeleteCacheStrategy",
         "HFCacheInfo",
@@ -617,6 +618,7 @@ __all__ = [
     "CommitOperationCopy",
     "CommitOperationDelete",
     "CommitScheduler",
+    "ChecksumMismatchError",
     "CorruptedCacheException",
     "DDUFEntry",
     "DatasetCard",
@@ -1543,6 +1545,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CachedRepoInfo,  # noqa: F401
         CachedRevisionInfo,  # noqa: F401
         CacheNotFound,  # noqa: F401
+        ChecksumMismatchError,  # noqa: F401
         CorruptedCacheException,  # noqa: F401
         DeleteCacheStrategy,  # noqa: F401
         HFCacheInfo,  # noqa: F401

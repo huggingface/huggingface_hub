@@ -18,6 +18,7 @@ from tqdm.auto import tqdm as base_tqdm
 from . import constants
 from ._local_folder import get_local_download_paths, read_download_metadata, write_download_metadata
 from .errors import (
+    ChecksumMismatchError,
     FileMetadataError,
     GatedRepoError,
     HfHubHTTPError,
@@ -1229,10 +1230,32 @@ def _hf_hub_download_to_cache_dir(
 
     # Blob exists but pointer must be (safely) created -> take the lock
     if not force_download and os.path.exists(blob_path):
-        with WeakFileLock(lock_path):
-            if not os.path.exists(pointer_path):
-                _create_symlink(blob_path, pointer_path, new_blob=False)
-            return pointer_path
+        # Verify checksum of existing blob to ensure it's not corrupted
+        if etag is not None and REGEX_SHA256.match(etag) is not None:
+            logger.debug(f"Verifying SHA-256 checksum for existing blob: {filename}")
+            with open(blob_path, "rb") as f:
+                actual_checksum = sha_fileobj(f).hex()
+            
+            if actual_checksum != etag:
+                # Blob is corrupted, delete it and re-download
+                logger.warning(
+                    f"Existing blob file checksum mismatch detected. "
+                    f"Expected: {etag}, Actual: {actual_checksum}. "
+                    f"File will be re-downloaded: {filename}"
+                )
+                os.unlink(blob_path)
+            else:
+                logger.debug(f"Checksum verification passed for existing blob: {filename}")
+                with WeakFileLock(lock_path):
+                    if not os.path.exists(pointer_path):
+                        _create_symlink(blob_path, pointer_path, new_blob=False)
+                    return pointer_path
+        else:
+            # Not a SHA-256 etag, skip verification and use existing blob
+            with WeakFileLock(lock_path):
+                if not os.path.exists(pointer_path):
+                    _create_symlink(blob_path, pointer_path, new_blob=False)
+                return pointer_path
 
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
@@ -1885,6 +1908,31 @@ def _download_to_tmp_and_move(
                 expected_size=expected_size,
                 tqdm_class=tqdm_class,
             )
+
+    # Verify checksum if etag is a SHA-256 hash (64 hex characters)
+    # This ensures the downloaded file matches the expected content
+    if etag is not None and REGEX_SHA256.match(etag) is not None:
+        logger.debug(f"Verifying SHA-256 checksum for downloaded file: {filename}")
+        with incomplete_path.open("rb") as f:
+            actual_checksum = sha_fileobj(f).hex()
+        
+        if actual_checksum != etag:
+            # Delete the corrupted incomplete file
+            incomplete_path.unlink(missing_ok=True)
+            error_msg = (
+                f"Downloaded file checksum does not match expected SHA-256.\n"
+                f"Expected: {etag}\n"
+                f"Actual: {actual_checksum}\n"
+                f"File: {filename}\n"
+                f"This indicates the file was corrupted during download. Please retry the download."
+            )
+            raise ChecksumMismatchError(
+                error_msg,
+                expected_checksum=etag,
+                actual_checksum=actual_checksum,
+                file_path=str(incomplete_path),
+            )
+        logger.debug(f"Checksum verification passed for {filename}")
 
     logger.debug(f"Download complete. Moving file to {destination_path}")
     _chmod_and_move(incomplete_path, destination_path)
