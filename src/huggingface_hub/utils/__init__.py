@@ -17,6 +17,7 @@
 from huggingface_hub.errors import (
     BadRequestError,
     CacheNotFound,
+    ChecksumMismatchError,
     CorruptedCacheException,
     DisabledRepoError,
     EntryNotFoundError,
