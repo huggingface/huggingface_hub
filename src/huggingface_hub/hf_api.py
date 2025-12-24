@@ -5644,6 +5644,9 @@ class HfApi:
             NotASafetensorsRepoError: 'runwayml/stable-diffusion-v1-5' is not a safetensors repo. Couldn't find 'model.safetensors.index.json' or 'model.safetensors' files.
             ```
         """
+        has_index = False
+        index_file = ""
+
         if self.file_exists(  # Single safetensors file => non-sharded model
             repo_id=repo_id,
             filename=constants.SAFETENSORS_SINGLE_FILE,
@@ -5681,9 +5684,31 @@ class HfApi:
                 revision=revision,
                 token=token,
             )
+            has_index = True
+
+        elif (
+            self.file_exists(  # Multiple safetensors files => sharded with index
+                repo_id=repo_id,
+                filename=constants.CONSOLIDATED_SAFETENSORS_INDEX_FILE,
+                repo_type=repo_type,
+                revision=revision,
+                token=token,
+            )
+            and not has_index
+        ):
+            # Fetch index
+            index_file = self.hf_hub_download(
+                repo_id=repo_id,
+                filename=constants.CONSOLIDATED_SAFETENSORS_INDEX_FILE,
+                repo_type=repo_type,
+                revision=revision,
+                token=token,
+            )
+            has_index = True
+
+        if has_index:
             with open(index_file) as f:
                 index = json.load(f)
-
             weight_map = index.get("weight_map", {})
 
             # Fetch metadata per shard
