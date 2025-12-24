@@ -5644,6 +5644,8 @@ class HfApi:
             NotASafetensorsRepoError: 'runwayml/stable-diffusion-v1-5' is not a safetensors repo. Couldn't find 'model.safetensors.index.json' or 'model.safetensors' files.
             ```
         """
+        index_file = None
+
         if self.file_exists(  # Single safetensors file => non-sharded model
             repo_id=repo_id,
             filename=constants.SAFETENSORS_SINGLE_FILE,
@@ -5681,37 +5683,54 @@ class HfApi:
                 revision=revision,
                 token=token,
             )
-            with open(index_file) as f:
-                index = json.load(f)
 
-            weight_map = index.get("weight_map", {})
-
-            # Fetch metadata per shard
-            files_metadata = {}
-
-            def _parse(filename: str) -> None:
-                files_metadata[filename] = self.parse_safetensors_file_metadata(
-                    repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
-                )
-
-            thread_map(
-                _parse,
-                set(weight_map.values()),
-                desc="Parse safetensors files",
-                tqdm_class=hf_tqdm,
+        elif self.file_exists(
+            repo_id=repo_id,
+            filename=constants.CONSOLIDATED_SAFETENSORS_INDEX_FILE,
+            repo_type=repo_type,
+            revision=revision,
+            token=token,
+        ):
+            # Fetch index
+            index_file = self.hf_hub_download(
+                repo_id=repo_id,
+                filename=constants.CONSOLIDATED_SAFETENSORS_INDEX_FILE,
+                repo_type=repo_type,
+                revision=revision,
+                token=token,
             )
 
-            return SafetensorsRepoMetadata(
-                metadata=index.get("metadata", None),
-                sharded=True,
-                weight_map=weight_map,
-                files_metadata=files_metadata,
-            )
-        else:
+        if index_file is None:
             # Not a safetensors repo
             raise NotASafetensorsRepoError(
                 f"'{repo_id}' is not a safetensors repo. Couldn't find '{constants.SAFETENSORS_INDEX_FILE}' or '{constants.SAFETENSORS_SINGLE_FILE}' files."
             )
+
+        with open(index_file) as f:
+            index = json.load(f)
+        weight_map = index.get("weight_map", {})
+
+        # Fetch metadata per shard
+        files_metadata = {}
+
+        def _parse(filename: str) -> None:
+            files_metadata[filename] = self.parse_safetensors_file_metadata(
+                repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
+            )
+
+        thread_map(
+            _parse,
+            set(weight_map.values()),
+            desc="Parse safetensors files",
+            tqdm_class=hf_tqdm,
+        )
+
+        return SafetensorsRepoMetadata(
+            metadata=index.get("metadata", None),
+            sharded=True,
+            weight_map=weight_map,
+            files_metadata=files_metadata,
+        )
 
     def parse_safetensors_file_metadata(
         self,
