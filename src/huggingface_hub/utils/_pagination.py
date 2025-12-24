@@ -15,10 +15,11 @@
 """Contains utilities to handle pagination on Huggingface Hub."""
 
 from typing import Iterable, Optional
+from urllib.parse import urlparse
 
 import httpx
 
-from . import get_session, hf_raise_for_status, http_backoff, logging
+from . import fix_hf_endpoint_in_url, get_session, hf_raise_for_status, http_backoff, logging
 
 
 logger = logging.get_logger(__name__)
@@ -32,6 +33,13 @@ def paginate(path: str, params: dict, headers: dict) -> Iterable:
     - https://requests.readthedocs.io/en/latest/api/#requests.Response.links
     - https://docs.github.com/en/rest/guides/traversing-with-pagination#link-header
     """
+    # Extract endpoint from the initial path if it's a full URL
+    # This is needed to fix pagination links that point to huggingface.co
+    endpoint = None
+    if path.startswith("http://") or path.startswith("https://"):
+        parsed = urlparse(path)
+        endpoint = f"{parsed.scheme}://{parsed.netloc}"
+
     session = get_session()
     r = session.get(path, params=params, headers=headers)
     hf_raise_for_status(r)
@@ -41,6 +49,12 @@ def paginate(path: str, params: dict, headers: dict) -> Iterable:
     # Next link already contains query params
     next_page = _get_next_page(r)
     while next_page is not None:
+        # Fix the next_page URL to use the same endpoint as the initial request
+        # This is critical when using mirrors/proxies - the server may return links
+        # pointing to huggingface.co, but we need to use the mirror address
+        if endpoint is not None:
+            next_page = fix_hf_endpoint_in_url(next_page, endpoint)
+
         logger.debug(f"Pagination detected. Requesting next page: {next_page}")
         r = http_backoff("GET", next_page, headers=headers)
         hf_raise_for_status(r)
