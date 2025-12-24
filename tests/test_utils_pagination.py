@@ -71,3 +71,58 @@ class TestPagination(unittest.TestCase):
                 break
         else:
             self.fail("Did not get more than 5 repos")
+
+    @patch("huggingface_hub.utils._pagination.fix_hf_endpoint_in_url")
+    @patch("huggingface_hub.utils._pagination.hf_raise_for_status")
+    @patch("huggingface_hub.utils._pagination.http_backoff")
+    @patch("huggingface_hub.utils._pagination.get_session")
+    @handle_injection_in_test
+    def test_paginate_with_mirror_endpoint(
+        self,
+        mock_fix_hf_endpoint_in_url: Mock,
+        mock_hf_raise_for_status: Mock,
+        mock_http_backoff: Mock,
+        mock_get_session: Mock,
+    ) -> None:
+        """Test that pagination links are fixed when using a mirror endpoint."""
+        mock_get = mock_get_session().get
+        mock_params = Mock()
+        mock_headers = Mock()
+
+        # Simulate page 1
+        mock_response_page_1 = Mock()
+        mock_response_page_1.json.return_value = [{"id": "model1"}, {"id": "model2"}]
+        # Server returns a link pointing to huggingface.co
+        mock_response_page_1.links = {"next": {"url": "https://huggingface.co/api/models?cursor=next"}}
+
+        # Simulate page 2
+        mock_response_page_2 = Mock()
+        mock_response_page_2.json.return_value = [{"id": "model3"}]
+        mock_response_page_2.links = {}
+
+        # Mock responses
+        mock_get.side_effect = [mock_response_page_1]
+        mock_http_backoff.side_effect = [mock_response_page_2]
+
+        # Mock fix_hf_endpoint_in_url to return a fixed URL
+        mock_fix_hf_endpoint_in_url.return_value = "https://mirror.co/api/models?cursor=next"
+
+        # Test with a mirror URL
+        results = paginate("https://mirror.co/api/models", params=mock_params, headers=mock_headers)
+        list_results = list(results)
+
+        # Verify results
+        assert len(list_results) == 3
+        assert list_results[0]["id"] == "model1"
+        assert list_results[1]["id"] == "model2"
+        assert list_results[2]["id"] == "model3"
+
+        # Verify fix_hf_endpoint_in_url was called with the next page URL
+        mock_fix_hf_endpoint_in_url.assert_called_once_with(
+            "https://huggingface.co/api/models?cursor=next", "https://mirror.co"
+        )
+
+        # Verify the fixed URL was used for the second request
+        assert mock_http_backoff.call_args_list == [
+            call("GET", "https://mirror.co/api/models?cursor=next", headers=mock_headers),
+        ]
