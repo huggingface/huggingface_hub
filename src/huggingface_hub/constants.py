@@ -47,6 +47,7 @@ TF2_WEIGHTS_FILE_PATTERN = "tf_model{suffix}.h5"
 
 SAFETENSORS_SINGLE_FILE = "model.safetensors"
 SAFETENSORS_INDEX_FILE = "model.safetensors.index.json"
+CONSOLIDATED_SAFETENSORS_INDEX_FILE = "consolidated.safetensors.index.json"
 SAFETENSORS_MAX_HEADER_LENGTH = 25_000_000
 
 # Timeout of aquiring file lock and logging the attempt
