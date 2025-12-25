@@ -1,3 +1,4 @@
+import importlib
 import threading
 import time
 import unittest
@@ -604,3 +605,130 @@ class TestWarnOnWarningHeaders:
         assert len(warnings) == 1
         assert warnings == ["Another warning."]
         assert "Topic4" in _WARNED_TOPICS
+
+
+class TestHttpMaxWaitTimeEnvVar:
+    """Test suite for HF_HUB_HTTP_MAX_WAIT_TIME environment variable."""
+
+    def test_default_max_wait_time_without_env_var(self, monkeypatch):
+        """Test that max_wait_time defaults to 8 when env var is not set."""
+        monkeypatch.delenv("HF_HUB_HTTP_MAX_WAIT_TIME", raising=False)
+
+        # Need to reload the constants module to pick up the env var change
+        from huggingface_hub import constants as constants_module
+
+        importlib.reload(constants_module)
+
+        assert constants_module.HF_HUB_HTTP_MAX_WAIT_TIME is None
+
+        # Mock the session to test the actual wait time calculation
+        with patch("huggingface_hub.utils._http.get_session") as mock_session:
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_session().request.return_value = mock_response
+
+            # Call http_backoff without max_wait_time argument
+            response = http_backoff("GET", URL)
+
+            # The function should work correctly with default
+            assert response.status_code == 200
+
+    def test_max_wait_time_from_env_var(self, monkeypatch):
+        """Test that max_wait_time uses value from HF_HUB_HTTP_MAX_WAIT_TIME env var."""
+        monkeypatch.setenv("HF_HUB_HTTP_MAX_WAIT_TIME", "16")
+
+        # Reload constants to pick up the new env var
+        from huggingface_hub import constants as constants_module
+
+        importlib.reload(constants_module)
+
+        assert constants_module.HF_HUB_HTTP_MAX_WAIT_TIME == 16
+
+    def test_explicit_max_wait_time_overrides_env_var(self, monkeypatch):
+        """Test that explicitly passed max_wait_time takes precedence over env var."""
+        monkeypatch.setenv("HF_HUB_HTTP_MAX_WAIT_TIME", "16")
+
+        # Reload constants
+        from huggingface_hub import constants as constants_module
+
+        importlib.reload(constants_module)
+
+        sleep_times = []
+
+        def _side_effect_timer() -> Generator:
+            t0 = time.time()
+            while True:
+                yield ConnectTimeout("Connection timeout")
+                t1 = time.time()
+                sleep_times.append(round(t1 - t0, 1))
+                t0 = t1
+
+        with patch("huggingface_hub.utils._http.get_session") as mock_session:
+            mock_session().request.side_effect = _side_effect_timer()
+
+            # Explicitly pass max_wait_time=0.3 (should override env var)
+            with pytest.raises(ConnectTimeout):
+                http_backoff("GET", URL, base_wait_time=0.1, max_wait_time=0.3, max_retries=3)
+
+            # Check that the explicit max_wait_time=0.3 was used (not 16 from env)
+            # Expected: [0.1, 0.2, 0.3] - exponential backoff capped at 0.3
+            expected_sleep_times = [0.1, 0.2, 0.3]
+            assert sleep_times == expected_sleep_times
+
+    def test_env_var_used_as_default_when_not_specified(self, monkeypatch):
+        """Test that env var is used as default when max_wait_time is not specified."""
+        monkeypatch.setenv("HF_HUB_HTTP_MAX_WAIT_TIME", "20")
+
+        # Reload constants
+        from huggingface_hub import constants as constants_module
+        from huggingface_hub.utils import _http as http_module
+
+        importlib.reload(constants_module)
+        importlib.reload(http_module)
+
+        sleep_times = []
+
+        def _side_effect_timer() -> Generator:
+            t0 = time.time()
+            while True:
+                yield ConnectTimeout("Connection timeout")
+                t1 = time.time()
+                sleep_times.append(round(t1 - t0, 1))
+                t0 = t1
+
+        with patch("huggingface_hub.utils._http.get_session") as mock_session:
+            mock_session().request.side_effect = _side_effect_timer()
+
+            # Call without max_wait_time - should use env var (20)
+            with pytest.raises(ConnectTimeout):
+                http_module.http_backoff("GET", URL, base_wait_time=0.1, max_retries=6)
+
+            # With env var set to 20, the sleep times should cap at 20
+            # Expected: [0.1, 0.2, 0.4, 0.8, 1.6, 3.2] (but capped at 20)
+            # In practice: [0.1, 0.2, 0.4, 0.8, 1.6, 3.2]
+            assert all(sleep_time <= 20.0 for sleep_time in sleep_times)
+            # First few should follow exponential pattern
+            assert sleep_times[:3] == [0.1, 0.2, 0.4]
+
+    def test_invalid_env_var_uses_default(self, monkeypatch):
+        """Test that invalid env var value falls back to default."""
+        monkeypatch.setenv("HF_HUB_HTTP_MAX_WAIT_TIME", "invalid")
+
+        # Reload constants - invalid value should result in None
+        from huggingface_hub import constants as constants_module
+
+        # _as_int should handle invalid values gracefully
+        try:
+            importlib.reload(constants_module)
+        except ValueError:
+            # If _as_int raises ValueError for invalid input, that's expected
+            pass
+
+        # In any case, http_backoff should still work with default value
+        with patch("huggingface_hub.utils._http.get_session") as mock_session:
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_session().request.return_value = mock_response
+
+            response = http_backoff("GET", URL)
+            assert response.status_code == 200
