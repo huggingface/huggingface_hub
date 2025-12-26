@@ -604,3 +604,26 @@ class TestWarnOnWarningHeaders:
         assert len(warnings) == 1
         assert warnings == ["Another warning."]
         assert "Topic4" in _WARNED_TOPICS
+
+    def test_hf_raise_for_status_handles_malformed_warning_headers(self, caplog):
+        """Test that malformed warning headers don't break hf_raise_for_status."""
+        response = Mock(spec=httpx.Response)
+        response.status_code = 200
+        
+        def mock_get_list(key: str):
+            if key == "X-HF-Warning":
+                return [123]
+            return []
+        
+        response.headers = Mock()
+        response.headers.get_list = mock_get_list
+        response.raise_for_status = Mock()
+        
+        with caplog.at_level("DEBUG"):
+            hf_raise_for_status(response)
+        
+        response.raise_for_status.assert_called_once()
+        
+        # Verify error was logged
+        debug_logs = [record.message for record in caplog.records if record.levelname == "DEBUG"]
+        assert any("Failed to parse warning headers" in log for log in debug_logs)
