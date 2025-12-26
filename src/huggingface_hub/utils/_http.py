@@ -649,9 +649,11 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
     """
     try:
         _warn_on_warning_headers(response)
-    except Exception:
-        # Never raise on warning parsing
-        logger.debug("Failed to parse warning headers", exc_info=True)
+    except (ValueError, AttributeError, KeyError, TypeError) as e:
+        # Never raise on warning parsing - these can occur if warning headers
+        # are malformed or response structure is unexpected. We log the error
+        # but continue with the request processing.
+        logger.debug(f"Failed to parse warning headers: {e}", exc_info=True)
 
     try:
         response.raise_for_status()
