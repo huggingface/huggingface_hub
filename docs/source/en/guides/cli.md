@@ -870,6 +870,9 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 # View logs from a job
 >>> hf jobs logs <job_id>
 
+# View resources usage stats and metrics from a job
+>>> hf jobs stats <job_id>
+
 # Cancel a job
 >>> hf jobs cancel <job_id>
 ```

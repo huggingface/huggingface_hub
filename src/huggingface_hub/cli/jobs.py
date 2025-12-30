@@ -23,6 +23,9 @@ Usage:
     # Stream logs from a job
     hf jobs logs <job-id>
 
+    # Stream resources usage stats and metrics from a job
+    hf jobs stats <job-id>
+
     # Inspect detailed information about a job
     hf jobs inspect <job-id>
 
@@ -64,6 +67,7 @@ import typer
 from huggingface_hub import SpaceHardware, get_token
 from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.utils import logging
+from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._cli_utils import TokenOpt, get_hf_api, typer_factory
@@ -305,14 +309,16 @@ def _matches_filters(job_properties: dict[str, str], filters: dict[str, str]) ->
     return True
 
 
-def _print_output(rows: list[list[Union[str, int]]], headers: list[str], fmt: Optional[str]) -> None:
+def _print_output(
+    rows: list[list[Union[str, int]]], headers: list[str], aliases: list[str], fmt: Optional[str]
+) -> None:
     """Print output according to the chosen format."""
     if fmt:
         # Use custom template if provided
         template = fmt
         for row in rows:
             line = template
-            for i, field in enumerate(["id", "image", "command", "created", "status"]):
+            for i, field in enumerate(aliases):
                 placeholder = f"{{{{.{field}}}}}"
                 if placeholder in line:
                     line = line.replace(placeholder, str(row[i]))
@@ -320,6 +326,69 @@ def _print_output(rows: list[list[Union[str, int]]], headers: list[str], fmt: Op
     else:
         # Default tabular format
         print(_tabulate(rows, headers=headers))
+
+
+def _clear_line(n=1):
+    LINE_UP = "\033[1A"
+    LINE_CLEAR = "\x1b[2K"
+    for i in range(n):
+        print(LINE_UP, end=LINE_CLEAR)
+
+
+@jobs_cli.command("stats", help="Fetch the resource usage statistics and metrics of a Job")
+def jobs_stats(
+    job_id: JobIdArg,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    api = get_hf_api(token=token)
+    table_headers = [
+        "JOB ID",
+        "CPU %",
+        "NUM CPU",
+        "MEM %",
+        "MEM USAGE",
+        "NET I/O",
+        "GPU UTIL %",
+        "GPU MEM %",
+        "GPU MEM USAGE",
+    ]
+    headers_aliases = [
+        "id",
+        "cpu_usage_pct",
+        "cpu_millicores",
+        "memory_used_bytes_pct",
+        "memory_used_bytes_and_total_bytes",
+        "rx_bps_and_tx_bps",
+        "gpu_utilization",
+        "gpu_memory_used_bytes_pct",
+        "gpu_memory_used_bytes_and_total_bytes",
+    ]
+    row = [job_id] + ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
+    _print_output([row], table_headers, headers_aliases, None)
+    rx, tx = 0.0, 0.0
+    for metrics in api.fetch_job_metrics(job_id=job_id, namespace=namespace):
+        rx += metrics["rx_bps"]
+        tx += metrics["tx_bps"]
+        row = [
+            job_id,
+            f"{metrics['cpu_usage_pct']}%",
+            round(metrics["cpu_millicores"] / 1000.0, 1),
+            f"{round(100 * metrics['memory_used_bytes'] / metrics['memory_total_bytes'], 2)}%",
+            f"{_format_size(metrics['memory_used_bytes'])}B / {_format_size(metrics['memory_total_bytes'])}B",
+            f"{_format_size(rx)}B / {_format_size(tx)}B",
+        ]
+        if metrics["gpus"] and isinstance(metrics["gpus"], dict):
+            gpu = next(iter(metrics["gpus"].values()))
+            row += [
+                f"{gpu['utilization']}%",
+                f"{round(100 * gpu['memory_used_bytes'] / gpu['memory_total_bytes'], 2)}%",
+                f"{_format_size(gpu['memory_used_bytes'])}B / {_format_size(gpu['memory_total_bytes'])}B",
+            ]
+        else:
+            row += ["N/A"] * (len(table_headers) - len(row))
+        _clear_line(3)
+        _print_output([row], table_headers, headers_aliases, None)
 
 
 @jobs_cli.command("ps", help="List Jobs")
@@ -355,6 +424,7 @@ def jobs_ps(
         jobs = api.list_jobs(namespace=namespace)
         # Define table headers
         table_headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
+        headers_aliases = ["id", "image", "command", "created", "status"]
         rows: list[list[Union[str, int]]] = []
 
         filters: dict[str, str] = {}
@@ -400,7 +470,7 @@ def jobs_ps(
             print(f"No jobs found{filters_msg}")
             return
         # Apply custom format if provided or use default tabular format
-        _print_output(rows, table_headers, format)
+        _print_output(rows, table_headers, headers_aliases, format)
 
     except HfHubHTTPError as e:
         print(f"Error fetching jobs data: {e}")
@@ -576,6 +646,7 @@ def scheduled_ps(
         api = get_hf_api(token=token)
         scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
         table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
+        headers_aliases = ["id", "schedule", "image", "command", "last", "next", "suspend"]
         rows: list[list[Union[str, int]]] = []
         filters: dict[str, str] = {}
         for f in filter or []:
@@ -615,7 +686,7 @@ def scheduled_ps(
             )
             print(f"No scheduled jobs found{filters_msg}")
             return
-        _print_output(rows, table_headers, format)
+        _print_output(rows, table_headers, headers_aliases, format)
 
     except HfHubHTTPError as e:
         print(f"Error fetching scheduled jobs data: {e}")

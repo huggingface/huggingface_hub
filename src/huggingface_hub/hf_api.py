@@ -43,6 +43,7 @@ from typing import (
 )
 from urllib.parse import quote
 
+import httpcore
 import httpx
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
@@ -10123,7 +10124,7 @@ class HfApi:
             ```python
             >>> from huggingface_hub import fetch_job_logs, run_job
             >>> job = run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
-            >>> for log in fetch_job_logs(job.id):
+            >>> for log in fetch_job_logs(job_id=job.id):
             ...     print(log)
             Hello from HF compute!
             ```
@@ -10186,6 +10187,112 @@ class HfApi:
             )
             if "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING"):
                 job_finished = True
+
+    def fetch_job_metrics(
+        self,
+        *,
+        job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[dict[str, Any]]:
+        """
+        Fetch all the live metrics from a compute Job on Hugging Face infrastructure.
+
+        Args:
+            job_id (`str`):
+                ID of the Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import fetch_job_metrics, run_job
+            >>> job = run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], flavor="a10g-small")
+            >>> for metrics in fetch_job_metrics(job_id=job.id):
+            ...     print(metrics)
+            {
+                "cpu_usage_pct": 0,
+                "cpu_millicores": 3500,
+                "memory_used_bytes": 1306624,
+                "memory_total_bytes": 15032385536,
+                "rx_bps": 0,
+                "tx_bps": 0,
+                "gpus": {
+                    "882fa930": {
+                        "utilization": 0,
+                        "memory_used_bytes": 0,
+                        "memory_total_bytes": 22836000000
+                    }
+                },
+                "replica": "57vr7"
+            }
+            ```
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        # - there is one "metric" event every second, like this:
+        # event: metric
+        # data: {"cpu_usage_pct":0,"cpu_millicores":3500,"memory_used_bytes":1417216,"memory_total_bytes":15032385536,"rx_bps":0,"tx_bps":0,"gpus":{"d901cd7f":{"utilization":0,"memory_used_bytes":0,"memory_total_bytes":22836000000}},"replica":"j6qz9"}
+        # - the stream doesn't end when the job finishes, so we rely on timeouts
+        # - it returns an internal error if the job has already finished, we simply ignore it
+        # - ChunkedEncodingError can happen in case of stopped logging in the middle of streaming
+        # - there is a ": keep-alive" every 30 seconds
+
+        # We don't use http_backoff since we need to check ourselves if the job is still running
+        retry = 0
+        max_retries = 5
+        min_wait_time = 1
+        max_wait_time = 10
+        sleep_time = 0
+        while True:
+            time.sleep(sleep_time)
+            try:
+                with get_session().stream(
+                    "GET",
+                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}/metrics",
+                    headers=self._build_hf_headers(token=token),
+                    timeout=10,
+                ) as response:
+                    for line in response.iter_lines():
+                        if line and line.startswith("data: {"):
+                            yield json.loads(line[len("data: ") :])
+                    break
+            except httpx.DecodingError:
+                # Response ended prematurely
+                break
+            except KeyboardInterrupt:
+                break
+            except (httpx.HTTPError, httpcore.TimeoutException) as err:
+                is_no_event_timeout = (
+                    isinstance(err, httpx.NetworkError)
+                    and err.__context__
+                    and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
+                )
+                if is_no_event_timeout:
+                    # job is likely finished
+                    pass
+                elif retry >= max_retries:
+                    raise
+                else:
+                    retry += 1
+                    sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+            job_status = (
+                get_session()
+                .get(
+                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}",
+                    headers=self._build_hf_headers(token=token),
+                )
+                .json()
+            )
+            if "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING"):
+                break
 
     def list_jobs(
         self,
@@ -11015,6 +11122,7 @@ list_user_following = api.list_user_following
 # Jobs API
 run_job = api.run_job
 fetch_job_logs = api.fetch_job_logs
+fetch_job_metrics = api.fetch_job_metrics
 list_jobs = api.list_jobs
 inspect_job = api.inspect_job
 cancel_job = api.cancel_job
