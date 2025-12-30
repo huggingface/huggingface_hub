@@ -81,12 +81,14 @@ Group-based control:
 """
 
 import io
+import json
 import logging
 import os
+import sys
 import warnings
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import ContextManager, Iterator, Optional, Union
+from typing import ContextManager, Iterator, Literal, Optional, Union
 
 from tqdm.auto import tqdm as old_tqdm
 
@@ -103,6 +105,10 @@ from ..constants import HF_HUB_DISABLE_PROGRESS_BARS
 
 
 progress_bar_states: dict[str, bool] = {}
+
+# Progress format: "tqdm" (default), "json", or "silent"
+# When "json", emits machine-readable JSON lines to stderr instead of visual progress bars
+_progress_format: Literal["tqdm", "json", "silent"] = "tqdm"
 
 
 def disable_progress_bars(name: Optional[str] = None) -> None:
@@ -198,6 +204,51 @@ def are_progress_bars_disabled(name: Optional[str] = None) -> bool:
     return not progress_bar_states.get("_global", True)
 
 
+def set_progress_format(format: Literal["tqdm", "json", "silent"]) -> None:
+    """
+    Set the global progress output format.
+
+    This function controls how progress is reported:
+    - "tqdm" (default): Interactive progress bars using tqdm
+    - "json": Machine-readable JSON lines to stderr
+    - "silent": No progress output
+
+    When format is "json", progress is emitted as JSON lines to stderr:
+    ```json
+    {"stage": "Downloading model.safetensors", "current": 1024, "total": 4096, "percent": 25.0}
+    ```
+
+    Args:
+        format (`str`):
+            The progress format to use. One of "tqdm", "json", or "silent".
+
+    Example:
+        ```python
+        from huggingface_hub.utils import set_progress_format
+
+        # Enable JSON output for programmatic consumption
+        set_progress_format("json")
+
+        # Download will now emit JSON progress to stderr
+        hf_hub_download("gpt2", "config.json")
+        ```
+    """
+    global _progress_format
+    if format not in ("tqdm", "json", "silent"):
+        raise ValueError(f"Invalid progress format: {format}. Must be one of 'tqdm', 'json', or 'silent'.")
+    _progress_format = format
+
+
+def get_progress_format() -> Literal["tqdm", "json", "silent"]:
+    """
+    Get the current global progress output format.
+
+    Returns:
+        `str`: The current progress format ("tqdm", "json", or "silent").
+    """
+    return _progress_format
+
+
 def is_tqdm_disabled(log_level: int) -> Optional[bool]:
     """
     Determine if tqdm progress bars should be disabled based on logging level and environment settings.
@@ -215,14 +266,56 @@ class tqdm(old_tqdm):
     """
     Class to override `disable` argument in case progress bars are globally disabled.
 
+    Also supports JSON output format for machine-readable progress when `set_progress_format("json")` is called.
+
     Taken from https://github.com/tqdm/tqdm/issues/619#issuecomment-619639324.
     """
 
     def __init__(self, *args, **kwargs):
         name = kwargs.pop("name", None)  # do not pass `name` to `tqdm`
-        if are_progress_bars_disabled(name):
+        self._json_format = _progress_format == "json"
+        self._last_json_percent = -1  # Track last emitted percent to avoid spam
+
+        if are_progress_bars_disabled(name) or _progress_format == "silent":
             kwargs["disable"] = True
+        elif self._json_format:
+            # For JSON format, redirect output to suppress visual bars but keep tracking
+            kwargs["file"] = io.StringIO()
+            kwargs["disable"] = False
+
         super().__init__(*args, **kwargs)
+
+    def update(self, n: int = 1) -> Optional[bool]:
+        """Override update to emit JSON progress when format is 'json'."""
+        result = super().update(n)
+
+        if self._json_format and self.total is not None and self.total > 0:
+            percent = round(self.n / self.total * 100, 1)
+            # Emit JSON every 5% change or at completion
+            if percent >= self._last_json_percent + 5 or self.n >= self.total:
+                self._last_json_percent = percent
+                self._emit_json_progress()
+
+        return result
+
+    def _emit_json_progress(self) -> None:
+        """Emit progress as JSON line to stderr."""
+        progress_data = {
+            "stage": self.desc or "Progress",
+            "current": self.n,
+            "total": self.total,
+            "percent": round(self.n / self.total * 100, 1) if self.total else 0,
+        }
+        sys.stderr.write(json.dumps(progress_data) + "\n")
+        sys.stderr.flush()
+
+    def close(self) -> None:
+        """Override close to emit final JSON progress."""
+        if self._json_format and self.total is not None and self.n < self.total:
+            # Emit final progress if not already at 100%
+            self.n = self.total
+            self._emit_json_progress()
+        super().close()
 
     def __delattr__(self, attr: str) -> None:
         """Fix for https://github.com/huggingface/huggingface_hub/issues/1603"""
