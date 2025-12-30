@@ -349,7 +349,7 @@ def jobs_stats(
         "NUM CPU",
         "MEM %",
         "MEM USAGE",
-        "NET I/O (TOTAL)",
+        "NET I/O",
         "GPU UTIL %",
         "GPU MEM %",
         "GPU MEM USAGE",
