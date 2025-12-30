@@ -60,6 +60,7 @@ import os
 import re
 from dataclasses import asdict
 from pathlib import Path
+from time import monotonic
 from typing import Annotated, Dict, Optional, Union
 
 import typer
@@ -348,7 +349,7 @@ def jobs_stats(
         "NUM CPU",
         "MEM %",
         "MEM USAGE",
-        "NET I/O",
+        "NET I/O (TOTAL)",
         "GPU UTIL %",
         "GPU MEM %",
         "GPU MEM USAGE",
@@ -366,17 +367,28 @@ def jobs_stats(
     ]
     row = [job_id] + ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
     _print_output([row], table_headers, headers_aliases, None)
-    rx, tx = 0.0, 0.0
+    rx_total, tx_total = 0.0, 0.0
+    last_t: float | None = None
     for metrics in api.fetch_job_metrics(job_id=job_id, namespace=namespace):
-        rx += metrics["rx_bps"]
-        tx += metrics["tx_bps"]
+        now = monotonic()
+        if last_t is None:
+            # First sample: we don't know the previous interval, so don't add anything yet.
+            dt = 0.0
+        else:
+            # Cap dt to avoid unrealistic spikes if the process stalls or the laptop sleeps.
+            # Example: if laptop sleeps for 10 minutes (600s) and rx_bps=1000, without capping
+            # we'd add 600,000 bytes in one update. With a 5s cap, we add at most 5,000 bytes.
+            dt = min(max(0.0, now - last_t), 5.0)
+        last_t = now
+        rx_total += float(metrics.get("rx_bps", 0.0)) * dt
+        tx_total += float(metrics.get("tx_bps", 0.0)) * dt
         row = [
             job_id,
             f"{metrics['cpu_usage_pct']}%",
             round(metrics["cpu_millicores"] / 1000.0, 1),
             f"{round(100 * metrics['memory_used_bytes'] / metrics['memory_total_bytes'], 2)}%",
             f"{_format_size(metrics['memory_used_bytes'])}B / {_format_size(metrics['memory_total_bytes'])}B",
-            f"{_format_size(rx)}B / {_format_size(tx)}B",
+            f"{_format_size(rx_total)}B / {_format_size(tx_total)}B",
         ]
         if metrics["gpus"] and isinstance(metrics["gpus"], dict):
             gpu = next(iter(metrics["gpus"].values()))
