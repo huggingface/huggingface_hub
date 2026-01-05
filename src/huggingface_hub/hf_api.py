@@ -10088,7 +10088,6 @@ class HfApi:
             timeout=timeout,
         )
         response = get_session().post(
-            # f"https://huggingface.co/api/jobs/{namespace}",
             f"{self.endpoint}/api/jobs/{namespace}",
             json=job_spec,
             headers=self._build_hf_headers(token=token),
