@@ -376,16 +376,19 @@ def jobs_stats(
             f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
         ]
         if metrics["gpus"] and isinstance(metrics["gpus"], dict):
-            gpu = next(iter(metrics["gpus"].values()))
-            row += [
-                f"{gpu['utilization']}%",
-                f"{round(100 * gpu['memory_used_bytes'] / gpu['memory_total_bytes'], 2)}%",
-                f"{_format_size(gpu['memory_used_bytes'])}B / {_format_size(gpu['memory_total_bytes'])}B",
-            ]
+            rows = [row] + [[""] * len(row)] * (len(metrics["gpus"]) - 1)
+            for row, gpu_id in zip(rows, sorted(metrics["gpus"])):
+                gpu = metrics["gpus"][gpu_id]
+                row += [
+                    f"{gpu['utilization']}%",
+                    f"{round(100 * gpu['memory_used_bytes'] / gpu['memory_total_bytes'], 2)}%",
+                    f"{_format_size(gpu['memory_used_bytes'])}B / {_format_size(gpu['memory_total_bytes'])}B",
+                ]
         else:
             row += ["N/A"] * (len(table_headers) - len(row))
-        _clear_line(3)
-        _print_output([row], table_headers, headers_aliases, None)
+            rows = [row]
+        _clear_line(2 + len(rows))
+        _print_output(rows, table_headers, headers_aliases, None)
 
 
 @jobs_cli.command("ps", help="List Jobs")
