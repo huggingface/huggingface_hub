@@ -10181,7 +10181,6 @@ class HfApi:
             job_status = (
                 get_session()
                 .get(
-                    # f"https://huggingface.co/api/jobs/{namespace}/{job_id}",
                     f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
                     headers=self._build_hf_headers(token=token),
                 )
