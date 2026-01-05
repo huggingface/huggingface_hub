@@ -10152,7 +10152,6 @@ class HfApi:
             try:
                 with get_session().stream(
                     "GET",
-                    # f"https://huggingface.co/api/jobs/{namespace}/{job_id}/logs",
                     f"{self.endpoint}/api/jobs/{namespace}/{job_id}/logs",
                     headers=self._build_hf_headers(token=token),
                     timeout=120,
