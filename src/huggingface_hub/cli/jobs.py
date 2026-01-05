@@ -366,17 +366,14 @@ def jobs_stats(
     ]
     row = [job_id] + ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
     _print_output([row], table_headers, headers_aliases, None)
-    rx, tx = 0.0, 0.0
     for metrics in api.fetch_job_metrics(job_id=job_id, namespace=namespace):
-        rx += metrics["rx_bps"]
-        tx += metrics["tx_bps"]
         row = [
             job_id,
             f"{metrics['cpu_usage_pct']}%",
             round(metrics["cpu_millicores"] / 1000.0, 1),
             f"{round(100 * metrics['memory_used_bytes'] / metrics['memory_total_bytes'], 2)}%",
             f"{_format_size(metrics['memory_used_bytes'])}B / {_format_size(metrics['memory_total_bytes'])}B",
-            f"{_format_size(rx)}B / {_format_size(tx)}B",
+            f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
         ]
         if metrics["gpus"] and isinstance(metrics["gpus"], dict):
             gpu = next(iter(metrics["gpus"].values()))
