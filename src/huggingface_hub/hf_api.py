@@ -10097,6 +10097,81 @@ class HfApi:
         job_info = response.json()
         return JobInfo(**job_info, endpoint=self.endpoint)
 
+    def _fetch_running_job_sse(
+        self,
+        *,
+        job_id: str,
+        route: str,
+        timeout: int,
+        skip_previous_events_on_retry: bool,
+        retry_on_status_codes: tuple[int, ...],
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None
+    ) -> Iterable[dict[str, Any]]:
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        # We don't use http_backoff since we need to check ourselves if the job is still running
+        retry = 0
+        max_retries = 5
+        min_wait_time = 1
+        max_wait_time = 10
+        sleep_time = 0
+        start_event_idx = 0
+        while True:
+            time.sleep(sleep_time)
+            try:
+                with get_session().stream(
+                    "GET",
+                    f"{self.endpoint}/api/jobs/{namespace}/{job_id}/{route}",
+                    headers=self._build_hf_headers(token=token),
+                    timeout=timeout,
+                ) as response:
+                    if response.status_code == 200:
+                        event_idx = -1
+                        for line in response.iter_lines():
+                            if line and line.startswith("data: {"):
+                                event_idx += 1
+                                if event_idx >= start_event_idx:
+                                    if skip_previous_events_on_retry:
+                                        start_event_idx += 1
+                                    yield json.loads(line[len("data: ") :])
+                        break
+                    elif response.status_code not in retry_on_status_codes:
+                        hf_raise_for_status(response)
+            except httpx.HTTPStatusError:
+                raise
+            except httpx.DecodingError:
+                # Response ended prematurely
+                break
+            except KeyboardInterrupt:
+                break
+            except (httpx.HTTPError, httpcore.TimeoutException) as err:
+                is_no_new_line_timeout = (
+                    isinstance(err, httpx.NetworkError)
+                    and err.__context__
+                    and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
+                )
+                if is_no_new_line_timeout:
+                    # job is likely finished
+                    pass
+                elif retry >= max_retries:
+                    raise
+                else:
+                    retry += 1
+                    sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+            job_status_response = (
+                get_session()
+                .get(
+                    f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
+                    headers=self._build_hf_headers(token=token),
+                )
+            )
+            hf_raise_for_status(job_status_response)
+            job_status = job_status_response.json()
+            if "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING"):
+                break
+
+
     def fetch_job_logs(
         self,
         *,
@@ -10129,10 +10204,6 @@ class HfApi:
             Hello from HF compute!
             ```
         """
-        if namespace is None:
-            namespace = self.whoami(token=token)["name"]
-        logging_finished = logging_started = False
-        job_finished = False
         # - We need to retry because sometimes the /logs doesn't return logs when the job just started.
         #   (for example it can return only two lines: one for "Job started" and one empty line)
         # - Timeouts can happen in case of build errors
@@ -10141,52 +10212,20 @@ class HfApi:
         #   (the logs stream is infinite and empty except for the Job started message)
         # - there is a ": keep-alive" every 30 seconds
 
-        # We don't use http_backoff since we need to check ourselves if ConnectionError.__context__ is a TimeoutError
-        max_retries = 5
-        min_wait_time = 1
-        max_wait_time = 10
-        sleep_time = 0
-        for _ in range(max_retries):
-            time.sleep(sleep_time)
-            sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
-            try:
-                with get_session().stream(
-                    "GET",
-                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}/logs",
-                    headers=self._build_hf_headers(token=token),
-                    timeout=120,
-                ) as response:
-                    log = None
-                    for line in response.iter_lines():
-                        if line and line.startswith("data: {"):
-                            data = json.loads(line[len("data: ") :])
-                            # timestamp = data["timestamp"]
-                            if not data["data"].startswith("===== Job started"):
-                                logging_started = True
-                                log = data["data"]
-                                yield log
-                    logging_finished = logging_started
-            except httpx.DecodingError:
-                # Response ended prematurely
-                break
-            except KeyboardInterrupt:
-                break
-            except httpx.NetworkError as err:
-                is_timeout = err.__context__ and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
-                if logging_started or not is_timeout:
-                    raise
-            if logging_finished or job_finished:
-                break
-            job_status = (
-                get_session()
-                .get(
-                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}",
-                    headers=self._build_hf_headers(token=token),
-                )
-                .json()
-            )
-            if "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING"):
-                job_finished = True
+        seconds_between_keep_alive = 30
+        for event in self._fetch_running_job_sse(
+            job_id=job_id,
+            route="logs",
+            timeout=4 * seconds_between_keep_alive,
+            skip_previous_events_on_retry=True,
+            retry_on_status_codes=tuple(),
+            namespace=namespace,
+            token=token
+        ):
+            # timestamp = event["timestamp"]
+            if not event["data"].startswith("===== Job started"):
+                log = event["data"]
+                yield log
 
     def fetch_job_metrics(
         self,
@@ -10235,8 +10274,6 @@ class HfApi:
             }
             ```
         """
-        if namespace is None:
-            namespace = self.whoami(token=token)["name"]
         # - there is one "metric" event every second, like this:
         # event: metric
         # data: {"cpu_usage_pct":0,"cpu_millicores":3500,"memory_used_bytes":1417216,"memory_total_bytes":15032385536,"rx_bps":0,"tx_bps":0,"gpus":{"d901cd7f":{"utilization":0,"memory_used_bytes":0,"memory_total_bytes":22836000000}},"replica":"j6qz9"}
@@ -10244,55 +10281,16 @@ class HfApi:
         # - it returns an internal error if the job has already finished, we simply ignore it
         # - ChunkedEncodingError can happen in case of stopped logging in the middle of streaming
         # - there is a ": keep-alive" every 30 seconds
-
-        # We don't use http_backoff since we need to check ourselves if the job is still running
-        retry = 0
-        max_retries = 5
-        min_wait_time = 1
-        max_wait_time = 10
-        sleep_time = 0
-        while True:
-            time.sleep(sleep_time)
-            try:
-                with get_session().stream(
-                    "GET",
-                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}/metrics",
-                    headers=self._build_hf_headers(token=token),
-                    timeout=10,
-                ) as response:
-                    for line in response.iter_lines():
-                        if line and line.startswith("data: {"):
-                            yield json.loads(line[len("data: ") :])
-                    break
-            except httpx.DecodingError:
-                # Response ended prematurely
-                break
-            except KeyboardInterrupt:
-                break
-            except (httpx.HTTPError, httpcore.TimeoutException) as err:
-                is_no_event_timeout = (
-                    isinstance(err, httpx.NetworkError)
-                    and err.__context__
-                    and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
-                )
-                if is_no_event_timeout:
-                    # job is likely finished
-                    pass
-                elif retry >= max_retries:
-                    raise
-                else:
-                    retry += 1
-                    sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
-            job_status = (
-                get_session()
-                .get(
-                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}",
-                    headers=self._build_hf_headers(token=token),
-                )
-                .json()
-            )
-            if "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING"):
-                break
+        seconds_between_events = 1
+        yield from self._fetch_running_job_sse(
+            job_id=job_id,
+            route="metrics",
+            timeout=10 * seconds_between_events,
+            skip_previous_events_on_retry=False,
+            retry_on_status_codes=(500,),
+            namespace=namespace,
+            token=token
+        )
 
     def list_jobs(
         self,
