@@ -10111,7 +10111,7 @@ class HfApi:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
         # We don't use http_backoff since we need to check ourselves if the job is still running
-        retry = 0
+        nb_tries = 0
         max_retries = 5
         min_wait_time = 1
         max_wait_time = 10
@@ -10154,11 +10154,13 @@ class HfApi:
                 if is_no_new_line_timeout:
                     # job is likely finished
                     pass
-                elif retry >= max_retries:
+                elif nb_tries >= max_retries:
                     raise
                 else:
-                    retry += 1
+                    nb_tries += 1
                     sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+                    logger.warning(f"'{err}' thrown while requesting jobs /{route}")
+                    logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
             job_status_response = (
                 get_session()
                 .get(
