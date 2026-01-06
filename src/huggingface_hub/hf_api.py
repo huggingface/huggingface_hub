@@ -1682,6 +1682,39 @@ def future_compatible(fn: CallableT) -> CallableT:
     return _inner  # type: ignore
 
 
+def _get_safetensors_metadata_size(size_bytes: bytes, filename: str, context_msg: str) -> int:
+    """
+    Parse and validate safetensors metadata size from the first 8 bytes.
+
+    This is a shared helper function used by both remote and local safetensors parsing.
+
+    Args:
+        size_bytes: First 8 bytes of the safetensors file.
+        filename: Filename for error messages.
+        context_msg: Additional context for error messages.
+
+    Returns:
+        The metadata size as an integer.
+
+    Raises:
+        SafetensorsParsingError: If size_bytes is too short or metadata size exceeds limit.
+    """
+    if len(size_bytes) < 8:
+        raise SafetensorsParsingError(
+            f"Failed to parse safetensors header for '{filename}' ({context_msg}): file is too small to be a valid "
+            "safetensors file."
+        )
+
+    metadata_size = struct.unpack("<Q", size_bytes[:8])[0]
+    if metadata_size > constants.SAFETENSORS_MAX_HEADER_LENGTH:
+        raise SafetensorsParsingError(
+            f"Failed to parse safetensors header for '{filename}' ({context_msg}): safetensors header is too big. "
+            f"Maximum supported size is {constants.SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
+        )
+
+    return metadata_size
+
+
 def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_msg: str) -> SafetensorsFileMetadata:
     """
     Parse safetensors metadata from raw header bytes.
@@ -5807,6 +5840,8 @@ class HfApi:
         )
         _headers = self._build_hf_headers(token=token)
 
+        context_msg = f"repo '{repo_id}', revision '{revision or constants.DEFAULT_REVISION}'"
+
         # 1. Fetch first 100kb
         # Empirically, 97% of safetensors files have a metadata size < 100kb (over the top 1000 models on the Hub).
         # We assume fetching 100kb is faster than making 2 GET requests. Therefore we always fetch the first 100kb to
@@ -5815,14 +5850,8 @@ class HfApi:
         response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
         hf_raise_for_status(response)
 
-        # 2. Parse metadata size
-        metadata_size = struct.unpack("<Q", response.content[:8])[0]
-        if metadata_size > constants.SAFETENSORS_MAX_HEADER_LENGTH:
-            raise SafetensorsParsingError(
-                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
-                f"'{revision or constants.DEFAULT_REVISION}'): safetensors header is too big. Maximum supported size is "
-                f"{constants.SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
-            )
+        # 2. Parse and validate metadata size using shared helper
+        metadata_size = _get_safetensors_metadata_size(response.content[:8], filename, context_msg)
 
         # 3.a. Get metadata from payload
         if metadata_size <= 100000:
@@ -5833,7 +5862,6 @@ class HfApi:
             metadata_as_bytes = response.content
 
         # 4. Parse json header using shared helper
-        context_msg = f"repo '{repo_id}', revision '{revision or constants.DEFAULT_REVISION}'"
         return _parse_safetensors_header(metadata_as_bytes, filename, context_msg)
 
     @validate_hf_hub_args
@@ -10922,33 +10950,22 @@ def parse_local_safetensors_file_metadata(path: Union[str, Path]) -> Safetensors
     """
     path = Path(path)
     filename = path.name
+    context_msg = f"path '{path}'"
 
     with open(path, "rb") as f:
-        # 1. Read first 8 bytes to get metadata size
+        # 1. Read first 8 bytes and parse/validate metadata size using shared helper
         size_bytes = f.read(8)
-        if len(size_bytes) < 8:
-            raise SafetensorsParsingError(
-                f"Failed to parse safetensors header for '{filename}' (path '{path}'): file is too small to be a valid "
-                "safetensors file."
-            )
-
-        metadata_size = struct.unpack("<Q", size_bytes)[0]
-        if metadata_size > constants.SAFETENSORS_MAX_HEADER_LENGTH:
-            raise SafetensorsParsingError(
-                f"Failed to parse safetensors header for '{filename}' (path '{path}'): safetensors header is too big. "
-                f"Maximum supported size is {constants.SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
-            )
+        metadata_size = _get_safetensors_metadata_size(size_bytes, filename, context_msg)
 
         # 2. Read metadata bytes
         metadata_as_bytes = f.read(metadata_size)
         if len(metadata_as_bytes) < metadata_size:
             raise SafetensorsParsingError(
-                f"Failed to parse safetensors header for '{filename}' (path '{path}'): file is truncated. Expected "
+                f"Failed to parse safetensors header for '{filename}' ({context_msg}): file is truncated. Expected "
                 f"{metadata_size} bytes of metadata but got {len(metadata_as_bytes)}."
             )
 
     # 3. Parse using shared helper
-    context_msg = f"path '{path}'"
     return _parse_safetensors_header(metadata_as_bytes, filename, context_msg)
 
 
