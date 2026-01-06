@@ -421,7 +421,7 @@ def jobs_stats(
             row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
             rows_per_job_id[job_id] = [row]
         last_update_time = time.time()
-        min_seconds_between_updates = 0.1  # there is one update per second per job
+        min_seconds_between_updates = 0.1  # we set a limit here since there is one update per second per job
         total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
         _print_output(total_rows, table_headers, headers_aliases, None)
 
