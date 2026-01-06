@@ -45,7 +45,7 @@ _all_expand_properties = sorted(
     | set(get_args(ExpandDatasetProperty_T))
     | set(get_args(ExpandSpaceProperty_T))
 )
-ExpandProperty = enum.Enum("ExpandProperty", {p: p for p in _all_expand_properties}, type=str)
+ExpandProperty = enum.Enum("ExpandProperty", {p: p for p in _all_expand_properties}, type=str)  # type: ignore [misc]
 
 
 def _parse_expand_properties(value: Optional[str]) -> Optional[list[str]]:
@@ -273,7 +273,7 @@ def repo_info(
     """Get info about a repository and print it as JSON."""
     api = get_hf_api(token=token)
     try:
-        info = api.repo_info(repo_id=repo_id, revision=revision, repo_type=repo_type.value, expand=expand)  # type: ignore [invalid-argument-type]
+        info = api.repo_info(repo_id=repo_id, revision=revision, repo_type=repo_type.value, expand=expand)  # type: ignore
     except RepositoryNotFoundError:
         print(f"{repo_type.value.capitalize()} {ANSI.bold(repo_id)} not found.")
         raise typer.Exit(code=1)
