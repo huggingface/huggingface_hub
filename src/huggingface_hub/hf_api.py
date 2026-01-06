@@ -1525,6 +1525,41 @@ class User:
 
 
 @dataclass
+class PaperAuthor:
+    """
+    Contains information about a paper author on the Hub.
+
+    Attributes:
+        name (`str`):
+            Name of the author.
+        user (`User`, *optional*):
+            Information about the author as a [`User`] object.
+        status (`str`, *optional*):
+            Status of the author on the Hub.
+        status_last_changed_at (`datetime`, *optional*):
+            Date when the status of the author changed.
+        hidden (`bool`, *optional*):
+            Whether the author is hidden on the Hub.
+    """
+    name: str
+    user: Optional[User]
+    status: Optional[str]
+    status_last_changed_at: Optional[datetime]
+    hidden: Optional[bool]
+
+    def __init__(self, **kwargs) -> None:
+        self.name = kwargs.pop("name", "")
+        user = kwargs.pop("user", None)
+        self.user = User(**user) if user else None
+        self.status = kwargs.pop("status", None)
+        status_last_changed_at = kwargs.pop("statusLastChangedAt", None)
+        self.status_last_changed_at = parse_datetime(status_last_changed_at) if status_last_changed_at else None
+        self.hidden = kwargs.pop("hidden", None)
+
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
 class PaperInfo:
     """
     Contains information about a paper on the Hub.
@@ -1532,10 +1567,8 @@ class PaperInfo:
     Attributes:
         id (`str`):
             arXiv paper ID.
-        authors (`list[str]`, *optional*):
-            Names of paper authors
-        authors_users (`list[User]`, *optional*):
-            Information about paper authors as a list of [`User`] objects.
+        authors (`list[PaperAuthor]`, *optional*):
+            Authors of the paper.
         published_at (`datetime`, *optional*):
             Date paper published.
         title (`str`, *optional*):
@@ -1569,8 +1602,7 @@ class PaperInfo:
     """
 
     id: str
-    authors: Optional[list[str]]
-    authors_users: Optional[list[User]]
+    authors: Optional[list[PaperAuthor]]
     published_at: Optional[datetime]
     title: Optional[str]
     summary: Optional[str]
@@ -1590,10 +1622,9 @@ class PaperInfo:
     def __init__(self, **kwargs) -> None:
         paper = kwargs.pop("paper", {})
         self.id = kwargs.pop("id", None) or paper.pop("id", None)
-        authors = paper.pop("authors", None) or kwargs.pop("authors", None)
-        self.authors = [author.pop("name", None) for author in authors] if authors else None
-        self.authors_users = (
-            [User(**author.pop("user")) for author in authors if author.pop("user")] if authors else None
+        authors = kwargs.pop("authors", None)
+        self.authors = (
+            [PaperAuthor(**author) for author in authors] if authors else None
         )
         published_at = paper.pop("publishedAt", None) or kwargs.pop("publishedAt", None)
         self.published_at = parse_datetime(published_at) if published_at else None
