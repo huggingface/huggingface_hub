@@ -348,7 +348,7 @@ def _clear_line(n=1):
 
 def _get_jobs_stats_rows(
     job_id: str, metrics_stream: Iterable[dict[str, Any]], table_headers: list[str]
-) -> Iterable[tuple[bool, str, list[Union[str, int]]]]:
+) -> Iterable[tuple[bool, str, list[list[Union[str, int]]]]]:
     for metrics in metrics_stream:
         row = [
             job_id,
@@ -415,13 +415,11 @@ def jobs_stats(
         "gpu_memory_used_bytes_and_total_bytes",
     ]
     with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
-        rows_per_job_id = {
-            job_id: [
-                [job_id]
-                + ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
-            ]
-            for job_id in job_ids
-        }
+        rows_per_job_id: dict[str, list[list[Union[str, int]]]] = {}
+        for job_id in job_ids:
+            row: list[Union[str, int]] = [job_id]
+            row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
+            rows_per_job_id[job_id] = [row]
         last_update_time = time.time()
         min_seconds_between_updates = 0.1  # there is one update per second per job
         total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
@@ -911,7 +909,7 @@ def iflatmap_unordered(
     *,
     kwargs_list: list[dict],
 ) -> Iterable[T]:
-    queue = Queue()
+    queue: Queue[T] = Queue()
     async_results = [pool.apply_async(_write_generator_to_queue, (queue, func, kwargs)) for kwargs in kwargs_list]
     try:
         while True:
