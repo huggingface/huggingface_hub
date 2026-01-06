@@ -37,6 +37,7 @@ from typing import (
     Iterator,
     Literal,
     Optional,
+    Type,
     TypeVar,
     Union,
     overload,
@@ -10104,7 +10105,7 @@ class HfApi:
         route: str,
         timeout: int,
         skip_previous_events_on_retry: bool,
-        double_check_job_has_finished_on_status_code_or_error: tuple[int, ...],
+        double_check_job_has_finished_on_status_code_or_error: tuple[Union[int, Type[Exception]], ...],
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[dict[str, Any]]:
@@ -10222,7 +10223,7 @@ class HfApi:
             route="logs",
             timeout=4 * seconds_between_keep_alive,
             skip_previous_events_on_retry=True,
-            double_check_job_has_finished_on_status_code=tuple(),
+            double_check_job_has_finished_on_status_code_or_error=tuple(),
             namespace=namespace,
             token=token,
         ):
