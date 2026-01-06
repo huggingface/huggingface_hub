@@ -1541,6 +1541,7 @@ class PaperAuthor:
         hidden (`bool`, *optional*):
             Whether the author is hidden on the Hub.
     """
+
     name: str
     user: Optional[User]
     status: Optional[str]
@@ -1623,9 +1624,7 @@ class PaperInfo:
         paper = kwargs.pop("paper", {})
         self.id = kwargs.pop("id", None) or paper.pop("id", None)
         authors = paper.pop("authors", None) or kwargs.pop("authors", None)
-        self.authors = (
-            [PaperAuthor(**author) for author in authors] if authors else None
-        )
+        self.authors = [PaperAuthor(**author) for author in authors] if authors else None
         published_at = paper.pop("publishedAt", None) or kwargs.pop("publishedAt", None)
         self.published_at = parse_datetime(published_at) if published_at else None
         self.title = kwargs.pop("title", None)
