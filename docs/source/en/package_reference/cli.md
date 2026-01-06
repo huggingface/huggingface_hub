@@ -889,7 +889,6 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--suspend / --no-suspend`: Suspend (pause) the scheduled Job
 * `--concurrency / --no-concurrency`: Allow multiple instances of this Job to run concurrently
 * `--image TEXT`: Use a custom Docker image with `uv` installed.
-* `--repo TEXT`: Repository name for the script (creates ephemeral if not specified)
 * `--flavor [cpu-basic|cpu-upgrade|cpu-xl|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|h100|h100x8]`: Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: cpu-basic, cpu-upgrade, cpu-xl, t4-small, t4-medium, l4x1, l4x4, l40sx1, l40sx4, l40sx8, a10g-small, a10g-large, a10g-largex2, a10g-largex4, a100-large, h100, h100x8.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
@@ -938,7 +937,6 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 **Options**:
 
 * `--image TEXT`: Use a custom Docker image with `uv` installed.
-* `--repo TEXT`: Repository name for the script (creates ephemeral if not specified)
 * `--flavor [cpu-basic|cpu-upgrade|cpu-xl|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|h100|h100x8]`: Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: cpu-basic, cpu-upgrade, cpu-xl, t4-small, t4-medium, l4x1, l4x4, l40sx1, l40sx4, l40sx8, a10g-small, a10g-large, a10g-largex2, a10g-largex4, a100-large, h100, h100x8.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
@@ -1003,6 +1001,8 @@ $ hf repo [OPTIONS] COMMAND [ARGS]...
 * `branch`: Manage branches for a repo on the Hub.
 * `create`: Create a new repo on the Hub.
 * `delete`: Delete a repo from the Hub.
+* `info`: Get info about a repo on the Hub.
+* `list`: List repositories (models, datasets,...
 * `move`: Move a repository from a namespace to...
 * `settings`: Update the settings of a repository.
 * `tag`: Manage tags for a repo on the Hub.
@@ -1113,6 +1113,50 @@ $ hf repo delete [OPTIONS] REPO_ID
 * `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--missing-ok / --no-missing-ok`: If set to True, do not raise an error if repo does not exist.  [default: no-missing-ok]
+* `--help`: Show this message and exit.
+
+### `hf repo info`
+
+Get info about a repo on the Hub.
+
+**Usage**:
+
+```console
+$ hf repo info [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, citation, config, createdAt, datasets, description, disabled, downloads, downloadsAllTime, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, models, paperswithcode_id, pipeline_tag, private, resourceGroup, runtime, safetensors, sdk, sha, siblings, spaces, subdomain, tags, transformersInfo, trendingScore, usedStorage, widgetData.
+* `--help`: Show this message and exit.
+
+### `hf repo list`
+
+List repositories (models, datasets, spaces) hosted on the Hub.
+
+**Usage**:
+
+```console
+$ hf repo list [OPTIONS]
+```
+
+**Options**:
+
+* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--limit INTEGER`: Limit the number of results.  [default: 10]
+* `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
+* `--search TEXT`: Search by name.
+* `--author TEXT`: Filter by author or organization.
+* `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort key in descending order
+* `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, citation, config, createdAt, datasets, description, disabled, downloads, downloadsAllTime, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, models, paperswithcode_id, pipeline_tag, private, resourceGroup, runtime, safetensors, sdk, sha, siblings, spaces, subdomain, tags, transformersInfo, trendingScore, usedStorage, widgetData.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 ### `hf repo move`
