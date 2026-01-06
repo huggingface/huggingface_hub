@@ -238,13 +238,19 @@ def repo_list(
     results: list[dict] = []
 
     if repo_type == RepoType.model:
-        for model_info in api.list_models(filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand):  # type: ignore[arg-type]
+        for model_info in api.list_models(
+            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
+        ):
             results.append(_repo_info_to_dict(model_info))
     elif repo_type == RepoType.dataset:
-        for dataset_info in api.list_datasets(filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand):  # type: ignore[arg-type]
+        for dataset_info in api.list_datasets(
+            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
+        ):
             results.append(_repo_info_to_dict(dataset_info))
     else:
-        for space_info in api.list_spaces(filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand):  # type: ignore[arg-type]
+        for space_info in api.list_spaces(
+            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
+        ):
             results.append(_repo_info_to_dict(space_info))
 
     print(json.dumps(results, indent=2))
@@ -267,12 +273,7 @@ def repo_info(
     """Get info about a repository and print it as JSON."""
     api = get_hf_api(token=token)
     try:
-        info = api.repo_info(
-            repo_id=repo_id,
-            revision=revision,
-            repo_type=repo_type.value,
-            expand=expand,  # type: ignore[arg-type]
-        )
+        info = api.repo_info(repo_id=repo_id, revision=revision, repo_type=repo_type.value, expand=expand)  # type: ignore [invalid-argument-type]
     except RepositoryNotFoundError:
         print(f"{repo_type.value.capitalize()} {ANSI.bold(repo_id)} not found.")
         raise typer.Exit(code=1)
