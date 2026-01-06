@@ -904,17 +904,17 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 
 ### `hf jobs stats`
 
-Fetch the resource usage statistics and metrics of a Job
+Fetch the resource usage statistics and metrics of Jobs
 
 **Usage**:
 
 ```console
-$ hf jobs stats [OPTIONS] JOB_ID
+$ hf jobs stats [OPTIONS] [JOB_IDS]...
 ```
 
 **Arguments**:
 
-* `JOB_ID`: Job ID  [required]
+* `[JOB_IDS]...`: Job IDs
 
 **Options**:
 

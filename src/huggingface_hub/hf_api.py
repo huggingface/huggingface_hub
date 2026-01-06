@@ -10104,7 +10104,7 @@ class HfApi:
         route: str,
         timeout: int,
         skip_previous_events_on_retry: bool,
-        double_check_job_has_finished_on_status_code: tuple[int, ...],
+        double_check_job_has_finished_on_status_code_or_error: tuple[int, ...],
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[dict[str, Any]]:
@@ -10120,7 +10120,7 @@ class HfApi:
         error_to_retry = None
         while True:
             if error_to_retry is not None:
-                logger.warning(f"'{error_to_retry}' thrown while requesting jobs /{route}")
+                logger.warning(f"'{error_to_retry}' thrown while requesting jobs /{route} for {job_id=}")
                 logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
                 error_to_retry = None
                 time.sleep(sleep_time)
@@ -10141,7 +10141,7 @@ class HfApi:
                                         start_event_idx += 1
                                     yield json.loads(line[len("data: ") :])
                         break
-                    elif response.status_code not in double_check_job_has_finished_on_status_code:
+                    elif response.status_code not in double_check_job_has_finished_on_status_code_or_error:
                         hf_raise_for_status(response)
             except httpx.HTTPStatusError:
                 raise
@@ -10158,6 +10158,8 @@ class HfApi:
                 )
                 if is_no_new_line_timeout:
                     # job is likely finished
+                    pass
+                elif type(err) in double_check_job_has_finished_on_status_code_or_error:
                     pass
                 elif nb_tries >= max_retries:
                     raise
@@ -10279,8 +10281,9 @@ class HfApi:
         # - there is one "metric" event every second, like this:
         # event: metric
         # data: {"cpu_usage_pct":0,"cpu_millicores":3500,"memory_used_bytes":1417216,"memory_total_bytes":15032385536,"rx_bps":0,"tx_bps":0,"gpus":{"d901cd7f":{"utilization":0,"memory_used_bytes":0,"memory_total_bytes":22836000000}},"replica":"j6qz9"}
-        # - the stream doesn't end when the job finishes, so we rely on timeouts
-        # - it returns an internal error if the job has already finished, we simply ignore it
+        # - the stream doesn't end when the job finishes, so we rely on timeouts (httpx.NetworkError with Timeout as cause)
+        # - httpx.ReadTimeout can happen if the job is marked as running but the hardware is not available yet, that we can ignore
+        # - it returns an internal error 500 if the job has already finished, we simply ignore it
         # - ChunkedEncodingError can happen in case of stopped logging in the middle of streaming
         # - there is a ": keep-alive" every 30 seconds
         seconds_between_events = 1
@@ -10289,7 +10292,7 @@ class HfApi:
             route="metrics",
             timeout=10 * seconds_between_events,
             skip_previous_events_on_retry=False,
-            double_check_job_has_finished_on_status_code=(500,),
+            double_check_job_has_finished_on_status_code_or_error=(500, httpx.ReadTimeout),
             namespace=namespace,
             token=token,
         )

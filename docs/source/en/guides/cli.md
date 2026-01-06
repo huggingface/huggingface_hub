@@ -863,6 +863,8 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 ```bash
 # List your running jobs
 >>> hf jobs ps
+# List all jobs
+>>> hf jobs ps -a
 
 # Inspect the status of a job
 >>> hf jobs inspect <job_id>
@@ -870,8 +872,10 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 # View logs from a job
 >>> hf jobs logs <job_id>
 
-# View resources usage stats and metrics from a job
->>> hf jobs stats <job_id>
+# View resources usage stats and metrics of running jobs
+>>> hf jobs stats
+# View resources usage stats and metrics of some jobs
+>>> hf jobs stats [job_ids]...
 
 # Cancel a job
 >>> hf jobs cancel <job_id>

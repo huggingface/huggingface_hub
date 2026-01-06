@@ -56,11 +56,15 @@ Usage:
 """
 
 import json
+import multiprocessing
+import multiprocessing.pool
 import os
 import re
+import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import Annotated, Dict, Optional, Union
+from queue import Empty, Queue
+from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, Union
 
 import typer
 
@@ -221,6 +225,13 @@ JobIdArg = Annotated[
     ),
 ]
 
+JobIdsArg = Annotated[
+    Optional[list[str]],
+    typer.Argument(
+        help="Job IDs",
+    ),
+]
+
 ScheduledJobIdArg = Annotated[
     str,
     typer.Argument(
@@ -335,13 +346,52 @@ def _clear_line(n=1):
         print(LINE_UP, end=LINE_CLEAR)
 
 
-@jobs_cli.command("stats", help="Fetch the resource usage statistics and metrics of a Job")
+def _get_jobs_stats_rows(
+    job_id: str, metrics_stream: Iterable[dict[str, Any]], table_headers: list[str]
+) -> Iterable[tuple[bool, str, list[Union[str, int]]]]:
+    for metrics in metrics_stream:
+        row = [
+            job_id,
+            f"{metrics['cpu_usage_pct']}%",
+            round(metrics["cpu_millicores"] / 1000.0, 1),
+            f"{round(100 * metrics['memory_used_bytes'] / metrics['memory_total_bytes'], 2)}%",
+            f"{_format_size(metrics['memory_used_bytes'])}B / {_format_size(metrics['memory_total_bytes'])}B",
+            f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
+        ]
+        if metrics["gpus"] and isinstance(metrics["gpus"], dict):
+            rows = [row] + [[""] * len(row)] * (len(metrics["gpus"]) - 1)
+            for row, gpu_id in zip(rows, sorted(metrics["gpus"])):
+                gpu = metrics["gpus"][gpu_id]
+                row += [
+                    f"{gpu['utilization']}%",
+                    f"{round(100 * gpu['memory_used_bytes'] / gpu['memory_total_bytes'], 2)}%",
+                    f"{_format_size(gpu['memory_used_bytes'])}B / {_format_size(gpu['memory_total_bytes'])}B",
+                ]
+        else:
+            row += ["N/A"] * (len(table_headers) - len(row))
+            rows = [row]
+        yield False, job_id, rows
+    yield True, job_id, []
+
+
+@jobs_cli.command("stats", help="Fetch the resource usage statistics and metrics of Jobs")
 def jobs_stats(
-    job_id: JobIdArg,
+    job_ids: JobIdsArg = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
     api = get_hf_api(token=token)
+    if namespace is None:
+        namespace = api.whoami()["name"]
+    if job_ids is None:
+        job_ids = [
+            job.id
+            for job in api.list_jobs(namespace=namespace)
+            if (job.status.stage if job.status else "UNKNOWN") in ("RUNNING", "UPDATING")
+        ]
+    if len(job_ids) == 0:
+        print("No jobs found")
+        return
     table_headers = [
         "JOB ID",
         "CPU %",
@@ -364,31 +414,38 @@ def jobs_stats(
         "gpu_memory_used_bytes_pct",
         "gpu_memory_used_bytes_and_total_bytes",
     ]
-    row = [job_id] + ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
-    _print_output([row], table_headers, headers_aliases, None)
-    for metrics in api.fetch_job_metrics(job_id=job_id, namespace=namespace):
-        row = [
-            job_id,
-            f"{metrics['cpu_usage_pct']}%",
-            round(metrics["cpu_millicores"] / 1000.0, 1),
-            f"{round(100 * metrics['memory_used_bytes'] / metrics['memory_total_bytes'], 2)}%",
-            f"{_format_size(metrics['memory_used_bytes'])}B / {_format_size(metrics['memory_total_bytes'])}B",
-            f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
+    with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
+        rows_per_job_id = {
+            job_id: [
+                [job_id]
+                + ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
+            ]
+            for job_id in job_ids
+        }
+        last_update_time = time.time()
+        min_seconds_between_updates = 0.1  # there is one update per second per job
+        total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+        _print_output(total_rows, table_headers, headers_aliases, None)
+
+        kwargs_list = [
+            {
+                "job_id": job_id,
+                "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace),
+                "table_headers": table_headers,
+            }
+            for job_id in job_ids
         ]
-        if metrics["gpus"] and isinstance(metrics["gpus"], dict):
-            rows = [row] + [[""] * len(row)] * (len(metrics["gpus"]) - 1)
-            for row, gpu_id in zip(rows, sorted(metrics["gpus"])):
-                gpu = metrics["gpus"][gpu_id]
-                row += [
-                    f"{gpu['utilization']}%",
-                    f"{round(100 * gpu['memory_used_bytes'] / gpu['memory_total_bytes'], 2)}%",
-                    f"{_format_size(gpu['memory_used_bytes'])}B / {_format_size(gpu['memory_total_bytes'])}B",
-                ]
-        else:
-            row += ["N/A"] * (len(table_headers) - len(row))
-            rows = [row]
-        _clear_line(2 + len(rows))
-        _print_output(rows, table_headers, headers_aliases, None)
+        for done, job_id, rows in iflatmap_unordered(pool, _get_jobs_stats_rows, kwargs_list=kwargs_list):
+            if done:
+                rows_per_job_id.pop(job_id, None)
+            else:
+                rows_per_job_id[job_id] = rows
+            now = time.time()
+            if now - last_update_time >= min_seconds_between_updates:
+                _clear_line(2 + len(total_rows))
+                total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+                _print_output(total_rows, table_headers, headers_aliases, None)
+                last_update_time = now
 
 
 @jobs_cli.command("ps", help="List Jobs")
@@ -838,3 +895,36 @@ def _get_extended_environ() -> Dict[str, str]:
     if (token := get_token()) is not None:
         extended_environ["HF_TOKEN"] = token
     return extended_environ
+
+
+T = TypeVar("T")
+
+
+def _write_generator_to_queue(queue: Queue, func: Callable[..., Iterable[T]], kwargs: dict) -> None:
+    for result in func(**kwargs):
+        queue.put(result)
+
+
+def iflatmap_unordered(
+    pool: multiprocessing.pool.ThreadPool,
+    func: Callable[..., Iterable[T]],
+    *,
+    kwargs_list: list[dict],
+) -> Iterable[T]:
+    queue = Queue()
+    async_results = [pool.apply_async(_write_generator_to_queue, (queue, func, kwargs)) for kwargs in kwargs_list]
+    try:
+        while True:
+            try:
+                yield queue.get(timeout=0.05)
+            except Empty:
+                if all(async_result.ready() for async_result in async_results) and queue.empty():
+                    break
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # we get the result in case there's an error to raise
+        try:
+            [async_result.get(timeout=0.05) for async_result in async_results]
+        except multiprocessing.TimeoutError:
+            pass
