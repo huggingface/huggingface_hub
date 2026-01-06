@@ -27,7 +27,6 @@ from huggingface_hub import constants
 from .utils import (
     build_hf_headers,
     fix_hf_endpoint_in_url,
-    get_session,
     hf_raise_for_status,
     http_backoff,
     logging,
@@ -163,7 +162,7 @@ def post_lfs_batch_info(
         **build_hf_headers(token=token),
         **(headers or {}),
     }
-    resp = get_session().post(batch_url, headers=headers, json=payload)
+    resp = http_backoff("POST", batch_url, headers=headers, json=payload)
     hf_raise_for_status(resp)
     batch_info = resp.json()
 
@@ -254,7 +253,8 @@ def lfs_upload(
     if verify_action is not None:
         _validate_lfs_action(verify_action)
         verify_url = fix_hf_endpoint_in_url(verify_action["href"], endpoint)
-        verify_resp = get_session().post(
+        verify_resp = http_backoff(
+            "POST",
             verify_url,
             headers=build_hf_headers(token=token, headers=headers),
             json={"oid": operation.upload_info.sha256.hex(), "size": operation.upload_info.size},
@@ -334,7 +334,9 @@ def _upload_multi_part(operation: "CommitOperationAdd", header: dict, chunk_size
     )
 
     # 3. Send completion request
-    completion_res = get_session().post(
+    # NOTE: `upload_url` is the Hub completion endpoint (not the S3 upload URLs).
+    completion_res = http_backoff(
+        "POST",
         upload_url,
         json=_get_completion_payload(response_headers, operation.upload_info.sha256.hex()),
         headers=LFS_HEADERS,
