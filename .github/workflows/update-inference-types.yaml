@@ -14,12 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Setup Python
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
            repository: huggingface/huggingface_hub
            path: ./huggingface_hub
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - name: Setup uv
@@ -30,11 +30,11 @@ jobs:
         working-directory: ./huggingface_hub
 
       # Setup JS
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
             repository: huggingface/huggingface.js
             path: huggingface.js
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v6
         with:
           node-version: "20"
       - name: Install pnpm
@@ -68,7 +68,7 @@ jobs:
 
       # Create or update Pull Request
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           path: ./huggingface_hub
           token: ${{ secrets.TOKEN_INFERENCE_SYNC_BOT }}

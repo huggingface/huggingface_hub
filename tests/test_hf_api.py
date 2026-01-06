@@ -99,7 +99,6 @@ from .testing_utils import (
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     ENDPOINT_PRODUCTION,
     SAMPLE_DATASET_IDENTIFIER,
-    expect_deprecation,
     repo_name,
     require_git_lfs,
     rmtree_with_retry,
@@ -438,6 +437,21 @@ class CommitApiTest(HfApiCommonTest):
 
         # Clean up
         self._api.delete_repo(repo_id=repo_id, token=OTHER_TOKEN)
+
+    def test_create_repo_already_exists_but_no_write_permission_returns_correct_repo_id(self):
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/3632."""
+        # Create dataset under other user namespace
+        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type="dataset", token=OTHER_TOKEN).repo_id
+
+        # Try to create with our token -> triggers 403 fallback path
+        returned_url = self._api.create_repo(repo_id=repo_id, repo_type="dataset", token=TOKEN, exist_ok=True)
+
+        # Verify the returned RepoUrl has the correct repo_id
+        self.assertEqual(returned_url.repo_id, repo_id)
+        self.assertEqual(returned_url.repo_type, "dataset")
+
+        # Clean up
+        self._api.delete_repo(repo_id=repo_id, repo_type="dataset", token=OTHER_TOKEN)
 
     def test_create_repo_private_by_default(self):
         """Enterprise Hub allows creating private repos by default. Let's test that."""
@@ -1854,7 +1868,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
         # ordered by last modified date.
-        models = list(self._api.list_models(filter=("bert", "jax"), sort="last_modified", direction=-1, limit=10))
+        models = list(self._api.list_models(filter=("bert", "jax"), sort="last_modified", limit=10))
         # we have at least 1 models
         assert len(models) > 1
         assert len(models) <= 10
@@ -2176,9 +2190,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert any(dataset.card_data is not None for dataset in self._api.list_datasets(full=True, limit=50))
         assert all(dataset.card_data is None for dataset in self._api.list_datasets(full=False, limit=50))
 
-    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_tag(self):
-        for dataset in self._api.list_datasets(tags="fiftyone", limit=5):
+        for dataset in self._api.list_datasets(filter="fiftyone", limit=5):
             assert "fiftyone" in dataset.tags
 
     def test_dataset_info(self):
@@ -2384,9 +2397,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
         spaces = list(self._api.list_spaces(search="wikipedia", limit=10))
         assert "wikipedia" in spaces[0].id.lower()
 
-    def test_list_spaces_sort_and_direction(self):
-        # Descending order => first item has more likes than second
-        spaces_descending_likes = list(self._api.list_spaces(sort="likes", direction=-1, limit=100))
+    def test_list_spaces_sort(self):
+        # sort by likes in descending order => first item has more likes than second
+        spaces_descending_likes = list(self._api.list_spaces(sort="likes", limit=100))
         assert spaces_descending_likes[0].likes > spaces_descending_likes[1].likes
 
     def test_list_spaces_limit(self):
@@ -4328,13 +4341,6 @@ class PaperApiTest(unittest.TestCase):
         papers = list(self.api.list_daily_papers(submitter="akhaliq"))
         assert len(papers) > 0
         assert papers[0].submitted_by.fullname == "AK"
-
-    def test_daily_papers_sort(self) -> None:
-        papers = list(self.api.list_daily_papers(date="2025-10-29", sort="trending"))
-        assert len(papers) > 0
-        first_paper = papers[0]
-        last_paper = papers[-1]
-        assert first_paper.upvotes >= last_paper.upvotes
 
     def test_daily_papers_p(self) -> None:
         papers = list(self.api.list_daily_papers(date="2025-10-29", p=100))

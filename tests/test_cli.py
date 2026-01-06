@@ -17,6 +17,7 @@ from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import RevisionNotFoundError
+from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
     CachedRepoInfo,
@@ -1265,6 +1266,124 @@ class TestRepoDeleteCommand:
         )
 
 
+class TestRepoListCommand:
+    def test_repo_list_basic(self, runner: CliRunner) -> None:
+        repo = ModelInfo(
+            id="user/model-id",
+            downloads=100,
+            likes=50,
+            trending_score=10,
+            created_at="2025-01-01T12:00:00Z",
+            private=False,
+            pipeline_tag="text-classification",
+            library_name="transformers",
+            tags=[],
+            siblings=[],
+            spaces=[],
+            card_data=None,
+            last_modified=None,
+            config=None,
+            transformers_info=None,
+        )
+
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([repo])
+            result = runner.invoke(app, ["repo", "list"])
+
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        assert output[0]["id"] == "user/model-id"
+        assert output[0]["created_at"] == "2025-01-01T12:00:00+00:00"
+
+    def test_repo_list_none_fields_excluded(self, runner: CliRunner) -> None:
+        repo = ModelInfo(
+            id="user/model-id",
+            downloads=None,
+            likes=None,
+            private=False,
+            tags=[],
+            siblings=[],
+            spaces=[],
+        )
+
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([repo])
+            result = runner.invoke(app, ["repo", "list"])
+
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        assert "downloads" not in output[0]
+        assert "likes" not in output[0]
+
+    def test_repo_list_with_sort(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
+            result = runner.invoke(app, ["repo", "list", "--sort", "likes"])
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_models.call_args
+        assert kwargs["sort"] == "likes"
+
+    def test_repo_list_with_filters(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
+            result = runner.invoke(
+                app,
+                [
+                    "repo",
+                    "list",
+                    "--author",
+                    "google",
+                    "--search",
+                    "bert",
+                    "--filter",
+                    "text-classification",
+                    "--limit",
+                    "5",
+                ],
+            )
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_models.call_args
+        assert kwargs["author"] == "google"
+        assert kwargs["search"] == "bert"
+        assert kwargs["filter"] == ["text-classification"]
+        assert kwargs["limit"] == 5
+
+    def test_repo_list_datasets(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_datasets.return_value = iter([])
+            result = runner.invoke(app, ["repo", "list", "--repo-type", "dataset", "--sort", "downloads"])
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_datasets.call_args
+        assert kwargs["sort"] == "downloads"
+
+    def test_repo_list_spaces(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_spaces.return_value = iter([])
+            result = runner.invoke(app, ["repo", "list", "--repo-type", "space"])
+
+        assert result.exit_code == 0
+        api.list_spaces.assert_called_once()
+
+    def test_repo_list_invalid_sort_key(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["repo", "list", "--sort", "invalid_key"])
+        assert result.exit_code == 2
+        assert "Invalid value" in result.output
+
+    def test_repo_list_downloads_sort_invalid_for_spaces(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["repo", "list", "--repo-type", "space", "--sort", "downloads"])
+        assert result.exit_code == 1
+        assert "Sort key 'downloads' is not valid for spaces" in result.stdout
+
+
 class TestInferenceEndpointsCommands:
     def test_list(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "demo"})
@@ -1649,6 +1768,29 @@ class TestJobsCommand:
         )
         api.fetch_job_logs.assert_not_called()
 
+    def test_run_with_extra_args(self, runner: CliRunner) -> None:
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.run_job.return_value = job
+            result = runner.invoke(
+                app, ["jobs", "run", "--detach", "python:3.12", "python", "-c", "'print(\"Hello from the cloud!\")'"]
+            )
+        assert result.exit_code == 0
+        api.run_job.assert_called_once_with(
+            image="python:3.12",
+            command=["python", "-c", "'print(\"Hello from the cloud!\")'"],
+            env={},
+            secrets={},
+            flavor=None,
+            timeout=None,
+            namespace=None,
+        )
+        api.fetch_job_logs.assert_not_called()
+
     def test_create_scheduled_job(self, runner: CliRunner) -> None:
         scheduled_job = Mock(id="my-job-id")
         with (
@@ -1696,7 +1838,32 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             namespace=None,
-            _repo=None,
+        )
+        api.fetch_job_logs.assert_not_called()
+
+    def test_uv_command_with_extra_args(self, runner: CliRunner) -> None:
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.run_uv_job.return_value = job
+            result = runner.invoke(
+                app, ["jobs", "uv", "run", "--detach", "python", "-c", "'print(\"Hello from the cloud!\")'"]
+            )
+        assert result.exit_code == 0
+        api.run_uv_job.assert_called_once_with(
+            script="python",
+            script_args=["-c", "'print(\"Hello from the cloud!\")'"],
+            dependencies=None,
+            python=None,
+            image=None,
+            env={},
+            secrets={},
+            flavor=None,
+            timeout=None,
+            namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
 
@@ -1721,7 +1888,6 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             namespace=None,
-            _repo=None,
         )
 
     def test_uv_local_script(self, runner: CliRunner, tmp_path: Path) -> None:
@@ -1748,6 +1914,5 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             namespace=None,
-            _repo=None,
         )
         api.fetch_job_logs.assert_not_called()
