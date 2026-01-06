@@ -151,7 +151,8 @@ def eval_result_entries_to_yaml(entries: list[EvalResultEntry]) -> list[dict[str
 def parse_eval_result_entries(data: list[dict[str, Any]]) -> list[EvalResultEntry]:
     """Parse a list of dicts into [`EvalResultEntry`] objects.
 
-    Supports both the new `.eval_results/*.yaml` format and the legacy `model-index` format.
+    This parses the `.eval_results/*.yaml` format. For the legacy `model-index` format,
+    use [`model_index_to_eval_results`] instead.
 
     Args:
         data (`list[dict[str, Any]]`):
@@ -163,7 +164,6 @@ def parse_eval_result_entries(data: list[dict[str, Any]]) -> list[EvalResultEntr
     Example:
         ```python
         >>> from huggingface_hub import parse_eval_result_entries
-        >>> # New format
         >>> data = [
         ...     {"dataset": {"id": "cais/hle", "task_id": "default"}, "value": 20.90},
         ...     {"dataset": {"id": "Idavidrein/gpqa", "task_id": "gpqa_diamond"}, "value": 0.412},
@@ -173,50 +173,23 @@ def parse_eval_result_entries(data: list[dict[str, Any]]) -> list[EvalResultEntr
         'cais/hle'
         >>> entries[0].value
         20.9
-        >>> # Legacy format (model-index style)
-        >>> legacy_data = [
-        ...     {
-        ...         "task": {"type": "text-generation"},
-        ...         "dataset": {"type": "Idavidrein/gpqa", "config": "gpqa_diamond"},
-        ...         "metrics": [{"type": "accuracy", "value": 0.412}],
-        ...     }
-        ... ]
-        >>> entries = parse_eval_result_entries(legacy_data)
-        >>> entries[0].dataset_id
-        'Idavidrein/gpqa'
 
         ```
     """
     entries = []
     for item in data:
         dataset = item.get("dataset", {})
-        if "id" in dataset:
-            # https://github.com/huggingface/hub-docs/blob/main/eval_results.yaml format
-            source = item.get("source", {})
-            entry = EvalResultEntry(
-                dataset_id=dataset["id"],
-                value=item["value"],
-                task_id=dataset.get("task_id"),
-                dataset_revision=dataset.get("revision"),
-                verify_token=item.get("verifyToken"),
-                date=item.get("date"),
-                source_url=source.get("url") if source else None,
-                source_name=source.get("name") if source else None,
-                source_user=source.get("user") if source else None,
-            )
-            entries.append(entry)
-        else:
-            # https://github.com/huggingface/hub-docs/blob/434609e6d09f7c1203ea59fcc32c7ff4d308a68e/modelcard.md?plain=1#L23 format
-            source = item.get("source", {})
-            for metric in item.get("metrics", []):
-                entry = EvalResultEntry(
-                    dataset_id=dataset["type"],
-                    value=metric["value"],
-                    task_id=dataset.get("config"),
-                    dataset_revision=dataset.get("revision"),
-                    verify_token=metric.get("verifyToken"),
-                    source_url=source.get("url") if source else None,
-                    source_name=source.get("name") if source else None,
-                )
-                entries.append(entry)
+        source = item.get("source", {})
+        entry = EvalResultEntry(
+            dataset_id=dataset["id"],
+            value=item["value"],
+            task_id=dataset.get("task_id"),
+            dataset_revision=dataset.get("revision"),
+            verify_token=item.get("verifyToken"),
+            date=item.get("date"),
+            source_url=source.get("url") if source else None,
+            source_name=source.get("name") if source else None,
+            source_user=source.get("user") if source else None,
+        )
+        entries.append(entry)
     return entries
