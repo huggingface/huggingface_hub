@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target-repo: ["transformers", "datasets", "diffusers"]
+        target-repo: ["transformers", "datasets", "diffusers", "sentence-transformers"]
 
     steps:
       - name: Determine version from tag
@@ -31,7 +31,7 @@ jobs:
           fi
 
       - name: Checkout target repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: huggingface/${{ matrix.target-repo }}
           path: ${{ matrix.target-repo }}
@@ -63,8 +63,10 @@ jobs:
           git checkout -b $BRANCH_NAME
 
           # Update dependencies using sed - match both >= and == patterns
-          sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" setup.py
-          git add setup.py
+          if [ -f "setup.py" ]; then
+            sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" setup.py
+            git add setup.py
+          fi
 
           # Only if the target repo is transformers
           if [ "${{ matrix.target-repo }}" = "transformers" ]; then
@@ -76,6 +78,12 @@ jobs:
           if [ "${{ matrix.target-repo }}" = "diffusers" ]; then
             sed -i -E "s/\"huggingface-hub\":.*/\"huggingface-hub\": \"huggingface-hub==${VERSION}\",/" src/diffusers/dependency_versions_table.py
             git add src/diffusers/dependency_versions_table.py
+          fi
+
+          # Only if the target repo is sentence-transformers
+          if [ "${{ matrix.target-repo }}" = "sentence-transformers" ]; then
+            sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" pyproject.toml
+            git add pyproject.toml
           fi
 
           # Any line with `uv pip install --prerelease=allow` in the `.github/` folder must be updated with `--prerelease=allow` flag

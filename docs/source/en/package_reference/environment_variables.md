@@ -119,9 +119,11 @@ If set, the log level for the `huggingface_hub` logger is set to DEBUG. Addition
 
 If set, no HTTP calls will be made to the Hugging Face Hub. If you try to download files, only the cached files will be accessed. If no cache file is detected, an error is raised This is useful in case your network is slow and you don't care about having the latest version of a file.
 
-If `HF_HUB_OFFLINE=1` is set as environment variable and you call any method of [`HfApi`], an [`~huggingface_hub.utils.OfflineModeIsEnabled`] exception will be raised.
+If `HF_HUB_OFFLINE=1` is set as environment variable and you call any method of [`HfApi`], an [`~huggingface_hub.errors.OfflineModeIsEnabled`] exception will be raised.
 
 **Note:** even if the latest version of a file is cached, calling `hf_hub_download` still triggers a HTTP request to check that a new version is not available. Setting `HF_HUB_OFFLINE=1` will skip this call which speeds up your loading time.
+
+If you want to check if offline mode is enabled or not, you can use the [`is_offline_mode`] helper.
 
 ### HF_HUB_DISABLE_IMPLICIT_TOKEN
 

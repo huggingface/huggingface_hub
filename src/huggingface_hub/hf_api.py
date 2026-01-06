@@ -14,6 +14,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import base64
 import inspect
 import json
 import re
@@ -27,7 +28,6 @@ from datetime import datetime
 from functools import wraps
 from itertools import islice
 from pathlib import Path
-from textwrap import dedent
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -1894,6 +1894,7 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
+    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -1958,10 +1959,9 @@ class HfApi:
                 carbon footprint to filter the resulting models with in grams.
             sort (`Literal["last_modified"]` or `str`, *optional*):
                 The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
-                "created_at", "downloads" and "likes".
+                "created_at", "downloads" and "likes". Sorting is always descending.
             direction (`Literal[-1]` or `int`, *optional*):
-                Direction in which to sort. The value `-1` sorts by descending
-                order while all other values sort by ascending order.
+                Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
                 The limit on the number of models fetched. Leaving this option
                 to `None` fetches all models.
@@ -2094,7 +2094,7 @@ class HfApi:
             if emissions_thresholds is None or _is_emission_within_threshold(model_info, *emissions_thresholds):
                 yield model_info
 
-    @_deprecate_arguments(version="1.0", deprecated_args=["tags"], custom_message="Use `filter` instead.")
+    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
     def list_datasets(
         self,
@@ -2120,8 +2120,6 @@ class HfApi:
         expand: Optional[list[ExpandDatasetProperty_T]] = None,
         full: Optional[bool] = None,
         token: Union[bool, str, None] = None,
-        # Deprecated arguments - use `filter` instead
-        tags: Optional[Union[str, list[str]]] = None,
     ) -> Iterable[DatasetInfo]:
         """
         List datasets hosted on the Huggingface Hub, given some filters.
@@ -2168,11 +2166,10 @@ class HfApi:
             search (`str`, *optional*):
                 A string that will be contained in the returned datasets.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
-                "created_at", "downloads" and "likes".
+                The key with which to sort the resulting datasets. Possible values are "last_modified", "trending_score",
+                "created_at", "downloads" and "likes". Sorting is always descending.
             direction (`Literal[-1]` or `int`, *optional*):
-                Direction in which to sort. The value `-1` sorts by descending
-                order while all other values sort by ascending order.
+                Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
@@ -2261,8 +2258,6 @@ class HfApi:
                     if not value_item.startswith(f"{key}:"):
                         data = f"{key}:{value_item}"
                     filter_list.append(data)
-        if tags is not None:
-            filter_list.extend([tags] if isinstance(tags, str) else tags)
         if len(filter_list) > 0:
             params["filter"] = filter_list
 
@@ -2307,6 +2302,7 @@ class HfApi:
                 item["siblings"] = None
             yield DatasetInfo(**item)
 
+    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
     def list_spaces(
         self,
@@ -2346,11 +2342,10 @@ class HfApi:
             linked (`bool`, *optional*):
                 Whether to return Spaces that make use of either a model or a dataset.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
-                "created_at" and "likes".
+                The key with which to sort the resulting spaces. Possible values are "last_modified", "trending_score",
+                "created_at" and "likes". Sorting is always descending.
             direction (`Literal[-1]` or `int`, *optional*):
-                Direction in which to sort. The value `-1` sorts by descending
-                order while all other values sort by ascending order.
+                Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
                 The limit on the number of Spaces fetched. Leaving this option
                 to `None` fetches all Spaces.
@@ -3832,7 +3827,7 @@ class HfApi:
                     self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
                     if repo_type is None or repo_type == constants.REPO_TYPE_MODEL:
                         return RepoUrl(f"{self.endpoint}/{repo_id}")
-                    return RepoUrl(f"{self.endpoint}/{repo_type}/{repo_id}")
+                    return RepoUrl(f"{self.endpoint}/{constants.REPO_TYPES_URL_PREFIXES[repo_type]}{repo_id}")
                 except HfHubHTTPError:
                     raise err
             else:
@@ -5274,7 +5269,7 @@ class HfApi:
         *,
         url: str,
         token: Union[bool, str, None] = None,
-        timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
+        timeout: Optional[float] = constants.HF_HUB_ETAG_TIMEOUT,
     ) -> HfFileMetadata:
         """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -9921,6 +9916,12 @@ class HfApi:
         *,
         date: Optional[str] = None,
         token: Union[bool, str, None] = None,
+        week: Optional[str] = None,
+        month: Optional[str] = None,
+        submitter: Optional[str] = None,
+        sort: Optional[Literal["publishedAt", "trending"]] = None,
+        p: Optional[int] = None,
+        limit: Optional[int] = None,
     ) -> Iterable[PaperInfo]:
         """
         List the daily papers published on a given date on the Hugging Face Hub.
@@ -9932,6 +9933,19 @@ class HfApi:
             token (Union[bool, str, None], *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token. To disable authentication, pass `False`.
+            week (`str`, *optional*):
+                Week in ISO format (YYYY-Www) for which to fetch daily papers. Example, `2025-W09`.
+            month (`str`, *optional*):
+                Month in ISO format (YYYY-MM) for which to fetch daily papers. Example, `2025-02`.
+            submitter (`str`, *optional*):
+                Username of the submitter to filter daily papers.
+            sort (`Literal["publishedAt", "trending"]`, *optional*):
+                Sort order for the daily papers. Can be either by `publishedAt` or by `trending`.
+                Defaults to `"publishedAt"`
+            p (`int`, *optional*):
+                Page number for pagination. Defaults to 0.
+            limit (`int`, *optional*):
+                Limit of papers to fetch. Defaults to 50.
 
         Returns:
             `Iterable[PaperInfo]`: an iterable of [`huggingface_hub.hf_api.PaperInfo`] objects.
@@ -9946,7 +9960,21 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/daily_papers"
-        params = {"date": date} if date is not None else {}
+
+        params = {
+            k: v
+            for k, v in {
+                "p": p,
+                "limit": limit,
+                "sort": sort,
+                "date": date,
+                "week": week,
+                "month": month,
+                "submitter": submitter,
+            }.items()
+            if v is not None
+        }
+
         r = get_session().get(path, params=params, headers=self._build_hf_headers(token=token))
         hf_raise_for_status(r)
         for paper in r.json():
@@ -10091,7 +10119,7 @@ class HfApi:
             timeout=timeout,
         )
         response = get_session().post(
-            f"https://huggingface.co/api/jobs/{namespace}",
+            f"{self.endpoint}/api/jobs/{namespace}",
             json=job_spec,
             headers=self._build_hf_headers(token=token),
         )
@@ -10154,7 +10182,7 @@ class HfApi:
             try:
                 with get_session().stream(
                     "GET",
-                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}/logs",
+                    f"{self.endpoint}/api/jobs/{namespace}/{job_id}/logs",
                     headers=self._build_hf_headers(token=token),
                     timeout=120,
                 ) as response:
@@ -10182,7 +10210,7 @@ class HfApi:
             job_status = (
                 get_session()
                 .get(
-                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}",
+                    f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
                     headers=self._build_hf_headers(token=token),
                 )
                 .json()
@@ -10317,7 +10345,6 @@ class HfApi:
         timeout: Optional[Union[int, float, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
-        _repo: Optional[str] = None,
     ) -> JobInfo:
         """
         Run a UV script Job on Hugging Face infrastructure.
@@ -10403,7 +10430,6 @@ class HfApi:
             secrets=secrets,
             namespace=namespace,
             token=token,
-            _repo=_repo,
         )
         # Create RunCommand args
         return self.run_job(
@@ -10522,7 +10548,7 @@ class HfApi:
         if suspend is not None:
             input_json["suspend"] = suspend
         response = get_session().post(
-            f"https://huggingface.co/api/scheduled-jobs/{namespace}",
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}",
             json=input_json,
             headers=self._build_hf_headers(token=token),
         )
@@ -10707,7 +10733,6 @@ class HfApi:
         timeout: Optional[Union[int, float, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
-        _repo: Optional[str] = None,
     ) -> ScheduledJobInfo:
         """
         Run a UV script Job on Hugging Face infrastructure.
@@ -10800,7 +10825,6 @@ class HfApi:
             secrets=secrets,
             namespace=namespace,
             token=token,
-            _repo=_repo,
         )
         # Create RunCommand args
         return self.create_scheduled_job(
@@ -10828,7 +10852,6 @@ class HfApi:
         secrets: Optional[dict[str, Any]],
         namespace: Optional[str],
         token: Union[bool, str, None],
-        _repo: Optional[str],
     ) -> tuple[list[str], dict[str, Any], dict[str, Any]]:
         env = env or {}
         secrets = secrets or {}
@@ -10850,95 +10873,15 @@ class HfApi:
             # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
         else:
-            # Local file - upload to HF
-            script_path = Path(script)
-            filename = script_path.name
-            # Parse repo
-            if _repo:
-                repo_id = _repo
-                if "/" not in repo_id:
-                    repo_id = f"{namespace}/{repo_id}"
-            else:
-                repo_id = f"{namespace}/hf-cli-jobs-uv-run-scripts"
+            # Local file - embed as env variable
+            script_content = base64.b64encode(Path(script).read_bytes()).decode()
+            env["UV_SCRIPT_ENCODED"] = script_content
 
-            # Create repo if needed
-            try:
-                self.repo_info(repo_id, repo_type="dataset")
-                logger.debug(f"Using existing repository: {repo_id}")
-            except RepositoryNotFoundError:
-                logger.info(f"Creating repository: {repo_id}")
-                create_repo(repo_id, repo_type="dataset", private=True, exist_ok=True)
-
-            # Upload script
-            logger.info(f"Uploading {script_path.name} to {repo_id}...")
-            with open(script_path, "r") as f:
-                script_content = f.read()
-
-            commit_hash = self.upload_file(
-                path_or_fileobj=script_content.encode(),
-                path_in_repo=filename,
-                repo_id=repo_id,
-                repo_type="dataset",
-            ).oid
-
-            script_url = f"{self.endpoint}/datasets/{repo_id}/resolve/{commit_hash}/{filename}"
-            repo_url = f"{self.endpoint}/datasets/{repo_id}"
-
-            logger.debug(f"✓ Script uploaded to: {repo_url}/blob/main/{filename}")
-
-            # Create and upload minimal README
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-            readme_content = dedent(
-                f"""
-                ---
-                tags:
-                - hf-cli-jobs-uv-script
-                - ephemeral
-                viewer: false
-                ---
-
-                # UV Script: {filename}
-
-                Executed via `hf jobs uv run` on {timestamp}
-
-                ## Run this script
-
-                ```bash
-                hf jobs uv run {filename}
-                ```
-
-                ---
-                *Created with [hf jobs](https://huggingface.co/docs/huggingface_hub/main/en/guides/jobs)*
-                """
-            )
-            self.upload_file(
-                path_or_fileobj=readme_content.encode(),
-                path_in_repo="README.md",
-                repo_id=repo_id,
-                repo_type="dataset",
-            )
-
-            secrets["UV_SCRIPT_HF_TOKEN"] = token or self.token or get_token()
-            env["UV_SCRIPT_URL"] = script_url
-
-            pre_command = (
-                dedent(
-                    """
-                    import urllib.request
-                    import os
-                    from pathlib import Path
-                    o = urllib.request.build_opener()
-                    o.addheaders = [("Authorization", "Bearer " + os.environ["UV_SCRIPT_HF_TOKEN"])]
-                    Path("/tmp/script.py").write_bytes(o.open(os.environ["UV_SCRIPT_URL"]).read())
-                    """
-                )
-                .strip()
-                .replace('"', r"\"")
-                .split("\n")
-            )
-            pre_command = ["python", "-c", '"' + "; ".join(pre_command) + '"']
-            command = ["uv", "run"] + uv_args + ["/tmp/script.py"] + script_args
-            command = ["bash", "-c", " ".join(pre_command) + " && " + " ".join(command)]
+            command = [
+                "bash",
+                "-c",
+                f'echo "$UV_SCRIPT_ENCODED" | base64 -d > /tmp/script.py && uv run {" ".join(uv_args)} /tmp/script.py {" ".join(script_args)}',
+            ]
         return command, env, secrets
 
 

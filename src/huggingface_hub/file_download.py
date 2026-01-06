@@ -1562,7 +1562,7 @@ def try_to_load_from_cache(
 def get_hf_file_metadata(
     url: str,
     token: Union[bool, str, None] = None,
-    timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
+    timeout: Optional[float] = constants.HF_HUB_ETAG_TIMEOUT,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Union[dict, str, None] = None,

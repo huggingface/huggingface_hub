@@ -77,6 +77,18 @@ from .image_segmentation import (
     ImageSegmentationParameters,
     ImageSegmentationSubtask,
 )
+from .image_text_to_image import (
+    ImageTextToImageInput,
+    ImageTextToImageOutput,
+    ImageTextToImageParameters,
+    ImageTextToImageTargetSize,
+)
+from .image_text_to_video import (
+    ImageTextToVideoInput,
+    ImageTextToVideoOutput,
+    ImageTextToVideoParameters,
+    ImageTextToVideoTargetSize,
+)
 from .image_to_image import ImageToImageInput, ImageToImageOutput, ImageToImageParameters, ImageToImageTargetSize
 from .image_to_text import (
     ImageToTextEarlyStoppingEnum,

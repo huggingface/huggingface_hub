@@ -514,7 +514,7 @@ main() {
     log_info "CLI version: ${REQUESTED_VERSION:-latest}"
     log_info "Try it now: env PATH=\"$BIN_DIR:\$PATH\" hf --help"
     log_info "Examples:"
-    log_info "  hf login"
+    log_info "  hf auth login"
     log_info "  hf download deepseek-ai/DeepSeek-R1"
     log_info "  hf jobs run python:3.12 python -c 'print(\"Hello from HF CLI!\")'"
     log_info ""

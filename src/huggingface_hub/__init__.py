@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.2.0.dev0"
+__version__ = "1.3.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -134,6 +134,7 @@ _SUBMOD_ATTRS = {
         "REPO_TYPE_SPACE",
         "TF2_WEIGHTS_NAME",
         "TF_WEIGHTS_NAME",
+        "is_offline_mode",
     ],
     "fastai_utils": [
         "_save_pretrained_fastai",
@@ -379,6 +380,14 @@ _SUBMOD_ATTRS = {
         "ImageSegmentationOutputElement",
         "ImageSegmentationParameters",
         "ImageSegmentationSubtask",
+        "ImageTextToImageInput",
+        "ImageTextToImageOutput",
+        "ImageTextToImageParameters",
+        "ImageTextToImageTargetSize",
+        "ImageTextToVideoInput",
+        "ImageTextToVideoOutput",
+        "ImageTextToVideoParameters",
+        "ImageTextToVideoTargetSize",
         "ImageToImageInput",
         "ImageToImageOutput",
         "ImageToImageParameters",
@@ -664,6 +673,14 @@ __all__ = [
     "ImageSegmentationOutputElement",
     "ImageSegmentationParameters",
     "ImageSegmentationSubtask",
+    "ImageTextToImageInput",
+    "ImageTextToImageOutput",
+    "ImageTextToImageParameters",
+    "ImageTextToImageTargetSize",
+    "ImageTextToVideoInput",
+    "ImageTextToVideoOutput",
+    "ImageTextToVideoParameters",
+    "ImageTextToVideoTargetSize",
     "ImageToImageInput",
     "ImageToImageOutput",
     "ImageToImageParameters",
@@ -893,6 +910,7 @@ __all__ = [
     "inspect_job",
     "inspect_scheduled_job",
     "interpreter_login",
+    "is_offline_mode",
     "list_accepted_access_requests",
     "list_collections",
     "list_daily_papers",
@@ -1158,6 +1176,7 @@ if TYPE_CHECKING:  # pragma: no cover
         REPO_TYPE_SPACE,  # noqa: F401
         TF2_WEIGHTS_NAME,  # noqa: F401
         TF_WEIGHTS_NAME,  # noqa: F401
+        is_offline_mode,  # noqa: F401
     )
     from .fastai_utils import (
         _save_pretrained_fastai,  # noqa: F401
@@ -1401,6 +1420,14 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageSegmentationOutputElement,  # noqa: F401
         ImageSegmentationParameters,  # noqa: F401
         ImageSegmentationSubtask,  # noqa: F401
+        ImageTextToImageInput,  # noqa: F401
+        ImageTextToImageOutput,  # noqa: F401
+        ImageTextToImageParameters,  # noqa: F401
+        ImageTextToImageTargetSize,  # noqa: F401
+        ImageTextToVideoInput,  # noqa: F401
+        ImageTextToVideoOutput,  # noqa: F401
+        ImageTextToVideoParameters,  # noqa: F401
+        ImageTextToVideoTargetSize,  # noqa: F401
         ImageToImageInput,  # noqa: F401
         ImageToImageOutput,  # noqa: F401
         ImageToImageParameters,  # noqa: F401
