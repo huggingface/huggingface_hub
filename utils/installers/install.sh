@@ -1,5 +1,7 @@
 #!/bin/sh
 # Hugging Face CLI Installer for Linux/MacOS
+# Usage: curl -LsSf https://hf.co/cli/install.sh | bash -s
+# Usage: curl -LsSf https://hf.co/cli/install.sh | bash -s --with-transformers
 # Usage: curl -LsSf https://hf.co/cli/install.sh | bash -s -- [OPTIONS]
 
 
@@ -40,9 +42,9 @@ LOG_LEVEL=1
 FORCE_REINSTALL="false"
 BIN_DIR="${HF_CLI_BIN_DIR:-$HOME/.local/bin}"
 UPDATED_RC_FILE=""
-REQUESTED_VERSION="${HF_CLI_VERSION:-}"
 SKIP_PATH_UPDATE="false"
 UPDATED_FISH_PATH="false"
+WITH_TRANSFORMERS="false"
 
 # Logging functions
 log_debug() {
@@ -91,15 +93,15 @@ usage() {
 Usage: curl -LsSf https://hf.co/cli/install.sh | bash -s -- [OPTIONS]
 
 Options:
-  --force           Recreate the Hugging Face CLI virtual environment if it exists
-  --no-modify-path  Skip adding the hf wrapper directory to PATH
-  -v, --verbose     Enable verbose output (includes full pip logs)
-  --help, -h        Show this message and exit
+  --force             Recreate the Hugging Face CLI virtual environment if it exists
+  --no-modify-path    Skip adding the hf wrapper directory to PATH
+  --with-transformers Also install the transformers CLI
+  -v, --verbose       Enable verbose output (includes full pip logs)
+  --help, -h          Show this message and exit
 
 Environment variables:
   HF_HOME           Installation base directory; installer uses $HF_HOME/cli when set
   HF_CLI_BIN_DIR    Directory for the hf wrapper (default: ~/.local/bin)
-  HF_CLI_VERSION    Install a specific huggingface_hub version (default: latest)
 EOF
 }
 
@@ -133,6 +135,9 @@ while [ $# -gt 0 ]; do
             ;;
         --no-modify-path)
             SKIP_PATH_UPDATE="true"
+            ;;
+        --with-transformers)
+            WITH_TRANSFORMERS="true"
             ;;
         -v|--verbose)
             LOG_LEVEL=2
@@ -277,15 +282,9 @@ create_venv() {
     run_command "Failed to upgrade pip" "$VENV_DIR/bin/python" -m pip install --upgrade pip
 }
 
-# Install huggingface_hub with CLI extras
-install_hf_hub() {
-    local package_spec="huggingface_hub"
-    if [ -n "$REQUESTED_VERSION" ]; then
-        package_spec="huggingface_hub==$REQUESTED_VERSION"
-        log_info "Installing The Hugging Face CLI (version $REQUESTED_VERSION)..."
-    else
-        log_info "Installing The Hugging Face CLI (latest)..."
-    fi
+# Install a Python package in the venv
+install_package() {
+    local package_spec="$1"
 
     local extra_pip_args="${HF_CLI_PIP_ARGS:-${HF_PIP_ARGS:-}}"
     local verbose="${HF_CLI_VERBOSE_PIP:-}"
@@ -321,6 +320,29 @@ install_hf_hub() {
         # shellcheck disable=SC2086
         run_command "Failed to install $package_spec" "$VENV_DIR/bin/python" -m pip install --upgrade "$package_spec" ${pip_flags[*]} $extra_pip_args
     fi
+}
+
+# Install huggingface_hub with CLI extras
+install_hf_hub() {
+    log_info "Installing/upgrading Hugging Face CLI (latest)..."
+
+    install_package "huggingface_hub"
+}
+
+# Check if transformers is installed in the venv (using importlib.metadata for speed)
+transformers_installed() {
+    "$VENV_DIR/bin/python" -c "import importlib.metadata; importlib.metadata.version('transformers')" >/dev/null 2>&1
+}
+
+# Install transformers CLI
+install_transformers() {
+    # Install if --with-transformers was passed OR if transformers is already in the venv
+    if [ "$WITH_TRANSFORMERS" != "true" ] && ! transformers_installed; then
+        return
+    fi
+
+    log_info "Installing/upgrading transformers CLI (latest)..."
+    install_package "transformers"
 }
 
 # Expose the hf CLI by linking or copying the console script from the virtualenv
@@ -489,13 +511,13 @@ main() {
     log_info "Force reinstall: $FORCE_REINSTALL"
     log_info "Install dir: $HF_CLI_DIR"
     log_info "Bin dir: $BIN_DIR"
-    log_info "Requested version: ${REQUESTED_VERSION:-latest}"
     log_info "Skip PATH update: $SKIP_PATH_UPDATE"
 
     ensure_python
     create_directories
     create_venv
     install_hf_hub
+    install_transformers
     expose_cli_command
     update_path
     verify_installation
@@ -511,7 +533,6 @@ main() {
     log_success "hf CLI ready!"
     log_info "Binary: $BIN_DIR/hf"
     log_info "Virtualenv: $HF_CLI_DIR"
-    log_info "CLI version: ${REQUESTED_VERSION:-latest}"
     log_info "Try it now: env PATH=\"$BIN_DIR:\$PATH\" hf --help"
     log_info "Examples:"
     log_info "  hf auth login"
