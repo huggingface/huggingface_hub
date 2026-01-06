@@ -1622,7 +1622,7 @@ class PaperInfo:
     def __init__(self, **kwargs) -> None:
         paper = kwargs.pop("paper", {})
         self.id = kwargs.pop("id", None) or paper.pop("id", None)
-        authors = kwargs.pop("authors", None)
+        authors = paper.pop("authors", None) or kwargs.pop("authors", None)
         self.authors = (
             [PaperAuthor(**author) for author in authors] if authors else None
         )
