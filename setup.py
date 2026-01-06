@@ -13,17 +13,20 @@ def get_version() -> str:
     raise RuntimeError("Unable to find version string.")
 
 
+# hf-xet version used in both install_requires and extras["hf_xet"]
+HF_XET_VERSION = "hf-xet>=1.2.0,<2.0.0"
+
 install_requires = [
     "filelock",
     "fsspec>=2023.5.0",
-    "hf-xet>=1.2.0,<2.0.0; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
+    f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
     "httpx>=0.23.0, <1",
     "packaging>=20.9",
     "pyyaml>=5.1",
     "shellingham",
     "tqdm>=4.42.1",
     "typer-slim",
-    "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
+    "typing-extensions>=4.1.0",  # to be able to import TypeAlias, dataclass_transform
 ]
 
 extras = {}
@@ -45,7 +48,7 @@ extras["fastai"] = [
     "fastcore>=1.3.27",
 ]
 
-extras["hf_xet"] = ["hf-xet>=1.1.3,<2.0.0"]
+extras["hf_xet"] = [HF_XET_VERSION]
 
 extras["mcp"] = ["mcp>=1.8.0"]
 

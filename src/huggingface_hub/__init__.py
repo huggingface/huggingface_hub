@@ -385,6 +385,14 @@ _SUBMOD_ATTRS = {
         "ImageSegmentationOutputElement",
         "ImageSegmentationParameters",
         "ImageSegmentationSubtask",
+        "ImageTextToImageInput",
+        "ImageTextToImageOutput",
+        "ImageTextToImageParameters",
+        "ImageTextToImageTargetSize",
+        "ImageTextToVideoInput",
+        "ImageTextToVideoOutput",
+        "ImageTextToVideoParameters",
+        "ImageTextToVideoTargetSize",
         "ImageToImageInput",
         "ImageToImageOutput",
         "ImageToImageParameters",
@@ -671,6 +679,14 @@ __all__ = [
     "ImageSegmentationOutputElement",
     "ImageSegmentationParameters",
     "ImageSegmentationSubtask",
+    "ImageTextToImageInput",
+    "ImageTextToImageOutput",
+    "ImageTextToImageParameters",
+    "ImageTextToImageTargetSize",
+    "ImageTextToVideoInput",
+    "ImageTextToVideoOutput",
+    "ImageTextToVideoParameters",
+    "ImageTextToVideoTargetSize",
     "ImageToImageInput",
     "ImageToImageOutput",
     "ImageToImageParameters",
@@ -1417,6 +1433,14 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageSegmentationOutputElement,  # noqa: F401
         ImageSegmentationParameters,  # noqa: F401
         ImageSegmentationSubtask,  # noqa: F401
+        ImageTextToImageInput,  # noqa: F401
+        ImageTextToImageOutput,  # noqa: F401
+        ImageTextToImageParameters,  # noqa: F401
+        ImageTextToImageTargetSize,  # noqa: F401
+        ImageTextToVideoInput,  # noqa: F401
+        ImageTextToVideoOutput,  # noqa: F401
+        ImageTextToVideoParameters,  # noqa: F401
+        ImageTextToVideoTargetSize,  # noqa: F401
         ImageToImageInput,  # noqa: F401
         ImageToImageOutput,  # noqa: F401
         ImageToImageParameters,  # noqa: F401
