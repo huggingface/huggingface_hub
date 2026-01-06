@@ -16,6 +16,10 @@ from huggingface_hub.inference._providers._common import (
     filter_none,
     recursive_merge,
 )
+from huggingface_hub.inference._providers.alphaneural import (
+    AlphaneuralConversationalTask,
+    AlphaneuralTextGenerationTask,
+)
 from huggingface_hub.inference._providers.black_forest_labs import BlackForestLabsTextToImageTask
 from huggingface_hub.inference._providers.clarifai import ClarifaiConversationalTask
 from huggingface_hub.inference._providers.cohere import CohereConversationalTask
