@@ -10089,7 +10089,7 @@ class HfApi:
             timeout=timeout,
         )
         response = get_session().post(
-            f"https://huggingface.co/api/jobs/{namespace}",
+            f"{self.endpoint}/api/jobs/{namespace}",
             json=job_spec,
             headers=self._build_hf_headers(token=token),
         )
@@ -10627,7 +10627,7 @@ class HfApi:
         if suspend is not None:
             input_json["suspend"] = suspend
         response = get_session().post(
-            f"https://huggingface.co/api/scheduled-jobs/{namespace}",
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}",
             json=input_json,
             headers=self._build_hf_headers(token=token),
         )

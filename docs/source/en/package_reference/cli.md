@@ -1022,6 +1022,7 @@ $ hf repo [OPTIONS] COMMAND [ARGS]...
 * `branch`: Manage branches for a repo on the Hub.
 * `create`: Create a new repo on the Hub.
 * `delete`: Delete a repo from the Hub.
+* `info`: Get info about a repo on the Hub.
 * `list`: List repositories (models, datasets,...
 * `move`: Move a repository from a namespace to...
 * `settings`: Update the settings of a repository.
@@ -1135,6 +1136,28 @@ $ hf repo delete [OPTIONS] REPO_ID
 * `--missing-ok / --no-missing-ok`: If set to True, do not raise an error if repo does not exist.  [default: no-missing-ok]
 * `--help`: Show this message and exit.
 
+### `hf repo info`
+
+Get info about a repo on the Hub.
+
+**Usage**:
+
+```console
+$ hf repo info [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, citation, config, createdAt, datasets, description, disabled, downloads, downloadsAllTime, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, models, paperswithcode_id, pipeline_tag, private, resourceGroup, runtime, safetensors, sdk, sha, siblings, spaces, subdomain, tags, transformersInfo, trendingScore, usedStorage, widgetData.
+* `--help`: Show this message and exit.
+
 ### `hf repo list`
 
 List repositories (models, datasets, spaces) hosted on the Hub.
@@ -1153,6 +1176,7 @@ $ hf repo list [OPTIONS]
 * `--search TEXT`: Search by name.
 * `--author TEXT`: Filter by author or organization.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort key in descending order
+* `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, citation, config, createdAt, datasets, description, disabled, downloads, downloadsAllTime, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, models, paperswithcode_id, pipeline_tag, private, resourceGroup, runtime, safetensors, sdk, sha, siblings, spaces, subdomain, tags, transformersInfo, trendingScore, usedStorage, widgetData.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 

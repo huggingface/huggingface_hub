@@ -17,7 +17,7 @@ unsupported-base = "ignore"
 unsupported-operator = "ignore"
 possibly-missing-attribute = "ignore"
 possibly-missing-implicit-call = "ignore"
-non-subscriptable = "ignore"
+not-subscriptable = "ignore"
 call-non-callable = "ignore"
 
 # Loosen strictness a bit on type matching
