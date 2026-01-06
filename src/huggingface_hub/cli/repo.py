@@ -25,18 +25,40 @@ import dataclasses
 import datetime
 import enum
 import json
-from typing import Annotated, Optional, Union
+from typing import Annotated, Optional, Union, get_args
 
 import typer
 
 from huggingface_hub import DatasetInfo, ModelInfo, SpaceInfo
 from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.hf_api import ExpandDatasetProperty_T, ExpandModelProperty_T, ExpandSpaceProperty_T
 from huggingface_hub.utils import ANSI, logging
 
 from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 
 
 logger = logging.get_logger(__name__)
+
+# Dynamically create an enum with all possible expand properties
+_all_expand_properties = sorted(
+    set(get_args(ExpandModelProperty_T))
+    | set(get_args(ExpandDatasetProperty_T))
+    | set(get_args(ExpandSpaceProperty_T))
+)
+ExpandProperty = enum.Enum("ExpandProperty", {p: p for p in _all_expand_properties}, type=str)
+
+
+def _parse_expand_properties(value: Optional[str]) -> Optional[list[str]]:
+    """Parse and validate comma-separated expand properties."""
+    if value is None:
+        return None
+    properties = [p.strip() for p in value.split(",")]
+    for prop in properties:
+        if prop not in _all_expand_properties:
+            raise typer.BadParameter(
+                f"Invalid expand property: '{prop}'. Valid values are: {', '.join(_all_expand_properties)}"
+            )
+    return properties
 
 
 class RepoListSort(str, enum.Enum):
@@ -196,6 +218,13 @@ def repo_list(
         Optional[RepoListSort],
         typer.Option(help="Sort key in descending order"),
     ] = None,
+    expand: Annotated[
+        Optional[str],
+        typer.Option(
+            help=f"Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: {', '.join(_all_expand_properties)}.",
+            callback=_parse_expand_properties,
+        ),
+    ] = None,
     token: TokenOpt = None,
 ) -> None:
     """List repositories of the requested type and print them as JSON."""
@@ -209,16 +238,48 @@ def repo_list(
     results: list[dict] = []
 
     if repo_type == RepoType.model:
-        for model_info in api.list_models(filter=filter, author=author, search=search, sort=sort_key, limit=limit):
+        for model_info in api.list_models(filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand):  # type: ignore[arg-type]
             results.append(_repo_info_to_dict(model_info))
     elif repo_type == RepoType.dataset:
-        for dataset_info in api.list_datasets(filter=filter, author=author, search=search, sort=sort_key, limit=limit):
+        for dataset_info in api.list_datasets(filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand):  # type: ignore[arg-type]
             results.append(_repo_info_to_dict(dataset_info))
     else:
-        for space_info in api.list_spaces(filter=filter, author=author, search=search, sort=sort_key, limit=limit):
+        for space_info in api.list_spaces(filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand):  # type: ignore[arg-type]
             results.append(_repo_info_to_dict(space_info))
 
     print(json.dumps(results, indent=2))
+
+
+@repo_cli.command("info", help="Get info about a repo on the Hub.")
+def repo_info(
+    repo_id: RepoIdArg,
+    repo_type: RepoTypeOpt = RepoType.model,
+    revision: RevisionOpt = None,
+    token: TokenOpt = None,
+    expand: Annotated[
+        Optional[str],
+        typer.Option(
+            help=f"Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: {', '.join(_all_expand_properties)}.",
+            callback=_parse_expand_properties,
+        ),
+    ] = None,
+) -> None:
+    """Get info about a repository and print it as JSON."""
+    api = get_hf_api(token=token)
+    try:
+        info = api.repo_info(
+            repo_id=repo_id,
+            revision=revision,
+            repo_type=repo_type.value,
+            expand=expand,  # type: ignore[arg-type]
+        )
+    except RepositoryNotFoundError:
+        print(f"{repo_type.value.capitalize()} {ANSI.bold(repo_id)} not found.")
+        raise typer.Exit(code=1)
+    except RevisionNotFoundError:
+        print(f"Revision {ANSI.bold(str(revision))} not found on {ANSI.bold(repo_id)}.")
+        raise typer.Exit(code=1)
+    print(json.dumps(_repo_info_to_dict(info), indent=2))
 
 
 @branch_cli.command("create", help="Create a new branch for a repo on the Hub.")
