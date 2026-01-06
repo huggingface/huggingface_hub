@@ -932,6 +932,33 @@ You can pass environment variables to your job using
 > With this syntax, the secret is retrieved from the environment variable.
 > For `HF_TOKEN`, it may read the token file located in the Hugging Face home folder if the environment variable is unset.
 
+### Job Timeout
+
+Jobs have a default timeout, after which they automatically stop. For long-running tasks like model training, set a custom timeout using the `--timeout` option:
+
+```bash
+# Set timeout in seconds (default unit)
+>>> hf jobs run --timeout 7200 python:3.12 python train.py
+
+# Use time units: s (seconds), m (minutes), h (hours), d (days)
+>>> hf jobs run --timeout 2h pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel python train.py
+>>> hf jobs run --timeout 90m python:3.12 python process_data.py
+>>> hf jobs run --timeout 1.5h python:3.12 python train.py  # floats are supported
+```
+
+The `--timeout` option also works with UV scripts and scheduled jobs:
+
+```bash
+# UV script with timeout
+>>> hf jobs uv run --timeout 2h training_script.py
+
+# Scheduled job with timeout
+>>> hf jobs scheduled run @daily --timeout 4h python:3.12 python daily_task.py
+```
+
+> [!WARNING]
+> If your job exceeds the timeout, it will be automatically terminated. Always set an appropriate timeout with some buffer for long-running tasks to avoid unexpected job terminations.
+
 ### Hardware
 
 Available `--flavor` options:
