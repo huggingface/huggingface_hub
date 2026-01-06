@@ -14,10 +14,8 @@
 # limitations under the License.
 from __future__ import annotations
 
-import base64
 import inspect
 import json
-import os
 import re
 import struct
 import time
@@ -29,6 +27,7 @@ from datetime import datetime
 from functools import wraps
 from itertools import islice
 from pathlib import Path
+from textwrap import dedent
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -1683,6 +1682,52 @@ def future_compatible(fn: CallableT) -> CallableT:
     return _inner  # type: ignore
 
 
+def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_msg: str) -> SafetensorsFileMetadata:
+    """
+    Parse safetensors metadata from raw header bytes.
+
+    This is a shared helper function used by both remote and local safetensors parsing.
+
+    Args:
+        metadata_as_bytes: Raw bytes of the JSON metadata header (without the 8-byte size prefix).
+        filename: Filename for error messages.
+        context_msg: Additional context for error messages (e.g., repo info or local path).
+
+    Returns:
+        SafetensorsFileMetadata object.
+
+    Raises:
+        SafetensorsParsingError: If the header cannot be parsed.
+    """
+    # Parse json header
+    try:
+        metadata_as_dict = json.loads(metadata_as_bytes.decode(errors="ignore"))
+    except json.JSONDecodeError as e:
+        raise SafetensorsParsingError(
+            f"Failed to parse safetensors header for '{filename}' ({context_msg}): header is not json-encoded string. "
+            "Please make sure this is a correctly formatted safetensors file."
+        ) from e
+
+    try:
+        return SafetensorsFileMetadata(
+            metadata=metadata_as_dict.get("__metadata__", {}),
+            tensors={
+                key: TensorInfo(
+                    dtype=tensor["dtype"],
+                    shape=tensor["shape"],
+                    data_offsets=tuple(tensor["data_offsets"]),  # type: ignore
+                )
+                for key, tensor in metadata_as_dict.items()
+                if key != "__metadata__"
+            },
+        )
+    except (KeyError, IndexError) as e:
+        raise SafetensorsParsingError(
+            f"Failed to parse safetensors header for '{filename}' ({context_msg}): header format not recognized. "
+            "Please make sure this is a correctly formatted safetensors file."
+        ) from e
+
+
 class HfApi:
     """
     Client to interact with the Hugging Face Hub via HTTP.
@@ -1864,7 +1909,6 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
-    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -1929,9 +1973,10 @@ class HfApi:
                 carbon footprint to filter the resulting models with in grams.
             sort (`Literal["last_modified"]` or `str`, *optional*):
                 The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
-                "created_at", "downloads" and "likes". Sorting is always descending.
+                "created_at", "downloads" and "likes".
             direction (`Literal[-1]` or `int`, *optional*):
-                Deprecated. This parameter is not used and will be removed in version 1.5.
+                Direction in which to sort. The value `-1` sorts by descending
+                order while all other values sort by ascending order.
             limit (`int`, *optional*):
                 The limit on the number of models fetched. Leaving this option
                 to `None` fetches all models.
@@ -2064,7 +2109,7 @@ class HfApi:
             if emissions_thresholds is None or _is_emission_within_threshold(model_info, *emissions_thresholds):
                 yield model_info
 
-    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
+    @_deprecate_arguments(version="1.0", deprecated_args=["tags"], custom_message="Use `filter` instead.")
     @validate_hf_hub_args
     def list_datasets(
         self,
@@ -2090,6 +2135,8 @@ class HfApi:
         expand: Optional[list[ExpandDatasetProperty_T]] = None,
         full: Optional[bool] = None,
         token: Union[bool, str, None] = None,
+        # Deprecated arguments - use `filter` instead
+        tags: Optional[Union[str, list[str]]] = None,
     ) -> Iterable[DatasetInfo]:
         """
         List datasets hosted on the Huggingface Hub, given some filters.
@@ -2136,10 +2183,11 @@ class HfApi:
             search (`str`, *optional*):
                 A string that will be contained in the returned datasets.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting datasets. Possible values are "last_modified", "trending_score",
-                "created_at", "downloads" and "likes". Sorting is always descending.
+                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
+                "created_at", "downloads" and "likes".
             direction (`Literal[-1]` or `int`, *optional*):
-                Deprecated. This parameter is not used and will be removed in version 1.5.
+                Direction in which to sort. The value `-1` sorts by descending
+                order while all other values sort by ascending order.
             limit (`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
@@ -2228,6 +2276,8 @@ class HfApi:
                     if not value_item.startswith(f"{key}:"):
                         data = f"{key}:{value_item}"
                     filter_list.append(data)
+        if tags is not None:
+            filter_list.extend([tags] if isinstance(tags, str) else tags)
         if len(filter_list) > 0:
             params["filter"] = filter_list
 
@@ -2272,7 +2322,6 @@ class HfApi:
                 item["siblings"] = None
             yield DatasetInfo(**item)
 
-    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
     def list_spaces(
         self,
@@ -2312,10 +2361,11 @@ class HfApi:
             linked (`bool`, *optional*):
                 Whether to return Spaces that make use of either a model or a dataset.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting spaces. Possible values are "last_modified", "trending_score",
-                "created_at" and "likes". Sorting is always descending.
+                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
+                "created_at" and "likes".
             direction (`Literal[-1]` or `int`, *optional*):
-                Deprecated. This parameter is not used and will be removed in version 1.5.
+                Direction in which to sort. The value `-1` sorts by descending
+                order while all other values sort by ascending order.
             limit (`int`, *optional*):
                 The limit on the number of Spaces fetched. Leaving this option
                 to `None` fetches all Spaces.
@@ -3797,7 +3847,7 @@ class HfApi:
                     self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
                     if repo_type is None or repo_type == constants.REPO_TYPE_MODEL:
                         return RepoUrl(f"{self.endpoint}/{repo_id}")
-                    return RepoUrl(f"{self.endpoint}/{constants.REPO_TYPES_URL_PREFIXES[repo_type]}{repo_id}")
+                    return RepoUrl(f"{self.endpoint}/{repo_type}/{repo_id}")
                 except HfHubHTTPError:
                     raise err
             else:
@@ -5574,225 +5624,6 @@ class HfApi:
             dry_run=dry_run,
         )
 
-    def _parse_safetensors_header(
-        self,
-        header_bytes: bytes,
-        metadata_size: int,
-        *,
-        path_info: str,
-    ) -> SafetensorsFileMetadata:
-        """
-        Parse safetensors metadata bytes into a SafetensorsFileMetadata object.
-
-        This is a shared helper used by both local and remote safetensors parsing methods.
-
-        Args:
-            header_bytes (`bytes`):
-                The raw header bytes containing the JSON metadata.
-            metadata_size (`int`):
-                The size of the metadata in bytes.
-            path_info (`str`):
-                A string describing the file path for error messages.
-
-        Returns:
-            [`SafetensorsFileMetadata`]: Parsed metadata from the safetensors file.
-
-        Raises:
-            [`SafetensorsParsingError`]: If the header couldn't be parsed correctly.
-        """
-        # Get metadata bytes from the header
-        metadata_as_bytes = header_bytes[:metadata_size]
-
-        # Parse JSON header
-        try:
-            metadata_as_dict = json.loads(metadata_as_bytes.decode(errors="ignore"))
-        except json.JSONDecodeError as e:
-            raise SafetensorsParsingError(
-                f"Failed to parse safetensors header for {path_info}: "
-                "header is not json-encoded string. Please make sure this is a correctly formatted safetensors file."
-            ) from e
-
-        try:
-            return SafetensorsFileMetadata(
-                metadata=metadata_as_dict.get("__metadata__", {}),
-                tensors={
-                    key: TensorInfo(
-                        dtype=tensor["dtype"],
-                        shape=tensor["shape"],
-                        data_offsets=tuple(tensor["data_offsets"]),  # type: ignore
-                    )
-                    for key, tensor in metadata_as_dict.items()
-                    if key != "__metadata__"
-                },
-            )
-        except (KeyError, IndexError) as e:
-            raise SafetensorsParsingError(
-                f"Failed to parse safetensors header for {path_info}: "
-                "header format not recognized. Please make sure this is a correctly formatted safetensors file."
-            ) from e
-
-    def get_local_safetensors_metadata(
-        self,
-        local_dir: str,
-    ) -> SafetensorsRepoMetadata:
-        """
-        Parse metadata for safetensors files in a local directory.
-
-        We first check if the directory has a single safetensors file or a sharded safetensors repo. If it's a single
-        safetensors file, we parse the metadata from this file. If it's a sharded safetensors repo, we parse the
-        metadata from the index file and then parse the metadata from each shard.
-
-        To parse metadata from a single local safetensors file, use [`parse_local_safetensors_file_metadata`].
-
-        For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
-
-        Args:
-            local_dir (`str`):
-                The local directory path containing safetensors files.
-
-        Returns:
-            [`SafetensorsRepoMetadata`]: information related to safetensors repo.
-
-        Raises:
-            [`NotASafetensorsRepoError`]
-                If the directory is not a safetensors repo i.e. doesn't have either a
-              `model.safetensors` or a `model.safetensors.index.json` file.
-            [`SafetensorsParsingError`]
-                If a safetensors file header couldn't be parsed correctly.
-
-        Example:
-            ```py
-            # Parse local directory with single weights file
-            >>> metadata = get_local_safetensors_metadata("/path/to/model")
-            >>> metadata
-            SafetensorsRepoMetadata(
-                metadata=None,
-                sharded=False,
-                weight_map={'h.0.input_layernorm.bias': 'model.safetensors', ...},
-                files_metadata={'model.safetensors': SafetensorsFileMetadata(...)}
-            )
-
-            # Parse local directory with sharded model
-            >>> metadata = get_local_safetensors_metadata("/path/to/sharded-model")
-            Parse safetensors files: 100%|██████████████████████████████████████████| 72/72 [00:12<00:00,  5.78it/s]
-            >>> metadata
-            SafetensorsRepoMetadata(metadata={'total_size': 352494542848}, sharded=True, weight_map={...}, files_metadata={...})
-            ```
-        """
-        local_path = Path(local_dir)
-
-        # Check for single safetensors file
-        single_file_path = local_path / constants.SAFETENSORS_SINGLE_FILE
-        if single_file_path.exists():
-            file_metadata = self.parse_local_safetensors_file_metadata(
-                local_dir=local_dir,
-                filename=constants.SAFETENSORS_SINGLE_FILE,
-            )
-            return SafetensorsRepoMetadata(
-                metadata=None,
-                sharded=False,
-                weight_map={
-                    tensor_name: constants.SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()
-                },
-                files_metadata={constants.SAFETENSORS_SINGLE_FILE: file_metadata},
-            )
-
-        # Check for sharded safetensors with index file
-        index_file_path = local_path / constants.SAFETENSORS_INDEX_FILE
-        if index_file_path.exists():
-            with open(index_file_path) as f:
-                index = json.load(f)
-
-            weight_map = index.get("weight_map", {})
-
-            # Fetch metadata per shard
-            files_metadata = {}
-
-            def _parse(filename: str) -> None:
-                files_metadata[filename] = self.parse_local_safetensors_file_metadata(
-                    local_dir=local_dir,
-                    filename=filename,
-                )
-
-            thread_map(
-                _parse,
-                set(weight_map.values()),
-                desc="Parse safetensors files",
-                tqdm_class=hf_tqdm,
-            )
-
-            return SafetensorsRepoMetadata(
-                metadata=index.get("metadata", None),
-                sharded=True,
-                weight_map=weight_map,
-                files_metadata=files_metadata,
-            )
-
-        # Not a safetensors repo
-        raise NotASafetensorsRepoError(
-            f"'{local_dir}' is not a safetensors repo. Couldn't find '{constants.SAFETENSORS_INDEX_FILE}' or '{constants.SAFETENSORS_SINGLE_FILE}' files."
-        )
-
-    def parse_local_safetensors_file_metadata(
-        self,
-        local_dir: str,
-        filename: str,
-    ) -> SafetensorsFileMetadata:
-        """
-        Parse metadata from a safetensors file in a local directory.
-
-        To parse metadata from all safetensors files in a local directory at once, use [`get_local_safetensors_metadata`].
-
-        For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
-
-        Args:
-            local_dir (`str`):
-                The local directory path containing the safetensors file.
-            filename (`str`):
-                The name of the safetensors file in the directory.
-
-        Returns:
-            [`SafetensorsFileMetadata`]: information related to a safetensors file.
-
-        Raises:
-            [`SafetensorsParsingError`]:
-                If the safetensors file couldn't be parsed correctly.
-        """
-        file_path = os.path.join(local_dir, filename)
-        path_info = f"'{filename}' (local path '{local_dir}')"
-
-        try:
-            with open(file_path, "rb") as f:
-                # Read first 8 bytes for metadata size
-                header_bytes = f.read(8)
-                if len(header_bytes) < 8:
-                    raise SafetensorsParsingError(
-                        f"Failed to parse safetensors header for {path_info}: "
-                        "file is too small to contain a valid header."
-                    )
-
-                metadata_size = struct.unpack("<Q", header_bytes[:8])[0]
-
-                if metadata_size > constants.SAFETENSORS_MAX_HEADER_LENGTH:
-                    raise SafetensorsParsingError(
-                        f"Failed to parse safetensors header for {path_info}: "
-                        f"safetensors header is too big. Maximum supported size is "
-                        f"{constants.SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
-                    )
-
-                # Read the metadata
-                metadata_as_bytes = f.read(metadata_size)
-        except FileNotFoundError:
-            raise SafetensorsParsingError(
-                f"Failed to parse safetensors header for {path_info}: file not found."
-            )
-
-        return self._parse_safetensors_header(
-            header_bytes=metadata_as_bytes,
-            metadata_size=metadata_size,
-            path_info=path_info,
-        )
-
     def get_safetensors_metadata(
         self,
         repo_id: str,
@@ -5809,8 +5640,6 @@ class HfApi:
         metadata from the index file and then parse the metadata from each shard.
 
         To parse metadata from a single safetensors file, use [`parse_safetensors_file_metadata`].
-
-        To parse metadata from a local directory, use [`get_local_safetensors_metadata`].
 
         For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
 
@@ -5866,16 +5695,13 @@ class HfApi:
             NotASafetensorsRepoError: 'runwayml/stable-diffusion-v1-5' is not a safetensors repo. Couldn't find 'model.safetensors.index.json' or 'model.safetensors' files.
             ```
         """
-        # Check for single safetensors file
-        single_file_exists = self.file_exists(
+        if self.file_exists(  # Single safetensors file => non-sharded model
             repo_id=repo_id,
             filename=constants.SAFETENSORS_SINGLE_FILE,
             repo_type=repo_type,
             revision=revision,
             token=token,
-        )
-
-        if single_file_exists:  # Single safetensors file => non-sharded model
+        ):
             file_metadata = self.parse_safetensors_file_metadata(
                 repo_id=repo_id,
                 filename=constants.SAFETENSORS_SINGLE_FILE,
@@ -5891,17 +5717,13 @@ class HfApi:
                 },
                 files_metadata={constants.SAFETENSORS_SINGLE_FILE: file_metadata},
             )
-
-        # Check for sharded safetensors with index file
-        index_file_exists = self.file_exists(
+        elif self.file_exists(  # Multiple safetensors files => sharded with index
             repo_id=repo_id,
             filename=constants.SAFETENSORS_INDEX_FILE,
             repo_type=repo_type,
             revision=revision,
             token=token,
-        )
-
-        if index_file_exists:  # Multiple safetensors files => sharded with index
+        ):
             # Fetch index
             index_file = self.hf_hub_download(
                 repo_id=repo_id,
@@ -5920,11 +5742,7 @@ class HfApi:
 
             def _parse(filename: str) -> None:
                 files_metadata[filename] = self.parse_safetensors_file_metadata(
-                    repo_id=repo_id,
-                    filename=filename,
-                    repo_type=repo_type,
-                    revision=revision,
-                    token=token,
+                    repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
                 )
 
             thread_map(
@@ -5940,11 +5758,11 @@ class HfApi:
                 weight_map=weight_map,
                 files_metadata=files_metadata,
             )
-
-        # Not a safetensors repo
-        raise NotASafetensorsRepoError(
-            f"'{repo_id}' is not a safetensors repo. Couldn't find '{constants.SAFETENSORS_INDEX_FILE}' or '{constants.SAFETENSORS_SINGLE_FILE}' files."
-        )
+        else:
+            # Not a safetensors repo
+            raise NotASafetensorsRepoError(
+                f"'{repo_id}' is not a safetensors repo. Couldn't find '{constants.SAFETENSORS_INDEX_FILE}' or '{constants.SAFETENSORS_SINGLE_FILE}' files."
+            )
 
     def parse_safetensors_file_metadata(
         self,
@@ -5959,8 +5777,6 @@ class HfApi:
         Parse metadata from a safetensors file on the Hub.
 
         To parse metadata from all safetensors files in a repo at once, use [`get_safetensors_metadata`].
-
-        To parse metadata from a local safetensors file, use [`parse_local_safetensors_file_metadata`].
 
         For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
 
@@ -5985,29 +5801,12 @@ class HfApi:
             [`SafetensorsFileMetadata`]: information related to a safetensors file.
 
         Raises:
+            [`NotASafetensorsRepoError`]:
+                If the repo is not a safetensors repo i.e. doesn't have either a
+              `model.safetensors` or a `model.safetensors.index.json` file.
             [`SafetensorsParsingError`]:
-                If the safetensors file header couldn't be parsed correctly.
+                If a safetensors file header couldn't be parsed correctly.
         """
-        path_info = f"'{filename}' (repo '{repo_id}', revision '{revision or constants.DEFAULT_REVISION}')"
-
-        # Helper function to validate header and get metadata size
-        def _validate_header_and_get_metadata_size(header_bytes: bytes) -> int:
-            """Validate header bytes and return metadata size."""
-            if len(header_bytes) < 8:
-                raise SafetensorsParsingError(
-                    f"Failed to parse safetensors header for {path_info}: "
-                    "file is too small to contain a valid header."
-                )
-            metadata_size = struct.unpack("<Q", header_bytes[:8])[0]
-
-            if metadata_size > constants.SAFETENSORS_MAX_HEADER_LENGTH:
-                raise SafetensorsParsingError(
-                    f"Failed to parse safetensors header for {path_info}: "
-                    f"safetensors header is too big. Maximum supported size is "
-                    f"{constants.SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
-                )
-            return metadata_size
-
         url = hf_hub_url(
             repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, endpoint=self.endpoint
         )
@@ -6022,7 +5821,13 @@ class HfApi:
         hf_raise_for_status(response)
 
         # 2. Parse metadata size
-        metadata_size = _validate_header_and_get_metadata_size(response.content[:8])
+        metadata_size = struct.unpack("<Q", response.content[:8])[0]
+        if metadata_size > constants.SAFETENSORS_MAX_HEADER_LENGTH:
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
+                f"'{revision or constants.DEFAULT_REVISION}'): safetensors header is too big. Maximum supported size is "
+                f"{constants.SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
+            )
 
         # 3.a. Get metadata from payload
         if metadata_size <= 100000:
@@ -6033,11 +5838,8 @@ class HfApi:
             metadata_as_bytes = response.content
 
         # 4. Parse json header using shared helper
-        return self._parse_safetensors_header(
-            header_bytes=metadata_as_bytes,
-            metadata_size=metadata_size,
-            path_info=path_info,
-        )
+        context_msg = f"repo '{repo_id}', revision '{revision or constants.DEFAULT_REVISION}'"
+        return _parse_safetensors_header(metadata_as_bytes, filename, context_msg)
 
     @validate_hf_hub_args
     def create_branch(
@@ -10311,7 +10113,7 @@ class HfApi:
             timeout=timeout,
         )
         response = get_session().post(
-            f"{self.endpoint}/api/jobs/{namespace}",
+            f"https://huggingface.co/api/jobs/{namespace}",
             json=job_spec,
             headers=self._build_hf_headers(token=token),
         )
@@ -10374,7 +10176,7 @@ class HfApi:
             try:
                 with get_session().stream(
                     "GET",
-                    f"{self.endpoint}/api/jobs/{namespace}/{job_id}/logs",
+                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}/logs",
                     headers=self._build_hf_headers(token=token),
                     timeout=120,
                 ) as response:
@@ -10402,7 +10204,7 @@ class HfApi:
             job_status = (
                 get_session()
                 .get(
-                    f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
+                    f"https://huggingface.co/api/jobs/{namespace}/{job_id}",
                     headers=self._build_hf_headers(token=token),
                 )
                 .json()
@@ -10537,6 +10339,7 @@ class HfApi:
         timeout: Optional[Union[int, float, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
+        _repo: Optional[str] = None,
     ) -> JobInfo:
         """
         Run a UV script Job on Hugging Face infrastructure.
@@ -10622,6 +10425,7 @@ class HfApi:
             secrets=secrets,
             namespace=namespace,
             token=token,
+            _repo=_repo,
         )
         # Create RunCommand args
         return self.run_job(
@@ -10740,7 +10544,7 @@ class HfApi:
         if suspend is not None:
             input_json["suspend"] = suspend
         response = get_session().post(
-            f"{self.endpoint}/api/scheduled-jobs/{namespace}",
+            f"https://huggingface.co/api/scheduled-jobs/{namespace}",
             json=input_json,
             headers=self._build_hf_headers(token=token),
         )
@@ -10925,6 +10729,7 @@ class HfApi:
         timeout: Optional[Union[int, float, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
+        _repo: Optional[str] = None,
     ) -> ScheduledJobInfo:
         """
         Run a UV script Job on Hugging Face infrastructure.
@@ -11017,6 +10822,7 @@ class HfApi:
             secrets=secrets,
             namespace=namespace,
             token=token,
+            _repo=_repo,
         )
         # Create RunCommand args
         return self.create_scheduled_job(
@@ -11044,6 +10850,7 @@ class HfApi:
         secrets: Optional[dict[str, Any]],
         namespace: Optional[str],
         token: Union[bool, str, None],
+        _repo: Optional[str],
     ) -> tuple[list[str], dict[str, Any], dict[str, Any]]:
         env = env or {}
         secrets = secrets or {}
@@ -11065,15 +10872,95 @@ class HfApi:
             # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
         else:
-            # Local file - embed as env variable
-            script_content = base64.b64encode(Path(script).read_bytes()).decode()
-            env["UV_SCRIPT_ENCODED"] = script_content
+            # Local file - upload to HF
+            script_path = Path(script)
+            filename = script_path.name
+            # Parse repo
+            if _repo:
+                repo_id = _repo
+                if "/" not in repo_id:
+                    repo_id = f"{namespace}/{repo_id}"
+            else:
+                repo_id = f"{namespace}/hf-cli-jobs-uv-run-scripts"
 
-            command = [
-                "bash",
-                "-c",
-                f'echo "$UV_SCRIPT_ENCODED" | base64 -d > /tmp/script.py && uv run {" ".join(uv_args)} /tmp/script.py {" ".join(script_args)}',
-            ]
+            # Create repo if needed
+            try:
+                self.repo_info(repo_id, repo_type="dataset")
+                logger.debug(f"Using existing repository: {repo_id}")
+            except RepositoryNotFoundError:
+                logger.info(f"Creating repository: {repo_id}")
+                create_repo(repo_id, repo_type="dataset", private=True, exist_ok=True)
+
+            # Upload script
+            logger.info(f"Uploading {script_path.name} to {repo_id}...")
+            with open(script_path, "r") as f:
+                script_content = f.read()
+
+            commit_hash = self.upload_file(
+                path_or_fileobj=script_content.encode(),
+                path_in_repo=filename,
+                repo_id=repo_id,
+                repo_type="dataset",
+            ).oid
+
+            script_url = f"{self.endpoint}/datasets/{repo_id}/resolve/{commit_hash}/{filename}"
+            repo_url = f"{self.endpoint}/datasets/{repo_id}"
+
+            logger.debug(f"✓ Script uploaded to: {repo_url}/blob/main/{filename}")
+
+            # Create and upload minimal README
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+            readme_content = dedent(
+                f"""
+                ---
+                tags:
+                - hf-cli-jobs-uv-script
+                - ephemeral
+                viewer: false
+                ---
+
+                # UV Script: {filename}
+
+                Executed via `hf jobs uv run` on {timestamp}
+
+                ## Run this script
+
+                ```bash
+                hf jobs uv run {filename}
+                ```
+
+                ---
+                *Created with [hf jobs](https://huggingface.co/docs/huggingface_hub/main/en/guides/jobs)*
+                """
+            )
+            self.upload_file(
+                path_or_fileobj=readme_content.encode(),
+                path_in_repo="README.md",
+                repo_id=repo_id,
+                repo_type="dataset",
+            )
+
+            secrets["UV_SCRIPT_HF_TOKEN"] = token or self.token or get_token()
+            env["UV_SCRIPT_URL"] = script_url
+
+            pre_command = (
+                dedent(
+                    """
+                    import urllib.request
+                    import os
+                    from pathlib import Path
+                    o = urllib.request.build_opener()
+                    o.addheaders = [("Authorization", "Bearer " + os.environ["UV_SCRIPT_HF_TOKEN"])]
+                    Path("/tmp/script.py").write_bytes(o.open(os.environ["UV_SCRIPT_URL"]).read())
+                    """
+                )
+                .strip()
+                .replace('"', r"\"")
+                .split("\n")
+            )
+            pre_command = ["python", "-c", '"' + "; ".join(pre_command) + '"']
+            command = ["uv", "run"] + uv_args + ["/tmp/script.py"] + script_args
+            command = ["bash", "-c", " ".join(pre_command) + " && " + " ".join(command)]
         return command, env, secrets
 
 
@@ -11090,6 +10977,169 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
     if re_match is None:
         raise RuntimeError(f"Unexpected response from the hub, expected a Pull Request URL but got: '{pr_url}'")
     return f"refs/pr/{re_match[1]}"
+
+
+def parse_local_safetensors_file_metadata(path: Union[str, Path]) -> SafetensorsFileMetadata:
+    """
+    Parse metadata from a local safetensors file.
+
+    For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
+
+    Args:
+        path (`str` or `Path`):
+            Path to the safetensors file.
+
+    Returns:
+        [`SafetensorsFileMetadata`]: information related to the safetensors file.
+
+    Raises:
+        [`SafetensorsParsingError`]:
+            If the safetensors file header couldn't be parsed correctly.
+        `FileNotFoundError`:
+            If the file does not exist.
+
+    Example:
+        ```py
+        >>> metadata = parse_local_safetensors_file_metadata("path/to/model.safetensors")
+        >>> metadata
+        SafetensorsFileMetadata(
+            metadata={'format': 'pt'},
+            tensors={'layer.weight': TensorInfo(dtype='F32', shape=[512, 512], ...}, ...}
+        )
+        >>> metadata.parameter_count
+        {'F32': 262144}
+        ```
+    """
+    path = Path(path)
+    filename = path.name
+
+    with open(path, "rb") as f:
+        # 1. Read first 8 bytes to get metadata size
+        size_bytes = f.read(8)
+        if len(size_bytes) < 8:
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' (path '{path}'): file is too small to be a valid "
+                "safetensors file."
+            )
+
+        metadata_size = struct.unpack("<Q", size_bytes)[0]
+        if metadata_size > constants.SAFETENSORS_MAX_HEADER_LENGTH:
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' (path '{path}'): safetensors header is too big. "
+                f"Maximum supported size is {constants.SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
+            )
+
+        # 2. Read metadata bytes
+        metadata_as_bytes = f.read(metadata_size)
+        if len(metadata_as_bytes) < metadata_size:
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' (path '{path}'): file is truncated. Expected "
+                f"{metadata_size} bytes of metadata but got {len(metadata_as_bytes)}."
+            )
+
+    # 3. Parse using shared helper
+    context_msg = f"path '{path}'"
+    return _parse_safetensors_header(metadata_as_bytes, filename, context_msg)
+
+
+def get_local_safetensors_metadata(path: Union[str, Path]) -> SafetensorsRepoMetadata:
+    """
+    Parse metadata for a local safetensors file or folder.
+
+    Supports:
+    - Single safetensors file (e.g., `model.safetensors`)
+    - Directory with non-sharded model (contains `model.safetensors`)
+    - Directory with sharded model (contains `model.safetensors.index.json`)
+
+    For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
+
+    Args:
+        path (`str` or `Path`):
+            Path to a safetensors file or directory containing safetensors files.
+
+    Returns:
+        [`SafetensorsRepoMetadata`]: information related to the safetensors repo.
+
+    Raises:
+        [`NotASafetensorsRepoError`]:
+            If the path is not a valid safetensors file or folder (i.e., doesn't have either a
+            `model.safetensors` or a `model.safetensors.index.json` file).
+        [`SafetensorsParsingError`]:
+            If a safetensors file header couldn't be parsed correctly.
+        `FileNotFoundError`:
+            If the path does not exist.
+
+    Example:
+        ```py
+        # Parse single safetensors file
+        >>> metadata = get_local_safetensors_metadata("path/to/model.safetensors")
+        >>> metadata
+        SafetensorsRepoMetadata(metadata=None, sharded=False, weight_map={...}, files_metadata={...})
+
+        # Parse directory with sharded model
+        >>> metadata = get_local_safetensors_metadata("path/to/model_folder")
+        >>> metadata
+        SafetensorsRepoMetadata(metadata={'total_size': ...}, sharded=True, weight_map={...}, files_metadata={...})
+        >>> len(metadata.files_metadata)
+        3  # Number of safetensors shards
+        ```
+    """
+    path = Path(path)
+
+    # Case 1: Direct path to a safetensors file
+    if path.is_file():
+        file_metadata = parse_local_safetensors_file_metadata(path)
+        return SafetensorsRepoMetadata(
+            metadata=None,
+            sharded=False,
+            weight_map={tensor_name: path.name for tensor_name in file_metadata.tensors.keys()},
+            files_metadata={path.name: file_metadata},
+        )
+
+    # Case 2: Directory
+    if not path.is_dir():
+        raise FileNotFoundError(f"Path '{path}' does not exist.")
+
+    single_file_path = path / constants.SAFETENSORS_SINGLE_FILE
+    index_file_path = path / constants.SAFETENSORS_INDEX_FILE
+
+    # Case 2a: Non-sharded model (single model.safetensors file)
+    if single_file_path.exists():
+        file_metadata = parse_local_safetensors_file_metadata(single_file_path)
+        return SafetensorsRepoMetadata(
+            metadata=None,
+            sharded=False,
+            weight_map={
+                tensor_name: constants.SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()
+            },
+            files_metadata={constants.SAFETENSORS_SINGLE_FILE: file_metadata},
+        )
+
+    # Case 2b: Sharded model (model.safetensors.index.json)
+    if index_file_path.exists():
+        with open(index_file_path) as f:
+            index = json.load(f)
+
+        weight_map = index.get("weight_map", {})
+
+        # Parse metadata from each shard
+        files_metadata = {}
+        for shard_filename in set(weight_map.values()):
+            shard_path = path / shard_filename
+            files_metadata[shard_filename] = parse_local_safetensors_file_metadata(shard_path)
+
+        return SafetensorsRepoMetadata(
+            metadata=index.get("metadata", None),
+            sharded=True,
+            weight_map=weight_map,
+            files_metadata=files_metadata,
+        )
+
+    # Not a valid safetensors folder
+    raise NotASafetensorsRepoError(
+        f"'{path}' is not a valid safetensors folder. Couldn't find '{constants.SAFETENSORS_INDEX_FILE}' or "
+        f"'{constants.SAFETENSORS_SINGLE_FILE}' files."
+    )
 
 
 api = HfApi()
@@ -11149,9 +11199,7 @@ permanently_delete_lfs_files = api.permanently_delete_lfs_files
 
 # Safetensors helpers
 get_safetensors_metadata = api.get_safetensors_metadata
-get_local_safetensors_metadata = api.get_local_safetensors_metadata
 parse_safetensors_file_metadata = api.parse_safetensors_file_metadata
-parse_local_safetensors_file_metadata = api.parse_local_safetensors_file_metadata
 
 # Background jobs
 run_as_future = api.run_as_future

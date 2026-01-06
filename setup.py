@@ -12,6 +12,7 @@ def get_version() -> str:
                 return line.split(delim)[1]
     raise RuntimeError("Unable to find version string.")
 
+
 # hf-xet version used in both install_requires and extras["hf_xet"]
 HF_XET_VERSION = "hf-xet>=1.2.0,<2.0.0"
 

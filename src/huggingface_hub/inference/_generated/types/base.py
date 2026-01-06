@@ -19,8 +19,6 @@ import types
 from dataclasses import asdict, dataclass
 from typing import Any, TypeVar, Union, get_args
 
-from typing_extensions import dataclass_transform
-
 
 T = TypeVar("T", bound="BaseInferenceType")
 
@@ -31,7 +29,6 @@ def _repr_with_extra(self):
     return f"{self.__class__.__name__}({', '.join(f'{k}={self.__dict__[k]!r}' for k in fields + other_fields)})"
 
 
-@dataclass_transform()
 def dataclass_with_extra(cls: type[T]) -> type[T]:
     """Decorator to add a custom __repr__ method to a dataclass, showing all fields, including extra ones.
 

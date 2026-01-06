@@ -224,11 +224,18 @@ ScheduledJobIdArg = Annotated[
     ),
 ]
 
+RepoOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="Repository name for the script (creates ephemeral if not specified)",
+    ),
+]
+
 
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
 
-@jobs_cli.command("run", help="Run a Job", context_settings={"ignore_unknown_options": True})
+@jobs_cli.command("run", help="Run a Job")
 def jobs_run(
     image: ImageArg,
     command: CommandArg,
@@ -440,15 +447,12 @@ uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on
 jobs_cli.add_typer(uv_app, name="uv")
 
 
-@uv_app.command(
-    "run",
-    help="Run a UV script (local file or URL) on HF infrastructure",
-    context_settings={"ignore_unknown_options": True},
-)
+@uv_app.command("run", help="Run a UV script (local file or URL) on HF infrastructure")
 def jobs_uv_run(
     script: ScriptArg,
     script_args: ScriptArgsArg = None,
     image: ImageOpt = None,
+    repo: RepoOpt = None,
     flavor: FlavorOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
@@ -485,6 +489,7 @@ def jobs_uv_run(
         flavor=flavor,  # type: ignore[arg-type]
         timeout=timeout,
         namespace=namespace,
+        _repo=repo,
     )
     # Always print the job ID to the user
     print(f"Job started with ID: {job.id}")
@@ -500,7 +505,7 @@ scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.
 jobs_cli.add_typer(scheduled_app, name="scheduled")
 
 
-@scheduled_app.command("run", help="Schedule a Job", context_settings={"ignore_unknown_options": True})
+@scheduled_app.command("run", help="Schedule a Job")
 def scheduled_run(
     schedule: ScheduleArg,
     image: ImageArg,
@@ -678,11 +683,7 @@ scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure"
 scheduled_app.add_typer(scheduled_uv_app, name="uv")
 
 
-@scheduled_uv_app.command(
-    "run",
-    help="Run a UV script (local file or URL) on HF infrastructure",
-    context_settings={"ignore_unknown_options": True},
-)
+@scheduled_uv_app.command("run", help="Run a UV script (local file or URL) on HF infrastructure")
 def scheduled_uv_run(
     schedule: ScheduleArg,
     script: ScriptArg,
@@ -690,6 +691,7 @@ def scheduled_uv_run(
     suspend: SuspendOpt = None,
     concurrency: ConcurrencyOpt = None,
     image: ImageOpt = None,
+    repo: RepoOpt = None,
     flavor: FlavorOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
@@ -728,6 +730,7 @@ def scheduled_uv_run(
         flavor=flavor,  # type: ignore[arg-type]
         timeout=timeout,
         namespace=namespace,
+        _repo=repo,
     )
     print(f"Scheduled Job created with ID: {job.id}")
 

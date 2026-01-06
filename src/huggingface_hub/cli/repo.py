@@ -21,40 +21,27 @@ Usage:
     hf repo create my-cool-model --private
 """
 
-import dataclasses
-import datetime
 import enum
-import json
-from typing import Annotated, Optional, Union
+from typing import Annotated, Optional
 
 import typer
 
-from huggingface_hub import DatasetInfo, ModelInfo, SpaceInfo
 from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.utils import ANSI, logging
 
-from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import (
+    PrivateOpt,
+    RepoIdArg,
+    RepoType,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    get_hf_api,
+    typer_factory,
+)
 
 
 logger = logging.get_logger(__name__)
-
-
-class RepoListSort(str, enum.Enum):
-    created_at = "created_at"
-    downloads = "downloads"
-    last_modified = "last_modified"
-    likes = "likes"
-    trending_score = "trending_score"
-
-
-def _repo_info_to_dict(info: Union[ModelInfo, DatasetInfo, SpaceInfo]) -> dict[str, object]:
-    """Convert repo info dataclasses to json-serializable dicts."""
-    return {
-        k: v.isoformat() if isinstance(v, datetime.datetime) else v
-        for k, v in dataclasses.asdict(info).items()
-        if v is not None
-    }
-
 
 repo_cli = typer_factory(help="Manage repos on the Hub.")
 tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
@@ -171,54 +158,6 @@ def repo_settings(
         repo_type=repo_type.value,
     )
     print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")
-
-
-@repo_cli.command("list", help="List repositories (models, datasets, spaces) hosted on the Hub.")
-def repo_list(
-    repo_type: RepoTypeOpt = RepoType.model,
-    limit: Annotated[
-        int,
-        typer.Option(help="Limit the number of results."),
-    ] = 10,
-    filter: Annotated[
-        Optional[list[str]],
-        typer.Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
-    ] = None,
-    search: Annotated[
-        Optional[str],
-        typer.Option(help="Search by name."),
-    ] = None,
-    author: Annotated[
-        Optional[str],
-        typer.Option(help="Filter by author or organization."),
-    ] = None,
-    sort: Annotated[
-        Optional[RepoListSort],
-        typer.Option(help="Sort key in descending order"),
-    ] = None,
-    token: TokenOpt = None,
-) -> None:
-    """List repositories of the requested type and print them as JSON."""
-    api = get_hf_api(token=token)
-
-    sort_key: Optional[str] = sort.value if sort else None
-    if sort_key == "downloads" and repo_type == RepoType.space:
-        print("Sort key 'downloads' is not valid for spaces.")
-        raise typer.Exit(code=1)
-
-    results: list[dict] = []
-
-    if repo_type == RepoType.model:
-        for model_info in api.list_models(filter=filter, author=author, search=search, sort=sort_key, limit=limit):
-            results.append(_repo_info_to_dict(model_info))
-    elif repo_type == RepoType.dataset:
-        for dataset_info in api.list_datasets(filter=filter, author=author, search=search, sort=sort_key, limit=limit):
-            results.append(_repo_info_to_dict(dataset_info))
-    else:
-        for space_info in api.list_spaces(filter=filter, author=author, search=search, sort=sort_key, limit=limit):
-            results.append(_repo_info_to_dict(space_info))
-
-    print(json.dumps(results, indent=2))
 
 
 @branch_cli.command("create", help="Create a new branch for a repo on the Hub.")
