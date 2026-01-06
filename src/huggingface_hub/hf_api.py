@@ -10104,7 +10104,7 @@ class HfApi:
         route: str,
         timeout: int,
         skip_previous_events_on_retry: bool,
-        retry_on_status_codes: tuple[int, ...],
+        double_check_job_has_finished_on_status_code: tuple[int, ...],
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[dict[str, Any]]:
@@ -10117,8 +10117,13 @@ class HfApi:
         max_wait_time = 10
         sleep_time = 0
         start_event_idx = 0
+        error_to_retry = None
         while True:
-            time.sleep(sleep_time)
+            if error_to_retry is not None:
+                logger.warning(f"'{error_to_retry}' thrown while requesting jobs /{route}")
+                logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
+                error_to_retry = None
+                time.sleep(sleep_time)
             try:
                 with get_session().stream(
                     "GET",
@@ -10136,7 +10141,7 @@ class HfApi:
                                         start_event_idx += 1
                                     yield json.loads(line[len("data: ") :])
                         break
-                    elif response.status_code not in retry_on_status_codes:
+                    elif response.status_code not in double_check_job_has_finished_on_status_code:
                         hf_raise_for_status(response)
             except httpx.HTTPStatusError:
                 raise
@@ -10159,8 +10164,7 @@ class HfApi:
                 else:
                     nb_tries += 1
                     sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
-                    logger.warning(f"'{err}' thrown while requesting jobs /{route}")
-                    logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
+                    error_to_retry = err
             job_status_response = get_session().get(
                 f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
                 headers=self._build_hf_headers(token=token),
@@ -10216,7 +10220,7 @@ class HfApi:
             route="logs",
             timeout=4 * seconds_between_keep_alive,
             skip_previous_events_on_retry=True,
-            retry_on_status_codes=tuple(),
+            double_check_job_has_finished_on_status_code=tuple(),
             namespace=namespace,
             token=token,
         ):
@@ -10285,7 +10289,7 @@ class HfApi:
             route="metrics",
             timeout=10 * seconds_between_events,
             skip_previous_events_on_retry=False,
-            retry_on_status_codes=(500,),
+            double_check_job_has_finished_on_status_code=(500,),
             namespace=namespace,
             token=token,
         )
