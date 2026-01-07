@@ -54,7 +54,7 @@ app.add_typer(ie_cli, name="endpoints")
 def main():
     if not constants.HF_DEBUG:
         logging.set_verbosity_info()
-    check_cli_update()
+    check_cli_update("huggingface_hub")
     app()
 
 

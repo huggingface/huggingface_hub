@@ -112,6 +112,7 @@ _SUBMOD_ATTRS = {
         "webhook_endpoint",
     ],
     "cli._cli_utils": [
+        "check_cli_update",
         "typer_factory",
     ],
     "community": [
@@ -844,6 +845,7 @@ __all__ = [
     "cancel_access_request",
     "cancel_job",
     "change_discussion_status",
+    "check_cli_update",
     "close_session",
     "comment_discussion",
     "create_branch",
@@ -1155,7 +1157,10 @@ if TYPE_CHECKING:  # pragma: no cover
         WebhooksServer,  # noqa: F401
         webhook_endpoint,  # noqa: F401
     )
-    from .cli._cli_utils import typer_factory  # noqa: F401
+    from .cli._cli_utils import (
+        check_cli_update,  # noqa: F401
+        typer_factory,  # noqa: F401
+    )
     from .community import (
         Discussion,  # noqa: F401
         DiscussionComment,  # noqa: F401
