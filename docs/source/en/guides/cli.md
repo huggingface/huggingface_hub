@@ -934,7 +934,7 @@ You can pass environment variables to your job using
 
 ### Job Timeout
 
-Jobs have a default timeout, after which they automatically stop. For long-running tasks like model training, set a custom timeout using the `--timeout` option:
+Jobs have a default timeout of 30 mins, after which they automatically stop. For long-running tasks like model training, set a custom timeout using the `--timeout` option:
 
 ```bash
 # Set timeout in seconds (default unit)
