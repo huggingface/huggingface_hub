@@ -898,7 +898,7 @@ def _get_extended_environ() -> Dict[str, str]:
 T = TypeVar("T")
 
 
-def _write_generator_to_queue(queue: Queue, func: Callable[..., Iterable[T]], kwargs: dict) -> None:
+def _write_generator_to_queue(queue: Queue[T], func: Callable[..., Iterable[T]], kwargs: dict) -> None:
     for result in func(**kwargs):
         queue.put(result)
 
@@ -909,6 +909,15 @@ def iflatmap_unordered(
     *,
     kwargs_list: list[dict],
 ) -> Iterable[T]:
+    """
+    Takes a function that returns an iterable of items, and run it in parallel using threads to return the flattened iterable of items as they arrive.
+
+    This is inspired by those three `map()` variants, and is the mix of all three:
+
+    * `imap()`: like `map()` but returns an iterable instead of a list of results
+    * `imap_unordered()`: like `imap()` but the output is sorted by time of arrival
+    * `flatmap()`: like `map()` but given a function which returns a list, `flatmap()` returns the flattened list that is the concatenation of all the output lists
+    """
     queue: Queue[T] = Queue()
     async_results = [pool.apply_async(_write_generator_to_queue, (queue, func, kwargs)) for kwargs in kwargs_list]
     try:
