@@ -11036,7 +11036,9 @@ def get_local_safetensors_metadata(path: Union[str, Path]) -> SafetensorsRepoMet
         return SafetensorsRepoMetadata(
             metadata=None,
             sharded=False,
-            weight_map={tensor_name: constants.SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()},
+            weight_map={
+                tensor_name: constants.SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()
+            },
             files_metadata={constants.SAFETENSORS_SINGLE_FILE: file_metadata},
         )
 
