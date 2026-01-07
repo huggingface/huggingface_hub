@@ -339,7 +339,7 @@ def _print_output(
         print(_tabulate(rows, headers=headers))
 
 
-def _clear_line(n=1):
+def _clear_line(n: int) -> None:
     LINE_UP = "\033[1A"
     LINE_CLEAR = "\x1b[2K"
     for i in range(n):
@@ -390,7 +390,7 @@ def jobs_stats(
             if (job.status.stage if job.status else "UNKNOWN") in ("RUNNING", "UPDATING")
         ]
     if len(job_ids) == 0:
-        print("No jobs found")
+        print("No running jobs found")
         return
     table_headers = [
         "JOB ID",
