@@ -214,6 +214,7 @@ _SUBMOD_ATTRS = {
         "edit_discussion_comment",
         "enable_webhook",
         "fetch_job_logs",
+        "fetch_job_metrics",
         "file_exists",
         "get_collection",
         "get_dataset_tags",
@@ -882,6 +883,7 @@ __all__ = [
     "export_entries_as_dduf",
     "export_folder_as_dduf",
     "fetch_job_logs",
+    "fetch_job_metrics",
     "file_exists",
     "from_pretrained_fastai",
     "get_async_session",
@@ -1260,6 +1262,7 @@ if TYPE_CHECKING:  # pragma: no cover
         edit_discussion_comment,  # noqa: F401
         enable_webhook,  # noqa: F401
         fetch_job_logs,  # noqa: F401
+        fetch_job_metrics,  # noqa: F401
         file_exists,  # noqa: F401
         get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401

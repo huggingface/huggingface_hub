@@ -23,6 +23,9 @@ Usage:
     # Stream logs from a job
     hf jobs logs <job-id>
 
+    # Stream resources usage stats and metrics from a job
+    hf jobs stats <job-id>
+
     # Inspect detailed information about a job
     hf jobs inspect <job-id>
 
@@ -53,17 +56,22 @@ Usage:
 """
 
 import json
+import multiprocessing
+import multiprocessing.pool
 import os
 import re
+import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import Annotated, Dict, Optional, Union
+from queue import Empty, Queue
+from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, Union
 
 import typer
 
 from huggingface_hub import SpaceHardware, get_token
 from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.utils import logging
+from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._cli_utils import TokenOpt, get_hf_api, typer_factory
@@ -72,6 +80,7 @@ from ._cli_utils import TokenOpt, get_hf_api, typer_factory
 logger = logging.get_logger(__name__)
 
 SUGGESTED_FLAVORS = [item.value for item in SpaceHardware if item.value != "zero-a10g"]
+STATS_UPDATE_MIN_INTERVAL = 0.1  # we set a limit here since there is one update per second per job
 
 # Common job-related options
 ImageArg = Annotated[
@@ -217,6 +226,13 @@ JobIdArg = Annotated[
     ),
 ]
 
+JobIdsArg = Annotated[
+    Optional[list[str]],
+    typer.Argument(
+        help="Job IDs",
+    ),
+]
+
 ScheduledJobIdArg = Annotated[
     str,
     typer.Argument(
@@ -305,14 +321,16 @@ def _matches_filters(job_properties: dict[str, str], filters: dict[str, str]) ->
     return True
 
 
-def _print_output(rows: list[list[Union[str, int]]], headers: list[str], fmt: Optional[str]) -> None:
+def _print_output(
+    rows: list[list[Union[str, int]]], headers: list[str], aliases: list[str], fmt: Optional[str]
+) -> None:
     """Print output according to the chosen format."""
     if fmt:
         # Use custom template if provided
         template = fmt
         for row in rows:
             line = template
-            for i, field in enumerate(["id", "image", "command", "created", "status"]):
+            for i, field in enumerate(aliases):
                 placeholder = f"{{{{.{field}}}}}"
                 if placeholder in line:
                     line = line.replace(placeholder, str(row[i]))
@@ -320,6 +338,112 @@ def _print_output(rows: list[list[Union[str, int]]], headers: list[str], fmt: Op
     else:
         # Default tabular format
         print(_tabulate(rows, headers=headers))
+
+
+def _clear_line(n: int) -> None:
+    LINE_UP = "\033[1A"
+    LINE_CLEAR = "\x1b[2K"
+    for i in range(n):
+        print(LINE_UP, end=LINE_CLEAR)
+
+
+def _get_jobs_stats_rows(
+    job_id: str, metrics_stream: Iterable[dict[str, Any]], table_headers: list[str]
+) -> Iterable[tuple[bool, str, list[list[Union[str, int]]]]]:
+    for metrics in metrics_stream:
+        row = [
+            job_id,
+            f"{metrics['cpu_usage_pct']}%",
+            round(metrics["cpu_millicores"] / 1000.0, 1),
+            f"{round(100 * metrics['memory_used_bytes'] / metrics['memory_total_bytes'], 2)}%",
+            f"{_format_size(metrics['memory_used_bytes'])}B / {_format_size(metrics['memory_total_bytes'])}B",
+            f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
+        ]
+        if metrics["gpus"] and isinstance(metrics["gpus"], dict):
+            rows = [row] + [[""] * len(row)] * (len(metrics["gpus"]) - 1)
+            for row, gpu_id in zip(rows, sorted(metrics["gpus"])):
+                gpu = metrics["gpus"][gpu_id]
+                row += [
+                    f"{gpu['utilization']}%",
+                    f"{round(100 * gpu['memory_used_bytes'] / gpu['memory_total_bytes'], 2)}%",
+                    f"{_format_size(gpu['memory_used_bytes'])}B / {_format_size(gpu['memory_total_bytes'])}B",
+                ]
+        else:
+            row += ["N/A"] * (len(table_headers) - len(row))
+            rows = [row]
+        yield False, job_id, rows
+    yield True, job_id, []
+
+
+@jobs_cli.command("stats", help="Fetch the resource usage statistics and metrics of Jobs")
+def jobs_stats(
+    job_ids: JobIdsArg = None,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    api = get_hf_api(token=token)
+    if namespace is None:
+        namespace = api.whoami()["name"]
+    if job_ids is None:
+        job_ids = [
+            job.id
+            for job in api.list_jobs(namespace=namespace)
+            if (job.status.stage if job.status else "UNKNOWN") in ("RUNNING", "UPDATING")
+        ]
+    if len(job_ids) == 0:
+        print("No running jobs found")
+        return
+    table_headers = [
+        "JOB ID",
+        "CPU %",
+        "NUM CPU",
+        "MEM %",
+        "MEM USAGE",
+        "NET I/O",
+        "GPU UTIL %",
+        "GPU MEM %",
+        "GPU MEM USAGE",
+    ]
+    headers_aliases = [
+        "id",
+        "cpu_usage_pct",
+        "cpu_millicores",
+        "memory_used_bytes_pct",
+        "memory_used_bytes_and_total_bytes",
+        "rx_bps_and_tx_bps",
+        "gpu_utilization",
+        "gpu_memory_used_bytes_pct",
+        "gpu_memory_used_bytes_and_total_bytes",
+    ]
+    with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
+        rows_per_job_id: dict[str, list[list[Union[str, int]]]] = {}
+        for job_id in job_ids:
+            row: list[Union[str, int]] = [job_id]
+            row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
+            rows_per_job_id[job_id] = [row]
+        last_update_time = time.time()
+        total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+        _print_output(total_rows, table_headers, headers_aliases, None)
+
+        kwargs_list = [
+            {
+                "job_id": job_id,
+                "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace),
+                "table_headers": table_headers,
+            }
+            for job_id in job_ids
+        ]
+        for done, job_id, rows in iflatmap_unordered(pool, _get_jobs_stats_rows, kwargs_list=kwargs_list):
+            if done:
+                rows_per_job_id.pop(job_id, None)
+            else:
+                rows_per_job_id[job_id] = rows
+            now = time.time()
+            if now - last_update_time >= STATS_UPDATE_MIN_INTERVAL:
+                _clear_line(2 + len(total_rows))
+                total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+                _print_output(total_rows, table_headers, headers_aliases, None)
+                last_update_time = now
 
 
 @jobs_cli.command("ps", help="List Jobs")
@@ -355,6 +479,7 @@ def jobs_ps(
         jobs = api.list_jobs(namespace=namespace)
         # Define table headers
         table_headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
+        headers_aliases = ["id", "image", "command", "created", "status"]
         rows: list[list[Union[str, int]]] = []
 
         filters: dict[str, str] = {}
@@ -400,7 +525,7 @@ def jobs_ps(
             print(f"No jobs found{filters_msg}")
             return
         # Apply custom format if provided or use default tabular format
-        _print_output(rows, table_headers, format)
+        _print_output(rows, table_headers, headers_aliases, format)
 
     except HfHubHTTPError as e:
         print(f"Error fetching jobs data: {e}")
@@ -576,6 +701,7 @@ def scheduled_ps(
         api = get_hf_api(token=token)
         scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
         table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
+        headers_aliases = ["id", "schedule", "image", "command", "last", "next", "suspend"]
         rows: list[list[Union[str, int]]] = []
         filters: dict[str, str] = {}
         for f in filter or []:
@@ -615,7 +741,7 @@ def scheduled_ps(
             )
             print(f"No scheduled jobs found{filters_msg}")
             return
-        _print_output(rows, table_headers, format)
+        _print_output(rows, table_headers, headers_aliases, format)
 
     except HfHubHTTPError as e:
         print(f"Error fetching scheduled jobs data: {e}")
@@ -767,3 +893,45 @@ def _get_extended_environ() -> Dict[str, str]:
     if (token := get_token()) is not None:
         extended_environ["HF_TOKEN"] = token
     return extended_environ
+
+
+T = TypeVar("T")
+
+
+def _write_generator_to_queue(queue: Queue[T], func: Callable[..., Iterable[T]], kwargs: dict) -> None:
+    for result in func(**kwargs):
+        queue.put(result)
+
+
+def iflatmap_unordered(
+    pool: multiprocessing.pool.ThreadPool,
+    func: Callable[..., Iterable[T]],
+    *,
+    kwargs_list: list[dict],
+) -> Iterable[T]:
+    """
+    Takes a function that returns an iterable of items, and run it in parallel using threads to return the flattened iterable of items as they arrive.
+
+    This is inspired by those three `map()` variants, and is the mix of all three:
+
+    * `imap()`: like `map()` but returns an iterable instead of a list of results
+    * `imap_unordered()`: like `imap()` but the output is sorted by time of arrival
+    * `flatmap()`: like `map()` but given a function which returns a list, `flatmap()` returns the flattened list that is the concatenation of all the output lists
+    """
+    queue: Queue[T] = Queue()
+    async_results = [pool.apply_async(_write_generator_to_queue, (queue, func, kwargs)) for kwargs in kwargs_list]
+    try:
+        while True:
+            try:
+                yield queue.get(timeout=0.05)
+            except Empty:
+                if all(async_result.ready() for async_result in async_results) and queue.empty():
+                    break
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # we get the result in case there's an error to raise
+        try:
+            [async_result.get(timeout=0.05) for async_result in async_results]
+        except multiprocessing.TimeoutError:
+            pass

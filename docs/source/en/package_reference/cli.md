@@ -588,6 +588,7 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 * `ps`: List Jobs
 * `run`: Run a Job
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
+* `stats`: Fetch the resource usage statistics and...
 * `uv`: Run UV scripts (Python with inline...
 
 ### `hf jobs cancel`
@@ -899,6 +900,26 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed
 * `-p, --python TEXT`: The Python interpreter to use for the run environment
+* `--help`: Show this message and exit.
+
+### `hf jobs stats`
+
+Fetch the resource usage statistics and metrics of Jobs
+
+**Usage**:
+
+```console
+$ hf jobs stats [OPTIONS] [JOB_IDS]...
+```
+
+**Arguments**:
+
+* `[JOB_IDS]...`: Job IDs
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 ### `hf jobs uv`

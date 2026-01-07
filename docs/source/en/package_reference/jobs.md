@@ -8,6 +8,7 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 
 - Run a Job: [`run_job`]
 - Fetch logs: [`fetch_job_logs`]
+- Fetch metrics: [`fetch_job_metrics`]
 - Inspect Job: [`inspect_job`]
 - List Jobs: [`list_jobs`]
 - Cancel Job: [`cancel_job`]
