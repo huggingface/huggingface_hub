@@ -80,6 +80,7 @@ from ._cli_utils import TokenOpt, get_hf_api, typer_factory
 logger = logging.get_logger(__name__)
 
 SUGGESTED_FLAVORS = [item.value for item in SpaceHardware if item.value != "zero-a10g"]
+STATS_UPDATE_MIN_INTERVAL = 0.1  # we set a limit here since there is one update per second per job
 
 # Common job-related options
 ImageArg = Annotated[
@@ -421,7 +422,6 @@ def jobs_stats(
             row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
             rows_per_job_id[job_id] = [row]
         last_update_time = time.time()
-        min_seconds_between_updates = 0.1  # we set a limit here since there is one update per second per job
         total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
         _print_output(total_rows, table_headers, headers_aliases, None)
 
@@ -439,7 +439,7 @@ def jobs_stats(
             else:
                 rows_per_job_id[job_id] = rows
             now = time.time()
-            if now - last_update_time >= min_seconds_between_updates:
+            if now - last_update_time >= STATS_UPDATE_MIN_INTERVAL:
                 _clear_line(2 + len(total_rows))
                 total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
                 _print_output(total_rows, table_headers, headers_aliases, None)
