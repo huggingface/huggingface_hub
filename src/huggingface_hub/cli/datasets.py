@@ -24,13 +24,14 @@ Usage:
     hf datasets info HuggingFaceFW/fineweb
 """
 
+import enum
 import json
 from typing import Annotated, Optional, get_args
 
 import typer
 
 from huggingface_hub.errors import RepositoryNotFoundError, RevisionNotFoundError
-from huggingface_hub.hf_api import ExpandDatasetProperty_T
+from huggingface_hub.hf_api import DatasetSort_T, ExpandDatasetProperty_T
 from huggingface_hub.utils import ANSI
 
 from ._cli_utils import (
@@ -39,7 +40,6 @@ from ._cli_utils import (
     LimitOpt,
     RevisionOpt,
     SearchQueryArg,
-    SortOpt,
     TokenOpt,
     get_hf_api,
     make_expand_properties_parser,
@@ -49,6 +49,9 @@ from ._cli_utils import (
 
 
 _EXPAND_PROPERTIES = sorted(get_args(ExpandDatasetProperty_T))
+_SORT_OPTIONS = get_args(DatasetSort_T)
+DatasetSortEnum = enum.Enum("DatasetSortEnum", {s: s for s in _SORT_OPTIONS}, type=str)  # type: ignore[misc]
+
 
 ExpandOpt = Annotated[
     Optional[str],
@@ -62,11 +65,15 @@ ExpandOpt = Annotated[
 datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
 
 
-def _datasets_list(
+@datasets_cli.command("ls")
+def datasets_ls(
     query: SearchQueryArg = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
-    sort: SortOpt = None,
+    sort: Annotated[
+        Optional[DatasetSortEnum],
+        typer.Option(help="Sort results."),
+    ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
     token: TokenOpt = None,
@@ -81,10 +88,6 @@ def _datasets_list(
         )
     ]
     print(json.dumps(results, indent=2))
-
-
-datasets_cli.command("list")(_datasets_list)
-datasets_cli.command("ls")(_datasets_list)
 
 
 @datasets_cli.command("info")

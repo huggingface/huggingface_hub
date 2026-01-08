@@ -24,14 +24,14 @@ Usage:
     hf spaces info HuggingFaceH4/open-llm-leaderboard
 """
 
+import enum
 import json
-from enum import Enum
 from typing import Annotated, Optional, get_args
 
 import typer
 
 from huggingface_hub.errors import RepositoryNotFoundError, RevisionNotFoundError
-from huggingface_hub.hf_api import ExpandSpaceProperty_T
+from huggingface_hub.hf_api import ExpandSpaceProperty_T, SpaceSort_T
 from huggingface_hub.utils import ANSI
 
 from ._cli_utils import (
@@ -48,20 +48,10 @@ from ._cli_utils import (
 )
 
 
-class SpacesSortEnum(str, Enum):
-    created_at = "created_at"
-    last_modified = "last_modified"
-    likes = "likes"
-    trending_score = "trending_score"
-
-
-SpacesSortOpt = Annotated[
-    Optional[SpacesSortEnum],
-    typer.Option(help="Sort results."),
-]
-
-
 _EXPAND_PROPERTIES = sorted(get_args(ExpandSpaceProperty_T))
+_SORT_OPTIONS = get_args(SpaceSort_T)
+SpaceSortEnum = enum.Enum("SpaceSortEnum", {s: s for s in _SORT_OPTIONS}, type=str)  # type: ignore[misc]
+
 
 ExpandOpt = Annotated[
     Optional[str],
@@ -75,11 +65,15 @@ ExpandOpt = Annotated[
 spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 
 
-def _spaces_list(
+@spaces_cli.command("ls")
+def spaces_ls(
     query: SearchQueryArg = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
-    sort: SpacesSortOpt = None,
+    sort: Annotated[
+        Optional[SpaceSortEnum],
+        typer.Option(help="Sort results."),
+    ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
     token: TokenOpt = None,
@@ -94,10 +88,6 @@ def _spaces_list(
         )
     ]
     print(json.dumps(results, indent=2))
-
-
-spaces_cli.command("list")(_spaces_list)
-spaces_cli.command("ls")(_spaces_list)
 
 
 @spaces_cli.command("info")

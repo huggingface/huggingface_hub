@@ -195,6 +195,10 @@ ExpandSpaceProperty_T = Literal[
     "usedStorage",
 ]
 
+ModelSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
+DatasetSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
+SpaceSort_T = Literal["created_at", "last_modified", "likes", "trending_score"]
+
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 _REGEX_HTTP_PROTOCOL = re.compile(r"https?://")
@@ -2023,7 +2027,7 @@ class HfApi:
         pipeline_tag: Optional[str] = None,
         emissions_thresholds: Optional[tuple[float, float]] = None,
         # Sorting and pagination parameters
-        sort: Union[Literal["last_modified"], str, None] = None,
+        sort: Optional[ModelSort_T] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
@@ -2224,7 +2228,7 @@ class HfApi:
         task_ids: Optional[Union[str, list[str]]] = None,
         search: Optional[str] = None,
         # Sorting and pagination parameters
-        sort: Optional[Union[Literal["last_modified"], str]] = None,
+        sort: Optional[DatasetSort_T] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
@@ -2426,7 +2430,7 @@ class HfApi:
         models: Union[str, Iterable[str], None] = None,
         linked: bool = False,
         # Sorting and pagination parameters
-        sort: Union[Literal["last_modified"], str, None] = None,
+        sort: Optional[SpaceSort_T] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch

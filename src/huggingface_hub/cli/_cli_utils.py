@@ -112,14 +112,6 @@ RevisionOpt = Annotated[
 ]
 
 
-class ListSortEnum(str, Enum):
-    created_at = "created_at"
-    downloads = "downloads"
-    last_modified = "last_modified"
-    likes = "likes"
-    trending_score = "trending_score"
-
-
 LimitOpt = Annotated[
     int,
     typer.Option(help="Limit the number of results."),
@@ -133,11 +125,6 @@ AuthorOpt = Annotated[
 FilterOpt = Annotated[
     Optional[list[str]],
     typer.Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
-]
-
-SortOpt = Annotated[
-    Optional[ListSortEnum],
-    typer.Option(help="Sort results."),
 ]
 
 SearchQueryArg = Annotated[

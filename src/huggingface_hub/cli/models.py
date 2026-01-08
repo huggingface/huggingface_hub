@@ -24,13 +24,14 @@ Usage:
     hf models info meta-llama/Llama-3-8B
 """
 
+import enum
 import json
 from typing import Annotated, Optional, get_args
 
 import typer
 
 from huggingface_hub.errors import RepositoryNotFoundError, RevisionNotFoundError
-from huggingface_hub.hf_api import ExpandModelProperty_T
+from huggingface_hub.hf_api import ExpandModelProperty_T, ModelSort_T
 from huggingface_hub.utils import ANSI
 
 from ._cli_utils import (
@@ -39,7 +40,6 @@ from ._cli_utils import (
     LimitOpt,
     RevisionOpt,
     SearchQueryArg,
-    SortOpt,
     TokenOpt,
     get_hf_api,
     make_expand_properties_parser,
@@ -49,6 +49,9 @@ from ._cli_utils import (
 
 
 _EXPAND_PROPERTIES = sorted(get_args(ExpandModelProperty_T))
+_SORT_OPTIONS = get_args(ModelSort_T)
+ModelSortEnum = enum.Enum("ModelSortEnum", {s: s for s in _SORT_OPTIONS}, type=str)  # type: ignore[misc]
+
 
 ExpandOpt = Annotated[
     Optional[str],
@@ -62,11 +65,15 @@ ExpandOpt = Annotated[
 models_cli = typer_factory(help="Interact with models on the Hub.")
 
 
-def _models_list(
+@models_cli.command("ls")
+def models_ls(
     query: SearchQueryArg = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
-    sort: SortOpt = None,
+    sort: Annotated[
+        Optional[ModelSortEnum],
+        typer.Option(help="Sort results."),
+    ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
     token: TokenOpt = None,
@@ -81,10 +88,6 @@ def _models_list(
         )
     ]
     print(json.dumps(results, indent=2))
-
-
-models_cli.command("list")(_models_list)
-models_cli.command("ls")(_models_list)
 
 
 @models_cli.command("info")

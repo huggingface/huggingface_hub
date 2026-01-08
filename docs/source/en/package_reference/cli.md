@@ -265,7 +265,6 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `info`: Get info about a dataset on the Hub.
-* `list`: List datasets on the Hub.
 * `ls`: List datasets on the Hub.
 
 ### `hf datasets info`
@@ -285,30 +284,6 @@ $ hf datasets info [OPTIONS] DATASET_ID
 **Options**:
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-### `hf datasets list`
-
-List datasets on the Hub.
-
-**Usage**:
-
-```console
-$ hf datasets list [OPTIONS] [QUERY]
-```
-
-**Arguments**:
-
-* `[QUERY]`: Search query.
-
-**Options**:
-
-* `--author TEXT`: Filter by author or organization.
-* `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
-* `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
-* `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1112,7 +1087,6 @@ $ hf models [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `info`: Get info about a model on the Hub.
-* `list`: List models on the Hub.
 * `ls`: List models on the Hub.
 
 ### `hf models info`
@@ -1132,30 +1106,6 @@ $ hf models info [OPTIONS] MODEL_ID
 **Options**:
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-### `hf models list`
-
-List models on the Hub.
-
-**Usage**:
-
-```console
-$ hf models list [OPTIONS] [QUERY]
-```
-
-**Arguments**:
-
-* `[QUERY]`: Search query.
-
-**Options**:
-
-* `--author TEXT`: Filter by author or organization.
-* `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
-* `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
-* `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1501,7 +1451,6 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `info`: Get info about a space on the Hub.
-* `list`: List spaces on the Hub.
 * `ls`: List spaces on the Hub.
 
 ### `hf spaces info`
@@ -1521,30 +1470,6 @@ $ hf spaces info [OPTIONS] SPACE_ID
 **Options**:
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-### `hf spaces list`
-
-List spaces on the Hub.
-
-**Usage**:
-
-```console
-$ hf spaces list [OPTIONS] [QUERY]
-```
-
-**Arguments**:
-
-* `[QUERY]`: Search query.
-
-**Options**:
-
-* `--author TEXT`: Filter by author or organization.
-* `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
-* `--sort [created_at|last_modified|likes|trending_score]`: Sort results.
-* `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
