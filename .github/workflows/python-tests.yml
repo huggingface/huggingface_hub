@@ -26,10 +26,6 @@ jobs:
         include:
           - python-version: "3.14" # LFS not ran on 3.9
             test_name: "lfs"
-          - python-version: "3.9"
-            test_name: "fastai"
-          - python-version: "3.10" # fastai not supported on 3.12 and 3.11 -> test it on 3.10
-            test_name: "fastai"
           - python-version: "3.9" # test torch~=1.11 on python 3.9 only.
             test_name: "Python 3.9, torch_1.11"
           - python-version: "3.12" # test torch latest on python 3.12 only.
@@ -65,10 +61,6 @@ jobs:
             lfs)
               git config --global user.email "ci@dummy.com"
               git config --global user.name "ci"
-              ;;
-
-            fastai)
-              uv pip install "huggingface_hub[fastai] @ ."
               ;;
 
             gradio)
@@ -117,10 +109,6 @@ jobs:
 
             lfs)
               eval "RUN_GIT_LFS_TESTS=1 $PYTEST ../tests -k 'HfLargefilesTest'"
-            ;;
-
-            fastai)
-              eval "$PYTEST ../tests/test_fastai*"
             ;;
 
             gradio)
