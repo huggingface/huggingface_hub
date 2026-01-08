@@ -188,10 +188,6 @@ def test_custom_validator_must_be_callable():
         # Union types (typing.Union)
         (5, Union[int, str]),
         ("John", Union[int, str]),
-        # Union types (x | y syntax)
-        (5, int | str),
-        ("John", int | str),
-        (None, int | None),
         # Optional
         (5, Optional[int]),
         (None, Optional[int]),
@@ -254,10 +250,6 @@ def test_type_validator_valid(value, type_annotation):
         (5.0, Union[int, str]),
         (None, Union[int, str]),
         (DummyClass(), Union[int, str]),
-        # Union types (x | y syntax)
-        (5.0, int | str),
-        (None, int | str),
-        (DummyClass(), int | str),
         # Optional
         ("John", Optional[int]),
         (DummyClass(), Optional[int]),
@@ -286,6 +278,26 @@ def test_type_validator_valid(value, type_annotation):
 def test_type_validator_invalid(value, type_annotation):
     with pytest.raises(TypeError):
         type_validator("dummy", value, type_annotation)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10+")
+def test_type_union_type():
+    # TODO: make it first class citizen when bumping to Python 3.10+
+    # Union types (x | y syntax)
+    for value, type_annotation in [
+        (5, int | str),
+        ("John", int | str),
+        (None, int | None),
+    ]:
+        type_validator("dummy", value, type_annotation)
+
+    for value, type_annotation in [
+        (5.0, int | str),
+        (None, int | str),
+        (DummyClass(), int | str),
+    ]:
+        with pytest.raises(TypeError):
+            type_validator("dummy", value, type_annotation)
 
 
 class DummyValidator:

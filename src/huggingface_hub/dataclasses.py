@@ -1,4 +1,5 @@
 import inspect
+import sys
 import types
 from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields, make_dataclass
 from functools import lru_cache, wraps
@@ -591,13 +592,16 @@ def _is_required_or_notrequired(type_hint: Any) -> bool:
 
 _BASIC_TYPE_VALIDATORS = {
     Union: _validate_union,
-    types.UnionType: _validate_union,  # x | y syntax
     Literal: _validate_literal,
     list: _validate_list,
     dict: _validate_dict,
     tuple: _validate_tuple,
     set: _validate_set,
 }
+
+if sys.version_info >= (3, 10):
+    # TODO: make it first class citizen when bumping to Python 3.10+
+    _BASIC_TYPE_VALIDATORS[types.UnionType] = _validate_union  # x | y syntax, available only Python 3.10+
 
 
 __all__ = [
