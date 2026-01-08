@@ -221,6 +221,7 @@ _SUBMOD_ATTRS = {
         "get_discussion_details",
         "get_full_repo_name",
         "get_inference_endpoint",
+        "get_local_safetensors_metadata",
         "get_model_tags",
         "get_organization_overview",
         "get_paths_info",
@@ -261,6 +262,7 @@ _SUBMOD_ATTRS = {
         "model_info",
         "move_repo",
         "paper_info",
+        "parse_local_safetensors_file_metadata",
         "parse_safetensors_file_metadata",
         "pause_inference_endpoint",
         "pause_space",
@@ -893,6 +895,7 @@ __all__ = [
     "get_full_repo_name",
     "get_hf_file_metadata",
     "get_inference_endpoint",
+    "get_local_safetensors_metadata",
     "get_model_tags",
     "get_organization_overview",
     "get_paths_info",
@@ -954,6 +957,7 @@ __all__ = [
     "notebook_login",
     "paper_info",
     "parse_huggingface_oauth",
+    "parse_local_safetensors_file_metadata",
     "parse_safetensors_file_metadata",
     "pause_inference_endpoint",
     "pause_space",
@@ -1269,6 +1273,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_discussion_details,  # noqa: F401
         get_full_repo_name,  # noqa: F401
         get_inference_endpoint,  # noqa: F401
+        get_local_safetensors_metadata,  # noqa: F401
         get_model_tags,  # noqa: F401
         get_organization_overview,  # noqa: F401
         get_paths_info,  # noqa: F401
@@ -1309,6 +1314,7 @@ if TYPE_CHECKING:  # pragma: no cover
         model_info,  # noqa: F401
         move_repo,  # noqa: F401
         paper_info,  # noqa: F401
+        parse_local_safetensors_file_metadata,  # noqa: F401
         parse_safetensors_file_metadata,  # noqa: F401
         pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
