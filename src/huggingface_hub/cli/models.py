@@ -1,4 +1,4 @@
-# Copyright 2025 The HuggingFace Team. All rights reserved.
+# Copyright 2026 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
 
 Usage:
     # list models on the Hub
-    hf models list
+    hf models ls
 
     # list models with a search query
-    hf models list "llama"
+    hf models ls "llama"
 
     # get info about a model
-    hf models info meta-llama/Llama-3-8B
+    hf models info Lightricks/LTX-2
 """
 
 import enum

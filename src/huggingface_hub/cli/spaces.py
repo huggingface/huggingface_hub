@@ -1,4 +1,4 @@
-# Copyright 2025 The HuggingFace Team. All rights reserved.
+# Copyright 2026 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
 
 Usage:
     # list spaces on the Hub
-    hf spaces list
+    hf spaces ls
 
     # list spaces with a search query
-    hf spaces list "chatbot"
+    hf spaces ls "chatbot"
 
     # get info about a space
-    hf spaces info HuggingFaceH4/open-llm-leaderboard
+    hf spaces info enzostvs/deepsite
 """
 
 import enum
