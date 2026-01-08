@@ -295,15 +295,12 @@ List datasets on the Hub.
 **Usage**:
 
 ```console
-$ hf datasets ls [OPTIONS] [QUERY]
+$ hf datasets ls [OPTIONS]
 ```
-
-**Arguments**:
-
-* `[QUERY]`: Search query.
 
 **Options**:
 
+* `--search TEXT`: Search query.
 * `--author TEXT`: Filter by author or organization.
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
@@ -1117,15 +1114,12 @@ List models on the Hub.
 **Usage**:
 
 ```console
-$ hf models ls [OPTIONS] [QUERY]
+$ hf models ls [OPTIONS]
 ```
-
-**Arguments**:
-
-* `[QUERY]`: Search query.
 
 **Options**:
 
+* `--search TEXT`: Search query.
 * `--author TEXT`: Filter by author or organization.
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
@@ -1481,15 +1475,12 @@ List spaces on the Hub.
 **Usage**:
 
 ```console
-$ hf spaces ls [OPTIONS] [QUERY]
+$ hf spaces ls [OPTIONS]
 ```
-
-**Arguments**:
-
-* `[QUERY]`: Search query.
 
 **Options**:
 
+* `--search TEXT`: Search query.
 * `--author TEXT`: Filter by author or organization.
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--sort [created_at|last_modified|likes|trending_score]`: Sort results.

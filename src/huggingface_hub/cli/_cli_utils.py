@@ -127,9 +127,9 @@ FilterOpt = Annotated[
     typer.Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
 ]
 
-SearchQueryArg = Annotated[
+SearchOpt = Annotated[
     Optional[str],
-    typer.Argument(help="Search query."),
+    typer.Option(help="Search query."),
 ]
 
 

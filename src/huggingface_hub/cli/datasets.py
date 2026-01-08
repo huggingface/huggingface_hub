@@ -15,10 +15,10 @@
 
 Usage:
     # list datasets on the Hub
-    hf datasets list
+    hf datasets ls
 
     # list datasets with a search query
-    hf datasets list "code"
+    hf datasets ls --search "code"
 
     # get info about a dataset
     hf datasets info HuggingFaceFW/fineweb
@@ -39,7 +39,7 @@ from ._cli_utils import (
     FilterOpt,
     LimitOpt,
     RevisionOpt,
-    SearchQueryArg,
+    SearchOpt,
     TokenOpt,
     get_hf_api,
     make_expand_properties_parser,
@@ -67,7 +67,7 @@ datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
 
 @datasets_cli.command("ls")
 def datasets_ls(
-    query: SearchQueryArg = None,
+    search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     sort: Annotated[
@@ -84,7 +84,7 @@ def datasets_ls(
     results = [
         repo_info_to_dict(dataset_info)
         for dataset_info in api.list_datasets(
-            filter=filter, author=author, search=query, sort=sort_key, limit=limit, expand=expand
+            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
     print(json.dumps(results, indent=2))

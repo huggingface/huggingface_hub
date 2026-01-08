@@ -18,7 +18,7 @@ Usage:
     hf models ls
 
     # list models with a search query
-    hf models ls "llama"
+    hf models ls --search "llama"
 
     # get info about a model
     hf models info Lightricks/LTX-2
@@ -39,7 +39,7 @@ from ._cli_utils import (
     FilterOpt,
     LimitOpt,
     RevisionOpt,
-    SearchQueryArg,
+    SearchOpt,
     TokenOpt,
     get_hf_api,
     make_expand_properties_parser,
@@ -67,7 +67,7 @@ models_cli = typer_factory(help="Interact with models on the Hub.")
 
 @models_cli.command("ls")
 def models_ls(
-    query: SearchQueryArg = None,
+    search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     sort: Annotated[
@@ -84,7 +84,7 @@ def models_ls(
     results = [
         repo_info_to_dict(model_info)
         for model_info in api.list_models(
-            filter=filter, author=author, search=query, sort=sort_key, limit=limit, expand=expand
+            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
     print(json.dumps(results, indent=2))

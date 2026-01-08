@@ -2072,9 +2072,9 @@ class HfApi:
             emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
-            sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
-                "created_at", "downloads" and "likes". Sorting is always descending.
+            sort (`ModelSort_T`, *optional*):
+                The key with which to sort the resulting models. Possible values are "created_at", "downloads",
+                "last_modified", "likes" and "trending_score".
             direction (`Literal[-1]` or `int`, *optional*):
                 Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
@@ -2280,9 +2280,9 @@ class HfApi:
                 `paraphrase`.
             search (`str`, *optional*):
                 A string that will be contained in the returned datasets.
-            sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting datasets. Possible values are "last_modified", "trending_score",
-                "created_at", "downloads" and "likes". Sorting is always descending.
+            sort (`DatasetSort_T`, *optional*):
+                The key with which to sort the resulting datasets. Possible values are "created_at", "downloads",
+                "last_modified", "likes" and "trending_score".
             direction (`Literal[-1]` or `int`, *optional*):
                 Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
@@ -2456,9 +2456,9 @@ class HfApi:
                 The name of a specific model can be passed as a string.
             linked (`bool`, *optional*):
                 Whether to return Spaces that make use of either a model or a dataset.
-            sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting spaces. Possible values are "last_modified", "trending_score",
-                "created_at" and "likes". Sorting is always descending.
+            sort (`SpaceSort_T`, *optional*):
+                The key with which to sort the resulting spaces. Possible values are "created_at", "last_modified",
+                "likes" and "trending_score".
             direction (`Literal[-1]` or `int`, *optional*):
                 Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):

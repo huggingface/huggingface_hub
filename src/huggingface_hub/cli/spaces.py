@@ -18,7 +18,7 @@ Usage:
     hf spaces ls
 
     # list spaces with a search query
-    hf spaces ls "chatbot"
+    hf spaces ls --search "chatbot"
 
     # get info about a space
     hf spaces info enzostvs/deepsite
@@ -39,7 +39,7 @@ from ._cli_utils import (
     FilterOpt,
     LimitOpt,
     RevisionOpt,
-    SearchQueryArg,
+    SearchOpt,
     TokenOpt,
     get_hf_api,
     make_expand_properties_parser,
@@ -67,7 +67,7 @@ spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 
 @spaces_cli.command("ls")
 def spaces_ls(
-    query: SearchQueryArg = None,
+    search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     sort: Annotated[
@@ -84,7 +84,7 @@ def spaces_ls(
     results = [
         repo_info_to_dict(space_info)
         for space_info in api.list_spaces(
-            filter=filter, author=author, search=query, sort=sort_key, limit=limit, expand=expand
+            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
     print(json.dumps(results, indent=2))
