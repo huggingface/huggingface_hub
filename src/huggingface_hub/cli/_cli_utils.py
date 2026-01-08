@@ -13,17 +13,19 @@
 # limitations under the License.
 """Contains CLI utilities (styling, helpers)."""
 
+import dataclasses
+import datetime
 import importlib.metadata
 import os
 import time
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Literal, Optional
+from typing import TYPE_CHECKING, Annotated, Literal, Optional, Union
 
 import click
 import typer
 
-from huggingface_hub import __version__, constants
+from huggingface_hub import DatasetInfo, ModelInfo, SpaceInfo, __version__, constants
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging
 
 
@@ -108,6 +110,53 @@ RevisionOpt = Annotated[
         help="Git revision id which can be a branch name, a tag, or a commit hash.",
     ),
 ]
+
+
+LimitOpt = Annotated[
+    int,
+    typer.Option(help="Limit the number of results."),
+]
+
+AuthorOpt = Annotated[
+    Optional[str],
+    typer.Option(help="Filter by author or organization."),
+]
+
+FilterOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
+]
+
+SearchOpt = Annotated[
+    Optional[str],
+    typer.Option(help="Search query."),
+]
+
+
+def repo_info_to_dict(info: Union[ModelInfo, DatasetInfo, SpaceInfo]) -> dict[str, object]:
+    """Convert repo info dataclasses to json-serializable dicts."""
+    return {
+        k: v.isoformat() if isinstance(v, datetime.datetime) else v
+        for k, v in dataclasses.asdict(info).items()
+        if v is not None
+    }
+
+
+def make_expand_properties_parser(valid_properties: list[str]):
+    """Create a callback to parse and validate comma-separated expand properties."""
+
+    def _parse_expand_properties(value: Optional[str]) -> Optional[list[str]]:
+        if value is None:
+            return None
+        properties = [p.strip() for p in value.split(",")]
+        for prop in properties:
+            if prop not in valid_properties:
+                raise typer.BadParameter(
+                    f"Invalid expand property: '{prop}'. Valid values are: {', '.join(valid_properties)}"
+                )
+        return properties
+
+    return _parse_expand_properties
 
 
 ### PyPI VERSION CHECKER

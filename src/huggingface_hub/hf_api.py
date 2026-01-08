@@ -195,6 +195,10 @@ ExpandSpaceProperty_T = Literal[
     "usedStorage",
 ]
 
+ModelSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
+DatasetSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
+SpaceSort_T = Literal["created_at", "last_modified", "likes", "trending_score"]
+
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 _REGEX_HTTP_PROTOCOL = re.compile(r"https?://")
@@ -2023,7 +2027,7 @@ class HfApi:
         pipeline_tag: Optional[str] = None,
         emissions_thresholds: Optional[tuple[float, float]] = None,
         # Sorting and pagination parameters
-        sort: Union[Literal["last_modified"], str, None] = None,
+        sort: Optional[ModelSort_T] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
@@ -2068,9 +2072,9 @@ class HfApi:
             emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
-            sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
-                "created_at", "downloads" and "likes". Sorting is always descending.
+            sort (`ModelSort_T`, *optional*):
+                The key with which to sort the resulting models. Possible values are "created_at", "downloads",
+                "last_modified", "likes" and "trending_score".
             direction (`Literal[-1]` or `int`, *optional*):
                 Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
@@ -2224,7 +2228,7 @@ class HfApi:
         task_ids: Optional[Union[str, list[str]]] = None,
         search: Optional[str] = None,
         # Sorting and pagination parameters
-        sort: Optional[Union[Literal["last_modified"], str]] = None,
+        sort: Optional[DatasetSort_T] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
@@ -2276,9 +2280,9 @@ class HfApi:
                 `paraphrase`.
             search (`str`, *optional*):
                 A string that will be contained in the returned datasets.
-            sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting datasets. Possible values are "last_modified", "trending_score",
-                "created_at", "downloads" and "likes". Sorting is always descending.
+            sort (`DatasetSort_T`, *optional*):
+                The key with which to sort the resulting datasets. Possible values are "created_at", "downloads",
+                "last_modified", "likes" and "trending_score".
             direction (`Literal[-1]` or `int`, *optional*):
                 Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
@@ -2426,7 +2430,7 @@ class HfApi:
         models: Union[str, Iterable[str], None] = None,
         linked: bool = False,
         # Sorting and pagination parameters
-        sort: Union[Literal["last_modified"], str, None] = None,
+        sort: Optional[SpaceSort_T] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
@@ -2452,9 +2456,9 @@ class HfApi:
                 The name of a specific model can be passed as a string.
             linked (`bool`, *optional*):
                 Whether to return Spaces that make use of either a model or a dataset.
-            sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting spaces. Possible values are "last_modified", "trending_score",
-                "created_at" and "likes". Sorting is always descending.
+            sort (`SpaceSort_T`, *optional*):
+                The key with which to sort the resulting spaces. Possible values are "created_at", "last_modified",
+                "likes" and "trending_score".
             direction (`Literal[-1]` or `int`, *optional*):
                 Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):

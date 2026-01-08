@@ -485,6 +485,80 @@ By default, the `hf upload` command will be verbose. It will print details such 
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
+## hf models
+
+Use `hf models` to list models on the Hub and get detailed information about a specific model.
+
+### List models
+
+```bash
+# List trending models
+>>> hf models ls
+
+# Search for models
+>>> hf models ls --search "lora"
+
+# Filter by author
+>>> hf models ls --author Qwen
+
+# Sort by downloads
+>>> hf models ls --sort downloads --limit 10
+```
+
+### Get model info
+
+```bash
+>>> hf models info Lightricks/LTX-2
+```
+
+Use `--expand` to fetch additional properties like `downloads`, `likes`, `tags`, etc.
+
+## hf datasets
+
+Use `hf datasets` to list datasets on the Hub and get detailed information about a specific dataset.
+
+### List datasets
+
+```bash
+# List trending datasets
+>>> hf datasets ls
+
+# Search for datasets
+>>> hf datasets ls --search "code"
+
+# Sort by downloads
+>>> hf datasets ls --sort downloads --limit 10
+```
+
+### Get dataset info
+
+```bash
+>>> hf datasets info HuggingFaceFW/fineweb
+```
+
+## hf spaces
+
+Use `hf spaces` to list Spaces on the Hub and get detailed information about a specific Space.
+
+### List Spaces
+
+```bash
+# List trending Spaces
+>>> hf spaces ls
+
+# Search for Spaces
+>>> hf spaces ls --search "3d"
+
+# Sort by likes
+>>> hf spaces ls --sort likes --limit 10
+```
+
+### Get Space info
+
+```bash
+>>> hf spaces info enzostvs/deepsite
+```
+
 ## hf repo
 
 `hf repo` lets you create, delete, move repositories and update their settings on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
