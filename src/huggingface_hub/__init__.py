@@ -55,6 +55,11 @@ _SUBMOD_ATTRS = {
     "_commit_scheduler": [
         "CommitScheduler",
     ],
+    "_eval_results": [
+        "EvalResultEntry",
+        "eval_result_entries_to_yaml",
+        "parse_eval_result_entries",
+    ],
     "_inference_endpoints": [
         "InferenceEndpoint",
         "InferenceEndpointError",
@@ -650,6 +655,7 @@ __all__ = [
     "DocumentQuestionAnsweringParameters",
     "DryRunFileInfo",
     "EvalResult",
+    "EvalResultEntry",
     "FLAX_WEIGHTS_NAME",
     "FeatureExtractionInput",
     "FeatureExtractionInputTruncationDirection",
@@ -882,6 +888,7 @@ __all__ = [
     "duplicate_space",
     "edit_discussion_comment",
     "enable_webhook",
+    "eval_result_entries_to_yaml",
     "export_entries_as_dduf",
     "export_folder_as_dduf",
     "fetch_job_logs",
@@ -956,6 +963,7 @@ __all__ = [
     "move_repo",
     "notebook_login",
     "paper_info",
+    "parse_eval_result_entries",
     "parse_huggingface_oauth",
     "parse_local_safetensors_file_metadata",
     "parse_safetensors_file_metadata",
@@ -1111,6 +1119,11 @@ if os.environ.get("EAGER_IMPORT", ""):
 # ```
 if TYPE_CHECKING:  # pragma: no cover
     from ._commit_scheduler import CommitScheduler  # noqa: F401
+    from ._eval_results import (
+        EvalResultEntry,  # noqa: F401
+        eval_result_entries_to_yaml,  # noqa: F401
+        parse_eval_result_entries,  # noqa: F401
+    )
     from ._inference_endpoints import (
         InferenceEndpoint,  # noqa: F401
         InferenceEndpointError,  # noqa: F401
