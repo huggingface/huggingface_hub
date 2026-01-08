@@ -185,9 +185,13 @@ def test_custom_validator_must_be_callable():
         (5, int),
         (5.0, float),
         ("John", str),
-        # Union types
+        # Union types (typing.Union)
         (5, Union[int, str]),
         ("John", Union[int, str]),
+        # Union types (x | y syntax)
+        (5, int | str),
+        ("John", int | str),
+        (None, int | None),
         # Optional
         (5, Optional[int]),
         (None, Optional[int]),
@@ -246,10 +250,14 @@ def test_type_validator_valid(value, type_annotation):
         (5, float),
         (5.0, int),
         ("John", int),
-        # Union types
+        # Union types (typing.Union)
         (5.0, Union[int, str]),
         (None, Union[int, str]),
         (DummyClass(), Union[int, str]),
+        # Union types (x | y syntax)
+        (5.0, int | str),
+        (None, int | str),
+        (DummyClass(), int | str),
         # Optional
         ("John", Optional[int]),
         (DummyClass(), Optional[int]),

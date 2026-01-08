@@ -1,4 +1,5 @@
 import inspect
+import types
 from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields, make_dataclass
 from functools import lru_cache, wraps
 from typing import (
@@ -590,6 +591,7 @@ def _is_required_or_notrequired(type_hint: Any) -> bool:
 
 _BASIC_TYPE_VALIDATORS = {
     Union: _validate_union,
+    types.UnionType: _validate_union,  # x | y syntax
     Literal: _validate_literal,
     list: _validate_list,
     dict: _validate_dict,
