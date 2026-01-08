@@ -253,6 +253,9 @@ HF_HUB_ETAG_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_ETAG_TIMEOUT")) or DEF
 # Used to override the get request timeout on a system level
 HF_HUB_DOWNLOAD_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_DOWNLOAD_TIMEOUT")) or DEFAULT_DOWNLOAD_TIMEOUT
 
+# Used to override the max wait time for HTTP requests on a system level
+HF_HUB_HTTP_MAX_WAIT_TIME: Optional[int] = _as_int(os.environ.get("HF_HUB_HTTP_MAX_WAIT_TIME"))
+
 # Allows to add information about the requester in the user-agent (e.g. partner name)
 HF_HUB_USER_AGENT_ORIGIN: Optional[str] = os.environ.get("HF_HUB_USER_AGENT_ORIGIN")
 

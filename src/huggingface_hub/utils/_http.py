@@ -444,7 +444,7 @@ def http_backoff(
     *,
     max_retries: int = 5,
     base_wait_time: float = 1,
-    max_wait_time: float = 8,
+    max_wait_time: Optional[float] = None,
     retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = _DEFAULT_RETRY_ON_EXCEPTIONS,
     retry_on_status_codes: Union[int, tuple[int, ...]] = _DEFAULT_RETRY_ON_STATUS_CODES,
     **kwargs,
@@ -470,8 +470,9 @@ def http_backoff(
             Duration (in seconds) to wait before retrying the first time.
             Wait time between retries then grows exponentially, capped by
             `max_wait_time`.
-        max_wait_time (`float`, *optional*, defaults to `8`):
+        max_wait_time (`float`, *optional*):
             Maximum duration (in seconds) to wait before retrying.
+            Defaults to the value of `HF_HUB_HTTP_MAX_WAIT_TIME` environment variable if set, otherwise `8`.
         retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
             By default, retry on `httpx.TimeoutException` and `httpx.NetworkError`.
@@ -503,6 +504,8 @@ def http_backoff(
     > will fail. If this is a hard constraint for you, please let us know by opening an
     > issue on [Github](https://github.com/huggingface/huggingface_hub).
     """
+    if max_wait_time is None:
+        max_wait_time = constants.HF_HUB_HTTP_MAX_WAIT_TIME or 8
     return next(
         _http_backoff_base(
             method=method,
@@ -525,7 +528,7 @@ def http_stream_backoff(
     *,
     max_retries: int = 5,
     base_wait_time: float = 1,
-    max_wait_time: float = 8,
+    max_wait_time: Optional[float] = None,
     retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = _DEFAULT_RETRY_ON_EXCEPTIONS,
     retry_on_status_codes: Union[int, tuple[int, ...]] = _DEFAULT_RETRY_ON_STATUS_CODES,
     **kwargs,
@@ -551,8 +554,9 @@ def http_stream_backoff(
             Duration (in seconds) to wait before retrying the first time.
             Wait time between retries then grows exponentially, capped by
             `max_wait_time`.
-        max_wait_time (`float`, *optional*, defaults to `8`):
+        max_wait_time (`float`, *optional*):
             Maximum duration (in seconds) to wait before retrying.
+            Defaults to the value of `HF_HUB_HTTP_MAX_WAIT_TIME` environment variable if set, otherwise `8`.
         retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
             By default, retry on `httpx.TimeoutException` and `httpx.NetworkError`.
@@ -588,6 +592,8 @@ def http_stream_backoff(
 
     </Tip>
     """
+    if max_wait_time is None:
+        max_wait_time = constants.HF_HUB_HTTP_MAX_WAIT_TIME or 8
     yield from _http_backoff_base(
         method=method,
         url=url,
