@@ -288,6 +288,7 @@ def test_type_union_type():
         (5, int | str),
         ("John", int | str),
         (None, int | None),
+        (DummyClass(), DummyClass | int | None),
     ]:
         type_validator("dummy", value, type_annotation)
 
@@ -295,6 +296,7 @@ def test_type_union_type():
         (5.0, int | str),
         (None, int | str),
         (DummyClass(), int | str),
+        ("str", DummyClass | int | None),
     ]:
         with pytest.raises(TypeError):
             type_validator("dummy", value, type_annotation)
