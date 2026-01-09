@@ -11061,19 +11061,41 @@ class HfApi:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
 
-        is_url = script.startswith("http://") or script.startswith("https://")
-        if is_url or not Path(script).is_file():
+        # Find the python script file, e.g.
+        # uv run train.py -> `script``
+        # uv run torchrun train.py -> one of `script_args``
+        if Path(script).is_file():
+            script_file = script
+        elif script.startswith("http://") or script.startswith("https://"):
+            script_file = None
+        elif script.endswith(".py"):
+            raise FileNotFoundError(script)
+        else:
+            # `script` could be a command like "torchrun" or "accelerate"
+            # so we look for the python script in the args
+            for script_arg in script_args:
+                if Path(script_arg).is_file() and script_arg.endswith(".py"):
+                    script_file = script_arg
+                    break
+            else:
+                script_file = None
+
+        if script_file is None:
             # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
         else:
             # Local file - embed as env variable
-            script_content = base64.b64encode(Path(script).read_bytes()).decode()
+            script_content = base64.b64encode(Path(script_file).read_bytes()).decode()
             env["UV_SCRIPT_ENCODED"] = script_content
+            if script == script_file:
+                script == "/tmp/script.py"
+            else:
+                script_args = ["/tmp/script.py" if script_arg == script_file else script_arg for script_arg in script_args]
 
             command = [
                 "bash",
                 "-c",
-                f'echo "$UV_SCRIPT_ENCODED" | base64 -d > /tmp/script.py && uv run {" ".join(uv_args)} /tmp/script.py {" ".join(script_args)}',
+                f'echo "$UV_SCRIPT_ENCODED" | base64 -d > /tmp/script.py && uv run {" ".join(uv_args)} {script} {" ".join(script_args)}',
             ]
         return command, env, secrets
 
