@@ -1062,7 +1062,7 @@ class InferenceClient:
                 Which side of the input should be truncated when `truncate=True` is passed.
             dimensions (`int`, *optional*):
                 The number of dimensions the resulting output embeddings should have.
-                Only available on server powered by Text-Embedding-Inference.
+                Only available on OpenAI-compatible embedding endpoints.
             encoding_format (`Literal["float", "base64"]`, *optional*):
                 The format of the output embeddings. Either "float" or "base64".
 
