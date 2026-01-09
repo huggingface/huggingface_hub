@@ -17,6 +17,8 @@ from __future__ import annotations
 import base64
 import inspect
 import json
+import mimetypes
+import os
 import re
 import struct
 import time
@@ -48,6 +50,8 @@ import httpcore
 import httpx
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
+
+from huggingface_hub.utils._xet import XetTokenType, fetch_xet_connection_info_from_repo_info
 
 from . import constants
 from ._commit_api import (
@@ -81,6 +85,8 @@ from .errors import (
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+    XetAuthorizationError,
+    XetRefreshTokenError,
 )
 from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
@@ -91,6 +97,7 @@ from .utils import (
     SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
+    are_progress_bars_disabled,
     build_hf_headers,
     chunk_iterable,
     experimental,
@@ -102,6 +109,8 @@ from .utils import (
     logging,
     paginate,
     parse_datetime,
+    parse_xet_file_data_from_response,
+    refresh_xet_connection_info,
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
@@ -110,6 +119,7 @@ from .utils._deprecation import _deprecate_arguments
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
+from .utils.tqdm import _get_progress_bar_context
 
 
 if TYPE_CHECKING:
@@ -11076,6 +11086,245 @@ class HfApi:
                 f'echo "$UV_SCRIPT_ENCODED" | base64 -d > /tmp/script.py && uv run {" ".join(uv_args)} /tmp/script.py {" ".join(script_args)}',
             ]
         return command, env, secrets
+
+    def create_bucket(
+        self,
+        bucket_id: str,
+        *,
+        private: Optional[bool] = None,
+        exist_ok: bool = False,
+        token: Union[bool, str, None] = None,
+    ) -> dict[str, Any]:
+        payload = {"name": bucket_id}
+        if private is not None:
+            payload["private"] = private
+        try:
+            response = get_session().post(
+                f"{self.endpoint}/api/buckets/create",
+                headers=self._build_hf_headers(token=token),
+                json=payload,
+            )
+            hf_raise_for_status(response)
+        except HfHubHTTPError as e:
+            if e.response.status_code != 409 or not exist_ok:
+                raise
+        return response.json()
+
+    def bucket_info(
+        self,
+        bucket_id: str,
+        *,
+        token: Union[bool, str, None] = None,
+    ) -> dict[str, Any]:
+        response = get_session().get(
+            f"{self.endpoint}/api/buckets/{bucket_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return response.json()
+
+    def list_buckets(
+        self,
+        *,
+        token: Union[bool, str, None] = None,
+    ) -> list[dict[str, Any]]:
+        response = get_session().get(
+            f"{self.endpoint}/api/buckets",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return response.json()
+
+    def delete_bucket(
+        self,
+        bucket_id: str,
+        *,
+        missing_ok: bool = False,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        response = get_session().request(
+            "DELETE",
+            f"{self.endpoint}/api/buckets/delete",
+            headers=self._build_hf_headers(token=token),
+            json={"name": bucket_id},
+        )
+
+        try:
+            hf_raise_for_status(response)
+        except HfHubHTTPError as e:
+            if e.response.status_code != 404 or not missing_ok:
+                raise
+
+    def list_bucket_tree(
+        self,
+        bucket_id: str,
+        prefix: Optional[str] = None,
+        *,
+        recursive: bool = False,
+        token: Union[str, bool, None] = None,
+    ) -> Iterable[dict[str, Any]]:
+        encoded_prefix = "/" + quote(prefix, safe="") if prefix else ""
+        yield from paginate(
+            path=f"{self.endpoint}/api/buckets/{bucket_id}/tree/latest{encoded_prefix}",
+            headers=self._build_hf_headers(token=token),
+            params={"recursive": recursive},
+        )
+
+    def upload_bucket_files(
+        self,
+        bucket_id: str,
+        files: list[tuple[Union[str, Path], str]],  # List of (local_path, remote_path)
+        *,
+        token: Union[str, bool, None] = None,
+    ) -> None:
+        headers = self._build_hf_headers(token=token)
+
+        # 1. Get Xet write token
+        from hf_xet import upload_files
+
+        from .utils._xet_progress_reporting import XetProgressReporter
+
+        try:
+            xet_connection_info = fetch_xet_connection_info_from_repo_info(
+                token_type=XetTokenType.WRITE,
+                repo_id=bucket_id,
+                repo_type="bucket",
+                revision="latest",
+                headers=headers,
+                endpoint=self.endpoint,
+            )
+        except HfHubHTTPError as e:
+            if e.response.status_code == 401:
+                raise XetAuthorizationError(
+                    f"You are unauthorized to upload to xet storage for bucket/{bucket_id}. "
+                    f"Please check that you have configured your access token with write access to the repo."
+                ) from e
+            raise
+
+        xet_endpoint = xet_connection_info.endpoint
+        access_token_info = (xet_connection_info.access_token, xet_connection_info.expiration_unix_epoch)
+
+        def token_refresher() -> tuple[str, int]:
+            new_xet_connection = fetch_xet_connection_info_from_repo_info(
+                token_type=XetTokenType.WRITE,
+                repo_id=bucket_id,
+                repo_type="bucket",
+                revision="latest",
+                headers=headers,
+                endpoint=self.endpoint,
+            )
+            if new_xet_connection is None:
+                raise XetRefreshTokenError("Failed to refresh xet token")
+            return new_xet_connection.access_token, new_xet_connection.expiration_unix_epoch
+
+        if not are_progress_bars_disabled():
+            progress = XetProgressReporter()
+            progress_callback = progress.update_progress
+        else:
+            progress, progress_callback = None, None
+
+        # 2. Upload file
+        local_paths, remote_paths = zip(*files)
+        local_paths = [str(path) for path in local_paths]
+        remote_paths = [str(path) for path in remote_paths]
+
+        try:
+            xet_upload_infos = upload_files(
+                list(local_paths),
+                xet_endpoint,
+                access_token_info,
+                token_refresher,
+                progress_callback,
+                "bucket",
+            )
+        finally:
+            if progress is not None:
+                progress.close(False)
+
+        # 3. Complete upload
+        response = get_session().post(
+            f"{self.endpoint}/api/buckets/{bucket_id}/complete",
+            headers=headers,
+            json={
+                "files": [
+                    {
+                        "path": remote_path,
+                        "xetHash": xet_upload_info.hash,
+                        "size": xet_upload_info.filesize,
+                        "lastModified": os.path.getmtime(local_path) * 1000,
+                        "contentType": mimetypes.guess_type(local_path)[0],
+                    }
+                    for (local_path, remote_path, xet_upload_info) in zip(local_paths, remote_paths, xet_upload_infos)
+                ]
+            },
+        )
+        hf_raise_for_status(response)
+        return response.json()
+
+    def head_bucket_file(
+        self,
+        bucket_id: str,
+        remote_path: str,
+        *,
+        token: Union[str, bool, None] = None,
+    ) -> httpx.Response:
+        response = get_session().head(
+            f"{self.endpoint}/buckets/{bucket_id}/resolve/latest/{quote(remote_path, safe='')}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return response
+
+    def download_bucket_file(
+        self,
+        bucket_id: str,
+        remote_path: str,
+        local_path: Union[str, Path],
+        *,
+        token: Union[str, bool, None] = None,
+    ) -> None:
+        from hf_xet import PyXetDownloadInfo, download_files  # type: ignore[no-redef]
+
+        headers = self._build_hf_headers(token=token)
+
+        head_response = self.head_bucket_file(bucket_id, remote_path, token=token)
+        xet_file_data = parse_xet_file_data_from_response(head_response)
+        expected_size = int(head_response.headers["Content-Length"])
+        connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
+
+        def token_refresher() -> tuple[str, int]:
+            connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
+            if connection_info is None:
+                raise ValueError("Failed to refresh token using xet metadata.")
+            return connection_info.access_token, connection_info.expiration_unix_epoch
+
+        xet_download_info = [
+            PyXetDownloadInfo(
+                destination_path=str(Path(local_path).absolute()),
+                hash=xet_file_data.file_hash,
+                file_size=expected_size,
+            )
+        ]
+
+        progress_cm = _get_progress_bar_context(
+            desc="Downloading bucket file",
+            log_level=logger.getEffectiveLevel(),
+            total=expected_size,
+            name="huggingface_hub.download_bucket_file",
+        )
+
+        with progress_cm as progress:
+
+            def progress_updater(progress_bytes: float):
+                progress.update(progress_bytes)
+
+            download_files(
+                xet_download_info,
+                endpoint=connection_info.endpoint,
+                token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
+                token_refresher=token_refresher,
+                progress_updater=[progress_updater],
+            )
 
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
