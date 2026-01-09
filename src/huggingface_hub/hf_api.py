@@ -11090,7 +11090,9 @@ class HfApi:
             if script == script_file:
                 script == "/tmp/script.py"
             else:
-                script_args = ["/tmp/script.py" if script_arg == script_file else script_arg for script_arg in script_args]
+                script_args = [
+                    "/tmp/script.py" if script_arg == script_file else script_arg for script_arg in script_args
+                ]
 
             command = [
                 "bash",
