@@ -1065,6 +1065,7 @@ class InferenceClient:
                 Only available on OpenAI-compatible embedding endpoints.
             encoding_format (`Literal["float", "base64"]`, *optional*):
                 The format of the output embeddings. Either "float" or "base64".
+                Only available on OpenAI-compatible embedding endpoints.
 
         Returns:
             `np.ndarray`: The embedding representing the input text as a float32 numpy array.
