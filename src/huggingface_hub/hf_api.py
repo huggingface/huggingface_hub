@@ -1838,6 +1838,32 @@ def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_m
         ) from e
 
 
+@dataclass
+class BucketAddFile:
+    path_in_repo: str
+    path_or_fileobj: Union[str, Path, bytes]
+
+    xet_hash: Optional[str] = field(default=None)
+    size: Optional[int] = field(default=None)
+    last_modified: int = field(init=None)
+    content_type: Optional[str] = field(init=None)
+
+    def __post_init__(self) -> None:
+        self.content_type = (
+            mimetypes.guess_type(self.path_or_fileobj)[0] if not isinstance(self.path_or_fileobj, bytes) else None
+        ) or (mimetypes.guess_type(self.path_in_repo)[0])
+        self.last_modified = (
+            os.path.getmtime(self.path_or_fileobj) * 1000
+            if not isinstance(self.path_or_fileobj, bytes)
+            else time.time() * 1000
+        )
+
+
+@dataclass
+class BucketDeleteFile:
+    path_in_repo: str
+
+
 class HfApi:
     """
     Client to interact with the Hugging Face Hub via HTTP.
@@ -11170,94 +11196,122 @@ class HfApi:
             params={"recursive": recursive},
         )
 
-    def upload_bucket_files(
+    def batch_bucket_files(
         self,
         bucket_id: str,
-        files: list[tuple[Union[str, Path], str]],  # List of (local_path, remote_path)
+        operations: list[Union[BucketAddFile, BucketDeleteFile]],
         *,
         token: Union[str, bool, None] = None,
-    ) -> None:
-        headers = self._build_hf_headers(token=token)
-
-        # 1. Get Xet write token
-        from hf_xet import upload_files
+    ) -> dict[str, Any]:
+        from hf_xet import upload_bytes, upload_files
 
         from .utils._xet_progress_reporting import XetProgressReporter
 
-        try:
-            xet_connection_info = fetch_xet_connection_info_from_repo_info(
-                token_type=XetTokenType.WRITE,
-                repo_id=bucket_id,
-                repo_type="bucket",
-                revision="latest",
-                headers=headers,
-                endpoint=self.endpoint,
-            )
-        except HfHubHTTPError as e:
-            if e.response.status_code == 401:
-                raise XetAuthorizationError(
-                    f"You are unauthorized to upload to xet storage for bucket/{bucket_id}. "
-                    f"Please check that you have configured your access token with write access to the repo."
-                ) from e
-            raise
+        headers = self._build_hf_headers(token=token)
 
-        xet_endpoint = xet_connection_info.endpoint
-        access_token_info = (xet_connection_info.access_token, xet_connection_info.expiration_unix_epoch)
+        add_operations = [op for op in operations if isinstance(op, BucketAddFile)]
+        add_bytes_operations = [op for op in add_operations if isinstance(op.path_or_fileobj, bytes)]
+        add_path_operations = [op for op in add_operations if not isinstance(op.path_or_fileobj, bytes)]
+        delete_operations = [op for op in operations if isinstance(op, BucketDeleteFile)]
 
-        def token_refresher() -> tuple[str, int]:
-            new_xet_connection = fetch_xet_connection_info_from_repo_info(
-                token_type=XetTokenType.WRITE,
-                repo_id=bucket_id,
-                repo_type="bucket",
-                revision="latest",
-                headers=headers,
-                endpoint=self.endpoint,
-            )
-            if new_xet_connection is None:
-                raise XetRefreshTokenError("Failed to refresh xet token")
-            return new_xet_connection.access_token, new_xet_connection.expiration_unix_epoch
+        if len(add_operations) > 0:
+            try:
+                xet_connection_info = fetch_xet_connection_info_from_repo_info(
+                    token_type=XetTokenType.WRITE,
+                    repo_id=bucket_id,
+                    repo_type="bucket",
+                    revision="latest",
+                    headers=headers,
+                    endpoint=self.endpoint,
+                )
+            except HfHubHTTPError as e:
+                if e.response.status_code == 401:
+                    raise XetAuthorizationError(
+                        f"You are unauthorized to upload to xet storage for bucket/{bucket_id}. "
+                        f"Please check that you have configured your access token with write access to the repo."
+                    ) from e
+                raise
 
-        if not are_progress_bars_disabled():
-            progress = XetProgressReporter()
-            progress_callback = progress.update_progress
-        else:
-            progress, progress_callback = None, None
+            xet_endpoint = xet_connection_info.endpoint
+            access_token_info = (xet_connection_info.access_token, xet_connection_info.expiration_unix_epoch)
 
-        # 2. Upload file
-        local_paths, remote_paths = zip(*files)
-        local_paths = [str(path) for path in local_paths]
-        remote_paths = [str(path) for path in remote_paths]
+            def token_refresher() -> tuple[str, int]:
+                new_xet_connection = fetch_xet_connection_info_from_repo_info(
+                    token_type=XetTokenType.WRITE,
+                    repo_id=bucket_id,
+                    repo_type="bucket",
+                    revision="latest",
+                    headers=headers,
+                    endpoint=self.endpoint,
+                )
+                if new_xet_connection is None:
+                    raise XetRefreshTokenError("Failed to refresh xet token")
+                return new_xet_connection.access_token, new_xet_connection.expiration_unix_epoch
 
-        try:
-            xet_upload_infos = upload_files(
-                list(local_paths),
-                xet_endpoint,
-                access_token_info,
-                token_refresher,
-                progress_callback,
-                "bucket",
-            )
-        finally:
-            if progress is not None:
-                progress.close(False)
+            if not are_progress_bars_disabled():
+                progress = XetProgressReporter()
+                progress_callback = progress.update_progress
+            else:
+                progress, progress_callback = None, None
 
-        # 3. Complete upload
-        response = get_session().post(
-            f"{self.endpoint}/api/buckets/{bucket_id}/complete",
-            headers=headers,
-            json={
-                "files": [
-                    {
-                        "path": remote_path,
-                        "xetHash": xet_upload_info.hash,
-                        "size": xet_upload_info.filesize,
-                        "lastModified": os.path.getmtime(local_path) * 1000,
-                        "contentType": mimetypes.guess_type(local_path)[0],
+            try:
+                # 2.a. Upload path files
+                xet_upload_infos = upload_files(
+                    [str(op.path_or_fileobj) for op in add_path_operations],
+                    xet_endpoint,
+                    access_token_info,
+                    token_refresher,
+                    progress_callback,
+                    "bucket",
+                )
+                for upload_info, op in zip(xet_upload_infos, add_path_operations):
+                    op.xet_hash = upload_info.hash
+                    op.size = upload_info.filesize
+
+                # 2.b. Upload bytes files
+                xet_upload_infos = upload_bytes(
+                    [op.path_or_fileobj for op in add_bytes_operations],
+                    xet_endpoint,
+                    access_token_info,
+                    token_refresher,
+                    progress_callback,
+                    "bucket",
+                )
+                for upload_info, op in zip(xet_upload_infos, add_bytes_operations):
+                    op.xet_hash = upload_info.hash
+                    op.size = upload_info.filesize
+            finally:
+                if progress is not None:
+                    progress.close(False)
+
+        # 3. /batch call
+        def _payload_as_ndjson() -> Iterable[bytes]:
+            for op in operations:
+                if isinstance(op, BucketAddFile):
+                    payload = {
+                        "type": "addFile",
+                        "path": op.path_in_repo,
+                        "xetHash": op.xet_hash,
+                        "size": op.size,
+                        "lastModified": op.last_modified,
                     }
-                    for (local_path, remote_path, xet_upload_info) in zip(local_paths, remote_paths, xet_upload_infos)
-                ]
-            },
-        )
+                    if op.content_type is not None:
+                        payload["contentType"] = op.content_type
+                else:
+                    payload = {
+                        "type": "deleteFile",
+                        "path": op.path_in_repo,
+                    }
+                yield json.dumps(payload).encode()
+                yield b"\n"
+
+        headers = {
+            "Content-Type": "application/x-ndjson",
+            **headers,
+        }
+        data = b"".join(_payload_as_ndjson())
+
+        response = get_session().post(f"{self.endpoint}/api/buckets/{bucket_id}/batch", headers=headers, content=data)
         hf_raise_for_status(response)
         return response.json()
 

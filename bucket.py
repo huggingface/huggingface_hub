@@ -1,7 +1,9 @@
+import random
+import string
+import tempfile
 from pathlib import Path
-from pprint import pprint
 
-from huggingface_hub import HfApi
+from huggingface_hub import BucketAddFile, BucketDeleteFile, HfApi
 
 
 token = "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"  # local write token
@@ -52,23 +54,43 @@ print("\n# List bucket tree (empty)")
 print(list(api.list_bucket_tree(bucket_id=bucket_id)))
 
 print("\n# Upload file to bucket")
-local_dir = Path("/home/wauplin/projects/huggingface_hub/downloads")
-files = [
-    (
-        str(path),  # local_path
-        path.relative_to(local_dir).as_posix(),  # remote_path
-    )
-    for path in local_dir.glob("*")
-][:5]  # limit to 5 files for the example
-print(api.upload_bucket_files(bucket_id=bucket_id, files=files))
+with tempfile.TemporaryDirectory() as temp_dir:
+    add_operations = []
+    for i in range(10):
+        file_name = "".join(random.choices(string.ascii_letters + string.digits, k=10)) + ".safetensors"
+        file_path = Path(temp_dir) / file_name
+        file_path.write_text(
+            f"This is a test file {i}" + "".join(random.choices(string.ascii_letters + string.digits, k=100)) * 1000
+        )
+        add_operations.append(
+            BucketAddFile(path_in_repo=file_path.relative_to(temp_dir).as_posix(), path_or_fileobj=file_path)
+        )
+    print(api.batch_bucket_files(bucket_id=bucket_id, operations=add_operations))
 
 print("\n# List bucket tree (with files)")
 objects = list(api.list_bucket_tree(bucket_id=bucket_id))
-pprint(objects)
+print(f"Found {len(objects)} objects in bucket: {[obj['path'] for obj in objects]}")
 
 bucket_file = objects[0]["path"]
+
 print(f"\n# Head bucket /resolve {bucket_file}")
 print(dict(api.head_bucket_file(bucket_id=bucket_id, remote_path=bucket_file).headers))
+
+
+print("\n# Delete first 3 files")
+delete_operations = [BucketDeleteFile(path_in_repo=obj["path"]) for obj in objects[:3]]
+print(api.batch_bucket_files(bucket_id=bucket_id, operations=delete_operations))
+
+print(f"\n# Head bucket /resolve {bucket_file} (doesn't exist anymore)")
+try:
+    api.head_bucket_file(bucket_id=bucket_id, remote_path=bucket_file).headers
+except Exception as e:
+    print(e)
+
+print("\n# List bucket tree (with files)")
+objects = list(api.list_bucket_tree(bucket_id=bucket_id))
+print(f"Found {len(objects)} objects in bucket: {[obj['path'] for obj in objects]}")
+bucket_file = objects[0]["path"]
 
 print(f"\n# Download file {bucket_file} from bucket")
 print(
