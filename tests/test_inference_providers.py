@@ -1977,14 +1977,14 @@ class TestZaiProvider:
         mock_session.return_value.get.side_effect = [
             # First call: poll for status (still processing)
             mocker.Mock(
-                json=lambda: {"task_status": "PROCESSING", "id": "-8353992347972780031"},
+                json=lambda: {"task_status": "PROCESSING", "id": "8353992347972780031"},
                 raise_for_status=lambda: None,
             ),
             # Second call: poll for status (success)
             mocker.Mock(
                 json=lambda: {
                     "task_status": "SUCCESS",
-                    "id": "-8353992347972780031",
+                    "id": "8353992347972780031",
                     "image_result": [{"url": "https://example.com/image.png"}],
                 },
                 raise_for_status=lambda: None,
@@ -2007,7 +2007,7 @@ class TestZaiProvider:
         )
 
         response = helper.get_response(
-            {"id": "-8353992347972780031", "task_status": "PROCESSING", "model": "glm-image"},
+            {"id": "8353992347972780031", "task_status": "PROCESSING", "model": "glm-image"},
             request_params,
         )
 
@@ -2026,7 +2026,7 @@ class TestZaiProvider:
 
         response = helper.get_response(
             {
-                "id": "-8353992347972780031",
+                "id": "8353992347972780031",
                 "task_status": "SUCCESS",
                 "image_result": [{"url": "https://example.com/image.png"}],
             },
@@ -2040,20 +2040,20 @@ class TestZaiProvider:
         helper = ZaiTextToImageTask()
         with pytest.raises(ValueError, match="ZAI image generation failed"):
             helper.get_response(
-                {"id": "-8353992347972780031", "task_status": "FAIL"},
+                {"id": "8353992347972780031", "task_status": "FAIL"},
                 None,
             )
 
-    def test_text_to_image_get_response_no_request_id(self):
+    def test_text_to_image_get_response_no_task_id(self):
         helper = ZaiTextToImageTask()
-        with pytest.raises(ValueError, match="No request_id in response"):
+        with pytest.raises(ValueError, match="No task_id in response"):
             helper.get_response({}, None)
 
     def test_text_to_image_get_response_no_image_result(self, mocker):
         helper = ZaiTextToImageTask()
         with pytest.raises(ValueError, match="No image_result in response"):
             helper.get_response(
-                {"id": "-8353992347972780031", "task_status": "SUCCESS"},
+                {"id": "8353992347972780031", "task_status": "SUCCESS"},
                 None,
             )
 
