@@ -3918,6 +3918,19 @@ class RepoUrlTest(unittest.TestCase):
         assert info.repo_url.repo_id == "Wauplin/test-repo-id-mixin"
         assert info.repo_url.repo_type == "model"
 
+    def test_custom_endpoint_in_commit_info(self):
+        info = CommitInfo(
+            commit_url="http://localhost:5564/Wauplin/dummy/commit/52d172a8b276e529d5260d6f3f76c85be5889dee",
+            commit_message="Dummy message",
+            commit_description="Dummy description",
+            oid="52d172a8b276e529d5260d6f3f76c85be5889dee",
+            pr_url=None,
+            _endpoint="http://localhost:5564",
+        )
+        assert info.repo_url.endpoint == "http://localhost:5564"
+        assert info.repo_url.repo_id == "Wauplin/dummy"
+        assert info.repo_url.repo_type == "model"
+
 
 class HfApiDuplicateSpaceTest(HfApiCommonTest):
     @unittest.skip("Duplicating Space doesn't work on staging.")
