@@ -3912,6 +3912,7 @@ class RepoUrlTest(unittest.TestCase):
             commit_description="Dummy description",
             oid="52d172a8b276e529d5260d6f3f76c85be5889dee",
             pr_url=None,
+            _endpoint=None,
         )
         assert isinstance(info.repo_url, RepoUrl)
         assert info.repo_url.endpoint == "https://huggingface.co"
