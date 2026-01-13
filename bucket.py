@@ -92,9 +92,13 @@ objects = list(api.list_bucket_tree(bucket_id=bucket_id))
 print(f"Found {len(objects)} objects in bucket: {[obj['path'] for obj in objects]}")
 bucket_file = objects[0]["path"]
 
+print("\n# objects[0] details")
+print(objects[0])
+
 print(f"\n# Download file {bucket_file} from bucket")
 api.download_bucket_file(bucket_id=bucket_id, remote_path=bucket_file, local_path=bucket_file)
 print(f"File downloaded to {bucket_file}")
 print(f"Local file size: {Path(bucket_file).stat().st_size} bytes")
+
 Path(bucket_file).unlink()
 api.delete_bucket(bucket_id="julien-c/test-bucket-with-files", missing_ok=True)

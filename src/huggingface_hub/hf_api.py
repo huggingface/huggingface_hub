@@ -1846,14 +1846,14 @@ class BucketAddFile:
 
     xet_hash: Optional[str] = field(default=None)
     size: Optional[int] = field(default=None)
-    last_modified: int = field(init=None)
+    mtime: int = field(init=None)
     content_type: Optional[str] = field(init=None)
 
     def __post_init__(self) -> None:
         self.content_type = (
             mimetypes.guess_type(self.path_or_fileobj)[0] if not isinstance(self.path_or_fileobj, bytes) else None
         ) or (mimetypes.guess_type(self.path_in_repo)[0])
-        self.last_modified = (
+        self.mtime = (
             os.path.getmtime(self.path_or_fileobj) * 1000
             if not isinstance(self.path_or_fileobj, bytes)
             else time.time() * 1000
@@ -11295,7 +11295,7 @@ class HfApi:
                         "path": op.path_in_repo,
                         "xetHash": op.xet_hash,
                         "size": op.size,
-                        "lastModified": op.last_modified,
+                        "mtime": op.mtime,
                     }
                     if op.content_type is not None:
                         payload["contentType"] = op.content_type
