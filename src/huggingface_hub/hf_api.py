@@ -439,6 +439,7 @@ class CommitInfo(str):
     commit_message: str
     commit_description: str
     oid: str
+    _endpoint: Optional[str] = field(repr=False)
     pr_url: Optional[str] = None
 
     # Computed from `commit_url` in `__post_init__`
@@ -457,7 +458,7 @@ class CommitInfo(str):
         See https://docs.python.org/3.10/library/dataclasses.html#post-init-processing.
         """
         # Repo info
-        self.repo_url = RepoUrl(self.commit_url.split("/commit/")[0])
+        self.repo_url = RepoUrl(self.commit_url.split("/commit/")[0], endpoint=self._endpoint)
 
         # PR info
         if self.pr_url is not None:
@@ -4444,6 +4445,7 @@ class HfApi:
                 commit_message=commit_message,
                 commit_description=commit_description,
                 oid=info.sha,  # type: ignore[arg-type]
+                _endpoint=self.endpoint,
             )
 
         commit_payload = _prepare_commit_payload(
@@ -4493,6 +4495,7 @@ class HfApi:
             commit_description=commit_description,
             oid=commit_data["commitOid"],
             pr_url=commit_data["pullRequestUrl"] if create_pr else None,
+            _endpoint=self.endpoint,
         )
 
     def preupload_lfs_files(
