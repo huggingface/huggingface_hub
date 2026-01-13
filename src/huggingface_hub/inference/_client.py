@@ -1032,6 +1032,8 @@ class InferenceClient:
         prompt_name: Optional[str] = None,
         truncate: Optional[bool] = None,
         truncation_direction: Optional[Literal["left", "right"]] = None,
+        dimensions: Optional[int] = None,
+        encoding_format: Optional[Literal["float", "base64"]] = None,
         model: Optional[str] = None,
     ) -> "np.ndarray":
         """
@@ -1058,6 +1060,12 @@ class InferenceClient:
                 Only available on server powered by Text-Embedding-Inference.
             truncation_direction (`Literal["left", "right"]`, *optional*):
                 Which side of the input should be truncated when `truncate=True` is passed.
+            dimensions (`int`, *optional*):
+                The number of dimensions the resulting output embeddings should have.
+                Only available on OpenAI-compatible embedding endpoints.
+            encoding_format (`Literal["float", "base64"]`, *optional*):
+                The format of the output embeddings. Either "float" or "base64".
+                Only available on OpenAI-compatible embedding endpoints.
 
         Returns:
             `np.ndarray`: The embedding representing the input text as a float32 numpy array.
@@ -1088,6 +1096,8 @@ class InferenceClient:
                 "prompt_name": prompt_name,
                 "truncate": truncate,
                 "truncation_direction": truncation_direction,
+                "dimensions": dimensions,
+                "encoding_format": encoding_format,
             },
             headers=self.headers,
             model=model_id,
