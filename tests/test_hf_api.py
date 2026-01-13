@@ -3919,6 +3919,10 @@ class RepoUrlTest(unittest.TestCase):
         assert info.repo_url.repo_type == "model"
 
     def test_custom_endpoint_in_commit_info(self):
+        """Regression test for #3679
+
+        See https://github.com/huggingface/huggingface_hub/pulls/3679 for more details.
+        """
         info = CommitInfo(
             commit_url="http://localhost:5564/Wauplin/dummy/commit/52d172a8b276e529d5260d6f3f76c85be5889dee",
             commit_message="Dummy message",
