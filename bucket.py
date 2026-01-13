@@ -57,7 +57,7 @@ print("\n# Upload file to bucket")
 with tempfile.TemporaryDirectory() as temp_dir:
     add_operations = []
     for i in range(10):
-        file_name = "".join(random.choices(string.ascii_letters + string.digits, k=10)) + ".safetensors"
+        file_name = "".join(random.choices(string.ascii_letters + string.digits, k=10)) + ".bin"
         file_path = Path(temp_dir) / file_name
         file_path.write_text(
             f"This is a test file {i}" + "".join(random.choices(string.ascii_letters + string.digits, k=100)) * 1000
@@ -93,11 +93,8 @@ print(f"Found {len(objects)} objects in bucket: {[obj['path'] for obj in objects
 bucket_file = objects[0]["path"]
 
 print(f"\n# Download file {bucket_file} from bucket")
-print(
-    "TODO: doesn't work in local... (downloading a newly uploaded Xet file doesn't work, both from a model or bucket)"
-)
-# api.download_bucket_file(bucket_id=bucket_id, remote_path=bucket_file, local_path=bucket_file)
-# print(f"File downloaded to {bucket_file}")
-# print(f"Local file size: {Path(bucket_file).stat().st_size} bytes")
-# Path(bucket_file).unlink()
+api.download_bucket_file(bucket_id=bucket_id, remote_path=bucket_file, local_path=bucket_file)
+print(f"File downloaded to {bucket_file}")
+print(f"Local file size: {Path(bucket_file).stat().st_size} bytes")
+Path(bucket_file).unlink()
 api.delete_bucket(bucket_id="julien-c/test-bucket-with-files", missing_ok=True)
