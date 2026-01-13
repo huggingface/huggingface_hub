@@ -11215,7 +11215,6 @@ class HfApi:
         add_operations = [op for op in operations if isinstance(op, BucketAddFile)]
         add_bytes_operations = [op for op in add_operations if isinstance(op.path_or_fileobj, bytes)]
         add_path_operations = [op for op in add_operations if not isinstance(op.path_or_fileobj, bytes)]
-        delete_operations = [op for op in operations if isinstance(op, BucketDeleteFile)]
 
         if len(add_operations) > 0:
             try:
