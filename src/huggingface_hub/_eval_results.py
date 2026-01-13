@@ -178,15 +178,16 @@ def parse_eval_result_entries(data: list[dict[str, Any]]) -> list[EvalResultEntr
     """
     entries = []
     for item in data:
-        dataset = item.get("dataset", {})
-        source = item.get("source", {})
+        entry_data = item.get("data", item)
+        dataset = entry_data.get("dataset", {})
+        source = entry_data.get("source", {})
         entry = EvalResultEntry(
             dataset_id=dataset["id"],
-            value=item["value"],
+            value=entry_data["value"],
             task_id=dataset.get("task_id"),
             dataset_revision=dataset.get("revision"),
-            verify_token=item.get("verifyToken"),
-            date=item.get("date"),
+            verify_token=entry_data.get("verifyToken"),
+            date=entry_data.get("date"),
             source_url=source.get("url") if source else None,
             source_name=source.get("name") if source else None,
             source_user=source.get("user") if source else None,
