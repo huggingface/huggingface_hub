@@ -63,7 +63,8 @@ from huggingface_hub.inference._providers.wavespeed import (
     WavespeedAITextToImageTask,
     WavespeedAITextToVideoTask,
 )
-from huggingface_hub.inference._providers.zai_org import ZaiConversationalTask, ZaiTextToImageTask, _POLLING_INTERVAL
+from huggingface_hub.inference._providers.zai_org import _POLLING_INTERVAL as ZAI_POLLING_INTERVAL
+from huggingface_hub.inference._providers.zai_org import ZaiConversationalTask, ZaiTextToImageTask
 
 from .testing_utils import assert_in_logs
 
@@ -2013,16 +2014,14 @@ class TestZaiProvider:
 
         assert response == b"image_bytes"
         assert mock_session.return_value.get.call_count == 3
-        mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
+        mock_sleep.assert_called_once_with(ZAI_POLLING_INTERVAL)
 
     def test_text_to_image_get_response_immediate_success(self, mocker):
         """Test when the response is already successful (no polling needed)."""
         helper = ZaiTextToImageTask()
         mock_session = mocker.patch("huggingface_hub.inference._providers.zai_org.get_session")
 
-        mock_session.return_value.get.return_value = mocker.Mock(
-            content=b"image_bytes", raise_for_status=lambda: None
-        )
+        mock_session.return_value.get.return_value = mocker.Mock(content=b"image_bytes", raise_for_status=lambda: None)
 
         response = helper.get_response(
             {

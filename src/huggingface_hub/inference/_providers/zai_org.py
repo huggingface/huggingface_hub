@@ -1,5 +1,6 @@
 import time
-from typing import Any, Dict, Optional, Union
+from abc import ABC
+from typing import Any, Optional, Union
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
@@ -12,11 +13,22 @@ _BASE_URL = "https://api.z.ai"
 _POLLING_INTERVAL = 5  # seconds
 
 
+class ZaiTask(TaskProviderHelper, ABC):
+    def __init__(self, task: str):
+        super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task=task)
+
+    def _prepare_headers(self, headers: dict, api_key: str) -> dict[str, Any]:
+        headers = super()._prepare_headers(headers, api_key)
+        headers["Accept-Language"] = "en-US,en"
+        headers["x-source-channel"] = "hugging_face"
+        return headers
+
+
 class ZaiConversationalTask(BaseConversationalTask):
     def __init__(self):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
+    def _prepare_headers(self, headers: dict, api_key: str) -> dict[str, Any]:
         headers = super()._prepare_headers(headers, api_key)
         headers["Accept-Language"] = "en-US,en"
         headers["x-source-channel"] = "hugging_face"
@@ -26,17 +38,11 @@ class ZaiConversationalTask(BaseConversationalTask):
         return "/api/paas/v4/chat/completions"
 
 
-class ZaiTextToImageTask(TaskProviderHelper):
+class ZaiTextToImageTask(ZaiTask):
     """Text-to-image task for ZAI provider using async API."""
 
     def __init__(self):
-        super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task="text-to-image")
-
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict[str, Any]:
-        headers = super()._prepare_headers(headers, api_key)
-        headers["Accept-Language"] = "en-US,en"
-        headers["x-source-channel"] = "hugging_face"
-        return headers
+        super().__init__("text-to-image")
 
     def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return "/api/paas/v4/async/images/generations"
@@ -44,7 +50,6 @@ class ZaiTextToImageTask(TaskProviderHelper):
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
-        # Map common parameters to ZAI API format
         width = parameters.pop("width", None)
         height = parameters.pop("height", None)
         size = None
@@ -58,7 +63,6 @@ class ZaiTextToImageTask(TaskProviderHelper):
         if size is not None:
             payload["size"] = size
 
-        # Add any remaining parameters
         payload.update(filter_none(parameters))
         return payload
 
@@ -78,18 +82,14 @@ class ZaiTextToImageTask(TaskProviderHelper):
         if task_status == "FAIL":
             raise ValueError(f"ZAI image generation failed for request {task_id}")
 
-        # Poll for results if still processing
         if task_status == "PROCESSING" and request_params is not None:
             return self._poll_for_result(task_id, request_params)
 
-        # If already completed (shouldn't happen but handle it)
         return self._extract_image(response_dict)
 
     def _poll_for_result(self, task_id: str, request_params: RequestParameters) -> bytes:
         """Poll the async-result endpoint until completion."""
         session = get_session()
-
-        # Build the polling URL
         base_url = request_params.url.rsplit("/api/paas/v4/async/images/generations", 1)[0]
         poll_url = f"{base_url}/api/paas/v4/async-result/{task_id}"
 
@@ -104,7 +104,6 @@ class ZaiTextToImageTask(TaskProviderHelper):
             elif task_status == "FAIL":
                 raise ValueError(f"ZAI image generation failed for request {task_id}")
 
-            # Still processing, wait and retry
             time.sleep(_POLLING_INTERVAL)
 
     def _extract_image(self, result: dict) -> bytes:
@@ -117,7 +116,6 @@ class ZaiTextToImageTask(TaskProviderHelper):
         if not image_url:
             raise ValueError("No image URL in response from ZAI API")
 
-        # Download the image
         session = get_session()
         image_response = session.get(image_url)
         image_response.raise_for_status()
