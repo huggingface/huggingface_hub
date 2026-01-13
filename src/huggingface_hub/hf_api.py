@@ -37,12 +37,14 @@ from typing import (
     Iterator,
     Literal,
     Optional,
+    Type,
     TypeVar,
     Union,
     overload,
 )
 from urllib.parse import quote
 
+import httpcore
 import httpx
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
@@ -194,6 +196,10 @@ ExpandSpaceProperty_T = Literal[
     "trendingScore",
     "usedStorage",
 ]
+
+ModelSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
+DatasetSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
+SpaceSort_T = Literal["created_at", "last_modified", "likes", "trending_score"]
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
@@ -425,6 +431,7 @@ class CommitInfo(str):
     commit_message: str
     commit_description: str
     oid: str
+    _endpoint: Optional[str] = field(repr=False)
     pr_url: Optional[str] = None
 
     # Computed from `commit_url` in `__post_init__`
@@ -443,7 +450,7 @@ class CommitInfo(str):
         See https://docs.python.org/3.10/library/dataclasses.html#post-init-processing.
         """
         # Repo info
-        self.repo_url = RepoUrl(self.commit_url.split("/commit/")[0])
+        self.repo_url = RepoUrl(self.commit_url.split("/commit/")[0], endpoint=self._endpoint)
 
         # PR info
         if self.pr_url is not None:
@@ -1532,6 +1539,42 @@ class User:
 
 
 @dataclass
+class PaperAuthor:
+    """
+    Contains information about a paper author on the Hub.
+
+    Attributes:
+        name (`str`):
+            Name of the author.
+        user (`User`, *optional*):
+            Information about the author as a [`User`] object.
+        status (`str`, *optional*):
+            Status of the author on the Hub.
+        status_last_changed_at (`datetime`, *optional*):
+            Date when the status of the author changed.
+        hidden (`bool`, *optional*):
+            Whether the author is hidden on the Hub.
+    """
+
+    name: str
+    user: Optional[User]
+    status: Optional[str]
+    status_last_changed_at: Optional[datetime]
+    hidden: Optional[bool]
+
+    def __init__(self, **kwargs) -> None:
+        self.name = kwargs.pop("name", "")
+        user = kwargs.pop("user", None)
+        self.user = User(**user) if user else None
+        self.status = kwargs.pop("status", None)
+        status_last_changed_at = kwargs.pop("statusLastChangedAt", None)
+        self.status_last_changed_at = parse_datetime(status_last_changed_at) if status_last_changed_at else None
+        self.hidden = kwargs.pop("hidden", None)
+
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
 class PaperInfo:
     """
     Contains information about a paper on the Hub.
@@ -1539,30 +1582,42 @@ class PaperInfo:
     Attributes:
         id (`str`):
             arXiv paper ID.
-        authors (`list[str]`, **optional**):
-            Names of paper authors
-        published_at (`datetime`, **optional**):
+        authors (`list[PaperAuthor]`, *optional*):
+            Authors of the paper.
+        published_at (`datetime`, *optional*):
             Date paper published.
-        title (`str`, **optional**):
+        title (`str`, *optional*):
             Title of the paper.
-        summary (`str`, **optional**):
+        summary (`str`, *optional*):
             Summary of the paper.
-        upvotes (`int`, **optional**):
+        upvotes (`int`, *optional*):
             Number of upvotes for the paper on the Hub.
-        discussion_id (`str`, **optional**):
+        discussion_id (`str`, *optional*):
             Discussion ID for the paper on the Hub.
-        source (`str`, **optional**):
+        source (`str`, *optional*):
             Source of the paper.
-        comments (`int`, **optional**):
+        comments (`int`, *optional*):
             Number of comments for the paper on the Hub.
-        submitted_at (`datetime`, **optional**):
+        submitted_at (`datetime`, *optional*):
             Date paper appeared in daily papers on the Hub.
-        submitted_by (`User`, **optional**):
+        submitted_by (`User`, *optional*):
             Information about who submitted the daily paper.
+        ai_summary (`str`, *optional*):
+            AI summary of the paper.
+        ai_keywords (`list[str]`, *optional*):
+            AI keywords of the paper.
+        organization (`Organization`, *optional*):
+            Information about the organization associated with the paper.
+        project_page (`str`, *optional*):
+            URL of the project page for the paper.
+        github_repo (`str`, *optional*):
+            URL of the GitHub repository for the paper.
+        github_stars (`int`, *optional*):
+            Number of stars of the GitHub repository for the paper.
     """
 
     id: str
-    authors: Optional[list[str]]
+    authors: Optional[list[PaperAuthor]]
     published_at: Optional[datetime]
     title: Optional[str]
     summary: Optional[str]
@@ -1572,12 +1627,18 @@ class PaperInfo:
     comments: Optional[int]
     submitted_at: Optional[datetime]
     submitted_by: Optional[User]
+    ai_summary: Optional[str]
+    ai_keywords: Optional[list[str]]
+    organization: Optional[Organization]
+    project_page: Optional[str]
+    github_repo: Optional[str]
+    github_stars: Optional[int]
 
     def __init__(self, **kwargs) -> None:
         paper = kwargs.pop("paper", {})
         self.id = kwargs.pop("id", None) or paper.pop("id", None)
         authors = paper.pop("authors", None) or kwargs.pop("authors", None)
-        self.authors = [author.pop("name", None) for author in authors] if authors else None
+        self.authors = [PaperAuthor(**author) for author in authors] if authors else None
         published_at = paper.pop("publishedAt", None) or kwargs.pop("publishedAt", None)
         self.published_at = parse_datetime(published_at) if published_at else None
         self.title = kwargs.pop("title", None)
@@ -1590,6 +1651,13 @@ class PaperInfo:
         self.submitted_at = parse_datetime(submitted_at) if submitted_at else None
         submitted_by = kwargs.pop("submittedBy", None) or kwargs.pop("submittedOnDailyBy", None)
         self.submitted_by = User(**submitted_by) if submitted_by else None
+        self.ai_summary = kwargs.pop("ai_summary", None)
+        self.ai_keywords = kwargs.pop("ai_keywords", None)
+        organization = kwargs.pop("organization", None)
+        self.organization = Organization(**organization) if organization else None
+        self.project_page = kwargs.pop("projectPage", None)
+        self.github_repo = kwargs.pop("githubRepo", None)
+        self.github_stars = kwargs.pop("githubStars", None)
 
         # forward compatibility
         self.__dict__.update(**kwargs)
@@ -1687,6 +1755,85 @@ def future_compatible(fn: CallableT) -> CallableT:
 
     _inner.is_future_compatible = True  # type: ignore
     return _inner  # type: ignore
+
+
+def _get_safetensors_metadata_size(size_bytes: bytes, filename: str, context_msg: str) -> int:
+    """
+    Parse and validate safetensors metadata size from the first 8 bytes.
+
+    This is a shared helper function used by both remote and local safetensors parsing.
+
+    Args:
+        size_bytes: First 8 bytes of the safetensors file.
+        filename: Filename for error messages.
+        context_msg: Additional context for error messages.
+
+    Returns:
+        The metadata size as an integer.
+
+    Raises:
+        SafetensorsParsingError: If size_bytes is too short or metadata size exceeds limit.
+    """
+    if len(size_bytes) < 8:
+        raise SafetensorsParsingError(
+            f"Failed to parse safetensors header for '{filename}' ({context_msg}): file is too small to be a valid "
+            "safetensors file."
+        )
+
+    metadata_size = struct.unpack("<Q", size_bytes[:8])[0]
+    if metadata_size > constants.SAFETENSORS_MAX_HEADER_LENGTH:
+        raise SafetensorsParsingError(
+            f"Failed to parse safetensors header for '{filename}' ({context_msg}): safetensors header is too big. "
+            f"Maximum supported size is {constants.SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
+        )
+
+    return metadata_size
+
+
+def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_msg: str) -> SafetensorsFileMetadata:
+    """
+    Parse safetensors metadata from raw header bytes.
+
+    This is a shared helper function used by both remote and local safetensors parsing.
+
+    Args:
+        metadata_as_bytes: Raw bytes of the JSON metadata header (without the 8-byte size prefix).
+        filename: Filename for error messages.
+        context_msg: Additional context for error messages (e.g., repo info or local path).
+
+    Returns:
+        SafetensorsFileMetadata object.
+
+    Raises:
+        SafetensorsParsingError: If the header cannot be parsed.
+    """
+    # Parse json header
+    try:
+        metadata_as_dict = json.loads(metadata_as_bytes.decode(errors="ignore"))
+    except json.JSONDecodeError as e:
+        raise SafetensorsParsingError(
+            f"Failed to parse safetensors header for '{filename}' ({context_msg}): header is not json-encoded string. "
+            "Please make sure this is a correctly formatted safetensors file."
+        ) from e
+
+    try:
+        return SafetensorsFileMetadata(
+            metadata=metadata_as_dict.get("__metadata__", {}),
+            tensors={
+                key: TensorInfo(
+                    dtype=tensor["dtype"],
+                    shape=tensor["shape"],
+                    data_offsets=tuple(tensor["data_offsets"]),  # type: ignore
+                )
+                for key, tensor in metadata_as_dict.items()
+                if key != "__metadata__"
+            },
+        )
+    except (KeyError, IndexError) as e:
+        raise SafetensorsParsingError(
+            f"Failed to parse safetensors header for '{filename}' ({context_msg}): header format not recognized. "
+            "Please make sure this is a correctly formatted safetensors file."
+        ) from e
 
 
 class HfApi:
@@ -1888,7 +2035,7 @@ class HfApi:
         pipeline_tag: Optional[str] = None,
         emissions_thresholds: Optional[tuple[float, float]] = None,
         # Sorting and pagination parameters
-        sort: Union[Literal["last_modified"], str, None] = None,
+        sort: Optional[ModelSort_T] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
@@ -1933,9 +2080,9 @@ class HfApi:
             emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
-            sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
-                "created_at", "downloads" and "likes". Sorting is always descending.
+            sort (`ModelSort_T`, *optional*):
+                The key with which to sort the resulting models. Possible values are "created_at", "downloads",
+                "last_modified", "likes" and "trending_score".
             direction (`Literal[-1]` or `int`, *optional*):
                 Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
@@ -2089,7 +2236,7 @@ class HfApi:
         task_ids: Optional[Union[str, list[str]]] = None,
         search: Optional[str] = None,
         # Sorting and pagination parameters
-        sort: Optional[Union[Literal["last_modified"], str]] = None,
+        sort: Optional[DatasetSort_T] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
@@ -2141,9 +2288,9 @@ class HfApi:
                 `paraphrase`.
             search (`str`, *optional*):
                 A string that will be contained in the returned datasets.
-            sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting datasets. Possible values are "last_modified", "trending_score",
-                "created_at", "downloads" and "likes". Sorting is always descending.
+            sort (`DatasetSort_T`, *optional*):
+                The key with which to sort the resulting datasets. Possible values are "created_at", "downloads",
+                "last_modified", "likes" and "trending_score".
             direction (`Literal[-1]` or `int`, *optional*):
                 Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
@@ -2291,7 +2438,7 @@ class HfApi:
         models: Union[str, Iterable[str], None] = None,
         linked: bool = False,
         # Sorting and pagination parameters
-        sort: Union[Literal["last_modified"], str, None] = None,
+        sort: Optional[SpaceSort_T] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
@@ -2317,9 +2464,9 @@ class HfApi:
                 The name of a specific model can be passed as a string.
             linked (`bool`, *optional*):
                 Whether to return Spaces that make use of either a model or a dataset.
-            sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting spaces. Possible values are "last_modified", "trending_score",
-                "created_at" and "likes". Sorting is always descending.
+            sort (`SpaceSort_T`, *optional*):
+                The key with which to sort the resulting spaces. Possible values are "created_at", "last_modified",
+                "likes" and "trending_score".
             direction (`Literal[-1]` or `int`, *optional*):
                 Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
@@ -4269,6 +4416,7 @@ class HfApi:
                 commit_message=commit_message,
                 commit_description=commit_description,
                 oid=info.sha,  # type: ignore[arg-type]
+                _endpoint=self.endpoint,
             )
 
         commit_payload = _prepare_commit_payload(
@@ -4318,6 +4466,7 @@ class HfApi:
             commit_description=commit_description,
             oid=commit_data["commitOid"],
             pr_url=commit_data["pullRequestUrl"] if create_pr else None,
+            _endpoint=self.endpoint,
         )
 
     def preupload_lfs_files(
@@ -5768,6 +5917,8 @@ class HfApi:
         )
         _headers = self._build_hf_headers(token=token)
 
+        context_msg = f"repo '{repo_id}', revision '{revision or constants.DEFAULT_REVISION}'"
+
         # 1. Fetch first 100kb
         # Empirically, 97% of safetensors files have a metadata size < 100kb (over the top 1000 models on the Hub).
         # We assume fetching 100kb is faster than making 2 GET requests. Therefore we always fetch the first 100kb to
@@ -5776,14 +5927,8 @@ class HfApi:
         response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
         hf_raise_for_status(response)
 
-        # 2. Parse metadata size
-        metadata_size = struct.unpack("<Q", response.content[:8])[0]
-        if metadata_size > constants.SAFETENSORS_MAX_HEADER_LENGTH:
-            raise SafetensorsParsingError(
-                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
-                f"'{revision or constants.DEFAULT_REVISION}'): safetensors header is too big. Maximum supported size is "
-                f"{constants.SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
-            )
+        # 2. Parse and validate metadata size using shared helper
+        metadata_size = _get_safetensors_metadata_size(response.content[:8], filename, context_msg)
 
         # 3.a. Get metadata from payload
         if metadata_size <= 100000:
@@ -5793,35 +5938,8 @@ class HfApi:
             hf_raise_for_status(response)
             metadata_as_bytes = response.content
 
-        # 4. Parse json header
-        try:
-            metadata_as_dict = json.loads(metadata_as_bytes.decode(errors="ignore"))
-        except json.JSONDecodeError as e:
-            raise SafetensorsParsingError(
-                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
-                f"'{revision or constants.DEFAULT_REVISION}'): header is not json-encoded string. Please make sure this is a "
-                "correctly formatted safetensors file."
-            ) from e
-
-        try:
-            return SafetensorsFileMetadata(
-                metadata=metadata_as_dict.get("__metadata__", {}),
-                tensors={
-                    key: TensorInfo(
-                        dtype=tensor["dtype"],
-                        shape=tensor["shape"],
-                        data_offsets=tuple(tensor["data_offsets"]),  # type: ignore
-                    )
-                    for key, tensor in metadata_as_dict.items()
-                    if key != "__metadata__"
-                },
-            )
-        except (KeyError, IndexError) as e:
-            raise SafetensorsParsingError(
-                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
-                f"'{revision or constants.DEFAULT_REVISION}'): header format not recognized. Please make sure this is a correctly"
-                " formatted safetensors file."
-            ) from e
+        # 4. Parse json header using shared helper
+        return _parse_safetensors_header(metadata_as_bytes, filename, context_msg)
 
     @validate_hf_hub_args
     def create_branch(
@@ -10103,6 +10221,85 @@ class HfApi:
         job_info = response.json()
         return JobInfo(**job_info, endpoint=self.endpoint)
 
+    def _fetch_running_job_sse(
+        self,
+        *,
+        job_id: str,
+        route: str,
+        timeout: int,
+        skip_previous_events_on_retry: bool,
+        double_check_job_has_finished_on_status_code_or_error: tuple[Union[int, Type[Exception]], ...],
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[dict[str, Any]]:
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        # We don't use http_backoff since we need to check ourselves if the job is still running
+        nb_tries = 0
+        max_retries = 5
+        min_wait_time = 1
+        max_wait_time = 10
+        sleep_time = 0
+        start_event_idx = 0
+        error_to_retry = None
+        while True:
+            if error_to_retry is not None:
+                logger.warning(f"'{error_to_retry}' thrown while requesting jobs /{route} for {job_id=}")
+                logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
+                error_to_retry = None
+                time.sleep(sleep_time)
+            try:
+                with get_session().stream(
+                    "GET",
+                    f"{self.endpoint}/api/jobs/{namespace}/{job_id}/{route}",
+                    headers=self._build_hf_headers(token=token),
+                    timeout=timeout,
+                ) as response:
+                    if response.status_code == 200:
+                        event_idx = -1
+                        for line in response.iter_lines():
+                            if line and line.startswith("data: {"):
+                                event_idx += 1
+                                if event_idx >= start_event_idx:
+                                    if skip_previous_events_on_retry:
+                                        start_event_idx += 1
+                                    yield json.loads(line[len("data: ") :])
+                        break
+                    elif response.status_code not in double_check_job_has_finished_on_status_code_or_error:
+                        hf_raise_for_status(response)
+            except httpx.HTTPStatusError:
+                raise
+            except httpx.DecodingError:
+                # Response ended prematurely
+                break
+            except KeyboardInterrupt:
+                break
+            except (httpx.HTTPError, httpcore.TimeoutException) as err:
+                is_no_new_line_timeout = (
+                    isinstance(err, httpx.NetworkError)
+                    and err.__context__
+                    and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
+                )
+                if is_no_new_line_timeout:
+                    # job is likely finished
+                    pass
+                elif type(err) in double_check_job_has_finished_on_status_code_or_error:
+                    pass
+                elif nb_tries >= max_retries:
+                    raise
+                else:
+                    nb_tries += 1
+                    sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+                    error_to_retry = err
+            job_status_response = get_session().get(
+                f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
+                headers=self._build_hf_headers(token=token),
+            )
+            hf_raise_for_status(job_status_response)
+            job_status = job_status_response.json()
+            if "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING"):
+                break
+
     def fetch_job_logs(
         self,
         *,
@@ -10130,15 +10327,11 @@ class HfApi:
             ```python
             >>> from huggingface_hub import fetch_job_logs, run_job
             >>> job = run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
-            >>> for log in fetch_job_logs(job.id):
+            >>> for log in fetch_job_logs(job_id=job.id):
             ...     print(log)
             Hello from HF compute!
             ```
         """
-        if namespace is None:
-            namespace = self.whoami(token=token)["name"]
-        logging_finished = logging_started = False
-        job_finished = False
         # - We need to retry because sometimes the /logs doesn't return logs when the job just started.
         #   (for example it can return only two lines: one for "Job started" and one empty line)
         # - Timeouts can happen in case of build errors
@@ -10147,52 +10340,86 @@ class HfApi:
         #   (the logs stream is infinite and empty except for the Job started message)
         # - there is a ": keep-alive" every 30 seconds
 
-        # We don't use http_backoff since we need to check ourselves if ConnectionError.__context__ is a TimeoutError
-        max_retries = 5
-        min_wait_time = 1
-        max_wait_time = 10
-        sleep_time = 0
-        for _ in range(max_retries):
-            time.sleep(sleep_time)
-            sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
-            try:
-                with get_session().stream(
-                    "GET",
-                    f"{self.endpoint}/api/jobs/{namespace}/{job_id}/logs",
-                    headers=self._build_hf_headers(token=token),
-                    timeout=120,
-                ) as response:
-                    log = None
-                    for line in response.iter_lines():
-                        if line and line.startswith("data: {"):
-                            data = json.loads(line[len("data: ") :])
-                            # timestamp = data["timestamp"]
-                            if not data["data"].startswith("===== Job started"):
-                                logging_started = True
-                                log = data["data"]
-                                yield log
-                    logging_finished = logging_started
-            except httpx.DecodingError:
-                # Response ended prematurely
-                break
-            except KeyboardInterrupt:
-                break
-            except httpx.NetworkError as err:
-                is_timeout = err.__context__ and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
-                if logging_started or not is_timeout:
-                    raise
-            if logging_finished or job_finished:
-                break
-            job_status = (
-                get_session()
-                .get(
-                    f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
-                    headers=self._build_hf_headers(token=token),
-                )
-                .json()
-            )
-            if "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING"):
-                job_finished = True
+        seconds_between_keep_alive = 30
+        for event in self._fetch_running_job_sse(
+            job_id=job_id,
+            route="logs",
+            timeout=4 * seconds_between_keep_alive,
+            skip_previous_events_on_retry=True,
+            double_check_job_has_finished_on_status_code_or_error=tuple(),
+            namespace=namespace,
+            token=token,
+        ):
+            # timestamp = event["timestamp"]
+            if not event["data"].startswith("===== Job started"):
+                log = event["data"]
+                yield log
+
+    def fetch_job_metrics(
+        self,
+        *,
+        job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[dict[str, Any]]:
+        """
+        Fetch all the live metrics from a compute Job on Hugging Face infrastructure.
+
+        Args:
+            job_id (`str`):
+                ID of the Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import fetch_job_metrics, run_job
+            >>> job = run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], flavor="a10g-small")
+            >>> for metrics in fetch_job_metrics(job_id=job.id):
+            ...     print(metrics)
+            {
+                "cpu_usage_pct": 0,
+                "cpu_millicores": 3500,
+                "memory_used_bytes": 1306624,
+                "memory_total_bytes": 15032385536,
+                "rx_bps": 0,
+                "tx_bps": 0,
+                "gpus": {
+                    "882fa930": {
+                        "utilization": 0,
+                        "memory_used_bytes": 0,
+                        "memory_total_bytes": 22836000000
+                    }
+                },
+                "replica": "57vr7"
+            }
+            ```
+        """
+        # - there is one "metric" event every second, like this:
+        # event: metric
+        # data: {"cpu_usage_pct":0,"cpu_millicores":3500,"memory_used_bytes":1417216,"memory_total_bytes":15032385536,"rx_bps":0,"tx_bps":0,"gpus":{"d901cd7f":{"utilization":0,"memory_used_bytes":0,"memory_total_bytes":22836000000}},"replica":"j6qz9"}
+        # - the stream doesn't end when the job finishes, so we rely on timeouts (httpx.NetworkError with Timeout as cause)
+        # - httpx.ReadTimeout can happen if the job is marked as running but the hardware is not available yet, that we can ignore
+        # - it returns an internal error 500 if the job has already finished, we simply ignore it
+        # - ChunkedEncodingError can happen in case of stopped logging in the middle of streaming
+        # - there is a ": keep-alive" every 30 seconds
+        seconds_between_events = 1
+        yield from self._fetch_running_job_sse(
+            job_id=job_id,
+            route="metrics",
+            timeout=10 * seconds_between_events,
+            skip_previous_events_on_retry=False,
+            double_check_job_has_finished_on_status_code_or_error=(500, httpx.ReadTimeout),
+            namespace=namespace,
+            token=token,
+        )
 
     def list_jobs(
         self,
@@ -10876,6 +11103,158 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
     return f"refs/pr/{re_match[1]}"
 
 
+def parse_local_safetensors_file_metadata(path: Union[str, Path]) -> SafetensorsFileMetadata:
+    """
+    Parse metadata from a local safetensors file.
+
+    For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
+
+    Args:
+        path (`str` or `Path`):
+            Path to the safetensors file.
+
+    Returns:
+        [`SafetensorsFileMetadata`]: information related to the safetensors file.
+
+    Raises:
+        [`SafetensorsParsingError`]:
+            If the safetensors file header couldn't be parsed correctly.
+        `FileNotFoundError`:
+            If the file does not exist.
+
+    Example:
+        ```py
+        >>> metadata = parse_local_safetensors_file_metadata("path/to/model.safetensors")
+        >>> metadata
+        SafetensorsFileMetadata(
+            metadata={'format': 'pt'},
+            tensors={'layer.weight': TensorInfo(dtype='F32', shape=[512, 512], ...}, ...}
+        )
+        >>> metadata.parameter_count
+        {'F32': 262144}
+        ```
+    """
+    path = Path(path)
+    filename = path.name
+    context_msg = f"path '{path}'"
+
+    with open(path, "rb") as f:
+        # 1. Read first 8 bytes and parse/validate metadata size using shared helper
+        size_bytes = f.read(8)
+        metadata_size = _get_safetensors_metadata_size(size_bytes, filename, context_msg)
+
+        # 2. Read metadata bytes
+        metadata_as_bytes = f.read(metadata_size)
+        if len(metadata_as_bytes) < metadata_size:
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' ({context_msg}): file is truncated. Expected "
+                f"{metadata_size} bytes of metadata but got {len(metadata_as_bytes)}."
+            )
+
+    # 3. Parse using shared helper
+    return _parse_safetensors_header(metadata_as_bytes, filename, context_msg)
+
+
+def get_local_safetensors_metadata(path: Union[str, Path]) -> SafetensorsRepoMetadata:
+    """
+    Parse metadata for a local safetensors file or folder.
+
+    Supports:
+    - Single safetensors file (e.g., `model.safetensors`)
+    - Directory with non-sharded model (contains `model.safetensors`)
+    - Directory with sharded model (contains `model.safetensors.index.json`)
+
+    For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
+
+    Args:
+        path (`str` or `Path`):
+            Path to a safetensors file or directory containing safetensors files.
+
+    Returns:
+        [`SafetensorsRepoMetadata`]: information related to the safetensors repo.
+
+    Raises:
+        [`NotASafetensorsRepoError`]:
+            If the path is not a valid safetensors file or folder (i.e., doesn't have either a
+            `model.safetensors` or a `model.safetensors.index.json` file).
+        [`SafetensorsParsingError`]:
+            If a safetensors file header couldn't be parsed correctly.
+        `FileNotFoundError`:
+            If the path does not exist.
+
+    Example:
+        ```py
+        # Parse single safetensors file
+        >>> metadata = get_local_safetensors_metadata("path/to/model.safetensors")
+        >>> metadata
+        SafetensorsRepoMetadata(metadata=None, sharded=False, weight_map={...}, files_metadata={...})
+
+        # Parse directory with sharded model
+        >>> metadata = get_local_safetensors_metadata("path/to/model_folder")
+        >>> metadata
+        SafetensorsRepoMetadata(metadata={'total_size': ...}, sharded=True, weight_map={...}, files_metadata={...})
+        >>> len(metadata.files_metadata)
+        3  # Number of safetensors shards
+        ```
+    """
+    path = Path(path)
+
+    # Case 1: Direct path to a safetensors file
+    if path.is_file():
+        file_metadata = parse_local_safetensors_file_metadata(path)
+        return SafetensorsRepoMetadata(
+            metadata=None,
+            sharded=False,
+            weight_map={tensor_name: path.name for tensor_name in file_metadata.tensors.keys()},
+            files_metadata={path.name: file_metadata},
+        )
+
+    # Case 2: Directory
+    if not path.is_dir():
+        raise FileNotFoundError(f"Path '{path}' does not exist.")
+
+    single_file_path = path / constants.SAFETENSORS_SINGLE_FILE
+    index_file_path = path / constants.SAFETENSORS_INDEX_FILE
+
+    # Case 2a: Non-sharded model (single model.safetensors file)
+    if single_file_path.exists():
+        file_metadata = parse_local_safetensors_file_metadata(single_file_path)
+        return SafetensorsRepoMetadata(
+            metadata=None,
+            sharded=False,
+            weight_map={
+                tensor_name: constants.SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()
+            },
+            files_metadata={constants.SAFETENSORS_SINGLE_FILE: file_metadata},
+        )
+
+    # Case 2b: Sharded model (model.safetensors.index.json)
+    if index_file_path.exists():
+        with open(index_file_path) as f:
+            index = json.load(f)
+
+        weight_map = index.get("weight_map", {})
+
+        # Parse metadata from each shard
+        files_metadata = {}
+        for shard_filename in set(weight_map.values()):
+            shard_path = path / shard_filename
+            files_metadata[shard_filename] = parse_local_safetensors_file_metadata(shard_path)
+
+        return SafetensorsRepoMetadata(
+            metadata=index.get("metadata", None),
+            sharded=True,
+            weight_map=weight_map,
+            files_metadata=files_metadata,
+        )
+
+    # Not a valid safetensors folder
+    raise NotASafetensorsRepoError(
+        f"'{path}' is not a valid safetensors folder. Couldn't find '{constants.SAFETENSORS_INDEX_FILE}' or "
+        f"'{constants.SAFETENSORS_SINGLE_FILE}' files."
+    )
+
+
 api = HfApi()
 
 whoami = api.whoami
@@ -11022,6 +11401,7 @@ list_user_following = api.list_user_following
 # Jobs API
 run_job = api.run_job
 fetch_job_logs = api.fetch_job_logs
+fetch_job_metrics = api.fetch_job_metrics
 list_jobs = api.list_jobs
 inspect_job = api.inspect_job
 cancel_job = api.cancel_job

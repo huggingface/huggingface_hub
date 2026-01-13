@@ -1,4 +1,6 @@
 import inspect
+import sys
+import types
 from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields, make_dataclass
 from functools import lru_cache, wraps
 from typing import (
@@ -596,6 +598,10 @@ _BASIC_TYPE_VALIDATORS = {
     tuple: _validate_tuple,
     set: _validate_set,
 }
+
+if sys.version_info >= (3, 10):
+    # TODO: make it first class citizen when bumping to Python 3.10+
+    _BASIC_TYPE_VALIDATORS[types.UnionType] = _validate_union  # x | y syntax, available only Python 3.10+
 
 
 __all__ = [

@@ -17,12 +17,15 @@ from huggingface_hub import constants
 from huggingface_hub.cli._cli_utils import check_cli_update, typer_factory
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.cache import cache_cli
+from huggingface_hub.cli.datasets import datasets_cli
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.inference_endpoints import ie_cli
 from huggingface_hub.cli.jobs import jobs_cli
 from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
+from huggingface_hub.cli.models import models_cli
 from huggingface_hub.cli.repo import repo_cli
 from huggingface_hub.cli.repo_files import repo_files_cli
+from huggingface_hub.cli.spaces import spaces_cli
 from huggingface_hub.cli.system import env, version
 from huggingface_hub.cli.upload import upload
 from huggingface_hub.cli.upload_large_folder import upload_large_folder
@@ -45,16 +48,19 @@ app.command(help="Upload large files to the Hub.", hidden=True)(lfs_multipart_up
 # command groups
 app.add_typer(auth_cli, name="auth")
 app.add_typer(cache_cli, name="cache")
+app.add_typer(datasets_cli, name="datasets")
+app.add_typer(jobs_cli, name="jobs")
+app.add_typer(models_cli, name="models")
 app.add_typer(repo_cli, name="repo")
 app.add_typer(repo_files_cli, name="repo-files")
-app.add_typer(jobs_cli, name="jobs")
+app.add_typer(spaces_cli, name="spaces")
 app.add_typer(ie_cli, name="endpoints")
 
 
 def main():
     if not constants.HF_DEBUG:
         logging.set_verbosity_info()
-    check_cli_update()
+    check_cli_update("huggingface_hub")
     app()
 
 
