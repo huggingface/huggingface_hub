@@ -11331,17 +11331,22 @@ class HfApi:
         hf_raise_for_status(response)
         return response
 
-    def download_bucket_file(
+    def download_bucket_files(
         self,
         bucket_id: str,
-        remote_path: str,
-        local_path: Union[str, Path],
+        files: list[tuple[str, Union[str, Path]]],
         *,
         token: Union[str, bool, None] = None,
     ) -> None:
         from hf_xet import PyXetDownloadInfo, download_files  # type: ignore[no-redef]
 
         headers = self._build_hf_headers(token=token)
+
+        if len(files) == 0:
+            return
+
+        # Fetch Xet connection info (same for all files)
+        remote_path, local_path = files[0]
 
         head_response = self.head_bucket_file(bucket_id, remote_path, token=token)
         xet_file_data = parse_xet_file_data_from_response(head_response)
@@ -11354,19 +11359,26 @@ class HfApi:
                 raise ValueError("Failed to refresh token using xet metadata.")
             return connection_info.access_token, connection_info.expiration_unix_epoch
 
-        xet_download_info = [
-            PyXetDownloadInfo(
-                destination_path=str(Path(local_path).absolute()),
-                hash=xet_file_data.file_hash,
-                file_size=expected_size,
+        # Fetch Xet download infos for all files
+        xet_download_infos = []
+        for remote_path, local_path in files:
+            head_response = self.head_bucket_file(bucket_id, remote_path, token=token)
+            xet_file_data = parse_xet_file_data_from_response(head_response)
+            expected_size = int(head_response.headers["Content-Length"])
+            xet_download_infos.append(
+                PyXetDownloadInfo(
+                    destination_path=str(Path(local_path).absolute()),
+                    hash=xet_file_data.file_hash,
+                    file_size=expected_size,
+                )
             )
-        ]
 
         progress_cm = _get_progress_bar_context(
-            desc="Downloading bucket file",
+            desc="Downloading bucket files",
             log_level=logger.getEffectiveLevel(),
-            total=expected_size,
-            name="huggingface_hub.download_bucket_file",
+            total=sum(info.file_size for info in xet_download_infos),
+            initial=0,
+            name="huggingface_hub.download_bucket_files",
         )
 
         with progress_cm as progress:
@@ -11375,11 +11387,11 @@ class HfApi:
                 progress.update(progress_bytes)
 
             download_files(
-                xet_download_info,
+                xet_download_infos,
                 endpoint=connection_info.endpoint,
                 token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
                 token_refresher=token_refresher,
-                progress_updater=[progress_updater],
+                progress_updater=[progress_updater] * len(xet_download_infos),
             )
 
 

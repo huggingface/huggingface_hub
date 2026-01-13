@@ -91,14 +91,23 @@ print("\n# List bucket tree (with files)")
 objects = list(api.list_bucket_tree(bucket_id=bucket_id))
 print(f"Found {len(objects)} objects in bucket: {[obj['path'] for obj in objects]}")
 bucket_file = objects[0]["path"]
+bucket_file_2 = objects[1]["path"]
+bucket_file_3 = objects[2]["path"]
 
 print("\n# objects[0] details")
 print(objects[0])
 
-print(f"\n# Download file {bucket_file} from bucket")
-api.download_bucket_file(bucket_id=bucket_id, remote_path=bucket_file, local_path=bucket_file)
-print(f"File downloaded to {bucket_file}")
-print(f"Local file size: {Path(bucket_file).stat().st_size} bytes")
+print(f"\n# Download files {bucket_file}, {bucket_file_2}, {bucket_file_3} from bucket")
+api.download_bucket_files(
+    bucket_id=bucket_id,
+    files=[(bucket_file, bucket_file), (bucket_file_2, bucket_file_2), (bucket_file_3, bucket_file_3)],
+)
+print(f"Local file size {bucket_file}: {Path(bucket_file).stat().st_size} bytes")
+print(f"Local file size {bucket_file_2}: {Path(bucket_file_2).stat().st_size} bytes")
+print(f"Local file size {bucket_file_3}: {Path(bucket_file_3).stat().st_size} bytes")
 
+# Clean up
 Path(bucket_file).unlink()
+Path(bucket_file_2).unlink()
+Path(bucket_file_3).unlink()
 api.delete_bucket(bucket_id="julien-c/test-bucket-with-files", missing_ok=True)
