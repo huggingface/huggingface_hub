@@ -2760,7 +2760,7 @@ class HfApi:
 
         headers = self._build_hf_headers(token=token)
         path = (
-            f"{self.endpoint}/api/models/{repo_id}"
+            f"{self.endpoint}/api/models/{repo_id}/revision/{quote(constants.DEFAULT_REVISION, safe='')}"
             if revision is None
             else (f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}")
         )
