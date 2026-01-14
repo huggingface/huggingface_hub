@@ -11,6 +11,7 @@ from huggingface_hub.utils import get_session
 _PROVIDER = "zai-org"
 _BASE_URL = "https://api.z.ai"
 _POLLING_INTERVAL = 5  # seconds
+_MAX_POLL_ATTEMPTS = 60
 
 
 class ZaiTask(TaskProviderHelper, ABC):
@@ -93,7 +94,7 @@ class ZaiTextToImageTask(ZaiTask):
         base_url = request_params.url.rsplit("/api/paas/v4/async/images/generations", 1)[0]
         poll_url = f"{base_url}/api/paas/v4/async-result/{task_id}"
 
-        while True:
+        for _ in range(_MAX_POLL_ATTEMPTS):
             poll_response = session.get(poll_url, headers=request_params.headers)
             poll_response.raise_for_status()
             result = poll_response.json()
@@ -102,9 +103,13 @@ class ZaiTextToImageTask(ZaiTask):
             if task_status == "SUCCESS":
                 return self._extract_image(result)
             elif task_status == "FAIL":
-                raise ValueError(f"ZAI image generation failed for request {task_id}")
+                raise ValueError(f"Zai text-to-image generation failed for request {task_id}")
 
             time.sleep(_POLLING_INTERVAL)
+
+        raise ValueError(
+            f"Timed out while waiting for the result from Zai API - aborting after {_MAX_POLL_ATTEMPTS} attempts"
+        )
 
     def _extract_image(self, result: dict) -> bytes:
         """Extract and download the image from the result."""
