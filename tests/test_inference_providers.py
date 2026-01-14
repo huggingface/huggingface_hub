@@ -63,7 +63,8 @@ from huggingface_hub.inference._providers.wavespeed import (
     WavespeedAITextToImageTask,
     WavespeedAITextToVideoTask,
 )
-from huggingface_hub.inference._providers.zai_org import ZaiConversationalTask
+from huggingface_hub.inference._providers.zai_org import _POLLING_INTERVAL as ZAI_POLLING_INTERVAL
+from huggingface_hub.inference._providers.zai_org import ZaiConversationalTask, ZaiTextToImageTask
 
 from .testing_utils import assert_in_logs
 
@@ -1909,6 +1910,151 @@ class TestZaiProvider:
         # Test with HF token (should route through HF proxy)
         url = helper._prepare_url("hf_token", "test-model")
         assert url.startswith("https://router.huggingface.co/zai-org")
+
+    def test_text_to_image_prepare_route(self):
+        helper = ZaiTextToImageTask()
+        route = helper._prepare_route("glm-image", "zai_token")
+        assert route == "/api/paas/v4/async/images/generations"
+
+    def test_text_to_image_prepare_headers(self):
+        helper = ZaiTextToImageTask()
+        headers = helper._prepare_headers({}, "test_key")
+        assert headers["Accept-Language"] == "en-US,en"
+        assert headers["x-source-channel"] == "hugging_face"
+
+    def test_text_to_image_prepare_url(self):
+        helper = ZaiTextToImageTask()
+        assert helper.task == "text-to-image"
+        url = helper._prepare_url("zai_token", "glm-image")
+        assert url == "https://api.z.ai/api/paas/v4/async/images/generations"
+
+        # Test with HF token (should route through HF proxy)
+        url = helper._prepare_url("hf_token", "glm-image")
+        assert url.startswith("https://router.huggingface.co/zai-org")
+
+    def test_text_to_image_prepare_payload(self):
+        helper = ZaiTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "A cute cat sitting on a sunny windowsill",
+            {"width": 1280, "height": 1280},
+            InferenceProviderMapping(
+                provider="zai-org",
+                hf_model_id="zai-org/glm-image",
+                providerId="glm-image",
+                task="text-to-image",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "model": "glm-image",
+            "prompt": "A cute cat sitting on a sunny windowsill",
+            "size": "1280x1280",
+        }
+
+    def test_text_to_image_prepare_payload_no_size(self):
+        helper = ZaiTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "A cute cat",
+            {},
+            InferenceProviderMapping(
+                provider="zai-org",
+                hf_model_id="zai-org/glm-image",
+                providerId="glm-image",
+                task="text-to-image",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "model": "glm-image",
+            "prompt": "A cute cat",
+        }
+
+    def test_text_to_image_get_response_success(self, mocker):
+        helper = ZaiTextToImageTask()
+        mock_session = mocker.patch("huggingface_hub.inference._providers.zai_org.get_session")
+        mock_sleep = mocker.patch("huggingface_hub.inference._providers.zai_org.time.sleep")
+
+        # Mock polling response and image download
+        mock_session.return_value.get.side_effect = [
+            # First call: poll for status (still processing)
+            mocker.Mock(
+                json=lambda: {"task_status": "PROCESSING", "id": "8353992347972780031"},
+                raise_for_status=lambda: None,
+            ),
+            # Second call: poll for status (success)
+            mocker.Mock(
+                json=lambda: {
+                    "task_status": "SUCCESS",
+                    "id": "8353992347972780031",
+                    "image_result": [{"url": "https://example.com/image.png"}],
+                },
+                raise_for_status=lambda: None,
+            ),
+            # Third call: download image
+            mocker.Mock(content=b"image_bytes", raise_for_status=lambda: None),
+        ]
+
+        api_key = helper._prepare_api_key("hf_token")
+        headers = helper._prepare_headers({}, api_key)
+        url = helper._prepare_url(api_key, "glm-image")
+
+        request_params = RequestParameters(
+            url=url,
+            headers=headers,
+            task="text-to-image",
+            model="glm-image",
+            data=None,
+            json=None,
+        )
+
+        response = helper.get_response(
+            {"id": "8353992347972780031", "task_status": "PROCESSING", "model": "glm-image"},
+            request_params,
+        )
+
+        assert response == b"image_bytes"
+        assert mock_session.return_value.get.call_count == 3
+        mock_sleep.assert_called_once_with(ZAI_POLLING_INTERVAL)
+
+    def test_text_to_image_get_response_immediate_success(self, mocker):
+        """Test when the response is already successful (no polling needed)."""
+        helper = ZaiTextToImageTask()
+        mock_session = mocker.patch("huggingface_hub.inference._providers.zai_org.get_session")
+
+        mock_session.return_value.get.return_value = mocker.Mock(content=b"image_bytes", raise_for_status=lambda: None)
+
+        response = helper.get_response(
+            {
+                "id": "8353992347972780031",
+                "task_status": "SUCCESS",
+                "image_result": [{"url": "https://example.com/image.png"}],
+            },
+            None,
+        )
+
+        assert response == b"image_bytes"
+        mock_session.return_value.get.assert_called_once_with("https://example.com/image.png")
+
+    def test_text_to_image_get_response_fail(self):
+        helper = ZaiTextToImageTask()
+        with pytest.raises(ValueError, match="ZAI image generation failed"):
+            helper.get_response(
+                {"id": "8353992347972780031", "task_status": "FAIL"},
+                None,
+            )
+
+    def test_text_to_image_get_response_no_task_id(self):
+        helper = ZaiTextToImageTask()
+        with pytest.raises(ValueError, match="No task_id in response"):
+            helper.get_response({}, None)
+
+    def test_text_to_image_get_response_no_image_result(self, mocker):
+        helper = ZaiTextToImageTask()
+        with pytest.raises(ValueError, match="No image_result in response"):
+            helper.get_response(
+                {"id": "8353992347972780031", "task_status": "SUCCESS"},
+                None,
+            )
 
 
 class TestBaseConversationalTask:
