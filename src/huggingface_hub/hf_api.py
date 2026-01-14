@@ -61,6 +61,7 @@ from ._commit_api import (
     _upload_files,
     _warn_on_overwriting_operations,
 )
+from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
@@ -129,6 +130,7 @@ ExpandModelProperty_T = Literal[
     "disabled",
     "downloads",
     "downloadsAllTime",
+    "evalResults",
     "gated",
     "gguf",
     "inference",
@@ -813,6 +815,8 @@ class ModelInfo:
             Model's safetensors information.
         security_repo_status (`dict`, *optional*):
             Model's security scan status.
+        eval_results (`list[EvalResultEntry]`, *optional*):
+            Model's evaluation results.
     """
 
     id: str
@@ -843,6 +847,7 @@ class ModelInfo:
     spaces: Optional[list[str]]
     safetensors: Optional[SafeTensorsInfo]
     security_repo_status: Optional[dict]
+    eval_results: Optional[list[EvalResultEntry]]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -930,6 +935,8 @@ class ModelInfo:
             else None
         )
         self.security_repo_status = kwargs.pop("securityRepoStatus", None)
+        eval_results = kwargs.pop("evalResults", None)
+        self.eval_results = parse_eval_result_entries(eval_results) if eval_results else None
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -2084,7 +2091,7 @@ class HfApi:
             expand (`list[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
-                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"evalResults"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, and `"resourceGroup"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -2729,7 +2736,7 @@ class HfApi:
             expand (`list[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"`, and `"resourceGroup"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"evalResults"`, `"gated"`, `"gguf"`, `"inference"`, `"inferenceProviderMapping"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"`, `"widgetData"`, `"usedStorage"`, and `"resourceGroup"`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
