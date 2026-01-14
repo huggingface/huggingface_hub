@@ -36,11 +36,10 @@ Usage:
 """
 
 from datetime import datetime, timezone
-from typing import Annotated, Optional
+from typing import Annotated, Union
 
 import typer
 
-from ..utils import parse_datetime
 from ._cli_utils import TokenOpt, get_hf_api, typer_factory
 
 
@@ -64,7 +63,7 @@ def _parse_bucket_path(path: str) -> tuple[str, str]:
 
     if len(parts) < 2:
         raise ValueError(
-            f"Invalid bucket path: {path}. Must be in format {BUCKET_PREFIX}namespace/bucket_name[/prefix]"
+            f"Invalid bucket path: {path}. Must be in format {BUCKET_PREFIX}namespace/bucket_name(/prefix)"
         )
 
     namespace = parts[0]
@@ -75,7 +74,7 @@ def _parse_bucket_path(path: str) -> tuple[str, str]:
     return bucket_id, prefix
 
 
-def _format_size(size: int, human_readable: bool = False) -> str:
+def _format_size(size: Union[int, float], human_readable: bool = False) -> str:
     """Format a size in bytes."""
     if not human_readable:
         return str(size)
@@ -163,7 +162,7 @@ def ls(
     bucket: Annotated[
         str,
         typer.Argument(
-            help="Bucket path: hf://buckets/namespace/bucket_name[/prefix]",
+            help="Bucket path: hf://buckets/namespace/bucket_name(/prefix)",
         ),
     ],
     human_readable: Annotated[

@@ -46,7 +46,6 @@ import json
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Annotated, Iterator, Literal, Optional, Union
 
 import typer
@@ -113,7 +112,7 @@ def _parse_bucket_path(path: str) -> tuple[str, str]:
 
     if len(parts) < 2:
         raise ValueError(
-            f"Invalid bucket path: {path}. Must be in format {BUCKET_PREFIX}namespace/bucket_name[/prefix]"
+            f"Invalid bucket path: {path}. Must be in format {BUCKET_PREFIX}namespace/bucket_name(/prefix)"
         )
 
     namespace = parts[0]
@@ -548,7 +547,7 @@ def _load_plan(plan_file: str) -> SyncPlan:
     # Parse header
     header = json.loads(lines[0])
     if header.get("type") != "header":
-        raise ValueError(f"Invalid plan file: expected header as first line")
+        raise ValueError("Invalid plan file: expected header as first line")
 
     plan = SyncPlan(
         source=header["source"],
@@ -679,13 +678,13 @@ def sync(
     source: Annotated[
         Optional[str],
         typer.Argument(
-            help="Source path: local directory or hf://buckets/namespace/bucket_name[/prefix]",
+            help="Source path: local directory or hf://buckets/namespace/bucket_name(/prefix)",
         ),
     ] = None,
     dest: Annotated[
         Optional[str],
         typer.Argument(
-            help="Destination path: local directory or hf://buckets/namespace/bucket_name[/prefix]",
+            help="Destination path: local directory or hf://buckets/namespace/bucket_name(/prefix)",
         ),
     ] = None,
     mirror: Annotated[

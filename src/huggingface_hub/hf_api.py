@@ -1846,14 +1846,14 @@ class BucketAddFile:
 
     xet_hash: Optional[str] = field(default=None)
     size: Optional[int] = field(default=None)
-    mtime: int = field(init=None)
-    content_type: Optional[str] = field(init=None)
+    mtime: int = field(init=False)
+    content_type: Optional[str] = field(init=False)
 
     def __post_init__(self) -> None:
         self.content_type = (
             mimetypes.guess_type(self.path_or_fileobj)[0] if not isinstance(self.path_or_fileobj, bytes) else None
         ) or (mimetypes.guess_type(self.path_in_repo)[0])
-        self.mtime = (
+        self.mtime = int(
             os.path.getmtime(self.path_or_fileobj) * 1000
             if not isinstance(self.path_or_fileobj, bytes)
             else time.time() * 1000
