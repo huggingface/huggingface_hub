@@ -16,6 +16,7 @@
 from huggingface_hub import constants
 from huggingface_hub.cli._cli_utils import check_cli_update, typer_factory
 from huggingface_hub.cli.auth import auth_cli
+from huggingface_hub.cli.bucket import bucket_cli
 from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.datasets import datasets_cli
 from huggingface_hub.cli.download import download
@@ -26,6 +27,7 @@ from huggingface_hub.cli.models import models_cli
 from huggingface_hub.cli.repo import repo_cli
 from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.spaces import spaces_cli
+from huggingface_hub.cli.sync import sync
 from huggingface_hub.cli.system import env, version
 from huggingface_hub.cli.upload import upload
 from huggingface_hub.cli.upload_large_folder import upload_large_folder
@@ -39,6 +41,7 @@ app = typer_factory(help="Hugging Face Hub CLI")
 app.command(help="Download files from the Hub.")(download)
 app.command(help="Upload a file or a folder to the Hub.")(upload)
 app.command(help="Upload a large folder to the Hub. Recommended for resumable uploads.")(upload_large_folder)
+app.command(help="Sync files between a local directory and a bucket.")(sync)
 app.command(name="env", help="Print information about the environment.")(env)
 app.command(help="Print information about the hf version.")(version)
 app.command(help="Configure your repository to enable upload of files > 5GB.", hidden=True)(lfs_enable_largefiles)
@@ -47,6 +50,7 @@ app.command(help="Upload large files to the Hub.", hidden=True)(lfs_multipart_up
 
 # command groups
 app.add_typer(auth_cli, name="auth")
+app.add_typer(bucket_cli, name="bucket")
 app.add_typer(cache_cli, name="cache")
 app.add_typer(datasets_cli, name="datasets")
 app.add_typer(jobs_cli, name="jobs")

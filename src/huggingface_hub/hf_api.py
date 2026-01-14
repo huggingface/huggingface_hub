@@ -11189,15 +11189,17 @@ class HfApi:
         bucket_id: str,
         prefix: Optional[str] = None,
         *,
-        recursive: bool = False,
         token: Union[str, bool, None] = None,
     ) -> Iterable[dict[str, Any]]:
         encoded_prefix = "/" + quote(prefix, safe="") if prefix else ""
-        yield from paginate(
+        for item in paginate(
             path=f"{self.endpoint}/api/buckets/{bucket_id}/tree/latest{encoded_prefix}",
             headers=self._build_hf_headers(token=token),
-            params={"recursive": recursive},
-        )
+            params={},
+        ):
+            if item["mtime"] is not None:
+                item["mtime"] = parse_datetime(item["mtime"]).timestamp() * 1000
+            yield item
 
     def batch_bucket_files(
         self,
