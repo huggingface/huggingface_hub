@@ -11088,7 +11088,7 @@ class HfApi:
             script_content = base64.b64encode(Path(script_file).read_bytes()).decode()
             env["UV_SCRIPT_ENCODED"] = script_content
             if script == script_file:
-                script == "/tmp/script.py"
+                script = "/tmp/script.py"
             else:
                 script_args = [
                     "/tmp/script.py" if script_arg == script_file else script_arg for script_arg in script_args
