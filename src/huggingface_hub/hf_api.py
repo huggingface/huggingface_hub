@@ -11071,7 +11071,7 @@ class HfApi:
         elif script.endswith(".py"):
             raise FileNotFoundError(script)
         else:
-            # `script` could be a command like "torchrun" or "accelerate"
+            # `script` could be a command like "torchrun train.py" or "accelerate launch train.py"
             # so we look for the python script in the args
             for script_arg in script_args:
                 if Path(script_arg).is_file() and script_arg.endswith(".py"):
