@@ -56,7 +56,7 @@ from .wavespeed import (
     WavespeedAITextToImageTask,
     WavespeedAITextToVideoTask,
 )
-from .zai_org import ZaiConversationalTask
+from .zai_org import ZaiConversationalTask, ZaiTextToImageTask
 
 
 logger = logging.get_logger(__name__)
@@ -208,6 +208,7 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     },
     "zai-org": {
         "conversational": ZaiConversationalTask(),
+        "text-to-image": ZaiTextToImageTask(),
     },
 }
 
