@@ -42,7 +42,7 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceTask,
 )
 from huggingface_hub.inference._providers.hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
-from huggingface_hub.inference._providers.mokzu import MokzuTextToVideoTask, MokzuImageToVideoTask
+from huggingface_hub.inference._providers.mokzu import MokzuImageToVideoTask
 from huggingface_hub.inference._providers.nebius import NebiusFeatureExtractionTask, NebiusTextToImageTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
@@ -1212,17 +1212,65 @@ class TestHyperbolicProvider:
 
 
 class TestMokzuProvider:
-    def test_mokzu_text_to_video_payload():
-        helper = MokzuTextToVideoTask()
-        helper.task = "text-to-video"
-        payload = helper._prepare_payload_as_dict("Hello world", {}, "mokzu")
-        assert payload == {"prompt": "Hello world"}
-
-    def test_mokzu_image_to_video_payload():
+    def test_mokzu_image_to_video_payload_bytes(self):
         helper = MokzuImageToVideoTask()
-        helper.task = "image-to-video"
-        payload = helper._prepare_payload_as_dict(b"binarydata", {}, "mokzu")
-        assert "file" in payload
+        mapping_info = InferenceProviderMapping(
+            provider="mokzu",
+            hf_model_id="mokzu/image-to-video",
+            providerId="mokzu/image-to-video",
+            task="image-to-video",
+            status="live",
+        )
+        payload = helper._prepare_payload_as_dict(b"binaryimagedata", {"prompt": "a cat walking"}, mapping_info)
+        assert "image" in payload
+        assert payload["image"] == base64.b64encode(b"binaryimagedata").decode("utf-8")
+        assert payload["prompt"] == "a cat walking"
+
+    def test_mokzu_image_to_video_payload_dict(self):
+        helper = MokzuImageToVideoTask()
+        mapping_info = InferenceProviderMapping(
+            provider="mokzu",
+            hf_model_id="mokzu/image-to-video",
+            providerId="mokzu/image-to-video",
+            task="image-to-video",
+            status="live",
+        )
+        payload = helper._prepare_payload_as_dict(
+            {"image": b"binaryimagedata", "prompt": "a dog running"},
+            {"duration": 3},
+            mapping_info
+        )
+        assert payload["image"] == base64.b64encode(b"binaryimagedata").decode("utf-8")
+        assert payload["prompt"] == "a dog running"
+        assert payload["duration"] == 3
+
+    def test_mokzu_image_to_video_payload_base64(self):
+        helper = MokzuImageToVideoTask()
+        mapping_info = InferenceProviderMapping(
+            provider="mokzu",
+            hf_model_id="mokzu/image-to-video",
+            providerId="mokzu/image-to-video",
+            task="image-to-video",
+            status="live",
+        )
+        base64_img = base64.b64encode(b"testimage").decode("utf-8")
+        payload = helper._prepare_payload_as_dict(base64_img, {"prompt": "test"}, mapping_info)
+        assert payload["image"] == base64_img
+        assert payload["prompt"] == "test"
+
+    def test_mokzu_image_to_video_route(self):
+        helper = MokzuImageToVideoTask()
+        assert helper._prepare_route("mokzu/image-to-video", "api_key") == "/v1/image-to-video"
+
+    def test_mokzu_image_to_video_response(self):
+        helper = MokzuImageToVideoTask()
+        response = helper.get_response({"video_url": "https://mokzu.com/videos/output.mp4"})
+        assert response == "https://mokzu.com/videos/output.mp4"
+    
+    def test_mokzu_image_to_video_response_error(self):
+        helper = MokzuImageToVideoTask()
+        with pytest.raises(ValueError, match="No video_url in response"):
+            helper.get_response({"error": "failed"})
 
 class TestNebiusProvider:
     def test_prepare_route_text_to_image(self):

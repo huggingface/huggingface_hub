@@ -29,7 +29,7 @@ from .hf_inference import (
     HFInferenceTask,
 )
 from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
-from .mokzu import MokzuTextToVideoTask, MokzuImageToVideoTask
+from .mokzu import MokzuImageToVideoTask
 from .nebius import (
     NebiusConversationalTask,
     NebiusFeatureExtractionTask,
@@ -159,7 +159,6 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "text-generation": HyperbolicTextGenerationTask("text-generation"),
     },
     "mokzu": {
-        "text-to-video": MokzuTextToVideoTask(),
         "image-to-video": MokzuImageToVideoTask(),
     },
     "nebius": {
