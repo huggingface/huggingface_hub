@@ -1139,6 +1139,9 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         self.response: Optional[httpx.Response] = None
         self.fs: HfFileSystem
         self._exit_stack = ExitStack()
+        # streaming state
+        self._stream_iterator: Optional[Iterator[bytes]] = None
+        self._stream_buffer = bytearray()
 
     def seek(self, loc: int, whence: int = 0):
         if loc == 0 and whence == 1:
@@ -1163,7 +1166,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             try:
                 if self.response is None:
                     return b""  # Already read the entire file
-                out = _partial_read(self.response, length)
+                out = self._read_from_stream(length)
                 self.loc += len(out)
                 return out
             except Exception:
@@ -1174,6 +1177,44 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 # First failure, retry with range header
                 self._open_connection()
                 retried_once = True
+
+    def _read_from_stream(self, length: int = -1) -> bytes:
+        """Read up to `length` bytes from stream buffer and stream.
+
+        If length == -1, read until EOF.
+
+        If EOF is reached before length, fewer bytes may be returned.
+        """
+        if length < -1:
+            raise ValueError("length must be -1 or >= 0")
+        if length == 0:
+            return b""
+
+        if self._stream_iterator is None:
+            self._stream_iterator = self.response.iter_bytes()
+
+        buf = bytearray()
+
+        if length == -1:  # read all remaining bytes
+            buf.extend(self._stream_buffer)
+            self._stream_buffer.clear()
+            for chunk in self._stream_iterator:
+                buf.extend(chunk)
+            return bytes(buf)
+        elif length <= len(self._stream_buffer):  # read from existing buffer only
+            buf.extend(self._stream_buffer[:length])
+            del self._stream_buffer[:length]
+            return bytes(buf)
+        else:  # read from buffer and stream
+            buf.extend(self._stream_buffer)
+            self._stream_buffer.clear()
+            for chunk in self._stream_iterator:
+                need = length - len(buf)
+                buf.extend(chunk[:need])
+                self._stream_buffer.extend(chunk[need:])
+                if len(buf) >= length:
+                    break
+            return bytes(buf)
 
     def url(self) -> str:
         return self.fs.url(self.path)
@@ -1209,6 +1250,10 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             )
         )
 
+        # reset streaming state
+        self._stream_buffer.clear()
+        self._stream_iterator = None
+
         try:
             hf_raise_for_status(self.response)
         except HfHubHTTPError as e:
@@ -1240,29 +1285,6 @@ def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
 
 def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: str):
     return fs.open(path, mode=mode, block_size=block_size, cache_type=cache_type)
-
-
-def _partial_read(response: httpx.Response, length: int = -1) -> bytes:
-    """
-    Read up to `length` bytes from a streamed response.
-    If length == -1, read until EOF.
-    """
-    buf = bytearray()
-    if length < -1:
-        raise ValueError("length must be -1 or >= 0")
-    if length == 0:
-        return b""
-    if length == -1:
-        for chunk in response.iter_bytes():
-            buf.extend(chunk)
-        return bytes(buf)
-
-    for chunk in response.iter_bytes(chunk_size=length):
-        buf.extend(chunk)
-        if len(buf) >= length:
-            return bytes(buf[:length])
-
-    return bytes(buf)  # may be < length if response ended
 
 
 def make_instance(cls, args, kwargs, instance_state):
