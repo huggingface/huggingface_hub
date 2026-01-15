@@ -2759,11 +2759,7 @@ class HfApi:
             raise ValueError("`expand` cannot be used if `securityStatus` or `files_metadata` are set.")
 
         headers = self._build_hf_headers(token=token)
-        path = (
-            f"{self.endpoint}/api/models/{repo_id}/revision/{quote(constants.DEFAULT_REVISION, safe='')}"
-            if revision is None
-            else (f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}")
-        )
+        path = f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision or constants.DEFAULT_REVISION, safe='')}"
         params: dict = {}
         if securityStatus:
             params["securityStatus"] = True
@@ -2830,11 +2826,7 @@ class HfApi:
             raise ValueError("`expand` cannot be used if `files_metadata` is set.")
 
         headers = self._build_hf_headers(token=token)
-        path = (
-            f"{self.endpoint}/api/datasets/{repo_id}"
-            if revision is None
-            else (f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}")
-        )
+        path = f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision or constants.DEFAULT_REVISION, safe='')}"
         params: dict = {}
         if files_metadata:
             params["blobs"] = True
@@ -2900,11 +2892,7 @@ class HfApi:
             raise ValueError("`expand` cannot be used if `files_metadata` is set.")
 
         headers = self._build_hf_headers(token=token)
-        path = (
-            f"{self.endpoint}/api/spaces/{repo_id}"
-            if revision is None
-            else (f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}")
-        )
+        path = f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision or constants.DEFAULT_REVISION, safe='')}"
         params: dict = {}
         if files_metadata:
             params["blobs"] = True
