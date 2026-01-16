@@ -99,7 +99,6 @@ from .testing_utils import (
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     ENDPOINT_PRODUCTION,
     SAMPLE_DATASET_IDENTIFIER,
-    expect_deprecation,
     repo_name,
     require_git_lfs,
     rmtree_with_retry,
@@ -170,25 +169,67 @@ class HfApiRepoFileExistsTest(HfApiCommonTest):
 class HfApiEndpointsTest(HfApiCommonTest):
     def test_whoami_with_passing_token(self):
         info = self._api.whoami(token=self._token)
-        self.assertEqual(info["name"], USER)
-        self.assertEqual(info["fullname"], FULL_NAME)
-        self.assertIsInstance(info["orgs"], list)
+        assert info["name"] == USER
+        assert info["fullname"] == FULL_NAME
+        assert isinstance(info["orgs"], list)
         valid_org = [org for org in info["orgs"] if org["name"] == "valid_org"][0]
-        self.assertEqual(valid_org["fullname"], "Dummy Org")
+        assert valid_org["fullname"] == "Dummy Org"
 
-    @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
+    @patch("huggingface_hub.hf_api.get_token", return_value=TOKEN)
     def test_whoami_with_implicit_token_from_login(self, mock_get_token: Mock) -> None:
         """Test using `whoami` after a `hf auth login`."""
         with patch.object(self._api, "token", None):  # no default token
             info = self._api.whoami()
-        self.assertEqual(info["name"], USER)
+        assert info["name"] == USER
 
     @patch("huggingface_hub.utils._headers.get_token")
     def test_whoami_with_implicit_token_from_hf_api(self, mock_get_token: Mock) -> None:
         """Test using `whoami` with token from the HfApi client."""
         info = self._api.whoami()
-        self.assertEqual(info["name"], USER)
+        assert info["name"] == USER
         mock_get_token.assert_not_called()
+
+    def test_whoami_with_caching(self) -> None:
+        # Don't use class instance to avoid cache sharing
+        api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+        assert api._whoami_cache == {}
+
+        assert api.whoami(cache=True)["name"] == USER
+
+        # Value in cache
+        assert len(api._whoami_cache) == 1
+        assert TOKEN in api._whoami_cache
+        mocked_value = Mock()
+        api._whoami_cache[TOKEN] = mocked_value
+
+        # Call again => use cache
+        assert api.whoami(cache=True) == mocked_value
+
+        # Cache not shared between HfApi instances
+        api_bis = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+        assert api_bis._whoami_cache == {}
+        assert api_bis.whoami(cache=True)["name"] == USER
+
+    def test_whoami_rate_limit_suggest_caching(self) -> None:
+        with patch("huggingface_hub.hf_api.hf_raise_for_status") as mock:
+            mock.side_effect = HfHubHTTPError(message="Fake error.", response=Mock(status_code=429))
+            with pytest.raises(
+                HfHubHTTPError, match=r".*consider caching the response with `whoami\(..., cache=True\)`.*"
+            ):
+                self._api.whoami()
+
+    def test_whoami_with_token_false(self):
+        """Test that using `token=False` raises an error.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/pull/3568#discussion_r2557248898.
+
+        Before the fix, local token was used even when `token=False` was passed (which is not intended).
+        """
+        with self.assertRaises(ValueError):
+            self._api.whoami(token=False)
+
+        with self.assertRaises(ValueError):
+            HfApi(token=False).whoami()
 
     def test_delete_repo_error_message(self):
         # test for #751
@@ -396,6 +437,21 @@ class CommitApiTest(HfApiCommonTest):
 
         # Clean up
         self._api.delete_repo(repo_id=repo_id, token=OTHER_TOKEN)
+
+    def test_create_repo_already_exists_but_no_write_permission_returns_correct_repo_id(self):
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/3632."""
+        # Create dataset under other user namespace
+        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type="dataset", token=OTHER_TOKEN).repo_id
+
+        # Try to create with our token -> triggers 403 fallback path
+        returned_url = self._api.create_repo(repo_id=repo_id, repo_type="dataset", token=TOKEN, exist_ok=True)
+
+        # Verify the returned RepoUrl has the correct repo_id
+        self.assertEqual(returned_url.repo_id, repo_id)
+        self.assertEqual(returned_url.repo_type, "dataset")
+
+        # Clean up
+        self._api.delete_repo(repo_id=repo_id, repo_type="dataset", token=OTHER_TOKEN)
 
     def test_create_repo_private_by_default(self):
         """Enterprise Hub allows creating private repos by default. Let's test that."""
@@ -1812,7 +1868,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
         # ordered by last modified date.
-        models = list(self._api.list_models(filter=("bert", "jax"), sort="last_modified", direction=-1, limit=10))
+        models = list(self._api.list_models(filter=("bert", "jax"), sort="last_modified", limit=10))
         # we have at least 1 models
         assert len(models) > 1
         assert len(models) <= 10
@@ -2134,9 +2190,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert any(dataset.card_data is not None for dataset in self._api.list_datasets(full=True, limit=50))
         assert all(dataset.card_data is None for dataset in self._api.list_datasets(full=False, limit=50))
 
-    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_tag(self):
-        for dataset in self._api.list_datasets(tags="fiftyone", limit=5):
+        for dataset in self._api.list_datasets(filter="fiftyone", limit=5):
             assert "fiftyone" in dataset.tags
 
     def test_dataset_info(self):
@@ -2342,9 +2397,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
         spaces = list(self._api.list_spaces(search="wikipedia", limit=10))
         assert "wikipedia" in spaces[0].id.lower()
 
-    def test_list_spaces_sort_and_direction(self):
-        # Descending order => first item has more likes than second
-        spaces_descending_likes = list(self._api.list_spaces(sort="likes", direction=-1, limit=100))
+    def test_list_spaces_sort(self):
+        # sort by likes in descending order => first item has more likes than second
+        spaces_descending_likes = list(self._api.list_spaces(sort="likes", limit=100))
         assert spaces_descending_likes[0].likes > spaces_descending_likes[1].likes
 
     def test_list_spaces_limit(self):
@@ -2758,25 +2813,31 @@ class HfLargefilesTest(HfApiCommonTest):
 class ParseHFUrlTest(unittest.TestCase):
     def test_repo_type_and_id_from_hf_id_on_correct_values(self):
         possible_values = {
-            "https://huggingface.co/id": [None, None, "id"],
-            "https://huggingface.co/user/id": [None, "user", "id"],
-            "https://huggingface.co/datasets/user/id": ["dataset", "user", "id"],
-            "https://huggingface.co/spaces/user/id": ["space", "user", "id"],
-            "user/id": [None, "user", "id"],
-            "dataset/user/id": ["dataset", "user", "id"],
-            "space/user/id": ["space", "user", "id"],
-            "id": [None, None, "id"],
-            "hf://id": [None, None, "id"],
-            "hf://user/id": [None, "user", "id"],
-            "hf://model/user/name": ["model", "user", "name"],  # 's' is optional
-            "hf://models/user/name": ["model", "user", "name"],
+            "hub": {
+                "https://huggingface.co/id": [None, None, "id"],
+                "https://huggingface.co/user/id": [None, "user", "id"],
+                "https://huggingface.co/datasets/user/id": ["dataset", "user", "id"],
+                "https://huggingface.co/spaces/user/id": ["space", "user", "id"],
+                "user/id": [None, "user", "id"],
+                "dataset/user/id": ["dataset", "user", "id"],
+                "space/user/id": ["space", "user", "id"],
+                "id": [None, None, "id"],
+                "hf://id": [None, None, "id"],
+                "hf://user/id": [None, "user", "id"],
+                "hf://model/user/name": ["model", "user", "name"],  # 's' is optional
+                "hf://models/user/name": ["model", "user", "name"],
+            },
+            "self-hosted": {
+                "http://localhost:8080/hf/user/id": [None, "user", "id"],
+                "http://localhost:8080/hf/datasets/user/id": ["dataset", "user", "id"],
+                "http://localhost:8080/hf/models/user/id": ["model", "user", "id"],
+            },
         }
 
         for key, value in possible_values.items():
-            self.assertEqual(
-                repo_type_and_id_from_hf_id(key, hub_url=ENDPOINT_PRODUCTION),
-                tuple(value),
-            )
+            hub_url = ENDPOINT_PRODUCTION if key == "hub" else "http://localhost:8080/hf"
+            for key, value in value.items():
+                assert repo_type_and_id_from_hf_id(key, hub_url=hub_url) == tuple(value)
 
     def test_repo_type_and_id_from_hf_id_on_wrong_values(self):
         for hub_id in [
@@ -3851,10 +3912,28 @@ class RepoUrlTest(unittest.TestCase):
             commit_description="Dummy description",
             oid="52d172a8b276e529d5260d6f3f76c85be5889dee",
             pr_url=None,
+            _endpoint=None,
         )
         assert isinstance(info.repo_url, RepoUrl)
         assert info.repo_url.endpoint == "https://huggingface.co"
         assert info.repo_url.repo_id == "Wauplin/test-repo-id-mixin"
+        assert info.repo_url.repo_type == "model"
+
+    def test_custom_endpoint_in_commit_info(self):
+        """Regression test for #3679
+
+        See https://github.com/huggingface/huggingface_hub/pulls/3679 for more details.
+        """
+        info = CommitInfo(
+            commit_url="http://localhost:5564/Wauplin/dummy/commit/52d172a8b276e529d5260d6f3f76c85be5889dee",
+            commit_message="Dummy message",
+            commit_description="Dummy description",
+            oid="52d172a8b276e529d5260d6f3f76c85be5889dee",
+            pr_url=None,
+            _endpoint="http://localhost:5564",
+        )
+        assert info.repo_url.endpoint == "http://localhost:5564"
+        assert info.repo_url.repo_id == "Wauplin/dummy"
         assert info.repo_url.repo_type == "model"
 
 
@@ -4234,6 +4313,60 @@ class PaperApiTest(unittest.TestCase):
         with self.assertRaises(HfHubHTTPError) as context:
             self.api.paper_info("1234.56789")
         assert context.exception.response.status_code == 404
+
+    def test_list_daily_papers_by_date(self) -> None:
+        papers = list(self.api.list_daily_papers(date="2025-10-29"))
+        assert len(papers) > 0
+        assert hasattr(papers[0], "id")
+        assert hasattr(papers[0], "title")
+
+    def test_list_daily_papers_by_date_invalid_date(self) -> None:
+        with self.assertRaises(BadRequestError):
+            list(self.api.list_daily_papers(date="2025-13-40"))
+
+    def test_list_daily_papers_default_date(self) -> None:
+        papers = list(self.api.list_daily_papers())
+        assert len(papers) > 0
+        assert hasattr(papers[0], "id")
+        assert hasattr(papers[0], "title")
+
+    def test_list_daily_papers_week(self) -> None:
+        week = 44
+        papers = list(self.api.list_daily_papers(week=f"2025-W{week}"))
+        assert len(papers) > 0
+        first_paper = papers[0]
+        last_paper = papers[-1]
+
+        # friday of previous week
+        week_start = datetime.datetime.fromisocalendar(2025, week - 1, 5).replace(tzinfo=datetime.timezone.utc)
+        week_end = datetime.datetime.fromisocalendar(2025, week, 7).replace(tzinfo=datetime.timezone.utc)
+        assert week_start <= first_paper.submitted_at <= week_end
+        assert week_start <= last_paper.submitted_at <= week_end
+
+    def test_list_daily_papers_month(self) -> None:
+        month = 10
+        papers = list(self.api.list_daily_papers(month=f"2025-{month}"))
+        assert len(papers) > 0
+        first_paper = papers[0]
+        last_paper = papers[-1]
+        # last day of previous month
+        month_start = datetime.datetime(2025, month, 1, tzinfo=datetime.timezone.utc) - datetime.timedelta(days=1)
+        month_end = datetime.datetime(2025, month + 1, 1, tzinfo=datetime.timezone.utc) - datetime.timedelta(days=1)
+        assert month_start <= first_paper.submitted_at <= month_end
+        assert month_start <= last_paper.submitted_at <= month_end
+
+    def test_daily_papers_submitter(self) -> None:
+        papers = list(self.api.list_daily_papers(submitter="akhaliq"))
+        assert len(papers) > 0
+        assert papers[0].submitted_by.fullname == "AK"
+
+    def test_daily_papers_p(self) -> None:
+        papers = list(self.api.list_daily_papers(date="2025-10-29", p=100))
+        assert len(papers) == 0
+
+    def test_daily_papers_limit(self) -> None:
+        papers = list(self.api.list_daily_papers(date="2025-10-29", limit=10))
+        assert len(papers) == 10
 
 
 class WebhookApiTest(HfApiCommonTest):

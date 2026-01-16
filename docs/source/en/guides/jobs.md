@@ -25,7 +25,7 @@ Use the [`hf jobs` CLI](./cli#hf-jobs) to run Jobs from the command line, and pa
 `hf jobs run` runs Jobs with a Docker image and a command with a familiar Docker-like interface. Think `docker run`, but for running code on any hardware:
 
 ```bash
->>> hf jobs run python:3.12 python -c "print('Hello world!')"
+>>> hf jobs run python:3.12 python -c "print('Hello world')"
 >>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel python -c "import torch; print(torch.cuda.get_device_name())"
 ```
 
@@ -101,7 +101,7 @@ https://huggingface.co/jobs/lhoestq/687f911eaea852de79c4a50a
 687f911eaea852de79c4a50a
 ```
 
-Jobs run in the background. The next section guides you through [`inspect_job`] to know a jobs' status and [`fetch_job_logs`] to view the logs.
+Jobs run in the background. The next section guides you through [`inspect_job`] to know a jobs' status, [`fetch_job_logs`] to view the logs and [`fetch_job_metrics`] to monitor resources usage.
 
 ## Check Job status
 
@@ -125,6 +125,21 @@ JobInfo(id='687f911eaea852de79c4a50a', created_at=datetime.datetime(2025, 7, 22,
 >>> for log in fetch_job_logs(job_id=job_id):
 ...     print(log)
 Hello from the cloud!
+
+# View resources usage metrics from a job
+>>> from huggingface_hub import fetch_job_metrics
+>>> for metrics in fetch_job_metrics(job_id=job_id):
+...     print(metrics)
+{
+    "cpu_usage_pct": 0,
+    "cpu_millicores": 2000,
+    "memory_used_bytes": 929792,
+    "memory_total_bytes": 17179869184,
+    "rx_bps": 0,
+    "tx_bps": 0,
+    "gpus": {},
+    "replica": "4dzsh"
+}
 
 # Cancel a job
 >>> from huggingface_hub import cancel_job

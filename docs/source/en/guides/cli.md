@@ -485,6 +485,80 @@ By default, the `hf upload` command will be verbose. It will print details such 
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
+## hf models
+
+Use `hf models` to list models on the Hub and get detailed information about a specific model.
+
+### List models
+
+```bash
+# List trending models
+>>> hf models ls
+
+# Search for models
+>>> hf models ls --search "lora"
+
+# Filter by author
+>>> hf models ls --author Qwen
+
+# Sort by downloads
+>>> hf models ls --sort downloads --limit 10
+```
+
+### Get model info
+
+```bash
+>>> hf models info Lightricks/LTX-2
+```
+
+Use `--expand` to fetch additional properties like `downloads`, `likes`, `tags`, etc.
+
+## hf datasets
+
+Use `hf datasets` to list datasets on the Hub and get detailed information about a specific dataset.
+
+### List datasets
+
+```bash
+# List trending datasets
+>>> hf datasets ls
+
+# Search for datasets
+>>> hf datasets ls --search "code"
+
+# Sort by downloads
+>>> hf datasets ls --sort downloads --limit 10
+```
+
+### Get dataset info
+
+```bash
+>>> hf datasets info HuggingFaceFW/fineweb
+```
+
+## hf spaces
+
+Use `hf spaces` to list Spaces on the Hub and get detailed information about a specific Space.
+
+### List Spaces
+
+```bash
+# List trending Spaces
+>>> hf spaces ls
+
+# Search for Spaces
+>>> hf spaces ls --search "3d"
+
+# Sort by likes
+>>> hf spaces ls --sort likes --limit 10
+```
+
+### Get Space info
+
+```bash
+>>> hf spaces info enzostvs/deepsite
+```
+
 ## hf repo
 
 `hf repo` lets you create, delete, move repositories and update their settings on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
@@ -826,10 +900,10 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 ... python -c "import torch; print(torch.cuda.get_device_name())"
 
 # Run in an organization account
->>> hf jobs run --namespace my-org-name python:3.12 python -c "print('Running in an org account')"
+>>> hf jobs run --namespace my-org-name python:3.12 python -c 'print("Running in an org account")'
 
 # Run from Hugging Face Spaces
->>> hf jobs run hf.co/spaces/lhoestq/duckdb duckdb -c "select 'hello world'"
+>>> hf jobs run hf.co/spaces/lhoestq/duckdb duckdb -c 'select "hello world"'
 
 # Run a Python script with `uv` (experimental)
 >>> hf jobs uv run my_script.py
@@ -853,7 +927,7 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 
 ```bash
 # Run a simple Python script
->>> hf jobs run python:3.12 python -c "print('Hello from HF compute!')"
+>>> hf jobs run python:3.12 python -c 'print("Hello from HF compute!")'
 ```
 
 This command runs the job and shows the logs. You can pass `--detach` to run the Job in the background and only print the Job ID.
@@ -863,12 +937,19 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 ```bash
 # List your running jobs
 >>> hf jobs ps
+# List all jobs
+>>> hf jobs ps -a
 
 # Inspect the status of a job
 >>> hf jobs inspect <job_id>
 
 # View logs from a job
 >>> hf jobs logs <job_id>
+
+# View resources usage stats and metrics of running jobs
+>>> hf jobs stats
+# View resources usage stats and metrics of some jobs
+>>> hf jobs stats [job_ids]...
 
 # Cancel a job
 >>> hf jobs cancel <job_id>
@@ -881,7 +962,7 @@ You can also run jobs on GPUs or TPUs with the `--flavor` option. For example, t
 ```bash
 # Use an A10G GPU to check PyTorch CUDA
 >>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
-... python -c "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"
+... python -c 'import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")'
 ```
 
 Running this will show the following output!
@@ -889,6 +970,8 @@ Running this will show the following output!
 ```bash
 This code ran with the following GPU: NVIDIA A10G
 ```
+
+A `--` can be used to separate the command from jobs options for clarity, e.g., `hf jobs run --flavor a10g-small -- python -c '...'`
 
 That's it! You're now running code on Hugging Face's infrastructure.
 
@@ -907,28 +990,55 @@ You can pass environment variables to your job using
 
 ```bash
 # Pass environment variables
->>> hf jobs run -e FOO=foo -e BAR=bar python:3.12 python -c "import os; print(os.environ['FOO'], os.environ['BAR'])"
+>>> hf jobs run -e FOO=foo -e BAR=bar python:3.12 python -c 'import os; print(os.environ["FOO"], os.environ["BAR"])'
 ```
 
 ```bash
 # Pass an environment from a local .env file
->>> hf jobs run --env-file .env python:3.12 python -c "import os; print(os.environ['FOO'], os.environ['BAR'])"
+>>> hf jobs run --env-file .env python:3.12 python -c 'import os; print(os.environ["FOO"], os.environ["BAR"])'
 ```
 
 ```bash
 # Pass secrets - they will be encrypted server side
->>> hf jobs run -s MY_SECRET=psswrd python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
+>>> hf jobs run -s MY_SECRET=psswrd python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
 ```
 
 ```bash
 # Pass secrets from a local .env.secrets file - they will be encrypted server side
->>> hf jobs run --secrets-file .env.secrets python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
+>>> hf jobs run --secrets-file .env.secrets python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
 ```
 
 > [!TIP]
 > Use `--secrets HF_TOKEN` to pass your local Hugging Face token implicitly.
 > With this syntax, the secret is retrieved from the environment variable.
 > For `HF_TOKEN`, it may read the token file located in the Hugging Face home folder if the environment variable is unset.
+
+### Job Timeout
+
+Jobs have a default timeout of 30 mins, after which they automatically stop. For long-running tasks like model training, set a custom timeout using the `--timeout` option:
+
+```bash
+# Set timeout in seconds (default unit)
+>>> hf jobs run --timeout 7200 python:3.12 python train.py
+
+# Use time units: s (seconds), m (minutes), h (hours), d (days)
+>>> hf jobs run --timeout 2h pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel python train.py
+>>> hf jobs run --timeout 90m python:3.12 python process_data.py
+>>> hf jobs run --timeout 1.5h python:3.12 python train.py  # floats are supported
+```
+
+The `--timeout` option also works with UV scripts and scheduled jobs:
+
+```bash
+# UV script with timeout
+>>> hf jobs uv run --timeout 2h training_script.py
+
+# Scheduled job with timeout
+>>> hf jobs scheduled run @daily --timeout 4h python:3.12 python daily_task.py
+```
+
+> [!WARNING]
+> If your job exceeds the timeout, it will be automatically terminated. Always set an appropriate timeout with some buffer for long-running tasks to avoid unexpected job terminations.
 
 ### Hardware
 
@@ -964,10 +1074,12 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 >>> hf jobs uv run https://huggingface.co/datasets/username/scripts/resolve/main/example.py
 
 # Run a command
->>> hf jobs uv run --with lighteval python -c "import lighteval"
+>>> hf jobs uv run --with lighteval python -c 'import lighteval'
 ```
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
+
+A `--` can be used to separate the command from jobs/uv options for clarity, e.g., `hf jobs uv run --flavor gpu-t4-small --with torch -- python -c '...'`
 
 ### Scheduled Jobs
 

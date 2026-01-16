@@ -31,6 +31,7 @@ TF_WEIGHTS_NAME = "model.ckpt"
 FLAX_WEIGHTS_NAME = "flax_model.msgpack"
 CONFIG_NAME = "config.json"
 REPOCARD_NAME = "README.md"
+EVAL_RESULTS_FOLDER = ".eval_results"
 DEFAULT_ETAG_TIMEOUT = 10
 DEFAULT_DOWNLOAD_TIMEOUT = 10
 DEFAULT_REQUEST_TIMEOUT = 10
@@ -161,6 +162,26 @@ HF_ASSETS_CACHE = os.path.expandvars(
 )
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
+
+
+def is_offline_mode() -> bool:
+    """Returns whether we are in offline mode for the Hub.
+
+    When offline mode is enabled, all HTTP requests made with `get_session` will raise an `OfflineModeIsEnabled` exception.
+
+    Example:
+        ```py
+        from huggingface_hub import is_offline_mode
+
+        def list_files(repo_id: str):
+            if is_offline_mode():
+                ... # list files from local cache (degraded experience but still functional)
+            else:
+                ... # list files from Hub (complete experience)
+        ```
+    """
+    return HF_HUB_OFFLINE
+
 
 # File created to mark that the version check has been done.
 # Check is performed once per 24 hours at most.

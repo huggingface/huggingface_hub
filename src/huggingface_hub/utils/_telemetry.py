@@ -64,7 +64,7 @@ def send_telemetry(
     ... )
     ```
     """
-    if constants.HF_HUB_OFFLINE or constants.HF_HUB_DISABLE_TELEMETRY:
+    if constants.is_offline_mode() or constants.HF_HUB_DISABLE_TELEMETRY:
         return
 
     _start_telemetry_thread()  # starts thread only if doesn't exist yet

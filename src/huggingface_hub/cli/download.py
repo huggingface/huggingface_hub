@@ -83,7 +83,7 @@ def download(
     local_dir: Annotated[
         Optional[str],
         typer.Option(
-            help="If set, the downloaded file will be placed under this directory. Check out https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder for more details.",
+            help="If set, the downloaded file will be placed under this directory. Check out https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-a-local-folder for more details.",
         ),
     ] = None,
     force_download: Annotated[

@@ -54,6 +54,7 @@ from ._headers import build_hf_headers, get_token_to_send
 from ._http import (
     ASYNC_CLIENT_FACTORY_T,
     CLIENT_FACTORY_T,
+    RateLimitInfo,
     close_session,
     fix_hf_endpoint_in_url,
     get_async_session,
@@ -61,6 +62,7 @@ from ._http import (
     hf_raise_for_status,
     http_backoff,
     http_stream_backoff,
+    parse_ratelimit_headers,
     set_async_client_factory,
     set_client_factory,
 )

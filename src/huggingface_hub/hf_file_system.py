@@ -123,13 +123,20 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
     >     layer. For better performance and reliability, it's recommended to use `HfApi` methods when possible.
 
     Args:
-        token (`str` or `bool`, *optional*):
+        endpoint (`str`, *optional*):
+                Endpoint of the Hub. Defaults to <https://huggingface.co>.
+        token (`bool` or `str`, *optional*):
             A valid user access token (string). Defaults to the locally saved
             token, which is the recommended method for authentication (see
             https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
             To disable authentication, pass `False`.
-        endpoint (`str`, *optional*):
-            Endpoint of the Hub. Defaults to <https://huggingface.co>.
+        block_size (`int`, *optional*):
+            Block size for reading and writing files.
+        expand_info (`bool`, *optional*):
+            Whether to expand the information of the files.
+        **storage_options (`dict`, *optional*):
+            Additional options for the filesystem. See [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.__init__).
+
     Usage:
 
     ```python
@@ -164,6 +171,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         endpoint: Optional[str] = None,
         token: Union[bool, str, None] = None,
         block_size: Optional[int] = None,
+        expand_info: Optional[bool] = None,
         **storage_options,
     ):
         super().__init__(*args, **storage_options)
@@ -171,6 +179,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         self.token = token
         self._api = HfApi(endpoint=endpoint, token=token)
         self.block_size = block_size
+        self.expand_info = expand_info
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
         #  * the 1st element indicating whether the repositoy and the revision exist
         #  * the 2nd element being the exception raised if the repository or revision doesn't exist
@@ -334,12 +343,12 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                     (resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision), None
                 )
 
-    def _open(
+    def _open(  # type: ignore[override]
         self,
         path: str,
         mode: str = "rb",
-        revision: Optional[str] = None,
         block_size: Optional[int] = None,
+        revision: Optional[str] = None,
         **kwargs,
     ) -> Union["HfFileSystemFile", "HfFileSystemStreamFile"]:
         block_size = block_size if block_size is not None else self.block_size
@@ -457,9 +466,12 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         recursive: bool = False,
         refresh: bool = False,
         revision: Optional[str] = None,
-        expand_info: bool = False,
+        expand_info: Optional[bool] = None,
         maxdepth: Optional[int] = None,
     ):
+        expand_info = (
+            expand_info if expand_info is not None else (self.expand_info if self.expand_info is not None else False)
+        )
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         root_path = HfFileSystemResolvedPath(
@@ -585,7 +597,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
         yield from super().walk(path, *args, **kwargs)
 
-    def glob(self, path: str, **kwargs) -> list[str]:
+    def glob(self, path: str, maxdepth: Optional[int] = None, **kwargs) -> list[str]:
         """
         Find files by glob-matching.
 
@@ -599,7 +611,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
             `list[str]`: List of paths matching the pattern.
         """
         path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
-        return super().glob(path, **kwargs)
+        return super().glob(path, maxdepth=maxdepth, **kwargs)
 
     def find(
         self,
@@ -760,7 +772,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         expand_info = kwargs.get(
-            "expand_info", False
+            "expand_info", self.expand_info if self.expand_info is not None else False
         )  # don't expose it as a parameter in the public API to follow the spec
         if not resolved_path.path_in_repo:
             # Path is the root directory
@@ -1193,7 +1205,6 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 "GET",
                 url,
                 headers=headers,
-                retry_on_status_codes=(500, 502, 503, 504),
                 timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
             )
         )

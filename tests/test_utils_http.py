@@ -14,13 +14,17 @@ from httpx import ConnectTimeout, HTTPError
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.errors import HfHubHTTPError, OfflineModeIsEnabled
 from huggingface_hub.utils._http import (
+    _WARNED_TOPICS,
+    RateLimitInfo,
     _adjust_range_header,
+    _warn_on_warning_headers,
     default_client_factory,
     fix_hf_endpoint_in_url,
     get_async_session,
     get_session,
     hf_raise_for_status,
     http_backoff,
+    parse_ratelimit_headers,
     set_client_factory,
 )
 
@@ -148,6 +152,33 @@ class TestHttpBackoff(unittest.TestCase):
         # Assert sleep times are exponential until plateau
         expected_sleep_times = [0.1, 0.2, 0.4, 0.5, 0.5]
         self.assertListEqual(sleep_times, expected_sleep_times)
+
+    def test_backoff_on_429_uses_ratelimit_header(self) -> None:
+        """Test that 429 wait time uses full reset time from ratelimit header."""
+        sleep_times = []
+
+        def _side_effect_timer() -> Generator:
+            t0 = time.time()
+            mock_429 = Mock()
+            mock_429.status_code = 429
+            mock_429.headers = {"ratelimit": '"api";r=0;t=1'}  # Server says wait 1s
+            yield mock_429
+            t1 = time.time()
+            sleep_times.append(round(t1 - t0, 1))
+            t0 = t1
+            mock_200 = Mock()
+            mock_200.status_code = 200
+            yield mock_200
+
+        self.mock_request.side_effect = _side_effect_timer()
+
+        response = http_backoff(
+            "GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=3, retry_on_status_codes=429
+        )
+
+        assert self.mock_request.call_count == 2
+        assert sleep_times == [2.0]
+        assert response.status_code == 200
 
 
 class TestConfigureSession(unittest.TestCase):
@@ -447,3 +478,129 @@ async def test_raise_on_status_async_non_stream(fake_server: str):
 async def test_raise_on_status_async_stream(fake_server: str):
     async with get_async_session().stream("GET", fake_server) as response:
         _check_raise_status(response)
+
+
+class TestParseRatelimitHeaders:
+    def test_parse_full_headers(self):
+        """Test parsing both ratelimit and ratelimit-policy headers."""
+        headers = {
+            "ratelimit": '"api";r=0;t=55',
+            "ratelimit-policy": '"fixed window";"api";q=500;w=300',
+        }
+        info = parse_ratelimit_headers(headers)
+        assert info == RateLimitInfo(
+            resource_type="api",
+            remaining=0,
+            reset_in_seconds=55,
+            limit=500,
+            window_seconds=300,
+        )
+
+    def test_parse_ratelimit_only(self):
+        """Test parsing with only ratelimit header (no policy)."""
+        headers = {"ratelimit": '"api";r=489;t=189'}
+        info = parse_ratelimit_headers(headers)
+        assert info is not None
+        assert info.resource_type == "api"
+        assert info.remaining == 489
+        assert info.reset_in_seconds == 189
+        assert info.limit is None
+        assert info.window_seconds is None
+
+    def test_parse_missing_header(self):
+        """Test returns None when ratelimit header is missing."""
+        assert parse_ratelimit_headers({}) is None
+
+    def test_parse_malformed_header(self):
+        """Test returns None when ratelimit header is malformed."""
+        assert parse_ratelimit_headers({"ratelimit": "malformed"}) is None
+
+    def test_parse_case_insensitive(self):
+        """Test header lookup is case-insensitive."""
+        headers = {"RateLimit": '"api";r=10;t=100', "RateLimit-Policy": '"fixed window";"api";q=500;w=300'}
+        info = parse_ratelimit_headers(headers)
+        assert info is not None
+        assert info.remaining == 10
+
+
+class TestRateLimitErrorMessage:
+    def test_429_with_ratelimit_headers(self):
+        """Test 429 error includes rate limit info when headers present."""
+        response = Mock(spec=httpx.Response)
+        response.status_code = 429
+        response.url = "https://huggingface.co/api/models/username/reponame"
+        response.headers = httpx.Headers(
+            {
+                "ratelimit": '"api";r=0;t=55',
+                "ratelimit-policy": '"fixed window";"api";q=500;w=300',
+            }
+        )
+        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.json.return_value = {}
+
+        with pytest.raises(HfHubHTTPError) as exc_info:
+            hf_raise_for_status(response)
+
+        error_msg = str(exc_info.value)
+        assert "429 Too Many Requests" in error_msg
+        assert "'api' rate limit" in error_msg
+        assert "55 seconds" in error_msg
+        assert "0/500" in error_msg
+        assert "api/models/username/reponame" in error_msg
+
+    def test_429_without_ratelimit_headers(self):
+        """Test 429 error fallback when headers missing."""
+        response = Mock(spec=httpx.Response)
+        response.status_code = 429
+        response.url = "https://huggingface.co/api/models"
+        response.headers = httpx.Headers({})
+        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.json.return_value = {}
+
+        with pytest.raises(HfHubHTTPError) as exc_info:
+            hf_raise_for_status(response)
+
+        assert "429 Too Many Requests" in str(exc_info.value)
+        assert "api/models" in str(exc_info.value)
+
+
+class TestWarnOnWarningHeaders:
+    def test_warn_on_warning_headers(self, caplog):
+        # Request #1 (multiple warnings)
+        response = Mock(spec=httpx.Response)
+        response.headers = httpx.Headers(
+            [
+                ("X-HF-Warning", "Topic1; This is the first warning message."),
+                ("X-HF-Warning", "Topic2; This is the second warning message."),
+                ("X-HF-Warning", "Topic1; This is a repeated warning message for Topic1."),
+                ("X-HF-Warning", "This is a warning without a topic."),
+                ("X-HF-Warning", "This is another warning without a topic."),
+            ]
+        )
+
+        with caplog.at_level("WARNING"):
+            _warn_on_warning_headers(response)
+
+        assert {"Topic1", "Topic2", ""}.issubset(_WARNED_TOPICS)
+        warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert "This is the first warning message." in warnings
+        assert "This is the second warning message." in warnings
+        assert "This is a repeated warning message for Topic1." not in warnings
+        assert "This is a warning without a topic." in warnings
+        assert "This is another warning without a topic." not in warnings
+        # Request #2 (exact same warnings, should not warn again)
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            _warn_on_warning_headers(response)
+        warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert len(warnings) == 0  # No new warnings should be added
+
+        # Request #3 (single warning with new topic, should warn)
+        response.headers = httpx.Headers({"X-HF-Warning": "Topic4; Another warning."})
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            _warn_on_warning_headers(response)
+        warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert len(warnings) == 1
+        assert warnings == ["Another warning."]
+        assert "Topic4" in _WARNED_TOPICS

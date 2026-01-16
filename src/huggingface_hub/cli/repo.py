@@ -27,21 +27,10 @@ from typing import Annotated, Optional
 import typer
 
 from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
-from huggingface_hub.utils import ANSI, logging
+from huggingface_hub.utils import ANSI
 
-from ._cli_utils import (
-    PrivateOpt,
-    RepoIdArg,
-    RepoType,
-    RepoTypeOpt,
-    RevisionOpt,
-    TokenOpt,
-    get_hf_api,
-    typer_factory,
-)
+from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 
-
-logger = logging.get_logger(__name__)
 
 repo_cli = typer_factory(help="Manage repos on the Hub.")
 tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
@@ -66,7 +55,7 @@ def repo_create(
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
         ),
     ] = None,
-    private: PrivateOpt = False,
+    private: PrivateOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,

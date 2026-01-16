@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.2.0.dev0"
+__version__ = "1.3.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -54,6 +54,11 @@ __version__ = "1.2.0.dev0"
 _SUBMOD_ATTRS = {
     "_commit_scheduler": [
         "CommitScheduler",
+    ],
+    "_eval_results": [
+        "EvalResultEntry",
+        "eval_result_entries_to_yaml",
+        "parse_eval_result_entries",
     ],
     "_inference_endpoints": [
         "InferenceEndpoint",
@@ -112,6 +117,7 @@ _SUBMOD_ATTRS = {
         "webhook_endpoint",
     ],
     "cli._cli_utils": [
+        "check_cli_update",
         "typer_factory",
     ],
     "community": [
@@ -134,6 +140,7 @@ _SUBMOD_ATTRS = {
         "REPO_TYPE_SPACE",
         "TF2_WEIGHTS_NAME",
         "TF_WEIGHTS_NAME",
+        "is_offline_mode",
     ],
     "fastai_utils": [
         "_save_pretrained_fastai",
@@ -212,12 +219,14 @@ _SUBMOD_ATTRS = {
         "edit_discussion_comment",
         "enable_webhook",
         "fetch_job_logs",
+        "fetch_job_metrics",
         "file_exists",
         "get_collection",
         "get_dataset_tags",
         "get_discussion_details",
         "get_full_repo_name",
         "get_inference_endpoint",
+        "get_local_safetensors_metadata",
         "get_model_tags",
         "get_organization_overview",
         "get_paths_info",
@@ -232,6 +241,7 @@ _SUBMOD_ATTRS = {
         "inspect_scheduled_job",
         "list_accepted_access_requests",
         "list_collections",
+        "list_daily_papers",
         "list_datasets",
         "list_inference_catalog",
         "list_inference_endpoints",
@@ -257,6 +267,7 @@ _SUBMOD_ATTRS = {
         "model_info",
         "move_repo",
         "paper_info",
+        "parse_local_safetensors_file_metadata",
         "parse_safetensors_file_metadata",
         "pause_inference_endpoint",
         "pause_space",
@@ -378,6 +389,14 @@ _SUBMOD_ATTRS = {
         "ImageSegmentationOutputElement",
         "ImageSegmentationParameters",
         "ImageSegmentationSubtask",
+        "ImageTextToImageInput",
+        "ImageTextToImageOutput",
+        "ImageTextToImageParameters",
+        "ImageTextToImageTargetSize",
+        "ImageTextToVideoInput",
+        "ImageTextToVideoOutput",
+        "ImageTextToVideoParameters",
+        "ImageTextToVideoTargetSize",
         "ImageToImageInput",
         "ImageToImageOutput",
         "ImageToImageParameters",
@@ -636,6 +655,7 @@ __all__ = [
     "DocumentQuestionAnsweringParameters",
     "DryRunFileInfo",
     "EvalResult",
+    "EvalResultEntry",
     "FLAX_WEIGHTS_NAME",
     "FeatureExtractionInput",
     "FeatureExtractionInputTruncationDirection",
@@ -663,6 +683,14 @@ __all__ = [
     "ImageSegmentationOutputElement",
     "ImageSegmentationParameters",
     "ImageSegmentationSubtask",
+    "ImageTextToImageInput",
+    "ImageTextToImageOutput",
+    "ImageTextToImageParameters",
+    "ImageTextToImageTargetSize",
+    "ImageTextToVideoInput",
+    "ImageTextToVideoOutput",
+    "ImageTextToVideoParameters",
+    "ImageTextToVideoTargetSize",
     "ImageToImageInput",
     "ImageToImageOutput",
     "ImageToImageParameters",
@@ -826,6 +854,7 @@ __all__ = [
     "cancel_access_request",
     "cancel_job",
     "change_discussion_status",
+    "check_cli_update",
     "close_session",
     "comment_discussion",
     "create_branch",
@@ -859,9 +888,11 @@ __all__ = [
     "duplicate_space",
     "edit_discussion_comment",
     "enable_webhook",
+    "eval_result_entries_to_yaml",
     "export_entries_as_dduf",
     "export_folder_as_dduf",
     "fetch_job_logs",
+    "fetch_job_metrics",
     "file_exists",
     "from_pretrained_fastai",
     "get_async_session",
@@ -871,6 +902,7 @@ __all__ = [
     "get_full_repo_name",
     "get_hf_file_metadata",
     "get_inference_endpoint",
+    "get_local_safetensors_metadata",
     "get_model_tags",
     "get_organization_overview",
     "get_paths_info",
@@ -892,8 +924,10 @@ __all__ = [
     "inspect_job",
     "inspect_scheduled_job",
     "interpreter_login",
+    "is_offline_mode",
     "list_accepted_access_requests",
     "list_collections",
+    "list_daily_papers",
     "list_datasets",
     "list_inference_catalog",
     "list_inference_endpoints",
@@ -929,7 +963,9 @@ __all__ = [
     "move_repo",
     "notebook_login",
     "paper_info",
+    "parse_eval_result_entries",
     "parse_huggingface_oauth",
+    "parse_local_safetensors_file_metadata",
     "parse_safetensors_file_metadata",
     "pause_inference_endpoint",
     "pause_space",
@@ -1083,6 +1119,11 @@ if os.environ.get("EAGER_IMPORT", ""):
 # ```
 if TYPE_CHECKING:  # pragma: no cover
     from ._commit_scheduler import CommitScheduler  # noqa: F401
+    from ._eval_results import (
+        EvalResultEntry,  # noqa: F401
+        eval_result_entries_to_yaml,  # noqa: F401
+        parse_eval_result_entries,  # noqa: F401
+    )
     from ._inference_endpoints import (
         InferenceEndpoint,  # noqa: F401
         InferenceEndpointError,  # noqa: F401
@@ -1135,7 +1176,10 @@ if TYPE_CHECKING:  # pragma: no cover
         WebhooksServer,  # noqa: F401
         webhook_endpoint,  # noqa: F401
     )
-    from .cli._cli_utils import typer_factory  # noqa: F401
+    from .cli._cli_utils import (
+        check_cli_update,  # noqa: F401
+        typer_factory,  # noqa: F401
+    )
     from .community import (
         Discussion,  # noqa: F401
         DiscussionComment,  # noqa: F401
@@ -1156,6 +1200,7 @@ if TYPE_CHECKING:  # pragma: no cover
         REPO_TYPE_SPACE,  # noqa: F401
         TF2_WEIGHTS_NAME,  # noqa: F401
         TF_WEIGHTS_NAME,  # noqa: F401
+        is_offline_mode,  # noqa: F401
     )
     from .fastai_utils import (
         _save_pretrained_fastai,  # noqa: F401
@@ -1234,12 +1279,14 @@ if TYPE_CHECKING:  # pragma: no cover
         edit_discussion_comment,  # noqa: F401
         enable_webhook,  # noqa: F401
         fetch_job_logs,  # noqa: F401
+        fetch_job_metrics,  # noqa: F401
         file_exists,  # noqa: F401
         get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
         get_full_repo_name,  # noqa: F401
         get_inference_endpoint,  # noqa: F401
+        get_local_safetensors_metadata,  # noqa: F401
         get_model_tags,  # noqa: F401
         get_organization_overview,  # noqa: F401
         get_paths_info,  # noqa: F401
@@ -1254,6 +1301,7 @@ if TYPE_CHECKING:  # pragma: no cover
         inspect_scheduled_job,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
+        list_daily_papers,  # noqa: F401
         list_datasets,  # noqa: F401
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
@@ -1279,6 +1327,7 @@ if TYPE_CHECKING:  # pragma: no cover
         model_info,  # noqa: F401
         move_repo,  # noqa: F401
         paper_info,  # noqa: F401
+        parse_local_safetensors_file_metadata,  # noqa: F401
         parse_safetensors_file_metadata,  # noqa: F401
         pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
@@ -1398,6 +1447,14 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageSegmentationOutputElement,  # noqa: F401
         ImageSegmentationParameters,  # noqa: F401
         ImageSegmentationSubtask,  # noqa: F401
+        ImageTextToImageInput,  # noqa: F401
+        ImageTextToImageOutput,  # noqa: F401
+        ImageTextToImageParameters,  # noqa: F401
+        ImageTextToImageTargetSize,  # noqa: F401
+        ImageTextToVideoInput,  # noqa: F401
+        ImageTextToVideoOutput,  # noqa: F401
+        ImageTextToVideoParameters,  # noqa: F401
+        ImageTextToVideoTargetSize,  # noqa: F401
         ImageToImageInput,  # noqa: F401
         ImageToImageOutput,  # noqa: F401
         ImageToImageParameters,  # noqa: F401
