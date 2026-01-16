@@ -220,6 +220,7 @@ class HfFileSystemTests(unittest.TestCase):
 
         f = HfFileSystemStreamFile(self.hffs, self.hf_path + "/data/binary_data.bin")  # dummy
         f.response = _FakeResponse(chunks)
+        f._stream_iterator = f.response.iter_bytes()
         return f
 
     def test_stream_buffer_overflow_leftover_is_buffered(self):
@@ -245,6 +246,11 @@ class HfFileSystemTests(unittest.TestCase):
         f._stream_buffer.extend(b"12")
         self.assertEqual(f.read(-1), b"12dummybinary")
         self.assertEqual(bytes(f._stream_buffer), b"")
+
+    def test_stream_read_negative_length_reads_all(self):
+        # When length < 0, it reads all
+        f = self._make_stream_file_with_fake_response([b"dummy"])
+        self.assertEqual(f.read(-2), b"dummy")
 
     def test_stream_read_partially_consumes_buffer(self):
         # When read() is called with a length shorter than the buffer,

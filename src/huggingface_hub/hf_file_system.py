@@ -1181,21 +1181,16 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
     def _read_from_stream(self, length: int = -1) -> bytes:
         """Read up to `length` bytes from stream buffer and stream.
 
-        If length == -1, read until EOF.
+        If length < 0, read until EOF.
 
         If EOF is reached before length, fewer bytes may be returned.
         """
-        if length < -1:
-            raise ValueError("length must be -1 or >= 0")
         if length == 0:
             return b""
 
-        if self._stream_iterator is None:
-            self._stream_iterator = self.response.iter_bytes()
-
         buf = bytearray()
 
-        if length == -1:  # read all remaining bytes
+        if length < 0:  # read all remaining bytes
             buf.extend(self._stream_buffer)
             self._stream_buffer.clear()
             for chunk in self._stream_iterator:
@@ -1231,6 +1226,10 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
 
     def _open_connection(self):
         """Open a connection to the remote file."""
+        # reset streaming state
+        self._stream_buffer.clear()
+        self._stream_iterator = None
+
         url = hf_hub_url(
             repo_id=self.resolved_path.repo_id,
             revision=self.resolved_path.revision,
@@ -1250,10 +1249,6 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             )
         )
 
-        # reset streaming state
-        self._stream_buffer.clear()
-        self._stream_iterator = None
-
         try:
             hf_raise_for_status(self.response)
         except HfHubHTTPError as e:
@@ -1262,6 +1257,8 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 self.response = None
                 return
             raise
+
+        self._stream_iterator = self.response.iter_bytes()
 
 
 def safe_revision(revision: str) -> str:
