@@ -1188,28 +1188,29 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         if length == 0:
             return b""
 
-        buf = bytearray()
-
-        if length < 0:  # read all remaining bytes
-            buf.extend(self._stream_buffer)
+        if length < 0:
+            buf = bytearray(self._stream_buffer)
             self._stream_buffer.clear()
             for chunk in self._stream_iterator:
                 buf.extend(chunk)
             return bytes(buf)
-        elif length <= len(self._stream_buffer):  # read from existing buffer only
-            buf.extend(self._stream_buffer[:length])
+
+        if length <= len(self._stream_buffer):
+            result = bytes(self._stream_buffer[:length])
             del self._stream_buffer[:length]
-            return bytes(buf)
-        else:  # read from buffer and stream
-            buf.extend(self._stream_buffer)
-            self._stream_buffer.clear()
-            for chunk in self._stream_iterator:
-                need = length - len(buf)
+            return result
+
+        buf = bytearray(self._stream_buffer)
+        self._stream_buffer.clear()
+        for chunk in self._stream_iterator:
+            need = length - len(buf)
+            if need > len(chunk):
+                buf.extend(chunk)
+            else:
                 buf.extend(chunk[:need])
                 self._stream_buffer.extend(chunk[need:])
-                if len(buf) >= length:
-                    break
-            return bytes(buf)
+                break
+        return bytes(buf)
 
     def url(self) -> str:
         return self.fs.url(self.path)
