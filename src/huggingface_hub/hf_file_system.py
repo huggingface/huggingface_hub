@@ -1164,9 +1164,9 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         retried_once = False
         while True:
             try:
-                if self.response is None:
+                if self.response is None or self._stream_iterator is None:
                     return b""  # Already read the entire file
-                out = self._read_from_stream(length)
+                out = self._read_from_stream(self._stream_iterator, length)
                 self.loc += len(out)
                 return out
             except Exception:
@@ -1178,7 +1178,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 self._open_connection()
                 retried_once = True
 
-    def _read_from_stream(self, length: int = -1) -> bytes:
+    def _read_from_stream(self, iterator: Iterator[bytes], length: int = -1) -> bytes:
         """Read up to `length` bytes from stream buffer and stream.
 
         If length < 0, read until EOF.
@@ -1191,7 +1191,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         if length < 0:
             buf = bytearray(self._stream_buffer)
             self._stream_buffer.clear()
-            for chunk in self._stream_iterator:
+            for chunk in iterator:
                 buf.extend(chunk)
             return bytes(buf)
 
@@ -1202,7 +1202,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
 
         buf = bytearray(self._stream_buffer)
         self._stream_buffer.clear()
-        for chunk in self._stream_iterator:
+        for chunk in iterator:
             need = length - len(buf)
             if need > len(chunk):
                 buf.extend(chunk)
