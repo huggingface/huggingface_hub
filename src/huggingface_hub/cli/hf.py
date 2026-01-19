@@ -27,7 +27,6 @@ from huggingface_hub.cli.models import models_cli
 from huggingface_hub.cli.repo import repo_cli
 from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.spaces import spaces_cli
-from huggingface_hub.cli.sync import sync
 from huggingface_hub.cli.system import env, version
 from huggingface_hub.cli.upload import upload
 from huggingface_hub.cli.upload_large_folder import upload_large_folder
@@ -41,7 +40,6 @@ app = typer_factory(help="Hugging Face Hub CLI")
 app.command(help="Download files from the Hub.")(download)
 app.command(help="Upload a file or a folder to the Hub.")(upload)
 app.command(help="Upload a large folder to the Hub. Recommended for resumable uploads.")(upload_large_folder)
-app.command(help="Sync files between a local directory and a bucket.")(sync)
 app.command(name="env", help="Print information about the environment.")(env)
 app.command(help="Print information about the hf version.")(version)
 app.command(help="Configure your repository to enable upload of files > 5GB.", hidden=True)(lfs_enable_largefiles)
