@@ -34,11 +34,13 @@ class EvalResultEntry:
         date (`str`, *optional*):
             When the evaluation was run (ISO-8601 datetime). Defaults to git commit time.
         source_url (`str`, *optional*):
-            Link to the evaluation source (e.g., https://huggingface.co/spaces/SaylorTwift/smollm3-mmlu-pro). Required if `source_name` or `source_user` is provided.
+            Link to the evaluation source (e.g., https://huggingface.co/spaces/SaylorTwift/smollm3-mmlu-pro). Required if `source_name`, `source_user`, or `source_org` is provided.
         source_name (`str`, *optional*):
             Display name for the source. Example: "Eval Logs".
         source_user (`str`, *optional*):
-            HF user or org name for attribution. Example: "celinah".
+            HF user name for attribution. Example: "celinah".
+        source_org (`str`, *optional*):
+            HF org name for attribution. Example: "cais".
 
     Example:
         ```python
@@ -59,7 +61,7 @@ class EvalResultEntry:
         ...     date="2025-01-15T10:30:00Z",
         ...     source_url="https://huggingface.co/datasets/cais/hle",
         ...     source_name="CAIS HLE",
-        ...     source_user="cais",
+        ...     source_org="cais",
         ... )
 
         ```
@@ -74,10 +76,15 @@ class EvalResultEntry:
     source_url: Optional[str] = None
     source_name: Optional[str] = None
     source_user: Optional[str] = None
+    source_org: Optional[str] = None
 
     def __post_init__(self) -> None:
-        if (self.source_name is not None or self.source_user is not None) and self.source_url is None:
-            raise ValueError("If `source_name` or `source_user` is provided, `source_url` must also be provided.")
+        if (
+            self.source_name is not None or self.source_user is not None or self.source_org is not None
+        ) and self.source_url is None:
+            raise ValueError(
+                "If `source_name`, `source_user`, or `source_org` is provided, `source_url` must also be provided."
+            )
 
 
 def eval_result_entries_to_yaml(entries: list[EvalResultEntry]) -> list[dict[str, Any]]:
@@ -142,6 +149,8 @@ def eval_result_entries_to_yaml(entries: list[EvalResultEntry]) -> list[dict[str
                 source["name"] = entry.source_name
             if entry.source_user is not None:
                 source["user"] = entry.source_user
+            if entry.source_org is not None:
+                source["org"] = entry.source_org
             data["source"] = source
 
         result.append(data)
@@ -191,6 +200,7 @@ def parse_eval_result_entries(data: list[dict[str, Any]]) -> list[EvalResultEntr
             source_url=source.get("url") if source else None,
             source_name=source.get("name") if source else None,
             source_user=source.get("user") if source else None,
+            source_org=source.get("org") if source else None,
         )
         entries.append(entry)
     return entries
