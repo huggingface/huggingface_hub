@@ -338,14 +338,14 @@ class JobHardware:
 
     def __init__(self, **kwargs) -> None:
         self.name = kwargs["name"]
-        self.pretty_name = kwargs.get("prettyName") or kwargs.get("pretty_name")
+        self.pretty_name = kwargs["prettyName"]
         self.cpu = kwargs["cpu"]
         self.ram = kwargs["ram"]
         accelerator = kwargs.get("accelerator")
         self.accelerator = JobAccelerator(**accelerator) if accelerator else None
-        self.unit_cost_micro_usd = kwargs.get("unitCostMicroUSD") or kwargs.get("unit_cost_micro_usd")
-        self.unit_cost_usd = kwargs.get("unitCostUSD") or kwargs.get("unit_cost_usd")
-        self.unit_label = kwargs.get("unitLabel") or kwargs.get("unit_label")
+        self.unit_cost_micro_usd = kwargs["unitCostMicroUSD"]
+        self.unit_cost_usd = kwargs["unitCostUSD"]
+        self.unit_label = kwargs["unitLabel"]
 
 
 def _create_job_spec(
