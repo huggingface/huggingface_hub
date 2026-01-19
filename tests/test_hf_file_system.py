@@ -8,7 +8,7 @@ import pickle
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional
 from unittest.mock import Mock, patch
 
 import fsspec
@@ -199,6 +199,72 @@ class HfFileSystemTests(unittest.TestCase):
             f.response = None
             self.assertEqual(f.read(6), b"binary")
             self.assertIsNotNone(f.response)  # a new connection has been created
+
+    def test_stream_file_reuse_response(self):
+        with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:
+            self.assertIsInstance(f, HfFileSystemStreamFile)
+            self.assertEqual(f.read(6), b"dummy ")
+            first_response = f.response
+            self.assertEqual(f.read(6), b"binary")
+            self.assertEqual(f.response, first_response)
+
+    def _make_stream_file_with_fake_response(self, chunks: Iterable[bytes]):
+        """Helper: create iterator from specified chunks to simulate a stream response."""
+
+        class _FakeResponse:
+            def __init__(self, chunks: Iterable[bytes]):
+                self._chunks = list(chunks)
+
+            def iter_bytes(self):
+                return iter(self._chunks)
+
+        f = HfFileSystemStreamFile(self.hffs, self.hf_path + "/data/binary_data.bin")  # dummy
+        f.response = _FakeResponse(chunks)
+        f._stream_iterator = f.response.iter_bytes()
+        return f
+
+    def test_stream_buffer_overflow_leftover_is_buffered(self):
+        # When chunk-1 is larger than read(length), the leftover should be buffered
+        f = self._make_stream_file_with_fake_response([b"dummy binary", b" data"])
+        self.assertEqual(f.read(6), b"dummy ")
+        self.assertEqual(f.loc, 6)
+        self.assertEqual(bytes(f._stream_buffer), b"binary")
+        self.assertEqual(f.read(), b"binary data")
+        self.assertEqual(f.loc, 17)
+        self.assertEqual(bytes(f._stream_buffer), b"")
+
+    def test_stream_read_spans_buffer_and_chunks(self):
+        # When there is already a buffer, read() spans the buffer and the chunks
+        f = self._make_stream_file_with_fake_response([b"dummy", b"binary"])
+        f._stream_buffer.extend(b"12")
+        self.assertEqual(f.read(7), b"12dummy")
+        self.assertEqual(f.read(), b"binary")
+
+    def test_stream_read_all_clears_buffer(self):
+        # When read(-1) is called, it returns the buffer + all chunks and clears the buffer
+        f = self._make_stream_file_with_fake_response([b"dummy", b"binary"])
+        f._stream_buffer.extend(b"12")
+        self.assertEqual(f.read(-1), b"12dummybinary")
+        self.assertEqual(bytes(f._stream_buffer), b"")
+
+    def test_stream_read_negative_length_reads_all(self):
+        # When length < 0, it reads all
+        f = self._make_stream_file_with_fake_response([b"dummy"])
+        self.assertEqual(f.read(-2), b"dummy")
+
+    def test_stream_read_partially_consumes_buffer(self):
+        # When read() is called with a length shorter than the buffer,
+        # it returns the shorter length and the buffer is partially consumed
+        f = self._make_stream_file_with_fake_response([])
+        f._stream_buffer.extend(b"dummy binary")
+        self.assertEqual(f.read(6), b"dummy ")
+        self.assertEqual(bytes(f._stream_buffer), b"binary")
+
+    def test_stream_read_past_eof_returns_shorter_then_empty(self):
+        # When read() is called with a length longer than the file, it returns the shorter length and the buffer is empty
+        f = self._make_stream_file_with_fake_response([b"dummy", b"binary"])
+        self.assertEqual(f.read(100), b"dummybinary")
+        self.assertEqual(f.read(1), b"")
 
     def test_read_file_with_revision(self):
         with self.hffs.open(self.hf_path + "/data/binary_data_for_pr.bin", "rb", revision="refs/pr/1") as f:
