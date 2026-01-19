@@ -884,11 +884,12 @@ def _curlify(request: httpx.Request) -> str:
         parts += [("-H", f"{k}: {v}")]
 
     body: Optional[str] = None
-    if request.content is not None:
-        body = request.content.decode("utf-8", errors="ignore")
-        if len(body) > 1000:
-            body = f"{body[:1000]} ... [truncated]"
-    elif request.stream is not None:
+    try:
+        if request.content is not None:
+            body = request.content.decode("utf-8", errors="ignore")
+            if len(body) > 1000:
+                body = f"{body[:1000]} ... [truncated]"
+    except httpx.RequestNotRead:
         body = "<streaming body>"
     if body is not None:
         parts += [("-d", body.replace("\n", ""))]
