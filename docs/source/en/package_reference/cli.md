@@ -647,6 +647,7 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `cancel`: Cancel a Job
+* `hardware`: List available hardware options for Jobs
 * `inspect`: Display detailed information on one or...
 * `logs`: Fetch the logs of a Job
 * `ps`: List Jobs
@@ -673,6 +674,20 @@ $ hf jobs cancel [OPTIONS] JOB_ID
 
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf jobs hardware`
+
+List available hardware options for Jobs
+
+**Usage**:
+
+```console
+$ hf jobs hardware [OPTIONS]
+```
+
+**Options**:
+
 * `--help`: Show this message and exit.
 
 ### `hf jobs inspect`
