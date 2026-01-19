@@ -103,7 +103,7 @@ ImageOpt = Annotated[
 FlavorOpt = Annotated[
     Optional[SpaceHardware],
     typer.Option(
-        help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
+        help="Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.",
     ),
 ]
 
