@@ -37,7 +37,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `repo`: Manage repos on the Hub.
 * `repo-files`: Manage files in a repo on the Hub.
 * `spaces`: Interact with spaces on the Hub.
-* `sync`: Sync files between a local directory and a...
+* `sync`: Sync files between local directory and a...
 * `upload`: Upload a file or a folder to the Hub.
 * `upload-large-folder`: Upload a large folder to the Hub.
 * `version`: Print information about the hf version.
@@ -158,6 +158,7 @@ $ hf bucket [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
 * `ls`: List files in a bucket.
+* `sync`: Sync files between local directory and a...
 
 ### `hf bucket create`
 
@@ -219,6 +220,38 @@ $ hf bucket ls [OPTIONS] BUCKET
 
 * `-h, --human-readable`: Show file size in human readable format.
 * `--tree`: List files in tree format.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf bucket sync`
+
+Sync files between local directory and a bucket.
+
+**Usage**:
+
+```console
+$ hf bucket sync [OPTIONS] [SOURCE] [DEST]
+```
+
+**Arguments**:
+
+* `[SOURCE]`: Source path: local directory or hf://buckets/namespace/bucket_name(/prefix)
+* `[DEST]`: Destination path: local directory or hf://buckets/namespace/bucket_name(/prefix)
+
+**Options**:
+
+* `--delete / --no-delete`: Delete destination files not present in source.  [default: no-delete]
+* `--ignore-times`: Skip files only based on size, ignoring modification times.
+* `--ignore-sizes`: Skip files only based on modification times, ignoring sizes.
+* `--plan TEXT`: Save sync plan to JSONL file for review instead of executing.
+* `--apply TEXT`: Apply a previously saved plan file.
+* `--include TEXT`: Include files matching pattern (can specify multiple).
+* `--exclude TEXT`: Exclude files matching pattern (can specify multiple).
+* `--filter-from TEXT`: Read include/exclude patterns from file.
+* `--existing`: Skip creating new files on receiver (only update existing files).
+* `--ignore-existing`: Skip updating files that exist on receiver (only create new files).
+* `-v, --verbose`: Show detailed logging with reasoning.
+* `-q, --quiet`: Minimal output.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1591,7 +1624,7 @@ $ hf spaces ls [OPTIONS]
 
 ## `hf sync`
 
-Sync files between a local directory and a bucket.
+Sync files between local directory and a bucket.
 
 **Usage**:
 
@@ -1606,14 +1639,16 @@ $ hf sync [OPTIONS] [SOURCE] [DEST]
 
 **Options**:
 
-* `--mirror / --no-mirror`: Make dest identical to source (DELETES destination files not in source).  [default: no-mirror]
-* `--force-upload / --no-force-upload`: Always upload/overwrite remote (ignore remote mtime and size).  [default: no-force-upload]
-* `--force-download / --no-force-download`: Always download/overwrite local (ignore local mtime and size).  [default: no-force-download]
+* `--delete / --no-delete`: Delete destination files not present in source.  [default: no-delete]
+* `--ignore-times`: Skip files only based on size, ignoring modification times.
+* `--ignore-sizes`: Skip files only based on modification times, ignoring sizes.
 * `--plan TEXT`: Save sync plan to JSONL file for review instead of executing.
-* `--execute TEXT`: Execute a previously saved plan file.
+* `--apply TEXT`: Apply a previously saved plan file.
 * `--include TEXT`: Include files matching pattern (can specify multiple).
 * `--exclude TEXT`: Exclude files matching pattern (can specify multiple).
 * `--filter-from TEXT`: Read include/exclude patterns from file.
+* `--existing`: Skip creating new files on receiver (only update existing files).
+* `--ignore-existing`: Skip updating files that exist on receiver (only create new files).
 * `-v, --verbose`: Show detailed logging with reasoning.
 * `-q, --quiet`: Minimal output.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
