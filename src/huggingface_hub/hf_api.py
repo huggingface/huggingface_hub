@@ -98,6 +98,7 @@ from .utils import (
     SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
+    XetFileData,
     are_progress_bars_disabled,
     build_hf_headers,
     chunk_iterable,
@@ -1874,6 +1875,23 @@ class BucketAddFile:
 @dataclass
 class BucketDeleteFile:
     path_in_repo: str
+
+
+@dataclass(frozen=True)
+class BucketFileMetadata:
+    """Data structure containing information about a file in a bucket.
+
+    Returned by [`get_bucket_file_metadata`].
+
+    Args:
+        size (`int`):
+            Size of the file in bytes.
+        xet_file_data (`XetFileData`):
+            Xet information for the file (hash and refresh route).
+    """
+
+    size: int
+    xet_file_data: XetFileData
 
 
 class HfApi:
@@ -11387,19 +11405,41 @@ class HfApi:
         hf_raise_for_status(response)
         return response.json()
 
-    def head_bucket_file(
+    def get_bucket_file_metadata(
         self,
         bucket_id: str,
         remote_path: str,
         *,
         token: Union[str, bool, None] = None,
-    ) -> httpx.Response:
+    ) -> BucketFileMetadata:
+        """Fetch metadata of a file in a bucket.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket.
+            remote_path (`str`):
+                The path of the file in the bucket.
+            token (`str` or `bool`, *optional*):
+                A valid user access token. Defaults to the stored token.
+
+        Returns:
+            [`BucketFileMetadata`]: The file metadata containing size and xet information.
+        """
         response = get_session().head(
             f"{self.endpoint}/buckets/{bucket_id}/resolve/latest/{quote(remote_path, safe='')}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        return response
+
+        xet_file_data = parse_xet_file_data_from_response(response)
+        if xet_file_data is None:
+            raise ValueError(f"Could not parse xet file data for '{remote_path}' in bucket '{bucket_id}'.")
+
+        size = response.headers.get("Content-Length")
+        if size is None:
+            raise ValueError(f"Could not get size for '{remote_path}' in bucket '{bucket_id}'.")
+
+        return BucketFileMetadata(size=int(size), xet_file_data=xet_file_data)
 
     def download_bucket_files(
         self,
@@ -11418,13 +11458,11 @@ class HfApi:
         # Fetch Xet connection info (same for all files)
         remote_path, local_path = files[0]
 
-        head_response = self.head_bucket_file(bucket_id, remote_path, token=token)
-        xet_file_data = parse_xet_file_data_from_response(head_response)
-        expected_size = int(head_response.headers["Content-Length"])
-        connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
+        metadata = self.get_bucket_file_metadata(bucket_id, remote_path, token=token)
+        connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers=headers)
 
         def token_refresher() -> tuple[str, int]:
-            connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
+            connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers=headers)
             if connection_info is None:
                 raise ValueError("Failed to refresh token using xet metadata.")
             return connection_info.access_token, connection_info.expiration_unix_epoch
@@ -11432,14 +11470,12 @@ class HfApi:
         # Fetch Xet download infos for all files
         xet_download_infos = []
         for remote_path, local_path in files:
-            head_response = self.head_bucket_file(bucket_id, remote_path, token=token)
-            xet_file_data = parse_xet_file_data_from_response(head_response)
-            expected_size = int(head_response.headers["Content-Length"])
+            metadata = self.get_bucket_file_metadata(bucket_id, remote_path, token=token)
             xet_download_infos.append(
                 PyXetDownloadInfo(
                     destination_path=str(Path(local_path).absolute()),
-                    hash=xet_file_data.file_hash,
-                    file_size=expected_size,
+                    hash=metadata.xet_file_data.file_hash,
+                    file_size=metadata.size,
                 )
             )
 

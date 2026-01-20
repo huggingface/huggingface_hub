@@ -161,6 +161,7 @@ _SUBMOD_ATTRS = {
     "hf_api": [
         "BucketAddFile",
         "BucketDeleteFile",
+        "BucketFileMetadata",
         "Collection",
         "CollectionItem",
         "CommitInfo",
@@ -591,6 +592,7 @@ __all__ = [
     "AutomaticSpeechRecognitionParameters",
     "BucketAddFile",
     "BucketDeleteFile",
+    "BucketFileMetadata",
     "CLIENT_FACTORY_T",
     "CONFIG_NAME",
     "CacheNotFound",
@@ -1231,6 +1233,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import (
         BucketAddFile,  # noqa: F401
         BucketDeleteFile,  # noqa: F401
+        BucketFileMetadata,  # noqa: F401
         Collection,  # noqa: F401
         CollectionItem,  # noqa: F401
         CommitInfo,  # noqa: F401

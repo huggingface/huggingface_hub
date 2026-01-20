@@ -73,17 +73,18 @@ print(f"Found {len(objects)} objects in bucket: {[obj['path'] for obj in objects
 
 bucket_file = objects[0]["path"]
 
-print(f"\n# Head bucket /resolve {bucket_file}")
-print(dict(api.head_bucket_file(bucket_id=bucket_id, remote_path=bucket_file).headers))
+print(f"\n# Get bucket file metadata {bucket_file}")
+metadata = api.get_bucket_file_metadata(bucket_id=bucket_id, remote_path=bucket_file)
+print(f"Size: {metadata.size}, Xet hash: {metadata.xet_file_data.file_hash}")
 
 
 print("\n# Delete first 3 files")
 delete_operations = [BucketDeleteFile(path_in_repo=obj["path"]) for obj in objects[:3]]
 print(api.batch_bucket_files(bucket_id=bucket_id, operations=delete_operations))
 
-print(f"\n# Head bucket /resolve {bucket_file} (doesn't exist anymore)")
+print(f"\n# Get bucket file metadata {bucket_file} (doesn't exist anymore)")
 try:
-    api.head_bucket_file(bucket_id=bucket_id, remote_path=bucket_file).headers
+    api.get_bucket_file_metadata(bucket_id=bucket_id, remote_path=bucket_file)
 except Exception as e:
     print(e)
 
