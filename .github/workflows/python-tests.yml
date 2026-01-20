@@ -148,6 +148,12 @@ jobs:
       matrix:
         python-version: ["3.9", "3.14"]
         test_name: ["Everything else", "Xet only"]
+        exclude:
+          # Windows + Python 3.14 currently fails in "Everything else" tests.
+          # Keep 3.14 coverage in Linux while we investigate the Windows-specific
+          # failures (see GH Actions run 21169348919, job 60881948778).
+          - python-version: "3.14"
+            test_name: "Everything else"
 
     steps:
       - uses: actions/checkout@v6
