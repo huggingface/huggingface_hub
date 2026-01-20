@@ -68,6 +68,8 @@ _SUBMOD_ATTRS = {
         "InferenceEndpointType",
     ],
     "_jobs_api": [
+        "JobAccelerator",
+        "JobHardware",
         "JobInfo",
         "JobOwner",
         "JobStage",
@@ -248,6 +250,7 @@ _SUBMOD_ATTRS = {
         "list_inference_catalog",
         "list_inference_endpoints",
         "list_jobs",
+        "list_jobs_hardware",
         "list_lfs_files",
         "list_liked_repos",
         "list_models",
@@ -715,6 +718,8 @@ __all__ = [
     "InferenceEndpointTimeoutError",
     "InferenceEndpointType",
     "InferenceTimeoutError",
+    "JobAccelerator",
+    "JobHardware",
     "JobInfo",
     "JobOwner",
     "JobStage",
@@ -936,6 +941,7 @@ __all__ = [
     "list_inference_catalog",
     "list_inference_endpoints",
     "list_jobs",
+    "list_jobs_hardware",
     "list_lfs_files",
     "list_liked_repos",
     "list_models",
@@ -1136,6 +1142,8 @@ if TYPE_CHECKING:  # pragma: no cover
         InferenceEndpointType,  # noqa: F401
     )
     from ._jobs_api import (
+        JobAccelerator,  # noqa: F401
+        JobHardware,  # noqa: F401
         JobInfo,  # noqa: F401
         JobOwner,  # noqa: F401
         JobStage,  # noqa: F401
@@ -1312,6 +1320,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_jobs,  # noqa: F401
+        list_jobs_hardware,  # noqa: F401
         list_lfs_files,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_models,  # noqa: F401

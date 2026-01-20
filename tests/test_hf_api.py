@@ -4271,6 +4271,7 @@ class UserApiTest(unittest.TestCase):
         assert overview.num_users is None or overview.num_users > 10
         assert overview.num_models is None or overview.num_models > 10
         assert overview.num_followers is None or overview.num_followers > 1000
+        assert overview.num_papers is None or overview.num_papers >= 0
 
     def test_organization_members(self) -> None:
         members = self.api.list_organization_members("huggingface")
@@ -4304,6 +4305,10 @@ class PaperApiTest(unittest.TestCase):
         papers = list(self.api.list_papers(query="llama"))
         assert len(papers) > 0
         assert "The Llama 3 Herd of Models" in [paper.title for paper in papers]
+
+    def test_papers_by_query_with_limit(self) -> None:
+        papers = list(self.api.list_papers(query="llama", limit=2))
+        assert len(papers) == 2
 
     def test_get_paper_by_id_success(self) -> None:
         paper = self.api.paper_info("2407.21783")
