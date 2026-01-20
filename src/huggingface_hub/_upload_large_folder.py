@@ -50,7 +50,7 @@ UPLOAD_BATCH_SIZE_LFS = 1  # Otherwise, batches of 1 for regular LFS upload
 # Repository limits (from https://huggingface.co/docs/hub/repositories-recommendations)
 MAX_FILES_PER_REPO = 100_000  # Recommended maximum number of files per repository
 MAX_FILES_PER_FOLDER = 10_000  # Recommended maximum number of files per folder
-MAX_FILE_SIZE_GB = 50  # Hard limit for individual file size
+MAX_FILE_SIZE_GB = 200  # Recommended maximum for individual file size (split larger files)
 RECOMMENDED_FILE_SIZE_GB = 20  # Recommended maximum for individual file size
 
 
@@ -64,7 +64,7 @@ def _validate_upload_limits(paths_list: list[LocalUploadFilePaths]) -> None:
     Warns about:
         - Too many files in the repository (>100k)
         - Too many entries (files or subdirectories) in a single folder (>10k)
-        - Files exceeding size limits (>20GB recommended, >50GB hard limit)
+        - Files exceeding size limits (>20GB recommended, >200GB maximum)
     """
     logger.info("Running validation checks on files to upload...")
 
@@ -127,14 +127,14 @@ def _validate_upload_limits(paths_list: list[LocalUploadFilePaths]) -> None:
         elif size_gb > RECOMMENDED_FILE_SIZE_GB:
             large_files.append((paths.path_in_repo, size_gb))
 
-    # Warn about very large files (>50GB)
+    # Warn about very large files (>200GB)
     if very_large_files:
         files_str = "\n  - ".join(f"{path}: {size:.1f}GB" for path, size in very_large_files[:5])
         more_str = f"\n  ... and {len(very_large_files) - 5} more files" if len(very_large_files) > 5 else ""
         logger.warning(
-            f"Found {len(very_large_files)} files exceeding the {MAX_FILE_SIZE_GB}GB hard limit:\n"
+            f"Found {len(very_large_files)} files exceeding the {MAX_FILE_SIZE_GB}GB recommended maximum:\n"
             f"  - {files_str}{more_str}\n"
-            f"These files may fail to upload. Consider splitting them into smaller chunks."
+            f"Consider splitting these files into smaller chunks."
         )
 
     # Warn about large files (>20GB)
