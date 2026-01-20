@@ -20,9 +20,12 @@ Usage:
     # Create a bucket
     hf bucket create user/my-bucket
     hf bucket create user/my-bucket --private
+    hf bucket create user/my-bucket --exist-ok
 
     # Delete a bucket
     hf bucket delete user/my-bucket
+    hf bucket delete user/my-bucket --yes
+    hf bucket delete user/my-bucket --missing-ok
 
     # List files in a bucket
     hf bucket ls hf://buckets/user/my-bucket
@@ -49,6 +52,7 @@ Usage:
 
     # With filters
     hf bucket sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"
+    hf bucket sync ./data hf://buckets/user/my-bucket --filter-from filters.txt
 
     # Only update existing files (skip new files)
     hf bucket sync ./data hf://buckets/user/my-bucket --existing
@@ -59,6 +63,12 @@ Usage:
     # Safe review workflow
     hf bucket sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl
     hf bucket sync --apply sync-plan.jsonl
+
+    # Verbose output with detailed logging
+    hf bucket sync ./data hf://buckets/user/my-bucket --verbose
+
+    # Quiet mode with minimal output
+    hf bucket sync ./data hf://buckets/user/my-bucket --quiet
 """
 
 import fnmatch
@@ -1033,8 +1043,6 @@ def _print_plan_summary(plan: SyncPlan) -> None:
     print(f"  Downloads: {summary['downloads']}")
     print(f"  Deletes: {summary['deletes']}")
     print(f"  Skips: {summary['skips']}")
-    if summary["total_size"]:
-        print(f"  Total transfer size: {_format_size(summary['total_size'], human_readable=True)}")
 
 
 @bucket_cli.command(name="sync")
