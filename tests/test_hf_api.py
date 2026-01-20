@@ -4271,6 +4271,7 @@ class UserApiTest(unittest.TestCase):
         assert overview.num_users is None or overview.num_users > 10
         assert overview.num_models is None or overview.num_models > 10
         assert overview.num_followers is None or overview.num_followers > 1000
+        assert overview.num_papers is None or overview.num_papers >= 0
 
     def test_organization_members(self) -> None:
         members = self.api.list_organization_members("huggingface")
