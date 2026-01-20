@@ -16,7 +16,7 @@
 from huggingface_hub import constants
 from huggingface_hub.cli._cli_utils import check_cli_update, typer_factory
 from huggingface_hub.cli.auth import auth_cli
-from huggingface_hub.cli.bucket import bucket_cli
+from huggingface_hub.cli.bucket import bucket_cli, sync
 from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.datasets import datasets_cli
 from huggingface_hub.cli.download import download
@@ -44,6 +44,7 @@ app.command(name="env", help="Print information about the environment.")(env)
 app.command(help="Print information about the hf version.")(version)
 app.command(help="Configure your repository to enable upload of files > 5GB.", hidden=True)(lfs_enable_largefiles)
 app.command(help="Upload large files to the Hub.", hidden=True)(lfs_multipart_upload)
+app.command(help="Sync files between local directory and a bucket.")(sync)
 
 
 # command groups
