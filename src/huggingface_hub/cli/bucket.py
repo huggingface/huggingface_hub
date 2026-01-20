@@ -46,7 +46,7 @@ Usage:
 
     # Safe review workflow
     hf bucket sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl
-    hf bucket sync --execute sync-plan.jsonl
+    hf bucket sync --apply sync-plan.jsonl
 """
 
 import fnmatch
@@ -973,10 +973,10 @@ def sync(
             help="Save sync plan to JSONL file for review instead of executing.",
         ),
     ] = None,
-    execute: Annotated[
+    apply: Annotated[
         Optional[str],
         typer.Option(
-            help="Execute a previously saved plan file.",
+            help="Apply a previously saved plan file.",
         ),
     ] = None,
     include: Annotated[
@@ -1019,14 +1019,27 @@ def sync(
     api = get_hf_api(token=token)
 
     # Validate arguments
-    if execute:
-        # Execute mode: load and execute plan
+    if apply:
+        # Apply mode: load and execute plan
         if source is not None or dest is not None:
-            raise typer.BadParameter("Cannot specify source/dest when using --execute")
+            raise typer.BadParameter("Cannot specify source/dest when using --apply")
         if plan is not None:
-            raise typer.BadParameter("Cannot specify both --plan and --execute")
+            raise typer.BadParameter("Cannot specify both --plan and --apply")
+        # Planning-related options are not allowed when applying
+        if delete:
+            raise typer.BadParameter("Cannot specify --delete when using --apply")
+        if force_upload:
+            raise typer.BadParameter("Cannot specify --force-upload when using --apply")
+        if force_download:
+            raise typer.BadParameter("Cannot specify --force-download when using --apply")
+        if include:
+            raise typer.BadParameter("Cannot specify --include when using --apply")
+        if exclude:
+            raise typer.BadParameter("Cannot specify --exclude when using --apply")
+        if filter_from:
+            raise typer.BadParameter("Cannot specify --filter-from when using --apply")
 
-        sync_plan = _load_plan(execute)
+        sync_plan = _load_plan(apply)
         if not quiet:
             _print_plan_summary(sync_plan)
             print("Executing plan...")
@@ -1045,7 +1058,7 @@ def sync(
 
     # Normal mode: compute and optionally execute plan
     if source is None or dest is None:
-        raise typer.BadParameter("Both source and dest are required (unless using --execute)")
+        raise typer.BadParameter("Both source and dest are required (unless using --apply)")
 
     # Validate source/dest
     source_is_bucket = _is_bucket_path(source)
