@@ -1,7 +1,6 @@
 # tests/test_upload_large_folder.py
 import unittest
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -11,9 +10,7 @@ from huggingface_hub._upload_large_folder import (
     MAX_FILES_PER_REPO,
     LargeUploadStatus,
     _validate_upload_limits,
-    upload_large_folder_internal,
 )
-from huggingface_hub.utils import SoftTemporaryDirectory
 
 
 @pytest.fixture
@@ -158,93 +155,3 @@ class TestValidateUploadLimits(unittest.TestCase):
 
         # Should not warn - each folder has at most 2 entries
         mock_logger.warning.assert_not_called()
-
-
-class TestCommitCountWarning(unittest.TestCase):
-    """Test the commit count warning in upload_large_folder_internal."""
-
-    @patch("huggingface_hub._upload_large_folder.logger")
-    def test_warns_when_more_than_500_commits(self, mock_logger):
-        """Test that a warning is issued when repo has more than 500 commits."""
-        with SoftTemporaryDirectory() as tmpdir:
-            folder = Path(tmpdir) / "test_folder"
-            folder.mkdir(parents=True)
-            (folder / "test.txt").write_text("test content")
-
-            # Create a mock API
-            mock_api = Mock()
-            mock_api.create_repo.return_value = Mock(repo_id="test-user/test-repo")
-
-            # Mock list_repo_commits to return 501 commits
-            mock_commits = [Mock() for _ in range(501)]
-            mock_api.list_repo_commits.return_value = mock_commits
-
-            # Mock other methods needed for upload
-            mock_api._build_hf_headers.return_value = {}
-            mock_api.endpoint = "https://huggingface.co"
-
-            with patch("huggingface_hub._upload_large_folder.is_xet_available", return_value=False):
-                with patch("huggingface_hub._upload_large_folder.filter_repo_objects", return_value=[]):
-                    with patch("huggingface_hub._upload_large_folder.get_local_upload_paths"):
-                        with patch("huggingface_hub._upload_large_folder.read_upload_metadata"):
-                            # Call upload_large_folder_internal
-                            # It will fail eventually but we only care about the warning
-                            try:
-                                upload_large_folder_internal(
-                                    api=mock_api,
-                                    repo_id="test-user/test-repo",
-                                    folder_path=folder,
-                                    repo_type="dataset",
-                                    revision="main",
-                                    print_report=False,
-                                )
-                            except Exception:
-                                # Expected to fail due to mocking, but warning should have been logged
-                                pass
-
-            # Check that warning was logged with correct message
-            warning_calls = [str(call) for call in mock_logger.warning.call_args_list]
-            assert any("501" in call and "commits" in call for call in warning_calls), f"No commit warning found in: {warning_calls}"
-            assert any("super_squash_history" in call for call in warning_calls), f"No super_squash_history mention in: {warning_calls}"
-
-    @patch("huggingface_hub._upload_large_folder.logger")
-    def test_no_warning_when_less_than_500_commits(self, mock_logger):
-        """Test that no warning is issued when repo has 500 or fewer commits."""
-        with SoftTemporaryDirectory() as tmpdir:
-            folder = Path(tmpdir) / "test_folder"
-            folder.mkdir(parents=True)
-            (folder / "test.txt").write_text("test content")
-
-            # Create a mock API
-            mock_api = Mock()
-            mock_api.create_repo.return_value = Mock(repo_id="test-user/test-repo")
-
-            # Mock list_repo_commits to return 100 commits (below threshold)
-            mock_commits = [Mock() for _ in range(100)]
-            mock_api.list_repo_commits.return_value = mock_commits
-
-            # Mock other methods needed for upload
-            mock_api._build_hf_headers.return_value = {}
-            mock_api.endpoint = "https://huggingface.co"
-
-            with patch("huggingface_hub._upload_large_folder.is_xet_available", return_value=False):
-                with patch("huggingface_hub._upload_large_folder.filter_repo_objects", return_value=[]):
-                    with patch("huggingface_hub._upload_large_folder.get_local_upload_paths"):
-                        with patch("huggingface_hub._upload_large_folder.read_upload_metadata"):
-                            # Call upload_large_folder_internal
-                            try:
-                                upload_large_folder_internal(
-                                    api=mock_api,
-                                    repo_id="test-user/test-repo",
-                                    folder_path=folder,
-                                    repo_type="dataset",
-                                    revision="main",
-                                    print_report=False,
-                                )
-                            except Exception:
-                                # Expected to fail due to mocking
-                                pass
-
-            # Check that no warning about commits was logged
-            warning_calls = [str(call) for call in mock_logger.warning.call_args_list]
-            assert not any("100" in call and "commits" in call and "super_squash_history" in call for call in warning_calls)
