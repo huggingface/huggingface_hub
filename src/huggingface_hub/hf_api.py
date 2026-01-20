@@ -9947,6 +9947,7 @@ class HfApi:
         self,
         *,
         query: Optional[str] = None,
+        limit: Optional[int] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[PaperInfo]:
         """
@@ -9956,6 +9957,8 @@ class HfApi:
             query (`str`, *optional*):
                 A search query string to find papers.
                 If provided, returns papers that match the query.
+            limit (`int`, *optional*):
+                The maximum number of papers to return.
             token (Union[bool, str, None], *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -9977,9 +9980,11 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/papers/search"
-        params = {}
+        params: dict[str, Any] = {}
         if query:
             params["q"] = query
+        if limit is not None:
+            params["limit"] = limit
         r = get_session().get(
             path,
             params=params,
