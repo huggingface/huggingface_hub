@@ -204,7 +204,7 @@ def upload_large_folder_internal(
         commit_count = len(commits)
         if commit_count > 500:
             logger.warning(
-                f"\n{'='*80}\n"
+                f"\n{'=' * 80}\n"
                 f"WARNING: This repository has {commit_count:,} commits.\n"
                 f"Repositories with a large number of commits can experience performance issues.\n"
                 f"\n"
@@ -215,7 +215,7 @@ def upload_large_folder_internal(
                 f"\n"
                 f"Note: This is a non-revertible operation. See the documentation for more details:\n"
                 f"https://huggingface.co/docs/huggingface_hub/main/en/package_reference/hf_api#huggingface_hub.HfApi.super_squash_history\n"
-                f"{'='*80}\n"
+                f"{'=' * 80}\n"
             )
     except Exception as e:
         # Don't fail the upload if we can't check commit count
