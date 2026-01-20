@@ -38,8 +38,8 @@ Usage:
     hf bucket sync ./data hf://buckets/user/my-bucket
     hf bucket sync hf://buckets/user/my-bucket ./data
 
-    # Mirror (exact replica with deletions)
-    hf bucket sync ./data hf://buckets/user/my-bucket --mirror
+    # Delete destination files not in source
+    hf bucket sync ./data hf://buckets/user/my-bucket --delete
 
     # With filters
     hf bucket sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"
@@ -528,7 +528,7 @@ def _compute_sync_plan(
     dest: str,
     api,
     token: Optional[str],
-    mirror: bool = False,
+    delete: bool = False,
     force_upload: bool = False,
     force_download: bool = False,
     filter_matcher: Optional[FilterMatcher] = None,
@@ -653,14 +653,14 @@ def _compute_sync_plan(
                             remote_mtime=_mtime_to_iso(remote_mtime),
                         )
                     )
-            elif not local_info and remote_info and mirror:
-                # File only in remote and mirror mode
+            elif not local_info and remote_info and delete:
+                # File only in remote and --delete mode
                 plan.operations.append(
                     SyncOperation(
                         action="delete",
                         path=path,
                         size=remote_info[0],
-                        reason="not in source (--mirror mode)",
+                        reason="not in source (--delete)",
                         remote_mtime=_mtime_to_iso(remote_info[1]),
                     )
                 )
@@ -761,14 +761,14 @@ def _compute_sync_plan(
                             remote_mtime=_mtime_to_iso(remote_mtime),
                         )
                     )
-            elif not remote_info and local_info and mirror:
-                # File only in local and mirror mode
+            elif not remote_info and local_info and delete:
+                # File only in local and --delete mode
                 plan.operations.append(
                     SyncOperation(
                         action="delete",
                         path=path,
                         size=local_info[0],
-                        reason="not in source (--mirror mode)",
+                        reason="not in source (--delete)",
                         local_mtime=_mtime_to_iso(local_info[1]),
                     )
                 )
@@ -949,10 +949,10 @@ def sync(
             help="Destination path: local directory or hf://buckets/namespace/bucket_name(/prefix)",
         ),
     ] = None,
-    mirror: Annotated[
+    delete: Annotated[
         bool,
         typer.Option(
-            help="Make dest identical to source (DELETES destination files not in source).",
+            help="Delete destination files not present in source.",
         ),
     ] = False,
     force_upload: Annotated[
@@ -1097,7 +1097,7 @@ def sync(
         dest=dest,
         api=api,
         token=token,
-        mirror=mirror,
+        delete=delete,
         force_upload=force_upload,
         force_download=force_download,
         filter_matcher=filter_matcher,
