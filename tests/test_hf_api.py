@@ -4306,6 +4306,10 @@ class PaperApiTest(unittest.TestCase):
         assert len(papers) > 0
         assert "The Llama 3 Herd of Models" in [paper.title for paper in papers]
 
+    def test_papers_by_query_with_limit(self) -> None:
+        papers = list(self.api.list_papers(query="llama", limit=2))
+        assert len(papers) == 2
+
     def test_get_paper_by_id_success(self) -> None:
         paper = self.api.paper_info("2407.21783")
         assert paper.title == "The Llama 3 Herd of Models"
