@@ -32,6 +32,9 @@ Usage:
     # Cancel a running job
     hf jobs cancel <job-id>
 
+    # List available hardware options
+    hf jobs hardware
+
     # Run a UV script
     hf jobs uv run <script>
 
@@ -100,7 +103,7 @@ ImageOpt = Annotated[
 FlavorOpt = Annotated[
     Optional[SpaceHardware],
     typer.Option(
-        help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
+        help="Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.",
     ),
 ]
 
@@ -531,6 +534,34 @@ def jobs_ps(
         print(f"Error fetching jobs data: {e}")
     except (KeyError, ValueError, TypeError) as e:
         print(f"Error processing jobs data: {e}")
+    except Exception as e:
+        print(f"Unexpected error - {type(e).__name__}: {e}")
+
+
+@jobs_cli.command("hardware", help="List available hardware options for Jobs")
+def jobs_hardware() -> None:
+    try:
+        api = get_hf_api()
+        hardware_list = api.list_jobs_hardware()
+        table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
+        headers_aliases = ["name", "prettyName", "cpu", "ram", "accelerator", "costMin", "costHour"]
+        rows: list[list[Union[str, int]]] = []
+
+        for hw in hardware_list:
+            accelerator_info = "N/A"
+            if hw.accelerator:
+                accelerator_info = f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})"
+            cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd is not None else "N/A"
+            cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd is not None else "N/A"
+            rows.append([hw.name, hw.pretty_name or "N/A", hw.cpu, hw.ram, accelerator_info, cost_min, cost_hour])
+
+        if not rows:
+            print("No hardware options found")
+            return
+        _print_output(rows, table_headers, headers_aliases, None)
+
+    except HfHubHTTPError as e:
+        print(f"Error fetching hardware data: {e}")
     except Exception as e:
         print(f"Unexpected error - {type(e).__name__}: {e}")
 

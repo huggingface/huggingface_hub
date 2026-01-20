@@ -62,7 +62,7 @@ from ._commit_api import (
     _warn_on_overwriting_operations,
 )
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
-from ._jobs_api import JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
+from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
@@ -10455,6 +10455,34 @@ class HfApi:
         response.raise_for_status()
         return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
 
+    def list_jobs_hardware(self, token: Union[bool, str, None] = None) -> list[JobHardware]:
+        """
+        List available hardware options for Jobs on Hugging Face infrastructure.
+
+        Returns:
+            `list[JobHardware]`: A list of available hardware configurations.
+
+        Example:
+
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> hardware_list = api.list_jobs_hardware()
+        >>> hardware_list[0]
+        JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
+        >>> hardware_list[0].name
+        'cpu-basic'
+
+        # Filter GPU options
+        >>> gpu_hardware = [hw for hw in hardware_list if hw.accelerator is not None]
+        >>> gpu_hardware[0].accelerator.model
+        'T4'
+        ```
+        """
+        response = get_session().get(f"{self.endpoint}/api/jobs/hardware", headers=self._build_hf_headers(token=token))
+        hf_raise_for_status(response)
+        return [JobHardware(**hardware) for hardware in response.json()]
+
     def inspect_job(
         self,
         *,
@@ -11405,6 +11433,7 @@ run_job = api.run_job
 fetch_job_logs = api.fetch_job_logs
 fetch_job_metrics = api.fetch_job_metrics
 list_jobs = api.list_jobs
+list_jobs_hardware = api.list_jobs_hardware
 inspect_job = api.inspect_job
 cancel_job = api.cancel_job
 run_uv_job = api.run_uv_job
