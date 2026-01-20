@@ -11210,7 +11210,7 @@ class HfApi:
         exist_ok: bool = False,
         token: Union[bool, str, None] = None,
     ) -> dict[str, Any]:
-        payload = {"name": bucket_id}
+        payload: dict[str, Any] = {"name": bucket_id}
         if private is not None:
             payload["private"] = private
         try:

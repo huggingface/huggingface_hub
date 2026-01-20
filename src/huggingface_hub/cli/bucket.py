@@ -76,7 +76,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Annotated, Iterator, Literal, Optional, Union
+from typing import Annotated, Any, Iterator, Literal, Optional, Union
 
 import typer
 
@@ -903,7 +903,7 @@ def _save_plan(plan: SyncPlan, plan_file: str) -> None:
 
         # Write operations
         for op in plan.operations:
-            op_dict = {
+            op_dict: dict[str, Any] = {
                 "type": "operation",
                 "action": op.action,
                 "path": op.path,
