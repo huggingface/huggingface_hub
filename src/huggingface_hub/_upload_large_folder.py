@@ -197,7 +197,7 @@ def upload_large_folder_internal(
     repo_url = api.create_repo(repo_id=repo_id, repo_type=repo_type, private=private, exist_ok=True)
     logger.info(f"Repo created: {repo_url}")
     repo_id = repo_url.repo_id
-    
+
     # 2.0.5 Check commit count and warn if too many commits
     try:
         commits = api.list_repo_commits(repo_id=repo_id, repo_type=repo_type, revision=revision)
@@ -220,7 +220,7 @@ def upload_large_folder_internal(
     except Exception as e:
         # Don't fail the upload if we can't check commit count
         logger.debug(f"Could not check commit count: {e}")
-    
+
     # 2.1 Check if xet is enabled to set batch file upload size
     upload_batch_size = UPLOAD_BATCH_SIZE_XET if is_xet_available() else UPLOAD_BATCH_SIZE_LFS
 

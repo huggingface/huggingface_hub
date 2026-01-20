@@ -174,7 +174,7 @@ class TestCommitCountWarning(unittest.TestCase):
             # Create a mock API
             mock_api = Mock()
             mock_api.create_repo.return_value = Mock(repo_id="test-user/test-repo")
-            
+
             # Mock list_repo_commits to return 501 commits
             mock_commits = [Mock() for _ in range(501)]
             mock_api.list_repo_commits.return_value = mock_commits
@@ -218,7 +218,7 @@ class TestCommitCountWarning(unittest.TestCase):
             # Create a mock API
             mock_api = Mock()
             mock_api.create_repo.return_value = Mock(repo_id="test-user/test-repo")
-            
+
             # Mock list_repo_commits to return 100 commits (below threshold)
             mock_commits = [Mock() for _ in range(100)]
             mock_api.list_repo_commits.return_value = mock_commits
