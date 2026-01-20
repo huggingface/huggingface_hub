@@ -9980,7 +9980,7 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/papers/search"
-        params = {}
+        params: dict[str, Any] = {}
         if query:
             params["q"] = query
         if limit is not None:
