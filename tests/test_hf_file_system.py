@@ -570,7 +570,7 @@ class HfFileSystemTests(unittest.TestCase):
             assert fs.isfile(self.text_file)
 
 
-@pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file"])
+@pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file", "path/to/@not-a-revision.txt"])
 @pytest.mark.parametrize(
     "root_path,revision,repo_type,repo_id,resolved_revision",
     [
@@ -631,7 +631,7 @@ def test_resolve_path(
             resolved_path.revision,
             resolved_path.path_in_repo,
         ) == (repo_type, repo_id, resolved_revision, path_in_repo)
-        if "@" in path:
+        if "@" in path and "@not-a-revision" not in path:
             assert resolved_path._raw_revision in path
 
 
