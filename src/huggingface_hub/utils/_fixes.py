@@ -87,7 +87,7 @@ def WeakFileLock(
     If a timeout is provided, a `filelock.Timeout` exception is raised if the lock is not acquired within the timeout.
     """
     log_interval = constants.FILELOCK_LOG_EVERY_SECONDS
-    lock = FileLock(lock_file, timeout=log_interval)
+    lock = FileLock(lock_file, timeout=log_interval, mode=0o664)
     start_time = time.time()
 
     while True:
