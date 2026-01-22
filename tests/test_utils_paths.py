@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
 from huggingface_hub.utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects
+from huggingface_hub.utils._paths import _fnmatch_path
 
 
 @dataclass
@@ -148,3 +149,95 @@ class TestDefaultIgnorePatterns(unittest.TestCase):
             items=self.PATHS_TO_IGNORE + self.VALID_PATHS, ignore_patterns=DEFAULT_IGNORE_PATTERNS
         )
         self.assertListEqual(list(filtered_paths), self.VALID_PATHS)
+
+
+class TestWildcardDirectoryBoundaries(unittest.TestCase):
+    """Test that wildcard patterns respect directory boundaries (Issue #3709)."""
+
+    def test_wildcard_does_not_match_subdirectories(self):
+        """Test that `data/*.json` only matches files directly under `data/`, not in subdirectories."""
+        items = [
+            "data/adam.json",
+            "data/lion.json",
+            "data/garbage.json",
+            "data/another_garbage.json",
+            "data/test_adafactor.json",
+            "data/H100/adam.json",
+            "data/H100/lion.json",
+            "data/T4/adam.json",
+            "data/T4/lion.json",
+        ]
+        expected_items = [
+            "data/adam.json",
+            "data/lion.json",
+            "data/garbage.json",
+            "data/another_garbage.json",
+            "data/test_adafactor.json",
+        ]
+        self._check(
+            items=items,
+            expected_items=expected_items,
+            allow_patterns=["data/*.json"],
+        )
+
+    def test_recursive_wildcard_matches_subdirectories(self):
+        """Test that `data/**/*.json` matches files in subdirectories."""
+        items = [
+            "data/adam.json",
+            "data/garbage.json",
+            "data/H100/adam.json",
+            "data/H100/lion.json",
+            "data/T4/adam.json",
+            "data/T4/lion.json",
+        ]
+        expected_items = items
+        self._check(
+            items=items,
+            expected_items=expected_items,
+            allow_patterns=["data/**/*.json"],
+        )
+
+    def test_single_level_wildcard_in_middle(self):
+        """Test that `path/*/file.txt` matches one level but not nested."""
+        items = [
+            "path/to/file.txt",
+            "path/from/file.txt",
+            "path/to/nested/file.txt",
+        ]
+        expected_items = [
+            "path/to/file.txt",
+            "path/from/file.txt",
+        ]
+        self._check(
+            items=items,
+            expected_items=expected_items,
+            allow_patterns=["path/*/file.txt"],
+        )
+
+    def _check(
+        self,
+        items: list[str],
+        expected_items: list[str],
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+    ) -> None:
+        """Run `filter_repo_objects` and check output against expected result."""
+        self.assertListEqual(
+            sorted(list(filter_repo_objects(items=items, allow_patterns=allow_patterns, ignore_patterns=ignore_patterns))),
+            sorted(expected_items),
+        )
+
+
+class TestFnmatchPath(unittest.TestCase):
+    """Test the `_fnmatch_path` function directly."""
+
+    def test_wildcard_does_not_match_directory_separator(self):
+        """Test that `*` does not match `/` character."""
+        self.assertTrue(_fnmatch_path("data/adam.json", "data/*.json"))
+        self.assertFalse(_fnmatch_path("data/H100/adam.json", "data/*.json"))
+
+    def test_recursive_wildcard_matches_nested_paths(self):
+        """Test that `**` matches nested directory structures."""
+        self.assertTrue(_fnmatch_path("data/file.json", "data/**/file.json"))
+        self.assertTrue(_fnmatch_path("data/sub/file.json", "data/**/file.json"))
+        self.assertTrue(_fnmatch_path("data/H100/adam.json", "data/**/*.json"))

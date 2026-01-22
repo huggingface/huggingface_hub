@@ -14,6 +14,7 @@
 # limitations under the License.
 """Contains utilities to handle paths in Huggingface Hub."""
 
+import re
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Callable, Generator, Iterable, Optional, TypeVar, Union
@@ -125,11 +126,11 @@ def filter_repo_objects(
         path = key(item)
 
         # Skip if there's an allowlist and path doesn't match any
-        if allow_patterns is not None and not any(fnmatch(path, r) for r in allow_patterns):
+        if allow_patterns is not None and not any(_fnmatch_path(path, r) for r in allow_patterns):
             continue
 
         # Skip if there's a denylist and path matches any
-        if ignore_patterns is not None and any(fnmatch(path, r) for r in ignore_patterns):
+        if ignore_patterns is not None and any(_fnmatch_path(path, r) for r in ignore_patterns):
             continue
 
         yield item
@@ -139,3 +140,121 @@ def _add_wildcard_to_directories(pattern: str) -> str:
     if pattern[-1] == "/":
         return pattern + "*"
     return pattern
+
+
+def _fnmatch_path(path: str, pattern: str) -> bool:
+    """Match a path against a pattern.
+    Args:
+        path: The path to match against
+        pattern: The glob pattern (e.g., "data/*.json")
+
+    Returns:
+        True if the path matches the pattern, False otherwise
+    """
+    # Tokenize pattern into literals, *, **, and ?
+    tokens = _tokenize_glob_pattern(pattern)
+
+    # Convert tokens to regex components
+    regex_parts = []
+    for i, token in enumerate(tokens):
+        token_type, token_value = token
+
+        if token_type == "literal":
+            # Escape regex special characters
+            regex_parts.append(re.escape(token_value))
+        elif token_type == "star":
+            # Single * matches
+            if i == 0 and i + 1 < len(tokens) and tokens[i + 1][0] == "literal" and tokens[i + 1][1].startswith("/"):
+                # Pattern starts with `*/`
+                regex_parts.append(".*")
+            else:
+                # * does not match `/`
+                regex_parts.append("[^/]*")
+        elif token_type == "recursive_star":
+            # ** matches zero or more directories
+            if token_value == "**/":
+                # `**/` in middle
+                if i + 1 >= len(tokens):
+                    # `**/` at end
+                    regex_parts.append("(?:/.*)?")
+                else:
+                    # `**/` in middle:
+                    regex_parts.append("(?:.*/)?")
+            else:
+                # Standalone `**`:
+                regex_parts.append(".*")
+        elif token_type == "question":
+            # ? matches any single character except directory separator
+            regex_parts.append("[^/]")
+
+    # Combine regex parts and anchor
+    regex_pattern = "^" + "".join(regex_parts) + "$"
+
+    try:
+        return bool(re.match(regex_pattern, path))
+    except re.error:
+        # Fallback to fnmatch
+        return fnmatch(path, pattern)
+
+
+def _tokenize_glob_pattern(pattern: str) -> list[tuple[str, str]]:
+    """Tokenize a glob pattern into structured segments.
+
+    Return a list of (token_type, token_value) tuples:
+    - "literal"
+    - `*`
+    - `**`
+    - `?`
+
+    """
+    tokens = []
+    i = 0
+    literal_buffer = []
+
+    while i < len(pattern):
+        # handle recursive wildcard `**` first
+        if i < len(pattern) - 1 and pattern[i : i + 2] == "**":
+            # Flush accumulated literals
+            if literal_buffer:
+                tokens.append(("literal", "".join(literal_buffer)))
+                literal_buffer = []
+
+            # handle `**` based on surrounding
+            if i + 2 < len(pattern) and pattern[i + 2] == "/":
+                # handle `**/`
+                tokens.append(("recursive_star", "**/"))
+                i += 3
+            elif i + 2 >= len(pattern):
+                # handle `**` at the end
+                tokens.append(("recursive_star", "**"))
+                i += 2
+            else:
+                # handle `**` in the middle
+                tokens.append(("recursive_star", "**"))
+                i += 2
+        elif pattern[i] == "*":
+            # Flush accumulated literals
+            if literal_buffer:
+                tokens.append(("literal", "".join(literal_buffer)))
+                literal_buffer = []
+
+            tokens.append(("star", "*"))
+            i += 1
+        elif pattern[i] == "?":
+            # Flush accumulated literals
+            if literal_buffer:
+                tokens.append(("literal", "".join(literal_buffer)))
+                literal_buffer = []
+
+            tokens.append(("question", "?"))
+            i += 1
+        else:
+            # Collect literal characters (like `/`)
+            literal_buffer.append(pattern[i])
+            i += 1
+
+    # Flush remaining literals
+    if literal_buffer:
+        tokens.append(("literal", "".join(literal_buffer)))
+
+    return tokens
