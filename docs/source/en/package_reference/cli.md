@@ -1431,7 +1431,7 @@ $ hf repo-files delete [OPTIONS] REPO_ID PATTERNS...
 **Arguments**:
 
 * `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
-* `PATTERNS...`: Glob patterns to match files to delete. Based on fnmatch, '*' matches across path boundaries.  [required]
+* `PATTERNS...`: Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.  [required]
 
 **Options**:
 
