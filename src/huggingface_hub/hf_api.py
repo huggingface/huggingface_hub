@@ -5152,7 +5152,10 @@ class HfApi:
                 `"username/custom_transformers"`
             delete_patterns (`list[str]`):
                 List of files or folders to delete. Each string can either be
-                a file path, a folder path or a Unix shell-style wildcard.
+                a file path, a folder path, or a wildcard pattern. Patterns are Standard
+                Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm).
+                The pattern matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
+                Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix shell globbing.
                 E.g. `["file.txt", "folder/", "data/*.parquet"]`
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
