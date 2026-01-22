@@ -642,7 +642,14 @@ Delete multiple files:
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
-Use Unix-style wildcards to delete sets of files:
+Use wildcard patterns to delete sets of files. Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). The pattern matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
+
+<Tip warning={true}>
+
+Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix shell globbing. For example, `"data/*.json"` will match both `data/file.json` **and** `data/subdir/file.json`. To match only files in the immediate directory, you need to list them explicitly or use more specific patterns.
+
+</Tip>
+
 ```bash
 >>> hf repo-files delete Wauplin/my-cool-model "*.txt" "folder/*.bin"
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
