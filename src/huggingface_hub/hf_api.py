@@ -3422,12 +3422,13 @@ class HfApi:
         )
         local_by_path = collect_local_files(root)
 
-        # get remote entries
-        remote_by_path: dict[str, Union[RepoFile, RepoFolder]] = {}
+        # get remote entries (only files, not folders)
+        remote_by_path: dict[str, RepoFile] = {}
         for entry in self.list_repo_tree(
             repo_id=repo_id, recursive=True, revision=remote_revision, repo_type=repo_type, token=token
         ):
-            remote_by_path[entry.path] = entry
+            if isinstance(entry, RepoFile):
+                remote_by_path[entry.path] = entry
 
         return verify_maps(
             remote_by_path=remote_by_path,
@@ -5212,7 +5213,10 @@ class HfApi:
                 `"username/custom_transformers"`
             delete_patterns (`list[str]`):
                 List of files or folders to delete. Each string can either be
-                a file path, a folder path or a Unix shell-style wildcard.
+                a file path, a folder path, or a wildcard pattern. Patterns are Standard
+                Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm).
+                The pattern matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
+                Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix shell globbing.
                 E.g. `["file.txt", "folder/", "data/*.parquet"]`
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved

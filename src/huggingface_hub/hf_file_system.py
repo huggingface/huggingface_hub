@@ -266,7 +266,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         else:
             repo_type = constants.REPO_TYPE_MODEL
         if path.count("/") > 0:
-            if "@" in path:
+            if "@" in "/".join(path.split("/")[:2]):
                 repo_id, revision_in_path = path.split("@", 1)
                 if "/" in revision_in_path:
                     match = SPECIAL_REFS_REVISION_REGEX.search(revision_in_path)

@@ -49,8 +49,11 @@ def filter_repo_objects(
     In the later case, `key` must be provided and specifies a function of one argument
     that is used to extract a path from each element in iterable.
 
-    Patterns are Unix shell-style wildcards which are NOT regular expressions. See
-    https://docs.python.org/3/library/fnmatch.html for more details.
+    Patterns are Standard Wildcards (globbing patterns), NOT regular expressions.
+    The pattern matching is based on Python's `fnmatch`. Note that `fnmatch` matches
+    `*` across path boundaries, unlike traditional Unix shell globbing. For example,
+    `"data/*.json"` will match both `data/file.json` and `data/subdir/file.json`.
+    See https://docs.python.org/3/library/fnmatch.html for more details.
 
     Args:
         items (`Iterable`):
