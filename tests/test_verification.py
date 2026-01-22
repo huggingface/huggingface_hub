@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 import huggingface_hub.utils._verification as verification_module
-from huggingface_hub.hf_api import HfApi
+from huggingface_hub.hf_api import HfApi, RepoFile, RepoFolder
 from huggingface_hub.utils._verification import (
     HashAlgo,
     collect_local_files,
@@ -147,9 +147,42 @@ def test_api_verify_repo_checksums_cache_mode(tmp_path: Path) -> None:
     with patch.object(
         HfApi,
         "list_repo_tree",
-        return_value=[SimpleNamespace(path="file.txt", blob_id=git_hash(content), lfs=None)],
+        return_value=[RepoFile(path="file.txt", oid=git_hash(content), size=len(content), lfs=None)],
     ):
         res = HfApi().verify_repo_checksums(
             repo_id="user/model", repo_type="model", revision=commit, cache_dir=cache_dir, token=None
         )
         assert res.revision == commit and res.checked_count == 1 and not res.mismatches
+
+
+def test_api_verify_repo_checksums_ignores_folders(tmp_path: Path) -> None:
+    """Test that folders returned by list_repo_tree are ignored and not reported as missing files.
+
+    Regression test for https://github.com/huggingface/huggingface_hub/issues/3706
+    """
+    cache_dir = tmp_path
+    commit = "c" * 40
+    storage = cache_dir / "models--user--model"
+    snapshot = storage / "snapshots" / commit
+    snapshot.mkdir(parents=True)
+
+    # Create files inside a nested folder structure
+    content = b"file content"
+    _write(snapshot / "subdir" / "file.txt", content)
+
+    # Mock list_repo_tree to return both a folder and a file (as the real API does)
+    def mock_list_repo_tree(*args, **kwargs):
+        # The real API returns RepoFolder for directories and RepoFile for files
+        yield RepoFolder(path="subdir", oid="tree-oid-123")
+        yield RepoFile(path="subdir/file.txt", oid=git_hash(content), size=len(content), lfs=None)
+
+    with patch.object(HfApi, "list_repo_tree", mock_list_repo_tree):
+        res = HfApi().verify_repo_checksums(
+            repo_id="user/model", repo_type="model", revision=commit, cache_dir=cache_dir, token=None
+        )
+        # The folder should NOT be in missing_paths
+        assert "subdir" not in res.missing_paths
+        assert res.checked_count == 1
+        assert res.mismatches == []
+        assert res.missing_paths == []
+        assert res.extra_paths == []
