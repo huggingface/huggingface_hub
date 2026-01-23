@@ -11211,15 +11211,27 @@ class HfApi:
         bucket_id: str,
         *,
         private: Optional[bool] = None,
+        resource_group_id: Optional[str] = None,
         exist_ok: bool = False,
         token: Union[bool, str, None] = None,
     ) -> dict[str, Any]:
-        payload: dict[str, Any] = {"name": bucket_id}
+        payload: dict[str, Any] = {}
         if private is not None:
             payload["private"] = private
+        if resource_group_id is not None:
+            payload["resourceGroupId"] = resource_group_id
+
+        parts = bucket_id.split("/")
+        if len(parts) == 1:
+            namespace, name = "me", parts[0]  # "me" namespace refers to the current user
+        elif len(parts) == 2:
+            namespace, name = parts
+        else:
+            raise ValueError(f"Invalid bucket ID: {bucket_id}")
+
         try:
             response = get_session().post(
-                f"{self.endpoint}/api/buckets/create",
+                f"{self.endpoint}/api/buckets/{namespace}/{name}",
                 headers=self._build_hf_headers(token=token),
                 json=payload,
             )
