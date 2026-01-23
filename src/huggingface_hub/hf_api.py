@@ -295,6 +295,11 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
                 repo_type = constants.REPO_TYPES_MAPPING[url_segments[0]]
                 namespace = url_segments[1]
                 repo_id = url_segments[2]
+            elif url_segments[0] == "buckets":
+                # Special case for buckets
+                repo_type = "bucket"
+                namespace = url_segments[1]
+                repo_id = url_segments[2]
             else:
                 # First segment is namespace
                 namespace = url_segments[0]
@@ -308,6 +313,10 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
             if namespace in constants.REPO_TYPES_MAPPING:
                 # Mean canonical dataset or model
                 repo_type = constants.REPO_TYPES_MAPPING[namespace]
+                namespace = None
+            elif namespace == "buckets":
+                # Special case for buckets
+                repo_type = "bucket"
                 namespace = None
             else:
                 repo_type = None
@@ -326,6 +335,11 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
                 repo_type = constants.REPO_TYPES_MAPPING[url_segments[0]]
                 namespace = None
                 repo_id = hf_id.split("/")[-1]
+            elif url_segments[0] == "buckets":
+                # Special case for buckets
+                repo_type = "bucket"
+                namespace = None
+                repo_id = hf_id.split("/")[-1]
             else:
                 # Passed <user>/<model_id> or <org>/<model_id>
                 namespace, repo_id = hf_id.split("/")[-2:]
@@ -342,7 +356,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
         repo_type = constants.REPO_TYPES_MAPPING[repo_type]
     if repo_type == "":
         repo_type = None
-    if repo_type not in constants.REPO_TYPES:
+    if repo_type not in constants.REPO_TYPES and repo_type != "bucket":
         raise ValueError(f"Unknown `repo_type`: '{repo_type}' ('{input_hf_id}')")
 
     return repo_type, namespace, repo_id
@@ -11214,7 +11228,7 @@ class HfApi:
         resource_group_id: Optional[str] = None,
         exist_ok: bool = False,
         token: Union[bool, str, None] = None,
-    ) -> dict[str, Any]:
+    ) -> RepoUrl:
         payload: dict[str, Any] = {}
         if private is not None:
             payload["private"] = private
@@ -11239,7 +11253,7 @@ class HfApi:
         except HfHubHTTPError as e:
             if e.response.status_code != 409 or not exist_ok:
                 raise
-        return response.json()
+        return RepoUrl(response.json()["url"])
 
     def bucket_info(
         self,

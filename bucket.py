@@ -15,7 +15,7 @@ api = HfApi(endpoint=endpoint, token=token)
 print("# Create bucket")
 output = api.create_bucket(bucket_id="test-bucket", exist_ok=True)
 print(output)
-bucket_id = output["id"]
+bucket_id = output.repo_id
 
 print("\n# Get bucket info")
 print(api.bucket_info(bucket_id=bucket_id))
@@ -32,7 +32,7 @@ print(api.list_buckets())
 print("\n# Create private bucket")
 output = api.create_bucket(bucket_id="test-bucket-private", private=True, exist_ok=True)
 print(output)
-bucket_id = output["id"]
+bucket_id = output.repo_id
 
 print("\n# Get private bucket info (with token)")
 print(api.bucket_info(bucket_id=bucket_id))
@@ -48,7 +48,7 @@ print("\n# Create bucket again")
 api.delete_bucket(bucket_id="julien-c/test-bucket-with-files", missing_ok=True)
 output = api.create_bucket(bucket_id="test-bucket-with-files")
 print(output)
-bucket_id = output["id"]
+bucket_id = output.repo_id
 
 print("\n# List bucket tree (empty)")
 print(list(api.list_bucket_tree(bucket_id=bucket_id)))
