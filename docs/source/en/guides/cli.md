@@ -559,6 +559,29 @@ Use `hf spaces` to list Spaces on the Hub and get detailed information about a s
 >>> hf spaces info enzostvs/deepsite
 ```
 
+## hf papers
+
+Use `hf papers` to list daily papers on the Hub.
+
+### List papers
+
+```bash
+# List most recent daily papers
+>>> hf papers ls
+
+# List trending papers
+>>> hf papers ls --sort=trending
+
+# List papers from a specific date
+>>> hf papers ls --date=2025-01-23
+
+# List today's papers
+>>> hf papers ls --date=today
+
+# Limit results
+>>> hf papers ls --sort=trending --limit=5
+```
+
 ## hf repo
 
 `hf repo` lets you create, delete, move repositories and update their settings on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
