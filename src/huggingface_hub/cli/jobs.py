@@ -629,6 +629,7 @@ def jobs_uv_run(
     flavor: FlavorOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
@@ -650,6 +651,16 @@ def jobs_uv_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
+    # Parse labels
+    labels_map: dict[str, str] = {}
+    for label_var in label or []:
+        equal_index = label_var.find("=")
+        if equal_index == -1:
+            raise ValueError(f"Invalid label format: {label_var}. Expected KEY=VALUE")
+        key = label_var[:equal_index]
+        value = label_var[equal_index + 1 :]
+        labels_map[key] = value
+
     api = get_hf_api(token=token)
     job = api.run_uv_job(
         script=script,
@@ -659,6 +670,7 @@ def jobs_uv_run(
         image=image,
         env=env_map,
         secrets=secrets_map,
+        labels=labels_map if labels_map else None,
         flavor=flavor,  # type: ignore[arg-type]
         timeout=timeout,
         namespace=namespace,
@@ -883,6 +895,7 @@ def scheduled_uv_run(
     flavor: FlavorOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
@@ -903,6 +916,16 @@ def scheduled_uv_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
+    # Parse labels
+    labels_map: dict[str, str] = {}
+    for label_var in label or []:
+        equal_index = label_var.find("=")
+        if equal_index == -1:
+            raise ValueError(f"Invalid label format: {label_var}. Expected KEY=VALUE")
+        key = label_var[:equal_index]
+        value = label_var[equal_index + 1 :]
+        labels_map[key] = value
+
     api = get_hf_api(token=token)
     job = api.create_scheduled_uv_job(
         script=script,
@@ -915,6 +938,7 @@ def scheduled_uv_run(
         image=image,
         env=env_map,
         secrets=secrets_map,
+        labels=labels_map if labels_map else None,
         flavor=flavor,  # type: ignore[arg-type]
         timeout=timeout,
         namespace=namespace,
