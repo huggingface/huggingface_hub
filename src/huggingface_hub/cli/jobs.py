@@ -284,15 +284,13 @@ def jobs_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
-    labels_map = _parse_labels_map(label)
-
     api = get_hf_api(token=token)
     job = api.run_job(
         image=image,
         command=command,
         env=env_map,
         secrets=secrets_map,
-        labels=labels_map if labels_map else None,
+        labels=_parse_labels_map(label),
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
@@ -643,8 +641,6 @@ def jobs_uv_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
-    labels_map = _parse_labels_map(label)
-
     api = get_hf_api(token=token)
     job = api.run_uv_job(
         script=script,
@@ -654,7 +650,7 @@ def jobs_uv_run(
         image=image,
         env=env_map,
         secrets=secrets_map,
-        labels=labels_map if labels_map else None,
+        labels=_parse_labels_map(label),
         flavor=flavor,  # type: ignore[arg-type]
         timeout=timeout,
         namespace=namespace,
@@ -702,8 +698,6 @@ def scheduled_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
-    labels_map = _parse_labels_map(label)
-
     api = get_hf_api(token=token)
     scheduled_job = api.create_scheduled_job(
         image=image,
@@ -713,7 +707,7 @@ def scheduled_run(
         concurrency=concurrency,
         env=env_map,
         secrets=secrets_map,
-        labels=labels_map if labels_map else None,
+        labels=_parse_labels_map(label),
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
@@ -892,8 +886,6 @@ def scheduled_uv_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
-    labels_map = _parse_labels_map(label)
-
     api = get_hf_api(token=token)
     job = api.create_scheduled_uv_job(
         script=script,
@@ -906,7 +898,7 @@ def scheduled_uv_run(
         image=image,
         env=env_map,
         secrets=secrets_map,
-        labels=labels_map if labels_map else None,
+        labels=_parse_labels_map(label),
         flavor=flavor,  # type: ignore[arg-type]
         timeout=timeout,
         namespace=namespace,
@@ -917,20 +909,22 @@ def scheduled_uv_run(
 ### UTILS
 
 
-def _parse_labels_map(labels: Optional[list[str]]) -> dict[str, str]:
+def _parse_labels_map(labels: Optional[list[str]]) -> Optional[dict[str, str]]:
     """Parse label key-value pairs from CLI arguments.
-    
+
     Args:
         labels: List of label strings in KEY=VALUE format.
-        
+
     Returns:
-        Dictionary mapping label keys to values.
-        
+        Dictionary mapping label keys to values, or None if no labels provided.
+
     Raises:
         ValueError: If any label is not in KEY=VALUE format.
     """
+    if not labels:
+        return None
     labels_map: dict[str, str] = {}
-    for label_var in labels or []:
+    for label_var in labels:
         equal_index = label_var.find("=")
         if equal_index == -1:
             raise ValueError(f"Invalid label format: {label_var}. Expected KEY=VALUE")
