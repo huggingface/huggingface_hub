@@ -145,13 +145,11 @@ def _serialize_value(v: object) -> object:
     return v
 
 
-def dataclass_to_json_serializable_dict(info: Union[ModelInfo, DatasetInfo, SpaceInfo, PaperInfo]) -> dict[str, object]:
+def dataclass_to_json_serializable_dict(
+    info: Union[ModelInfo, DatasetInfo, SpaceInfo, PaperInfo],
+) -> dict[str, object]:
     """Convert repo info dataclasses to json-serializable dicts."""
-    return {
-        k: _serialize_value(v)
-        for k, v in dataclasses.asdict(info).items()
-        if v is not None
-    }
+    return {k: _serialize_value(v) for k, v in dataclasses.asdict(info).items() if v is not None}
 
 
 def make_expand_properties_parser(valid_properties: list[str]):
