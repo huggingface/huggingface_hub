@@ -43,7 +43,7 @@ from ._cli_utils import (
     TokenOpt,
     get_hf_api,
     make_expand_properties_parser,
-    repo_info_to_dict,
+    dataclass_to_json_serializable_dict,
     typer_factory,
 )
 
@@ -82,7 +82,7 @@ def datasets_ls(
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
-        repo_info_to_dict(dataset_info)
+        dataclass_to_json_serializable_dict(dataset_info)
         for dataset_info in api.list_datasets(
             filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
@@ -107,4 +107,4 @@ def datasets_info(
     except RevisionNotFoundError:
         print(f"Revision {ANSI.bold(str(revision))} not found on {ANSI.bold(dataset_id)}.")
         raise typer.Exit(code=1)
-    print(json.dumps(repo_info_to_dict(info), indent=2))
+    print(json.dumps(dataclass_to_json_serializable_dict(info), indent=2))
