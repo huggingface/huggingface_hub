@@ -41,9 +41,9 @@ from ._cli_utils import (
     RevisionOpt,
     SearchOpt,
     TokenOpt,
+    dataclass_to_json_serializable_dict,
     get_hf_api,
     make_expand_properties_parser,
-    dataclass_to_json_serializable_dict,
     typer_factory,
 )
 
