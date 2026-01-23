@@ -11273,11 +11273,9 @@ class HfApi:
         missing_ok: bool = False,
         token: Union[bool, str, None] = None,
     ) -> None:
-        response = get_session().request(
-            "DELETE",
-            f"{self.endpoint}/api/buckets/delete",
+        response = get_session().delete(
+            f"{self.endpoint}/api/buckets/{bucket_id}",
             headers=self._build_hf_headers(token=token),
-            json={"name": bucket_id},
         )
 
         try:
