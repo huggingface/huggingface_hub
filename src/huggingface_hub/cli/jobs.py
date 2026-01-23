@@ -125,6 +125,15 @@ SecretsOpt = Annotated[
     ),
 ]
 
+LabelsOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-l",
+        "--label",
+        help="Set labels. E.g. --label KEY=VALUE",
+    ),
+]
+
 EnvFileOpt = Annotated[
     Optional[str],
     typer.Option(
@@ -253,6 +262,7 @@ def jobs_run(
     command: CommandArg,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
@@ -274,12 +284,23 @@ def jobs_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
+    # Parse labels
+    labels_map: dict[str, str] = {}
+    for label_var in label or []:
+        equal_index = label_var.find("=")
+        if equal_index == -1:
+            raise ValueError(f"Invalid label format: {label_var}. Expected KEY=VALUE")
+        key = label_var[:equal_index]
+        value = label_var[equal_index + 1 :]
+        labels_map[key] = value
+
     api = get_hf_api(token=token)
     job = api.run_job(
         image=image,
         command=command,
         env=env_map,
         secrets=secrets_map,
+        labels=labels_map if labels_map else None,
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
@@ -665,6 +686,7 @@ def scheduled_run(
     concurrency: ConcurrencyOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
@@ -684,6 +706,16 @@ def scheduled_run(
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
+    # Parse labels
+    labels_map: dict[str, str] = {}
+    for label_var in label or []:
+        equal_index = label_var.find("=")
+        if equal_index == -1:
+            raise ValueError(f"Invalid label format: {label_var}. Expected KEY=VALUE")
+        key = label_var[:equal_index]
+        value = label_var[equal_index + 1 :]
+        labels_map[key] = value
+
     api = get_hf_api(token=token)
     scheduled_job = api.create_scheduled_job(
         image=image,
@@ -693,6 +725,7 @@ def scheduled_run(
         concurrency=concurrency,
         env=env_map,
         secrets=secrets_map,
+        labels=labels_map if labels_map else None,
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
