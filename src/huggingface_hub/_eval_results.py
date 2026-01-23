@@ -23,10 +23,10 @@ class EvalResultEntry:
     Args:
         dataset_id (`str`):
             Benchmark dataset ID from the Hub. Example: "cais/hle", "Idavidrein/gpqa".
-        value (`Any`):
-            The metric value. Example: 20.90.
         task_id (`str`):
             Task identifier within the benchmark. Example: "gpqa_diamond".
+        value (`Any`):
+            The metric value. Example: 20.90.
         dataset_revision (`str`, *optional*):
             Git SHA of the benchmark dataset.
         verify_token (`str`, *optional*):
@@ -48,14 +48,14 @@ class EvalResultEntry:
         >>> # Minimal example with required fields only
         >>> result = EvalResultEntry(
         ...     dataset_id="Idavidrein/gpqa",
-        ...     value=0.412,
         ...     task_id="gpqa_diamond",
+        ...     value=0.412,
         ... )
         >>> # Full example with all fields
         >>> result = EvalResultEntry(
         ...     dataset_id="cais/hle",
-        ...     value=20.90,
         ...     task_id="default",
+        ...     value=20.90,
         ...     dataset_revision="5503434ddd753f426f4b38109466949a1217c2bb",
         ...     verify_token="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
         ...     date="2025-01-15T10:30:00Z",
@@ -68,8 +68,8 @@ class EvalResultEntry:
     """
 
     dataset_id: str
-    value: Any
     task_id: str
+    value: Any
     dataset_revision: Optional[str] = None
     verify_token: Optional[str] = None
     date: Optional[str] = None
@@ -103,8 +103,8 @@ def eval_result_entries_to_yaml(entries: list[EvalResultEntry]) -> list[dict[str
         ```python
         >>> from huggingface_hub import EvalResultEntry, eval_result_entries_to_yaml
         >>> entries = [
-        ...     EvalResultEntry(dataset_id="cais/hle", value=20.90, task_id="default"),
-        ...     EvalResultEntry(dataset_id="Idavidrein/gpqa", value=0.412, task_id="gpqa_diamond"),
+        ...     EvalResultEntry(dataset_id="cais/hle", task_id="default", value=20.90),
+        ...     EvalResultEntry(dataset_id="Idavidrein/gpqa", task_id="gpqa_diamond", value=0.412),
         ... ]
         >>> yaml_data = eval_result_entries_to_yaml(entries)
         >>> yaml_data[0]
@@ -117,7 +117,7 @@ def eval_result_entries_to_yaml(entries: list[EvalResultEntry]) -> list[dict[str
         >>> import yaml
         >>> from huggingface_hub import upload_file, EvalResultEntry, eval_result_entries_to_yaml
         >>> entries = [
-        ...     EvalResultEntry(dataset_id="cais/hle", value=20.90, task_id="default"),
+        ...     EvalResultEntry(dataset_id="cais/hle", task_id="default", value=20.90),
         ... ]
         >>> yaml_content = yaml.dump(eval_result_entries_to_yaml(entries))
         >>> upload_file(
