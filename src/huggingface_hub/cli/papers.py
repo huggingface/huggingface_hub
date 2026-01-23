@@ -84,7 +84,6 @@ def papers_ls(
             date=date,
             sort=sort_key,
             limit=limit,
-            token=token,
         )
     ]
     print(json.dumps(results, indent=2))
