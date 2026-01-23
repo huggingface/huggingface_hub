@@ -45,12 +45,15 @@ Options:
 Commands:
   auth                 Manage authentication (login, logout, etc.).
   cache                Manage local cache directory.
+  datasets             Interact with datasets on the Hub.
   download             Download files from the Hub.
   endpoints            Manage Hugging Face Inference Endpoints.
   env                  Print information about the environment.
   jobs                 Run and manage Jobs on the Hub.
+  models               Interact with models on the Hub.
   repo                 Manage repos on the Hub.
   repo-files           Manage files in a repo on the Hub.
+  spaces               Interact with spaces on the Hub.
   upload               Upload a file or a folder to the Hub.
   upload-large-folder  Upload a large folder to the Hub.
   version              Print information about the hf version.
