@@ -11160,7 +11160,7 @@ class HfApi:
             command = [
                 "bash",
                 "-c",
-                """echo $LOCAL_FILES_ENCODED | xargs -n 2 bash -c 'echo "$1" | cut -f2 | base64 -d > $(echo "$0" | cut -f1)' && """
+                """echo $LOCAL_FILES_ENCODED | xargs -n 2 bash -c 'echo "$1" | base64 -d > "$0"' && """
                 + f"uv run {' '.join(uv_args)} {script} {' '.join(script_args)}",
             ]
         return command, env, secrets
