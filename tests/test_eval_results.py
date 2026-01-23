@@ -4,10 +4,10 @@ from huggingface_hub import EvalResultEntry, eval_result_entries_to_yaml, parse_
 
 
 def test_eval_result_entry_minimal():
-    entry = EvalResultEntry(dataset_id="openai/gsm8k", value=86.2, task_id="main")
-    assert entry.dataset_id == "openai/gsm8k"
-    assert entry.value == 86.2
-    assert entry.task_id == "main"
+    entry = EvalResultEntry(dataset_id="cais/hle", value=20.90, task_id="default")
+    assert entry.dataset_id == "cais/hle"
+    assert entry.value == 20.90
+    assert entry.task_id == "default"
 
 
 def test_eval_result_entry_source_requires_url():
@@ -18,18 +18,18 @@ def test_eval_result_entry_source_requires_url():
 
 
 def test_eval_result_entries_to_yaml():
-    entries = [EvalResultEntry(dataset_id="openai/gsm8k", value=86.2, task_id="main")]
+    entries = [EvalResultEntry(dataset_id="cais/hle", value=20.90, task_id="default")]
     result = eval_result_entries_to_yaml(entries)
-    assert result == [{"dataset": {"id": "openai/gsm8k", "task_id": "main"}, "value": 86.2}]
+    assert result == [{"dataset": {"id": "cais/hle", "task_id": "default"}, "value": 20.90}]
 
 
 def test_parse_eval_result_entries():
-    data = [{"dataset": {"id": "openai/gsm8k", "task_id": "main"}, "value": 86.2}]
+    data = [{"dataset": {"id": "cais/hle", "task_id": "default"}, "value": 20.90}]
     entries = parse_eval_result_entries(data)
     assert len(entries) == 1
-    assert entries[0].dataset_id == "openai/gsm8k"
-    assert entries[0].value == 86.2
-    assert entries[0].task_id == "main"
+    assert entries[0].dataset_id == "cais/hle"
+    assert entries[0].value == 20.90
+    assert entries[0].task_id == "default"
 
 
 def test_parse_eval_result_entries_api_format():

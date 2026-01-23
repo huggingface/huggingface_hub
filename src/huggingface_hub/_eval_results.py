@@ -47,21 +47,21 @@ class EvalResultEntry:
         >>> from huggingface_hub import EvalResultEntry
         >>> # Minimal example with required fields only
         >>> result = EvalResultEntry(
-        ...     dataset_id="openai/gsm8k",
-        ...     value=86.2,
-        ...     task_id="main",
+        ...     dataset_id="Idavidrein/gpqa",
+        ...     value=0.412,
+        ...     task_id="gpqa_diamond",
         ... )
         >>> # Full example with all fields
         >>> result = EvalResultEntry(
-        ...     dataset_id="Idavidrein/gpqa",
-        ...     value=41.2,
-        ...     task_id="gpqa_diamond",
+        ...     dataset_id="cais/hle",
+        ...     value=20.90,
+        ...     task_id="default",
         ...     dataset_revision="5503434ddd753f426f4b38109466949a1217c2bb",
         ...     verify_token="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
         ...     date="2025-01-15T10:30:00Z",
-        ...     source_url="https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard",
-        ...     source_name="Open LLM Leaderboard",
-        ...     source_user="clefourrier",
+        ...     source_url="https://huggingface.co/datasets/cais/hle",
+        ...     source_name="CAIS HLE",
+        ...     source_org="cais",
         ... )
 
         ```
@@ -103,12 +103,12 @@ def eval_result_entries_to_yaml(entries: list[EvalResultEntry]) -> list[dict[str
         ```python
         >>> from huggingface_hub import EvalResultEntry, eval_result_entries_to_yaml
         >>> entries = [
-        ...     EvalResultEntry(dataset_id="openai/gsm8k", value=86.2, task_id="main"),
-        ...     EvalResultEntry(dataset_id="Idavidrein/gpqa", value=41.2, task_id="gpqa_diamond"),
+        ...     EvalResultEntry(dataset_id="cais/hle", value=20.90, task_id="default"),
+        ...     EvalResultEntry(dataset_id="Idavidrein/gpqa", value=0.412, task_id="gpqa_diamond"),
         ... ]
         >>> yaml_data = eval_result_entries_to_yaml(entries)
         >>> yaml_data[0]
-        {'dataset': {'id': 'openai/gsm8k', 'task_id': 'main'}, 'value': 86.2}
+        {'dataset': {'id': 'cais/hle', 'task_id': 'default'}, 'value': 20.9}
 
         ```
 
@@ -172,14 +172,14 @@ def parse_eval_result_entries(data: list[dict[str, Any]]) -> list[EvalResultEntr
         ```python
         >>> from huggingface_hub import parse_eval_result_entries
         >>> data = [
-        ...     {"dataset": {"id": "openai/gsm8k", "task_id": "main"}, "value": 86.2},
-        ...     {"dataset": {"id": "Idavidrein/gpqa", "task_id": "gpqa_diamond"}, "value": 41.2},
+        ...     {"dataset": {"id": "cais/hle", "task_id": "default"}, "value": 20.90},
+        ...     {"dataset": {"id": "Idavidrein/gpqa", "task_id": "gpqa_diamond"}, "value": 0.412},
         ... ]
         >>> entries = parse_eval_result_entries(data)
         >>> entries[0].dataset_id
-        'openai/gsm8k'
+        'cais/hle'
         >>> entries[0].value
-        86.2
+        20.9
 
         ```
     """
