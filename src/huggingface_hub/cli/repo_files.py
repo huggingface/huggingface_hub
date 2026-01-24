@@ -55,7 +55,7 @@ def repo_files_delete(
     patterns: Annotated[
         list[str],
         typer.Argument(
-            help="Glob patterns to match files to delete.",
+            help="Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.",
         ),
     ],
     repo_type: RepoTypeOpt = RepoType.model,

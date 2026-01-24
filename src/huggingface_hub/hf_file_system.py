@@ -266,7 +266,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         else:
             repo_type = constants.REPO_TYPE_MODEL
         if path.count("/") > 0:
-            if "@" in path:
+            if "@" in "/".join(path.split("/")[:2]):
                 repo_id, revision_in_path = path.split("@", 1)
                 if "/" in revision_in_path:
                     match = SPECIAL_REFS_REVISION_REGEX.search(revision_in_path)
@@ -1139,6 +1139,9 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         self.response: Optional[httpx.Response] = None
         self.fs: HfFileSystem
         self._exit_stack = ExitStack()
+        # streaming state
+        self._stream_iterator: Optional[Iterator[bytes]] = None
+        self._stream_buffer = bytearray()
 
     def seek(self, loc: int, whence: int = 0):
         if loc == 0 and whence == 1:
@@ -1161,9 +1164,9 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         retried_once = False
         while True:
             try:
-                if self.response is None:
+                if self.response is None or self._stream_iterator is None:
                     return b""  # Already read the entire file
-                out = _partial_read(self.response, length)
+                out = self._read_from_stream(self._stream_iterator, length)
                 self.loc += len(out)
                 return out
             except Exception:
@@ -1174,6 +1177,40 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 # First failure, retry with range header
                 self._open_connection()
                 retried_once = True
+
+    def _read_from_stream(self, iterator: Iterator[bytes], length: int = -1) -> bytes:
+        """Read up to `length` bytes from stream buffer and stream.
+
+        If length < 0, read until EOF.
+
+        If EOF is reached before length, fewer bytes may be returned.
+        """
+        if length == 0:
+            return b""
+
+        if length < 0:
+            buf = bytearray(self._stream_buffer)
+            self._stream_buffer.clear()
+            for chunk in iterator:
+                buf.extend(chunk)
+            return bytes(buf)
+
+        if length <= len(self._stream_buffer):
+            result = bytes(self._stream_buffer[:length])
+            del self._stream_buffer[:length]
+            return result
+
+        buf = bytearray(self._stream_buffer)
+        self._stream_buffer.clear()
+        for chunk in iterator:
+            need = length - len(buf)
+            if need > len(chunk):
+                buf.extend(chunk)
+            else:
+                buf.extend(chunk[:need])
+                self._stream_buffer.extend(chunk[need:])
+                break
+        return bytes(buf)
 
     def url(self) -> str:
         return self.fs.url(self.path)
@@ -1190,6 +1227,10 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
 
     def _open_connection(self):
         """Open a connection to the remote file."""
+        # reset streaming state
+        self._stream_buffer.clear()
+        self._stream_iterator = None
+
         url = hf_hub_url(
             repo_id=self.resolved_path.repo_id,
             revision=self.resolved_path.revision,
@@ -1218,6 +1259,8 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 return
             raise
 
+        self._stream_iterator = self.response.iter_bytes()
+
 
 def safe_revision(revision: str) -> str:
     return revision if SPECIAL_REFS_REVISION_REGEX.match(revision) else safe_quote(revision)
@@ -1240,29 +1283,6 @@ def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
 
 def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: str):
     return fs.open(path, mode=mode, block_size=block_size, cache_type=cache_type)
-
-
-def _partial_read(response: httpx.Response, length: int = -1) -> bytes:
-    """
-    Read up to `length` bytes from a streamed response.
-    If length == -1, read until EOF.
-    """
-    buf = bytearray()
-    if length < -1:
-        raise ValueError("length must be -1 or >= 0")
-    if length == 0:
-        return b""
-    if length == -1:
-        for chunk in response.iter_bytes():
-            buf.extend(chunk)
-        return bytes(buf)
-
-    for chunk in response.iter_bytes(chunk_size=length):
-        buf.extend(chunk)
-        if len(buf) >= length:
-            return bytes(buf[:length])
-
-    return bytes(buf)  # may be < length if response ended
 
 
 def make_instance(cls, args, kwargs, instance_state):

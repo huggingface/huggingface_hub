@@ -4,6 +4,9 @@ rendered properly in your Markdown viewer.
 # Run and manage Jobs
 
 The Hugging Face Hub provides compute for AI and data workflows via Jobs.
+
+**For a general overview of Jobs and pricing, see the [Hub Jobs documentation](https://huggingface.co/docs/hub/jobs).**
+
 A job runs on Hugging Face infrastructure and are defined with a command to run (e.g. a python command), a Docker Image from Hugging Face Spaces or Docker Hub, and a hardware flavor (CPU, GPU, TPU). This guide will show you how to interact with Jobs on the Hub, especially:
 
 - Run a job.

@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Literal, Optional, TypedDict
 
 from .. import constants
 from ..file_download import repo_folder_name
@@ -9,7 +9,7 @@ from .sha import git_hash, sha_fileobj
 
 
 if TYPE_CHECKING:
-    from ..hf_api import RepoFile, RepoFolder
+    from ..hf_api import RepoFile
 
 # using fullmatch for clarity and strictness
 _REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
@@ -91,7 +91,7 @@ def compute_file_hash(path: Path, algorithm: HashAlgo) -> str:
 
 def verify_maps(
     *,
-    remote_by_path: dict[str, Union["RepoFile", "RepoFolder"]],
+    remote_by_path: dict[str, "RepoFile"],
     local_by_path: dict[str, Path],
     revision: str,
     verified_path: Path,

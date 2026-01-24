@@ -63,7 +63,7 @@ from ._commit_api import (
 )
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
-from ._jobs_api import JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
+from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
@@ -1426,6 +1426,8 @@ class Organization:
             Number of datasets owned by the organization.
         num_followers (`int`, *optional*):
             Number of followers of the organization.
+        num_papers (`int`, *optional*):
+            Number of papers authored by the organization.
     """
 
     avatar_url: str
@@ -1439,6 +1441,7 @@ class Organization:
     num_spaces: Optional[int] = None
     num_datasets: Optional[int] = None
     num_followers: Optional[int] = None
+    num_papers: Optional[int] = None
 
     def __init__(self, **kwargs) -> None:
         self.avatar_url = kwargs.pop("avatarUrl", "")
@@ -1452,6 +1455,7 @@ class Organization:
         self.num_spaces = kwargs.pop("numSpaces", None)
         self.num_datasets = kwargs.pop("numDatasets", None)
         self.num_followers = kwargs.pop("numFollowers", None)
+        self.num_papers = kwargs.pop("numPapers", None)
 
         # forward compatibility
         self.__dict__.update(**kwargs)
@@ -3364,12 +3368,13 @@ class HfApi:
         )
         local_by_path = collect_local_files(root)
 
-        # get remote entries
-        remote_by_path: dict[str, Union[RepoFile, RepoFolder]] = {}
+        # get remote entries (only files, not folders)
+        remote_by_path: dict[str, RepoFile] = {}
         for entry in self.list_repo_tree(
             repo_id=repo_id, recursive=True, revision=remote_revision, repo_type=repo_type, token=token
         ):
-            remote_by_path[entry.path] = entry
+            if isinstance(entry, RepoFile):
+                remote_by_path[entry.path] = entry
 
         return verify_maps(
             remote_by_path=remote_by_path,
@@ -5154,7 +5159,10 @@ class HfApi:
                 `"username/custom_transformers"`
             delete_patterns (`list[str]`):
                 List of files or folders to delete. Each string can either be
-                a file path, a folder path or a Unix shell-style wildcard.
+                a file path, a folder path, or a wildcard pattern. Patterns are Standard
+                Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm).
+                The pattern matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
+                Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix shell globbing.
                 E.g. `["file.txt", "folder/", "data/*.parquet"]`
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
@@ -9943,6 +9951,7 @@ class HfApi:
         self,
         *,
         query: Optional[str] = None,
+        limit: Optional[int] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[PaperInfo]:
         """
@@ -9952,6 +9961,8 @@ class HfApi:
             query (`str`, *optional*):
                 A search query string to find papers.
                 If provided, returns papers that match the query.
+            limit (`int`, *optional*):
+                The maximum number of papers to return.
             token (Union[bool, str, None], *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -9973,9 +9984,11 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/papers/search"
-        params = {}
+        params: dict[str, Any] = {}
         if query:
             params["q"] = query
+        if limit is not None:
+            params["limit"] = limit
         r = get_session().get(
             path,
             params=params,
@@ -10452,6 +10465,34 @@ class HfApi:
         )
         response.raise_for_status()
         return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
+
+    def list_jobs_hardware(self, token: Union[bool, str, None] = None) -> list[JobHardware]:
+        """
+        List available hardware options for Jobs on Hugging Face infrastructure.
+
+        Returns:
+            `list[JobHardware]`: A list of available hardware configurations.
+
+        Example:
+
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> hardware_list = api.list_jobs_hardware()
+        >>> hardware_list[0]
+        JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
+        >>> hardware_list[0].name
+        'cpu-basic'
+
+        # Filter GPU options
+        >>> gpu_hardware = [hw for hw in hardware_list if hw.accelerator is not None]
+        >>> gpu_hardware[0].accelerator.model
+        'T4'
+        ```
+        """
+        response = get_session().get(f"{self.endpoint}/api/jobs/hardware", headers=self._build_hf_headers(token=token))
+        hf_raise_for_status(response)
+        return [JobHardware(**hardware) for hardware in response.json()]
 
     def inspect_job(
         self,
@@ -11427,6 +11468,7 @@ run_job = api.run_job
 fetch_job_logs = api.fetch_job_logs
 fetch_job_metrics = api.fetch_job_metrics
 list_jobs = api.list_jobs
+list_jobs_hardware = api.list_jobs_hardware
 inspect_job = api.inspect_job
 cancel_job = api.cancel_job
 run_uv_job = api.run_uv_job

@@ -50,7 +50,7 @@ UPLOAD_BATCH_SIZE_LFS = 1  # Otherwise, batches of 1 for regular LFS upload
 # Repository limits (from https://huggingface.co/docs/hub/repositories-recommendations)
 MAX_FILES_PER_REPO = 100_000  # Recommended maximum number of files per repository
 MAX_FILES_PER_FOLDER = 10_000  # Recommended maximum number of files per folder
-MAX_FILE_SIZE_GB = 50  # Hard limit for individual file size
+MAX_FILE_SIZE_GB = 200  # Recommended maximum for individual file size (split larger files)
 RECOMMENDED_FILE_SIZE_GB = 20  # Recommended maximum for individual file size
 
 
@@ -64,7 +64,7 @@ def _validate_upload_limits(paths_list: list[LocalUploadFilePaths]) -> None:
     Warns about:
         - Too many files in the repository (>100k)
         - Too many entries (files or subdirectories) in a single folder (>10k)
-        - Files exceeding size limits (>20GB recommended, >50GB hard limit)
+        - Files exceeding size limits (>20GB recommended, >200GB maximum)
     """
     logger.info("Running validation checks on files to upload...")
 
@@ -127,14 +127,14 @@ def _validate_upload_limits(paths_list: list[LocalUploadFilePaths]) -> None:
         elif size_gb > RECOMMENDED_FILE_SIZE_GB:
             large_files.append((paths.path_in_repo, size_gb))
 
-    # Warn about very large files (>50GB)
+    # Warn about very large files (>200GB)
     if very_large_files:
         files_str = "\n  - ".join(f"{path}: {size:.1f}GB" for path, size in very_large_files[:5])
         more_str = f"\n  ... and {len(very_large_files) - 5} more files" if len(very_large_files) > 5 else ""
         logger.warning(
-            f"Found {len(very_large_files)} files exceeding the {MAX_FILE_SIZE_GB}GB hard limit:\n"
+            f"Found {len(very_large_files)} files exceeding the {MAX_FILE_SIZE_GB}GB recommended maximum:\n"
             f"  - {files_str}{more_str}\n"
-            f"These files may fail to upload. Consider splitting them into smaller chunks."
+            f"Consider splitting these files into smaller chunks."
         )
 
     # Warn about large files (>20GB)
@@ -197,6 +197,30 @@ def upload_large_folder_internal(
     repo_url = api.create_repo(repo_id=repo_id, repo_type=repo_type, private=private, exist_ok=True)
     logger.info(f"Repo created: {repo_url}")
     repo_id = repo_url.repo_id
+
+    # Warn on too many commits
+    try:
+        commits = api.list_repo_commits(repo_id=repo_id, repo_type=repo_type, revision=revision)
+        commit_count = len(commits)
+        if commit_count > 500:
+            logger.warning(
+                f"\n{'=' * 80}\n"
+                f"WARNING: This repository has {commit_count} commits.\n"
+                f"Repositories with a large number of commits can experience performance issues.\n"
+                f"\n"
+                f"Consider squashing your commit history using `super_squash_history()`.\n"
+                "To do so, you need to stop this process, run the snippet below and restart the upload command."
+                f"  from huggingface_hub import super_squash_history\n"
+                f"  super_squash_history(repo_id='{repo_id}', repo_type='{repo_type}')\n"
+                f"\n"
+                f"Note: This is a non-revertible operation. See the documentation for more details:\n"
+                f"https://huggingface.co/docs/huggingface_hub/main/en/package_reference/hf_api#huggingface_hub.HfApi.super_squash_history\n"
+                f"{'=' * 80}\n"
+            )
+    except Exception as e:
+        # Don't fail the upload if we can't check commit count
+        logger.debug(f"Could not check commit count: {e}")
+
     # 2.1 Check if xet is enabled to set batch file upload size
     upload_batch_size = UPLOAD_BATCH_SIZE_XET if is_xet_available() else UPLOAD_BATCH_SIZE_LFS
 

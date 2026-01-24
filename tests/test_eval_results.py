@@ -12,6 +12,8 @@ def test_eval_result_entry_minimal():
 def test_eval_result_entry_source_requires_url():
     with pytest.raises(ValueError):
         EvalResultEntry(dataset_id="test", value=1.0, source_name="Test")
+    with pytest.raises(ValueError):
+        EvalResultEntry(dataset_id="test", value=1.0, source_org="test-org")
 
 
 def test_eval_result_entries_to_yaml():
