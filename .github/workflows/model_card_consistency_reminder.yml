@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: maintain-comment
-        uses: actions-cool/maintain-one-comment@v3.2.0
+        uses: actions-cool/maintain-one-comment@v3
         with:
           body: |
             It looks like you've updated code related to model or dataset cards in this PR.
