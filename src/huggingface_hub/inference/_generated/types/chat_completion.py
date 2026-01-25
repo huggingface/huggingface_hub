@@ -67,6 +67,10 @@ class ChatCompletionInputJSONSchema(BaseInferenceType):
     true, the model will always follow the exact schema defined in the `schema`
     field.
     """
+    defs: Optional[dict[str, object]] = None
+    """
+    Schema definitions referenced via $ref. Maps to the "$defs" field in JSON Schema.
+    """
 
 
 @dataclass_with_extra
