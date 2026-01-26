@@ -95,7 +95,7 @@ def spaces_ls(
     ]
 
     def row_fn(item: dict[str, object]) -> list[str]:
-        last_modified = item.get("last_modified", "")
+        last_modified = item.get("last_modified") or item.get("created_at") or ""
         updated = str(last_modified)[:10] if last_modified else ""
         repo_id = str(item.get("id", ""))
         author = str(item.get("author", "")) or (repo_id.split("/")[0] if "/" in repo_id else "")
