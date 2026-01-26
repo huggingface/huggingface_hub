@@ -173,7 +173,7 @@ def print_as_table(
     if not items:
         print("No results found.")
         return
-    rows = [row_fn(item) for item in items]
+    rows: list[list[str]] = [row_fn(item) for item in items]
     print(tabulate(rows, headers=headers))
 
 
