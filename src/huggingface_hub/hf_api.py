@@ -2257,7 +2257,7 @@ class HfApi:
             author (`str`, *optional*):
                 A string which identify the author of the returned datasets.
             benchmark (`True`, `"official"`, `str`, *optional*):
-                Filter datasets by benchmark. Can be `True` or `"official"` to returns official benchmark datasets.
+                Filter datasets by benchmark. Can be `True` or `"official"` to return official benchmark datasets.
                 For future-compatibility, can also be a string representing the benchmark name (currently only "official" is supported).
             dataset_name (`str`, *optional*):
                 A string or list of strings that can be used to identify datasets on
