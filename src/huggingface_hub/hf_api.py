@@ -2229,7 +2229,7 @@ class HfApi:
         # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
-        benchmark: Optional[Union[Literal[True], Literal["official"], str, list[str]]] = None,
+        benchmark: Optional[Union[Literal[True], Literal["official"], str]] = None,
         dataset_name: Optional[str] = None,
         gated: Optional[bool] = None,
         language_creators: Optional[Union[str, list[str]]] = None,
@@ -2256,11 +2256,9 @@ class HfApi:
                 A string or list of string to filter datasets on the hub.
             author (`str`, *optional*):
                 A string which identify the author of the returned datasets.
-            benchmark (`True`, `"official"`, `str` or `List`, *optional*):
-                Filter datasets by benchmark. Can be:
-                - `True` or `"official"`: returns official benchmark datasets
-                - Any other string: returns datasets with that specific benchmark tag (e.g., `"raft"`)
-                - A list of strings: returns datasets matching any of the benchmark tags
+            benchmark (`True`, `"official"`, `str`, *optional*):
+                Filter datasets by benchmark. Can be `True` or `"official"` to returns official benchmark datasets.
+                For future-compatibility, can also be a string representing the benchmark name (currently only "official" is supported).
             dataset_name (`str`, *optional*):
                 A string or list of strings that can be used to identify datasets on
                 the Hub by its name, such as `SQAC` or `wikineural`
@@ -2360,10 +2358,6 @@ class HfApi:
         if expand and full:
             raise ValueError("`expand` cannot be used if `full` is passed.")
 
-        # Handle benchmark=True as an alias for benchmark="official"
-        if benchmark is True:
-            benchmark = "official"
-
         path = f"{self.endpoint}/api/datasets"
         headers = self._build_hf_headers(token=token)
         params: dict[str, Any] = {}
@@ -2376,7 +2370,6 @@ class HfApi:
             else:
                 filter_list.extend(filter)
         for key, value in (
-            ("benchmark", benchmark),
             ("language_creators", language_creators),
             ("language", language),
             ("multilinguality", multilinguality),
@@ -2401,6 +2394,10 @@ class HfApi:
             params["author"] = author
         if gated is not None:
             params["gated"] = gated
+        if benchmark is not None:
+            if benchmark is True: # alias for official benchmark
+                benchmark = "official"
+            params["benchmark"] = f"benchmark:{benchmark}"
         search_list = []
         if dataset_name:
             search_list.append(dataset_name)
