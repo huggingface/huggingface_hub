@@ -31,6 +31,13 @@ from huggingface_hub.cli.upload import upload
 from huggingface_hub.cli.upload_large_folder import upload_large_folder
 from huggingface_hub.utils import logging
 
+try:
+    from huggingface_hub.inference._mcp.cli import app as agent_cli
+
+    _agent_cli_available = True
+except ImportError:
+    _agent_cli_available = False
+
 
 app = typer_factory(help="Hugging Face Hub CLI")
 
@@ -55,6 +62,10 @@ app.add_typer(repo_cli, name="repo")
 app.add_typer(repo_files_cli, name="repo-files")
 app.add_typer(spaces_cli, name="spaces")
 app.add_typer(ie_cli, name="endpoints")
+
+# Add agent CLI if mcp extra is installed
+if _agent_cli_available:
+    app.add_typer(agent_cli, name="agent")
 
 
 def main():

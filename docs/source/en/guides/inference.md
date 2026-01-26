@@ -464,6 +464,9 @@ For even simpler development, we offer a higher-level [`Agent`] class. This 'Tin
 # install latest version of huggingface_hub with the mcp extra
 pip install -U huggingface_hub[mcp]
 # Run an agent that uses the Flux image generation tool
+hf agent run julien-c/flux-schnell-generator
+
+# alternatively, you can use the standalone command:
 tiny-agents run julien-c/flux-schnell-generator
 
 ```
