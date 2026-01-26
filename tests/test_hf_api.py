@@ -2093,9 +2093,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert "DataMeasurementsFiles" in datasets[0].id
 
     def test_filter_datasets_by_benchmark(self):
-        datasets = list(self._api.list_datasets(benchmark="raft"))
-        assert len(datasets) > 0
-        assert "benchmark:raft" in datasets[0].tags
+        datasets = list(self._api.list_datasets(benchmark="official"))
+        assert len(datasets) >= 4
+        assert "benchmark:official" in datasets[0].tags
 
     def test_filter_datasets_by_language_creator(self):
         datasets = list(self._api.list_datasets(language_creators="crowdsourced"))
