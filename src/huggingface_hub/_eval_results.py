@@ -41,6 +41,8 @@ class EvalResultEntry:
             HF user name for attribution. Example: "celinah".
         source_org (`str`, *optional*):
             HF org name for attribution. Example: "cais".
+        notes (`str`, *optional*):
+            Details about the evaluation setup. Example: "tools", "no-tools", "chain-of-thought".
 
     Example:
         ```python
@@ -62,6 +64,7 @@ class EvalResultEntry:
         ...     source_url="https://huggingface.co/datasets/cais/hle",
         ...     source_name="CAIS HLE",
         ...     source_org="cais",
+        ...     notes="no-tools",
         ... )
 
         ```
@@ -77,6 +80,7 @@ class EvalResultEntry:
     source_name: Optional[str] = None
     source_user: Optional[str] = None
     source_org: Optional[str] = None
+    notes: Optional[str] = None
 
     def __post_init__(self) -> None:
         if (
@@ -150,6 +154,8 @@ def eval_result_entries_to_yaml(entries: list[EvalResultEntry]) -> list[dict[str
             if entry.source_org is not None:
                 source["org"] = entry.source_org
             data["source"] = source
+        if entry.notes is not None:
+            data["notes"] = entry.notes
 
         result.append(data)
     return result
@@ -199,6 +205,7 @@ def parse_eval_result_entries(data: list[dict[str, Any]]) -> list[EvalResultEntr
             source_name=source.get("name") if source else None,
             source_user=source.get("user") if source else None,
             source_org=source.get("org") if source else None,
+            notes=entry_data.get("notes"),
         )
         entries.append(entry)
     return entries
