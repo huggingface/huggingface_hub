@@ -95,14 +95,24 @@ def models_ls(
     ]
 
     def row_fn(item: dict[str, object]) -> list[str]:
-        return [str(item.get("id", "")), str(item.get("author", "")), str(item.get("private", ""))]
+        last_modified = item.get("last_modified", "")
+        updated = str(last_modified)[:10] if last_modified else ""
+        repo_id = str(item.get("id", ""))
+        author = str(item.get("author", "")) or (repo_id.split("/")[0] if "/" in repo_id else "")
+        return [
+            repo_id,
+            author,
+            str(item.get("downloads", "") or ""),
+            str(item.get("likes", "") or ""),
+            updated,
+        ]
 
     print_list_output(
         items=results,
         format=format,
         quiet=quiet,
         id_key="id",
-        headers=["ID", "AUTHOR", "PRIVATE"],
+        headers=["ID", "AUTHOR", "DOWNLOADS", "LIKES", "UPDATED"],
         row_fn=row_fn,
     )
 

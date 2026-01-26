@@ -56,10 +56,14 @@ def ls(
     def row_fn(item: dict[str, Any]) -> list[str]:
         status = item.get("status", {})
         model = item.get("model", {})
+        compute = item.get("compute", {})
+        provider = item.get("provider", {})
         return [
             str(item.get("name", "")),
-            str(status.get("state", "") if isinstance(status, dict) else ""),
             str(model.get("repository", "") if isinstance(model, dict) else ""),
+            str(status.get("state", "") if isinstance(status, dict) else ""),
+            str(compute.get("instanceType", "") if isinstance(compute, dict) else ""),
+            str(provider.get("region", "") if isinstance(provider, dict) else ""),
         ]
 
     print_list_output(
@@ -67,7 +71,7 @@ def ls(
         format=format,
         quiet=quiet,
         id_key="name",
-        headers=["NAME", "STATUS", "REPOSITORY"],
+        headers=["NAME", "MODEL", "STATUS", "INSTANCE", "REGION"],
         row_fn=row_fn,
     )
 
