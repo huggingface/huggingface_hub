@@ -429,7 +429,7 @@ class CommitInfo(str):
     commit_message: str
     commit_description: str
     oid: str
-    _endpoint: Optional[str] = field(repr=False)
+    _endpoint: Optional[str] = field(default=None, repr=False)
     pr_url: Optional[str] = None
 
     # Computed from `commit_url` in `__post_init__`
