@@ -54,10 +54,12 @@ def ls(
     results = [endpoint.raw for endpoint in endpoints]
 
     def row_fn(item: dict[str, object]) -> list[str]:
+        status = item.get("status")
+        model = item.get("model")
         return [
             str(item.get("name", "")),
-            str(item.get("status", {}).get("state", "") if isinstance(item.get("status"), dict) else ""),
-            str(item.get("model", {}).get("repository", "") if isinstance(item.get("model"), dict) else ""),
+            str(status.get("state", "") if isinstance(status, dict) else ""),
+            str(model.get("repository", "") if isinstance(model, dict) else ""),
         ]
 
     print_list_output(
