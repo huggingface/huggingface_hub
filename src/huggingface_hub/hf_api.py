@@ -2229,7 +2229,7 @@ class HfApi:
         # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
-        benchmark: Optional[Union[str, list[str]]] = None,
+        benchmark: Optional[Union[Literal[True], Literal["official"], str, list[str]]] = None,
         dataset_name: Optional[str] = None,
         gated: Optional[bool] = None,
         language_creators: Optional[Union[str, list[str]]] = None,
@@ -2256,9 +2256,11 @@ class HfApi:
                 A string or list of string to filter datasets on the hub.
             author (`str`, *optional*):
                 A string which identify the author of the returned datasets.
-            benchmark (`str` or `List`, *optional*):
-                A string or list of strings that can be used to identify datasets on
-                the Hub by their official benchmark.
+            benchmark (`True`, `"official"`, `str` or `List`, *optional*):
+                Filter datasets by benchmark. Can be:
+                - `True` or `"official"`: returns official benchmark datasets
+                - Any other string: returns datasets with that specific benchmark tag (e.g., `"raft"`)
+                - A list of strings: returns datasets matching any of the benchmark tags
             dataset_name (`str`, *optional*):
                 A string or list of strings that can be used to identify datasets on
                 the Hub by its name, such as `SQAC` or `wikineural`
@@ -2358,6 +2360,10 @@ class HfApi:
         if expand and full:
             raise ValueError("`expand` cannot be used if `full` is passed.")
 
+        # Handle benchmark=True as an alias for benchmark="official"
+        if benchmark is True:
+            benchmark = "official"
+
         path = f"{self.endpoint}/api/datasets"
         headers = self._build_hf_headers(token=token)
         params: dict[str, Any] = {}
@@ -2384,6 +2390,8 @@ class HfApi:
                 for value_item in value:
                     if not value_item.startswith(f"{key}:"):
                         data = f"{key}:{value_item}"
+                    else:
+                        data = value_item
                     filter_list.append(data)
         if len(filter_list) > 0:
             params["filter"] = filter_list

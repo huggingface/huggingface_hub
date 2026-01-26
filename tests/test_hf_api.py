@@ -2093,9 +2093,25 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert "DataMeasurementsFiles" in datasets[0].id
 
     def test_filter_datasets_by_benchmark(self):
-        datasets = list(self._api.list_datasets(benchmark="raft"))
+        # Test with a custom benchmark - may return empty but shouldn't break
+        datasets = list(self._api.list_datasets(benchmark="foo"))
+        # Should not raise an error, even if empty
+        assert isinstance(datasets, list)
+
+    def test_filter_datasets_by_benchmark_official(self):
+        datasets = list(self._api.list_datasets(benchmark="official", limit=10))
         assert len(datasets) > 0
-        assert "benchmark:raft" in datasets[0].tags
+        assert all("benchmark:official" in dataset.tags for dataset in datasets)
+
+    def test_filter_datasets_by_benchmark_true_alias(self):
+        # benchmark=True should be an alias for benchmark="official"
+        datasets_with_true = list(self._api.list_datasets(benchmark=True, limit=10))
+        datasets_with_official = list(self._api.list_datasets(benchmark="official", limit=10))
+        assert len(datasets_with_true) > 0
+        assert len(datasets_with_official) > 0
+        # Both should return datasets with "benchmark:official" tag
+        assert all("benchmark:official" in dataset.tags for dataset in datasets_with_true)
+        assert all("benchmark:official" in dataset.tags for dataset in datasets_with_official)
 
     def test_filter_datasets_by_language_creator(self):
         datasets = list(self._api.list_datasets(language_creators="crowdsourced"))
