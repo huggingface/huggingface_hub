@@ -130,7 +130,7 @@ LabelsOpt = Annotated[
     typer.Option(
         "-l",
         "--label",
-        help="Set labels. E.g. --label KEY=VALUE" or --label LABEL,
+        help="Set labels. E.g. --label KEY=VALUE or --label LABEL",
     ),
 ]
 
