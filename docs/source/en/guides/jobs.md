@@ -319,8 +319,21 @@ You can pass environment variables to your job using `env` and `secrets`:
 ... )
 ```
 
+## Labels
 
-### UV Scripts (Experimental)
+Labels are a key=value pairs that applies metadata to a Job:
+
+```python
+# Pass extra metadata with Labels
+>>> from huggingface_hub import run_job
+>>> run_job(
+...     image="python:3.12",
+...     command=["python", "-c", "import os; print(os.environ['MY_SECRET'])"],
+...     labels={"my-label": "my-value", "foo": "bar"},
+... )
+```
+
+## UV Scripts (Experimental)
 
 > [!TIP]
 > Looking for ready-to-use UV scripts? Check out the [uv-scripts organization](https://huggingface.co/uv-scripts) on the Hugging Face Hub, which offers a community collection of UV scripts for tasks like model training, synthetic data generation, data processing, and more.

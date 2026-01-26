@@ -1057,6 +1057,16 @@ Available `--flavor` options:
 
 (updated in 07/2025 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
 
+### Labels
+
+Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that applies metadata to a Job. To label a Job with two labels, repeat the label flag (`-l` or `--label`):
+
+```
+>>> hf jobs run -l my-label --label foo=bar ubuntu echo "This Job has multiple labels"
+```
+
+The my-label key doesn't specify a value so its value defaults to an empty string ("").
+
 ### UV Scripts (Experimental)
 
 Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
