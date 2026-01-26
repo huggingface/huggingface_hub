@@ -95,8 +95,6 @@ def spaces_ls(
     ]
 
     def row_fn(item: dict[str, object]) -> list[str]:
-        last_modified = item.get("last_modified") or item.get("created_at") or ""
-        updated = str(last_modified)[:10] if last_modified else ""
         repo_id = str(item.get("id", ""))
         author = str(item.get("author", "")) or (repo_id.split("/")[0] if "/" in repo_id else "")
         return [
@@ -104,7 +102,6 @@ def spaces_ls(
             author,
             str(item.get("sdk", "") or ""),
             str(item.get("likes", "") or ""),
-            updated,
         ]
 
     print_list_output(
@@ -112,7 +109,7 @@ def spaces_ls(
         format=format,
         quiet=quiet,
         id_key="id",
-        headers=["ID", "AUTHOR", "SDK", "LIKES", "UPDATED"],
+        headers=["ID", "AUTHOR", "SDK", "LIKES"],
         row_fn=row_fn,
     )
 
