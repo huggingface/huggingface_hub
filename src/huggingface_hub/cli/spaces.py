@@ -37,12 +37,16 @@ from huggingface_hub.utils import ANSI
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
+    FormatOpt,
     LimitOpt,
+    OutputFormat,
+    QuietOpt,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
     get_hf_api,
     make_expand_properties_parser,
+    print_list_output,
     repo_info_to_dict,
     typer_factory,
 )
@@ -76,6 +80,8 @@ def spaces_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
+    format: FormatOpt = OutputFormat.json,
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List spaces on the Hub."""
@@ -87,7 +93,18 @@ def spaces_ls(
             filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
-    print(json.dumps(results, indent=2))
+
+    def row_fn(item: dict[str, object]) -> list[str]:
+        return [str(item.get("id", "")), str(item.get("author", "")), str(item.get("private", ""))]
+
+    print_list_output(
+        items=results,
+        format=format,
+        quiet=quiet,
+        id_key="id",
+        headers=["ID", "AUTHOR", "PRIVATE"],
+        row_fn=row_fn,
+    )
 
 
 @spaces_cli.command("info")

@@ -37,7 +37,7 @@ from ..utils import (
     tabulate,
 )
 from ..utils._parsing import parse_duration, parse_size
-from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import OutputFormat, RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 
 
 cache_cli = typer_factory(help="Manage local cache directory.")
@@ -46,7 +46,9 @@ cache_cli = typer_factory(help="Manage local cache directory.")
 #### Cache helper utilities
 
 
-class OutputFormat(str, Enum):
+class CacheOutputFormat(str, Enum):
+    """Output format for cache ls command (includes csv for backward compatibility)."""
+
     table = "table"
     json = "json"
     csv = "csv"
@@ -518,11 +520,11 @@ def ls(
         ),
     ] = None,
     format: Annotated[
-        OutputFormat,
+        CacheOutputFormat,
         typer.Option(
             help="Output format.",
         ),
-    ] = OutputFormat.table,
+    ] = CacheOutputFormat.table,
     quiet: Annotated[
         bool,
         typer.Option(
@@ -586,9 +588,9 @@ def ls(
         return
 
     formatters = {
-        OutputFormat.table: print_cache_entries_table,
-        OutputFormat.json: print_cache_entries_json,
-        OutputFormat.csv: print_cache_entries_csv,
+        CacheOutputFormat.table: print_cache_entries_table,
+        CacheOutputFormat.json: print_cache_entries_json,
+        CacheOutputFormat.csv: print_cache_entries_csv,
     }
     return formatters[format](entries, include_revisions=revisions, repo_refs_map=repo_refs_map)
 

@@ -8,7 +8,7 @@ import typer
 from huggingface_hub._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric
 from huggingface_hub.errors import HfHubHTTPError
 
-from ._cli_utils import TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import FormatOpt, OutputFormat, QuietOpt, TokenOpt, get_hf_api, print_list_output, typer_factory
 
 
 ie_cli = typer_factory(help="Manage Hugging Face Inference Endpoints.")
@@ -39,6 +39,8 @@ def _print_endpoint(endpoint: InferenceEndpoint) -> None:
 @ie_cli.command()
 def ls(
     namespace: NamespaceOpt = None,
+    format: FormatOpt = OutputFormat.json,
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """Lists all Inference Endpoints for the given namespace."""
@@ -49,12 +51,22 @@ def ls(
         typer.echo(f"Listing failed: {error}")
         raise typer.Exit(code=error.response.status_code) from error
 
-    typer.echo(
-        json.dumps(
-            {"items": [endpoint.raw for endpoint in endpoints]},
-            indent=2,
-            sort_keys=True,
-        )
+    results = [endpoint.raw for endpoint in endpoints]
+
+    def row_fn(item: dict[str, object]) -> list[str]:
+        return [
+            str(item.get("name", "")),
+            str(item.get("status", {}).get("state", "") if isinstance(item.get("status"), dict) else ""),
+            str(item.get("model", {}).get("repository", "") if isinstance(item.get("model"), dict) else ""),
+        ]
+
+    print_list_output(
+        items=results,
+        format=format,
+        quiet=quiet,
+        id_key="name",
+        headers=["NAME", "STATUS", "REPOSITORY"],
+        row_fn=row_fn,
     )
 
 
