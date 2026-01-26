@@ -35,7 +35,9 @@ def test_eval_result_entries_to_yaml():
 def test_eval_result_entries_to_yaml_with_notes():
     entries = [EvalResultEntry(dataset_id="cais/hle", task_id="default", value=20.90, notes="chain-of-thought")]
     result = eval_result_entries_to_yaml(entries)
-    assert result == [{"dataset": {"id": "cais/hle", "task_id": "default"}, "value": 20.90, "notes": "chain-of-thought"}]
+    assert result == [
+        {"dataset": {"id": "cais/hle", "task_id": "default"}, "value": 20.90, "notes": "chain-of-thought"}
+    ]
 
 
 def test_parse_eval_result_entries():
