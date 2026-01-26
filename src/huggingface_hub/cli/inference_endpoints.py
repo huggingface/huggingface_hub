@@ -1,7 +1,7 @@
 """CLI commands for Hugging Face Inference Endpoints."""
 
 import json
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
 import typer
 
@@ -53,15 +53,13 @@ def ls(
 
     results = [endpoint.raw for endpoint in endpoints]
 
-    def row_fn(item: dict[str, object]) -> list[str]:
-        status = item.get("status")
-        model = item.get("model")
-        state = status["state"] if isinstance(status, dict) and "state" in status else ""
-        repository = model["repository"] if isinstance(model, dict) and "repository" in model else ""
+    def row_fn(item: dict[str, Any]) -> list[str]:
+        status = item.get("status", {})
+        model = item.get("model", {})
         return [
             str(item.get("name", "")),
-            str(state),
-            str(repository),
+            str(status.get("state", "") if isinstance(status, dict) else ""),
+            str(model.get("repository", "") if isinstance(model, dict) else ""),
         ]
 
     print_list_output(
