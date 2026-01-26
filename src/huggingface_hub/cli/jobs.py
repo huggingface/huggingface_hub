@@ -130,7 +130,7 @@ LabelsOpt = Annotated[
     typer.Option(
         "-l",
         "--label",
-        help="Set labels. E.g. --label KEY=VALUE",
+        help="Set labels. E.g. --label KEY=VALUE" or --label LABEL,
     ),
 ]
 
@@ -913,23 +913,16 @@ def _parse_labels_map(labels: Optional[list[str]]) -> Optional[dict[str, str]]:
     """Parse label key-value pairs from CLI arguments.
 
     Args:
-        labels: List of label strings in KEY=VALUE format.
+        labels: List of label strings in KEY=VALUE format. If KEY only, then VALUE is set to empty string.
 
     Returns:
         Dictionary mapping label keys to values, or None if no labels provided.
-
-    Raises:
-        ValueError: If any label is not in KEY=VALUE format.
     """
     if not labels:
         return None
     labels_map: dict[str, str] = {}
     for label_var in labels:
-        equal_index = label_var.find("=")
-        if equal_index == -1:
-            raise ValueError(f"Invalid label format: {label_var}. Expected KEY=VALUE")
-        key = label_var[:equal_index]
-        value = label_var[equal_index + 1 :]
+        key, value = label_var.split("=", 1) if "=" in label_var else (label_var, "")
         labels_map[key] = value
     return labels_map
 
