@@ -4,14 +4,6 @@ from huggingface_hub import EvalResultEntry, eval_result_entries_to_yaml, parse_
 
 
 def test_eval_result_entry_minimal():
-    entry = EvalResultEntry(dataset_id="cais/hle", task_id="default", value=20.90)
-    assert entry.dataset_id == "cais/hle"
-    assert entry.value == 20.90
-    assert entry.task_id == "default"
-    assert entry.notes is None
-
-
-def test_eval_result_entry_with_notes():
     entry = EvalResultEntry(dataset_id="cais/hle", task_id="default", value=20.90, notes="no-tools")
     assert entry.dataset_id == "cais/hle"
     assert entry.value == 20.90
@@ -27,15 +19,11 @@ def test_eval_result_entry_source_requires_url():
 
 
 def test_eval_result_entries_to_yaml():
-    entries = [EvalResultEntry(dataset_id="cais/hle", task_id="default", value=20.90)]
-    result = eval_result_entries_to_yaml(entries)
-    assert result == [{"dataset": {"id": "cais/hle", "task_id": "default"}, "value": 20.90}]
-
-
-def test_eval_result_entries_to_yaml_with_notes():
     entries = [EvalResultEntry(dataset_id="cais/hle", task_id="default", value=20.90, notes="chain-of-thought")]
     result = eval_result_entries_to_yaml(entries)
-    assert result == [{"dataset": {"id": "cais/hle", "task_id": "default"}, "value": 20.90, "notes": "chain-of-thought"}]
+    assert result == [
+        {"dataset": {"id": "cais/hle", "task_id": "default"}, "value": 20.90, "notes": "chain-of-thought"}
+    ]
 
 
 def test_parse_eval_result_entries():
