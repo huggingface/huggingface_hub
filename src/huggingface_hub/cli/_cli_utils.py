@@ -21,7 +21,7 @@ import os
 import time
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Callable, Literal, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Annotated, Callable, Literal, Optional, Sequence, Union, cast
 
 import click
 import typer
@@ -173,7 +173,7 @@ def print_as_table(
     if not items:
         print("No results found.")
         return
-    rows: list[list[str]] = [row_fn(item) for item in items]
+    rows = cast(list[list[Union[str, int]]], [row_fn(item) for item in items])
     print(tabulate(rows, headers=headers))
 
 
