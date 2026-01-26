@@ -82,6 +82,8 @@ def WeakFileLock(
     This filelock is weaker than the default filelock in that:
     1. It won't raise an exception if release fails.
     2. It will default to a SoftFileLock if the filesystem does not support flock.
+    3. Lock files are created with mode 0o664 (group-writable) instead of the default 0o644.
+       This allows multiple users sharing a cache directory to wait for locks.
 
     An INFO log message is emitted every 10 seconds if the lock is not acquired immediately.
     If a timeout is provided, a `filelock.Timeout` exception is raised if the lock is not acquired within the timeout.
