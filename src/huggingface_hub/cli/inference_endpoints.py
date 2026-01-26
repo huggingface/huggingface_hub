@@ -56,10 +56,12 @@ def ls(
     def row_fn(item: dict[str, object]) -> list[str]:
         status = item.get("status")
         model = item.get("model")
+        state = status["state"] if isinstance(status, dict) and "state" in status else ""
+        repository = model["repository"] if isinstance(model, dict) and "repository" in model else ""
         return [
             str(item.get("name", "")),
-            str(status.get("state", "") if isinstance(status, dict) else ""),
-            str(model.get("repository", "") if isinstance(model, dict) else ""),
+            str(state),
+            str(repository),
         ]
 
     print_list_output(
