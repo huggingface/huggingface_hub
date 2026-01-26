@@ -291,7 +291,7 @@ def jobs_run(
     if detach:
         return
     # Now let's stream the logs
-    for log in api.fetch_job_logs(job_id=job.id):
+    for log in api.fetch_job_logs(job_id=job.id, namespace=namespace or job.owner.name):
         print(log)
 
 
@@ -648,7 +648,7 @@ def jobs_uv_run(
     if detach:
         return
     # Now let's stream the logs
-    for log in api.fetch_job_logs(job_id=job.id):
+    for log in api.fetch_job_logs(job_id=job.id, namespace=namespace or job.owner.name):
         print(log)
 
 
