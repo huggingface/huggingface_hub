@@ -2395,7 +2395,7 @@ class HfApi:
         if gated is not None:
             params["gated"] = gated
         if benchmark is not None:
-            if benchmark is True: # alias for official benchmark
+            if benchmark is True:  # alias for official benchmark
                 benchmark = "official"
             params["benchmark"] = f"benchmark:{benchmark}"
         search_list = []

@@ -2106,8 +2106,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
         # Exact same calls to paginate
         assert mock_paginate.call_count == 2
-        mock_paginate.call_args_list[0][1]["params"] == {'benchmark': ['benchmark:official']}
-        mock_paginate.call_args_list[1][1]["params"] == {'benchmark': ['benchmark:official']}
+        mock_paginate.call_args_list[0][1]["params"] == {"benchmark": ["benchmark:official"]}
+        mock_paginate.call_args_list[1][1]["params"] == {"benchmark": ["benchmark:official"]}
 
     def test_filter_datasets_by_benchmark_custom(self):
         # Test with a custom benchmark - may return empty but shouldn't break
