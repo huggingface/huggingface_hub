@@ -92,7 +92,7 @@ class GroupedTyperGroup(AlphabeticalMixedGroup):
                 commands.append((name, help_text))
 
         if commands:
-            with formatter.section("Core Commands"):
+            with formatter.section("Commands"):
                 formatter.write_dl(commands)
         if help_topics:
             with formatter.section("Help Topics"):
