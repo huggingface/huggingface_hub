@@ -21,7 +21,7 @@ Usage:
     hf skills add --claude --codex --opencode
 
     # install into the current project directory (.claude/skills/)
-    hf skills add --local
+    hf skills add --project
 
     # install to a custom directory
     hf skills add --dest=~/my-skills
@@ -118,9 +118,9 @@ def skills_add(
         bool,
         typer.Option("--opencode", help="Install for OpenCode."),
     ] = False,
-    local: Annotated[
+    project: Annotated[
         bool,
-        typer.Option("--local", help="Install into the current directory (.claude/skills/)."),
+        typer.Option("--project", help="Install into the current directory (.claude/skills/)."),
     ] = False,
     dest: Annotated[
         Optional[Path],
@@ -136,8 +136,8 @@ def skills_add(
         print(f"For now, the only supported skill is '{DEFAULT_SKILL_ID}' (which is the default).")
         raise typer.Exit(code=1)
 
-    if not (claude or codex or opencode or local or dest):
-        print("Pick a destination via --claude, --codex, --opencode, --local, or --dest.")
+    if not (claude or codex or opencode or project or dest):
+        print("Pick a destination via --claude, --codex, --opencode, --project, or --dest.")
         raise typer.Exit(code=1)
 
     targets: list[Path] = []
@@ -147,7 +147,7 @@ def skills_add(
         targets.append(TARGETS["codex"])
     if opencode:
         targets.append(TARGETS["opencode"])
-    if local:
+    if project:
         targets.append(Path(".claude/skills"))
     if dest:
         targets.append(dest)
