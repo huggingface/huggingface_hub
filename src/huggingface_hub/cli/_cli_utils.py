@@ -47,14 +47,63 @@ def get_hf_api(token: Optional[str] = None) -> "HfApi":
 #### TYPER UTILS
 
 
+def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatter: click.HelpFormatter) -> None:
+    """Write the epilog without indentation."""
+    if epilog:
+        formatter.write_paragraph()
+        for line in epilog.split("\n"):
+            formatter.write_text(line)
+
+
 class AlphabeticalMixedGroup(typer.core.TyperGroup):
     """
     Typer Group that lists commands and sub-apps mixed and alphabetically.
+    Also formats epilog without extra indentation.
     """
 
     def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
         # click.Group stores both commands and subgroups in `self.commands`
         return sorted(self.commands.keys())
+
+    def format_epilog(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        _format_epilog_no_indent(self.epilog, ctx, formatter)
+
+
+class GroupedTyperGroup(AlphabeticalMixedGroup):
+    """
+    Typer Group that separates commands into 'Commands' and 'Help Topics' sections.
+    Used for the main `hf` CLI app.
+    """
+
+    HELP_TOPICS = {"env", "version", "reference"}
+
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        commands = []
+        help_topics = []
+
+        for name in self.list_commands(ctx):
+            cmd = self.get_command(ctx, name)
+            if cmd is None or cmd.hidden:
+                continue
+            help_text = cmd.get_short_help_str(limit=formatter.width)
+            if name in self.HELP_TOPICS:
+                help_topics.append((name, help_text))
+            else:
+                commands.append((name, help_text))
+
+        if commands:
+            with formatter.section("Core Commands"):
+                formatter.write_dl(commands)
+        if help_topics:
+            with formatter.section("Help Topics"):
+                formatter.write_dl(help_topics)
+
+
+class TyperCommandWithEpilog(typer.core.TyperCommand):
+    """Typer Command that formats epilog without extra indentation."""
+
+    def format_epilog(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        _format_epilog_no_indent(self.epilog, ctx, formatter)
 
 
 def typer_factory(help: str) -> typer.Typer:

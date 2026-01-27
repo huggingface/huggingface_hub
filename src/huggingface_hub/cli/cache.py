@@ -43,6 +43,33 @@ from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_ap
 cache_cli = typer_factory(help="Manage local cache directory.")
 
 
+_CACHE_EPILOG = """\
+EXAMPLES
+  $ hf cache ls
+  $ hf cache ls --revisions
+  $ hf cache ls --filter "size>1GB" --limit 20
+  $ hf cache ls --format json
+  $ hf cache rm Wauplin/my-cool-model
+  $ hf cache rm <revision_hash>
+  $ hf cache rm model/gpt2 --dry-run
+  $ hf cache rm model/gpt2 --yes
+  $ hf cache prune
+  $ hf cache verify Wauplin/my-cool-dataset --repo-type dataset
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-cache
+"""
+
+
+@cache_cli.callback(epilog=_CACHE_EPILOG, invoke_without_command=True)
+def cache_callback(ctx: typer.Context) -> None:
+    """Manage local cache directory."""
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit()
+
+
 #### Cache helper utilities
 
 

@@ -65,6 +65,27 @@ ExpandOpt = Annotated[
 spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 
 
+_SPACES_EPILOG = """\
+EXAMPLES
+  $ hf spaces ls --limit 10
+  $ hf spaces ls --search "chatbot" --author huggingface
+  $ hf spaces info enzostvs/deepsite
+  $ hf spaces info gradio/theme_builder --expand sdk,runtime,likes
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-spaces
+"""
+
+
+@spaces_cli.callback(epilog=_SPACES_EPILOG, invoke_without_command=True)
+def spaces_callback(ctx: typer.Context) -> None:
+    """Interact with spaces on the Hub."""
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit()
+
+
 @spaces_cli.command("ls")
 def spaces_ls(
     search: SearchOpt = None,

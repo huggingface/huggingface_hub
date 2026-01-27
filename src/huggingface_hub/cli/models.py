@@ -65,6 +65,27 @@ ExpandOpt = Annotated[
 models_cli = typer_factory(help="Interact with models on the Hub.")
 
 
+_MODELS_EPILOG = """\
+EXAMPLES
+  $ hf models ls --sort downloads --limit 10
+  $ hf models ls --search "llama" --author meta-llama
+  $ hf models info meta-llama/Llama-3.2-1B-Instruct
+  $ hf models info gpt2 --expand downloads,likes,tags
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-models
+"""
+
+
+@models_cli.callback(epilog=_MODELS_EPILOG, invoke_without_command=True)
+def models_callback(ctx: typer.Context) -> None:
+    """Interact with models on the Hub."""
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit()
+
+
 @models_cli.command("ls")
 def models_ls(
     search: SearchOpt = None,
