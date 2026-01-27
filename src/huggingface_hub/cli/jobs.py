@@ -768,7 +768,7 @@ def scheduled_ps(
         table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
         headers_aliases = ["id", "schedule", "image", "command", "last", "next", "suspend"]
         rows: list[list[Union[str, int]]] = []
-        filters: list[tuple[str, str, str]] = {}
+        filters: list[tuple[str, str, str]] = []
         for f in filter or []:
             if "=" in f:
                 key, value = f.split("=", 1)
