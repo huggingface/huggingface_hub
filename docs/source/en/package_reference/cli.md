@@ -1175,7 +1175,7 @@ $ hf papers ls [OPTIONS]
 **Options**:
 
 * `--date TEXT`: Date in ISO format (YYYY-MM-DD) or 'today'.
-* `--sort [publishedAt|trending]`: Sort results by 'publishedAt' or 'trending'.
+* `--sort [publishedAt|trending]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 50]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
