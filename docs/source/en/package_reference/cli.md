@@ -1522,7 +1522,7 @@ $ hf skills add [OPTIONS] [SKILL_ID]
 * `--claude`: Install for Claude.
 * `--codex`: Install for Codex.
 * `--opencode`: Install for OpenCode.
-* `--local`: Install into the current directory (.claude/skills/).
+* `--project`: Install into the current directory (.claude/skills/).
 * `--dest PATH`: Install into a custom destination (path to skills directory).
 * `--force`: Overwrite existing skills in the destination.
 * `--help`: Show this message and exit.
