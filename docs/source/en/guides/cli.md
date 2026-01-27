@@ -1087,11 +1087,24 @@ Available `--flavor` options:
 
 Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that applies metadata to a Job. To label a Job with two labels, repeat the label flag (`-l` or `--label`):
 
-```
+```bash
 >>> hf jobs run -l my-label --label foo=bar ubuntu echo "This Job has multiple labels"
 ```
 
 The my-label key doesn't specify a value so its value defaults to an empty string ("").
+
+Use `-f` or `--filter` in `hf jobs ps` to filter Jobs that match certain labels:
+
+```bash
+# Show fine-tuning Jobs
+>>> hf jobs ps -a --filter label=fine-tuning
+
+# Show Jobs that don't have the "prod" label and have a label that starts with "data-"
+>>> hf jobs ps -a --filter label!=prod --filter "label=data-*"
+
+# Show Jobs based on key=value labels
+>>> hf jobs ps -a --filter label=model=Qwen3-06B --filter label=dataset!=Capybara
+```
 
 ### UV Scripts (Experimental)
 
