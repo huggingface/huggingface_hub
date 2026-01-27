@@ -81,10 +81,7 @@ def _install_to(target: Path, skill_name: str, force: bool) -> None:
 
     if dest.exists():
         if not force:
-            raise SystemExit(
-                f"Skill already exists at {dest}.\n"
-                "Re-run with --force to overwrite."
-            )
+            raise SystemExit(f"Skill already exists at {dest}.\nRe-run with --force to overwrite.")
         shutil.rmtree(dest)
 
     dest.mkdir()
@@ -133,7 +130,7 @@ def skills_add(
 ) -> None:
     """Download a skill and install it for an AI assistant."""
     if skill_id != DEFAULT_SKILL_ID:
-        print(f"Unknown skill '{skill_id}'. The only supported skill is '{DEFAULT_SKILL_ID}'.")
+        print(f"For now, the only supported skill is '{DEFAULT_SKILL_ID}' (which is the default).")
         raise typer.Exit(code=1)
 
     if not (claude or codex or opencode or local or dest):
