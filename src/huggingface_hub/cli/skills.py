@@ -91,13 +91,13 @@ def _install_to(target: Path, skill_name: str, force: bool) -> None:
 
     # SKILL.md – the main guide, prefixed with YAML metadata
     skill_content = _download(_SKILL_MD_URL)
-    (dest / "SKILL.md").write_text(_SKILL_YAML_PREFIX + skill_content)
+    (dest / "SKILL.md").write_text(_SKILL_YAML_PREFIX + skill_content, encoding="utf-8")
 
     # references/cli.md – the full CLI reference
     ref_dir = dest / "references"
     ref_dir.mkdir()
     ref_content = _download(_REFERENCE_URL)
-    (ref_dir / "cli.md").write_text(ref_content)
+    (ref_dir / "cli.md").write_text(ref_content, encoding="utf-8")
 
 
 @skills_cli.command("add")
