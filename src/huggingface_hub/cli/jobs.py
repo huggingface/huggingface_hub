@@ -61,10 +61,11 @@ Usage:
 import json
 import multiprocessing
 import multiprocessing.pool
+import operator
 import os
-import re
 import time
 from dataclasses import asdict
+from fnmatch import fnmatch
 from pathlib import Path
 from queue import Empty, Queue
 from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, Union
@@ -317,20 +318,12 @@ def jobs_logs(
         print(log)
 
 
-def _matches_filters(job_properties: dict[str, str], filters: dict[str, str]) -> bool:
+def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, str, str]]) -> bool:
     """Check if scheduled job matches all specified filters."""
-    for key, pattern in filters.items():
-        # Check if property exists
-        if key not in job_properties:
-            return False
-        # Support pattern matching with wildcards
-        if "*" in pattern or "?" in pattern:
-            # Convert glob pattern to regex
-            regex_pattern = pattern.replace("*", ".*").replace("?", ".")
-            if not re.search(f"^{regex_pattern}$", job_properties[key], re.IGNORECASE):
-                return False
-        # Simple substring matching
-        elif pattern.lower() not in job_properties[key].lower():
+    for key, op, pattern in filters:
+        op = operator.not_ if op == "!=" else operator.truth
+        # Check if property exists and it matches (exact string or glob pattern)
+        if not op(key in job_properties and fnmatch(job_properties[key].lower(), pattern.lower())):
             return False
     return True
 
@@ -496,11 +489,23 @@ def jobs_ps(
         headers_aliases = ["id", "image", "command", "created", "status"]
         rows: list[list[Union[str, int]]] = []
 
-        filters: dict[str, str] = {}
+        filters: list[tuple[str, str, str]] = []
+        labels_filters: list[tuple[str, str, str]] = []
         for f in filter or []:
+            if f.startswith("label="):
+                is_label_filter = True
+                f = f[len("label=") :]
+            else:
+                is_label_filter = False
             if "=" in f:
                 key, value = f.split("=", 1)
-                filters[key.lower()] = value
+                # Negate predicate in case of key!=value
+                if key.endswith("!"):
+                    op = "!="
+                    key = key[:-1]
+                else:
+                    op = "="
+                (labels_filters if is_label_filter else filters).append((key.lower(), op, value.lower()))
             else:
                 print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
         # Process jobs data
@@ -526,6 +531,8 @@ def jobs_ps(
             # Create a dict with all job properties for filtering
             props = {"id": job_id, "image": image_or_space, "status": status.lower(), "command": command_str}
             if not _matches_filters(props, filters):
+                continue
+            if not _matches_filters(job.labels or {}, labels_filters):
                 continue
 
             # Create row
