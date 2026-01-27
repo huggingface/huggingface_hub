@@ -41,7 +41,7 @@ from ._cli_utils import (
     RevisionOpt,
     SearchOpt,
     TokenOpt,
-    dataclass_to_json_serializable_dict,
+    api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
     typer_factory,
@@ -82,7 +82,7 @@ def spaces_ls(
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
-        dataclass_to_json_serializable_dict(space_info)
+        api_object_to_dict(space_info)
         for space_info in api.list_spaces(
             filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
@@ -107,4 +107,4 @@ def spaces_info(
     except RevisionNotFoundError:
         print(f"Revision {ANSI.bold(str(revision))} not found on {ANSI.bold(space_id)}.")
         raise typer.Exit(code=1)
-    print(json.dumps(dataclass_to_json_serializable_dict(info), indent=2))
+    print(json.dumps(api_object_to_dict(info), indent=2))

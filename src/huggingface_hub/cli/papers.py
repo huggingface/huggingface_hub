@@ -37,7 +37,7 @@ import typer
 from ._cli_utils import (
     LimitOpt,
     TokenOpt,
-    dataclass_to_json_serializable_dict,
+    api_object_to_dict,
     get_hf_api,
     typer_factory,
 )
@@ -79,7 +79,7 @@ def papers_ls(
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
-        dataclass_to_json_serializable_dict(paper_info)
+        api_object_to_dict(paper_info)
         for paper_info in api.list_daily_papers(
             date=date,
             sort=sort_key,

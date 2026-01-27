@@ -145,7 +145,7 @@ def _serialize_value(v: object) -> object:
     return v
 
 
-def dataclass_to_json_serializable_dict(
+def api_object_to_dict(
     info: Union[ModelInfo, DatasetInfo, SpaceInfo, PaperInfo],
 ) -> dict[str, object]:
     """Convert repo info dataclasses to json-serializable dicts."""
