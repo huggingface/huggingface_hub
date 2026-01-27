@@ -53,6 +53,9 @@ description: >
   repositories, models, datasets, and Spaces on the Hugging Face Hub.
 ---
 
+The Hugging Face Hub CLI tool `hf` is available. IMPORTANT: The `hf` command replaces the deprecated `huggingface_cli` command.
+
+Use `hf --help` to view available functions. Note that auth commands are now all under `hf auth` e.g. `hf auth whoami`.
 """
 
 TARGETS = {
