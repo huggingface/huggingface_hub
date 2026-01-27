@@ -756,11 +756,17 @@ def scheduled_ps(
         table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
         headers_aliases = ["id", "schedule", "image", "command", "last", "next", "suspend"]
         rows: list[list[Union[str, int]]] = []
-        filters: dict[str, str] = {}
+        filters: list[tuple[str, str, str]] = {}
         for f in filter or []:
             if "=" in f:
                 key, value = f.split("=", 1)
-                filters[key.lower()] = value
+                # Negate predicate in case of key!=value
+                if key.endswith("!"):
+                    op = "!="
+                    key = key[:-1]
+                else:
+                    op = "="
+                filters.append((key.lower(), op, value.lower()))
             else:
                 print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
 
