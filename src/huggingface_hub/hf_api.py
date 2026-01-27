@@ -11533,6 +11533,21 @@ class HfApi:
                 )
             )
 
+        # Create empty files as needed
+        for download_info in xet_download_infos:
+            if download_info.file_size == 0:
+                dest_path = Path(download_info.destination_path)
+                if dest_path.exists():
+                    # already exists => make sure it's an empty file
+                    if dest_path.is_dir():
+                        raise IsADirectoryError(f"Expected file but found directory at '{dest_path}'")
+                    if dest_path.stat().st_size != 0:
+                        dest_path.write_bytes(b"")
+                else:
+                    # doesn't exist => create it
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+                    dest_path.touch()
+
         progress_cm = _get_progress_bar_context(
             desc="Downloading bucket files",
             log_level=logger.getEffectiveLevel(),
