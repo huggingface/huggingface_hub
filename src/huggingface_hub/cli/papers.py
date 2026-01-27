@@ -70,7 +70,7 @@ def papers_ls(
     ] = None,
     sort: Annotated[
         Optional[PaperSortEnum],
-        typer.Option(help="Sort results by 'publishedAt' or 'trending'."),
+        typer.Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 50,
     token: TokenOpt = None,
