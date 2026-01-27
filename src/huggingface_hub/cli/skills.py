@@ -39,6 +39,8 @@ import typer
 from ._cli_utils import typer_factory
 
 
+DEFAULT_SKILL_ID = "hf-cli"
+
 _GITHUB_RAW_BASE = "https://raw.githubusercontent.com/huggingface/huggingface_hub/main/docs/source/en"
 _SKILL_MD_URL = f"{_GITHUB_RAW_BASE}/guides/cli.md"
 _REFERENCE_URL = f"{_GITHUB_RAW_BASE}/package_reference/cli.md"
@@ -103,7 +105,7 @@ def skills_add(
     skill_id: Annotated[
         str,
         typer.Argument(help="The skill to install."),
-    ] = "hf-cli",
+    ] = DEFAULT_SKILL_ID,
     claude: Annotated[
         bool,
         typer.Option("--claude", help="Install for Claude."),
@@ -130,6 +132,10 @@ def skills_add(
     ] = False,
 ) -> None:
     """Download a skill and install it for an AI assistant."""
+    if skill_id != DEFAULT_SKILL_ID:
+        print(f"Unknown skill '{skill_id}'. The only supported skill is '{DEFAULT_SKILL_ID}'.")
+        raise typer.Exit(code=1)
+
     if not (claude or codex or opencode or local or dest):
         print("Pick a destination via --claude, --codex, --opencode, --local, or --dest.")
         raise typer.Exit(code=1)
