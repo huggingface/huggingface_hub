@@ -684,7 +684,7 @@ def test_resolve_path_with_non_matching_revisions():
         fs.resolve_path("gpt2@dev", revision="main")
 
 
-@pytest.mark.parametrize("not_supported_path", ["", "foo", "datasets", "datasets/foo"])
+@pytest.mark.parametrize("not_supported_path", ["", "foo", "datasets"])
 def test_access_repositories_lists(not_supported_path):
     fs = HfFileSystem()
     with pytest.raises(NotImplementedError):

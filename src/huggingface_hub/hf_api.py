@@ -211,6 +211,7 @@ ExpandSpaceProperty_T = Literal[
 ModelSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
 DatasetSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
 SpaceSort_T = Literal["created_at", "last_modified", "likes", "trending_score"]
+DailyPapersSort_T = Literal["publishedAt", "trending"]
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
@@ -456,7 +457,7 @@ class CommitInfo(str):
     commit_message: str
     commit_description: str
     oid: str
-    _endpoint: Optional[str] = field(repr=False)
+    _endpoint: Optional[str] = field(default=None, repr=False)
     pr_url: Optional[str] = None
 
     # Computed from `commit_url` in `__post_init__`
@@ -2297,7 +2298,7 @@ class HfApi:
         # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
-        benchmark: Optional[Union[str, list[str]]] = None,
+        benchmark: Optional[Union[Literal[True], Literal["official"], str]] = None,
         dataset_name: Optional[str] = None,
         gated: Optional[bool] = None,
         language_creators: Optional[Union[str, list[str]]] = None,
@@ -2324,9 +2325,9 @@ class HfApi:
                 A string or list of string to filter datasets on the hub.
             author (`str`, *optional*):
                 A string which identify the author of the returned datasets.
-            benchmark (`str` or `List`, *optional*):
-                A string or list of strings that can be used to identify datasets on
-                the Hub by their official benchmark.
+            benchmark (`True`, `"official"`, `str`, *optional*):
+                Filter datasets by benchmark. Can be `True` or `"official"` to return official benchmark datasets.
+                For future-compatibility, can also be a string representing the benchmark name (currently only "official" is supported).
             dataset_name (`str`, *optional*):
                 A string or list of strings that can be used to identify datasets on
                 the Hub by its name, such as `SQAC` or `wikineural`
@@ -2438,7 +2439,6 @@ class HfApi:
             else:
                 filter_list.extend(filter)
         for key, value in (
-            ("benchmark", benchmark),
             ("language_creators", language_creators),
             ("language", language),
             ("multilinguality", multilinguality),
@@ -2452,6 +2452,8 @@ class HfApi:
                 for value_item in value:
                     if not value_item.startswith(f"{key}:"):
                         data = f"{key}:{value_item}"
+                    else:
+                        data = value_item
                     filter_list.append(data)
         if len(filter_list) > 0:
             params["filter"] = filter_list
@@ -2461,6 +2463,10 @@ class HfApi:
             params["author"] = author
         if gated is not None:
             params["gated"] = gated
+        if benchmark is not None:
+            if benchmark is True:  # alias for official benchmark
+                benchmark = "official"
+            params["benchmark"] = f"benchmark:{benchmark}"
         search_list = []
         if dataset_name:
             search_list.append(dataset_name)
@@ -10094,7 +10100,7 @@ class HfApi:
         week: Optional[str] = None,
         month: Optional[str] = None,
         submitter: Optional[str] = None,
-        sort: Optional[Literal["publishedAt", "trending"]] = None,
+        sort: Optional[DailyPapersSort_T] = None,
         p: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> Iterable[PaperInfo]:
@@ -10228,6 +10234,7 @@ class HfApi:
         secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
+        labels: Optional[dict[str, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> JobInfo:
@@ -10256,6 +10263,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            labels (`dict[str, str]`, *optional*):
+                Labels to attach to the job (key-value pairs).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -10292,6 +10302,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            labels=labels,
         )
         response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}",
@@ -10655,6 +10666,7 @@ class HfApi:
         secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
+        labels: Optional[dict[str, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> JobInfo:
@@ -10690,6 +10702,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            labels (`dict[str, str]`, *optional*):
+                Labels to attach to the job (key-value pairs).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -10751,6 +10766,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            labels=labels,
             namespace=namespace,
             token=token,
         )
@@ -10767,6 +10783,7 @@ class HfApi:
         secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
+        labels: Optional[dict[str, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> ScheduledJobInfo:
@@ -10805,6 +10822,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            labels (`dict[str, str]`, *optional*):
+                Labels to attach to the job (key-value pairs).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -10850,6 +10870,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            labels=labels,
         )
         input_json: dict[str, Any] = {
             "jobSpec": job_spec,
@@ -11043,6 +11064,7 @@ class HfApi:
         secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
+        labels: Optional[dict[str, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> ScheduledJobInfo:
@@ -11088,6 +11110,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            labels (`dict[str, str]`, *optional*):
+                Labels to attach to the job (key-value pairs).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -11149,6 +11174,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            labels=labels,
             namespace=namespace,
             token=token,
         )
