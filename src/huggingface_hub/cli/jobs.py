@@ -552,9 +552,7 @@ def jobs_ps(
 
         # Handle empty results
         if not rows:
-            filters_msg = (
-                f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
-            )
+            filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
             print(f"No jobs found{filters_msg}")
             return
         # Apply custom format if provided or use default tabular format
@@ -807,9 +805,7 @@ def scheduled_ps(
             rows.append([sj_id, schedule, image_or_space, command_str, last_job_at, next_job_run_at, suspend])
 
         if not rows:
-            filters_msg = (
-                f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
-            )
+            filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
             print(f"No scheduled jobs found{filters_msg}")
             return
         _print_output(rows, table_headers, headers_aliases, format)
