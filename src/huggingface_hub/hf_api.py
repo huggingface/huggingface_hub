@@ -200,6 +200,7 @@ ExpandSpaceProperty_T = Literal[
 ModelSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
 DatasetSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
 SpaceSort_T = Literal["created_at", "last_modified", "likes", "trending_score"]
+DailyPapersSort_T = Literal["publishedAt", "trending"]
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
@@ -10026,7 +10027,7 @@ class HfApi:
         week: Optional[str] = None,
         month: Optional[str] = None,
         submitter: Optional[str] = None,
-        sort: Optional[Literal["publishedAt", "trending"]] = None,
+        sort: Optional[DailyPapersSort_T] = None,
         p: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> Iterable[PaperInfo]:

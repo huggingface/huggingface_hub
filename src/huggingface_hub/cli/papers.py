@@ -30,9 +30,11 @@ Usage:
 import datetime
 import enum
 import json
-from typing import Annotated, Optional
+from typing import Annotated, Optional, get_args
 
 import typer
+
+from huggingface_hub.hf_api import DailyPapersSort_T
 
 from ._cli_utils import (
     LimitOpt,
@@ -43,7 +45,7 @@ from ._cli_utils import (
 )
 
 
-_SORT_OPTIONS = ("publishedAt", "trending")
+_SORT_OPTIONS = get_args(DailyPapersSort_T)
 PaperSortEnum = enum.Enum("PaperSortEnum", {s: s for s in _SORT_OPTIONS}, type=str)  # type: ignore[misc]
 
 
