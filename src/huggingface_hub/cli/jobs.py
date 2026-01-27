@@ -495,6 +495,18 @@ def jobs_ps(
             if f.startswith("label="):
                 is_label_filter = True
                 f = f[len("label=") :]
+                if "=" not in f:
+                    f += "="
+            elif f.startswith("label!="):
+                is_label_filter = True
+                f = f[len("label!=") :]
+                if "=" not in f:
+                    f += "!="
+                else:
+                    print(
+                        f"Warning: Ignoring invalid label filter format '{f}'. Use label=value or label!=value or label=key=value or label=key!=value format."
+                    )
+                    continue
             else:
                 is_label_filter = False
             if "=" in f:
