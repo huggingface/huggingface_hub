@@ -18,7 +18,7 @@ Usage:
     hf jobs run <image> <command>
 
     # List running or completed jobs
-    hf jobs ps [-a] [-f key=value] [--format TEMPLATE]
+    hf jobs ps [-a] [-f key=value] [--format TEMPLATE|json]
 
     # Stream logs from a job
     hf jobs logs <job-id>
@@ -42,7 +42,7 @@ Usage:
     hf jobs scheduled run <schedule> <image> <command>
 
     # List scheduled jobs
-    hf jobs scheduled ps [-a] [-f key=value] [--format TEMPLATE]
+    hf jobs scheduled ps [-a] [-f key=value] [--format TEMPLATE|json]
 
     # Inspect a scheduled job
     hf jobs scheduled inspect <scheduled_job_id>
@@ -77,7 +77,7 @@ from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._dotenv import load_dotenv
 
-from ._cli_utils import TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import OutputFormat, TokenOpt, get_hf_api, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -324,11 +324,25 @@ def _matches_filters(job_properties: dict[str, str], filters: dict[str, str]) ->
     return True
 
 
+def _resolve_output_format(fmt: Optional[str], json_flag: bool) -> Optional[str]:
+    """Resolve the output format when --json is used as an alias."""
+    if json_flag:
+        if fmt is not None and fmt.strip().lower() != OutputFormat.json.value:
+            raise typer.BadParameter("Use either --json or --format TEMPLATE/--format json.")
+        return OutputFormat.json.value
+    return fmt
+
+
 def _print_output(
     rows: list[list[Union[str, int]]], headers: list[str], aliases: list[str], fmt: Optional[str]
 ) -> None:
     """Print output according to the chosen format."""
     if fmt:
+        fmt_normalized = fmt.strip().lower()
+        if fmt_normalized == OutputFormat.json.value:
+            items = [dict(zip(aliases, row)) for row in rows]
+            print(json.dumps(items, indent=2))
+            return
         # Use custom template if provided
         template = fmt
         for row in rows:
@@ -472,11 +486,20 @@ def jobs_ps(
     format: Annotated[
         Optional[str],
         typer.Option(
-            help="Format output using a custom template",
+            help="Format output using a custom template or 'json'.",
         ),
     ] = None,
+    json_: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            hidden=True,
+            help="Alias for '--format json'.",
+        ),
+    ] = False,
 ) -> None:
     try:
+        format = _resolve_output_format(format, json_)
         api = get_hf_api(token=token)
         # Fetch jobs data
         jobs = api.list_jobs(namespace=namespace)
@@ -724,11 +747,20 @@ def scheduled_ps(
         Optional[str],
         typer.Option(
             "--format",
-            help="Format output using a custom template",
+            help="Format output using a custom template or 'json'.",
         ),
     ] = None,
+    json_: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            hidden=True,
+            help="Alias for '--format json'.",
+        ),
+    ] = False,
 ) -> None:
     try:
+        format = _resolve_output_format(format, json_)
         api = get_hf_api(token=token)
         scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
         table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]

@@ -949,6 +949,8 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 >>> hf jobs ps
 # List all jobs
 >>> hf jobs ps -a
+# Output jobs as JSON
+>>> hf jobs ps --format json
 
 # Inspect the status of a job
 >>> hf jobs inspect <job_id>
@@ -1119,6 +1121,8 @@ Manage scheduled jobs using
 ```bash
 # List your active scheduled jobs
 >>> hf jobs scheduled ps
+# Output scheduled jobs as JSON
+>>> hf jobs scheduled ps --format json
 
 # Inspect the status of a job
 >>> hf jobs scheduled inspect <scheduled_job_id>

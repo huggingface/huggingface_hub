@@ -750,7 +750,7 @@ $ hf jobs ps [OPTIONS]
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
-* `--format TEXT`: Format output using a custom template
+* `--format TEXT`: Format output using a custom template or 'json'.
 * `--help`: Show this message and exit.
 
 ### `hf jobs run`
@@ -861,7 +861,7 @@ $ hf jobs scheduled ps [OPTIONS]
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
-* `--format TEXT`: Format output using a custom template
+* `--format TEXT`: Format output using a custom template or 'json'.
 * `--help`: Show this message and exit.
 
 #### `hf jobs scheduled resume`
