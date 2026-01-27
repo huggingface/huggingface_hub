@@ -320,8 +320,8 @@ def jobs_logs(
 
 def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, str, str]]) -> bool:
     """Check if scheduled job matches all specified filters."""
-    for key, op, pattern in filters:
-        op = operator.not_ if op == "!=" else operator.truth
+    for key, op_str, pattern in filters:
+        op = operator.not_ if op_str == "!=" else operator.truth
         # Check if property exists and it matches (exact string or glob pattern)
         if not op(key in job_properties and fnmatch(job_properties[key].lower(), pattern.lower())):
             return False
@@ -553,7 +553,7 @@ def jobs_ps(
         # Handle empty results
         if not rows:
             filters_msg = (
-                f" matching filters: {', '.join([f'{k}={v}' for k, v in filters.items()])}" if filters else ""
+                f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
             )
             print(f"No jobs found{filters_msg}")
             return
@@ -808,7 +808,7 @@ def scheduled_ps(
 
         if not rows:
             filters_msg = (
-                f" matching filters: {', '.join([f'{k}={v}' for k, v in filters.items()])}" if filters else ""
+                f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
             )
             print(f"No scheduled jobs found{filters_msg}")
             return
