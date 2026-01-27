@@ -36,6 +36,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `papers`: Interact with papers on the Hub.
 * `repo`: Manage repos on the Hub.
 * `repo-files`: Manage files in a repo on the Hub.
+* `skills`: Manage skills for AI assistants.
 * `spaces`: Interact with spaces on the Hub.
 * `upload`: Upload a file or a folder to the Hub.
 * `upload-large-folder`: Upload a large folder to the Hub.
@@ -1482,6 +1483,48 @@ $ hf repo-files delete [OPTIONS] REPO_ID PATTERNS...
 * `--commit-description TEXT`: The description of the generated commit.
 * `--create-pr / --no-create-pr`: Whether to create a new Pull Request for these changes.  [default: no-create-pr]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+## `hf skills`
+
+Manage skills for AI assistants.
+
+**Usage**:
+
+```console
+$ hf skills [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `add`: Download a skill and install it for an AI...
+
+### `hf skills add`
+
+Download a skill and install it for an AI assistant.
+
+**Usage**:
+
+```console
+$ hf skills add [OPTIONS] [SKILL_ID]
+```
+
+**Arguments**:
+
+* `[SKILL_ID]`: The skill to install.  [default: hf-cli]
+
+**Options**:
+
+* `--claude`: Install for Claude.
+* `--codex`: Install for Codex.
+* `--opencode`: Install for OpenCode.
+* `--local`: Install into the current directory (.claude/skills/).
+* `--dest PATH`: Install into a custom destination (path to skills directory).
+* `--force`: Overwrite existing skills in the destination.
 * `--help`: Show this message and exit.
 
 ## `hf spaces`
