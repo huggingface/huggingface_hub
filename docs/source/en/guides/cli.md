@@ -45,12 +45,15 @@ Options:
 Commands:
   auth                 Manage authentication (login, logout, etc.).
   cache                Manage local cache directory.
+  datasets             Interact with datasets on the Hub.
   download             Download files from the Hub.
   endpoints            Manage Hugging Face Inference Endpoints.
   env                  Print information about the environment.
   jobs                 Run and manage Jobs on the Hub.
+  models               Interact with models on the Hub.
   repo                 Manage repos on the Hub.
   repo-files           Manage files in a repo on the Hub.
+  spaces               Interact with spaces on the Hub.
   upload               Upload a file or a folder to the Hub.
   upload-large-folder  Upload a large folder to the Hub.
   version              Print information about the hf version.
@@ -1079,6 +1082,16 @@ Available `--flavor` options:
 - TPU: `v5e-1x1`, `v5e-2x2`, `v5e-2x4`
 
 (updated in 07/2025 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
+
+### Labels
+
+Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that applies metadata to a Job. To label a Job with two labels, repeat the label flag (`-l` or `--label`):
+
+```
+>>> hf jobs run -l my-label --label foo=bar ubuntu echo "This Job has multiple labels"
+```
+
+The my-label key doesn't specify a value so its value defaults to an empty string ("").
 
 ### UV Scripts (Experimental)
 

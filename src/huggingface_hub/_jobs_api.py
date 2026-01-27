@@ -82,6 +82,8 @@ class JobInfo:
         flavor (`str` or `None`):
             Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
             E.g. `"cpu-basic"`.
+        labels (`dict[str, str]` or `None`):
+            Labels to attach to the job (key-value pairs).
         status: (`JobStatus` or `None`):
             Status of the Job, e.g. `JobStatus(stage="RUNNING", message=None)`
             See [`JobStage`] for possible stage values.
@@ -97,7 +99,7 @@ class JobInfo:
     ...     command=["python", "-c", "print('Hello from the cloud!')"]
     ... )
     >>> job
-    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', status=JobStatus(stage='RUNNING', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq', type='user'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
+    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', labels=None, status=JobStatus(stage='RUNNING', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq', type='user'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
     >>> job.id
     '687fb701029421ae5549d998'
     >>> job.url
@@ -116,6 +118,7 @@ class JobInfo:
     environment: Optional[dict[str, Any]]
     secrets: Optional[dict[str, Any]]
     flavor: Optional[SpaceHardware]
+    labels: Optional[dict[str, str]]
     status: JobStatus
     owner: JobOwner
 
@@ -136,6 +139,7 @@ class JobInfo:
         self.environment = kwargs.get("environment")
         self.secrets = kwargs.get("secrets")
         self.flavor = kwargs.get("flavor")
+        self.labels = kwargs.get("labels")
         status = kwargs.get("status", {})
         self.status = JobStatus(stage=status["stage"], message=status.get("message"))
 
@@ -156,6 +160,7 @@ class JobSpec:
     timeout: Optional[int]
     tags: Optional[list[str]]
     arch: Optional[str]
+    labels: Optional[dict[str, str]]
 
     def __init__(self, **kwargs) -> None:
         self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
@@ -168,6 +173,7 @@ class JobSpec:
         self.timeout = kwargs.get("timeout")
         self.tags = kwargs.get("tags")
         self.arch = kwargs.get("arch")
+        self.labels = kwargs.get("labels")
 
 
 @dataclass
@@ -356,6 +362,7 @@ def _create_job_spec(
     secrets: Optional[dict[str, Any]],
     flavor: Optional[SpaceHardware],
     timeout: Optional[Union[int, float, str]],
+    labels: Optional[dict[str, str]] = None,
 ) -> dict[str, Any]:
     # prepare job spec to send to HF Jobs API
     job_spec: dict[str, Any] = {
@@ -374,6 +381,9 @@ def _create_job_spec(
             job_spec["timeoutSeconds"] = int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
         else:
             job_spec["timeoutSeconds"] = int(timeout)
+    # labels are optional
+    if labels:
+        job_spec["labels"] = labels
     # input is either from docker hub or from HF spaces
     for prefix in (
         "https://huggingface.co/spaces/",

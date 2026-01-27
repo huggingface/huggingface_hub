@@ -2092,10 +2092,22 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert "huggingface" in datasets[0].author
         assert "DataMeasurementsFiles" in datasets[0].id
 
-    def test_filter_datasets_by_benchmark(self):
-        datasets = list(self._api.list_datasets(benchmark="raft"))
+    def test_filter_datasets_by_benchmark_official(self):
+        datasets = list(self._api.list_datasets(benchmark="official", limit=10))
         assert len(datasets) > 0
-        assert "benchmark:raft" in datasets[0].tags
+        assert all("benchmark:official" in dataset.tags for dataset in datasets)
+
+    def test_filter_datasets_by_benchmark_true_alias(self):
+        # benchmark=True should be an alias for benchmark="official"
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(self._api.list_datasets(benchmark=True))
+            list(self._api.list_datasets(benchmark="official"))
+
+        # Exact same calls to paginate
+        assert mock_paginate.call_count == 2
+        assert mock_paginate.call_args_list[0][1]["params"] == {"benchmark": "benchmark:official"}
+        assert mock_paginate.call_args_list[1][1]["params"] == {"benchmark": "benchmark:official"}
 
     def test_filter_datasets_by_language_creator(self):
         datasets = list(self._api.list_datasets(language_creators="crowdsourced"))

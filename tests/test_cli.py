@@ -1766,6 +1766,7 @@ class TestJobsCommand:
             command=["echo", "hello"],
             env={},
             secrets={},
+            labels=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -1789,6 +1790,7 @@ class TestJobsCommand:
             command=["python", "-c", "'print(\"Hello from the cloud!\")'"],
             env={},
             secrets={},
+            labels=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -1816,6 +1818,7 @@ class TestJobsCommand:
             concurrency=None,
             env={},
             secrets={},
+            labels=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -1839,6 +1842,7 @@ class TestJobsCommand:
             image=None,
             env={},
             secrets={},
+            labels=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -1865,6 +1869,7 @@ class TestJobsCommand:
             image=None,
             env={},
             secrets={},
+            labels=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -1889,6 +1894,7 @@ class TestJobsCommand:
             image=None,
             env={},
             secrets={},
+            labels=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -1915,8 +1921,29 @@ class TestJobsCommand:
             image=None,
             env={},
             secrets={},
+            labels=None,
             flavor=None,
             timeout=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
+
+    def test_run_fetches_logs_with_correct_namespace(self, runner: CliRunner) -> None:
+        """Test that fetch_job_logs uses job.owner.name.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/pull/3736.
+        """
+        from huggingface_hub._jobs_api import JobOwner
+
+        job_owner = JobOwner(id="user-id", name="my-username", type="user")
+        job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/my-username/my-job-id")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.run_job.return_value = job
+            api.fetch_job_logs.return_value = iter(["log line 1"])
+            result = runner.invoke(app, ["jobs", "run", "ubuntu", "echo", "hello"])
+        assert result.exit_code == 0
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace="my-username")

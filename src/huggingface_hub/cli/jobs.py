@@ -125,6 +125,15 @@ SecretsOpt = Annotated[
     ),
 ]
 
+LabelsOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-l",
+        "--label",
+        help="Set labels. E.g. --label KEY=VALUE or --label LABEL",
+    ),
+]
+
 EnvFileOpt = Annotated[
     Optional[str],
     typer.Option(
@@ -253,6 +262,7 @@ def jobs_run(
     command: CommandArg,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
@@ -280,6 +290,7 @@ def jobs_run(
         command=command,
         env=env_map,
         secrets=secrets_map,
+        labels=_parse_labels_map(label),
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
@@ -291,7 +302,7 @@ def jobs_run(
     if detach:
         return
     # Now let's stream the logs
-    for log in api.fetch_job_logs(job_id=job.id):
+    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name):
         print(log)
 
 
@@ -608,6 +619,7 @@ def jobs_uv_run(
     flavor: FlavorOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
@@ -638,6 +650,7 @@ def jobs_uv_run(
         image=image,
         env=env_map,
         secrets=secrets_map,
+        labels=_parse_labels_map(label),
         flavor=flavor,  # type: ignore[arg-type]
         timeout=timeout,
         namespace=namespace,
@@ -648,7 +661,7 @@ def jobs_uv_run(
     if detach:
         return
     # Now let's stream the logs
-    for log in api.fetch_job_logs(job_id=job.id):
+    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name):
         print(log)
 
 
@@ -665,6 +678,7 @@ def scheduled_run(
     concurrency: ConcurrencyOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
@@ -693,6 +707,7 @@ def scheduled_run(
         concurrency=concurrency,
         env=env_map,
         secrets=secrets_map,
+        labels=_parse_labels_map(label),
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
@@ -850,6 +865,7 @@ def scheduled_uv_run(
     flavor: FlavorOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
@@ -882,6 +898,7 @@ def scheduled_uv_run(
         image=image,
         env=env_map,
         secrets=secrets_map,
+        labels=_parse_labels_map(label),
         flavor=flavor,  # type: ignore[arg-type]
         timeout=timeout,
         namespace=namespace,
@@ -890,6 +907,24 @@ def scheduled_uv_run(
 
 
 ### UTILS
+
+
+def _parse_labels_map(labels: Optional[list[str]]) -> Optional[dict[str, str]]:
+    """Parse label key-value pairs from CLI arguments.
+
+    Args:
+        labels: List of label strings in KEY=VALUE format. If KEY only, then VALUE is set to empty string.
+
+    Returns:
+        Dictionary mapping label keys to values, or None if no labels provided.
+    """
+    if not labels:
+        return None
+    labels_map: dict[str, str] = {}
+    for label_var in labels:
+        key, value = label_var.split("=", 1) if "=" in label_var else (label_var, "")
+        labels_map[key] = value
+    return labels_map
 
 
 def _tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
