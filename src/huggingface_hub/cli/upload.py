@@ -64,6 +64,20 @@ from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOp
 logger = logging.get_logger(__name__)
 
 
+UPLOAD_EPILOG = """\
+EXAMPLES
+  $ hf upload my-cool-model . .
+  $ hf upload Wauplin/my-cool-model ./models/model.safetensors
+  $ hf upload Wauplin/my-cool-dataset ./data /train --repo-type=dataset
+  $ hf upload Wauplin/my-cool-model ./models . --commit-message="Epoch 34/50" --commit-description="Val accuracy: 68%"
+  $ hf upload bigcode/the-stack . . --repo-type dataset --create-pr
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-upload
+"""
+
+
 def upload(
     repo_id: RepoIdArg,
     local_path: Annotated[

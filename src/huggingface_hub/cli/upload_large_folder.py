@@ -28,6 +28,17 @@ from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOp
 logger = logging.get_logger(__name__)
 
 
+UPLOAD_LARGE_FOLDER_EPILOG = """\
+EXAMPLES
+  $ hf upload-large-folder Wauplin/my-cool-model ./large_model_dir
+  $ hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-upload-large-folder
+"""
+
+
 def upload_large_folder(
     repo_id: RepoIdArg,
     local_path: Annotated[
