@@ -36,6 +36,8 @@ from typing import Annotated, Optional
 
 import typer
 
+from huggingface_hub.utils import get_session
+
 from ._cli_utils import typer_factory
 
 
@@ -69,18 +71,16 @@ skills_cli = typer_factory(help="Manage skills for AI assistants.")
 
 def _download(url: str) -> str:
     """Download text content from a URL."""
-    from huggingface_hub.utils import get_session
-
     response = get_session().get(url)
     response.raise_for_status()
     return response.text
 
 
-def _install_to(target: Path, skill_name: str, force: bool) -> None:
+def _install_to(target: Path, force: bool) -> None:
     """Download and install the skill files into a target skills directory."""
     target = target.expanduser().resolve()
     target.mkdir(parents=True, exist_ok=True)
-    dest = target / skill_name
+    dest = target / DEFAULT_SKILL_ID
 
     if dest.exists():
         if not force:
@@ -102,40 +102,31 @@ def _install_to(target: Path, skill_name: str, force: bool) -> None:
 
 @skills_cli.command("add")
 def skills_add(
-    skill_id: Annotated[
-        str,
-        typer.Argument(help="The skill to install."),
-    ] = DEFAULT_SKILL_ID,
-    claude: Annotated[
-        bool,
-        typer.Option("--claude", help="Install for Claude."),
-    ] = False,
-    codex: Annotated[
-        bool,
-        typer.Option("--codex", help="Install for Codex."),
-    ] = False,
-    opencode: Annotated[
-        bool,
-        typer.Option("--opencode", help="Install for OpenCode."),
-    ] = False,
+    claude: Annotated[bool, typer.Option("--claude", help="Install for Claude.")] = False,
+    codex: Annotated[bool, typer.Option("--codex", help="Install for Codex.")] = False,
+    opencode: Annotated[bool, typer.Option("--opencode", help="Install for OpenCode.")] = False,
     project: Annotated[
         bool,
-        typer.Option("--project", help="Install into the current directory (.claude/skills/)."),
+        typer.Option(
+            "--project",
+            help="Install into the current directory (.claude/skills/).",
+        ),
     ] = False,
     dest: Annotated[
         Optional[Path],
-        typer.Option(help="Install into a custom destination (path to skills directory)."),
+        typer.Option(
+            help="Install into a custom destination (path to skills directory).",
+        ),
     ] = None,
     force: Annotated[
         bool,
-        typer.Option("--force", help="Overwrite existing skills in the destination."),
+        typer.Option(
+            "--force",
+            help="Overwrite existing skills in the destination.",
+        ),
     ] = False,
 ) -> None:
     """Download a skill and install it for an AI assistant."""
-    if skill_id != DEFAULT_SKILL_ID:
-        print(f"For now, the only supported skill is '{DEFAULT_SKILL_ID}' (which is the default).")
-        raise typer.Exit(code=1)
-
     if not (claude or codex or opencode or project or dest):
         print("Pick a destination via --claude, --codex, --opencode, --project, or --dest.")
         raise typer.Exit(code=1)
@@ -153,6 +144,6 @@ def skills_add(
         targets.append(dest)
 
     for target in targets:
-        _install_to(target, skill_id, force)
-        installed_path = (target / skill_id).expanduser().resolve()
-        print(f"Installed '{skill_id}' to {installed_path}")
+        _install_to(target, force)
+        installed_path = (target / DEFAULT_SKILL_ID).expanduser().resolve()
+        print(f"Installed '{DEFAULT_SKILL_ID}' to {installed_path}")
