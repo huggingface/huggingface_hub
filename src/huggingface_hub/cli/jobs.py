@@ -61,7 +61,6 @@ Usage:
 import json
 import multiprocessing
 import multiprocessing.pool
-import operator
 import os
 import time
 from dataclasses import asdict
@@ -497,24 +496,29 @@ def jobs_ps(
         filters: list[tuple[str, str, str]] = []
         labels_filters: list[tuple[str, str, str]] = []
         for f in filter or []:
-            if f.startswith("label="):
-                is_label_filter = True
-                f = f[len("label=") :]
-                if "=" not in f:
-                    f += "="
-            elif f.startswith("label!="):
-                is_label_filter = True
-                f = f[len("label!=") :]
-                if "=" not in f:
-                    f += "!="
+            if f.startswith("label!=") or f.startswith("label="):
+                if f.startswith("label!="):
+                    label_part = f[len("label!=") :]
+                    if "=" in label_part:
+                        print(
+                            f"Warning: Ignoring invalid label filter format 'label!={label_part}'. Use label!=key format."
+                        )
+                        continue
+                    label_key, op, label_value = label_part, "!=", "*"
                 else:
-                    print(
-                        f"Warning: Ignoring invalid label filter format '{f}'. Use label=value or label!=value or label=key=value or label=key!=value format."
-                    )
-                    continue
-            else:
-                is_label_filter = False
-            if "=" in f:
+                    label_part = f[len("label=") :]
+                    if "=" in label_part:
+                        label_key, label_value = label_part.split("=", 1)
+                    else:
+                        label_key, label_value = label_part, "*"
+                    # Negate predicate in case of key!=value
+                    if label_key.endswith("!"):
+                        op = "!="
+                        label_key = label_key[:-1]
+                    else:
+                        op = "="
+                labels_filters.append((label_key.lower(), op, label_value.lower()))
+            elif "=" in f:
                 key, value = f.split("=", 1)
                 # Negate predicate in case of key!=value
                 if key.endswith("!"):
@@ -522,7 +526,7 @@ def jobs_ps(
                     key = key[:-1]
                 else:
                     op = "="
-                (labels_filters if is_label_filter else filters).append((key.lower(), op, value.lower()))
+                filters.append((key.lower(), op, value.lower()))
             else:
                 print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
         # Process jobs data
