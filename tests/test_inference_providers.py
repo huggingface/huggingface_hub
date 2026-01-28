@@ -503,13 +503,19 @@ class TestFalAIProvider:
             status="live",
         )
         payload = helper._prepare_payload_as_dict("https://example.com/image.png", {"prompt": "a cat"}, mapping_info)
-        assert payload == {"image_url": "https://example.com/image.png", "prompt": "a cat"}
+        assert payload == {
+            "image_url": "https://example.com/image.png",
+            "image_urls": ["https://example.com/image.png"],
+            "prompt": "a cat",
+        }
 
         payload = helper._prepare_payload_as_dict(
             b"dummy_image_data", {"prompt": "replace the cat with a dog"}, mapping_info
         )
+        expected_url = f"data:image/jpeg;base64,{base64.b64encode(b'dummy_image_data').decode()}"
         assert payload == {
-            "image_url": f"data:image/jpeg;base64,{base64.b64encode(b'dummy_image_data').decode()}",
+            "image_url": expected_url,
+            "image_urls": [expected_url],
             "prompt": "replace the cat with a dog",
         }
 
