@@ -424,35 +424,51 @@ def jobs_stats(
         "gpu_memory_used_bytes_pct",
         "gpu_memory_used_bytes_and_total_bytes",
     ]
-    with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
-        rows_per_job_id: dict[str, list[list[Union[str, int]]]] = {}
-        for job_id in job_ids:
-            row: list[Union[str, int]] = [job_id]
-            row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
-            rows_per_job_id[job_id] = [row]
-        last_update_time = time.time()
-        total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
-        _print_output(total_rows, table_headers, headers_aliases, None)
+    try:
+        with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
+            rows_per_job_id: dict[str, list[list[Union[str, int]]]] = {}
+            for job_id in job_ids:
+                row: list[Union[str, int]] = [job_id]
+                row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
+                rows_per_job_id[job_id] = [row]
+            last_update_time = time.time()
+            total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+            _print_output(total_rows, table_headers, headers_aliases, None)
 
-        kwargs_list = [
-            {
-                "job_id": job_id,
-                "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace),
-                "table_headers": table_headers,
-            }
-            for job_id in job_ids
-        ]
-        for done, job_id, rows in iflatmap_unordered(pool, _get_jobs_stats_rows, kwargs_list=kwargs_list):
-            if done:
-                rows_per_job_id.pop(job_id, None)
-            else:
-                rows_per_job_id[job_id] = rows
-            now = time.time()
-            if now - last_update_time >= STATS_UPDATE_MIN_INTERVAL:
-                _clear_line(2 + len(total_rows))
-                total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
-                _print_output(total_rows, table_headers, headers_aliases, None)
-                last_update_time = now
+            kwargs_list = [
+                {
+                    "job_id": job_id,
+                    "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace),
+                    "table_headers": table_headers,
+                }
+                for job_id in job_ids
+            ]
+            for done, job_id, rows in iflatmap_unordered(pool, _get_jobs_stats_rows, kwargs_list=kwargs_list):
+                if done:
+                    rows_per_job_id.pop(job_id, None)
+                else:
+                    rows_per_job_id[job_id] = rows
+                now = time.time()
+                if now - last_update_time >= STATS_UPDATE_MIN_INTERVAL:
+                    _clear_line(2 + len(total_rows))
+                    total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+                    _print_output(total_rows, table_headers, headers_aliases, None)
+                    last_update_time = now
+    except HfHubHTTPError as e:
+        status = e.response.status_code if e.response is not None else None
+        if status == 404:
+            print("Error: Job not found. Please check the job ID.")
+        elif status == 403:
+            print("Error: Access denied. You may not have permission to view this job.")
+        elif status == 500:
+            # Backend returns 500 for invalid job IDs (ideally would be 404)
+            print("Error: Job not found or server error. Please verify the job ID is correct.")
+        else:
+            print(f"Error fetching job stats: {e}")
+    except (KeyError, ValueError, TypeError) as e:
+        print(f"Error processing job stats: {e}")
+    except Exception as e:
+        print(f"Unexpected error - {type(e).__name__}: {e}")
 
 
 @jobs_cli.command("ps", help="List Jobs")
