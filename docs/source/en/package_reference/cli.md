@@ -1510,12 +1510,8 @@ Download a skill and install it for an AI assistant.
 **Usage**:
 
 ```console
-$ hf skills add [OPTIONS] [SKILL_ID]
+$ hf skills add [OPTIONS]
 ```
-
-**Arguments**:
-
-* `[SKILL_ID]`: The skill to install.  [default: hf-cli]
 
 **Options**:
 
