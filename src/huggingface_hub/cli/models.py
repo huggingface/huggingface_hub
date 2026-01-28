@@ -26,7 +26,7 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Optional, get_args
+from typing import Annotated, Any, Optional, get_args
 
 import typer
 
@@ -37,13 +37,17 @@ from huggingface_hub.utils import ANSI
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
+    FormatOpt,
     LimitOpt,
+    OutputFormat,
+    QuietOpt,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
+    print_list_output,
     typer_factory,
 )
 
@@ -76,6 +80,8 @@ def models_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
+    format: FormatOpt = OutputFormat.table,
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List models on the Hub."""
@@ -87,7 +93,26 @@ def models_ls(
             filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
-    print(json.dumps(results, indent=2))
+
+    def row_fn(item: dict[str, Any]) -> list[str]:
+        repo_id = str(item.get("id", ""))
+        author = str(item.get("author", "")) or (repo_id.split("/")[0] if "/" in repo_id else "")
+        return [
+            repo_id,
+            author,
+            str(item.get("downloads", "") or ""),
+            str(item.get("likes", "") or ""),
+            str(item.get("pipeline_tag", "") or ""),
+        ]
+
+    print_list_output(
+        items=results,
+        format=format,
+        quiet=quiet,
+        id_key="id",
+        headers=["ID", "AUTHOR", "DOWNLOADS", "LIKES", "TASK"],
+        row_fn=row_fn,
+    )
 
 
 @models_cli.command("info")
