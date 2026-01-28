@@ -159,6 +159,9 @@ _SUBMOD_ATTRS = {
         "try_to_load_from_cache",
     ],
     "hf_api": [
+        "BucketAddFile",
+        "BucketDeleteFile",
+        "BucketFileMetadata",
         "Collection",
         "CollectionItem",
         "CommitInfo",
@@ -587,6 +590,9 @@ __all__ = [
     "AutomaticSpeechRecognitionOutput",
     "AutomaticSpeechRecognitionOutputChunk",
     "AutomaticSpeechRecognitionParameters",
+    "BucketAddFile",
+    "BucketDeleteFile",
+    "BucketFileMetadata",
     "CLIENT_FACTORY_T",
     "CONFIG_NAME",
     "CacheNotFound",
@@ -1225,6 +1231,9 @@ if TYPE_CHECKING:  # pragma: no cover
         try_to_load_from_cache,  # noqa: F401
     )
     from .hf_api import (
+        BucketAddFile,  # noqa: F401
+        BucketDeleteFile,  # noqa: F401
+        BucketFileMetadata,  # noqa: F401
         Collection,  # noqa: F401
         CollectionItem,  # noqa: F401
         CommitInfo,  # noqa: F401
