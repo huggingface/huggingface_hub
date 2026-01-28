@@ -142,7 +142,16 @@ class ReplicateImageToImageTask(ReplicateTask):
     ) -> Optional[dict]:
         image_url = _as_url(inputs, default_mime_type="image/jpeg")
 
-        payload: dict[str, Any] = {"input": {"input_image": image_url, **filter_none(parameters)}}
+        # Different Replicate models expect the image in different keys
+        payload: dict[str, Any] = {
+            "input": {
+                "image": image_url,
+                "images": [image_url],
+                "input_image": image_url,
+                "input_images": [image_url],
+                **filter_none(parameters),
+            }
+        }
 
         mapped_model = provider_mapping_info.provider_id
         if ":" in mapped_model:
