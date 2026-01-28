@@ -39,7 +39,7 @@ def _print_endpoint(endpoint: InferenceEndpoint) -> None:
 @ie_cli.command()
 def ls(
     namespace: NamespaceOpt = None,
-    format: FormatOpt = OutputFormat.json,
+    format: FormatOpt = OutputFormat.table,
     quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
@@ -62,7 +62,10 @@ def ls(
             str(item.get("name", "")),
             str(model.get("repository", "") if isinstance(model, dict) else ""),
             str(status.get("state", "") if isinstance(status, dict) else ""),
+            str(model.get("task", "") if isinstance(model, dict) else ""),
+            str(model.get("framework", "") if isinstance(model, dict) else ""),
             str(compute.get("instanceType", "") if isinstance(compute, dict) else ""),
+            str(provider.get("vendor", "") if isinstance(provider, dict) else ""),
             str(provider.get("region", "") if isinstance(provider, dict) else ""),
         ]
 
@@ -71,7 +74,7 @@ def ls(
         format=format,
         quiet=quiet,
         id_key="name",
-        headers=["NAME", "MODEL", "STATUS", "INSTANCE", "REGION"],
+        headers=["NAME", "MODEL", "STATUS", "TASK", "FRAMEWORK", "INSTANCE", "VENDOR", "REGION"],
         row_fn=row_fn,
     )
 

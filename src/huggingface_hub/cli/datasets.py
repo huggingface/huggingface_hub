@@ -26,7 +26,7 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Optional, get_args
+from typing import Annotated, Any, Optional, get_args
 
 import typer
 
@@ -80,7 +80,7 @@ def datasets_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
-    format: FormatOpt = OutputFormat.json,
+    format: FormatOpt = OutputFormat.table,
     quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
@@ -94,7 +94,7 @@ def datasets_ls(
         )
     ]
 
-    def row_fn(item: dict[str, object]) -> list[str]:
+    def row_fn(item: dict[str, Any]) -> list[str]:
         repo_id = str(item.get("id", ""))
         author = str(item.get("author", "")) or (repo_id.split("/")[0] if "/" in repo_id else "")
         return [

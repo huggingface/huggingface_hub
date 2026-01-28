@@ -21,7 +21,7 @@ import os
 import time
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Callable, Literal, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Annotated, Any, Callable, Literal, Optional, Sequence, Union, cast
 
 import click
 import typer
@@ -159,9 +159,9 @@ QuietOpt = Annotated[
 
 
 def print_as_table(
-    items: Sequence[dict[str, object]],
+    items: Sequence[dict[str, Any]],
     headers: list[str],
-    row_fn: Callable[[dict[str, object]], list[str]],
+    row_fn: Callable[[dict[str, Any]], list[str]],
 ) -> None:
     """Print items as a formatted table.
 
@@ -178,12 +178,12 @@ def print_as_table(
 
 
 def print_list_output(
-    items: Sequence[dict[str, object]],
+    items: Sequence[dict[str, Any]],
     format: OutputFormat,
     quiet: bool,
     id_key: str,
     headers: list[str],
-    row_fn: Callable[[dict[str, object]], list[str]],
+    row_fn: Callable[[dict[str, Any]], list[str]],
 ) -> None:
     """Print list command output in the specified format.
 
@@ -206,7 +206,7 @@ def print_list_output(
         print_as_table(items, headers=headers, row_fn=row_fn)
 
 
-def repo_info_to_dict(info: Union[ModelInfo, DatasetInfo, SpaceInfo]) -> dict[str, object]:
+def repo_info_to_dict(info: Union[ModelInfo, DatasetInfo, SpaceInfo]) -> dict[str, Any]:
     """Convert repo info dataclasses to json-serializable dicts."""
     return {
         k: v.isoformat() if isinstance(v, datetime.datetime) else v
