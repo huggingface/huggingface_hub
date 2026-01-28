@@ -782,9 +782,7 @@ def scheduled_ps(
         cmd = scheduled_job.job_spec.command or []
         command_str = " ".join(cmd) if cmd else "N/A"
         last_job_at = (
-            scheduled_job.status.last_job.at.strftime("%Y-%m-%d %H:%M:%S")
-            if scheduled_job.status.last_job
-            else "N/A"
+            scheduled_job.status.last_job.at.strftime("%Y-%m-%d %H:%M:%S") if scheduled_job.status.last_job else "N/A"
         )
         next_job_run_at = (
             scheduled_job.status.next_job_run_at.strftime("%Y-%m-%d %H:%M:%S")
