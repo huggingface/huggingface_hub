@@ -543,10 +543,6 @@ def jobs_ps(
 
     except HfHubHTTPError as e:
         print(f"Error fetching jobs data: {e}")
-    except (KeyError, ValueError, TypeError) as e:
-        print(f"Error processing jobs data: {e}")
-    except Exception as e:
-        print(f"Unexpected error - {type(e).__name__}: {e}")
 
 
 @jobs_cli.command("hardware", help="List available hardware options for Jobs")
@@ -573,8 +569,6 @@ def jobs_hardware() -> None:
 
     except HfHubHTTPError as e:
         print(f"Error fetching hardware data: {e}")
-    except Exception as e:
-        print(f"Unexpected error - {type(e).__name__}: {e}")
 
 
 @jobs_cli.command("inspect", help="Display detailed information on one or more Jobs")
@@ -791,10 +785,6 @@ def scheduled_ps(
 
     except HfHubHTTPError as e:
         print(f"Error fetching scheduled jobs data: {e}")
-    except (KeyError, ValueError, TypeError) as e:
-        print(f"Error processing scheduled jobs data: {e}")
-    except Exception as e:
-        print(f"Unexpected error - {type(e).__name__}: {e}")
 
 
 @scheduled_app.command("inspect", help="Display detailed information on one or more scheduled Jobs")
