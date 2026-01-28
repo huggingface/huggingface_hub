@@ -328,7 +328,6 @@ def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, st
         match = fnmatch(value.lower(), pattern.lower())
         if (op_str == "=" and not match) or (op_str == "!=" and match):
             return False
-            return False
     return True
 
 
