@@ -219,7 +219,7 @@ def default_client_factory() -> httpx.Client:
     return httpx.Client(
         event_hooks={"request": [hf_request_event_hook]},
         follow_redirects=True,
-        timeout=httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
+        timeout=httpx.Timeout(constants.HF_HUB_DOWNLOAD_TIMEOUT, write=60.0),
     )
 
 
@@ -230,7 +230,7 @@ def default_async_client_factory() -> httpx.AsyncClient:
     return httpx.AsyncClient(
         event_hooks={"request": [async_hf_request_event_hook], "response": [async_hf_response_event_hook]},
         follow_redirects=True,
-        timeout=httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
+        timeout=httpx.Timeout(constants.HF_HUB_DOWNLOAD_TIMEOUT, write=60.0),
     )
 
 
