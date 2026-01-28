@@ -1651,7 +1651,13 @@ class TestReplicateProvider:
             ),
         )
         assert payload == {
-            "input": {"input_image": image_uri, "num_inference_steps": 20},
+            "input": {
+                "image": image_uri,
+                "images": [image_uri],
+                "input_image": image_uri,
+                "input_images": [image_uri],
+                "num_inference_steps": 20,
+            },
         }
 
         payload = helper._prepare_payload_as_dict(
@@ -1666,7 +1672,13 @@ class TestReplicateProvider:
             ),
         )
         assert payload == {
-            "input": {"input_image": image_uri, "num_inference_steps": 20},
+            "input": {
+                "image": image_uri,
+                "images": [image_uri],
+                "input_image": image_uri,
+                "input_images": [image_uri],
+                "num_inference_steps": 20,
+            },
             "version": "123456",
         }
 
