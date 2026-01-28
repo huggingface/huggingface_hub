@@ -46,10 +46,36 @@ from ._cli_utils import TokenOpt, typer_factory
 logger = logging.get_logger(__name__)
 
 
+_AUTH_EPILOG = """\
+EXAMPLES
+  $ hf auth login
+  $ hf auth login --token $HF_TOKEN
+  $ hf auth login --token $HF_TOKEN --add-to-git-credential
+  $ hf auth whoami
+  $ hf auth list
+  $ hf auth switch
+  $ hf auth switch --token-name my-token
+  $ hf auth logout
+  $ hf auth logout --token-name my-token
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/guides/cli
+"""
+
+
 auth_cli = typer_factory(help="Manage authentication (login, logout, etc.).")
 
 
-@auth_cli.command("login", help="Login using a token from huggingface.co/settings/tokens")
+@auth_cli.callback(epilog=_AUTH_EPILOG, invoke_without_command=True)
+def auth_callback(ctx: typer.Context) -> None:
+    """Manage authentication (login, logout, etc.)."""
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit()
+
+
+@auth_cli.command("login", help="Login using a token from huggingface.co/settings/tokens.")
 def auth_login(
     token: TokenOpt = None,
     add_to_git_credential: Annotated[
@@ -62,7 +88,7 @@ def auth_login(
     login(token=token, add_to_git_credential=add_to_git_credential)
 
 
-@auth_cli.command("logout", help="Logout from a specific token")
+@auth_cli.command("logout", help="Logout from a specific token.")
 def auth_logout(
     token_name: Annotated[
         Optional[str],
@@ -98,7 +124,7 @@ def _select_token_name() -> Optional[str]:
             print("Invalid input. Please enter a number or 'q' to quit.")
 
 
-@auth_cli.command("switch", help="Switch between access tokens")
+@auth_cli.command("switch", help="Switch between access tokens.")
 def auth_switch_cmd(
     token_name: Annotated[
         Optional[str],
@@ -121,7 +147,7 @@ def auth_switch_cmd(
     auth_switch(token_name, add_to_git_credential=add_to_git_credential)
 
 
-@auth_cli.command("list", help="List all stored access tokens")
+@auth_cli.command("list", help="List all stored access tokens.")
 def auth_list_cmd() -> None:
     auth_list()
 

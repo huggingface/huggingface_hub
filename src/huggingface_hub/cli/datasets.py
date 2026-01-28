@@ -65,6 +65,30 @@ ExpandOpt = Annotated[
 datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
 
 
+_DATASETS_EPILOG = """\
+EXAMPLES
+  $ hf datasets ls
+  $ hf datasets ls --limit 20
+  $ hf datasets ls --sort downloads --limit 10
+  $ hf datasets ls --search "finepdfs"
+  $ hf datasets ls --expand downloads,likes,tags
+  $ hf datasets info Wauplin/my-cool-dataset
+  $ hf datasets info Wauplin/my-cool-dataset --revision main
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-datasets
+"""
+
+
+@datasets_cli.callback(epilog=_DATASETS_EPILOG, invoke_without_command=True)
+def datasets_callback(ctx: typer.Context) -> None:
+    """Interact with datasets on the Hub."""
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit()
+
+
 @datasets_cli.command("ls")
 def datasets_ls(
     search: SearchOpt = None,

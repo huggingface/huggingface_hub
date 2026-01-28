@@ -21,12 +21,27 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `--show-completion`: Show completion for the current shell, to copy it or customize the installation.
 * `--help`: Show this message and exit.
 
+EXAMPLES
+  $ hf auth login
+  $ hf repo create Wauplin/my-cool-model --private
+  $ hf download meta-llama/Llama-3.2-1B-Instruct
+  $ hf upload Wauplin/my-cool-model ./model.safetensors
+  $ hf cache ls
+  $ hf models ls --filter "text-generation"
+  $ hf jobs ps
+  $ hf jobs run python:3.12 python -c "print('Hello')"
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/guides/cli
+
+
 **Commands**:
 
 * `auth`: Manage authentication (login, logout, etc.).
 * `cache`: Manage local cache directory.
 * `datasets`: Interact with datasets on the Hub.
-* `download`: Download files from the Hub.
+* `download`: Download files from the Hub to local cache...
 * `endpoints`: Manage Hugging Face Inference Endpoints.
 * `env`: Print information about the environment.
 * `jobs`: Run and manage Jobs on the Hub.
@@ -34,6 +49,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `lfs-multipart-upload`: Upload large files to the Hub.
 * `models`: Interact with models on the Hub.
 * `papers`: Interact with papers on the Hub.
+* `reference`: Print the CLI reference in markdown format.
 * `repo`: Manage repos on the Hub.
 * `repo-files`: Manage files in a repo on the Hub.
 * `spaces`: Interact with spaces on the Hub.
@@ -55,17 +71,33 @@ $ hf auth [OPTIONS] COMMAND [ARGS]...
 
 * `--help`: Show this message and exit.
 
+EXAMPLES
+  $ hf auth login
+  $ hf auth login --token $HF_TOKEN
+  $ hf auth login --token $HF_TOKEN --add-to-git-credential
+  $ hf auth whoami
+  $ hf auth list
+  $ hf auth switch
+  $ hf auth switch --token-name my-token
+  $ hf auth logout
+  $ hf auth logout --token-name my-token
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/guides/cli
+
+
 **Commands**:
 
-* `list`: List all stored access tokens
+* `list`: List all stored access tokens.
 * `login`: Login using a token from...
-* `logout`: Logout from a specific token
-* `switch`: Switch between access tokens
+* `logout`: Logout from a specific token.
+* `switch`: Switch between access tokens.
 * `whoami`: Find out which huggingface.co account you...
 
 ### `hf auth list`
 
-List all stored access tokens
+List all stored access tokens.
 
 **Usage**:
 
@@ -79,7 +111,7 @@ $ hf auth list [OPTIONS]
 
 ### `hf auth login`
 
-Login using a token from huggingface.co/settings/tokens
+Login using a token from huggingface.co/settings/tokens.
 
 **Usage**:
 
@@ -95,7 +127,7 @@ $ hf auth login [OPTIONS]
 
 ### `hf auth logout`
 
-Logout from a specific token
+Logout from a specific token.
 
 **Usage**:
 
@@ -110,7 +142,7 @@ $ hf auth logout [OPTIONS]
 
 ### `hf auth switch`
 
-Switch between access tokens
+Switch between access tokens.
 
 **Usage**:
 
@@ -151,6 +183,23 @@ $ hf cache [OPTIONS] COMMAND [ARGS]...
 **Options**:
 
 * `--help`: Show this message and exit.
+
+EXAMPLES
+  $ hf cache ls
+  $ hf cache ls --revisions
+  $ hf cache ls --filter "size>1GB" --limit 20
+  $ hf cache ls --format json
+  $ hf cache rm Wauplin/my-cool-model
+  $ hf cache rm <revision_hash>
+  $ hf cache rm model/gpt2 --dry-run
+  $ hf cache rm model/gpt2 --yes
+  $ hf cache prune
+  $ hf cache verify Wauplin/my-cool-dataset --repo-type dataset
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-cache
+
 
 **Commands**:
 
@@ -263,6 +312,20 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 
 * `--help`: Show this message and exit.
 
+EXAMPLES
+  $ hf datasets ls
+  $ hf datasets ls --limit 20
+  $ hf datasets ls --sort downloads --limit 10
+  $ hf datasets ls --search "finepdfs"
+  $ hf datasets ls --expand downloads,likes,tags
+  $ hf datasets info Wauplin/my-cool-dataset
+  $ hf datasets info Wauplin/my-cool-dataset --revision main
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-datasets
+
+
 **Commands**:
 
 * `info`: Get info about a dataset on the Hub.
@@ -312,7 +375,7 @@ $ hf datasets ls [OPTIONS]
 
 ## `hf download`
 
-Download files from the Hub.
+Download files from the Hub to local cache or a specific directory.
 
 **Usage**:
 
@@ -340,6 +403,17 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 * `--max-workers INTEGER`: Maximum number of workers to use for downloading files. Default is 8.  [default: 8]
 * `--help`: Show this message and exit.
 
+EXAMPLES
+  $ hf download meta-llama/Llama-3.2-1B-Instruct
+  $ hf download meta-llama/Llama-3.2-1B-Instruct config.json tokenizer.json
+  $ hf download meta-llama/Llama-3.2-1B-Instruct --include "*.safetensors" --exclude "*.bin"
+  $ hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-download
+
+
 ## `hf endpoints`
 
 Manage Hugging Face Inference Endpoints.
@@ -353,6 +427,16 @@ $ hf endpoints [OPTIONS] COMMAND [ARGS]...
 **Options**:
 
 * `--help`: Show this message and exit.
+
+EXAMPLES
+  $ hf endpoints ls
+  $ hf endpoints ls --namespace my-org
+  $ hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct --name my-llama-endpoint
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-endpoints
+
 
 **Commands**:
 
@@ -380,6 +464,15 @@ $ hf endpoints catalog [OPTIONS] COMMAND [ARGS]...
 **Options**:
 
 * `--help`: Show this message and exit.
+
+EXAMPLES
+  $ hf endpoints catalog ls
+  $ hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-endpoints-catalog
+
 
 **Commands**:
 
@@ -645,6 +738,21 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 
 * `--help`: Show this message and exit.
 
+EXAMPLES
+  $ hf jobs run python:3.12 python -c 'print("Hello from the cloud!")'
+  $ hf jobs run -e FOO=foo -e BAR=bar python:3.12 python -c "import os; print(os.environ['FOO'])"
+  $ hf jobs run --env-file .env python:3.12 python script.py
+  $ hf jobs run --secrets HF_TOKEN python:3.12 python -c "print('authenticated')"
+  $ hf jobs ps
+  $ hf jobs inspect <job_id>
+  $ hf jobs logs <job_id>
+  $ hf jobs cancel <job_id>
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-jobs
+
+
 **Commands**:
 
 * `cancel`: Cancel a Job
@@ -652,7 +760,7 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 * `inspect`: Display detailed information on one or...
 * `logs`: Fetch the logs of a Job
 * `ps`: List Jobs
-* `run`: Run a Job
+* `run`: Run a Job.
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
 * `stats`: Fetch the resource usage statistics and...
 * `uv`: Run UV scripts (Python with inline...
@@ -752,7 +860,7 @@ $ hf jobs ps [OPTIONS]
 
 ### `hf jobs run`
 
-Run a Job
+Run a Job.
 
 **Usage**:
 
@@ -793,15 +901,28 @@ $ hf jobs scheduled [OPTIONS] COMMAND [ARGS]...
 
 * `--help`: Show this message and exit.
 
+EXAMPLES
+  $ hf jobs scheduled run "0 0 * * *" python:3.12 python script.py
+  $ hf jobs scheduled ps
+  $ hf jobs scheduled inspect <scheduled-job-id>
+  $ hf jobs scheduled suspend <scheduled-job-id>
+  $ hf jobs scheduled resume <scheduled-job-id>
+  $ hf jobs scheduled delete <scheduled-job-id>
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-jobs-scheduled
+
+
 **Commands**:
 
 * `delete`: Delete a scheduled Job
 * `inspect`: Display detailed information on one or...
 * `ps`: List scheduled Jobs
 * `resume`: Resume (unpause) a scheduled Job
-* `run`: Schedule a Job
+* `run`: Schedule a Job.
 * `suspend`: Suspend (pause) a scheduled Job
-* `uv`: Schedule UV scripts on HF infrastructure
+* `uv`: Schedule UV scripts on HF infrastructure.
 
 #### `hf jobs scheduled delete`
 
@@ -884,7 +1005,7 @@ $ hf jobs scheduled resume [OPTIONS] SCHEDULED_JOB_ID
 
 #### `hf jobs scheduled run`
 
-Schedule a Job
+Schedule a Job.
 
 **Usage**:
 
@@ -935,7 +1056,7 @@ $ hf jobs scheduled suspend [OPTIONS] SCHEDULED_JOB_ID
 
 #### `hf jobs scheduled uv`
 
-Schedule UV scripts on HF infrastructure
+Schedule UV scripts on HF infrastructure.
 
 **Usage**:
 
@@ -946,6 +1067,15 @@ $ hf jobs scheduled uv [OPTIONS] COMMAND [ARGS]...
 **Options**:
 
 * `--help`: Show this message and exit.
+
+EXAMPLES
+  $ hf jobs scheduled uv run "0 0 * * *" script.py
+  $ hf jobs scheduled uv run "0 0 * * *" script.py --with pandas
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-jobs-scheduled
+
 
 **Commands**:
 
@@ -1007,7 +1137,7 @@ $ hf jobs stats [OPTIONS] [JOB_IDS]...
 
 ### `hf jobs uv`
 
-Run UV scripts (Python with inline dependencies) on HF infrastructure
+Run UV scripts (Python with inline dependencies) on HF infrastructure.
 
 **Usage**:
 
@@ -1018,6 +1148,18 @@ $ hf jobs uv [OPTIONS] COMMAND [ARGS]...
 **Options**:
 
 * `--help`: Show this message and exit.
+
+EXAMPLES
+  $ hf jobs uv run my_script.py
+  $ hf jobs uv run my_script.py --repo my-uv-scripts
+  $ hf jobs uv run ml_training.py --flavor a10g-small
+  $ hf jobs uv run --with transformers --with torch train.py
+  $ hf jobs uv run https://huggingface.co/datasets/user/scripts/resolve/main/example.py
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-jobs-uv
+
 
 **Commands**:
 
@@ -1100,6 +1242,17 @@ $ hf models [OPTIONS] COMMAND [ARGS]...
 **Options**:
 
 * `--help`: Show this message and exit.
+
+EXAMPLES
+  $ hf models ls --sort downloads --limit 10
+  $ hf models ls --search "llama" --author meta-llama
+  $ hf models info meta-llama/Llama-3.2-1B-Instruct
+  $ hf models info gpt2 --expand downloads,likes,tags
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-models
+
 
 **Commands**:
 
@@ -1184,6 +1337,20 @@ $ hf papers ls [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
+## `hf reference`
+
+Print the CLI reference in markdown format.
+
+**Usage**:
+
+```console
+$ hf reference [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
 ## `hf repo`
 
 Manage repos on the Hub.
@@ -1197,6 +1364,20 @@ $ hf repo [OPTIONS] COMMAND [ARGS]...
 **Options**:
 
 * `--help`: Show this message and exit.
+
+
+EXAMPLES
+  $ hf repo create my-model
+  $ hf repo create my-dataset --repo-type dataset --private
+  $ hf repo delete my-model
+  $ hf repo tag create my-model v1.0
+  $ hf repo branch create my-model dev
+
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-repo
+
 
 **Commands**:
 
@@ -1220,6 +1401,16 @@ $ hf repo branch [OPTIONS] COMMAND [ARGS]...
 **Options**:
 
 * `--help`: Show this message and exit.
+
+EXAMPLES
+  $ hf repo branch create my-model dev
+  $ hf repo branch create my-model dev --revision abc123
+  $ hf repo branch delete my-model dev
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-repo-branch
+
 
 **Commands**:
 
@@ -1296,7 +1487,7 @@ $ hf repo create [OPTIONS] REPO_ID
 
 ### `hf repo delete`
 
-Delete a repo from the Hub. this is an irreversible operation.
+Delete a repo from the Hub. This is an irreversible operation.
 
 **Usage**:
 
@@ -1371,6 +1562,17 @@ $ hf repo tag [OPTIONS] COMMAND [ARGS]...
 **Options**:
 
 * `--help`: Show this message and exit.
+
+EXAMPLES
+  $ hf repo tag create my-model v1.0
+  $ hf repo tag create my-model v1.0 -m "First release"
+  $ hf repo tag list my-model
+  $ hf repo tag delete my-model v1.0
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-repo-tag
+
 
 **Commands**:
 
@@ -1498,6 +1700,17 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 
 * `--help`: Show this message and exit.
 
+EXAMPLES
+  $ hf spaces ls --limit 10
+  $ hf spaces ls --search "chatbot" --author huggingface
+  $ hf spaces info enzostvs/deepsite
+  $ hf spaces info gradio/theme_builder --expand sdk,runtime,likes
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-spaces
+
+
 **Commands**:
 
 * `info`: Get info about a space on the Hub.
@@ -1577,6 +1790,18 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 * `--quiet / --no-quiet`: Disable progress bars and warnings; print only the returned path.  [default: no-quiet]
 * `--help`: Show this message and exit.
 
+EXAMPLES
+  $ hf upload my-cool-model . .
+  $ hf upload Wauplin/my-cool-model ./models/model.safetensors
+  $ hf upload Wauplin/my-cool-dataset ./data /train --repo-type=dataset
+  $ hf upload Wauplin/my-cool-model ./models . --commit-message="Epoch 34/50" --commit-description="Val accuracy: 68%"
+  $ hf upload bigcode/the-stack . . --repo-type dataset --create-pr
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-upload
+
+
 ## `hf upload-large-folder`
 
 Upload a large folder to the Hub. Recommended for resumable uploads.
@@ -1604,6 +1829,15 @@ $ hf upload-large-folder [OPTIONS] REPO_ID LOCAL_PATH
 * `--no-report / --no-no-report`: Whether to disable regular status report.  [default: no-no-report]
 * `--no-bars / --no-no-bars`: Whether to disable progress bars.  [default: no-no-bars]
 * `--help`: Show this message and exit.
+
+EXAMPLES
+  $ hf upload-large-folder Wauplin/my-cool-model ./large_model_dir
+  $ hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-upload-large-folder
+
 
 ## `hf version`
 
