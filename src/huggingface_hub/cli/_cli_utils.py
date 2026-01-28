@@ -27,12 +27,8 @@ import click
 import typer
 
 from huggingface_hub import DatasetInfo, ModelInfo, SpaceInfo, __version__, constants
-<<<<<<< HEAD
-from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
-=======
 from huggingface_hub.hf_api import PaperInfo
-from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging
->>>>>>> 73c20d9703c25c491eb77673bc426bee6a88cb0b
+from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
 
 
 logger = logging.get_logger()
