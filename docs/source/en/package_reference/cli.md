@@ -33,6 +33,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `lfs-enable-largefiles`: Configure your repository to enable upload...
 * `lfs-multipart-upload`: Upload large files to the Hub.
 * `models`: Interact with models on the Hub.
+* `papers`: Interact with papers on the Hub.
 * `repo`: Manage repos on the Hub.
 * `repo-files`: Manage files in a repo on the Hub.
 * `spaces`: Interact with spaces on the Hub.
@@ -772,6 +773,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-xl|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|h100|h100x8]`: Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
@@ -906,6 +908,7 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `--concurrency / --no-concurrency`: Allow multiple instances of this Job to run concurrently
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-xl|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|h100|h100x8]`: Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
@@ -976,6 +979,7 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--flavor [cpu-basic|cpu-upgrade|cpu-xl|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|h100|h100x8]`: Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
@@ -1044,6 +1048,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--flavor [cpu-basic|cpu-upgrade|cpu-xl|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|h100|h100x8]`: Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
@@ -1146,6 +1151,42 @@ $ hf models ls [OPTIONS]
 * `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
 * `--format [table|json]`: Output format (table or json).  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+## `hf papers`
+
+Interact with papers on the Hub.
+
+**Usage**:
+
+```console
+$ hf papers [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `ls`: List daily papers on the Hub.
+
+### `hf papers ls`
+
+List daily papers on the Hub.
+
+**Usage**:
+
+```console
+$ hf papers ls [OPTIONS]
+```
+
+**Options**:
+
+* `--date TEXT`: Date in ISO format (YYYY-MM-DD) or 'today'.
+* `--sort [publishedAt|trending]`: Sort results.
+* `--limit INTEGER`: Limit the number of results.  [default: 50]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 

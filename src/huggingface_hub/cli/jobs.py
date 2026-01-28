@@ -62,9 +62,9 @@ import json
 import multiprocessing
 import multiprocessing.pool
 import os
-import re
 import time
 from dataclasses import asdict
+from fnmatch import fnmatch
 from pathlib import Path
 from queue import Empty, Queue
 from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, Union
@@ -72,7 +72,6 @@ from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, 
 import typer
 
 from huggingface_hub import SpaceHardware, get_token
-from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._dotenv import load_dotenv
@@ -122,6 +121,15 @@ SecretsOpt = Annotated[
         "-s",
         "--secrets",
         help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
+    ),
+]
+
+LabelsOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-l",
+        "--label",
+        help="Set labels. E.g. --label KEY=VALUE or --label LABEL",
     ),
 ]
 
@@ -253,6 +261,7 @@ def jobs_run(
     command: CommandArg,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
@@ -280,6 +289,7 @@ def jobs_run(
         command=command,
         env=env_map,
         secrets=secrets_map,
+        labels=_parse_labels_map(label),
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
@@ -306,20 +316,16 @@ def jobs_logs(
         print(log)
 
 
-def _matches_filters(job_properties: dict[str, str], filters: dict[str, str]) -> bool:
+def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, str, str]]) -> bool:
     """Check if scheduled job matches all specified filters."""
-    for key, pattern in filters.items():
-        # Check if property exists
-        if key not in job_properties:
+    for key, op_str, pattern in filters:
+        value = job_properties.get(key)
+        if value is None:
+            if op_str == "!=":
+                continue
             return False
-        # Support pattern matching with wildcards
-        if "*" in pattern or "?" in pattern:
-            # Convert glob pattern to regex
-            regex_pattern = pattern.replace("*", ".*").replace("?", ".")
-            if not re.search(f"^{regex_pattern}$", job_properties[key], re.IGNORECASE):
-                return False
-        # Simple substring matching
-        elif pattern.lower() not in job_properties[key].lower():
+        match = fnmatch(value.lower(), pattern.lower())
+        if (op_str == "=" and not match) or (op_str == "!=" and match):
             return False
     return True
 
@@ -476,94 +482,109 @@ def jobs_ps(
         ),
     ] = None,
 ) -> None:
-    try:
-        api = get_hf_api(token=token)
-        # Fetch jobs data
-        jobs = api.list_jobs(namespace=namespace)
-        # Define table headers
-        table_headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
-        headers_aliases = ["id", "image", "command", "created", "status"]
-        rows: list[list[Union[str, int]]] = []
+    api = get_hf_api(token=token)
+    # Fetch jobs data
+    jobs = api.list_jobs(namespace=namespace)
+    # Define table headers
+    table_headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
+    headers_aliases = ["id", "image", "command", "created", "status"]
+    rows: list[list[Union[str, int]]] = []
 
-        filters: dict[str, str] = {}
-        for f in filter or []:
-            if "=" in f:
-                key, value = f.split("=", 1)
-                filters[key.lower()] = value
+    filters: list[tuple[str, str, str]] = []
+    labels_filters: list[tuple[str, str, str]] = []
+    for f in filter or []:
+        if f.startswith("label!=") or f.startswith("label="):
+            if f.startswith("label!="):
+                label_part = f[len("label!=") :]
+                if "=" in label_part:
+                    print(
+                        f"Warning: Ignoring invalid label filter format 'label!={label_part}'. Use label!=key format."
+                    )
+                    continue
+                label_key, op, label_value = label_part, "!=", "*"
             else:
-                print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
-        # Process jobs data
-        for job in jobs:
-            # Extract job data for filtering
-            status = job.status.stage if job.status else "UNKNOWN"
-            if not all and status not in ("RUNNING", "UPDATING"):
-                # Skip job if not all jobs should be shown and status doesn't match criteria
-                continue
-            # Extract job data for output
-            job_id = job.id
+                label_part = f[len("label=") :]
+                if "=" in label_part:
+                    label_key, label_value = label_part.split("=", 1)
+                else:
+                    label_key, label_value = label_part, "*"
+                # Negate predicate in case of key!=value
+                if label_key.endswith("!"):
+                    op = "!="
+                    label_key = label_key[:-1]
+                else:
+                    op = "="
+            labels_filters.append((label_key.lower(), op, label_value.lower()))
+        elif "=" in f:
+            key, value = f.split("=", 1)
+            # Negate predicate in case of key!=value
+            if key.endswith("!"):
+                op = "!="
+                key = key[:-1]
+            else:
+                op = "="
+            filters.append((key.lower(), op, value.lower()))
+        else:
+            print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
+    # Process jobs data
+    for job in jobs:
+        # Extract job data for filtering
+        status = job.status.stage if job.status else "UNKNOWN"
+        if not all and status not in ("RUNNING", "UPDATING"):
+            # Skip job if not all jobs should be shown and status doesn't match criteria
+            continue
+        # Extract job data for output
+        job_id = job.id
 
-            # Extract image or space information
-            image_or_space = job.docker_image or "N/A"
+        # Extract image or space information
+        image_or_space = job.docker_image or "N/A"
 
-            # Extract and format command
-            cmd = job.command or []
-            command_str = " ".join(cmd) if cmd else "N/A"
+        # Extract and format command
+        cmd = job.command or []
+        command_str = " ".join(cmd) if cmd else "N/A"
 
-            # Extract creation time
-            created_at = job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else "N/A"
+        # Extract creation time
+        created_at = job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else "N/A"
 
-            # Create a dict with all job properties for filtering
-            props = {"id": job_id, "image": image_or_space, "status": status.lower(), "command": command_str}
-            if not _matches_filters(props, filters):
-                continue
+        # Create a dict with all job properties for filtering
+        props = {"id": job_id, "image": image_or_space, "status": status.lower(), "command": command_str}
+        if not _matches_filters(props, filters):
+            continue
+        if not _matches_filters(job.labels or {}, labels_filters):
+            continue
 
-            # Create row
-            rows.append([job_id, image_or_space, command_str, created_at, status])
+        # Create row
+        rows.append([job_id, image_or_space, command_str, created_at, status])
 
-        # Handle empty results
-        if not rows:
-            filters_msg = (
-                f" matching filters: {', '.join([f'{k}={v}' for k, v in filters.items()])}" if filters else ""
-            )
-            print(f"No jobs found{filters_msg}")
-            return
-        # Apply custom format if provided or use default tabular format
-        _print_output(rows, table_headers, headers_aliases, format)
-
-    except HfHubHTTPError as e:
-        print(f"Error fetching jobs data: {e}")
-    except (KeyError, ValueError, TypeError) as e:
-        print(f"Error processing jobs data: {e}")
-    except Exception as e:
-        print(f"Unexpected error - {type(e).__name__}: {e}")
+    # Handle empty results
+    if not rows:
+        filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
+        print(f"No jobs found{filters_msg}")
+        return
+    # Apply custom format if provided or use default tabular format
+    _print_output(rows, table_headers, headers_aliases, format)
 
 
 @jobs_cli.command("hardware", help="List available hardware options for Jobs")
 def jobs_hardware() -> None:
-    try:
-        api = get_hf_api()
-        hardware_list = api.list_jobs_hardware()
-        table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
-        headers_aliases = ["name", "prettyName", "cpu", "ram", "accelerator", "costMin", "costHour"]
-        rows: list[list[Union[str, int]]] = []
+    api = get_hf_api()
+    hardware_list = api.list_jobs_hardware()
+    table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
+    headers_aliases = ["name", "prettyName", "cpu", "ram", "accelerator", "costMin", "costHour"]
+    rows: list[list[Union[str, int]]] = []
 
-        for hw in hardware_list:
-            accelerator_info = "N/A"
-            if hw.accelerator:
-                accelerator_info = f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})"
-            cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd is not None else "N/A"
-            cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd is not None else "N/A"
-            rows.append([hw.name, hw.pretty_name or "N/A", hw.cpu, hw.ram, accelerator_info, cost_min, cost_hour])
+    for hw in hardware_list:
+        accelerator_info = "N/A"
+        if hw.accelerator:
+            accelerator_info = f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})"
+        cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd is not None else "N/A"
+        cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd is not None else "N/A"
+        rows.append([hw.name, hw.pretty_name or "N/A", hw.cpu, hw.ram, accelerator_info, cost_min, cost_hour])
 
-        if not rows:
-            print("No hardware options found")
-            return
-        _print_output(rows, table_headers, headers_aliases, None)
-
-    except HfHubHTTPError as e:
-        print(f"Error fetching hardware data: {e}")
-    except Exception as e:
-        print(f"Unexpected error - {type(e).__name__}: {e}")
+    if not rows:
+        print("No hardware options found")
+        return
+    _print_output(rows, table_headers, headers_aliases, None)
 
 
 @jobs_cli.command("inspect", help="Display detailed information on one or more Jobs")
@@ -608,6 +629,7 @@ def jobs_uv_run(
     flavor: FlavorOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
@@ -638,6 +660,7 @@ def jobs_uv_run(
         image=image,
         env=env_map,
         secrets=secrets_map,
+        labels=_parse_labels_map(label),
         flavor=flavor,  # type: ignore[arg-type]
         timeout=timeout,
         namespace=namespace,
@@ -665,6 +688,7 @@ def scheduled_run(
     concurrency: ConcurrencyOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
@@ -693,6 +717,7 @@ def scheduled_run(
         concurrency=concurrency,
         env=env_map,
         secrets=secrets_map,
+        labels=_parse_labels_map(label),
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
@@ -728,58 +753,52 @@ def scheduled_ps(
         ),
     ] = None,
 ) -> None:
-    try:
-        api = get_hf_api(token=token)
-        scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
-        table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
-        headers_aliases = ["id", "schedule", "image", "command", "last", "next", "suspend"]
-        rows: list[list[Union[str, int]]] = []
-        filters: dict[str, str] = {}
-        for f in filter or []:
-            if "=" in f:
-                key, value = f.split("=", 1)
-                filters[key.lower()] = value
+    api = get_hf_api(token=token)
+    scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
+    table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
+    headers_aliases = ["id", "schedule", "image", "command", "last", "next", "suspend"]
+    rows: list[list[Union[str, int]]] = []
+    filters: list[tuple[str, str, str]] = []
+    for f in filter or []:
+        if "=" in f:
+            key, value = f.split("=", 1)
+            # Negate predicate in case of key!=value
+            if key.endswith("!"):
+                op = "!="
+                key = key[:-1]
             else:
-                print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
+                op = "="
+            filters.append((key.lower(), op, value.lower()))
+        else:
+            print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
 
-        for scheduled_job in scheduled_jobs:
-            suspend = scheduled_job.suspend or False
-            if not all and suspend:
-                continue
-            sj_id = scheduled_job.id
-            schedule = scheduled_job.schedule or "N/A"
-            image_or_space = scheduled_job.job_spec.docker_image or "N/A"
-            cmd = scheduled_job.job_spec.command or []
-            command_str = " ".join(cmd) if cmd else "N/A"
-            last_job_at = (
-                scheduled_job.status.last_job.at.strftime("%Y-%m-%d %H:%M:%S")
-                if scheduled_job.status.last_job
-                else "N/A"
-            )
-            next_job_run_at = (
-                scheduled_job.status.next_job_run_at.strftime("%Y-%m-%d %H:%M:%S")
-                if scheduled_job.status.next_job_run_at
-                else "N/A"
-            )
-            props = {"id": sj_id, "image": image_or_space, "suspend": str(suspend), "command": command_str}
-            if not _matches_filters(props, filters):
-                continue
-            rows.append([sj_id, schedule, image_or_space, command_str, last_job_at, next_job_run_at, suspend])
+    for scheduled_job in scheduled_jobs:
+        suspend = scheduled_job.suspend or False
+        if not all and suspend:
+            continue
+        sj_id = scheduled_job.id
+        schedule = scheduled_job.schedule or "N/A"
+        image_or_space = scheduled_job.job_spec.docker_image or "N/A"
+        cmd = scheduled_job.job_spec.command or []
+        command_str = " ".join(cmd) if cmd else "N/A"
+        last_job_at = (
+            scheduled_job.status.last_job.at.strftime("%Y-%m-%d %H:%M:%S") if scheduled_job.status.last_job else "N/A"
+        )
+        next_job_run_at = (
+            scheduled_job.status.next_job_run_at.strftime("%Y-%m-%d %H:%M:%S")
+            if scheduled_job.status.next_job_run_at
+            else "N/A"
+        )
+        props = {"id": sj_id, "image": image_or_space, "suspend": str(suspend), "command": command_str}
+        if not _matches_filters(props, filters):
+            continue
+        rows.append([sj_id, schedule, image_or_space, command_str, last_job_at, next_job_run_at, suspend])
 
-        if not rows:
-            filters_msg = (
-                f" matching filters: {', '.join([f'{k}={v}' for k, v in filters.items()])}" if filters else ""
-            )
-            print(f"No scheduled jobs found{filters_msg}")
-            return
-        _print_output(rows, table_headers, headers_aliases, format)
-
-    except HfHubHTTPError as e:
-        print(f"Error fetching scheduled jobs data: {e}")
-    except (KeyError, ValueError, TypeError) as e:
-        print(f"Error processing scheduled jobs data: {e}")
-    except Exception as e:
-        print(f"Unexpected error - {type(e).__name__}: {e}")
+    if not rows:
+        filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
+        print(f"No scheduled jobs found{filters_msg}")
+        return
+    _print_output(rows, table_headers, headers_aliases, format)
 
 
 @scheduled_app.command("inspect", help="Display detailed information on one or more scheduled Jobs")
@@ -850,6 +869,7 @@ def scheduled_uv_run(
     flavor: FlavorOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
@@ -882,6 +902,7 @@ def scheduled_uv_run(
         image=image,
         env=env_map,
         secrets=secrets_map,
+        labels=_parse_labels_map(label),
         flavor=flavor,  # type: ignore[arg-type]
         timeout=timeout,
         namespace=namespace,
@@ -890,6 +911,24 @@ def scheduled_uv_run(
 
 
 ### UTILS
+
+
+def _parse_labels_map(labels: Optional[list[str]]) -> Optional[dict[str, str]]:
+    """Parse label key-value pairs from CLI arguments.
+
+    Args:
+        labels: List of label strings in KEY=VALUE format. If KEY only, then VALUE is set to empty string.
+
+    Returns:
+        Dictionary mapping label keys to values, or None if no labels provided.
+    """
+    if not labels:
+        return None
+    labels_map: dict[str, str] = {}
+    for label_var in labels:
+        key, value = label_var.split("=", 1) if "=" in label_var else (label_var, "")
+        labels_map[key] = value
+    return labels_map
 
 
 def _tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:

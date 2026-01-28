@@ -200,6 +200,7 @@ ExpandSpaceProperty_T = Literal[
 ModelSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
 DatasetSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
 SpaceSort_T = Literal["created_at", "last_modified", "likes", "trending_score"]
+DailyPapersSort_T = Literal["publishedAt", "trending"]
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
@@ -10031,7 +10032,7 @@ class HfApi:
         week: Optional[str] = None,
         month: Optional[str] = None,
         submitter: Optional[str] = None,
-        sort: Optional[Literal["publishedAt", "trending"]] = None,
+        sort: Optional[DailyPapersSort_T] = None,
         p: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> Iterable[PaperInfo]:
@@ -10165,6 +10166,7 @@ class HfApi:
         secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
+        labels: Optional[dict[str, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> JobInfo:
@@ -10193,6 +10195,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            labels (`dict[str, str]`, *optional*):
+                Labels to attach to the job (key-value pairs).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -10229,6 +10234,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            labels=labels,
         )
         response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}",
@@ -10592,6 +10598,7 @@ class HfApi:
         secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
+        labels: Optional[dict[str, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> JobInfo:
@@ -10627,6 +10634,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            labels (`dict[str, str]`, *optional*):
+                Labels to attach to the job (key-value pairs).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -10688,6 +10698,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            labels=labels,
             namespace=namespace,
             token=token,
         )
@@ -10704,6 +10715,7 @@ class HfApi:
         secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
+        labels: Optional[dict[str, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> ScheduledJobInfo:
@@ -10742,6 +10754,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            labels (`dict[str, str]`, *optional*):
+                Labels to attach to the job (key-value pairs).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -10787,6 +10802,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            labels=labels,
         )
         input_json: dict[str, Any] = {
             "jobSpec": job_spec,
@@ -10980,6 +10996,7 @@ class HfApi:
         secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
+        labels: Optional[dict[str, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> ScheduledJobInfo:
@@ -11025,6 +11042,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            labels (`dict[str, str]`, *optional*):
+                Labels to attach to the job (key-value pairs).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -11086,6 +11106,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            labels=labels,
             namespace=namespace,
             token=token,
         )

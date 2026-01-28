@@ -27,7 +27,12 @@ import click
 import typer
 
 from huggingface_hub import DatasetInfo, ModelInfo, SpaceInfo, __version__, constants
+<<<<<<< HEAD
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
+=======
+from huggingface_hub.hf_api import PaperInfo
+from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging
+>>>>>>> 73c20d9703c25c491eb77673bc426bee6a88cb0b
 
 
 logger = logging.get_logger()
@@ -206,13 +211,22 @@ def print_list_output(
         print_as_table(items, headers=headers, row_fn=row_fn)
 
 
-def repo_info_to_dict(info: Union[ModelInfo, DatasetInfo, SpaceInfo]) -> dict[str, Any]:
+def _serialize_value(v: object) -> object:
+    """Recursively serialize a value to be JSON-compatible."""
+    if isinstance(v, datetime.datetime):
+        return v.isoformat()
+    elif isinstance(v, dict):
+        return {key: _serialize_value(val) for key, val in v.items() if val is not None}
+    elif isinstance(v, list):
+        return [_serialize_value(item) for item in v]
+    return v
+
+
+def api_object_to_dict(
+    info: Union[ModelInfo, DatasetInfo, SpaceInfo, PaperInfo],
+) -> dict[str, object]:
     """Convert repo info dataclasses to json-serializable dicts."""
-    return {
-        k: v.isoformat() if isinstance(v, datetime.datetime) else v
-        for k, v in dataclasses.asdict(info).items()
-        if v is not None
-    }
+    return {k: _serialize_value(v) for k, v in dataclasses.asdict(info).items() if v is not None}
 
 
 def make_expand_properties_parser(valid_properties: list[str]):
