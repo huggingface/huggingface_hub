@@ -14,14 +14,14 @@
 """Contains commands to manage skills for AI assistants.
 
 Usage:
-    # install the hf-cli skill for Claude
+    # install the hf-cli skill for Claude (project-level, in current directory)
     hf skills add --claude
 
-    # install for multiple assistants
+    # install for multiple assistants (project-level)
     hf skills add --claude --codex --opencode
 
-    # install into the current project directory (.claude/skills/)
-    hf skills add --project
+    # install globally (user-level)
+    hf skills add --claude --global
 
     # install to a custom directory
     hf skills add --dest=~/my-skills
@@ -60,10 +60,16 @@ The Hugging Face Hub CLI tool `hf` is available. IMPORTANT: The `hf` command rep
 Use `hf --help` to view available functions. Note that auth commands are now all under `hf auth` e.g. `hf auth whoami`.
 """
 
-TARGETS = {
+GLOBAL_TARGETS = {
     "codex": Path("~/.codex/skills"),
     "claude": Path("~/.claude/skills"),
     "opencode": Path("~/.config/opencode/skills"),
+}
+
+LOCAL_TARGETS = {
+    "codex": Path(".codex/skills"),
+    "claude": Path(".claude/skills"),
+    "opencode": Path(".opencode/skills"),
 }
 
 skills_cli = typer_factory(help="Manage skills for AI assistants.")
@@ -105,11 +111,12 @@ def skills_add(
     claude: Annotated[bool, typer.Option("--claude", help="Install for Claude.")] = False,
     codex: Annotated[bool, typer.Option("--codex", help="Install for Codex.")] = False,
     opencode: Annotated[bool, typer.Option("--opencode", help="Install for OpenCode.")] = False,
-    project: Annotated[
+    global_: Annotated[
         bool,
         typer.Option(
-            "--project",
-            help="Install into the current directory (.claude/skills/).",
+            "--global",
+            "-g",
+            help="Install globally (user-level) instead of in the current project directory.",
         ),
     ] = False,
     dest: Annotated[
@@ -127,19 +134,18 @@ def skills_add(
     ] = False,
 ) -> None:
     """Download a skill and install it for an AI assistant."""
-    if not (claude or codex or opencode or project or dest):
-        print("Pick a destination via --claude, --codex, --opencode, --project, or --dest.")
+    if not (claude or codex or opencode or dest):
+        print("Pick a destination via --claude, --codex, --opencode, or --dest.")
         raise typer.Exit(code=1)
 
+    targets_dict = GLOBAL_TARGETS if global_ else LOCAL_TARGETS
     targets: list[Path] = []
     if claude:
-        targets.append(TARGETS["claude"])
+        targets.append(targets_dict["claude"])
     if codex:
-        targets.append(TARGETS["codex"])
+        targets.append(targets_dict["codex"])
     if opencode:
-        targets.append(TARGETS["opencode"])
-    if project:
-        targets.append(Path(".claude/skills"))
+        targets.append(targets_dict["opencode"])
     if dest:
         targets.append(dest)
 
