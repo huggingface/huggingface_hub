@@ -14,7 +14,6 @@
 # limitations under the License.
 """Contains the 'hf cache' command group with cache management subcommands."""
 
-import csv
 import json
 import re
 import sys
@@ -37,7 +36,7 @@ from ..utils import (
     tabulate,
 )
 from ..utils._parsing import parse_duration, parse_size
-from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import OutputFormat, RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 from ._errors import CLIError
 
 
@@ -45,12 +44,6 @@ cache_cli = typer_factory(help="Manage local cache directory.")
 
 
 #### Cache helper utilities
-
-
-class OutputFormat(str, Enum):
-    table = "table"
-    json = "json"
-    csv = "csv"
 
 
 @dataclass(frozen=True)
@@ -329,55 +322,6 @@ def print_cache_entries_json(
     sys.stdout.write("\n")
 
 
-def print_cache_entries_csv(entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap) -> None:
-    """Export cache entries as CSV rows with the shared payload format."""
-    records = _build_cache_export_payload(entries, include_revisions=include_revisions, repo_refs_map=repo_refs_map)
-    writer = csv.writer(sys.stdout)
-
-    if include_revisions:
-        headers = [
-            "repo_id",
-            "repo_type",
-            "revision",
-            "snapshot_path",
-            "size_on_disk",
-            "last_accessed",
-            "last_modified",
-            "refs",
-        ]
-    else:
-        headers = ["repo_id", "repo_type", "size_on_disk", "last_accessed", "last_modified", "refs"]
-
-    writer.writerow(headers)
-
-    if not records:
-        return
-
-    for record in records:
-        refs = record["refs"]
-        if include_revisions:
-            row = [
-                record.get("repo_id", ""),
-                record.get("repo_type", ""),
-                record.get("revision", ""),
-                record.get("snapshot_path", ""),
-                record.get("size_on_disk"),
-                record.get("last_accessed"),
-                record.get("last_modified"),
-                " ".join(refs) if refs else "",
-            ]
-        else:
-            row = [
-                record.get("repo_id", ""),
-                record.get("repo_type", ""),
-                record.get("size_on_disk"),
-                record.get("last_accessed"),
-                record.get("last_modified"),
-                " ".join(refs) if refs else "",
-            ]
-        writer.writerow(row)
-
-
 def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
     """Evaluate numeric comparisons for filters."""
     if left is None:
@@ -588,7 +532,6 @@ def ls(
     formatters = {
         OutputFormat.table: print_cache_entries_table,
         OutputFormat.json: print_cache_entries_json,
-        OutputFormat.csv: print_cache_entries_csv,
     }
     return formatters[format](entries, include_revisions=revisions, repo_refs_map=repo_refs_map)
 

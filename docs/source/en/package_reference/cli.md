@@ -175,7 +175,7 @@ $ hf cache ls [OPTIONS]
 * `--cache-dir TEXT`: Cache directory to scan (defaults to Hugging Face cache).
 * `--revisions / --no-revisions`: Include revisions in the output instead of aggregated repositories.  [default: no-revisions]
 * `-f, --filter TEXT`: Filter entries (e.g. 'size>1GB', 'type=model', 'accessed>7d'). Can be used multiple times.
-* `--format [table|json|csv]`: Output format.  [default: table]
+* `--format [table|json]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (repo IDs or revision hashes).
 * `--sort [accessed|accessed:asc|accessed:desc|modified|modified:asc|modified:desc|name|name:asc|name:desc|size|size:asc|size:desc]`: Sort entries by key. Supported keys: 'accessed', 'modified', 'name', 'size'. Append ':asc' or ':desc' to explicitly set the order (e.g., 'modified:asc'). Defaults: 'accessed', 'modified', 'size' default to 'desc' (newest/biggest first); 'name' defaults to 'asc' (alphabetical).
 * `--limit INTEGER`: Limit the number of results returned. Returns only the top N entries after sorting.
@@ -308,6 +308,8 @@ $ hf datasets ls [OPTIONS]
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -522,6 +524,8 @@ $ hf endpoints ls [OPTIONS]
 **Options**:
 
 * `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1146,6 +1150,8 @@ $ hf models ls [OPTIONS]
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1581,6 +1587,8 @@ $ hf spaces ls [OPTIONS]
 * `--sort [created_at|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
