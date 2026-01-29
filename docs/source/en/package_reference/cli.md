@@ -1513,11 +1513,6 @@ $ hf skills [OPTIONS] COMMAND [ARGS]...
 
 Download a skill and install it for an AI assistant.
 
-The skill is installed in a central location (.agents/skills/hf-cli/ for local,
-~/.agents/skills/hf-cli/ for global) and relative symlinks are created from
-agent-specific directories (.claude/skills/, .codex/skills/, .opencode/skills/)
-pointing to the central location.
-
 **Usage**:
 
 ```console
