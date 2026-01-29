@@ -32,7 +32,6 @@ import typer
 
 from huggingface_hub.errors import RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import ExpandModelProperty_T, ModelSort_T
-from huggingface_hub.utils import ANSI
 
 from ._cli_utils import (
     AuthorOpt,
@@ -46,6 +45,7 @@ from ._cli_utils import (
     make_expand_properties_parser,
     typer_factory,
 )
+from ._errors import CLIError
 
 
 _EXPAND_PROPERTIES = sorted(get_args(ExpandModelProperty_T))
@@ -101,10 +101,8 @@ def models_info(
     api = get_hf_api(token=token)
     try:
         info = api.model_info(repo_id=model_id, revision=revision, expand=expand)  # type: ignore[arg-type]
-    except RepositoryNotFoundError:
-        print(f"Model {ANSI.bold(model_id)} not found.")
-        raise typer.Exit(code=1)
-    except RevisionNotFoundError:
-        print(f"Revision {ANSI.bold(str(revision))} not found on {ANSI.bold(model_id)}.")
-        raise typer.Exit(code=1)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"Model '{model_id}' not found.") from e
+    except RevisionNotFoundError as e:
+        raise CLIError(f"Revision '{revision}' not found on '{model_id}'.") from e
     print(json.dumps(api_object_to_dict(info), indent=2))

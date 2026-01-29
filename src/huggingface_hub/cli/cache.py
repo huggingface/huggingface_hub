@@ -38,6 +38,7 @@ from ..utils import (
 )
 from ..utils._parsing import parse_duration, parse_size
 from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._errors import CLIError
 
 
 cache_cli = typer_factory(help="Manage local cache directory.")
@@ -551,8 +552,7 @@ def ls(
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
-        print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1) from exc
+        raise CLIError(f"Cache directory not found: {exc.cache_dir}") from exc
 
     filters = filter or []
 
@@ -626,8 +626,7 @@ def rm(
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
-        print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1)
+        raise CLIError(f"Cache directory not found: {exc.cache_dir}") from exc
 
     resolution = _resolve_deletion_targets(hf_cache_info, targets)
 
@@ -697,8 +696,7 @@ def prune(
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
-        print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1)
+        raise CLIError(f"Cache directory not found: {exc.cache_dir}") from exc
 
     selected: dict[CachedRepoInfo, frozenset[CachedRevisionInfo]] = {}
     revisions: set[str] = set()
