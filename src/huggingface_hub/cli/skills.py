@@ -61,11 +61,9 @@ The Hugging Face Hub CLI tool `hf` is available. IMPORTANT: The `hf` command rep
 Use `hf --help` to view available functions. Note that auth commands are now all under `hf auth` e.g. `hf auth whoami`.
 """
 
-# Central location for skills (shared across all agents)
 CENTRAL_LOCAL = Path(".agents/skills")
 CENTRAL_GLOBAL = Path("~/.agents/skills")
 
-# Agent-specific directories that will contain symlinks to central location
 GLOBAL_TARGETS = {
     "codex": Path("~/.codex/skills"),
     "claude": Path("~/.claude/skills"),
@@ -88,25 +86,17 @@ def _download(url: str) -> str:
     return response.text
 
 
-def _install_to_central(central_path: Path, force: bool) -> Path:
-    """Download and install the skill files into the central skills directory.
+def _install_to(skills_dir: Path, force: bool) -> Path:
+    """Download and install the skill files into a skills directory. Returns the installed path."""
+    skills_dir = skills_dir.expanduser().resolve()
+    skills_dir.mkdir(parents=True, exist_ok=True)
+    dest = skills_dir / DEFAULT_SKILL_ID
 
-    Args:
-        central_path: Path to the central skills directory (e.g., `.agents/skills/`)
-        force: Whether to overwrite existing skill
-
-    Returns:
-        Path to the installed skill directory
-    """
-    central_path = central_path.expanduser().resolve()
-    central_path.mkdir(parents=True, exist_ok=True)
-    dest = central_path / DEFAULT_SKILL_ID
-
-    if dest.exists():
+    if dest.exists() or dest.is_symlink():
+        if not force:
+            raise SystemExit(f"Skill already exists at {dest}.\nRe-run with --force to overwrite.")
         if dest.is_symlink():
             dest.unlink()
-        elif not force:
-            raise SystemExit(f"Skill already exists at {dest}.\nRe-run with --force to overwrite.")
         else:
             shutil.rmtree(dest)
 
@@ -126,16 +116,7 @@ def _install_to_central(central_path: Path, force: bool) -> Path:
 
 
 def _create_symlink(agent_skills_dir: Path, central_skill_path: Path, force: bool) -> Path:
-    """Create a relative symlink from agent directory to the central skill location.
-
-    Args:
-        agent_skills_dir: Path to the agent's skills directory (e.g., `.claude/skills/`)
-        central_skill_path: Absolute path to the central skill directory
-        force: Whether to overwrite existing symlink/directory
-
-    Returns:
-        Path to the created symlink
-    """
+    """Create a relative symlink from agent directory to the central skill location."""
     agent_skills_dir = agent_skills_dir.expanduser().resolve()
     agent_skills_dir.mkdir(parents=True, exist_ok=True)
     link_path = agent_skills_dir / DEFAULT_SKILL_ID
@@ -143,14 +124,11 @@ def _create_symlink(agent_skills_dir: Path, central_skill_path: Path, force: boo
     if link_path.exists() or link_path.is_symlink():
         if not force:
             raise SystemExit(f"Skill already exists at {link_path}.\nRe-run with --force to overwrite.")
-        if link_path.is_symlink():
-            link_path.unlink()
-        elif link_path.is_dir():
+        if link_path.is_dir() and not link_path.is_symlink():
             shutil.rmtree(link_path)
         else:
             link_path.unlink()
 
-    # Calculate relative path from agent skills dir to central skill path
     relative_target = os.path.relpath(central_skill_path, agent_skills_dir)
     link_path.symlink_to(relative_target)
 
@@ -184,18 +162,11 @@ def skills_add(
         ),
     ] = False,
 ) -> None:
-    """Download a skill and install it for an AI assistant.
-
-    The skill is installed in a central location (.agents/skills/hf-cli/ for local,
-    ~/.agents/skills/hf-cli/ for global) and relative symlinks are created from
-    agent-specific directories (.claude/skills/, .codex/skills/, .opencode/skills/)
-    pointing to the central location.
-    """
+    """Download a skill and install it for an AI assistant."""
     if not (claude or codex or opencode or dest):
         print("Pick a destination via --claude, --codex, --opencode, or --dest.")
         raise typer.Exit(code=1)
 
-    # Determine which agent targets to create symlinks for
     targets_dict = GLOBAL_TARGETS if global_ else LOCAL_TARGETS
     agent_targets: list[Path] = []
     if claude:
@@ -205,36 +176,15 @@ def skills_add(
     if opencode:
         agent_targets.append(targets_dict["opencode"])
 
-    # Handle --dest option: install directly to custom destination (no symlink)
     if dest:
-        dest_resolved = dest.expanduser().resolve()
-        dest_resolved.mkdir(parents=True, exist_ok=True)
-        skill_dest = dest_resolved / DEFAULT_SKILL_ID
-        if skill_dest.exists() or skill_dest.is_symlink():
-            if not force:
-                raise SystemExit(f"Skill already exists at {skill_dest}.\nRe-run with --force to overwrite.")
-            if skill_dest.is_symlink():
-                skill_dest.unlink()
-            elif skill_dest.is_dir():
-                shutil.rmtree(skill_dest)
-            else:
-                skill_dest.unlink()
-        # For custom dest, install directly (no central location / symlink)
-        skill_dest.mkdir()
-        skill_content = _download(_SKILL_MD_URL)
-        (skill_dest / "SKILL.md").write_text(_SKILL_YAML_PREFIX + skill_content, encoding="utf-8")
-        ref_dir = skill_dest / "references"
-        ref_dir.mkdir()
-        ref_content = _download(_REFERENCE_URL)
-        (ref_dir / "cli.md").write_text(ref_content, encoding="utf-8")
+        skill_dest = _install_to(dest, force)
         print(f"Installed '{DEFAULT_SKILL_ID}' to {skill_dest}")
 
-    # For agent targets, install to central location and create symlinks
     if agent_targets:
         central_path = CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL
-        central_skill_path = _install_to_central(central_path, force)
+        central_skill_path = _install_to(central_path, force)
         print(f"Installed '{DEFAULT_SKILL_ID}' to central location: {central_skill_path}")
 
         for agent_target in agent_targets:
             link_path = _create_symlink(agent_target, central_skill_path, force)
-            print(f"Created symlink: {link_path} -> {central_skill_path}")
+            print(f"Created symlink: {link_path}")
