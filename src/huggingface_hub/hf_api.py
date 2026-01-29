@@ -1429,6 +1429,8 @@ class Organization:
             Number of followers of the organization.
         num_papers (`int`, *optional*):
             Number of papers authored by the organization.
+        plan (`str`, *optional*):
+            The organization's plan (e.g., "enterprise", "team").
     """
 
     avatar_url: str
@@ -1443,6 +1445,7 @@ class Organization:
     num_datasets: Optional[int] = None
     num_followers: Optional[int] = None
     num_papers: Optional[int] = None
+    plan: Optional[str] = None
 
     def __init__(self, **kwargs) -> None:
         self.avatar_url = kwargs.pop("avatarUrl", "")
@@ -1457,6 +1460,7 @@ class Organization:
         self.num_datasets = kwargs.pop("numDatasets", None)
         self.num_followers = kwargs.pop("numFollowers", None)
         self.num_papers = kwargs.pop("numPapers", None)
+        self.plan = kwargs.pop("plan", None)
 
         # forward compatibility
         self.__dict__.update(**kwargs)
