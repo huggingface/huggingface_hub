@@ -25,7 +25,7 @@ from huggingface_hub.errors import (
 
 
 class CLIError(Exception):
-    """User-facing CLI error with clean message (no traceback by default)."""
+    """CLI error with clean message (no traceback by defaut)."""
 
     def __init__(self, message: str):
         self.message = message
@@ -33,8 +33,8 @@ class CLIError(Exception):
 
 
 CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[[Exception], str]] = {
-    RepositoryNotFoundError: lambda e: "Repository not found. Check the repo_id and your permissions.",
-    RevisionNotFoundError: lambda e: "Revision not found.",
+    RepositoryNotFoundError: lambda e: "Repository not found. Check the `repo_id` and `repo_type` parameters. If the repo is private, make sure you are authenticated.",
+    RevisionNotFoundError: lambda e: "Revision not found. Check the `revision` parameter.",
     GatedRepoError: lambda e: "Access denied. This repository requires approval.",
     LocalTokenNotFoundError: lambda e: "Not logged in. Run 'hf auth login' first.",
     RemoteEntryNotFoundError: lambda e: "File not found in repository.",
