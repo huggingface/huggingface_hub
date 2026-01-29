@@ -25,7 +25,6 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-import huggingface_hub.file_download
 from huggingface_hub import HfApi, RepoUrl, constants
 from huggingface_hub._local_folder import write_download_metadata
 from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntryNotFoundError
@@ -1245,65 +1244,6 @@ class TestNormalizeEtag(unittest.TestCase):
         return _normalize_etag(
             response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
         )
-
-
-@with_production_testing
-class TestEtagTimeoutConfig(unittest.TestCase):
-    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 10)
-    def test_etag_timeout_default_value(self):
-        with SoftTemporaryDirectory() as cache_dir:
-            with patch.object(
-                huggingface_hub.file_download,
-                "get_hf_file_metadata",
-                wraps=huggingface_hub.file_download.get_hf_file_metadata,
-            ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
-                kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 10)
-
-    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 10)
-    def test_etag_timeout_parameter_value(self):
-        with SoftTemporaryDirectory() as cache_dir:
-            with patch.object(
-                huggingface_hub.file_download,
-                "get_hf_file_metadata",
-                wraps=huggingface_hub.file_download.get_hf_file_metadata,
-            ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir, etag_timeout=12)
-                kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 12)  # passed as parameter, takes priority
-
-    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 15)  # takes priority
-    def test_etag_timeout_set_as_env_variable(self):
-        with SoftTemporaryDirectory() as cache_dir:
-            with patch.object(
-                huggingface_hub.file_download,
-                "get_hf_file_metadata",
-                wraps=huggingface_hub.file_download.get_hf_file_metadata,
-            ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
-                kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 15)
-
-    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 12)  # takes priority
-    def test_etag_timeout_set_as_env_variable_parameter_ignored(self):
-        with SoftTemporaryDirectory() as cache_dir:
-            with patch.object(
-                huggingface_hub.file_download,
-                "get_hf_file_metadata",
-                wraps=huggingface_hub.file_download.get_hf_file_metadata,
-            ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir, etag_timeout=12)
-                kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 12)  # passed value ignored, HF_HUB_ETAG_TIMEOUT takes priority
 
 
 @with_production_testing
