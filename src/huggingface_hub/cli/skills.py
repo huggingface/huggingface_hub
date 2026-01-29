@@ -86,20 +86,25 @@ def _download(url: str) -> str:
     return response.text
 
 
+def _remove_existing(path: Path, force: bool) -> None:
+    """Remove existing file/directory/symlink if force is True, otherwise raise an error."""
+    if not (path.exists() or path.is_symlink()):
+        return
+    if not force:
+        raise SystemExit(f"Skill already exists at {path}.\nRe-run with --force to overwrite.")
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+
+
 def _install_to(skills_dir: Path, force: bool) -> Path:
     """Download and install the skill files into a skills directory. Returns the installed path."""
     skills_dir = skills_dir.expanduser().resolve()
     skills_dir.mkdir(parents=True, exist_ok=True)
     dest = skills_dir / DEFAULT_SKILL_ID
 
-    if dest.exists() or dest.is_symlink():
-        if not force:
-            raise SystemExit(f"Skill already exists at {dest}.\nRe-run with --force to overwrite.")
-        if dest.is_symlink():
-            dest.unlink()
-        else:
-            shutil.rmtree(dest)
-
+    _remove_existing(dest, force)
     dest.mkdir()
 
     # SKILL.md – the main guide, prefixed with YAML metadata
@@ -121,16 +126,8 @@ def _create_symlink(agent_skills_dir: Path, central_skill_path: Path, force: boo
     agent_skills_dir.mkdir(parents=True, exist_ok=True)
     link_path = agent_skills_dir / DEFAULT_SKILL_ID
 
-    if link_path.exists() or link_path.is_symlink():
-        if not force:
-            raise SystemExit(f"Skill already exists at {link_path}.\nRe-run with --force to overwrite.")
-        if link_path.is_dir() and not link_path.is_symlink():
-            shutil.rmtree(link_path)
-        else:
-            link_path.unlink()
-
-    relative_target = os.path.relpath(central_skill_path, agent_skills_dir)
-    link_path.symlink_to(relative_target)
+    _remove_existing(link_path, force)
+    link_path.symlink_to(os.path.relpath(central_skill_path, agent_skills_dir))
 
     return link_path
 
@@ -167,6 +164,14 @@ def skills_add(
         print("Pick a destination via --claude, --codex, --opencode, or --dest.")
         raise typer.Exit(code=1)
 
+    if dest:
+        if claude or codex or opencode or global_:
+            print("--dest cannot be combined with --claude, --codex, --opencode, or --global.")
+            raise typer.Exit(code=1)
+        skill_dest = _install_to(dest, force)
+        print(f"Installed '{DEFAULT_SKILL_ID}' to {skill_dest}")
+        return
+
     targets_dict = GLOBAL_TARGETS if global_ else LOCAL_TARGETS
     agent_targets: list[Path] = []
     if claude:
@@ -176,15 +181,10 @@ def skills_add(
     if opencode:
         agent_targets.append(targets_dict["opencode"])
 
-    if dest:
-        skill_dest = _install_to(dest, force)
-        print(f"Installed '{DEFAULT_SKILL_ID}' to {skill_dest}")
+    central_path = CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL
+    central_skill_path = _install_to(central_path, force)
+    print(f"Installed '{DEFAULT_SKILL_ID}' to central location: {central_skill_path}")
 
-    if agent_targets:
-        central_path = CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL
-        central_skill_path = _install_to(central_path, force)
-        print(f"Installed '{DEFAULT_SKILL_ID}' to central location: {central_skill_path}")
-
-        for agent_target in agent_targets:
-            link_path = _create_symlink(agent_target, central_skill_path, force)
-            print(f"Created symlink: {link_path}")
+    for agent_target in agent_targets:
+        link_path = _create_symlink(agent_target, central_skill_path, force)
+        print(f"Created symlink: {link_path}")
