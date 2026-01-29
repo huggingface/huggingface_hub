@@ -67,7 +67,7 @@ CENTRAL_GLOBAL = Path("~/.agents/skills")
 GLOBAL_TARGETS = {
     "codex": Path("~/.codex/skills"),
     "claude": Path("~/.claude/skills"),
-    "opencode": Path("~/.opencode/skills"),
+    "opencode": Path("~/.config/opencode/skills"),
 }
 
 LOCAL_TARGETS = {
