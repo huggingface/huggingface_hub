@@ -251,6 +251,7 @@ if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")) and not HF_XET_HIGH_PER
 HF_HUB_ETAG_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_ETAG_TIMEOUT")) or DEFAULT_ETAG_TIMEOUT
 
 # Used to override the get request timeout on a system level
+# Also used as a default timeout for other requests if not specified (kept the naming for legacy reasons)
 HF_HUB_DOWNLOAD_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_DOWNLOAD_TIMEOUT")) or DEFAULT_DOWNLOAD_TIMEOUT
 
 # Allows to add information about the requester in the user-agent (e.g. partner name)
