@@ -29,7 +29,7 @@ from huggingface_hub.cli.papers import papers_cli
 from huggingface_hub.cli.repo import repo_cli
 from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.spaces import spaces_cli
-from huggingface_hub.cli.system import env, reference, version
+from huggingface_hub.cli.system import env, version
 from huggingface_hub.cli.upload import UPLOAD_EPILOG, upload
 from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EPILOG, upload_large_folder
 from huggingface_hub.utils import logging
@@ -87,11 +87,11 @@ app.command(
     help="Upload a large folder to the Hub. Recommended for resumable uploads.",
     epilog=UPLOAD_LARGE_FOLDER_EPILOG,
 )(upload_large_folder)
-app.command(name="env", help="Print information about the environment.")(env)
-app.command(help="Print information about the hf version.")(version)
-app.command(help="Print the CLI reference in markdown format.")(reference)
-app.command(help="Configure your repository to enable upload of files > 5GB.", hidden=True)(lfs_enable_largefiles)
-app.command(help="Upload large files to the Hub.", hidden=True)(lfs_multipart_upload)
+
+app.command()(env)
+app.command()(version)
+app.command(hidden=False)(lfs_enable_largefiles)
+app.command(hidden=True)(lfs_multipart_upload)
 
 
 # command groups
