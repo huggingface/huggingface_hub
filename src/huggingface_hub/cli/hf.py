@@ -15,8 +15,6 @@
 
 from huggingface_hub import constants
 from huggingface_hub.cli._cli_utils import (
-    TyperCommandWithEpilog,
-    TyperHelpTopicCommand,
     check_cli_update,
     generate_epilog,
     typer_factory,
@@ -54,30 +52,18 @@ app = typer_factory(
             "hf jobs run python:3.12 python -c \"print('Hello')\"",
         ],
     ),
-    grouped=True,
 )
 
 
 # top level single commands (defined in their respective files)
-app.command(
-    cls=TyperCommandWithEpilog,
-    help="Download files from the Hub to local cache or a specific directory.",
-    epilog=DOWNLOAD_EPILOG,
-)(download)
-app.command(
-    cls=TyperCommandWithEpilog,
-    help="Upload a file or a folder to the Hub.",
-    epilog=UPLOAD_EPILOG,
-)(upload)
-app.command(
-    cls=TyperCommandWithEpilog,
-    help="Upload a large folder to the Hub. Recommended for resumable uploads.",
-    epilog=UPLOAD_LARGE_FOLDER_EPILOG,
-)(upload_large_folder)
+app.command(epilog=DOWNLOAD_EPILOG)(download)
+app.command(epilog=UPLOAD_EPILOG)(upload)
+app.command(epilog=UPLOAD_LARGE_FOLDER_EPILOG)(upload_large_folder)
 
-app.command(cls=TyperHelpTopicCommand)(env)
-app.command(cls=TyperHelpTopicCommand)(version)
-app.command(hidden=False)(lfs_enable_largefiles)
+app.command(topic="help")(env)
+app.command(topic="help")(version)
+
+app.command(hidden=True)(lfs_enable_largefiles)
 app.command(hidden=True)(lfs_multipart_upload)
 
 # command groups
