@@ -25,6 +25,8 @@ from typing import Annotated, Any, Callable, Dict, List, Mapping, Optional, Tupl
 
 import typer
 
+from huggingface_hub.errors import CLIError
+
 from ..utils import (
     ANSI,
     CachedRepoInfo,
@@ -37,7 +39,6 @@ from ..utils import (
 )
 from ..utils._parsing import parse_duration, parse_size
 from ._cli_utils import OutputFormat, RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
-from ._errors import CLIError
 
 
 cache_cli = typer_factory(help="Manage local cache directory.")

@@ -26,11 +26,10 @@ from typing import Annotated, Optional
 
 import typer
 
-from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.utils import ANSI
 
 from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
-from ._errors import CLIError
 
 
 repo_cli = typer_factory(help="Manage repos on the Hub.")

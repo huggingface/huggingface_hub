@@ -17,7 +17,7 @@ import traceback
 
 from huggingface_hub import constants
 from huggingface_hub.cli._cli_utils import check_cli_update, typer_factory
-from huggingface_hub.cli._errors import CLIError, format_known_exception
+from huggingface_hub.cli._errors import format_known_exception
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.datasets import datasets_cli
@@ -34,7 +34,8 @@ from huggingface_hub.cli.spaces import spaces_cli
 from huggingface_hub.cli.system import env, version
 from huggingface_hub.cli.upload import upload
 from huggingface_hub.cli.upload_large_folder import upload_large_folder
-from huggingface_hub.utils import logging
+from huggingface_hub.errors import CLIError
+from huggingface_hub.utils import ANSI, logging
 
 
 app = typer_factory(help="Hugging Face Hub CLI")
@@ -72,11 +73,11 @@ def main():
     try:
         app()
     except CLIError as e:
-        print(f"Error: {e.message}", file=sys.stderr)
+        print(f"Error: {e}", file=sys.stderr)
         if constants.HF_DEBUG:
             traceback.print_exc()
         else:
-            print("Set HF_DEBUG environment variable to 1 for full traceback.", file=sys.stderr)
+            print(ANSI.grey("Set HF_DEBUG=1 as environment variable for full traceback."))
         sys.exit(1)
     except Exception as e:
         message = format_known_exception(e)
@@ -85,7 +86,7 @@ def main():
             if constants.HF_DEBUG:
                 traceback.print_exc()
             else:
-                print("Set HF_DEBUG environment variable to 1 for full traceback.", file=sys.stderr)
+                print(ANSI.grey("Set HF_DEBUG=1 as environment variable for full traceback."))
             sys.exit(1)
         raise
 

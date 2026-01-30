@@ -36,10 +36,10 @@ from typing import Annotated, Optional
 
 import typer
 
+from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import get_session
 
 from ._cli_utils import typer_factory
-from ._errors import CLIError
 
 
 DEFAULT_SKILL_ID = "hf-cli"

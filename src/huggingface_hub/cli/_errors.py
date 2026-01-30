@@ -24,14 +24,6 @@ from huggingface_hub.errors import (
 )
 
 
-class CLIError(Exception):
-    """CLI error with clean message (no traceback by defaut)."""
-
-    def __init__(self, message: str):
-        self.message = message
-        super().__init__(message)
-
-
 CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[[Exception], str]] = {
     RepositoryNotFoundError: lambda e: "Repository not found. Check the `repo_id` and `repo_type` parameters. If the repo is private, make sure you are authenticated.",
     RevisionNotFoundError: lambda e: "Revision not found. Check the `revision` parameter.",

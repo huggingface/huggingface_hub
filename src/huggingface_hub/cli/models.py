@@ -30,7 +30,7 @@ from typing import Annotated, Any, Optional, get_args
 
 import typer
 
-from huggingface_hub.errors import RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import ExpandModelProperty_T, ModelSort_T
 
 from ._cli_utils import (
@@ -49,7 +49,6 @@ from ._cli_utils import (
     print_list_output,
     typer_factory,
 )
-from ._errors import CLIError
 
 
 _EXPAND_PROPERTIES = sorted(get_args(ExpandModelProperty_T))
