@@ -62,9 +62,9 @@ import json
 import multiprocessing
 import multiprocessing.pool
 import os
-import re
 import time
 from dataclasses import asdict
+from fnmatch import fnmatch
 from pathlib import Path
 from queue import Empty, Queue
 from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, Union
@@ -72,12 +72,11 @@ from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, 
 import typer
 
 from huggingface_hub import SpaceHardware, get_token
-from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._dotenv import load_dotenv
 
-from ._cli_utils import TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import TokenOpt, generate_epilog, get_hf_api, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -253,32 +252,22 @@ ScheduledJobIdArg = Annotated[
 ]
 
 
-jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
-
-
-_JOBS_EPILOG = """\
-EXAMPLES
-  $ hf jobs run python:3.12 python -c 'print("Hello from the cloud!")'
-  $ hf jobs run -e FOO=foo -e BAR=bar python:3.12 python -c "import os; print(os.environ['FOO'])"
-  $ hf jobs run --env-file .env python:3.12 python script.py
-  $ hf jobs run --secrets HF_TOKEN python:3.12 python -c "print('authenticated')"
-  $ hf jobs ps
-  $ hf jobs inspect <job_id>
-  $ hf jobs logs <job_id>
-  $ hf jobs cancel <job_id>
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-jobs
-"""
-
-
-@jobs_cli.callback(epilog=_JOBS_EPILOG, invoke_without_command=True)
-def jobs_callback(ctx: typer.Context) -> None:
-    """Run and manage Jobs on the Hub."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
+jobs_cli = typer_factory(
+    help="Run and manage Jobs on the Hub.",
+    epilog=generate_epilog(
+        examples=[
+            "hf jobs run python:3.12 python -c 'print(\"Hello from the cloud!\")'",
+            "hf jobs run -e FOO=foo -e BAR=bar python:3.12 python -c \"import os; print(os.environ['FOO'])\"",
+            "hf jobs run --env-file .env python:3.12 python script.py",
+            "hf jobs run --secrets HF_TOKEN python:3.12 python -c \"print('authenticated')\"",
+            "hf jobs ps",
+            "hf jobs inspect <job_id>",
+            "hf jobs logs <job_id>",
+            "hf jobs cancel <job_id>",
+        ],
+        docs_anchor="#hf-jobs",
+    ),
+)
 
 
 @jobs_cli.command("run", help="Run a Job.", context_settings={"ignore_unknown_options": True})
@@ -342,20 +331,16 @@ def jobs_logs(
         print(log)
 
 
-def _matches_filters(job_properties: dict[str, str], filters: dict[str, str]) -> bool:
+def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, str, str]]) -> bool:
     """Check if scheduled job matches all specified filters."""
-    for key, pattern in filters.items():
-        # Check if property exists
-        if key not in job_properties:
+    for key, op_str, pattern in filters:
+        value = job_properties.get(key)
+        if value is None:
+            if op_str == "!=":
+                continue
             return False
-        # Support pattern matching with wildcards
-        if "*" in pattern or "?" in pattern:
-            # Convert glob pattern to regex
-            regex_pattern = pattern.replace("*", ".*").replace("?", ".")
-            if not re.search(f"^{regex_pattern}$", job_properties[key], re.IGNORECASE):
-                return False
-        # Simple substring matching
-        elif pattern.lower() not in job_properties[key].lower():
+        match = fnmatch(value.lower(), pattern.lower())
+        if (op_str == "=" and not match) or (op_str == "!=" and match):
             return False
     return True
 
@@ -512,94 +497,109 @@ def jobs_ps(
         ),
     ] = None,
 ) -> None:
-    try:
-        api = get_hf_api(token=token)
-        # Fetch jobs data
-        jobs = api.list_jobs(namespace=namespace)
-        # Define table headers
-        table_headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
-        headers_aliases = ["id", "image", "command", "created", "status"]
-        rows: list[list[Union[str, int]]] = []
+    api = get_hf_api(token=token)
+    # Fetch jobs data
+    jobs = api.list_jobs(namespace=namespace)
+    # Define table headers
+    table_headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
+    headers_aliases = ["id", "image", "command", "created", "status"]
+    rows: list[list[Union[str, int]]] = []
 
-        filters: dict[str, str] = {}
-        for f in filter or []:
-            if "=" in f:
-                key, value = f.split("=", 1)
-                filters[key.lower()] = value
+    filters: list[tuple[str, str, str]] = []
+    labels_filters: list[tuple[str, str, str]] = []
+    for f in filter or []:
+        if f.startswith("label!=") or f.startswith("label="):
+            if f.startswith("label!="):
+                label_part = f[len("label!=") :]
+                if "=" in label_part:
+                    print(
+                        f"Warning: Ignoring invalid label filter format 'label!={label_part}'. Use label!=key format."
+                    )
+                    continue
+                label_key, op, label_value = label_part, "!=", "*"
             else:
-                print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
-        # Process jobs data
-        for job in jobs:
-            # Extract job data for filtering
-            status = job.status.stage if job.status else "UNKNOWN"
-            if not all and status not in ("RUNNING", "UPDATING"):
-                # Skip job if not all jobs should be shown and status doesn't match criteria
-                continue
-            # Extract job data for output
-            job_id = job.id
+                label_part = f[len("label=") :]
+                if "=" in label_part:
+                    label_key, label_value = label_part.split("=", 1)
+                else:
+                    label_key, label_value = label_part, "*"
+                # Negate predicate in case of key!=value
+                if label_key.endswith("!"):
+                    op = "!="
+                    label_key = label_key[:-1]
+                else:
+                    op = "="
+            labels_filters.append((label_key.lower(), op, label_value.lower()))
+        elif "=" in f:
+            key, value = f.split("=", 1)
+            # Negate predicate in case of key!=value
+            if key.endswith("!"):
+                op = "!="
+                key = key[:-1]
+            else:
+                op = "="
+            filters.append((key.lower(), op, value.lower()))
+        else:
+            print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
+    # Process jobs data
+    for job in jobs:
+        # Extract job data for filtering
+        status = job.status.stage if job.status else "UNKNOWN"
+        if not all and status not in ("RUNNING", "UPDATING"):
+            # Skip job if not all jobs should be shown and status doesn't match criteria
+            continue
+        # Extract job data for output
+        job_id = job.id
 
-            # Extract image or space information
-            image_or_space = job.docker_image or "N/A"
+        # Extract image or space information
+        image_or_space = job.docker_image or "N/A"
 
-            # Extract and format command
-            cmd = job.command or []
-            command_str = " ".join(cmd) if cmd else "N/A"
+        # Extract and format command
+        cmd = job.command or []
+        command_str = " ".join(cmd) if cmd else "N/A"
 
-            # Extract creation time
-            created_at = job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else "N/A"
+        # Extract creation time
+        created_at = job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else "N/A"
 
-            # Create a dict with all job properties for filtering
-            props = {"id": job_id, "image": image_or_space, "status": status.lower(), "command": command_str}
-            if not _matches_filters(props, filters):
-                continue
+        # Create a dict with all job properties for filtering
+        props = {"id": job_id, "image": image_or_space, "status": status.lower(), "command": command_str}
+        if not _matches_filters(props, filters):
+            continue
+        if not _matches_filters(job.labels or {}, labels_filters):
+            continue
 
-            # Create row
-            rows.append([job_id, image_or_space, command_str, created_at, status])
+        # Create row
+        rows.append([job_id, image_or_space, command_str, created_at, status])
 
-        # Handle empty results
-        if not rows:
-            filters_msg = (
-                f" matching filters: {', '.join([f'{k}={v}' for k, v in filters.items()])}" if filters else ""
-            )
-            print(f"No jobs found{filters_msg}")
-            return
-        # Apply custom format if provided or use default tabular format
-        _print_output(rows, table_headers, headers_aliases, format)
-
-    except HfHubHTTPError as e:
-        print(f"Error fetching jobs data: {e}")
-    except (KeyError, ValueError, TypeError) as e:
-        print(f"Error processing jobs data: {e}")
-    except Exception as e:
-        print(f"Unexpected error - {type(e).__name__}: {e}")
+    # Handle empty results
+    if not rows:
+        filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
+        print(f"No jobs found{filters_msg}")
+        return
+    # Apply custom format if provided or use default tabular format
+    _print_output(rows, table_headers, headers_aliases, format)
 
 
 @jobs_cli.command("hardware", help="List available hardware options for Jobs")
 def jobs_hardware() -> None:
-    try:
-        api = get_hf_api()
-        hardware_list = api.list_jobs_hardware()
-        table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
-        headers_aliases = ["name", "prettyName", "cpu", "ram", "accelerator", "costMin", "costHour"]
-        rows: list[list[Union[str, int]]] = []
+    api = get_hf_api()
+    hardware_list = api.list_jobs_hardware()
+    table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
+    headers_aliases = ["name", "prettyName", "cpu", "ram", "accelerator", "costMin", "costHour"]
+    rows: list[list[Union[str, int]]] = []
 
-        for hw in hardware_list:
-            accelerator_info = "N/A"
-            if hw.accelerator:
-                accelerator_info = f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})"
-            cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd is not None else "N/A"
-            cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd is not None else "N/A"
-            rows.append([hw.name, hw.pretty_name or "N/A", hw.cpu, hw.ram, accelerator_info, cost_min, cost_hour])
+    for hw in hardware_list:
+        accelerator_info = "N/A"
+        if hw.accelerator:
+            accelerator_info = f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})"
+        cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd is not None else "N/A"
+        cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd is not None else "N/A"
+        rows.append([hw.name, hw.pretty_name or "N/A", hw.cpu, hw.ram, accelerator_info, cost_min, cost_hour])
 
-        if not rows:
-            print("No hardware options found")
-            return
-        _print_output(rows, table_headers, headers_aliases, None)
-
-    except HfHubHTTPError as e:
-        print(f"Error fetching hardware data: {e}")
-    except Exception as e:
-        print(f"Unexpected error - {type(e).__name__}: {e}")
+    if not rows:
+        print("No hardware options found")
+        return
+    _print_output(rows, table_headers, headers_aliases, None)
 
 
 @jobs_cli.command("inspect", help="Display detailed information on one or more Jobs")
@@ -628,30 +628,20 @@ def jobs_cancel(
     api.cancel_job(job_id=job_id, namespace=namespace)
 
 
-uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure.")
+uv_app = typer_factory(
+    help="Run UV scripts (Python with inline dependencies) on HF infrastructure.",
+    epilog=generate_epilog(
+        examples=[
+            "hf jobs uv run my_script.py",
+            "hf jobs uv run my_script.py --repo my-uv-scripts",
+            "hf jobs uv run ml_training.py --flavor a10g-small",
+            "hf jobs uv run --with transformers --with torch train.py",
+            "hf jobs uv run https://huggingface.co/datasets/user/scripts/resolve/main/example.py",
+        ],
+        docs_anchor="#hf-jobs-uv",
+    ),
+)
 jobs_cli.add_typer(uv_app, name="uv")
-
-
-_UV_EPILOG = """\
-EXAMPLES
-  $ hf jobs uv run my_script.py
-  $ hf jobs uv run my_script.py --repo my-uv-scripts
-  $ hf jobs uv run ml_training.py --flavor a10g-small
-  $ hf jobs uv run --with transformers --with torch train.py
-  $ hf jobs uv run https://huggingface.co/datasets/user/scripts/resolve/main/example.py
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-jobs-uv
-"""
-
-
-@uv_app.callback(epilog=_UV_EPILOG, invoke_without_command=True)
-def uv_callback(ctx: typer.Context) -> None:
-    """Run UV scripts (Python with inline dependencies) on HF infrastructure."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
 
 
 @uv_app.command(
@@ -712,31 +702,21 @@ def jobs_uv_run(
         print(log)
 
 
-scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.")
+scheduled_app = typer_factory(
+    help="Create and manage scheduled Jobs on the Hub.",
+    epilog=generate_epilog(
+        examples=[
+            'hf jobs scheduled run "0 0 * * *" python:3.12 python script.py',
+            "hf jobs scheduled ps",
+            "hf jobs scheduled inspect <scheduled-job-id>",
+            "hf jobs scheduled suspend <scheduled-job-id>",
+            "hf jobs scheduled resume <scheduled-job-id>",
+            "hf jobs scheduled delete <scheduled-job-id>",
+        ],
+        docs_anchor="#hf-jobs-scheduled",
+    ),
+)
 jobs_cli.add_typer(scheduled_app, name="scheduled")
-
-
-_SCHEDULED_EPILOG = """\
-EXAMPLES
-  $ hf jobs scheduled run "0 0 * * *" python:3.12 python script.py
-  $ hf jobs scheduled ps
-  $ hf jobs scheduled inspect <scheduled-job-id>
-  $ hf jobs scheduled suspend <scheduled-job-id>
-  $ hf jobs scheduled resume <scheduled-job-id>
-  $ hf jobs scheduled delete <scheduled-job-id>
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-jobs-scheduled
-"""
-
-
-@scheduled_app.callback(epilog=_SCHEDULED_EPILOG, invoke_without_command=True)
-def scheduled_callback(ctx: typer.Context) -> None:
-    """Create and manage scheduled Jobs on the Hub."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
 
 
 @scheduled_app.command("run", help="Schedule a Job.", context_settings={"ignore_unknown_options": True})
@@ -813,58 +793,52 @@ def scheduled_ps(
         ),
     ] = None,
 ) -> None:
-    try:
-        api = get_hf_api(token=token)
-        scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
-        table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
-        headers_aliases = ["id", "schedule", "image", "command", "last", "next", "suspend"]
-        rows: list[list[Union[str, int]]] = []
-        filters: dict[str, str] = {}
-        for f in filter or []:
-            if "=" in f:
-                key, value = f.split("=", 1)
-                filters[key.lower()] = value
+    api = get_hf_api(token=token)
+    scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
+    table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
+    headers_aliases = ["id", "schedule", "image", "command", "last", "next", "suspend"]
+    rows: list[list[Union[str, int]]] = []
+    filters: list[tuple[str, str, str]] = []
+    for f in filter or []:
+        if "=" in f:
+            key, value = f.split("=", 1)
+            # Negate predicate in case of key!=value
+            if key.endswith("!"):
+                op = "!="
+                key = key[:-1]
             else:
-                print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
+                op = "="
+            filters.append((key.lower(), op, value.lower()))
+        else:
+            print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
 
-        for scheduled_job in scheduled_jobs:
-            suspend = scheduled_job.suspend or False
-            if not all and suspend:
-                continue
-            sj_id = scheduled_job.id
-            schedule = scheduled_job.schedule or "N/A"
-            image_or_space = scheduled_job.job_spec.docker_image or "N/A"
-            cmd = scheduled_job.job_spec.command or []
-            command_str = " ".join(cmd) if cmd else "N/A"
-            last_job_at = (
-                scheduled_job.status.last_job.at.strftime("%Y-%m-%d %H:%M:%S")
-                if scheduled_job.status.last_job
-                else "N/A"
-            )
-            next_job_run_at = (
-                scheduled_job.status.next_job_run_at.strftime("%Y-%m-%d %H:%M:%S")
-                if scheduled_job.status.next_job_run_at
-                else "N/A"
-            )
-            props = {"id": sj_id, "image": image_or_space, "suspend": str(suspend), "command": command_str}
-            if not _matches_filters(props, filters):
-                continue
-            rows.append([sj_id, schedule, image_or_space, command_str, last_job_at, next_job_run_at, suspend])
+    for scheduled_job in scheduled_jobs:
+        suspend = scheduled_job.suspend or False
+        if not all and suspend:
+            continue
+        sj_id = scheduled_job.id
+        schedule = scheduled_job.schedule or "N/A"
+        image_or_space = scheduled_job.job_spec.docker_image or "N/A"
+        cmd = scheduled_job.job_spec.command or []
+        command_str = " ".join(cmd) if cmd else "N/A"
+        last_job_at = (
+            scheduled_job.status.last_job.at.strftime("%Y-%m-%d %H:%M:%S") if scheduled_job.status.last_job else "N/A"
+        )
+        next_job_run_at = (
+            scheduled_job.status.next_job_run_at.strftime("%Y-%m-%d %H:%M:%S")
+            if scheduled_job.status.next_job_run_at
+            else "N/A"
+        )
+        props = {"id": sj_id, "image": image_or_space, "suspend": str(suspend), "command": command_str}
+        if not _matches_filters(props, filters):
+            continue
+        rows.append([sj_id, schedule, image_or_space, command_str, last_job_at, next_job_run_at, suspend])
 
-        if not rows:
-            filters_msg = (
-                f" matching filters: {', '.join([f'{k}={v}' for k, v in filters.items()])}" if filters else ""
-            )
-            print(f"No scheduled jobs found{filters_msg}")
-            return
-        _print_output(rows, table_headers, headers_aliases, format)
-
-    except HfHubHTTPError as e:
-        print(f"Error fetching scheduled jobs data: {e}")
-    except (KeyError, ValueError, TypeError) as e:
-        print(f"Error processing scheduled jobs data: {e}")
-    except Exception as e:
-        print(f"Unexpected error - {type(e).__name__}: {e}")
+    if not rows:
+        filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
+        print(f"No scheduled jobs found{filters_msg}")
+        return
+    _print_output(rows, table_headers, headers_aliases, format)
 
 
 @scheduled_app.command("inspect", help="Display detailed information on one or more scheduled Jobs")
@@ -916,27 +890,17 @@ def scheduled_resume(
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
-scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure.")
+scheduled_uv_app = typer_factory(
+    help="Schedule UV scripts on HF infrastructure.",
+    epilog=generate_epilog(
+        examples=[
+            'hf jobs scheduled uv run "0 0 * * *" script.py',
+            'hf jobs scheduled uv run "0 0 * * *" script.py --with pandas',
+        ],
+        docs_anchor="#hf-jobs-scheduled",
+    ),
+)
 scheduled_app.add_typer(scheduled_uv_app, name="uv")
-
-
-_SCHEDULED_UV_EPILOG = """\
-EXAMPLES
-  $ hf jobs scheduled uv run "0 0 * * *" script.py
-  $ hf jobs scheduled uv run "0 0 * * *" script.py --with pandas
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-jobs-scheduled
-"""
-
-
-@scheduled_uv_app.callback(epilog=_SCHEDULED_UV_EPILOG, invoke_without_command=True)
-def scheduled_uv_callback(ctx: typer.Context) -> None:
-    """Schedule UV scripts on HF infrastructure."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
 
 
 @scheduled_uv_app.command(

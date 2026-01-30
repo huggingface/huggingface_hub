@@ -40,39 +40,28 @@ from huggingface_hub.hf_api import whoami
 
 from .._login import auth_list, auth_switch, login, logout
 from ..utils import ANSI, get_stored_tokens, get_token, logging
-from ._cli_utils import TokenOpt, typer_factory
+from ._cli_utils import TokenOpt, generate_epilog, typer_factory
 
 
 logger = logging.get_logger(__name__)
 
 
-_AUTH_EPILOG = """\
-EXAMPLES
-  $ hf auth login
-  $ hf auth login --token $HF_TOKEN
-  $ hf auth login --token $HF_TOKEN --add-to-git-credential
-  $ hf auth whoami
-  $ hf auth list
-  $ hf auth switch
-  $ hf auth switch --token-name my-token
-  $ hf auth logout
-  $ hf auth logout --token-name my-token
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/guides/cli
-"""
-
-
-auth_cli = typer_factory(help="Manage authentication (login, logout, etc.).")
-
-
-@auth_cli.callback(epilog=_AUTH_EPILOG, invoke_without_command=True)
-def auth_callback(ctx: typer.Context) -> None:
-    """Manage authentication (login, logout, etc.)."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
+auth_cli = typer_factory(
+    help="Manage authentication (login, logout, etc.).",
+    epilog=generate_epilog(
+        examples=[
+            "hf auth login",
+            "hf auth login --token $HF_TOKEN",
+            "hf auth login --token $HF_TOKEN --add-to-git-credential",
+            "hf auth whoami",
+            "hf auth list",
+            "hf auth switch",
+            "hf auth switch --token-name my-token",
+            "hf auth logout",
+            "hf auth logout --token-name my-token",
+        ],
+    ),
+)
 
 
 @auth_cli.command("login", help="Login using a token from huggingface.co/settings/tokens.")

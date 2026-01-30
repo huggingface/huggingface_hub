@@ -22,21 +22,28 @@ import typer
 from huggingface_hub import logging
 from huggingface_hub.utils import ANSI, disable_progress_bars
 
-from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api
+from ._cli_utils import (
+    PrivateOpt,
+    RepoIdArg,
+    RepoType,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    generate_epilog,
+    get_hf_api,
+)
 
 
 logger = logging.get_logger(__name__)
 
 
-UPLOAD_LARGE_FOLDER_EPILOG = """\
-EXAMPLES
-  $ hf upload-large-folder Wauplin/my-cool-model ./large_model_dir
-  $ hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-upload-large-folder
-"""
+UPLOAD_LARGE_FOLDER_EPILOG = generate_epilog(
+    examples=[
+        "hf upload-large-folder Wauplin/my-cool-model ./large_model_dir",
+        "hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0",
+    ],
+    docs_anchor="#hf-upload-large-folder",
+)
 
 
 def upload_large_folder(

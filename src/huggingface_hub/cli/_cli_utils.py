@@ -16,18 +16,19 @@
 import dataclasses
 import datetime
 import importlib.metadata
+import json
 import os
 import time
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Literal, Optional, Union
+from typing import TYPE_CHECKING, Annotated, Any, Callable, Literal, Optional, Sequence, Union, cast
 
 import click
 import typer
 
 from huggingface_hub import DatasetInfo, ModelInfo, SpaceInfo, __version__, constants
 from huggingface_hub.hf_api import PaperInfo
-from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging
+from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
 
 
 logger = logging.get_logger()
@@ -45,6 +46,30 @@ def get_hf_api(token: Optional[str] = None) -> "HfApi":
 
 
 #### TYPER UTILS
+
+CLI_REFERENCE_URL = "https://huggingface.co/docs/huggingface_hub/en/guides/cli"
+
+
+def generate_epilog(examples: list[str], docs_anchor: Optional[str] = None) -> str:
+    """Generate an epilog with examples and a LEARN MORE section.
+
+    Args:
+        examples: List of example commands (without the `$ ` prefix).
+        docs_anchor: Optional anchor for the docs URL (e.g., "#hf-download").
+
+    Returns:
+        Formatted epilog string.
+    """
+    docs_url = f"{CLI_REFERENCE_URL}{docs_anchor}" if docs_anchor else CLI_REFERENCE_URL
+    examples_str = "\n".join(f"  $ {ex}" for ex in examples)
+    return f"""\
+EXAMPLES
+{examples_str}
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at {docs_url}
+"""
 
 
 def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -72,10 +97,8 @@ class AlphabeticalMixedGroup(typer.core.TyperGroup):
 class GroupedTyperGroup(AlphabeticalMixedGroup):
     """
     Typer Group that separates commands into 'Commands' and 'Help Topics' sections.
-    Used for the main `hf` CLI app.
+    Commands with `topic="help"` are shown in "Help Topics", others in "Commands".
     """
-
-    HELP_TOPICS = {"env", "version", "reference"}
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         commands = []
@@ -86,7 +109,8 @@ class GroupedTyperGroup(AlphabeticalMixedGroup):
             if cmd is None or cmd.hidden:
                 continue
             help_text = cmd.get_short_help_str(limit=formatter.width)
-            if name in self.HELP_TOPICS:
+            topic = getattr(cmd, "topic", "command")
+            if topic == "help":
                 help_topics.append((name, help_text))
             else:
                 commands.append((name, help_text))
@@ -100,18 +124,39 @@ class GroupedTyperGroup(AlphabeticalMixedGroup):
 
 
 class TyperCommandWithEpilog(typer.core.TyperCommand):
-    """Typer Command that formats epilog without extra indentation."""
+    """Typer Command that formats epilog without extra indentation and supports topic attribute."""
+
+    topic: str = "command"
 
     def format_epilog(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_epilog_no_indent(self.epilog, ctx, formatter)
 
 
-def typer_factory(help: str) -> typer.Typer:
+class TyperHelpTopicCommand(TyperCommandWithEpilog):
+    """Typer Command for help topics (env, version, etc.)."""
+
+    topic: str = "help"
+
+
+def typer_factory(help: str, epilog: Optional[str] = None, grouped: bool = False) -> typer.Typer:
+    """Create a Typer app with consistent settings.
+
+    Args:
+        help: Help text for the app.
+        epilog: Optional epilog text (use `generate_epilog` to create one).
+        grouped: If True, uses `GroupedTyperGroup` which separates commands into
+            "Commands" and "Help Topics" sections. Commands with `cls=TyperHelpTopicCommand`
+            will appear under "Help Topics".
+
+    Returns:
+        A configured Typer app.
+    """
     return typer.Typer(
         help=help,
+        epilog=epilog,
         add_completion=True,
         no_args_is_help=True,
-        cls=AlphabeticalMixedGroup,
+        cls=GroupedTyperGroup if grouped else AlphabeticalMixedGroup,
         # Disable rich completely for consistent experience
         rich_markup_mode=None,
         rich_help_panel=None,
@@ -181,6 +226,78 @@ SearchOpt = Annotated[
     Optional[str],
     typer.Option(help="Search query."),
 ]
+
+
+class OutputFormat(str, Enum):
+    """Output format for CLI list commands."""
+
+    table = "table"
+    json = "json"
+
+
+FormatOpt = Annotated[
+    OutputFormat,
+    typer.Option(
+        help="Output format (table or json).",
+    ),
+]
+
+QuietOpt = Annotated[
+    bool,
+    typer.Option(
+        "-q",
+        "--quiet",
+        help="Print only IDs (one per line).",
+    ),
+]
+
+
+def print_as_table(
+    items: Sequence[dict[str, Any]],
+    headers: list[str],
+    row_fn: Callable[[dict[str, Any]], list[str]],
+) -> None:
+    """Print items as a formatted table.
+
+    Args:
+        items: Sequence of dictionaries representing the items to display.
+        headers: List of column headers.
+        row_fn: Function that takes an item dict and returns a list of string values for each column.
+    """
+    if not items:
+        print("No results found.")
+        return
+    rows = cast(list[list[Union[str, int]]], [row_fn(item) for item in items])
+    print(tabulate(rows, headers=headers))
+
+
+def print_list_output(
+    items: Sequence[dict[str, Any]],
+    format: OutputFormat,
+    quiet: bool,
+    id_key: str,
+    headers: list[str],
+    row_fn: Callable[[dict[str, Any]], list[str]],
+) -> None:
+    """Print list command output in the specified format.
+
+    Args:
+        items: Sequence of dictionaries representing the items to display.
+        format: Output format (table or json).
+        quiet: If True, print only IDs (one per line).
+        id_key: Key to use for extracting IDs in quiet mode.
+        headers: List of column headers for table format.
+        row_fn: Function that takes an item dict and returns a list of string values for table columns.
+    """
+    if quiet:
+        for item in items:
+            print(item[id_key])
+        return
+
+    if format == OutputFormat.json:
+        print(json.dumps(list(items), indent=2))
+    else:
+        print_as_table(items, headers=headers, row_fn=row_fn)
 
 
 def _serialize_value(v: object) -> object:

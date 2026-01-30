@@ -1,58 +1,47 @@
 """CLI commands for Hugging Face Inference Endpoints."""
 
 import json
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
 import typer
 
 from huggingface_hub._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric
 from huggingface_hub.errors import HfHubHTTPError
 
-from ._cli_utils import TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import (
+    FormatOpt,
+    OutputFormat,
+    QuietOpt,
+    TokenOpt,
+    generate_epilog,
+    get_hf_api,
+    print_list_output,
+    typer_factory,
+)
 
 
-ie_cli = typer_factory(help="Manage Hugging Face Inference Endpoints.")
+ie_cli = typer_factory(
+    help="Manage Hugging Face Inference Endpoints.",
+    epilog=generate_epilog(
+        examples=[
+            "hf endpoints ls",
+            "hf endpoints ls --namespace my-org",
+            "hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct --name my-llama-endpoint",
+        ],
+        docs_anchor="#hf-endpoints",
+    ),
+)
 
-catalog_app = typer_factory(help="Interact with the Inference Endpoints catalog.")
-
-
-_ENDPOINTS_EPILOG = """\
-EXAMPLES
-  $ hf endpoints ls
-  $ hf endpoints ls --namespace my-org
-  $ hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct --name my-llama-endpoint
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-endpoints
-"""
-
-
-_CATALOG_EPILOG = """\
-EXAMPLES
-  $ hf endpoints catalog ls
-  $ hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-endpoints-catalog
-"""
-
-
-@ie_cli.callback(epilog=_ENDPOINTS_EPILOG, invoke_without_command=True)
-def endpoints_callback(ctx: typer.Context) -> None:
-    """Manage Hugging Face Inference Endpoints."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
-
-
-@catalog_app.callback(epilog=_CATALOG_EPILOG, invoke_without_command=True)
-def catalog_callback(ctx: typer.Context) -> None:
-    """Interact with the Inference Endpoints catalog."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
+catalog_app = typer_factory(
+    help="Interact with the Inference Endpoints catalog.",
+    epilog=generate_epilog(
+        examples=[
+            "hf endpoints catalog ls",
+            "hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct",
+        ],
+        docs_anchor="#hf-endpoints-catalog",
+    ),
+)
 
 
 NameArg = Annotated[
@@ -79,6 +68,8 @@ def _print_endpoint(endpoint: InferenceEndpoint) -> None:
 @ie_cli.command()
 def ls(
     namespace: NamespaceOpt = None,
+    format: FormatOpt = OutputFormat.table,
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """Lists all Inference Endpoints for the given namespace."""
@@ -89,12 +80,31 @@ def ls(
         typer.echo(f"Listing failed: {error}")
         raise typer.Exit(code=error.response.status_code) from error
 
-    typer.echo(
-        json.dumps(
-            {"items": [endpoint.raw for endpoint in endpoints]},
-            indent=2,
-            sort_keys=True,
-        )
+    results = [endpoint.raw for endpoint in endpoints]
+
+    def row_fn(item: dict[str, Any]) -> list[str]:
+        status = item.get("status", {})
+        model = item.get("model", {})
+        compute = item.get("compute", {})
+        provider = item.get("provider", {})
+        return [
+            str(item.get("name", "")),
+            str(model.get("repository", "") if isinstance(model, dict) else ""),
+            str(status.get("state", "") if isinstance(status, dict) else ""),
+            str(model.get("task", "") if isinstance(model, dict) else ""),
+            str(model.get("framework", "") if isinstance(model, dict) else ""),
+            str(compute.get("instanceType", "") if isinstance(compute, dict) else ""),
+            str(provider.get("vendor", "") if isinstance(provider, dict) else ""),
+            str(provider.get("region", "") if isinstance(provider, dict) else ""),
+        ]
+
+    print_list_output(
+        items=results,
+        format=format,
+        quiet=quiet,
+        id_key="name",
+        headers=["NAME", "MODEL", "STATUS", "TASK", "FRAMEWORK", "INSTANCE", "VENDOR", "REGION"],
+        row_fn=row_fn,
     )
 
 

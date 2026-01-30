@@ -46,20 +46,18 @@ from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
 from huggingface_hub.utils import _format_size, disable_progress_bars, enable_progress_bars, tabulate
 
-from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
+from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, generate_epilog
 
 
-DOWNLOAD_EPILOG = """\
-EXAMPLES
-  $ hf download meta-llama/Llama-3.2-1B-Instruct
-  $ hf download meta-llama/Llama-3.2-1B-Instruct config.json tokenizer.json
-  $ hf download meta-llama/Llama-3.2-1B-Instruct --include "*.safetensors" --exclude "*.bin"
-  $ hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-download
-"""
+DOWNLOAD_EPILOG = generate_epilog(
+    examples=[
+        "hf download meta-llama/Llama-3.2-1B-Instruct",
+        "hf download meta-llama/Llama-3.2-1B-Instruct config.json tokenizer.json",
+        'hf download meta-llama/Llama-3.2-1B-Instruct --include "*.safetensors" --exclude "*.bin"',
+        "hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama",
+    ],
+    docs_anchor="#hf-download",
+)
 
 
 logger = logging.get_logger(__name__)

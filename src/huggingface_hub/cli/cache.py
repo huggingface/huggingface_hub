@@ -14,7 +14,6 @@
 # limitations under the License.
 """Contains the 'hf cache' command group with cache management subcommands."""
 
-import csv
 import json
 import re
 import sys
@@ -37,46 +36,39 @@ from ..utils import (
     tabulate,
 )
 from ..utils._parsing import parse_duration, parse_size
-from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import (
+    OutputFormat,
+    RepoIdArg,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    generate_epilog,
+    get_hf_api,
+    typer_factory,
+)
 
 
-cache_cli = typer_factory(help="Manage local cache directory.")
-
-
-_CACHE_EPILOG = """\
-EXAMPLES
-  $ hf cache ls
-  $ hf cache ls --revisions
-  $ hf cache ls --filter "size>1GB" --limit 20
-  $ hf cache ls --format json
-  $ hf cache rm Wauplin/my-cool-model
-  $ hf cache rm <revision_hash>
-  $ hf cache rm model/gpt2 --dry-run
-  $ hf cache rm model/gpt2 --yes
-  $ hf cache prune
-  $ hf cache verify Wauplin/my-cool-dataset --repo-type dataset
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-cache
-"""
-
-
-@cache_cli.callback(epilog=_CACHE_EPILOG, invoke_without_command=True)
-def cache_callback(ctx: typer.Context) -> None:
-    """Manage local cache directory."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
+cache_cli = typer_factory(
+    help="Manage local cache directory.",
+    epilog=generate_epilog(
+        examples=[
+            "hf cache ls",
+            "hf cache ls --revisions",
+            'hf cache ls --filter "size>1GB" --limit 20',
+            "hf cache ls --format json",
+            "hf cache rm Wauplin/my-cool-model",
+            "hf cache rm <revision_hash>",
+            "hf cache rm model/gpt2 --dry-run",
+            "hf cache rm model/gpt2 --yes",
+            "hf cache prune",
+            "hf cache verify Wauplin/my-cool-dataset --repo-type dataset",
+        ],
+        docs_anchor="#hf-cache",
+    ),
+)
 
 
 #### Cache helper utilities
-
-
-class OutputFormat(str, Enum):
-    table = "table"
-    json = "json"
-    csv = "csv"
 
 
 @dataclass(frozen=True)
@@ -355,55 +347,6 @@ def print_cache_entries_json(
     sys.stdout.write("\n")
 
 
-def print_cache_entries_csv(entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap) -> None:
-    """Export cache entries as CSV rows with the shared payload format."""
-    records = _build_cache_export_payload(entries, include_revisions=include_revisions, repo_refs_map=repo_refs_map)
-    writer = csv.writer(sys.stdout)
-
-    if include_revisions:
-        headers = [
-            "repo_id",
-            "repo_type",
-            "revision",
-            "snapshot_path",
-            "size_on_disk",
-            "last_accessed",
-            "last_modified",
-            "refs",
-        ]
-    else:
-        headers = ["repo_id", "repo_type", "size_on_disk", "last_accessed", "last_modified", "refs"]
-
-    writer.writerow(headers)
-
-    if not records:
-        return
-
-    for record in records:
-        refs = record["refs"]
-        if include_revisions:
-            row = [
-                record.get("repo_id", ""),
-                record.get("repo_type", ""),
-                record.get("revision", ""),
-                record.get("snapshot_path", ""),
-                record.get("size_on_disk"),
-                record.get("last_accessed"),
-                record.get("last_modified"),
-                " ".join(refs) if refs else "",
-            ]
-        else:
-            row = [
-                record.get("repo_id", ""),
-                record.get("repo_type", ""),
-                record.get("size_on_disk"),
-                record.get("last_accessed"),
-                record.get("last_modified"),
-                " ".join(refs) if refs else "",
-            ]
-        writer.writerow(row)
-
-
 def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
     """Evaluate numeric comparisons for filters."""
     if left is None:
@@ -615,7 +558,6 @@ def ls(
     formatters = {
         OutputFormat.table: print_cache_entries_table,
         OutputFormat.json: print_cache_entries_json,
-        OutputFormat.csv: print_cache_entries_csv,
     }
     return formatters[format](entries, include_revisions=revisions, repo_refs_map=repo_refs_map)
 

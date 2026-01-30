@@ -13,10 +13,14 @@
 # limitations under the License.
 
 
-import typer
-
 from huggingface_hub import constants
-from huggingface_hub.cli._cli_utils import GroupedTyperGroup, TyperCommandWithEpilog, check_cli_update
+from huggingface_hub.cli._cli_utils import (
+    TyperCommandWithEpilog,
+    TyperHelpTopicCommand,
+    check_cli_update,
+    generate_epilog,
+    typer_factory,
+)
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.datasets import datasets_cli
@@ -28,6 +32,7 @@ from huggingface_hub.cli.models import models_cli
 from huggingface_hub.cli.papers import papers_cli
 from huggingface_hub.cli.repo import repo_cli
 from huggingface_hub.cli.repo_files import repo_files_cli
+from huggingface_hub.cli.skills import skills_cli
 from huggingface_hub.cli.spaces import spaces_cli
 from huggingface_hub.cli.system import env, version
 from huggingface_hub.cli.upload import UPLOAD_EPILOG, upload
@@ -35,40 +40,22 @@ from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EPILOG, 
 from huggingface_hub.utils import logging
 
 
-app = typer.Typer(
+app = typer_factory(
     help="Hugging Face Hub CLI",
-    add_completion=True,
-    no_args_is_help=True,
-    cls=GroupedTyperGroup,
-    rich_markup_mode=None,
-    rich_help_panel=None,
-    pretty_exceptions_enable=False,
+    epilog=generate_epilog(
+        examples=[
+            "hf auth login",
+            "hf repo create Wauplin/my-cool-model --private",
+            "hf download meta-llama/Llama-3.2-1B-Instruct",
+            "hf upload Wauplin/my-cool-model ./model.safetensors",
+            "hf cache ls",
+            'hf models ls --filter "text-generation"',
+            "hf jobs ps",
+            "hf jobs run python:3.12 python -c \"print('Hello')\"",
+        ],
+    ),
+    grouped=True,
 )
-
-
-_HF_EPILOG = """\
-EXAMPLES
-  $ hf auth login
-  $ hf repo create Wauplin/my-cool-model --private
-  $ hf download meta-llama/Llama-3.2-1B-Instruct
-  $ hf upload Wauplin/my-cool-model ./model.safetensors
-  $ hf cache ls
-  $ hf models ls --filter "text-generation"
-  $ hf jobs ps
-  $ hf jobs run python:3.12 python -c "print('Hello')"
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/guides/cli
-"""
-
-
-@app.callback(epilog=_HF_EPILOG, invoke_without_command=True)
-def hf_callback(ctx: typer.Context) -> None:
-    """Hugging Face Hub CLI"""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
 
 
 # top level single commands (defined in their respective files)
@@ -88,11 +75,10 @@ app.command(
     epilog=UPLOAD_LARGE_FOLDER_EPILOG,
 )(upload_large_folder)
 
-app.command()(env)
-app.command()(version)
+app.command(cls=TyperHelpTopicCommand)(env)
+app.command(cls=TyperHelpTopicCommand)(version)
 app.command(hidden=False)(lfs_enable_largefiles)
 app.command(hidden=True)(lfs_multipart_upload)
-
 
 # command groups
 app.add_typer(auth_cli, name="auth")
@@ -103,6 +89,7 @@ app.add_typer(models_cli, name="models")
 app.add_typer(papers_cli, name="papers")
 app.add_typer(repo_cli, name="repo")
 app.add_typer(repo_files_cli, name="repo-files")
+app.add_typer(skills_cli, name="skills")
 app.add_typer(spaces_cli, name="spaces")
 app.add_typer(ie_cli, name="endpoints")
 
