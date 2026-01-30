@@ -8,12 +8,41 @@ import typer
 from huggingface_hub._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric
 from huggingface_hub.errors import HfHubHTTPError
 
-from ._cli_utils import FormatOpt, OutputFormat, QuietOpt, TokenOpt, get_hf_api, print_list_output, typer_factory
+from ._cli_utils import (
+    FormatOpt,
+    OutputFormat,
+    QuietOpt,
+    TokenOpt,
+    generate_epilog,
+    get_hf_api,
+    print_list_output,
+    typer_factory,
+)
 
 
-ie_cli = typer_factory(help="Manage Hugging Face Inference Endpoints.")
+ie_cli = typer_factory(
+    help="Manage Hugging Face Inference Endpoints.",
+    epilog=generate_epilog(
+        examples=[
+            "hf endpoints ls",
+            "hf endpoints ls --namespace my-org",
+            "hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct --name my-llama-endpoint",
+        ],
+        docs_anchor="#hf-endpoints",
+    ),
+)
 
-catalog_app = typer_factory(help="Interact with the Inference Endpoints catalog.")
+catalog_app = typer_factory(
+    help="Interact with the Inference Endpoints catalog.",
+    epilog=generate_epilog(
+        examples=[
+            "hf endpoints catalog ls",
+            "hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct",
+        ],
+        docs_anchor="#hf-endpoints-catalog",
+    ),
+)
+
 
 NameArg = Annotated[
     str,

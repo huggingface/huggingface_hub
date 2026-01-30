@@ -45,6 +45,7 @@ from ._cli_utils import (
     SearchOpt,
     TokenOpt,
     api_object_to_dict,
+    generate_epilog,
     get_hf_api,
     make_expand_properties_parser,
     print_list_output,
@@ -66,7 +67,18 @@ ExpandOpt = Annotated[
 ]
 
 
-models_cli = typer_factory(help="Interact with models on the Hub.")
+models_cli = typer_factory(
+    help="Interact with models on the Hub.",
+    epilog=generate_epilog(
+        examples=[
+            "hf models ls --sort downloads --limit 10",
+            'hf models ls --search "llama" --author meta-llama',
+            "hf models info meta-llama/Llama-3.2-1B-Instruct",
+            "hf models info gpt2 --expand downloads,likes,tags",
+        ],
+        docs_anchor="#hf-models",
+    ),
+)
 
 
 @models_cli.command("ls")

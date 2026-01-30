@@ -488,6 +488,29 @@ By default, the `hf upload` command will be verbose. It will print details such 
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
+## hf upload-large-folder
+
+Use `hf upload-large-folder` to upload very large folders (hundreds of GBs or even TBs) to the Hub. This command is optimized for resumable uploads and handles failures gracefully.
+
+```bash
+# Upload a large folder to a model repository
+>>> hf upload-large-folder Wauplin/my-cool-model ./large_model_dir
+
+# Upload to a specific revision
+>>> hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0
+
+# Upload a dataset
+>>> hf upload-large-folder Wauplin/my-cool-dataset ./large_data_dir --repo-type dataset
+```
+
+The command automatically:
+- Splits large files into chunks for reliable uploads
+- Resumes interrupted uploads from where they left off
+- Handles network failures gracefully
+
+> [!TIP]
+> Use `hf upload-large-folder` when you have very large files or folders that may take a long time to upload. For smaller uploads, prefer `hf upload`.
+
 ## hf models
 
 Use `hf models` to list models on the Hub and get detailed information about a specific model.
@@ -636,17 +659,23 @@ Datasets and Spaces:
 - `--gated`: one of `auto`, `manual`, `false`
 - `--private true|false`: set repository privacy
 
-### Manage branches
+## hf repo branch
+
+Use `hf repo branch` to create and delete branches for repositories on the Hub.
 
 ```bash
+# Create a branch
 >>> hf repo branch create Wauplin/my-cool-model dev
+
+# Create a branch from a specific revision
 >>> hf repo branch create Wauplin/my-cool-model release-1 --revision refs/pr/104
+
+# Delete a branch
 >>> hf repo branch delete Wauplin/my-cool-model dev
 ```
 
 > [!TIP]
 > All commands accept `--repo-type` (one of `model`, `dataset`, `space`) and `--token` if you need to authenticate explicitly. Use `--help` on any command to see all options.
-
 
 ## hf repo-files
 
@@ -687,6 +716,27 @@ To delete files from a repo you must be authenticated and authorized. By default
 
 ```bash
 >>> hf repo-files delete --token=hf_**** Wauplin/my-cool-model file.txt
+```
+
+## hf cache
+
+Use `hf cache` to manage your local Hugging Face cache directory. The cache stores downloaded models, datasets, and other files from the Hub.
+
+```bash
+# List cached repositories
+>>> hf cache ls
+
+# List cached revisions
+>>> hf cache ls --revisions
+
+# Remove specific items from cache
+>>> hf cache rm model/gpt2
+
+# Remove unreferenced revisions
+>>> hf cache prune
+
+# Verify cached file checksums
+>>> hf cache verify gpt2
 ```
 
 ## hf cache ls
@@ -813,9 +863,20 @@ On success, you will see a summary:
 
 If mismatches are detected, the command prints a detailed list and exits with a non-zero status.
 
-## hf repo tag create
+## hf repo tag
 
-The `hf repo tag create` command allows you to tag, untag, and list tags for repositories.
+Use `hf repo tag` to create, list, and delete tags for repositories on the Hub.
+
+```bash
+# Create a tag
+>>> hf repo tag create my-model v1.0
+
+# List tags
+>>> hf repo tag list my-model
+
+# Delete a tag
+>>> hf repo tag delete my-model v1.0
+```
 
 ### Tag a model
 
@@ -1108,7 +1169,7 @@ Use `-f` or `--filter` in `hf jobs ps` to filter Jobs that match certain labels:
 
 ### UV Scripts (Experimental)
 
-Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
+Run UV scripts (Python scripts with inline dependencies) on HF infrastructure. UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax.
 
 ```bash
 # Run a UV script (creates temporary repo)
@@ -1137,7 +1198,7 @@ UV scripts are Python scripts that include their dependencies directly in the fi
 
 A `--` can be used to separate the command from jobs/uv options for clarity, e.g., `hf jobs uv run --flavor gpu-t4-small --with torch -- python -c '...'`
 
-### Scheduled Jobs
+## hf jobs scheduled
 
 Schedule and manage jobs that will run on HF infrastructure.
 
@@ -1209,3 +1270,18 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 
 > [!TIP]
 > Add `--namespace` to target an organization, `--token` to override authentication.
+
+## hf endpoints catalog
+
+Use `hf endpoints catalog` to interact with the Inference Endpoints Model Catalog. Deploy models directly from the catalog with optimized configurations.
+
+```bash
+# List available catalog models
+>>> hf endpoints catalog ls
+
+# Deploy a model from the catalog
+>>> hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct
+
+# Deploy with a custom name
+>>> hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct --name my-llama-endpoint
+```

@@ -36,10 +36,36 @@ from ..utils import (
     tabulate,
 )
 from ..utils._parsing import parse_duration, parse_size
-from ._cli_utils import OutputFormat, RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import (
+    OutputFormat,
+    RepoIdArg,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    generate_epilog,
+    get_hf_api,
+    typer_factory,
+)
 
 
-cache_cli = typer_factory(help="Manage local cache directory.")
+cache_cli = typer_factory(
+    help="Manage local cache directory.",
+    epilog=generate_epilog(
+        examples=[
+            "hf cache ls",
+            "hf cache ls --revisions",
+            'hf cache ls --filter "size>1GB" --limit 20',
+            "hf cache ls --format json",
+            "hf cache rm Wauplin/my-cool-model",
+            "hf cache rm <revision_hash>",
+            "hf cache rm model/gpt2 --dry-run",
+            "hf cache rm model/gpt2 --yes",
+            "hf cache prune",
+            "hf cache verify Wauplin/my-cool-dataset --repo-type dataset",
+        ],
+        docs_anchor="#hf-cache",
+    ),
+)
 
 
 #### Cache helper utilities

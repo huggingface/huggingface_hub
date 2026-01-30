@@ -47,23 +47,116 @@ def get_hf_api(token: Optional[str] = None) -> "HfApi":
 
 #### TYPER UTILS
 
+CLI_REFERENCE_URL = "https://huggingface.co/docs/huggingface_hub/en/guides/cli"
+
+
+def generate_epilog(examples: list[str], docs_anchor: Optional[str] = None) -> str:
+    """Generate an epilog with examples and a LEARN MORE section.
+
+    Args:
+        examples: List of example commands (without the `$ ` prefix).
+        docs_anchor: Optional anchor for the docs URL (e.g., "#hf-download").
+
+    Returns:
+        Formatted epilog string.
+    """
+    docs_url = f"{CLI_REFERENCE_URL}{docs_anchor}" if docs_anchor else CLI_REFERENCE_URL
+    examples_str = "\n".join(f"  $ {ex}" for ex in examples)
+    return f"""\
+EXAMPLES
+{examples_str}
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at {docs_url}
+"""
+
+
+def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatter: click.HelpFormatter) -> None:
+    """Write the epilog without indentation."""
+    if epilog:
+        formatter.write_paragraph()
+        for line in epilog.split("\n"):
+            formatter.write_text(line)
+
 
 class AlphabeticalMixedGroup(typer.core.TyperGroup):
     """
     Typer Group that lists commands and sub-apps mixed and alphabetically.
+    Also formats epilog without extra indentation.
     """
 
     def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
         # click.Group stores both commands and subgroups in `self.commands`
         return sorted(self.commands.keys())
 
+    def format_epilog(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        _format_epilog_no_indent(self.epilog, ctx, formatter)
 
-def typer_factory(help: str) -> typer.Typer:
+
+class GroupedTyperGroup(AlphabeticalMixedGroup):
+    """
+    Typer Group that separates commands into 'Commands' and 'Help Topics' sections.
+    Commands with `topic="help"` are shown in "Help Topics", others in "Commands".
+    """
+
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        commands = []
+        help_topics = []
+
+        for name in self.list_commands(ctx):
+            cmd = self.get_command(ctx, name)
+            if cmd is None or cmd.hidden:
+                continue
+            help_text = cmd.get_short_help_str(limit=formatter.width)
+            topic = getattr(cmd, "topic", "command")
+            if topic == "help":
+                help_topics.append((name, help_text))
+            else:
+                commands.append((name, help_text))
+
+        if commands:
+            with formatter.section("Commands"):
+                formatter.write_dl(commands)
+        if help_topics:
+            with formatter.section("Help Topics"):
+                formatter.write_dl(help_topics)
+
+
+class TyperCommandWithEpilog(typer.core.TyperCommand):
+    """Typer Command that formats epilog without extra indentation and supports topic attribute."""
+
+    topic: str = "command"
+
+    def format_epilog(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        _format_epilog_no_indent(self.epilog, ctx, formatter)
+
+
+class TyperHelpTopicCommand(TyperCommandWithEpilog):
+    """Typer Command for help topics (env, version, etc.)."""
+
+    topic: str = "help"
+
+
+def typer_factory(help: str, epilog: Optional[str] = None, grouped: bool = False) -> typer.Typer:
+    """Create a Typer app with consistent settings.
+
+    Args:
+        help: Help text for the app.
+        epilog: Optional epilog text (use `generate_epilog` to create one).
+        grouped: If True, uses `GroupedTyperGroup` which separates commands into
+            "Commands" and "Help Topics" sections. Commands with `cls=TyperHelpTopicCommand`
+            will appear under "Help Topics".
+
+    Returns:
+        A configured Typer app.
+    """
     return typer.Typer(
         help=help,
+        epilog=epilog,
         add_completion=True,
         no_args_is_help=True,
-        cls=AlphabeticalMixedGroup,
+        cls=GroupedTyperGroup if grouped else AlphabeticalMixedGroup,
         # Disable rich completely for consistent experience
         rich_markup_mode=None,
         rich_help_panel=None,

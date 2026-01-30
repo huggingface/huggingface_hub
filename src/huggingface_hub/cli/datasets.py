@@ -45,6 +45,7 @@ from ._cli_utils import (
     SearchOpt,
     TokenOpt,
     api_object_to_dict,
+    generate_epilog,
     get_hf_api,
     make_expand_properties_parser,
     print_list_output,
@@ -66,7 +67,21 @@ ExpandOpt = Annotated[
 ]
 
 
-datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
+datasets_cli = typer_factory(
+    help="Interact with datasets on the Hub.",
+    epilog=generate_epilog(
+        examples=[
+            "hf datasets ls",
+            "hf datasets ls --limit 20",
+            "hf datasets ls --sort downloads --limit 10",
+            'hf datasets ls --search "finepdfs"',
+            "hf datasets ls --expand downloads,likes,tags",
+            "hf datasets info Wauplin/my-cool-dataset",
+            "hf datasets info Wauplin/my-cool-dataset --revision main",
+        ],
+        docs_anchor="#hf-datasets",
+    ),
+)
 
 
 @datasets_cli.command("ls")
