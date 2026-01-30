@@ -150,8 +150,9 @@ def typer_factory(help: str, epilog: Optional[str] = None, grouped: bool = False
     Returns:
         A configured Typer app.
     """
-    app = typer.Typer(
+    return typer.Typer(
         help=help,
+        epilog=epilog,
         add_completion=True,
         no_args_is_help=True,
         cls=GroupedTyperGroup if grouped else AlphabeticalMixedGroup,
@@ -160,13 +161,6 @@ def typer_factory(help: str, epilog: Optional[str] = None, grouped: bool = False
         rich_help_panel=None,
         pretty_exceptions_enable=False,
     )
-    if epilog:
-
-        @app.callback(epilog=epilog)
-        def _callback() -> None:
-            pass
-
-    return app
 
 
 class RepoType(str, Enum):
