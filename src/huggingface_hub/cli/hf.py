@@ -77,7 +77,7 @@ def main():
         if constants.HF_DEBUG:
             traceback.print_exc()
         else:
-            print(ANSI.grey("Set HF_DEBUG=1 as environment variable for full traceback."))
+            print(ANSI.gray("Set HF_DEBUG=1 as environment variable for full traceback."))
         sys.exit(1)
     except Exception as e:
         message = format_known_exception(e)
@@ -86,7 +86,7 @@ def main():
             if constants.HF_DEBUG:
                 traceback.print_exc()
             else:
-                print(ANSI.grey("Set HF_DEBUG=1 as environment variable for full traceback."))
+                print(ANSI.gray("Set HF_DEBUG=1 as environment variable for full traceback."))
             sys.exit(1)
         raise
 
