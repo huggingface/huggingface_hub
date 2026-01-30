@@ -41,12 +41,12 @@ LEARN MORE
 * `auth`: Manage authentication (login, logout, etc.).
 * `cache`: Manage local cache directory.
 * `datasets`: Interact with datasets on the Hub.
-* `download`: Download files from the Hub to local cache...
+* `download`: Download files from the Hub.
 * `endpoints`: Manage Hugging Face Inference Endpoints.
 * `env`: Print information about the environment.
 * `jobs`: Run and manage Jobs on the Hub.
 * `lfs-enable-largefiles`: Configure your repository to enable upload...
-* `lfs-multipart-upload`: Upload large files to the Hub.
+* `lfs-multipart-upload`: Internal git-lfs custom transfer agent for...
 * `models`: Interact with models on the Hub.
 * `papers`: Interact with papers on the Hub.
 * `repo`: Manage repos on the Hub.
@@ -377,7 +377,7 @@ $ hf datasets ls [OPTIONS]
 
 ## `hf download`
 
-Download files from the Hub to local cache or a specific directory.
+Download files from the Hub.
 
 **Usage**:
 
@@ -1205,6 +1205,9 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 
 Configure your repository to enable upload of files > 5GB.
 
+This command sets up git-lfs to use the custom multipart transfer agent
+which enables efficient uploading of large files in chunks.
+
 **Usage**:
 
 ```console
@@ -1221,7 +1224,10 @@ $ hf lfs-enable-largefiles [OPTIONS] PATH
 
 ## `hf lfs-multipart-upload`
 
-Upload large files to the Hub.
+Internal git-lfs custom transfer agent for multipart uploads.
+
+This function implements the custom transfer protocol for git-lfs multipart uploads.
+Handles chunked uploads of large files to Hugging Face Hub.
 
 **Usage**:
 
@@ -1790,7 +1796,7 @@ $ hf spaces ls [OPTIONS]
 
 ## `hf upload`
 
-Upload a file or a folder to the Hub.
+Upload a file or a folder to the Hub. Recommended for single-commit uploads.
 
 **Usage**:
 

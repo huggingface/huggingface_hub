@@ -11,12 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to print information about the environment and version.
-
-Usage:
-    hf env
-    hf version
-"""
+"""Contains commands to print information about the environment and version."""
 
 from huggingface_hub import __version__
 
@@ -29,5 +24,5 @@ def env() -> None:
 
 
 def version() -> None:
-    """Print CLI version."""
+    """Print information about the hf version."""
     print(__version__)
