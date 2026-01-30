@@ -16,14 +16,7 @@
 Usage:
     hf env
     hf version
-    hf reference
 """
-
-import html
-import io
-import tempfile
-from contextlib import redirect_stdout
-from pathlib import Path
 
 from huggingface_hub import __version__
 
@@ -38,31 +31,3 @@ def env() -> None:
 def version() -> None:
     """Print CLI version."""
     print(__version__)
-
-
-def reference() -> None:
-    """A comprehensive reference of all hf commands"""
-    from typer.cli import app as typer_main
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp_file = Path(tmpdir) / "cli.md"
-        try:
-            with redirect_stdout(io.StringIO()):
-                typer_main(
-                    [
-                        "src/huggingface_hub/cli/hf.py",
-                        "utils",
-                        "docs",
-                        "--name",
-                        "hf",
-                        "--output",
-                        str(tmp_file),
-                    ]
-                )
-        except SystemExit as e:
-            if e.code not in (0, None):
-                raise
-
-        content = tmp_file.read_text()
-        content = html.unescape(content)
-        print(content)

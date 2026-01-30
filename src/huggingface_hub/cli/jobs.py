@@ -77,7 +77,7 @@ from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._dotenv import load_dotenv
 
-from ._cli_utils import TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import TokenOpt, generate_epilog, get_hf_api, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -253,32 +253,22 @@ ScheduledJobIdArg = Annotated[
 ]
 
 
-jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
-
-
-_JOBS_EPILOG = """\
-EXAMPLES
-  $ hf jobs run python:3.12 python -c 'print("Hello from the cloud!")'
-  $ hf jobs run -e FOO=foo -e BAR=bar python:3.12 python -c "import os; print(os.environ['FOO'])"
-  $ hf jobs run --env-file .env python:3.12 python script.py
-  $ hf jobs run --secrets HF_TOKEN python:3.12 python -c "print('authenticated')"
-  $ hf jobs ps
-  $ hf jobs inspect <job_id>
-  $ hf jobs logs <job_id>
-  $ hf jobs cancel <job_id>
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-jobs
-"""
-
-
-@jobs_cli.callback(epilog=_JOBS_EPILOG, invoke_without_command=True)
-def jobs_callback(ctx: typer.Context) -> None:
-    """Run and manage Jobs on the Hub."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
+jobs_cli = typer_factory(
+    help="Run and manage Jobs on the Hub.",
+    epilog=generate_epilog(
+        examples=[
+            "hf jobs run python:3.12 python -c 'print(\"Hello from the cloud!\")'",
+            "hf jobs run -e FOO=foo -e BAR=bar python:3.12 python -c \"import os; print(os.environ['FOO'])\"",
+            "hf jobs run --env-file .env python:3.12 python script.py",
+            "hf jobs run --secrets HF_TOKEN python:3.12 python -c \"print('authenticated')\"",
+            "hf jobs ps",
+            "hf jobs inspect <job_id>",
+            "hf jobs logs <job_id>",
+            "hf jobs cancel <job_id>",
+        ],
+        docs_anchor="#hf-jobs",
+    ),
+)
 
 
 @jobs_cli.command("run", help="Run a Job.", context_settings={"ignore_unknown_options": True})
@@ -628,30 +618,20 @@ def jobs_cancel(
     api.cancel_job(job_id=job_id, namespace=namespace)
 
 
-uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure.")
+uv_app = typer_factory(
+    help="Run UV scripts (Python with inline dependencies) on HF infrastructure.",
+    epilog=generate_epilog(
+        examples=[
+            "hf jobs uv run my_script.py",
+            "hf jobs uv run my_script.py --repo my-uv-scripts",
+            "hf jobs uv run ml_training.py --flavor a10g-small",
+            "hf jobs uv run --with transformers --with torch train.py",
+            "hf jobs uv run https://huggingface.co/datasets/user/scripts/resolve/main/example.py",
+        ],
+        docs_anchor="#hf-jobs-uv",
+    ),
+)
 jobs_cli.add_typer(uv_app, name="uv")
-
-
-_UV_EPILOG = """\
-EXAMPLES
-  $ hf jobs uv run my_script.py
-  $ hf jobs uv run my_script.py --repo my-uv-scripts
-  $ hf jobs uv run ml_training.py --flavor a10g-small
-  $ hf jobs uv run --with transformers --with torch train.py
-  $ hf jobs uv run https://huggingface.co/datasets/user/scripts/resolve/main/example.py
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-jobs-uv
-"""
-
-
-@uv_app.callback(epilog=_UV_EPILOG, invoke_without_command=True)
-def uv_callback(ctx: typer.Context) -> None:
-    """Run UV scripts (Python with inline dependencies) on HF infrastructure."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
 
 
 @uv_app.command(
@@ -712,31 +692,21 @@ def jobs_uv_run(
         print(log)
 
 
-scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.")
+scheduled_app = typer_factory(
+    help="Create and manage scheduled Jobs on the Hub.",
+    epilog=generate_epilog(
+        examples=[
+            'hf jobs scheduled run "0 0 * * *" python:3.12 python script.py',
+            "hf jobs scheduled ps",
+            "hf jobs scheduled inspect <scheduled-job-id>",
+            "hf jobs scheduled suspend <scheduled-job-id>",
+            "hf jobs scheduled resume <scheduled-job-id>",
+            "hf jobs scheduled delete <scheduled-job-id>",
+        ],
+        docs_anchor="#hf-jobs-scheduled",
+    ),
+)
 jobs_cli.add_typer(scheduled_app, name="scheduled")
-
-
-_SCHEDULED_EPILOG = """\
-EXAMPLES
-  $ hf jobs scheduled run "0 0 * * *" python:3.12 python script.py
-  $ hf jobs scheduled ps
-  $ hf jobs scheduled inspect <scheduled-job-id>
-  $ hf jobs scheduled suspend <scheduled-job-id>
-  $ hf jobs scheduled resume <scheduled-job-id>
-  $ hf jobs scheduled delete <scheduled-job-id>
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-jobs-scheduled
-"""
-
-
-@scheduled_app.callback(epilog=_SCHEDULED_EPILOG, invoke_without_command=True)
-def scheduled_callback(ctx: typer.Context) -> None:
-    """Create and manage scheduled Jobs on the Hub."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
 
 
 @scheduled_app.command("run", help="Schedule a Job.", context_settings={"ignore_unknown_options": True})
@@ -916,27 +886,17 @@ def scheduled_resume(
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
-scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure.")
+scheduled_uv_app = typer_factory(
+    help="Schedule UV scripts on HF infrastructure.",
+    epilog=generate_epilog(
+        examples=[
+            'hf jobs scheduled uv run "0 0 * * *" script.py',
+            'hf jobs scheduled uv run "0 0 * * *" script.py --with pandas',
+        ],
+        docs_anchor="#hf-jobs-scheduled",
+    ),
+)
 scheduled_app.add_typer(scheduled_uv_app, name="uv")
-
-
-_SCHEDULED_UV_EPILOG = """\
-EXAMPLES
-  $ hf jobs scheduled uv run "0 0 * * *" script.py
-  $ hf jobs scheduled uv run "0 0 * * *" script.py --with pandas
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-jobs-scheduled
-"""
-
-
-@scheduled_uv_app.callback(epilog=_SCHEDULED_UV_EPILOG, invoke_without_command=True)
-def scheduled_uv_callback(ctx: typer.Context) -> None:
-    """Schedule UV scripts on HF infrastructure."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
 
 
 @scheduled_uv_app.command(

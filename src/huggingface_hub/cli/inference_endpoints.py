@@ -8,51 +8,31 @@ import typer
 from huggingface_hub._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric
 from huggingface_hub.errors import HfHubHTTPError
 
-from ._cli_utils import TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import TokenOpt, generate_epilog, get_hf_api, typer_factory
 
 
-ie_cli = typer_factory(help="Manage Hugging Face Inference Endpoints.")
+ie_cli = typer_factory(
+    help="Manage Hugging Face Inference Endpoints.",
+    epilog=generate_epilog(
+        examples=[
+            "hf endpoints ls",
+            "hf endpoints ls --namespace my-org",
+            "hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct --name my-llama-endpoint",
+        ],
+        docs_anchor="#hf-endpoints",
+    ),
+)
 
-catalog_app = typer_factory(help="Interact with the Inference Endpoints catalog.")
-
-
-_ENDPOINTS_EPILOG = """\
-EXAMPLES
-  $ hf endpoints ls
-  $ hf endpoints ls --namespace my-org
-  $ hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct --name my-llama-endpoint
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-endpoints
-"""
-
-
-_CATALOG_EPILOG = """\
-EXAMPLES
-  $ hf endpoints catalog ls
-  $ hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct
-
-LEARN MORE
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli#hf-endpoints-catalog
-"""
-
-
-@ie_cli.callback(epilog=_ENDPOINTS_EPILOG, invoke_without_command=True)
-def endpoints_callback(ctx: typer.Context) -> None:
-    """Manage Hugging Face Inference Endpoints."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
-
-
-@catalog_app.callback(epilog=_CATALOG_EPILOG, invoke_without_command=True)
-def catalog_callback(ctx: typer.Context) -> None:
-    """Interact with the Inference Endpoints catalog."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
+catalog_app = typer_factory(
+    help="Interact with the Inference Endpoints catalog.",
+    epilog=generate_epilog(
+        examples=[
+            "hf endpoints catalog ls",
+            "hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct",
+        ],
+        docs_anchor="#hf-endpoints-catalog",
+    ),
+)
 
 
 NameArg = Annotated[

@@ -46,6 +46,30 @@ def get_hf_api(token: Optional[str] = None) -> "HfApi":
 
 #### TYPER UTILS
 
+CLI_REFERENCE_URL = "https://huggingface.co/docs/huggingface_hub/en/guides/cli"
+
+
+def generate_epilog(examples: list[str], docs_anchor: Optional[str] = None) -> str:
+    """Generate an epilog with examples and a LEARN MORE section.
+
+    Args:
+        examples: List of example commands (without the `$ ` prefix).
+        docs_anchor: Optional anchor for the docs URL (e.g., "#hf-download").
+
+    Returns:
+        Formatted epilog string.
+    """
+    docs_url = f"{CLI_REFERENCE_URL}{docs_anchor}" if docs_anchor else CLI_REFERENCE_URL
+    examples_str = "\n".join(f"  $ {ex}" for ex in examples)
+    return f"""\
+EXAMPLES
+{examples_str}
+
+LEARN MORE
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at {docs_url}
+"""
+
 
 def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatter: click.HelpFormatter) -> None:
     """Write the epilog without indentation."""
@@ -72,10 +96,8 @@ class AlphabeticalMixedGroup(typer.core.TyperGroup):
 class GroupedTyperGroup(AlphabeticalMixedGroup):
     """
     Typer Group that separates commands into 'Commands' and 'Help Topics' sections.
-    Used for the main `hf` CLI app.
+    Commands with `topic="help"` are shown in "Help Topics", others in "Commands".
     """
-
-    HELP_TOPICS = {"env", "version", "reference"}
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         commands = []
@@ -86,7 +108,8 @@ class GroupedTyperGroup(AlphabeticalMixedGroup):
             if cmd is None or cmd.hidden:
                 continue
             help_text = cmd.get_short_help_str(limit=formatter.width)
-            if name in self.HELP_TOPICS:
+            topic = getattr(cmd, "topic", "command")
+            if topic == "help":
                 help_topics.append((name, help_text))
             else:
                 commands.append((name, help_text))
@@ -100,23 +123,50 @@ class GroupedTyperGroup(AlphabeticalMixedGroup):
 
 
 class TyperCommandWithEpilog(typer.core.TyperCommand):
-    """Typer Command that formats epilog without extra indentation."""
+    """Typer Command that formats epilog without extra indentation and supports topic attribute."""
+
+    topic: str = "command"
 
     def format_epilog(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_epilog_no_indent(self.epilog, ctx, formatter)
 
 
-def typer_factory(help: str) -> typer.Typer:
-    return typer.Typer(
+class TyperHelpTopicCommand(TyperCommandWithEpilog):
+    """Typer Command for help topics (env, version, etc.)."""
+
+    topic: str = "help"
+
+
+def typer_factory(help: str, epilog: Optional[str] = None, grouped: bool = False) -> typer.Typer:
+    """Create a Typer app with consistent settings.
+
+    Args:
+        help: Help text for the app.
+        epilog: Optional epilog text (use `generate_epilog` to create one).
+        grouped: If True, uses `GroupedTyperGroup` which separates commands into
+            "Commands" and "Help Topics" sections. Commands with `cls=TyperHelpTopicCommand`
+            will appear under "Help Topics".
+
+    Returns:
+        A configured Typer app.
+    """
+    app = typer.Typer(
         help=help,
         add_completion=True,
         no_args_is_help=True,
-        cls=AlphabeticalMixedGroup,
+        cls=GroupedTyperGroup if grouped else AlphabeticalMixedGroup,
         # Disable rich completely for consistent experience
         rich_markup_mode=None,
         rich_help_panel=None,
         pretty_exceptions_enable=False,
     )
+    if epilog:
+
+        @app.callback(epilog=epilog)
+        def _callback() -> None:
+            pass
+
+    return app
 
 
 class RepoType(str, Enum):

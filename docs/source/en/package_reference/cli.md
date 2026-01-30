@@ -33,7 +33,7 @@ EXAMPLES
 
 LEARN MORE
   Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/guides/cli
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
 **Commands**:
@@ -49,7 +49,6 @@ LEARN MORE
 * `lfs-multipart-upload`: Upload large files to the Hub.
 * `models`: Interact with models on the Hub.
 * `papers`: Interact with papers on the Hub.
-* `reference`: Print the CLI reference in markdown format.
 * `repo`: Manage repos on the Hub.
 * `repo-files`: Manage files in a repo on the Hub.
 * `spaces`: Interact with spaces on the Hub.
@@ -84,7 +83,7 @@ EXAMPLES
 
 LEARN MORE
   Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/guides/cli
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
 **Commands**:
@@ -1337,20 +1336,6 @@ $ hf papers ls [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-## `hf reference`
-
-Print the CLI reference in markdown format.
-
-**Usage**:
-
-```console
-$ hf reference [OPTIONS]
-```
-
-**Options**:
-
-* `--help`: Show this message and exit.
-
 ## `hf repo`
 
 Manage repos on the Hub.
@@ -1365,14 +1350,12 @@ $ hf repo [OPTIONS] COMMAND [ARGS]...
 
 * `--help`: Show this message and exit.
 
-
 EXAMPLES
   $ hf repo create my-model
   $ hf repo create my-dataset --repo-type dataset --private
   $ hf repo delete my-model
   $ hf repo tag create my-model v1.0
   $ hf repo branch create my-model dev
-
 
 LEARN MORE
   Use `hf <command> --help` for more information about a command.
