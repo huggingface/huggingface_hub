@@ -1,14 +1,23 @@
 """CLI commands for Hugging Face Inference Endpoints."""
 
 import json
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
 import typer
 
 from huggingface_hub._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric
 from huggingface_hub.errors import HfHubHTTPError
 
-from ._cli_utils import TokenOpt, generate_epilog, get_hf_api, typer_factory
+from ._cli_utils import (
+    FormatOpt,
+    OutputFormat,
+    QuietOpt,
+    TokenOpt,
+    generate_epilog,
+    get_hf_api,
+    print_list_output,
+    typer_factory,
+)
 
 
 ie_cli = typer_factory(
@@ -59,6 +68,8 @@ def _print_endpoint(endpoint: InferenceEndpoint) -> None:
 @ie_cli.command()
 def ls(
     namespace: NamespaceOpt = None,
+    format: FormatOpt = OutputFormat.table,
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """Lists all Inference Endpoints for the given namespace."""
@@ -69,12 +80,31 @@ def ls(
         typer.echo(f"Listing failed: {error}")
         raise typer.Exit(code=error.response.status_code) from error
 
-    typer.echo(
-        json.dumps(
-            {"items": [endpoint.raw for endpoint in endpoints]},
-            indent=2,
-            sort_keys=True,
-        )
+    results = [endpoint.raw for endpoint in endpoints]
+
+    def row_fn(item: dict[str, Any]) -> list[str]:
+        status = item.get("status", {})
+        model = item.get("model", {})
+        compute = item.get("compute", {})
+        provider = item.get("provider", {})
+        return [
+            str(item.get("name", "")),
+            str(model.get("repository", "") if isinstance(model, dict) else ""),
+            str(status.get("state", "") if isinstance(status, dict) else ""),
+            str(model.get("task", "") if isinstance(model, dict) else ""),
+            str(model.get("framework", "") if isinstance(model, dict) else ""),
+            str(compute.get("instanceType", "") if isinstance(compute, dict) else ""),
+            str(provider.get("vendor", "") if isinstance(provider, dict) else ""),
+            str(provider.get("region", "") if isinstance(provider, dict) else ""),
+        ]
+
+    print_list_output(
+        items=results,
+        format=format,
+        quiet=quiet,
+        id_key="name",
+        headers=["NAME", "MODEL", "STATUS", "TASK", "FRAMEWORK", "INSTANCE", "VENDOR", "REGION"],
+        row_fn=row_fn,
     )
 
 

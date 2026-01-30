@@ -16,18 +16,19 @@
 import dataclasses
 import datetime
 import importlib.metadata
+import json
 import os
 import time
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Literal, Optional, Union
+from typing import TYPE_CHECKING, Annotated, Any, Callable, Literal, Optional, Sequence, Union, cast
 
 import click
 import typer
 
 from huggingface_hub import DatasetInfo, ModelInfo, SpaceInfo, __version__, constants
 from huggingface_hub.hf_api import PaperInfo
-from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging
+from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
 
 
 logger = logging.get_logger()
@@ -225,6 +226,78 @@ SearchOpt = Annotated[
     Optional[str],
     typer.Option(help="Search query."),
 ]
+
+
+class OutputFormat(str, Enum):
+    """Output format for CLI list commands."""
+
+    table = "table"
+    json = "json"
+
+
+FormatOpt = Annotated[
+    OutputFormat,
+    typer.Option(
+        help="Output format (table or json).",
+    ),
+]
+
+QuietOpt = Annotated[
+    bool,
+    typer.Option(
+        "-q",
+        "--quiet",
+        help="Print only IDs (one per line).",
+    ),
+]
+
+
+def print_as_table(
+    items: Sequence[dict[str, Any]],
+    headers: list[str],
+    row_fn: Callable[[dict[str, Any]], list[str]],
+) -> None:
+    """Print items as a formatted table.
+
+    Args:
+        items: Sequence of dictionaries representing the items to display.
+        headers: List of column headers.
+        row_fn: Function that takes an item dict and returns a list of string values for each column.
+    """
+    if not items:
+        print("No results found.")
+        return
+    rows = cast(list[list[Union[str, int]]], [row_fn(item) for item in items])
+    print(tabulate(rows, headers=headers))
+
+
+def print_list_output(
+    items: Sequence[dict[str, Any]],
+    format: OutputFormat,
+    quiet: bool,
+    id_key: str,
+    headers: list[str],
+    row_fn: Callable[[dict[str, Any]], list[str]],
+) -> None:
+    """Print list command output in the specified format.
+
+    Args:
+        items: Sequence of dictionaries representing the items to display.
+        format: Output format (table or json).
+        quiet: If True, print only IDs (one per line).
+        id_key: Key to use for extracting IDs in quiet mode.
+        headers: List of column headers for table format.
+        row_fn: Function that takes an item dict and returns a list of string values for table columns.
+    """
+    if quiet:
+        for item in items:
+            print(item[id_key])
+        return
+
+    if format == OutputFormat.json:
+        print(json.dumps(list(items), indent=2))
+    else:
+        print_as_table(items, headers=headers, row_fn=row_fn)
 
 
 def _serialize_value(v: object) -> object:

@@ -33,8 +33,8 @@ class OAuthOrgInfo:
             The org's username. OpenID Connect field.
         picture (`str`):
             The org's profile picture URL. OpenID Connect field.
-        is_enterprise (`bool`):
-            Whether the org is an enterprise org. Hugging Face field.
+        plan (`str`, *optional*):
+            The org's plan (e.g., "enterprise", "team"). Hugging Face field.
         can_pay (`Optional[bool]`, *optional*):
             Whether the org has a payment method set up. Hugging Face field.
         role_in_org (`Optional[str]`, *optional*):
@@ -47,7 +47,7 @@ class OAuthOrgInfo:
     name: str
     preferred_username: str
     picture: str
-    is_enterprise: bool
+    plan: Optional[str] = None
     can_pay: Optional[bool] = None
     role_in_org: Optional[str] = None
     security_restrictions: Optional[list[Literal["ip", "token-policy", "mfa", "sso"]]] = None
@@ -215,7 +215,7 @@ def parse_huggingface_oauth(request: "fastapi.Request") -> Optional[OAuthInfo]:
                 name=org.get("name"),
                 preferred_username=org.get("preferred_username"),
                 picture=org.get("picture"),
-                is_enterprise=org.get("isEnterprise"),
+                plan=org.get("plan"),
                 can_pay=org.get("canPay"),
                 role_in_org=org.get("roleInOrg"),
                 security_restrictions=org.get("securityRestrictions"),

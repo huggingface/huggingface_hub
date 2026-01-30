@@ -32,6 +32,7 @@ from huggingface_hub.cli.models import models_cli
 from huggingface_hub.cli.papers import papers_cli
 from huggingface_hub.cli.repo import repo_cli
 from huggingface_hub.cli.repo_files import repo_files_cli
+from huggingface_hub.cli.skills import skills_cli
 from huggingface_hub.cli.spaces import spaces_cli
 from huggingface_hub.cli.system import env, version
 from huggingface_hub.cli.upload import UPLOAD_EPILOG, upload
@@ -88,6 +89,7 @@ app.add_typer(models_cli, name="models")
 app.add_typer(papers_cli, name="papers")
 app.add_typer(repo_cli, name="repo")
 app.add_typer(repo_files_cli, name="repo-files")
+app.add_typer(skills_cli, name="skills")
 app.add_typer(spaces_cli, name="spaces")
 app.add_typer(ie_cli, name="endpoints")
 

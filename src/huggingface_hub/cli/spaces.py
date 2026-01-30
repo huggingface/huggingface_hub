@@ -26,7 +26,7 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Optional, get_args
+from typing import Annotated, Any, Optional, get_args
 
 import typer
 
@@ -37,7 +37,10 @@ from huggingface_hub.utils import ANSI
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
+    FormatOpt,
     LimitOpt,
+    OutputFormat,
+    QuietOpt,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
@@ -45,6 +48,7 @@ from ._cli_utils import (
     generate_epilog,
     get_hf_api,
     make_expand_properties_parser,
+    print_list_output,
     typer_factory,
 )
 
@@ -88,6 +92,8 @@ def spaces_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
+    format: FormatOpt = OutputFormat.table,
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List spaces on the Hub."""
@@ -99,7 +105,25 @@ def spaces_ls(
             filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
-    print(json.dumps(results, indent=2))
+
+    def row_fn(item: dict[str, Any]) -> list[str]:
+        repo_id = str(item.get("id", ""))
+        author = str(item.get("author", "")) or (repo_id.split("/")[0] if "/" in repo_id else "")
+        return [
+            repo_id,
+            author,
+            str(item.get("sdk", "") or ""),
+            str(item.get("likes", "") or ""),
+        ]
+
+    print_list_output(
+        items=results,
+        format=format,
+        quiet=quiet,
+        id_key="id",
+        headers=["ID", "AUTHOR", "SDK", "LIKES"],
+        row_fn=row_fn,
+    )
 
 
 @spaces_cli.command("info")
