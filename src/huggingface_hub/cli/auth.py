@@ -35,7 +35,6 @@ from typing import Annotated, Optional
 import typer
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.hf_api import whoami
 
 from .._login import auth_list, auth_switch, login, logout
@@ -132,16 +131,11 @@ def auth_whoami() -> None:
     if token is None:
         print("Not logged in")
         raise typer.Exit()
-    try:
-        info = whoami(token)
-        print(ANSI.bold("user: "), info["name"])
-        orgs = [org["name"] for org in info["orgs"]]
-        if orgs:
-            print(ANSI.bold("orgs: "), ",".join(orgs))
+    info = whoami(token)
+    print(ANSI.bold("user: "), info["name"])
+    orgs = [org["name"] for org in info["orgs"]]
+    if orgs:
+        print(ANSI.bold("orgs: "), ",".join(orgs))
 
-        if ENDPOINT != "https://huggingface.co":
-            print(f"Authenticated through private endpoint: {ENDPOINT}")
-    except HfHubHTTPError as e:
-        print(e)
-        print(ANSI.red(e.response.text))
-        raise typer.Exit(code=1)
+    if ENDPOINT != "https://huggingface.co":
+        print(f"Authenticated through private endpoint: {ENDPOINT}")

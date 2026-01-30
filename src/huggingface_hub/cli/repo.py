@@ -26,7 +26,7 @@ from typing import Annotated, Optional
 
 import typer
 
-from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.utils import ANSI
 
 from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
@@ -226,17 +226,14 @@ def tag_create(
     print(f"You are about to create tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
     try:
         api.create_tag(repo_id=repo_id, tag=tag, tag_message=message, revision=revision, repo_type=repo_type_str)
-    except RepositoryNotFoundError:
-        print(f"{repo_type_str.capitalize()} {ANSI.bold(repo_id)} not found.")
-        raise typer.Exit(code=1)
-    except RevisionNotFoundError:
-        print(f"Revision {ANSI.bold(str(revision))} not found.")
-        raise typer.Exit(code=1)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"{repo_type_str.capitalize()} '{repo_id}' not found.") from e
+    except RevisionNotFoundError as e:
+        raise CLIError(f"Revision '{revision}' not found.") from e
     except HfHubHTTPError as e:
         if e.response.status_code == 409:
-            print(f"Tag {ANSI.bold(tag)} already exists on {ANSI.bold(repo_id)}")
-            raise typer.Exit(code=1)
-        raise e
+            raise CLIError(f"Tag '{tag}' already exists on '{repo_id}'.") from e
+        raise
     print(f"Tag {ANSI.bold(tag)} created on {ANSI.bold(repo_id)}")
 
 
@@ -250,13 +247,8 @@ def tag_list(
     api = get_hf_api(token=token)
     try:
         refs = api.list_repo_refs(repo_id=repo_id, repo_type=repo_type_str)
-    except RepositoryNotFoundError:
-        print(f"{repo_type_str.capitalize()} {ANSI.bold(repo_id)} not found.")
-        raise typer.Exit(code=1)
-    except HfHubHTTPError as e:
-        print(e)
-        print(ANSI.red(e.response.text))
-        raise typer.Exit(code=1)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"{repo_type_str.capitalize()} '{repo_id}' not found.") from e
     if len(refs.tags) == 0:
         print("No tags found")
         raise typer.Exit(code=0)
@@ -295,10 +287,8 @@ def tag_delete(
     api = get_hf_api(token=token)
     try:
         api.delete_tag(repo_id=repo_id, tag=tag, repo_type=repo_type_str)
-    except RepositoryNotFoundError:
-        print(f"{repo_type_str.capitalize()} {ANSI.bold(repo_id)} not found.")
-        raise typer.Exit(code=1)
-    except RevisionNotFoundError:
-        print(f"Tag {ANSI.bold(tag)} not found on {ANSI.bold(repo_id)}")
-        raise typer.Exit(code=1)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"{repo_type_str.capitalize()} '{repo_id}' not found.") from e
+    except RevisionNotFoundError as e:
+        raise CLIError(f"Tag '{tag}' not found on '{repo_id}'.") from e
     print(f"Tag {ANSI.bold(tag)} deleted on {ANSI.bold(repo_id)}")

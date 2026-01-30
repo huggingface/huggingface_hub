@@ -25,6 +25,8 @@ from typing import Annotated, Any, Callable, Dict, List, Mapping, Optional, Tupl
 
 import typer
 
+from huggingface_hub.errors import CLIError
+
 from ..utils import (
     ANSI,
     CachedRepoInfo,
@@ -495,8 +497,7 @@ def ls(
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
-        print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1) from exc
+        raise CLIError(f"Cache directory not found: {exc.cache_dir}") from exc
 
     filters = filter or []
 
@@ -569,8 +570,7 @@ def rm(
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
-        print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1)
+        raise CLIError(f"Cache directory not found: {exc.cache_dir}") from exc
 
     resolution = _resolve_deletion_targets(hf_cache_info, targets)
 
@@ -640,8 +640,7 @@ def prune(
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
-        print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1)
+        raise CLIError(f"Cache directory not found: {exc.cache_dir}") from exc
 
     selected: dict[CachedRepoInfo, frozenset[CachedRevisionInfo]] = {}
     revisions: set[str] = set()
