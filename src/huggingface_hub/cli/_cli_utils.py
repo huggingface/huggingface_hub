@@ -51,7 +51,7 @@ CLI_REFERENCE_URL = "https://huggingface.co/docs/huggingface_hub/en/guides/cli"
 
 
 def generate_epilog(examples: list[str], docs_anchor: Optional[str] = None) -> str:
-    """Generate an epilog with examples and a LEARN MORE section.
+    """Generate an epilog with examples and a Learn More section.
 
     Args:
         examples: List of example commands (without the `$ ` prefix).
@@ -63,10 +63,10 @@ def generate_epilog(examples: list[str], docs_anchor: Optional[str] = None) -> s
     docs_url = f"{CLI_REFERENCE_URL}{docs_anchor}" if docs_anchor else CLI_REFERENCE_URL
     examples_str = "\n".join(f"  $ {ex}" for ex in examples)
     return f"""\
-EXAMPLES
+Examples
 {examples_str}
 
-LEARN MORE
+Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at {docs_url}
 """
@@ -111,15 +111,35 @@ class HFCliTyperGroup(typer.core.TyperGroup):
                 formatter.write_dl(topics[topic])
 
     def format_epilog(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        _format_epilog_no_indent(self.epilog, ctx, formatter)
+        # Collect examples from all commands
+        all_examples: list[str] = []
+        for name in self.list_commands(ctx):
+            cmd = self.get_command(ctx, name)
+            if cmd is None or cmd.hidden:
+                continue
+            cmd_examples = getattr(cmd, "examples", [])
+            all_examples.extend(cmd_examples)
+
+        if all_examples:
+            epilog = generate_epilog(all_examples)
+            _format_epilog_no_indent(epilog, ctx, formatter)
+        elif self.epilog:
+            _format_epilog_no_indent(self.epilog, ctx, formatter)
 
     def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
         # click.Group stores both commands and subgroups in `self.commands`
         return sorted(self.commands.keys())
 
 
-def HFCliCommand(topic: TOPIC_T) -> type[typer.core.TyperCommand]:
-    return type(f"TyperCommand{topic.capitalize()}", (typer.core.TyperCommand,), {"topic": topic})
+def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[typer.core.TyperCommand]:
+    def format_epilog(self: click.Command, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        _format_epilog_no_indent(self.epilog, ctx, formatter)
+
+    return type(
+        f"TyperCommand{topic.capitalize()}",
+        (typer.core.TyperCommand,),
+        {"topic": topic, "examples": examples or [], "format_epilog": format_epilog},
+    )
 
 
 class HFCliApp(typer.Typer):
@@ -130,6 +150,7 @@ class HFCliApp(typer.Typer):
         name: Optional[str] = None,
         *,
         topic: TOPIC_T = "main",
+        examples: Optional[list[str]] = None,
         context_settings: Optional[dict[str, Any]] = None,
         help: Optional[str] = None,
         epilog: Optional[str] = None,
@@ -141,10 +162,14 @@ class HFCliApp(typer.Typer):
         deprecated: bool = False,
         rich_help_panel: Optional[str] = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        # Generate epilog from examples if not explicitly provided
+        if epilog is None and examples:
+            epilog = generate_epilog(examples)
+
         def _inner(func: Callable[..., Any]) -> Callable[..., Any]:
             return super(HFCliApp, self).command(
                 name,
-                cls=HFCliCommand(topic),
+                cls=HFCliCommand(topic, examples),
                 context_settings=context_settings,
                 help=help,
                 epilog=epilog,

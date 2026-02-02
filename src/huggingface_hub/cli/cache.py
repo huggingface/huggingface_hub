@@ -44,30 +44,12 @@ from ._cli_utils import (
     RepoTypeOpt,
     RevisionOpt,
     TokenOpt,
-    generate_epilog,
     get_hf_api,
     typer_factory,
 )
 
 
-cache_cli = typer_factory(
-    help="Manage local cache directory.",
-    epilog=generate_epilog(
-        examples=[
-            "hf cache ls",
-            "hf cache ls --revisions",
-            'hf cache ls --filter "size>1GB" --limit 20',
-            "hf cache ls --format json",
-            "hf cache rm Wauplin/my-cool-model",
-            "hf cache rm <revision_hash>",
-            "hf cache rm model/gpt2 --dry-run",
-            "hf cache rm model/gpt2 --yes",
-            "hf cache prune",
-            "hf cache verify Wauplin/my-cool-dataset --repo-type dataset",
-        ],
-        docs_anchor="#hf-cache",
-    ),
-)
+cache_cli = typer_factory(help="Manage local cache directory.")
 
 
 #### Cache helper utilities
@@ -467,7 +449,14 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
 #### Cache CLI commands
 
 
-@cache_cli.command()
+@cache_cli.command(
+    examples=[
+        "hf cache ls",
+        "hf cache ls --revisions",
+        'hf cache ls --filter "size>1GB" --limit 20',
+        "hf cache ls --format json",
+    ],
+)
 def ls(
     cache_dir: Annotated[
         Optional[str],
@@ -563,7 +552,14 @@ def ls(
     return formatters[format](entries, include_revisions=revisions, repo_refs_map=repo_refs_map)
 
 
-@cache_cli.command()
+@cache_cli.command(
+    examples=[
+        "hf cache rm model/gpt2",
+        "hf cache rm <revision_hash>",
+        "hf cache rm model/gpt2 --dry-run",
+        "hf cache rm model/gpt2 --yes",
+    ],
+)
 def rm(
     targets: Annotated[
         list[str],
@@ -639,7 +635,7 @@ def rm(
     )
 
 
-@cache_cli.command()
+@cache_cli.command(examples=["hf cache prune", "hf cache prune --dry-run"])
 def prune(
     cache_dir: Annotated[
         Optional[str],
@@ -706,7 +702,13 @@ def prune(
     print(f"Deleted {counts.total_revision_count} unreferenced revision(s); freed {strategy.expected_freed_size_str}.")
 
 
-@cache_cli.command()
+@cache_cli.command(
+    examples=[
+        "hf cache verify gpt2",
+        "hf cache verify gpt2 --revision refs/pr/1",
+        "hf cache verify my-dataset --repo-type dataset",
+    ],
+)
 def verify(
     repo_id: RepoIdArg,
     repo_type: RepoTypeOpt = RepoTypeOpt.model,

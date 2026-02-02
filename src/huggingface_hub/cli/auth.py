@@ -39,31 +39,23 @@ from huggingface_hub.hf_api import whoami
 
 from .._login import auth_list, auth_switch, login, logout
 from ..utils import ANSI, get_stored_tokens, get_token, logging
-from ._cli_utils import TokenOpt, generate_epilog, typer_factory
+from ._cli_utils import TokenOpt, typer_factory
 
 
 logger = logging.get_logger(__name__)
 
 
-auth_cli = typer_factory(
-    help="Manage authentication (login, logout, etc.).",
-    epilog=generate_epilog(
-        examples=[
-            "hf auth login",
-            "hf auth login --token $HF_TOKEN",
-            "hf auth login --token $HF_TOKEN --add-to-git-credential",
-            "hf auth whoami",
-            "hf auth list",
-            "hf auth switch",
-            "hf auth switch --token-name my-token",
-            "hf auth logout",
-            "hf auth logout --token-name my-token",
-        ],
-    ),
+auth_cli = typer_factory(help="Manage authentication (login, logout, etc.).")
+
+
+@auth_cli.command(
+    "login",
+    examples=[
+        "hf auth login",
+        "hf auth login --token $HF_TOKEN",
+        "hf auth login --token $HF_TOKEN --add-to-git-credential",
+    ],
 )
-
-
-@auth_cli.command("login")
 def auth_login(
     token: TokenOpt = None,
     add_to_git_credential: Annotated[
@@ -77,13 +69,14 @@ def auth_login(
     login(token=token, add_to_git_credential=add_to_git_credential)
 
 
-@auth_cli.command("logout")
+@auth_cli.command(
+    "logout",
+    examples=["hf auth logout", "hf auth logout --token-name my-token"],
+)
 def auth_logout(
     token_name: Annotated[
         Optional[str],
-        typer.Option(
-            help="Name of token to logout",
-        ),
+        typer.Option(help="Name of token to logout"),
     ] = None,
 ) -> None:
     """Logout from a specific token."""
@@ -114,7 +107,10 @@ def _select_token_name() -> Optional[str]:
             print("Invalid input. Please enter a number or 'q' to quit.")
 
 
-@auth_cli.command("switch")
+@auth_cli.command(
+    "switch",
+    examples=["hf auth switch", "hf auth switch --token-name my-token"],
+)
 def auth_switch_cmd(
     token_name: Annotated[
         Optional[str],
@@ -138,13 +134,13 @@ def auth_switch_cmd(
     auth_switch(token_name, add_to_git_credential=add_to_git_credential)
 
 
-@auth_cli.command("list")
+@auth_cli.command("list", examples=["hf auth list"])
 def auth_list_cmd() -> None:
     """List all stored access tokens."""
     auth_list()
 
 
-@auth_cli.command("whoami")
+@auth_cli.command("whoami", examples=["hf auth whoami"])
 def auth_whoami() -> None:
     """Find out which huggingface.co account you are logged in as."""
     token = get_token()
