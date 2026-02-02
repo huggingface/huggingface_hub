@@ -2391,6 +2391,10 @@ class HfApi:
                     else:
                         data = value_item
                     filter_list.append(data)
+        if benchmark is not None:
+            if benchmark is True:  # alias for official benchmark
+                benchmark = "official"
+            filter_list.append(f"benchmark:{benchmark}")
         if len(filter_list) > 0:
             params["filter"] = filter_list
 
@@ -2399,10 +2403,6 @@ class HfApi:
             params["author"] = author
         if gated is not None:
             params["gated"] = gated
-        if benchmark is not None:
-            if benchmark is True:  # alias for official benchmark
-                benchmark = "official"
-            params["benchmark"] = f"benchmark:{benchmark}"
         search_list = []
         if dataset_name:
             search_list.append(dataset_name)
