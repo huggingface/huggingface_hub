@@ -16,11 +16,7 @@ import sys
 import traceback
 
 from huggingface_hub import constants
-from huggingface_hub.cli._cli_utils import (
-    check_cli_update,
-    generate_epilog,
-    typer_factory,
-)
+from huggingface_hub.cli._cli_utils import check_cli_update, generate_epilog, typer_factory
 from huggingface_hub.cli._errors import format_known_exception
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.cache import cache_cli
