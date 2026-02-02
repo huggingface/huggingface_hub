@@ -125,23 +125,23 @@ def HFCliCommand(topic: TOPIC_T) -> type[typer.core.TyperCommand]:
 class HFCliApp(typer.Typer):
     """Custom Typer app for Hugging Face CLI."""
 
-    def command(
+    def command(  # type: ignore[override]
         self,
-        name=None,
+        name: Optional[str] = None,
         *,
         topic: TOPIC_T = "main",
-        context_settings=None,
-        help=None,
-        epilog=None,
-        short_help=None,
-        options_metavar="[OPTIONS]",
-        add_help_option=True,
-        no_args_is_help=False,
-        hidden=False,
-        deprecated=False,
-        rich_help_panel=...,
-    ):
-        def _inner(func: Callable[..., Any]) -> HFCliCommand:
+        context_settings: Optional[dict[str, Any]] = None,
+        help: Optional[str] = None,
+        epilog: Optional[str] = None,
+        short_help: Optional[str] = None,
+        options_metavar: str = "[OPTIONS]",
+        add_help_option: bool = True,
+        no_args_is_help: bool = False,
+        hidden: bool = False,
+        deprecated: bool = False,
+        rich_help_panel: Optional[str] = None,
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        def _inner(func: Callable[..., Any]) -> Callable[..., Any]:
             return super(HFCliApp, self).command(
                 name,
                 cls=HFCliCommand(topic),
