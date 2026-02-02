@@ -89,7 +89,9 @@ def models_ls(
     sort_key = sort.value if sort else None
     if expand is not None:
         api_expand = [c for c in _BASE_COLUMNS if c in _EXPAND_PROPERTIES] + [
-            f for f in expand if f not in _BASE_COLUMNS
+            f
+            for f in expand
+            if f not in _BASE_COLUMNS  # type: ignore[union-attr]
         ]
     else:
         api_expand = None
@@ -119,7 +121,7 @@ def models_ls(
         headers=["ID", "AUTHOR", "DOWNLOADS", "LIKES", "TASK"],
         row_fn=row_fn,
         base_columns=_BASE_COLUMNS,
-        expand_fields=expand,
+        expand_fields=expand,  # type: ignore[arg-type]
     )
 
 
