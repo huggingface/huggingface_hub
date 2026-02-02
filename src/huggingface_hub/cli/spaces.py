@@ -30,9 +30,8 @@ from typing import Annotated, Any, Optional, get_args
 
 import typer
 
-from huggingface_hub.errors import RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, SpaceSort_T
-from huggingface_hub.utils import ANSI
 
 from ._cli_utils import (
     AuthorOpt,
@@ -137,10 +136,8 @@ def spaces_info(
     api = get_hf_api(token=token)
     try:
         info = api.space_info(repo_id=space_id, revision=revision, expand=expand)  # type: ignore[arg-type]
-    except RepositoryNotFoundError:
-        print(f"Space {ANSI.bold(space_id)} not found.")
-        raise typer.Exit(code=1)
-    except RevisionNotFoundError:
-        print(f"Revision {ANSI.bold(str(revision))} not found on {ANSI.bold(space_id)}.")
-        raise typer.Exit(code=1)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"Space '{space_id}' not found.") from e
+    except RevisionNotFoundError as e:
+        raise CLIError(f"Revision '{revision}' not found on '{space_id}'.") from e
     print(json.dumps(api_object_to_dict(info), indent=2))

@@ -37,6 +37,7 @@ from typing import Annotated, Optional
 
 import typer
 
+from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import get_session
 
 from ._cli_utils import typer_factory
@@ -161,8 +162,7 @@ def skills_add(
 ) -> None:
     """Download a skill and install it for an AI assistant."""
     if not (claude or codex or opencode or dest):
-        print("Pick a destination via --claude, --codex, --opencode, or --dest.")
-        raise typer.Exit(code=1)
+        raise CLIError("Pick a destination via --claude, --codex, --opencode, or --dest.")
 
     if dest:
         if claude or codex or opencode or global_:
