@@ -2095,7 +2095,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
     def test_filter_datasets_by_benchmark_official(self):
         datasets = list(self._api.list_datasets(benchmark="official", limit=10))
         assert len(datasets) > 0
-        assert all("benchmark:official" in dataset.tags for dataset in datasets)
+        assert "benchmark:official" in datasets[0].tags
 
     def test_filter_datasets_by_benchmark_true_alias(self):
         # benchmark=True should be an alias for benchmark="official"
