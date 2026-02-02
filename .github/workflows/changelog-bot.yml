@@ -1,0 +1,109 @@
+name: Changelog Bot
+
+on:
+  pull_request:
+    types: [opened, edited]
+
+jobs:
+  create-changelog-fragment:
+    runs-on: ubuntu-latest
+    # Skip if PR title contains [skip-changelog]
+    if: ${{ !contains(github.event.pull_request.title, '[skip-changelog]') }}
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.HF_STYLE_BOT_ACTION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Check if fragment exists
+        id: check_fragment
+        run: |
+          if [ -f ".changelog/${{ github.event.pull_request.number }}.md" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create changelog fragment
+        if: github.event.action == 'opened' && steps.check_fragment.outputs.exists == 'false'
+        run: |
+          python utils/create_changelog_fragment.py \
+            --pr-number ${{ github.event.pull_request.number }} \
+            --pr-title "${{ github.event.pull_request.title }}" \
+            --pr-author "${{ github.event.pull_request.user.login }}"
+
+      - name: Update changelog fragment title
+        if: github.event.action == 'edited' && steps.check_fragment.outputs.exists == 'true'
+        run: |
+          python utils/create_changelog_fragment.py \
+            --pr-number ${{ github.event.pull_request.number }} \
+            --pr-title "${{ github.event.pull_request.title }}" \
+            --update-title
+
+      - name: Commit and push changes
+        id: commit_push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .changelog/
+            git commit -m "Add/update changelog fragment for PR #${{ github.event.pull_request.number }}"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+            echo "pushed=true" >> $GITHUB_OUTPUT
+          else
+            echo "pushed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR (new fragment)
+        if: github.event.action == 'opened' && steps.commit_push.outputs.pushed == 'true'
+        uses: actions-cool/maintain-one-comment@v3
+        with:
+          token: ${{ secrets.HF_STYLE_BOT_ACTION }}
+          body: |
+            A changelog fragment has been automatically created for this PR at `.changelog/${{ github.event.pull_request.number }}.md`.
+
+            **What's next?**
+            - Review the fragment and update the `label` field if needed
+            - Valid labels: `breaking`, `feature`, `fix`, `docs`, `internal`, `misc`
+            - For **features**, consider adding a detailed description below the YAML front matter
+
+            <details>
+            <summary>Example of a feature fragment with description</summary>
+
+            ```markdown
+            ---
+            label: feature
+            title: "Add support for new model format"
+            author: username
+            ---
+
+            This PR adds support for the new XYZ model format, enabling users to:
+            - Load models directly from the Hub
+            - Convert existing models to the new format
+            - Use the new streaming capabilities
+
+            ### Usage
+
+            ```python
+            from huggingface_hub import load_xyz_model
+
+            model = load_xyz_model("org/model-name")
+            ```
+            ```
+
+            </details>
+
+            <!-- changelog-bot -->
+          body-include: "<!-- changelog-bot -->"
