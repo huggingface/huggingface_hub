@@ -16,12 +16,12 @@ import sys
 import traceback
 
 from huggingface_hub import constants
-from huggingface_hub.cli._cli_utils import check_cli_update, generate_epilog, typer_factory
+from huggingface_hub.cli._cli_utils import check_cli_update, typer_factory
 from huggingface_hub.cli._errors import format_known_exception
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.datasets import datasets_cli
-from huggingface_hub.cli.download import DOWNLOAD_EPILOG, download
+from huggingface_hub.cli.download import DOWNLOAD_EXAMPLES, download
 from huggingface_hub.cli.inference_endpoints import ie_cli
 from huggingface_hub.cli.jobs import jobs_cli
 from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
@@ -32,33 +32,19 @@ from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.skills import skills_cli
 from huggingface_hub.cli.spaces import spaces_cli
 from huggingface_hub.cli.system import env, version
-from huggingface_hub.cli.upload import UPLOAD_EPILOG, upload
-from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EPILOG, upload_large_folder
+from huggingface_hub.cli.upload import UPLOAD_EXAMPLES, upload
+from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EXAMPLES, upload_large_folder
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import ANSI, logging
 
 
-app = typer_factory(
-    help="Hugging Face Hub CLI",
-    epilog=generate_epilog(
-        examples=[
-            "hf auth login",
-            "hf repo create Wauplin/my-cool-model --private",
-            "hf download meta-llama/Llama-3.2-1B-Instruct",
-            "hf upload Wauplin/my-cool-model ./model.safetensors",
-            "hf cache ls",
-            'hf models ls --filter "text-generation"',
-            "hf jobs ps",
-            "hf jobs run python:3.12 python -c \"print('Hello')\"",
-        ],
-    ),
-)
+app = typer_factory(help="Hugging Face Hub CLI")
 
 
 # top level single commands (defined in their respective files)
-app.command(epilog=DOWNLOAD_EPILOG)(download)
-app.command(epilog=UPLOAD_EPILOG)(upload)
-app.command(epilog=UPLOAD_LARGE_FOLDER_EPILOG)(upload_large_folder)
+app.command(examples=DOWNLOAD_EXAMPLES)(download)
+app.command(examples=UPLOAD_EXAMPLES)(upload)
+app.command(examples=UPLOAD_LARGE_FOLDER_EXAMPLES)(upload_large_folder)
 
 app.command(topic="help")(env)
 app.command(topic="help")(version)

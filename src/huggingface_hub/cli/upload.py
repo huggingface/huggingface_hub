@@ -65,7 +65,6 @@ from ._cli_utils import (
     RepoTypeOpt,
     RevisionOpt,
     TokenOpt,
-    generate_epilog,
     get_hf_api,
 )
 
@@ -73,16 +72,13 @@ from ._cli_utils import (
 logger = logging.get_logger(__name__)
 
 
-UPLOAD_EPILOG = generate_epilog(
-    examples=[
-        "hf upload my-cool-model . .",
-        "hf upload Wauplin/my-cool-model ./models/model.safetensors",
-        "hf upload Wauplin/my-cool-dataset ./data /train --repo-type=dataset",
-        'hf upload Wauplin/my-cool-model ./models . --commit-message="Epoch 34/50" --commit-description="Val accuracy: 68%"',
-        "hf upload bigcode/the-stack . . --repo-type dataset --create-pr",
-    ],
-    docs_anchor="#hf-upload",
-)
+UPLOAD_EXAMPLES = [
+    "hf upload my-cool-model . .",
+    "hf upload Wauplin/my-cool-model ./models/model.safetensors",
+    "hf upload Wauplin/my-cool-dataset ./data /train --repo-type=dataset",
+    'hf upload Wauplin/my-cool-model ./models . --commit-message="Epoch 34/50" --commit-description="Val accuracy: 68%"',
+    "hf upload bigcode/the-stack . . --repo-type dataset --create-pr",
+]
 
 
 def upload(

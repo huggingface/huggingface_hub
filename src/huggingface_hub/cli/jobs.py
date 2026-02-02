@@ -76,7 +76,7 @@ from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._dotenv import load_dotenv
 
-from ._cli_utils import TokenOpt, generate_epilog, get_hf_api, typer_factory
+from ._cli_utils import TokenOpt, get_hf_api, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -252,25 +252,18 @@ ScheduledJobIdArg = Annotated[
 ]
 
 
-jobs_cli = typer_factory(
-    help="Run and manage Jobs on the Hub.",
-    epilog=generate_epilog(
-        examples=[
-            "hf jobs run python:3.12 python -c 'print(\"Hello from the cloud!\")'",
-            "hf jobs run -e FOO=foo -e BAR=bar python:3.12 python -c \"import os; print(os.environ['FOO'])\"",
-            "hf jobs run --env-file .env python:3.12 python script.py",
-            "hf jobs run --secrets HF_TOKEN python:3.12 python -c \"print('authenticated')\"",
-            "hf jobs ps",
-            "hf jobs inspect <job_id>",
-            "hf jobs logs <job_id>",
-            "hf jobs cancel <job_id>",
-        ],
-        docs_anchor="#hf-jobs",
-    ),
+jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
+
+
+@jobs_cli.command(
+    "run",
+    context_settings={"ignore_unknown_options": True},
+    examples=[
+        "hf jobs run python:3.12 python -c 'print(\"Hello!\")'",
+        "hf jobs run -e FOO=foo python:3.12 python script.py",
+        "hf jobs run --secrets HF_TOKEN python:3.12 python script.py",
+    ],
 )
-
-
-@jobs_cli.command("run", help="Run a Job.", context_settings={"ignore_unknown_options": True})
 def jobs_run(
     image: ImageArg,
     command: CommandArg,
@@ -285,6 +278,7 @@ def jobs_run(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Run a Job."""
     env_map: dict[str, Optional[str]] = {}
     if env_file:
         env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
@@ -320,12 +314,13 @@ def jobs_run(
         print(log)
 
 
-@jobs_cli.command("logs", help="Fetch the logs of a Job")
+@jobs_cli.command("logs", examples=["hf jobs logs <job_id>"])
 def jobs_logs(
     job_id: JobIdArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Fetch the logs of a Job"""
     api = get_hf_api(token=token)
     for log in api.fetch_job_logs(job_id=job_id, namespace=namespace):
         print(log)
@@ -399,12 +394,13 @@ def _get_jobs_stats_rows(
     yield True, job_id, []
 
 
-@jobs_cli.command("stats", help="Fetch the resource usage statistics and metrics of Jobs")
+@jobs_cli.command("stats", examples=["hf jobs stats <job_id>"])
 def jobs_stats(
     job_ids: JobIdsArg = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Fetch the resource usage statistics and metrics of Jobs"""
     api = get_hf_api(token=token)
     if namespace is None:
         namespace = api.whoami()["name"]
@@ -470,7 +466,7 @@ def jobs_stats(
                 last_update_time = now
 
 
-@jobs_cli.command("ps", help="List Jobs")
+@jobs_cli.command("ps", examples=["hf jobs ps", "hf jobs ps -a"])
 def jobs_ps(
     all: Annotated[
         bool,
@@ -497,6 +493,7 @@ def jobs_ps(
         ),
     ] = None,
 ) -> None:
+    """List Jobs."""
     api = get_hf_api(token=token)
     # Fetch jobs data
     jobs = api.list_jobs(namespace=namespace)
@@ -580,8 +577,9 @@ def jobs_ps(
     _print_output(rows, table_headers, headers_aliases, format)
 
 
-@jobs_cli.command("hardware", help="List available hardware options for Jobs")
+@jobs_cli.command("hardware", examples=["hf jobs hardware"])
 def jobs_hardware() -> None:
+    """List available hardware options for Jobs"""
     api = get_hf_api()
     hardware_list = api.list_jobs_hardware()
     table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
@@ -602,7 +600,7 @@ def jobs_hardware() -> None:
     _print_output(rows, table_headers, headers_aliases, None)
 
 
-@jobs_cli.command("inspect", help="Display detailed information on one or more Jobs")
+@jobs_cli.command("inspect", examples=["hf jobs inspect <job_id>"])
 def jobs_inspect(
     job_ids: Annotated[
         list[str],
@@ -613,41 +611,35 @@ def jobs_inspect(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Display detailed information on one or more Jobs"""
     api = get_hf_api(token=token)
     jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
     print(json.dumps([asdict(job) for job in jobs], indent=4, default=str))
 
 
-@jobs_cli.command("cancel", help="Cancel a Job")
+@jobs_cli.command("cancel", examples=["hf jobs cancel <job_id>"])
 def jobs_cancel(
     job_id: JobIdArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Cancel a Job"""
     api = get_hf_api(token=token)
     api.cancel_job(job_id=job_id, namespace=namespace)
 
 
-uv_app = typer_factory(
-    help="Run UV scripts (Python with inline dependencies) on HF infrastructure.",
-    epilog=generate_epilog(
-        examples=[
-            "hf jobs uv run my_script.py",
-            "hf jobs uv run my_script.py --repo my-uv-scripts",
-            "hf jobs uv run ml_training.py --flavor a10g-small",
-            "hf jobs uv run --with transformers --with torch train.py",
-            "hf jobs uv run https://huggingface.co/datasets/user/scripts/resolve/main/example.py",
-        ],
-        docs_anchor="#hf-jobs-uv",
-    ),
-)
+uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure.")
 jobs_cli.add_typer(uv_app, name="uv")
 
 
 @uv_app.command(
     "run",
-    help="Run a UV script (local file or URL) on HF infrastructure",
     context_settings={"ignore_unknown_options": True},
+    examples=[
+        "hf jobs uv run my_script.py",
+        "hf jobs uv run ml_training.py --flavor a10g-small",
+        "hf jobs uv run --with transformers train.py",
+    ],
 )
 def jobs_uv_run(
     script: ScriptArg,
@@ -666,6 +658,7 @@ def jobs_uv_run(
     with_: WithOpt = None,
     python: PythonOpt = None,
 ) -> None:
+    """Run a UV script (local file or URL) on HF infrastructure"""
     env_map: dict[str, Optional[str]] = {}
     if env_file:
         env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
@@ -702,24 +695,15 @@ def jobs_uv_run(
         print(log)
 
 
-scheduled_app = typer_factory(
-    help="Create and manage scheduled Jobs on the Hub.",
-    epilog=generate_epilog(
-        examples=[
-            'hf jobs scheduled run "0 0 * * *" python:3.12 python script.py',
-            "hf jobs scheduled ps",
-            "hf jobs scheduled inspect <scheduled-job-id>",
-            "hf jobs scheduled suspend <scheduled-job-id>",
-            "hf jobs scheduled resume <scheduled-job-id>",
-            "hf jobs scheduled delete <scheduled-job-id>",
-        ],
-        docs_anchor="#hf-jobs-scheduled",
-    ),
-)
+scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.")
 jobs_cli.add_typer(scheduled_app, name="scheduled")
 
 
-@scheduled_app.command("run", help="Schedule a Job.", context_settings={"ignore_unknown_options": True})
+@scheduled_app.command(
+    "run",
+    context_settings={"ignore_unknown_options": True},
+    examples=['hf jobs scheduled run "0 0 * * *" python:3.12 python script.py'],
+)
 def scheduled_run(
     schedule: ScheduleArg,
     image: ImageArg,
@@ -736,6 +720,7 @@ def scheduled_run(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Schedule a Job."""
     env_map: dict[str, Optional[str]] = {}
     if env_file:
         env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
@@ -765,7 +750,7 @@ def scheduled_run(
     print(f"Scheduled Job created with ID: {scheduled_job.id}")
 
 
-@scheduled_app.command("ps", help="List scheduled Jobs")
+@scheduled_app.command("ps", examples=["hf jobs scheduled ps"])
 def scheduled_ps(
     all: Annotated[
         bool,
@@ -793,6 +778,7 @@ def scheduled_ps(
         ),
     ] = None,
 ) -> None:
+    """List scheduled Jobs"""
     api = get_hf_api(token=token)
     scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
     table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
@@ -841,7 +827,7 @@ def scheduled_ps(
     _print_output(rows, table_headers, headers_aliases, format)
 
 
-@scheduled_app.command("inspect", help="Display detailed information on one or more scheduled Jobs")
+@scheduled_app.command("inspect", examples=["hf jobs scheduled inspect <id>"])
 def scheduled_inspect(
     scheduled_job_ids: Annotated[
         list[str],
@@ -852,6 +838,7 @@ def scheduled_inspect(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Display detailed information on one or more scheduled Jobs"""
     api = get_hf_api(token=token)
     scheduled_jobs = [
         api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
@@ -860,53 +847,50 @@ def scheduled_inspect(
     print(json.dumps([asdict(scheduled_job) for scheduled_job in scheduled_jobs], indent=4, default=str))
 
 
-@scheduled_app.command("delete", help="Delete a scheduled Job")
+@scheduled_app.command("delete", examples=["hf jobs scheduled delete <id>"])
 def scheduled_delete(
     scheduled_job_id: ScheduledJobIdArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Delete a scheduled Job."""
     api = get_hf_api(token=token)
     api.delete_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
-@scheduled_app.command("suspend", help="Suspend (pause) a scheduled Job")
+@scheduled_app.command("suspend", examples=["hf jobs scheduled suspend <id>"])
 def scheduled_suspend(
     scheduled_job_id: ScheduledJobIdArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Suspend (pause) a scheduled Job."""
     api = get_hf_api(token=token)
     api.suspend_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
-@scheduled_app.command("resume", help="Resume (unpause) a scheduled Job")
+@scheduled_app.command("resume", examples=["hf jobs scheduled resume <id>"])
 def scheduled_resume(
     scheduled_job_id: ScheduledJobIdArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Resume (unpause) a scheduled Job."""
     api = get_hf_api(token=token)
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
-scheduled_uv_app = typer_factory(
-    help="Schedule UV scripts on HF infrastructure.",
-    epilog=generate_epilog(
-        examples=[
-            'hf jobs scheduled uv run "0 0 * * *" script.py',
-            'hf jobs scheduled uv run "0 0 * * *" script.py --with pandas',
-        ],
-        docs_anchor="#hf-jobs-scheduled",
-    ),
-)
+scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure.")
 scheduled_app.add_typer(scheduled_uv_app, name="uv")
 
 
 @scheduled_uv_app.command(
     "run",
-    help="Run a UV script (local file or URL) on HF infrastructure",
     context_settings={"ignore_unknown_options": True},
+    examples=[
+        'hf jobs scheduled uv run "0 0 * * *" script.py',
+        'hf jobs scheduled uv run "0 0 * * *" script.py --with pandas',
+    ],
 )
 def scheduled_uv_run(
     schedule: ScheduleArg,
@@ -927,6 +911,7 @@ def scheduled_uv_run(
     with_: WithOpt = None,
     python: PythonOpt = None,
 ) -> None:
+    """Run a UV script (local file or URL) on HF infrastructure"""
     env_map: dict[str, Optional[str]] = {}
     if env_file:
         env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))

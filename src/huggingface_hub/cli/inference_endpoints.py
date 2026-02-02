@@ -13,35 +13,15 @@ from ._cli_utils import (
     OutputFormat,
     QuietOpt,
     TokenOpt,
-    generate_epilog,
     get_hf_api,
     print_list_output,
     typer_factory,
 )
 
 
-ie_cli = typer_factory(
-    help="Manage Hugging Face Inference Endpoints.",
-    epilog=generate_epilog(
-        examples=[
-            "hf endpoints ls",
-            "hf endpoints ls --namespace my-org",
-            "hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct --name my-llama-endpoint",
-        ],
-        docs_anchor="#hf-endpoints",
-    ),
-)
+ie_cli = typer_factory(help="Manage Hugging Face Inference Endpoints.")
 
-catalog_app = typer_factory(
-    help="Interact with the Inference Endpoints catalog.",
-    epilog=generate_epilog(
-        examples=[
-            "hf endpoints catalog ls",
-            "hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct",
-        ],
-        docs_anchor="#hf-endpoints-catalog",
-    ),
-)
+catalog_app = typer_factory(help="Interact with the Inference Endpoints catalog.")
 
 
 NameArg = Annotated[
@@ -65,7 +45,7 @@ def _print_endpoint(endpoint: InferenceEndpoint) -> None:
     typer.echo(json.dumps(endpoint.raw, indent=2, sort_keys=True))
 
 
-@ie_cli.command()
+@ie_cli.command(examples=["hf endpoints ls", "hf endpoints ls --namespace my-org"])
 def ls(
     namespace: NamespaceOpt = None,
     format: FormatOpt = OutputFormat.table,
@@ -108,7 +88,7 @@ def ls(
     )
 
 
-@ie_cli.command(name="deploy")
+@ie_cli.command(name="deploy", examples=["hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch ..."])
 def deploy(
     name: NameArg,
     repo: Annotated[
@@ -217,7 +197,7 @@ def deploy(
     _print_endpoint(endpoint)
 
 
-@catalog_app.command(name="deploy")
+@catalog_app.command(name="deploy", examples=["hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct"])
 def deploy_from_catalog(
     repo: Annotated[
         str,
@@ -259,14 +239,14 @@ def list_catalog(
     typer.echo(json.dumps({"models": models}, indent=2, sort_keys=True))
 
 
-catalog_app.command(name="ls")(list_catalog)
-ie_cli.command(name="list-catalog", help="List available Catalog models.", hidden=True)(list_catalog)
+catalog_app.command(name="ls", examples=["hf endpoints catalog ls"])(list_catalog)
+ie_cli.command(name="list-catalog", hidden=True)(list_catalog)
 
 
 ie_cli.add_typer(catalog_app, name="catalog")
 
 
-@ie_cli.command()
+@ie_cli.command(examples=["hf endpoints describe my-endpoint"])
 def describe(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -283,7 +263,7 @@ def describe(
     _print_endpoint(endpoint)
 
 
-@ie_cli.command()
+@ie_cli.command(examples=["hf endpoints update my-endpoint --min-replica 2"])
 def update(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -387,7 +367,7 @@ def update(
     _print_endpoint(endpoint)
 
 
-@ie_cli.command()
+@ie_cli.command(examples=["hf endpoints delete my-endpoint"])
 def delete(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -414,7 +394,7 @@ def delete(
     typer.echo(f"Deleted '{name}'.")
 
 
-@ie_cli.command()
+@ie_cli.command(examples=["hf endpoints pause my-endpoint"])
 def pause(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -431,7 +411,7 @@ def pause(
     _print_endpoint(endpoint)
 
 
-@ie_cli.command()
+@ie_cli.command(examples=["hf endpoints resume my-endpoint"])
 def resume(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -459,7 +439,7 @@ def resume(
     _print_endpoint(endpoint)
 
 
-@ie_cli.command()
+@ie_cli.command(examples=["hf endpoints scale-to-zero my-endpoint"])
 def scale_to_zero(
     name: NameArg,
     namespace: NamespaceOpt = None,

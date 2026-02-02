@@ -29,7 +29,6 @@ from ._cli_utils import (
     RepoTypeOpt,
     RevisionOpt,
     TokenOpt,
-    generate_epilog,
     get_hf_api,
 )
 
@@ -37,13 +36,10 @@ from ._cli_utils import (
 logger = logging.get_logger(__name__)
 
 
-UPLOAD_LARGE_FOLDER_EPILOG = generate_epilog(
-    examples=[
-        "hf upload-large-folder Wauplin/my-cool-model ./large_model_dir",
-        "hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0",
-    ],
-    docs_anchor="#hf-upload-large-folder",
-)
+UPLOAD_LARGE_FOLDER_EXAMPLES = [
+    "hf upload-large-folder Wauplin/my-cool-model ./large_model_dir",
+    "hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0",
+]
 
 
 def upload_large_folder(
