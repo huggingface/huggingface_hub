@@ -101,7 +101,7 @@ def datasets_ls(
             search=search,
             sort=sort_key,
             limit=limit,
-            expand=expand,  # type: ignore[arg-type]
+            expand=expand
         )
     ]
     print_list_output(results, format=format, quiet=quiet)
