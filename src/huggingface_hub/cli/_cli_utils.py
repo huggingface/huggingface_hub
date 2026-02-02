@@ -318,8 +318,6 @@ def _format_cell(value: object, max_len: int = _MAX_CELL_LENGTH) -> str:
         if not value:
             return ""
         cell = ", ".join(str(v) for v in value)
-    elif isinstance(value, dict):
-        return ""
     else:
         cell = str(value)
     if len(cell) > max_len:
