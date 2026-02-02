@@ -852,9 +852,10 @@ def _format(error_type: type[HfHubHTTPError], custom_message: str, response: htt
         (X_AMZN_TRACE_ID, "Amzn Trace ID"),
         (X_AMZ_CF_ID, "Amz CF ID"),
     ):
-        request_id = str(response.headers.get(header))
-        if request_id:
-            request_id_message = f" ({label}: {request_id})"
+        value = response.headers.get(header)
+        if value:
+            request_id = str(value)
+            request_id_message = f" ({label}: {value})"
             break
 
     # Add Request ID
