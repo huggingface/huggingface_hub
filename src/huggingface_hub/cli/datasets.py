@@ -68,7 +68,14 @@ ExpandOpt = Annotated[
 datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
 
 
-@datasets_cli.command("ls")
+@datasets_cli.command(
+    "ls",
+    examples=[
+        "hf datasets ls",
+        "hf datasets ls --sort downloads --limit 10",
+        'hf datasets ls --search "code"',
+    ],
+)
 def datasets_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
@@ -100,7 +107,13 @@ def datasets_ls(
     print_list_output(results, format=format, quiet=quiet)
 
 
-@datasets_cli.command("info")
+@datasets_cli.command(
+    "info",
+    examples=[
+        "hf datasets info HuggingFaceFW/fineweb",
+        "hf datasets info my-dataset --expand downloads,likes,tags",
+    ],
+)
 def datasets_info(
     dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,

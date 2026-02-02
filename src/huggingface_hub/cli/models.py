@@ -68,7 +68,13 @@ ExpandOpt = Annotated[
 models_cli = typer_factory(help="Interact with models on the Hub.")
 
 
-@models_cli.command("ls")
+@models_cli.command(
+    "ls",
+    examples=[
+        "hf models ls --sort downloads --limit 10",
+        'hf models ls --search "llama" --author meta-llama',
+    ],
+)
 def models_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
@@ -100,7 +106,13 @@ def models_ls(
     print_list_output(results, format=format, quiet=quiet)
 
 
-@models_cli.command("info")
+@models_cli.command(
+    "info",
+    examples=[
+        "hf models info meta-llama/Llama-3.2-1B-Instruct",
+        "hf models info gpt2 --expand downloads,likes,tags",
+    ],
+)
 def models_info(
     model_id: Annotated[str, typer.Argument(help="The model ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,

@@ -68,7 +68,13 @@ ExpandOpt = Annotated[
 spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 
 
-@spaces_cli.command("ls")
+@spaces_cli.command(
+    "ls",
+    examples=[
+        "hf spaces ls --limit 10",
+        'hf spaces ls --search "chatbot" --author huggingface',
+    ],
+)
 def spaces_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
@@ -100,7 +106,13 @@ def spaces_ls(
     print_list_output(results, format=format, quiet=quiet)
 
 
-@spaces_cli.command("info")
+@spaces_cli.command(
+    "info",
+    examples=[
+        "hf spaces info enzostvs/deepsite",
+        "hf spaces info gradio/theme_builder --expand sdk,runtime,likes",
+    ],
+)
 def spaces_info(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
