@@ -11119,7 +11119,10 @@ class HfApi:
         missing_local_files = {
             candidate
             for candidate in [script] + script_args
-            if not Path(candidate).is_file() and Path(candidate).suffix in [".py", ".sh", ".yaml", ".yml", ".toml"]
+            if not Path(candidate).is_file()
+            and Path(candidate).suffix in [".py", ".sh", ".yaml", ".yml", ".toml"]
+            and not candidate.startswith("https://")
+            and not candidate.startswith("http://")
         }
         if missing_local_files:
             raise FileNotFoundError(", ".join(missing_local_files))
@@ -11129,25 +11132,30 @@ class HfApi:
             command = ["uv", "run"] + uv_args + [script] + script_args
         else:
             # Find appropriate remote file names
-            remote_file_names = set()
+            remote_to_local_file_names: dict[str, str] = {}
             for local_file_to_include in local_files_to_include:
                 local_file_path = Path(local_file_to_include)
                 # remove spaces for proper xargs parsing
                 remote_file_path = Path(local_file_path.name.replace(" ", "_"))
-                if remote_file_path.name in remote_file_names:
+                if remote_file_path.name in remote_to_local_file_names:
                     for i in itertools.count():
                         remote_file_name = remote_file_path.with_stem(remote_file_path.stem + f"({i})").name
-                        if remote_file_name not in remote_file_names:
-                            remote_file_names.add(remote_file_name)
+                        if remote_file_name not in remote_to_local_file_names:
+                            remote_to_local_file_names[remote_file_name] = local_file_to_include
                             break
                 else:
-                    remote_file_names.add(remote_file_path.name)
+                    remote_to_local_file_names[remote_file_path.name] = local_file_to_include
+            local_to_remote_file_names = dict(
+                (local_file_to_include, remote_file_name)
+                for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
+            )
 
             # Replace local paths with remote paths in command
-            for local_file_to_include, remote_file_name in zip(local_files_to_include, remote_file_names):
-                if script == local_file_to_include:
-                    script = remote_file_name
-                script_args = [remote_file_name if arg == local_file_to_include else arg for arg in script_args]
+            if script in local_to_remote_file_names:
+                script = local_to_remote_file_names[script]
+            script_args = [
+                local_to_remote_file_names[arg] if arg in local_to_remote_file_names else arg for arg in script_args
+            ]
 
             # Load content to pass as environment variable with format
             # file1 base64content1
@@ -11155,7 +11163,7 @@ class HfApi:
             # ...
             env["LOCAL_FILES_ENCODED"] = "\n".join(
                 remote_file_name + " " + base64.b64encode(Path(local_file_to_include).read_bytes()).decode()
-                for local_file_to_include, remote_file_name in zip(local_files_to_include, remote_file_names)
+                for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
             )
             command = [
                 "bash",
