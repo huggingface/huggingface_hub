@@ -18,6 +18,7 @@ import datetime
 import importlib.metadata
 import json
 import os
+import re
 import time
 from enum import Enum
 from pathlib import Path
@@ -159,6 +160,11 @@ QuietOpt = Annotated[
 ]
 
 
+def _to_header(name: str) -> str:
+    s = re.sub(r"([a-z])([A-Z])", r"\1_\2", name)
+    return s.upper()
+
+
 def print_as_table(
     items: Sequence[dict[str, Any]],
     headers: list[str],
@@ -185,6 +191,8 @@ def print_list_output(
     id_key: str,
     headers: list[str],
     row_fn: Callable[[dict[str, Any]], list[str]],
+    base_columns: Optional[list[str]] = None,
+    expand_fields: Optional[list[str]] = None,
 ) -> None:
     """Print list command output in the specified format.
 
@@ -195,6 +203,8 @@ def print_list_output(
         id_key: Key to use for extracting IDs in quiet mode.
         headers: List of column headers for table format.
         row_fn: Function that takes an item dict and returns a list of string values for table columns.
+        base_columns: Field names corresponding to the default headers (used to avoid duplicates).
+        expand_fields: Fields from --expand option to append as extra columns.
     """
     if quiet:
         for item in items:
@@ -203,6 +213,27 @@ def print_list_output(
 
     if format == OutputFormat.json:
         print(json.dumps(list(items), indent=2))
+        return
+
+    extra_columns: list[str] = []
+    if expand_fields and base_columns:
+        extra_columns = [f for f in expand_fields if f not in base_columns]
+
+    if extra_columns:
+        extended_headers = headers + [_to_header(f) for f in extra_columns]
+
+        def extended_row_fn(item: dict[str, Any]) -> list[str]:
+            base_row = row_fn(item)
+            extra_values = []
+            for f in extra_columns:
+                value = item.get(_to_header(f).lower(), "")
+                cell = str(value) if value else ""
+                if len(cell) > 30:
+                    cell = cell[:27] + "..."
+                extra_values.append(cell)
+            return base_row + extra_values
+
+        print_as_table(items, headers=extended_headers, row_fn=extended_row_fn)
     else:
         print_as_table(items, headers=headers, row_fn=row_fn)
 
