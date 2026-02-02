@@ -26,7 +26,7 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Any, Optional, get_args
+from typing import Annotated, Optional, get_args
 
 import typer
 
@@ -54,7 +54,6 @@ from ._cli_utils import (
 _EXPAND_PROPERTIES = sorted(get_args(ExpandModelProperty_T))
 _SORT_OPTIONS = get_args(ModelSort_T)
 ModelSortEnum = enum.Enum("ModelSortEnum", {s: s for s in _SORT_OPTIONS}, type=str)  # type: ignore[misc]
-_BASE_COLUMNS = ["id", "author", "downloads", "likes", "pipeline_tag"]
 
 
 ExpandOpt = Annotated[
@@ -87,42 +86,18 @@ def models_ls(
     """List models on the Hub."""
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
-    if expand is not None:
-        api_expand = [c for c in _BASE_COLUMNS if c in _EXPAND_PROPERTIES] + [
-            f
-            for f in expand
-            if f not in _BASE_COLUMNS  # type: ignore[union-attr]
-        ]
-    else:
-        api_expand = None
     results = [
         api_object_to_dict(model_info)
         for model_info in api.list_models(
-            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=api_expand
+            filter=filter,
+            author=author,
+            search=search,
+            sort=sort_key,
+            limit=limit,
+            expand=expand,  # type: ignore[arg-type]
         )
     ]
-
-    def row_fn(item: dict[str, Any]) -> list[str]:
-        repo_id = str(item.get("id", ""))
-        author = str(item.get("author", "")) or (repo_id.split("/")[0] if "/" in repo_id else "")
-        return [
-            repo_id,
-            author,
-            str(item.get("downloads", "") or ""),
-            str(item.get("likes", "") or ""),
-            str(item.get("pipeline_tag", "") or ""),
-        ]
-
-    print_list_output(
-        items=results,
-        format=format,
-        quiet=quiet,
-        id_key="id",
-        headers=["ID", "AUTHOR", "DOWNLOADS", "LIKES", "TASK"],
-        row_fn=row_fn,
-        base_columns=_BASE_COLUMNS,
-        expand_fields=expand,  # type: ignore[arg-type]
-    )
+    print_list_output(results, format=format, quiet=quiet)
 
 
 @models_cli.command("info")

@@ -34,6 +34,8 @@ from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, instal
 
 logger = logging.get_logger()
 
+# Arbitrary maximum length of a cell in a table output
+_MAX_CELL_LENGTH = 35
 
 if TYPE_CHECKING:
     from huggingface_hub.hf_api import HfApi
@@ -165,6 +167,29 @@ def _to_header(name: str) -> str:
     return s.upper()
 
 
+def _format_cell(value: object, max_len: int = _MAX_CELL_LENGTH) -> str:
+    """Format a value for table display with truncation."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "✔" if value else ""
+    if isinstance(value, datetime.datetime):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):
+        return value[:10]
+    if isinstance(value, list):
+        if not value:
+            return ""
+        cell = ", ".join(str(v) for v in value)
+    elif isinstance(value, dict):
+        return ""
+    else:
+        cell = str(value)
+    if len(cell) > max_len:
+        cell = cell[: max_len - 3] + "..."
+    return cell
+
+
 def print_as_table(
     items: Sequence[dict[str, Any]],
     headers: list[str],
@@ -181,18 +206,16 @@ def print_as_table(
         print("No results found.")
         return
     rows = cast(list[list[Union[str, int]]], [row_fn(item) for item in items])
-    print(tabulate(rows, headers=headers))
+    print(tabulate(rows, headers=[_to_header(h) for h in headers]))
 
 
 def print_list_output(
     items: Sequence[dict[str, Any]],
     format: OutputFormat,
     quiet: bool,
-    id_key: str,
-    headers: list[str],
-    row_fn: Callable[[dict[str, Any]], list[str]],
-    base_columns: Optional[list[str]] = None,
-    expand_fields: Optional[list[str]] = None,
+    id_key: str = "id",
+    headers: Optional[list[str]] = None,
+    row_fn: Optional[Callable[[dict[str, Any]], list[str]]] = None,
 ) -> None:
     """Print list command output in the specified format.
 
@@ -201,10 +224,8 @@ def print_list_output(
         format: Output format (table or json).
         quiet: If True, print only IDs (one per line).
         id_key: Key to use for extracting IDs in quiet mode.
-        headers: List of column headers for table format.
-        row_fn: Function that takes an item dict and returns a list of string values for table columns.
-        base_columns: Field names corresponding to the default headers (used to avoid duplicates).
-        expand_fields: Fields from --expand option to append as extra columns.
+        headers: Optional list of column names for headers. If not provided, auto-detected from keys.
+        row_fn: Optional function to extract row values. If not provided, uses _format_cell on each column.
     """
     if quiet:
         for item in items:
@@ -215,27 +236,16 @@ def print_list_output(
         print(json.dumps(list(items), indent=2))
         return
 
-    extra_columns: list[str] = []
-    if expand_fields and base_columns:
-        extra_columns = [f for f in expand_fields if f not in base_columns]
+    if headers is None:
+        all_columns = list(items[0].keys()) if items else [id_key]
+        headers = [col for col in all_columns if any(_format_cell(item.get(col)) for item in items)]
 
-    if extra_columns:
-        extended_headers = headers + [_to_header(f) for f in extra_columns]
+    if row_fn is None:
 
-        def extended_row_fn(item: dict[str, Any]) -> list[str]:
-            base_row = row_fn(item)
-            extra_values = []
-            for f in extra_columns:
-                value = item.get(_to_header(f).lower(), "")
-                cell = str(value) if value else ""
-                if len(cell) > 30:
-                    cell = cell[:27] + "..."
-                extra_values.append(cell)
-            return base_row + extra_values
+        def row_fn(item: dict[str, Any]) -> list[str]:
+            return [_format_cell(item.get(col)) for col in headers]  # type: ignore[union-attr]
 
-        print_as_table(items, headers=extended_headers, row_fn=extended_row_fn)
-    else:
-        print_as_table(items, headers=headers, row_fn=row_fn)
+    print_as_table(items, headers=headers, row_fn=row_fn)
 
 
 def _serialize_value(v: object) -> object:
