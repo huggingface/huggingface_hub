@@ -21,7 +21,7 @@ from huggingface_hub.cli._errors import format_known_exception
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.datasets import datasets_cli
-from huggingface_hub.cli.download import download
+from huggingface_hub.cli.download import DOWNLOAD_EXAMPLES, download
 from huggingface_hub.cli.inference_endpoints import ie_cli
 from huggingface_hub.cli.jobs import jobs_cli
 from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
@@ -32,8 +32,8 @@ from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.skills import skills_cli
 from huggingface_hub.cli.spaces import spaces_cli
 from huggingface_hub.cli.system import env, version
-from huggingface_hub.cli.upload import upload
-from huggingface_hub.cli.upload_large_folder import upload_large_folder
+from huggingface_hub.cli.upload import UPLOAD_EXAMPLES, upload
+from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EXAMPLES, upload_large_folder
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import ANSI, logging
 
@@ -42,14 +42,15 @@ app = typer_factory(help="Hugging Face Hub CLI")
 
 
 # top level single commands (defined in their respective files)
-app.command(help="Download files from the Hub.")(download)
-app.command(help="Upload a file or a folder to the Hub.")(upload)
-app.command(help="Upload a large folder to the Hub. Recommended for resumable uploads.")(upload_large_folder)
-app.command(name="env", help="Print information about the environment.")(env)
-app.command(help="Print information about the hf version.")(version)
-app.command(help="Configure your repository to enable upload of files > 5GB.", hidden=True)(lfs_enable_largefiles)
-app.command(help="Upload large files to the Hub.", hidden=True)(lfs_multipart_upload)
+app.command(examples=DOWNLOAD_EXAMPLES)(download)
+app.command(examples=UPLOAD_EXAMPLES)(upload)
+app.command(examples=UPLOAD_LARGE_FOLDER_EXAMPLES)(upload_large_folder)
 
+app.command(topic="help")(env)
+app.command(topic="help")(version)
+
+app.command(hidden=True)(lfs_enable_largefiles)
+app.command(hidden=True)(lfs_multipart_upload)
 
 # command groups
 app.add_typer(auth_cli, name="auth")

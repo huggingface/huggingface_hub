@@ -49,6 +49,14 @@ from huggingface_hub.utils import _format_size, disable_progress_bars, enable_pr
 from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
 
 
+DOWNLOAD_EXAMPLES = [
+    "hf download meta-llama/Llama-3.2-1B-Instruct",
+    "hf download meta-llama/Llama-3.2-1B-Instruct config.json tokenizer.json",
+    'hf download meta-llama/Llama-3.2-1B-Instruct --include "*.safetensors" --exclude "*.bin"',
+    "hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama",
+]
+
+
 logger = logging.get_logger(__name__)
 
 
