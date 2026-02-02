@@ -45,7 +45,7 @@ class HfHubHTTPError(HTTPError, OSError):
     sent back by the server, it will be added to the error message.
 
     Added details:
-    - Request id from "X-Request-Id" header if exists. If not, fallback to "X-Amzn-Trace-Id" header if exists.
+    - Request ID sourced from headers in order of precedence: "X-Request-Id", "X-Amzn-Trace-Id", "X-Amz-Cf-Id".
     - Server error message from the header "X-Error-Message".
     - Server error message if we can found one in the response body.
 
@@ -74,7 +74,11 @@ class HfHubHTTPError(HTTPError, OSError):
         response: Response,
         server_message: Optional[str] = None,
     ):
-        self.request_id = response.headers.get("x-request-id") or response.headers.get("X-Amzn-Trace-Id")
+        self.request_id = (
+            response.headers.get("x-request-id")
+            or response.headers.get("X-Amzn-Trace-Id")
+            or response.headers.get("x-amz-cf-id")
+        )
         self.server_message = server_message
         self.response = response
         self.request = response.request
