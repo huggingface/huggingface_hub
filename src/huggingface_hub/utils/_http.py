@@ -54,6 +54,7 @@ logger = logging.get_logger(__name__)
 # If `X_AMZN_TRACE_ID` is set, the Hub will use it as well.
 X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
 X_REQUEST_ID = "x-request-id"
+X_AMZ_CF_ID = "x-amz-cf-id"
 
 REPO_API_REGEX = re.compile(
     r"""
@@ -527,15 +528,22 @@ def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: Res
             final_error_message += "\n" + server_message
         else:
             final_error_message += "\n\n" + server_message
+
+    # Prepare Request ID message
+    request_id = ""
+    request_id_message = ""
+    for header, label in (
+        (X_REQUEST_ID, "Request ID"),
+        (X_AMZN_TRACE_ID, "Amzn Trace ID"),
+        (X_AMZ_CF_ID, "Amz CF ID"),
+    ):
+        value = response.headers.get(header)
+        if value:
+            request_id = str(value)
+            request_id_message = f" ({label}: {value})"
+            break
+
     # Add Request ID
-    request_id = str(response.headers.get(X_REQUEST_ID, ""))
-    if request_id:
-        request_id_message = f" (Request ID: {request_id})"
-    else:
-        # Fallback to X-Amzn-Trace-Id
-        request_id = str(response.headers.get(X_AMZN_TRACE_ID, ""))
-        if request_id:
-            request_id_message = f" (Amzn Trace ID: {request_id})"
     if request_id and request_id.lower() not in final_error_message.lower():
         if "\n" in final_error_message:
             newline_index = final_error_message.index("\n")
