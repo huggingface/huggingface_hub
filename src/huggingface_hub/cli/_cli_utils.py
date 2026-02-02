@@ -72,6 +72,9 @@ LEARN MORE
 """
 
 
+TOPIC_T = Union[Literal["main", "help"], str]
+
+
 def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatter: click.HelpFormatter) -> None:
     """Write the epilog without indentation."""
     if epilog:
@@ -80,83 +83,99 @@ def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatte
             formatter.write_text(line)
 
 
-class AlphabeticalMixedGroup(typer.core.TyperGroup):
+class HFCliTyperGroup(typer.core.TyperGroup):
     """
-    Typer Group that lists commands and sub-apps mixed and alphabetically.
-    Also formats epilog without extra indentation.
-    """
-
-    def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
-        # click.Group stores both commands and subgroups in `self.commands`
-        return sorted(self.commands.keys())
-
-    def format_epilog(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        _format_epilog_no_indent(self.epilog, ctx, formatter)
-
-
-class GroupedTyperGroup(AlphabeticalMixedGroup):
-    """
-    Typer Group that separates commands into 'Commands' and 'Help Topics' sections.
-    Commands with `topic="help"` are shown in "Help Topics", others in "Commands".
+    Typer Group that:
+    - lists commands alphabetically within sections.
+    - separates commands by topic (main, help, etc.).
+    - formats epilog without extra indentation.
     """
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        commands = []
-        help_topics = []
+        topics: dict[str, list] = {}
 
         for name in self.list_commands(ctx):
             cmd = self.get_command(ctx, name)
             if cmd is None or cmd.hidden:
                 continue
             help_text = cmd.get_short_help_str(limit=formatter.width)
-            topic = getattr(cmd, "topic", "command")
-            if topic == "help":
-                help_topics.append((name, help_text))
-            else:
-                commands.append((name, help_text))
+            topic = getattr(cmd, "topic", "main")
+            topics.setdefault(topic, []).append((name, help_text))
 
-        if commands:
-            with formatter.section("Commands"):
-                formatter.write_dl(commands)
-        if help_topics:
-            with formatter.section("Help Topics"):
-                formatter.write_dl(help_topics)
-
-
-class TyperCommandWithEpilog(typer.core.TyperCommand):
-    """Typer Command that formats epilog without extra indentation and supports topic attribute."""
-
-    topic: str = "command"
+        with formatter.section("Main commands"):
+            formatter.write_dl(topics["main"])
+        for topic in sorted(topics.keys()):
+            if topic == "main":
+                continue
+            with formatter.section(f"{topic.capitalize()} commands"):
+                formatter.write_dl(topics[topic])
 
     def format_epilog(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_epilog_no_indent(self.epilog, ctx, formatter)
 
-
-class TyperHelpTopicCommand(TyperCommandWithEpilog):
-    """Typer Command for help topics (env, version, etc.)."""
-
-    topic: str = "help"
+    def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
+        # click.Group stores both commands and subgroups in `self.commands`
+        return sorted(self.commands.keys())
 
 
-def typer_factory(help: str, epilog: Optional[str] = None, grouped: bool = False) -> typer.Typer:
+def HFCliCommand(topic: TOPIC_T) -> type[typer.core.TyperCommand]:
+    return type(f"TyperCommand{topic.capitalize()}", (typer.core.TyperCommand,), {"topic": topic})
+
+
+class HFCliApp(typer.Typer):
+    """Custom Typer app for Hugging Face CLI."""
+
+    def command(  # type: ignore[override]
+        self,
+        name: Optional[str] = None,
+        *,
+        topic: TOPIC_T = "main",
+        context_settings: Optional[dict[str, Any]] = None,
+        help: Optional[str] = None,
+        epilog: Optional[str] = None,
+        short_help: Optional[str] = None,
+        options_metavar: str = "[OPTIONS]",
+        add_help_option: bool = True,
+        no_args_is_help: bool = False,
+        hidden: bool = False,
+        deprecated: bool = False,
+        rich_help_panel: Optional[str] = None,
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        def _inner(func: Callable[..., Any]) -> Callable[..., Any]:
+            return super(HFCliApp, self).command(
+                name,
+                cls=HFCliCommand(topic),
+                context_settings=context_settings,
+                help=help,
+                epilog=epilog,
+                short_help=short_help,
+                options_metavar=options_metavar,
+                add_help_option=add_help_option,
+                no_args_is_help=no_args_is_help,
+                hidden=hidden,
+                deprecated=deprecated,
+                rich_help_panel=rich_help_panel,
+            )(func)
+
+        return _inner
+
+
+def typer_factory(help: str, epilog: Optional[str] = None) -> "HFCliApp":
     """Create a Typer app with consistent settings.
 
     Args:
         help: Help text for the app.
         epilog: Optional epilog text (use `generate_epilog` to create one).
-        grouped: If True, uses `GroupedTyperGroup` which separates commands into
-            "Commands" and "Help Topics" sections. Commands with `cls=TyperHelpTopicCommand`
-            will appear under "Help Topics".
 
     Returns:
         A configured Typer app.
     """
-    return typer.Typer(
+    return HFCliApp(
         help=help,
         epilog=epilog,
         add_completion=True,
         no_args_is_help=True,
-        cls=GroupedTyperGroup if grouped else AlphabeticalMixedGroup,
+        cls=HFCliTyperGroup,
         # Disable rich completely for consistent experience
         rich_markup_mode=None,
         rich_help_panel=None,
