@@ -138,13 +138,12 @@ def generate_release_notes(preview: bool = False) -> str:
 
     for label, items in grouped.items():
         for item in items:
-            related = item.get("related", [])
-            if related:
-                # This fragment is related to other PRs, add to related_to mapping
-                for related_pr in related:
-                    if related_pr not in related_to:
-                        related_to[related_pr] = []
-                    related_to[related_pr].append(item)
+            related = item.get("related")
+            if related is not None:
+                # This fragment is related to a main PR, add to related_to mapping
+                if related not in related_to:
+                    related_to[related] = []
+                related_to[related].append(item)
             else:
                 # This is a primary fragment
                 primary_fragments[label].append(item)

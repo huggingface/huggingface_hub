@@ -83,13 +83,11 @@ def validate_fragment(path: Path) -> list[str]:
         if label not in VALID_LABELS:
             errors.append(f"Invalid label '{label}'. Must be one of: {', '.join(sorted(VALID_LABELS))}")
 
-    # Validate 'related' field if present
-    if "related" in data:
+    # Validate 'related' field if present and not empty
+    if "related" in data and data["related"] is not None:
         related = data["related"]
-        if not isinstance(related, list):
-            errors.append("'related' field must be a list")
-        elif not all(isinstance(item, int) for item in related):
-            errors.append("'related' field must be a list of integers (PR numbers)")
+        if not isinstance(related, int):
+            errors.append("'related' field must be an integer (PR number)")
 
     return errors
 

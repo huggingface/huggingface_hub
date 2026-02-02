@@ -42,6 +42,7 @@ FRAGMENT_TEMPLATE = """---
 label: misc
 title: "{title}"
 author: {author}
+related:  # main PR number this PR is related to
 ---
 """
 
@@ -111,9 +112,9 @@ def update_fragment_title(pr_number: int, pr_title: str) -> int:
     data["title"] = pr_title
 
     # Reconstruct the file with updated YAML
-    # Preserve field order: label, title, author, then any others
+    # Preserve field order: label, title, author, related, then any others
     ordered_data = {}
-    for key in ["label", "title", "author"]:
+    for key in ["label", "title", "author", "related"]:
         if key in data:
             ordered_data[key] = data.pop(key)
     # Add any remaining fields

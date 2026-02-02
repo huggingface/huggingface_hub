@@ -41,7 +41,7 @@ Each fragment file contains a YAML metadata section followed by an optional free
 label: misc  # one of: breaking, feature, fix, docs, internal, misc
 title: <PR title>
 author: <@username>
-related: []  # optional: list of related PR numbers, e.g., [3668, 3670]
+related:  # optional: main PR number this PR is related to
 ---
 
 <!-- Optional: Add detailed description below -->
@@ -49,12 +49,12 @@ related: []  # optional: list of related PR numbers, e.g., [3668, 3670]
 
 ### Metadata Fields
 
-| Field     | Type     | Default  | Description                                                                                   |
-| --------- | -------- | -------- | --------------------------------------------------------------------------------------------- |
-| `label`   | string   | `misc`   | Category for the PR. Must be one of: `breaking`, `feature`, `fix`, `docs`, `internal`, `misc` |
-| `title`   | string   | *(auto)* | One-line description (auto-populated from PR title, always synced on PR title changes)        |
-| `author`  | string   | *(auto)* | GitHub username with `@` prefix (auto-populated from PR author)                               |
-| `related` | number[] | `[]`     | Optional list of related PR numbers to group together in release notes (e.g., `[3668, 3670]`) |
+| Field     | Type   | Default  | Description                                                                                   |
+| --------- | ------ | -------- | --------------------------------------------------------------------------------------------- |
+| `label`   | string | `misc`   | Category for the PR. Must be one of: `breaking`, `feature`, `fix`, `docs`, `internal`, `misc` |
+| `title`   | string | *(auto)* | One-line description (auto-populated from PR title, always synced on PR title changes)        |
+| `author`  | string | *(auto)* | GitHub username with `@` prefix (auto-populated from PR author)                               |
+| `related` | number | *(none)* | Optional main PR number this PR is related to (e.g., `3668`). Groups PRs together in release notes. |
 
 ### Free-Form Content
 
@@ -186,7 +186,7 @@ A changelog entry has been created at `.changelog/{pr_number}.md`.
 **Tips for a great feature description:**
 - What problem does this solve?
 - Show a quick usage example (code snippet, CLI command)
-- Mention any related PRs using the `related: [1234]` field
+- Mention any related PR using the `related: 1234` field
 
 [📄 View fragment](https://github.com/{owner}/{repo}/blob/{branch}/.changelog/{pr_number}.md) · [✏️ Edit fragment](https://github.com/{owner}/{repo}/edit/{branch}/.changelog/{pr_number}.md)
 ```
@@ -216,7 +216,7 @@ The workflow should check:
 2. **Required fields present:** `label`, `title`, and `author` must exist
 3. **Valid label value:** `label` must be one of: `breaking`, `feature`, `fix`, `docs`, `internal`, `misc`
 4. **PR number match:** Fragment filename must match an open PR number (optional, can be relaxed)
-5. **Related field format:** If `related` is present, it must be a list of integers
+5. **Related field format:** If `related` is present, it must be an integer
 
 ### Validation Script
 
@@ -262,7 +262,7 @@ Markdown-formatted release notes printed to stdout (can be redirected to a file 
 ### Generation Rules
 
 1. **Parse all fragments:** Read YAML metadata section and optional body content
-2. **Handle related PRs:** When a fragment has a `related` field, group those PRs together. The PR with the free-form content (or the lowest PR number if none have content) becomes the "primary" entry, and related PRs are listed as sub-bullets.
+2. **Handle related PRs:** When a fragment has a `related` field pointing to another PR, it is grouped under that primary PR. The primary PR's entry includes the related PRs as sub-bullets.
 3. **Group by label:** Organize PRs into categories
 4. **Order categories:** Use this fixed order:
    - `feature` → New features are special as they have 1 section per new feature. No need for a `## ✨ New Features` title.
@@ -304,20 +304,40 @@ The CLI has been reorganized with dedicated commands for Hub discovery...
 
 ### Related PRs Output Example
 
-When PRs use the `related` field to group together (e.g., a feature split across multiple PRs):
+When PRs use the `related` field to link to a main PR (e.g., a feature split across multiple PRs):
 
-**Fragment `.changelog/3680.md`:**
+**Fragment `.changelog/3680.md` (main PR):**
 ```markdown
 ---
 label: feature
 title: Add async support for inference client (part 1)
 author: @developer
-related: [3681, 3682]
+related:
 ---
 
 ## Async Inference Client
 
 The `InferenceClient` now supports async operations...
+```
+
+**Fragment `.changelog/3681.md` (related PR):**
+```markdown
+---
+label: feature
+title: Add async support for inference client (part 2)
+author: @developer
+related: 3680
+---
+```
+
+**Fragment `.changelog/3682.md` (related PR):**
+```markdown
+---
+label: feature
+title: Add async support for inference client (part 3)
+author: @developer
+related: 3680
+---
 ```
 
 **Generated output:**
@@ -397,5 +417,4 @@ This is out of scope for now.
 | Fragment has invalid YAML            | Validation workflow fails with clear error message           |
 | Fragment missing required fields     | Validation workflow fails; script should use defaults and warn |
 | `related` references non-existent PR | Validation warns but doesn't fail; release script skips missing |
-| Circular `related` references        | Release script picks lowest PR number as primary             |
 | `related` PR has different label     | Release script uses the primary PR's label for grouping      |
