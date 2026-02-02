@@ -95,12 +95,7 @@ def spaces_ls(
     results = [
         api_object_to_dict(space_info)
         for space_info in api.list_spaces(
-            filter=filter,
-            author=author,
-            search=search,
-            sort=sort_key,
-            limit=limit,
-            expand=expand
+            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
     print_list_output(results, format=format, quiet=quiet)

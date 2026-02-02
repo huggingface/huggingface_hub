@@ -96,12 +96,7 @@ def datasets_ls(
     results = [
         api_object_to_dict(dataset_info)
         for dataset_info in api.list_datasets(
-            filter=filter,
-            author=author,
-            search=search,
-            sort=sort_key,
-            limit=limit,
-            expand=expand
+            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
     print_list_output(results, format=format, quiet=quiet)
