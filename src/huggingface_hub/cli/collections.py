@@ -39,7 +39,6 @@ from typing import Annotated, Optional, get_args
 
 import typer
 
-from huggingface_hub.errors import CLIError
 from huggingface_hub.hf_api import CollectionItemType_T, CollectionSort_T
 
 from ._cli_utils import (
