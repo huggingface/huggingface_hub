@@ -308,8 +308,8 @@ def _to_header(name: str) -> str:
     return s.upper()
 
 
-def _format_cell(value: object, max_len: int = _MAX_CELL_LENGTH) -> str:
-    """Format a value for table display with truncation."""
+def _format_value(value: Any) -> str:
+    """Convert a value to string for terminal display."""
     if not value:
         return ""
     if isinstance(value, bool):
@@ -319,9 +319,18 @@ def _format_cell(value: object, max_len: int = _MAX_CELL_LENGTH) -> str:
     if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):
         return value[:10]
     if isinstance(value, list):
-        cell = ", ".join(str(v) for v in value)
-    else:
-        cell = str(value)
+        return ", ".join(_format_value(v) for v in value)
+    elif isinstance(value, dict):
+        if "name" in value:  # Likely to be a user or org => print name
+            return str(value["name"])
+        # TODO: extend if needed
+        return json.dumps(value)
+    return str(value)
+
+
+def _format_cell(value: Any, max_len: int = _MAX_CELL_LENGTH) -> str:
+    """Format a value + truncate it for table display."""
+    cell = _format_value(value)
     if len(cell) > max_len:
         cell = cell[: max_len - 3] + "..."
     return cell
