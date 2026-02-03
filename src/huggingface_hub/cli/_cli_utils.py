@@ -27,8 +27,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Callable, Literal, Optional, S
 import click
 import typer
 
-from huggingface_hub import DatasetInfo, ModelInfo, SpaceInfo, __version__, constants
-from huggingface_hub.hf_api import PaperInfo
+from huggingface_hub import __version__, constants
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
 
 
@@ -208,6 +207,10 @@ def typer_factory(help: str, epilog: Optional[str] = None) -> "HFCliApp":
         rich_markup_mode=None,
         rich_help_panel=None,
         pretty_exceptions_enable=False,
+        # Increase max content width for better readability
+        context_settings={
+            "max_content_width": 120,
+        },
     )
 
 
@@ -305,8 +308,8 @@ def _to_header(name: str) -> str:
     return s.upper()
 
 
-def _format_cell(value: object, max_len: int = _MAX_CELL_LENGTH) -> str:
-    """Format a value for table display with truncation."""
+def _format_value(value: Any) -> str:
+    """Convert a value to string for terminal display."""
     if not value:
         return ""
     if isinstance(value, bool):
@@ -316,9 +319,18 @@ def _format_cell(value: object, max_len: int = _MAX_CELL_LENGTH) -> str:
     if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):
         return value[:10]
     if isinstance(value, list):
-        cell = ", ".join(str(v) for v in value)
-    else:
-        cell = str(value)
+        return ", ".join(_format_value(v) for v in value)
+    elif isinstance(value, dict):
+        if "name" in value:  # Likely to be a user or org => print name
+            return str(value["name"])
+        # TODO: extend if needed
+        return json.dumps(value)
+    return str(value)
+
+
+def _format_cell(value: Any, max_len: int = _MAX_CELL_LENGTH) -> str:
+    """Format a value + truncate it for table display."""
+    cell = _format_value(value)
     if len(cell) > max_len:
         cell = cell[: max_len - 3] + "..."
     return cell
@@ -393,9 +405,7 @@ def _serialize_value(v: object) -> object:
     return v
 
 
-def api_object_to_dict(
-    info: Union[ModelInfo, DatasetInfo, SpaceInfo, PaperInfo],
-) -> dict[str, object]:
+def api_object_to_dict(info: Any) -> dict[str, Any]:
     """Convert repo info dataclasses to json-serializable dicts."""
     return {k: _serialize_value(v) for k, v in dataclasses.asdict(info).items() if v is not None}
 

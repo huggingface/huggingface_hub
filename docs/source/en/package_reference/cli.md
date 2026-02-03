@@ -25,6 +25,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 
 * `auth`: Manage authentication (login, logout, etc.).
 * `cache`: Manage local cache directory.
+* `collections`: Interact with collections on the Hub.
 * `datasets`: Interact with datasets on the Hub.
 * `download`: Download files from the Hub.
 * `endpoints`: Manage Hugging Face Inference Endpoints.
@@ -329,6 +330,270 @@ Examples
   $ hf cache verify gpt2
   $ hf cache verify gpt2 --revision refs/pr/1
   $ hf cache verify my-dataset --repo-type dataset
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf collections`
+
+Interact with collections on the Hub.
+
+**Usage**:
+
+```console
+$ hf collections [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `add-item`: Add an item to a collection.
+* `create`: Create a new collection on the Hub.
+* `delete`: Delete a collection from the Hub.
+* `delete-item`: Delete an item from a collection.
+* `info`: Get info about a collection on the Hub.
+* `ls`: List collections on the Hub.
+* `update`: Update a collection's metadata on the Hub.
+* `update-item`: Update an item in a collection.
+
+### `hf collections add-item`
+
+Add an item to a collection.
+
+**Usage**:
+
+```console
+$ hf collections add-item [OPTIONS] COLLECTION_SLUG ITEM_ID ITEM_TYPE:{model|dataset|space|paper|collection}
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+* `ITEM_ID`: The ID of the item to add (repo_id for repos, paper ID for papers).  [required]
+* `ITEM_TYPE:{model|dataset|space|paper|collection}`: The type of item (model, dataset, space, paper, or collection).  [required]
+
+**Options**:
+
+* `--note TEXT`: A note to attach to the item (max 500 characters).
+* `--exists-ok / --no-exists-ok`: Do not raise an error if the item is already in the collection.  [default: no-exists-ok]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections add-item username/my-collection moonshotai/kimi-k2 model
+  $ hf collections add-item username/my-collection Qwen/DeepPlanning dataset --note "Useful dataset"
+  $ hf collections add-item username/my-collection Tongyi-MAI/Z-Image space
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf collections create`
+
+Create a new collection on the Hub.
+
+**Usage**:
+
+```console
+$ hf collections create [OPTIONS] TITLE
+```
+
+**Arguments**:
+
+* `TITLE`: The title of the collection.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace (username or organization). Defaults to the authenticated user.
+* `--description TEXT`: A description for the collection.
+* `--private / --no-private`: Create a private collection.  [default: no-private]
+* `--exists-ok / --no-exists-ok`: Do not raise an error if the collection already exists.  [default: no-exists-ok]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections create "My Models"
+  $ hf collections create "My Models" --description "A collection of my favorite models" --private
+  $ hf collections create "Org Collection" --namespace my-org
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf collections delete`
+
+Delete a collection from the Hub.
+
+**Usage**:
+
+```console
+$ hf collections delete [OPTIONS] COLLECTION_SLUG
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+
+**Options**:
+
+* `--missing-ok / --no-missing-ok`: Do not raise an error if the collection doesn't exist.  [default: no-missing-ok]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections delete username/my-collection
+  $ hf collections delete username/my-collection --missing-ok
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf collections delete-item`
+
+Delete an item from a collection.
+
+**Usage**:
+
+```console
+$ hf collections delete-item [OPTIONS] COLLECTION_SLUG ITEM_OBJECT_ID
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+* `ITEM_OBJECT_ID`: The ID of the item in the collection (retrieved from `item_object_id` field returned by 'hf collections info'.  [required]
+
+**Options**:
+
+* `--missing-ok / --no-missing-ok`: Do not raise an error if the item doesn't exist.  [default: no-missing-ok]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf collections info`
+
+Get info about a collection on the Hub.
+
+**Usage**:
+
+```console
+$ hf collections info [OPTIONS] COLLECTION_SLUG
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections info username/my-collection-slug
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf collections ls`
+
+List collections on the Hub.
+
+**Usage**:
+
+```console
+$ hf collections ls [OPTIONS]
+```
+
+**Options**:
+
+* `--owner TEXT`: Filter by owner username or organization.
+* `--item TEXT`: Filter collections containing a specific item (e.g., "models/gpt2", "datasets/squad", "papers/2311.12983").
+* `--sort [lastModified|trending|upvotes]`: Sort results by last modified, trending, or upvotes.
+* `--limit INTEGER`: Limit the number of results.  [default: 10]
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections ls
+  $ hf collections ls --owner nvidia
+  $ hf collections ls --item models/teknium/OpenHermes-2.5-Mistral-7B --limit 10
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf collections update`
+
+Update a collection's metadata on the Hub.
+
+**Usage**:
+
+```console
+$ hf collections update [OPTIONS] COLLECTION_SLUG
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+
+**Options**:
+
+* `--title TEXT`: The new title for the collection.
+* `--description TEXT`: The new description for the collection.
+* `--position INTEGER`: The new position of the collection in the owner's list.
+* `--private / --no-private`: Whether the collection should be private.
+* `--theme TEXT`: The theme color for the collection (e.g., 'green', 'blue').
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections update username/my-collection --title "New Title"
+  $ hf collections update username/my-collection --description "Updated description"
+  $ hf collections update username/my-collection --private --theme green
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf collections update-item`
+
+Update an item in a collection.
+
+**Usage**:
+
+```console
+$ hf collections update-item [OPTIONS] COLLECTION_SLUG ITEM_OBJECT_ID
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+* `ITEM_OBJECT_ID`: The ID of the item in the collection (from 'item_object_id' field, not the repo_id).  [required]
+
+**Options**:
+
+* `--note TEXT`: A new note for the item (max 500 characters).
+* `--position INTEGER`: The new position of the item in the collection.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections update-item username/my-collection ITEM_OBJECT_ID --note "Updated note"
+  $ hf collections update-item username/my-collection ITEM_OBJECT_ID --position 0
 
 Learn more
   Use `hf <command> --help` for more information about a command.

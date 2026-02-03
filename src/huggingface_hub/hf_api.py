@@ -120,6 +120,7 @@ if TYPE_CHECKING:
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
+CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -8286,7 +8287,7 @@ class HfApi:
         *,
         owner: Union[list[str], str, None] = None,
         item: Union[list[str], str, None] = None,
-        sort: Optional[Literal["lastModified", "trending", "upvotes"]] = None,
+        sort: Optional[CollectionSort_T] = None,
         limit: Optional[int] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[Collection]:
