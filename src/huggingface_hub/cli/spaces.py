@@ -26,7 +26,7 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Any, Optional, get_args
+from typing import Annotated, Optional, get_args
 
 import typer
 
@@ -98,25 +98,7 @@ def spaces_ls(
             filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
-
-    def row_fn(item: dict[str, Any]) -> list[str]:
-        repo_id = str(item.get("id", ""))
-        author = str(item.get("author", "")) or (repo_id.split("/")[0] if "/" in repo_id else "")
-        return [
-            repo_id,
-            author,
-            str(item.get("sdk", "") or ""),
-            str(item.get("likes", "") or ""),
-        ]
-
-    print_list_output(
-        items=results,
-        format=format,
-        quiet=quiet,
-        id_key="id",
-        headers=["ID", "AUTHOR", "SDK", "LIKES"],
-        row_fn=row_fn,
-    )
+    print_list_output(results, format=format, quiet=quiet)
 
 
 @spaces_cli.command(

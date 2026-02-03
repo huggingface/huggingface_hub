@@ -18,6 +18,7 @@ import datetime
 import importlib.metadata
 import json
 import os
+import re
 import time
 from enum import Enum
 from pathlib import Path
@@ -33,6 +34,8 @@ from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, instal
 
 logger = logging.get_logger()
 
+# Arbitrary maximum length of a cell in a table output
+_MAX_CELL_LENGTH = 35
 
 if TYPE_CHECKING:
     from huggingface_hub.hf_api import HfApi
@@ -296,6 +299,31 @@ QuietOpt = Annotated[
 ]
 
 
+def _to_header(name: str) -> str:
+    """Convert a camelCase or PascalCase string to SCREAMING_SNAKE_CASE to be used as table header."""
+    s = re.sub(r"([a-z])([A-Z])", r"\1_\2", name)
+    return s.upper()
+
+
+def _format_cell(value: object, max_len: int = _MAX_CELL_LENGTH) -> str:
+    """Format a value for table display with truncation."""
+    if not value:
+        return ""
+    if isinstance(value, bool):
+        return "✔" if value else ""
+    if isinstance(value, datetime.datetime):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):
+        return value[:10]
+    if isinstance(value, list):
+        cell = ", ".join(str(v) for v in value)
+    else:
+        cell = str(value)
+    if len(cell) > max_len:
+        cell = cell[: max_len - 3] + "..."
+    return cell
+
+
 def print_as_table(
     items: Sequence[dict[str, Any]],
     headers: list[str],
@@ -312,16 +340,16 @@ def print_as_table(
         print("No results found.")
         return
     rows = cast(list[list[Union[str, int]]], [row_fn(item) for item in items])
-    print(tabulate(rows, headers=headers))
+    print(tabulate(rows, headers=[_to_header(h) for h in headers]))
 
 
 def print_list_output(
     items: Sequence[dict[str, Any]],
     format: OutputFormat,
     quiet: bool,
-    id_key: str,
-    headers: list[str],
-    row_fn: Callable[[dict[str, Any]], list[str]],
+    id_key: str = "id",
+    headers: Optional[list[str]] = None,
+    row_fn: Optional[Callable[[dict[str, Any]], list[str]]] = None,
 ) -> None:
     """Print list command output in the specified format.
 
@@ -330,8 +358,8 @@ def print_list_output(
         format: Output format (table or json).
         quiet: If True, print only IDs (one per line).
         id_key: Key to use for extracting IDs in quiet mode.
-        headers: List of column headers for table format.
-        row_fn: Function that takes an item dict and returns a list of string values for table columns.
+        headers: Optional list of column names for headers. If not provided, auto-detected from keys.
+        row_fn: Optional function to extract row values. If not provided, uses _format_cell on each column.
     """
     if quiet:
         for item in items:
@@ -340,8 +368,18 @@ def print_list_output(
 
     if format == OutputFormat.json:
         print(json.dumps(list(items), indent=2))
-    else:
-        print_as_table(items, headers=headers, row_fn=row_fn)
+        return
+
+    if headers is None:
+        all_columns = list(items[0].keys()) if items else [id_key]
+        headers = [col for col in all_columns if any(_format_cell(item.get(col)) for item in items)]
+
+    if row_fn is None:
+
+        def row_fn(item: dict[str, Any]) -> list[str]:
+            return [_format_cell(item.get(col)) for col in headers]  # type: ignore[union-attr]
+
+    print_as_table(items, headers=headers, row_fn=row_fn)
 
 
 def _serialize_value(v: object) -> object:
