@@ -40,11 +40,15 @@ jobs:
 
       - name: Create changelog fragment
         if: github.event.action == 'opened' && steps.check_fragment.outputs.exists == 'false'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           python utils/create_changelog_fragment.py \
-            --pr-number ${{ github.event.pull_request.number }} \
-            --pr-title "${{ github.event.pull_request.title }}" \
-            --pr-author "${{ github.event.pull_request.user.login }}"
+            --pr-number "$PR_NUMBER" \
+            --pr-title "$PR_TITLE" \
+            --pr-author "$PR_AUTHOR"
 
       - name: Update changelog fragment title
         if: github.event.action == 'edited' && steps.check_fragment.outputs.exists == 'true'
