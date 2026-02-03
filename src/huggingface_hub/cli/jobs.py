@@ -470,9 +470,6 @@ def jobs_stats(
             raise CLIError("Job not found. Please check the job ID.") from e
         elif status == 403:
             raise CLIError("Access denied. You may not have permission to view this job.") from e
-        elif status == 500:
-            # Backend returns 500 for invalid job IDs (ideally would be 404)
-            raise CLIError("Job not found or server error. Please verify the job ID is correct.") from e
         else:
             raise CLIError(f"Failed to fetch job stats: {e}") from e
 
