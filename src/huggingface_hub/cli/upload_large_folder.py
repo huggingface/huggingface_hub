@@ -22,10 +22,24 @@ import typer
 from huggingface_hub import logging
 from huggingface_hub.utils import ANSI, disable_progress_bars
 
-from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api
+from ._cli_utils import (
+    PrivateOpt,
+    RepoIdArg,
+    RepoType,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    get_hf_api,
+)
 
 
 logger = logging.get_logger(__name__)
+
+
+UPLOAD_LARGE_FOLDER_EXAMPLES = [
+    "hf upload-large-folder Wauplin/my-cool-model ./large_model_dir",
+    "hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0",
+]
 
 
 def upload_large_folder(

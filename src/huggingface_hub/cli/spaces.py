@@ -26,7 +26,7 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Any, Optional, get_args
+from typing import Annotated, Optional, get_args
 
 import typer
 
@@ -68,7 +68,13 @@ ExpandOpt = Annotated[
 spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 
 
-@spaces_cli.command("ls")
+@spaces_cli.command(
+    "ls",
+    examples=[
+        "hf spaces ls --limit 10",
+        'hf spaces ls --search "chatbot" --author huggingface',
+    ],
+)
 def spaces_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
@@ -92,28 +98,16 @@ def spaces_ls(
             filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
-
-    def row_fn(item: dict[str, Any]) -> list[str]:
-        repo_id = str(item.get("id", ""))
-        author = str(item.get("author", "")) or (repo_id.split("/")[0] if "/" in repo_id else "")
-        return [
-            repo_id,
-            author,
-            str(item.get("sdk", "") or ""),
-            str(item.get("likes", "") or ""),
-        ]
-
-    print_list_output(
-        items=results,
-        format=format,
-        quiet=quiet,
-        id_key="id",
-        headers=["ID", "AUTHOR", "SDK", "LIKES"],
-        row_fn=row_fn,
-    )
+    print_list_output(results, format=format, quiet=quiet)
 
 
-@spaces_cli.command("info")
+@spaces_cli.command(
+    "info",
+    examples=[
+        "hf spaces info enzostvs/deepsite",
+        "hf spaces info gradio/theme_builder --expand sdk,runtime,likes",
+    ],
+)
 def spaces_info(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,

@@ -26,7 +26,7 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Any, Optional, get_args
+from typing import Annotated, Optional, get_args
 
 import typer
 
@@ -68,7 +68,14 @@ ExpandOpt = Annotated[
 datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
 
 
-@datasets_cli.command("ls")
+@datasets_cli.command(
+    "ls",
+    examples=[
+        "hf datasets ls",
+        "hf datasets ls --sort downloads --limit 10",
+        'hf datasets ls --search "code"',
+    ],
+)
 def datasets_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
@@ -92,28 +99,16 @@ def datasets_ls(
             filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
-
-    def row_fn(item: dict[str, Any]) -> list[str]:
-        repo_id = str(item.get("id", ""))
-        author = str(item.get("author", "")) or (repo_id.split("/")[0] if "/" in repo_id else "")
-        return [
-            repo_id,
-            author,
-            str(item.get("downloads", "") or ""),
-            str(item.get("likes", "") or ""),
-        ]
-
-    print_list_output(
-        items=results,
-        format=format,
-        quiet=quiet,
-        id_key="id",
-        headers=["ID", "AUTHOR", "DOWNLOADS", "LIKES"],
-        row_fn=row_fn,
-    )
+    print_list_output(results, format=format, quiet=quiet)
 
 
-@datasets_cli.command("info")
+@datasets_cli.command(
+    "info",
+    examples=[
+        "hf datasets info HuggingFaceFW/fineweb",
+        "hf datasets info my-dataset --expand downloads,likes,tags",
+    ],
+)
 def datasets_info(
     dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
