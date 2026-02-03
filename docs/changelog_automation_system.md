@@ -41,7 +41,7 @@ Each fragment file contains a YAML metadata section followed by an optional free
 label: misc  # one of: breaking, feature, fix, docs, internal, misc
 title: <PR title>
 author: <@username>
-related:  # optional: main PR number this PR is related to
+related: null # optional: related PR number
 ---
 
 <!-- Optional: Add detailed description below -->

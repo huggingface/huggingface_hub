@@ -40,9 +40,9 @@ CHANGELOG_DIR = Path(__file__).parents[1] / ".changelog"
 
 FRAGMENT_TEMPLATE = """---
 label: misc
-title: "{title}"
+title: {title}
 author: {author}
-related:  # main PR number this PR is related to
+related: null
 ---
 """
 
