@@ -7,6 +7,9 @@ on:
 jobs:
   create-changelog-fragment:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     # Skip if PR title contains [skip-changelog]
     if: ${{ !contains(github.event.pull_request.title, '[skip-changelog]') }}
     steps:
