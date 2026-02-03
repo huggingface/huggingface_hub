@@ -121,10 +121,7 @@ def collections_info(
 ) -> None:
     """Get info about a collection on the Hub."""
     api = get_hf_api(token=token)
-    try:
-        collection = api.get_collection(collection_slug)
-    except Exception as e:
-        raise CLIError(f"Collection '{collection_slug}' not found or not accessible.") from e
+    collection = api.get_collection(collection_slug)
     print(json.dumps(api_object_to_dict(collection), indent=2))
 
 
@@ -158,16 +155,13 @@ def collections_create(
 ) -> None:
     """Create a new collection on the Hub."""
     api = get_hf_api(token=token)
-    try:
-        collection = api.create_collection(
-            title=title,
-            namespace=namespace,
-            description=description,
-            private=private,
-            exists_ok=exists_ok,
-        )
-    except Exception as e:
-        raise CLIError(f"Failed to create collection: {e}") from e
+    collection = api.create_collection(
+        title=title,
+        namespace=namespace,
+        description=description,
+        private=private,
+        exists_ok=exists_ok,
+    )
     print(f"Collection created: {collection.url}")
     print(json.dumps(api_object_to_dict(collection), indent=2))
 
@@ -206,17 +200,14 @@ def collections_update(
 ) -> None:
     """Update a collection's metadata on the Hub."""
     api = get_hf_api(token=token)
-    try:
-        collection = api.update_collection_metadata(
-            collection_slug=collection_slug,
-            title=title,
-            description=description,
-            position=position,
-            private=private,
-            theme=theme,
-        )
-    except Exception as e:
-        raise CLIError(f"Failed to update collection '{collection_slug}': {e}") from e
+    collection = api.update_collection_metadata(
+        collection_slug=collection_slug,
+        title=title,
+        description=description,
+        position=position,
+        private=private,
+        theme=theme,
+    )
     print(f"Collection updated: {collection.url}")
     print(json.dumps(api_object_to_dict(collection), indent=2))
 
@@ -238,10 +229,7 @@ def collections_delete(
 ) -> None:
     """Delete a collection from the Hub."""
     api = get_hf_api(token=token)
-    try:
-        api.delete_collection(collection_slug, missing_ok=missing_ok)
-    except Exception as e:
-        raise CLIError(f"Failed to delete collection '{collection_slug}': {e}") from e
+    api.delete_collection(collection_slug, missing_ok=missing_ok)
     print(f"Collection deleted: {collection_slug}")
 
 
@@ -274,16 +262,13 @@ def collections_add_item(
 ) -> None:
     """Add an item to a collection."""
     api = get_hf_api(token=token)
-    try:
-        collection = api.add_collection_item(
-            collection_slug=collection_slug,
-            item_id=item_id,
-            item_type=item_type.value,  # type: ignore[arg-type]
-            note=note,
-            exists_ok=exists_ok,
-        )
-    except Exception as e:
-        raise CLIError(f"Failed to add item '{item_id}' to collection '{collection_slug}': {e}") from e
+    collection = api.add_collection_item(
+        collection_slug=collection_slug,
+        item_id=item_id,
+        item_type=item_type.value,  # type: ignore[arg-type]
+        note=note,
+        exists_ok=exists_ok,
+    )
     print(f"Item added to collection: {collection_slug}")
     print(json.dumps(api_object_to_dict(collection), indent=2))
 
@@ -313,15 +298,12 @@ def collections_update_item(
 ) -> None:
     """Update an item in a collection."""
     api = get_hf_api(token=token)
-    try:
-        api.update_collection_item(
-            collection_slug=collection_slug,
-            item_object_id=item_object_id,
-            note=note,
-            position=position,
-        )
-    except Exception as e:
-        raise CLIError(f"Failed to update item '{item_object_id}' in collection '{collection_slug}': {e}") from e
+    api.update_collection_item(
+        collection_slug=collection_slug,
+        item_object_id=item_object_id,
+        note=note,
+        position=position,
+    )
     print(f"Item updated in collection: {collection_slug}")
 
 
@@ -342,12 +324,9 @@ def collections_delete_item(
 ) -> None:
     """Delete an item from a collection."""
     api = get_hf_api(token=token)
-    try:
-        api.delete_collection_item(
-            collection_slug=collection_slug,
-            item_object_id=item_object_id,
-            missing_ok=missing_ok,
-        )
-    except Exception as e:
-        raise CLIError(f"Failed to delete item '{item_object_id}' from collection '{collection_slug}': {e}") from e
+    api.delete_collection_item(
+        collection_slug=collection_slug,
+        item_object_id=item_object_id,
+        missing_ok=missing_ok,
+    )
     print(f"Item deleted from collection: {collection_slug}")
