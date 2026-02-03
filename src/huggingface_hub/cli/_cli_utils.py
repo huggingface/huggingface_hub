@@ -306,7 +306,7 @@ def _to_header(name: str) -> str:
 
 def _format_cell(value: object, max_len: int = _MAX_CELL_LENGTH) -> str:
     """Format a value for table display with truncation."""
-    if value is None:
+    if not value:
         return ""
     if isinstance(value, bool):
         return "✔" if value else ""
@@ -315,8 +315,6 @@ def _format_cell(value: object, max_len: int = _MAX_CELL_LENGTH) -> str:
     if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):
         return value[:10]
     if isinstance(value, list):
-        if not value:
-            return ""
         cell = ", ".join(str(v) for v in value)
     else:
         cell = str(value)
