@@ -177,6 +177,16 @@ def strict(
 
             cls.__init__ = __init__  # type: ignore[method-assign]
 
+            # Define a default __post_init__ if not defined
+            if not hasattr(cls, "__post_init__"):
+
+                def __post_init__(self, **kwargs: Any) -> None:
+                    """Default __post_init__ to accept additional kwargs."""
+                    for name, value in kwargs.items():
+                        setattr(self, name, value)
+
+                cls.__post_init__ = __post_init__  # type: ignore[method-assign]
+
             # (optional) Override __repr__ to include additional kwargs
             original_repr = cls.__repr__
 
