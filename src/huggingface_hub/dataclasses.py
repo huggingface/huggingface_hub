@@ -185,7 +185,7 @@ def strict(
                     for name, value in kwargs.items():
                         setattr(self, name, value)
 
-                cls.__post_init__ = __post_init__  # type: ignore[method-assign]
+                cls.__post_init__ = __post_init__  # type: ignore
 
             # (optional) Override __repr__ to include additional kwargs
             original_repr = cls.__repr__
