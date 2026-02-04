@@ -20,6 +20,7 @@ from typing import Annotated, Optional
 import typer
 
 from huggingface_hub import logging
+from huggingface_hub.errors import RevisionNotFoundError
 from huggingface_hub.utils import ANSI, disable_progress_bars
 
 from ._cli_utils import (
@@ -118,6 +119,16 @@ def upload_large_folder(
         disable_progress_bars()
 
     api = get_hf_api(token=token)
+
+    # Check if branch already exists and if not, create it
+    if revision is not None:
+        try:
+            api.repo_info(repo_id=repo_id, repo_type=repo_type.value, revision=revision)
+        except RevisionNotFoundError:
+            logger.info(f"Branch '{revision}' not found. Creating it...")
+            api.create_branch(repo_id=repo_id, repo_type=repo_type.value, branch=revision, exist_ok=True)
+            # ^ `exist_ok=True` to avoid race concurrency issues
+
     api.upload_large_folder(
         repo_id=repo_id,
         folder_path=local_path,
