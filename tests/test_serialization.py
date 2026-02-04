@@ -223,7 +223,7 @@ def test_tensor_same_storage():
             "layer_4": [2],
             "layer_5": [1],
         },
-        get_storage_id=lambda x: (x[0]),  # dummy for test: storage id based on first element
+        get_storage_id=lambda x: x[0],  # dummy for test: storage id based on first element
         get_storage_size=_dummy_get_storage_size,
         max_shard_size=1,
         filename_pattern="model{suffix}.safetensors",
