@@ -6,7 +6,8 @@ from typing import Optional
 import httpx
 
 from .. import constants
-from . import get_session, hf_raise_for_status, validate_hf_hub_args, http_backoff
+from . import hf_raise_for_status, http_backoff, validate_hf_hub_args
+
 
 XET_CONNECTION_INFO_SAFETY_PERIOD = 60  # seconds
 XET_CONNECTION_INFO_CACHE_SIZE = 1_000
