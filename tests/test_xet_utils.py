@@ -162,9 +162,7 @@ def test_refresh_metadata_success(mocker) -> None:
         "X-Xet-Refresh-Route": f"{constants.ENDPOINT}/api/models/username/repo_name/xet-read-token/token",
     }
 
-    mock_session = MagicMock()
-    mock_session.get.return_value = mock_response
-    mocker.patch("huggingface_hub.utils._xet.get_session", return_value=mock_session)
+    http_backoff_mock = mocker.patch("huggingface_hub.utils._xet.http_backoff", return_value=mock_response)
 
     headers = {"user-agent": "user-agent-example"}
     refreshed_connection = refresh_xet_connection_info(
@@ -177,9 +175,10 @@ def test_refresh_metadata_success(mocker) -> None:
 
     # Verify the request
     expected_url = f"{constants.ENDPOINT}/api/models/username/repo_name/xet-read-token/token"
-    mock_session.get.assert_called_once_with(
+    http_backoff_mock.assert_called_once_with(
+        "GET",
+        expected_url,
         headers=headers,
-        url=expected_url,
         params=None,
     )
 
@@ -199,9 +198,7 @@ def test_refresh_metadata_custom_endpoint(mocker) -> None:
         "X-Xet-Token-Expiration": "1234599999",
     }
 
-    mock_session = MagicMock()
-    mock_session.get.return_value = mock_response
-    mocker.patch("huggingface_hub.utils._xet.get_session", return_value=mock_session)
+    http_backoff_mock = mocker.patch("huggingface_hub.utils._xet.http_backoff", return_value=mock_response)
 
     headers = {"user-agent": "user-agent-example"}
     refresh_xet_connection_info(
@@ -214,9 +211,10 @@ def test_refresh_metadata_custom_endpoint(mocker) -> None:
 
     # Verify the request used the custom endpoint
     expected_url = f"{custom_endpoint}/api/models/username/repo_name/xet-read-token/token"
-    mock_session.get.assert_called_once_with(
+    http_backoff_mock.assert_called_once_with(
+        "GET",
+        expected_url,
         headers=headers,
-        url=expected_url,
         params=None,
     )
 
@@ -245,9 +243,7 @@ def test_fetch_xet_metadata_with_url(mocker) -> None:
     }
 
     # Mock the session.get method
-    mock_session = MagicMock()
-    mock_session.get.return_value = mock_response
-    mocker.patch("huggingface_hub.utils._xet.get_session", return_value=mock_session)
+    http_backoff_mock = mocker.patch("huggingface_hub.utils._xet.http_backoff", return_value=mock_response)
 
     # Call the function
     url = "https://example.xethub.hf.co/api/models/username/repo_name/xet-read-token/token"
@@ -255,9 +251,10 @@ def test_fetch_xet_metadata_with_url(mocker) -> None:
     metadata = _fetch_xet_connection_info_with_url(url=url, headers=headers)
 
     # Verify the request
-    mock_session.get.assert_called_once_with(
+    http_backoff_mock.assert_called_once_with(
+        "GET",
+        url,
         headers=headers,
-        url=url,
         params=None,
     )
 
@@ -272,9 +269,7 @@ def test_fetch_xet_metadata_with_url_invalid_response(mocker) -> None:
     mock_response.headers = {"Content-Type": "application/json"}  # No XET headers
 
     # Mock the session.get method
-    mock_session = MagicMock()
-    mock_session.get.return_value = mock_response
-    mocker.patch("huggingface_hub.utils._xet.get_session", return_value=mock_session)
+    mocker.patch("huggingface_hub.utils._xet.http_backoff", return_value=mock_response)
 
     url = "https://example.xethub.hf.co/api/models/username/repo_name/xet-read-token/token"
     headers = {"user-agent": "user-agent-example"}
