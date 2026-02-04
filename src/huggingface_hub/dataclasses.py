@@ -166,10 +166,14 @@ def strict(
                 # Call the original __init__ with standard fields
                 original_init(self, **standard_kwargs)
 
-                # Add any additional kwargs as attributes
+                # Pass any additional kwargs to `__post_init__` and let the object
+                # decide whether to set the attr or use for different purposes (e.g. BC checks)
+                additional_kwargs = {}
                 for name, value in kwargs.items():
                     if name not in dataclass_fields:
-                        self.__setattr__(name, value)
+                        additional_kwargs[name] = value
+
+                self.__post_init__(**additional_kwargs)
 
             cls.__init__ = __init__  # type: ignore[method-assign]
 
