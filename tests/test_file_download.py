@@ -1152,7 +1152,6 @@ class TestHttpGet:
         for i, expected_range in enumerate(expected_ranges):
             assert mock_stream_backoff.call_args_list[i].kwargs["headers"] == {"Range": expected_range}
 
-
     def test_http_get_retry_resets_file_when_range_ignored(self, caplog):
         """Test that http_get resets the file when the server ignores the Range header.
 
