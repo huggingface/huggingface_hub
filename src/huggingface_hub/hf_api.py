@@ -11462,7 +11462,6 @@ class HfApi:
                         "type": "addFile",
                         "path": op.path_in_repo,
                         "xetHash": op.xet_hash,
-                        "size": op.size,
                         "mtime": op.mtime,
                     }
                     if op.content_type is not None:
