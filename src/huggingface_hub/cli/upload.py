@@ -117,6 +117,12 @@ def upload(
             help="Whether to upload content as a new Pull Request.",
         ),
     ] = False,
+    hot_reload: Annotated[
+        bool,
+        typer.Option(
+            help="Whether to trigger a hot-reloaded update for Spaces",
+        ),
+    ] = False,
     every: Annotated[
         Optional[float],
         typer.Option(
@@ -233,6 +239,7 @@ def upload(
                 commit_message=commit_message,
                 commit_description=commit_description,
                 create_pr=create_pr,
+                hot_reload=hot_reload,
             )
 
         # Folder-based upload

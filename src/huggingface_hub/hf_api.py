@@ -4173,6 +4173,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        hot_reload: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[False] = ...,
@@ -4190,6 +4191,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        hot_reload: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[True] = ...,
@@ -4208,6 +4210,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        hot_reload: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
         run_as_future: bool = False,
@@ -4321,6 +4324,7 @@ class HfApi:
         unquoted_revision = revision or constants.DEFAULT_REVISION
         revision = quote(unquoted_revision, safe="")
         create_pr = create_pr if create_pr is not None else False
+        hot_reload = hot_reload if hot_reload is not None else False
 
         headers = self._build_hf_headers(token=token)
 
@@ -4454,7 +4458,12 @@ class HfApi:
             **headers,
         }
         data = b"".join(_payload_as_ndjson())
-        params = {"create_pr": "1"} if create_pr else None
+
+        params = {}
+        if create_pr:
+            params |= {"create_pr": 1}
+        if hot_reload:
+            params |= {"hot_reload": 1}
 
         try:
             commit_resp = get_session().post(url=commit_url, headers=headers, content=data, params=params)
@@ -4651,6 +4660,7 @@ class HfApi:
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        hot_reload: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[False] = ...,
     ) -> CommitInfo: ...
@@ -4668,6 +4678,7 @@ class HfApi:
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        hot_reload: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[True] = ...,
     ) -> Future[CommitInfo]: ...
@@ -4686,6 +4697,7 @@ class HfApi:
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        hot_reload: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: bool = False,
     ) -> Union[CommitInfo, Future[CommitInfo]]:
@@ -4811,6 +4823,7 @@ class HfApi:
             token=token,
             revision=revision,
             create_pr=create_pr,
+            hot_reload=hot_reload,
             parent_commit=parent_commit,
         )
 
