@@ -24,6 +24,7 @@ from typing import Annotated, Optional
 
 import typer
 
+from huggingface_hub.errors import CLIError
 from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 from ..utils import get_session, hf_raise_for_status, logging
@@ -42,15 +43,14 @@ def lfs_enable_largefiles(
     ],
 ) -> None:
     """
-    Configure a local git repository to use the multipart transfer agent for large files.
+    Configure your repository to enable upload of files > 5GB.
 
     This command sets up git-lfs to use the custom multipart transfer agent
     which enables efficient uploading of large files in chunks.
     """
     local_path = os.path.abspath(path)
     if not os.path.isdir(local_path):
-        print("This does not look like a valid git repo.")
-        raise typer.Exit(code=1)
+        raise CLIError("This does not look like a valid git repo.")
     subprocess.run(
         "git config lfs.customtransfer.multipart.path hf".split(),
         check=True,

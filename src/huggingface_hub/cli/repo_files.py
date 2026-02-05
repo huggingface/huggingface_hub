@@ -49,7 +49,14 @@ logger = logging.get_logger(__name__)
 repo_files_cli = typer_factory(help="Manage files in a repo on the Hub.")
 
 
-@repo_files_cli.command("delete")
+@repo_files_cli.command(
+    "delete",
+    examples=[
+        "hf repo-files delete my-model file.txt",
+        'hf repo-files delete my-model "*.json"',
+        "hf repo-files delete my-model folder/",
+    ],
+)
 def repo_files_delete(
     repo_id: RepoIdArg,
     patterns: Annotated[

@@ -6,7 +6,7 @@ from typing import Optional
 import httpx
 
 from .. import constants
-from . import get_session, hf_raise_for_status, validate_hf_hub_args
+from . import hf_raise_for_status, http_backoff, validate_hf_hub_args
 
 
 XET_CONNECTION_INFO_SAFETY_PERIOD = 60  # seconds
@@ -200,7 +200,7 @@ def _fetch_xet_connection_info_with_url(
             return cached_info
 
     # Fetch from server
-    resp = get_session().get(headers=headers, url=url, params=params)
+    resp = http_backoff("GET", url, headers=headers, params=params)
     hf_raise_for_status(resp)
 
     metadata = parse_xet_connection_info_from_headers(resp.headers)  # type: ignore

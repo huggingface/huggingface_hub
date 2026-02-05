@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import base64
 import inspect
+import itertools
 import json
 import mimetypes
 import os
@@ -130,6 +131,7 @@ if TYPE_CHECKING:
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
+CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -1454,6 +1456,8 @@ class Organization:
             Number of followers of the organization.
         num_papers (`int`, *optional*):
             Number of papers authored by the organization.
+        plan (`str`, *optional*):
+            The organization's plan (e.g., "enterprise", "team").
     """
 
     avatar_url: str
@@ -1468,6 +1472,7 @@ class Organization:
     num_datasets: Optional[int] = None
     num_followers: Optional[int] = None
     num_papers: Optional[int] = None
+    plan: Optional[str] = None
 
     def __init__(self, **kwargs) -> None:
         self.avatar_url = kwargs.pop("avatarUrl", "")
@@ -1482,6 +1487,7 @@ class Organization:
         self.num_datasets = kwargs.pop("numDatasets", None)
         self.num_followers = kwargs.pop("numFollowers", None)
         self.num_papers = kwargs.pop("numPapers", None)
+        self.plan = kwargs.pop("plan", None)
 
         # forward compatibility
         self.__dict__.update(**kwargs)
@@ -2455,6 +2461,10 @@ class HfApi:
                     else:
                         data = value_item
                     filter_list.append(data)
+        if benchmark is not None:
+            if benchmark is True:  # alias for official benchmark
+                benchmark = "official"
+            filter_list.append(f"benchmark:{benchmark}")
         if len(filter_list) > 0:
             params["filter"] = filter_list
 
@@ -2463,10 +2473,6 @@ class HfApi:
             params["author"] = author
         if gated is not None:
             params["gated"] = gated
-        if benchmark is not None:
-            if benchmark is True:  # alias for official benchmark
-                benchmark = "official"
-            params["benchmark"] = f"benchmark:{benchmark}"
         search_list = []
         if dataset_name:
             search_list.append(dataset_name)
@@ -8349,7 +8355,7 @@ class HfApi:
         *,
         owner: Union[list[str], str, None] = None,
         item: Union[list[str], str, None] = None,
-        sort: Optional[Literal["lastModified", "trending", "upvotes"]] = None,
+        sort: Optional[CollectionSort_T] = None,
         limit: Optional[int] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[Collection]:
@@ -11206,43 +11212,63 @@ class HfApi:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
 
-        # Find the python script file, e.g.
-        # uv run train.py -> `script``
-        # uv run torchrun train.py -> one of `script_args``
-        if Path(script).is_file():
-            script_file = script
-        elif script.startswith("http://") or script.startswith("https://"):
-            script_file = None
-        elif script.endswith(".py"):
-            raise FileNotFoundError(script)
-        else:
-            # `script` could be a command like "torchrun train.py" or "accelerate launch train.py"
-            # so we look for the python script in the args
-            for script_arg in script_args:
-                if Path(script_arg).is_file() and script_arg.endswith(".py"):
-                    script_file = script_arg
-                    break
-            else:
-                script_file = None
+        # Find the local files to pass to the job
+        local_files_to_include = {candidate for candidate in [script] + script_args if Path(candidate).is_file()}
+        # Fail early for missing scripts or config files
+        missing_local_files = {
+            candidate
+            for candidate in [script] + script_args
+            if not Path(candidate).is_file()
+            and Path(candidate).suffix in [".py", ".sh", ".yaml", ".yml", ".toml"]
+            and not candidate.startswith("https://")
+            and not candidate.startswith("http://")
+        }
+        if missing_local_files:
+            raise FileNotFoundError(", ".join(missing_local_files))
 
-        if script_file is None:
+        if len(local_files_to_include) == 0:
             # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
         else:
-            # Local file - embed as env variable
-            script_content = base64.b64encode(Path(script_file).read_bytes()).decode()
-            env["UV_SCRIPT_ENCODED"] = script_content
-            if script == script_file:
-                script = "/tmp/script.py"
-            else:
-                script_args = [
-                    "/tmp/script.py" if script_arg == script_file else script_arg for script_arg in script_args
-                ]
+            # Find appropriate remote file names
+            remote_to_local_file_names: dict[str, str] = {}
+            for local_file_to_include in local_files_to_include:
+                local_file_path = Path(local_file_to_include)
+                # remove spaces for proper xargs parsing
+                remote_file_path = Path(local_file_path.name.replace(" ", "_"))
+                if remote_file_path.name in remote_to_local_file_names:
+                    for i in itertools.count():
+                        remote_file_name = remote_file_path.with_stem(remote_file_path.stem + f"({i})").name
+                        if remote_file_name not in remote_to_local_file_names:
+                            remote_to_local_file_names[remote_file_name] = local_file_to_include
+                            break
+                else:
+                    remote_to_local_file_names[remote_file_path.name] = local_file_to_include
+            local_to_remote_file_names = dict(
+                (local_file_to_include, remote_file_name)
+                for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
+            )
 
+            # Replace local paths with remote paths in command
+            if script in local_to_remote_file_names:
+                script = local_to_remote_file_names[script]
+            script_args = [
+                local_to_remote_file_names[arg] if arg in local_to_remote_file_names else arg for arg in script_args
+            ]
+
+            # Load content to pass as environment variable with format
+            # file1 base64content1
+            # file2 base64content2
+            # ...
+            env["LOCAL_FILES_ENCODED"] = "\n".join(
+                remote_file_name + " " + base64.b64encode(Path(local_file_to_include).read_bytes()).decode()
+                for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
+            )
             command = [
                 "bash",
                 "-c",
-                f'echo "$UV_SCRIPT_ENCODED" | base64 -d > /tmp/script.py && uv run {" ".join(uv_args)} {script} {" ".join(script_args)}',
+                """echo $LOCAL_FILES_ENCODED | xargs -n 2 bash -c 'echo "$1" | base64 -d > "$0"' && """
+                + f"uv run {' '.join(uv_args)} {script} {' '.join(script_args)}",
             ]
         return command, env, secrets
 

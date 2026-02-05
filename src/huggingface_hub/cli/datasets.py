@@ -30,20 +30,23 @@ from typing import Annotated, Optional, get_args
 
 import typer
 
-from huggingface_hub.errors import RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import DatasetSort_T, ExpandDatasetProperty_T
-from huggingface_hub.utils import ANSI
 
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
+    FormatOpt,
     LimitOpt,
+    OutputFormat,
+    QuietOpt,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
+    print_list_output,
     typer_factory,
 )
 
@@ -65,7 +68,14 @@ ExpandOpt = Annotated[
 datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
 
 
-@datasets_cli.command("ls")
+@datasets_cli.command(
+    "ls",
+    examples=[
+        "hf datasets ls",
+        "hf datasets ls --sort downloads --limit 10",
+        'hf datasets ls --search "code"',
+    ],
+)
 def datasets_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
@@ -76,6 +86,8 @@ def datasets_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
+    format: FormatOpt = OutputFormat.table,
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List datasets on the Hub."""
@@ -87,10 +99,16 @@ def datasets_ls(
             filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
-    print(json.dumps(results, indent=2))
+    print_list_output(results, format=format, quiet=quiet)
 
 
-@datasets_cli.command("info")
+@datasets_cli.command(
+    "info",
+    examples=[
+        "hf datasets info HuggingFaceFW/fineweb",
+        "hf datasets info my-dataset --expand downloads,likes,tags",
+    ],
+)
 def datasets_info(
     dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
@@ -101,10 +119,8 @@ def datasets_info(
     api = get_hf_api(token=token)
     try:
         info = api.dataset_info(repo_id=dataset_id, revision=revision, expand=expand)  # type: ignore[arg-type]
-    except RepositoryNotFoundError:
-        print(f"Dataset {ANSI.bold(dataset_id)} not found.")
-        raise typer.Exit(code=1)
-    except RevisionNotFoundError:
-        print(f"Revision {ANSI.bold(str(revision))} not found on {ANSI.bold(dataset_id)}.")
-        raise typer.Exit(code=1)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"Dataset '{dataset_id}' not found.") from e
+    except RevisionNotFoundError as e:
+        raise CLIError(f"Revision '{revision}' not found on '{dataset_id}'.") from e
     print(json.dumps(api_object_to_dict(info), indent=2))
