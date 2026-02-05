@@ -11305,7 +11305,7 @@ class HfApi:
         except HfHubHTTPError as e:
             if e.response.status_code != 409 or not exist_ok:
                 raise
-        return RepoUrl(response.json()["url"])
+        return RepoUrl(response.json()["url"], endpoint=self.endpoint)
 
     def bucket_info(
         self,
