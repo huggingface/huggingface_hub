@@ -24,6 +24,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `auth`: Manage authentication (login, logout, etc.).
+* `bucket`: Commands to interact with buckets.
 * `cache`: Manage local cache directory.
 * `collections`: Interact with collections on the Hub.
 * `datasets`: Interact with datasets on the Hub.
@@ -39,6 +40,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `repo-files`: Manage files in a repo on the Hub.
 * `skills`: Manage skills for AI assistants.
 * `spaces`: Interact with spaces on the Hub.
+* `sync`: Sync files between local directory and a...
 * `upload`: Upload a file or a folder to the Hub.
 * `upload-large-folder`: Upload a large folder to the Hub.
 * `version`: Print information about the hf version.
@@ -183,6 +185,122 @@ Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
+
+## `hf bucket`
+
+Commands to interact with buckets.
+
+**Usage**:
+
+```console
+$ hf bucket [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `create`: Create a new bucket.
+* `delete`: Delete a bucket.
+* `ls`: List files in a bucket.
+* `sync`: Sync files between local directory and a...
+
+### `hf bucket create`
+
+Create a new bucket.
+
+**Usage**:
+
+```console
+$ hf bucket create [OPTIONS] BUCKET_ID
+```
+
+**Arguments**:
+
+* `BUCKET_ID`: Bucket ID: namespace/bucket_name (e.g., user/my-bucket)  [required]
+
+**Options**:
+
+* `--private`: Create a private bucket.
+* `--exist-ok`: Do not raise an error if the bucket already exists.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf bucket delete`
+
+Delete a bucket.
+
+**Usage**:
+
+```console
+$ hf bucket delete [OPTIONS] BUCKET_ID
+```
+
+**Arguments**:
+
+* `BUCKET_ID`: Bucket ID: namespace/bucket_name (e.g., user/my-bucket)  [required]
+
+**Options**:
+
+* `-y, --yes`: Skip confirmation prompt.
+* `--missing-ok`: Do not raise an error if the bucket does not exist.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf bucket ls`
+
+List files in a bucket.
+
+**Usage**:
+
+```console
+$ hf bucket ls [OPTIONS] BUCKET
+```
+
+**Arguments**:
+
+* `BUCKET`: Bucket path: hf://buckets/namespace/bucket_name(/prefix)  [required]
+
+**Options**:
+
+* `-h, --human-readable`: Show file size in human readable format.
+* `--tree`: List files in tree format.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf bucket sync`
+
+Sync files between local directory and a bucket.
+
+**Usage**:
+
+```console
+$ hf bucket sync [OPTIONS] [SOURCE] [DEST]
+```
+
+**Arguments**:
+
+* `[SOURCE]`: Source path: local directory or hf://buckets/namespace/bucket_name(/prefix)
+* `[DEST]`: Destination path: local directory or hf://buckets/namespace/bucket_name(/prefix)
+
+**Options**:
+
+* `--delete / --no-delete`: Delete destination files not present in source.  [default: no-delete]
+* `--ignore-times`: Skip files only based on size, ignoring modification times.
+* `--ignore-sizes`: Skip files only based on modification times, ignoring sizes.
+* `--plan TEXT`: Save sync plan to JSONL file for review instead of executing.
+* `--apply TEXT`: Apply a previously saved plan file.
+* `--include TEXT`: Include files matching pattern (can specify multiple).
+* `--exclude TEXT`: Exclude files matching pattern (can specify multiple).
+* `--filter-from TEXT`: Read include/exclude patterns from file.
+* `--existing`: Skip creating new files on receiver (only update existing files).
+* `--ignore-existing`: Skip updating files that exist on receiver (only create new files).
+* `-v, --verbose`: Show detailed logging with reasoning.
+* `-q, --quiet`: Minimal output.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
 
 ## `hf cache`
 
@@ -2326,6 +2444,38 @@ Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
+
+## `hf sync`
+
+Sync files between local directory and a bucket.
+
+**Usage**:
+
+```console
+$ hf sync [OPTIONS] [SOURCE] [DEST]
+```
+
+**Arguments**:
+
+* `[SOURCE]`: Source path: local directory or hf://buckets/namespace/bucket_name(/prefix)
+* `[DEST]`: Destination path: local directory or hf://buckets/namespace/bucket_name(/prefix)
+
+**Options**:
+
+* `--delete / --no-delete`: Delete destination files not present in source.  [default: no-delete]
+* `--ignore-times`: Skip files only based on size, ignoring modification times.
+* `--ignore-sizes`: Skip files only based on modification times, ignoring sizes.
+* `--plan TEXT`: Save sync plan to JSONL file for review instead of executing.
+* `--apply TEXT`: Apply a previously saved plan file.
+* `--include TEXT`: Include files matching pattern (can specify multiple).
+* `--exclude TEXT`: Exclude files matching pattern (can specify multiple).
+* `--filter-from TEXT`: Read include/exclude patterns from file.
+* `--existing`: Skip creating new files on receiver (only update existing files).
+* `--ignore-existing`: Skip updating files that exist on receiver (only create new files).
+* `-v, --verbose`: Show detailed logging with reasoning.
+* `-q, --quiet`: Minimal output.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
 
 ## `hf upload`
 

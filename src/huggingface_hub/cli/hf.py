@@ -22,6 +22,7 @@ from huggingface_hub import __version__, constants
 from huggingface_hub.cli._cli_utils import check_cli_update, typer_factory
 from huggingface_hub.cli._errors import format_known_exception
 from huggingface_hub.cli.auth import auth_cli
+from huggingface_hub.cli.bucket import bucket_cli, sync
 from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.collections import collections_cli
 from huggingface_hub.cli.datasets import datasets_cli
@@ -61,6 +62,7 @@ def app_callback(
 
 
 # top level single commands (defined in their respective files)
+app.command()(sync)
 app.command(examples=DOWNLOAD_EXAMPLES)(download)
 app.command(examples=UPLOAD_EXAMPLES)(upload)
 app.command(examples=UPLOAD_LARGE_FOLDER_EXAMPLES)(upload_large_folder)
@@ -73,6 +75,7 @@ app.command(hidden=True)(lfs_multipart_upload)
 
 # command groups
 app.add_typer(auth_cli, name="auth")
+app.add_typer(bucket_cli, name="bucket")
 app.add_typer(cache_cli, name="cache")
 app.add_typer(collections_cli, name="collections")
 app.add_typer(datasets_cli, name="datasets")
