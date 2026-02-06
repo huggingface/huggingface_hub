@@ -1,5 +1,9 @@
 from typing import Literal, Optional, Union
 
+from huggingface_hub.inference._providers.alphaneural import (
+    AlphaneuralConversationalTask,
+    AlphaneuralTextGenerationTask,
+)
 from huggingface_hub.inference._providers.featherless_ai import (
     FeatherlessConversationalTask,
     FeatherlessTextGenerationTask,
@@ -63,6 +67,7 @@ logger = logging.get_logger(__name__)
 
 
 PROVIDER_T = Literal[
+    "alphaneural",
     "black-forest-labs",
     "cerebras",
     "clarifai",
@@ -92,6 +97,10 @@ PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
 CONVERSATIONAL_AUTO_ROUTER = AutoRouterConversationalTask()
 
 PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
+    "alphaneural": {
+        "conversational": AlphaneuralConversationalTask(),
+        "text-generation": AlphaneuralTextGenerationTask(),
+    },
     "black-forest-labs": {
         "text-to-image": BlackForestLabsTextToImageTask(),
     },
