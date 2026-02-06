@@ -10335,6 +10335,7 @@ class HfApi:
         *,
         job_id: str,
         namespace: Optional[str] = None,
+        follow: bool = True,
         token: Union[bool, str, None] = None,
     ) -> Iterable[str]:
         """
@@ -10346,6 +10347,11 @@ class HfApi:
 
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
+
+            follow (`bool`, *optional*):
+                If `True` (default), stream logs in real-time until the job completes (blocking).
+                If `False`, fetch only the currently available logs and return immediately (non-blocking).
+                Use `follow=False` when calling from scripts, agents, or CI pipelines that should not block.
 
             token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
@@ -10360,8 +10366,16 @@ class HfApi:
             >>> for log in fetch_job_logs(job_id=job.id):
             ...     print(log)
             Hello from HF compute!
+
+            >>> # Non-blocking: fetch only currently available logs
+            >>> for log in fetch_job_logs(job_id=job.id, follow=False):
+            ...     print(log)
             ```
         """
+        if not follow:
+            yield from self._fetch_job_logs_no_follow(job_id=job_id, namespace=namespace, token=token)
+            return
+
         # - We need to retry because sometimes the /logs doesn't return logs when the job just started.
         #   (for example it can return only two lines: one for "Job started" and one empty line)
         # - Timeouts can happen in case of build errors
@@ -10384,6 +10398,49 @@ class HfApi:
             if not event["data"].startswith("===== Job started"):
                 log = event["data"]
                 yield log
+
+    def _fetch_job_logs_no_follow(
+        self,
+        *,
+        job_id: str,
+        namespace: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[str]:
+        """Fetch only currently available logs and return immediately (non-blocking).
+
+        Connects to the SSE log stream with a short read timeout. The server replays
+        all historical log lines quickly, then pauses waiting for new events (with
+        keep-alive every ~30s). When the short timeout fires without new data, we
+        treat that as "all buffered logs received" and return gracefully.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+
+        # Short timeout: the server replays historical logs quickly, then pauses.
+        # 5 seconds is enough to receive all buffered logs.
+        read_timeout = 5
+        try:
+            with get_session().stream(
+                "GET",
+                f"{self.endpoint}/api/jobs/{namespace}/{job_id}/logs",
+                headers=self._build_hf_headers(token=token),
+                timeout=read_timeout,
+            ) as response:
+                hf_raise_for_status(response)
+                for line in response.iter_lines():
+                    if line and line.startswith("data: {"):
+                        event = json.loads(line[len("data: ") :])
+                        if not event["data"].startswith("===== Job started"):
+                            yield event["data"]
+        except (httpx.ReadTimeout, httpcore.ReadTimeout):
+            # ReadTimeout means we received all buffered logs and the server is waiting
+            # for new events - this is the expected exit path for no-follow mode.
+            pass
+        except httpx.NetworkError as err:
+            # NetworkError can wrap a TimeoutError from the underlying socket.
+            is_timeout = err.__context__ and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
+            if not is_timeout:
+                raise
 
     def fetch_job_metrics(
         self,
