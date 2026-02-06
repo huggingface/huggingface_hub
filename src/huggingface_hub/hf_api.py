@@ -10335,7 +10335,7 @@ class HfApi:
         *,
         job_id: str,
         namespace: Optional[str] = None,
-        follow: bool = True,
+        follow: bool = False,
         token: Union[bool, str, None] = None,
     ) -> Iterable[str]:
         """
