@@ -26,7 +26,6 @@ Usage:
 
 import enum
 import json
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import Annotated, Any, Optional, get_args
@@ -34,6 +33,7 @@ from typing import Annotated, Any, Optional, get_args
 import typer
 from packaging import version
 
+from huggingface_hub.cli import _cli_utils
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, SpaceSort_T
@@ -148,7 +148,10 @@ def spaces_info(
 def spaces_hot_reload(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     filename: Annotated[str, typer.Argument(help="Path to the Python file in the Space repository.")],
+    local: Annotated[bool, typer.Option(help="Whether file should be taken locally instead of EDITOR open.")] = False,
+    local_path: Annotated[Optional[str], typer.Option(help="Path of local file. Only relevant with --local flag")] = None,
     skip_checks: Annotated[bool, typer.Option(help="Skip hot-reload compatibility checks.")] = False,
+    skip_summary: Annotated[bool, typer.Option(help="Skip summary display after hot-reloaded triggered")] = False,
     token: TokenOpt = None,
 ) -> None:
     """Perform a hot-reloaded update on any Python file of a Space"""
@@ -171,27 +174,43 @@ def spaces_hot_reload(
             raise CLIError(f"Unable to read pySpacesVersion from {space_id} SpaceRuntime")
         if (spaces_version := version.parse(spaces_version)) < version.Version(HOT_RELOADING_MIN_PYSPACES):
             raise CLIError(f"Hot-reloading requires spaces >= 0.44.0 (found {spaces_version})")
-
-    with tempfile.TemporaryDirectory() as local_dir:
-        filepath = Path(local_dir) / filename
+    if local_path:
+        filepath = local_path
+    elif local:
+        filepath = filename
+    else:
+        temp_dir = tempfile.TemporaryDirectory()
+        filepath = Path(temp_dir.name) / filename
         if not (pbar_disabled := are_progress_bars_disabled()):
             disable_progress_bars()
         hf_hub_download(
             repo_type="space",
             repo_id=space_id,
             filename=filename,
-            local_dir=local_dir,
+            local_dir=temp_dir.name,
         )
         if not pbar_disabled:
             enable_progress_bars()
-        subprocess.run(['code', '--wait', filepath]) # TODO: $EDITOR
-        api.upload_file(
-            repo_type="space",
-            repo_id=space_id,
-            path_or_fileobj=filepath,
-            path_in_repo=filename,
-            hot_reload=True,
-        )
+        editor_res = _cli_utils.editor_open(str(filepath))
+        if editor_res == "no-tty":
+            typer.echo("Cannot open an editor (no TTY). Use --local flag to ho-reload from local path", err=True)
+            raise typer.Exit(code=1)
+        if editor_res == "no-editor":
+            typer.echo("No editor found in local environment. Use --local flag to ho-reload from local path", err=True)
+            raise typer.Exit(code=1)
+        if editor_res != 0:
+            typer.echo(f"Editor returned a non-zero exit code while attempting to edit {filepath}", err=True)
+            raise typer.Exit(code=editor_res)
 
-    # hot-reloading summary
-    # TODO
+    api.upload_file(
+        repo_type="space",
+        repo_id=space_id,
+        path_or_fileobj=filepath,
+        path_in_repo=filename,
+        hot_reload=True,
+    )
+
+    if not skip_summary:
+        # hot-reloading summary
+        # TODO
+        pass
