@@ -1116,7 +1116,7 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 * `cancel`: Cancel a Job
 * `hardware`: List available hardware options for Jobs
 * `inspect`: Display detailed information on one or...
-* `logs`: Fetch the logs of a Job
+* `logs`: Fetch the logs of a Job.
 * `ps`: List Jobs.
 * `run`: Run a Job.
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
@@ -1203,7 +1203,10 @@ Learn more
 
 ### `hf jobs logs`
 
-Fetch the logs of a Job
+Fetch the logs of a Job.
+
+By default, prints currently available logs and exits (non-blocking).
+Use --follow/-f to stream logs in real-time until the job completes.
 
 **Usage**:
 
@@ -1217,12 +1220,16 @@ $ hf jobs logs [OPTIONS] JOB_ID
 
 **Options**:
 
+* `-f, --follow`: Follow log output (stream until the job completes). Without this flag, only currently available logs are printed.
+* `-n, --tail INTEGER`: Number of lines to show from the end of the logs.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf jobs logs <job_id>
+  $ hf jobs logs -f <job_id>
+  $ hf jobs logs --tail 20 <job_id>
 
 Learn more
   Use `hf <command> --help` for more information about a command.
