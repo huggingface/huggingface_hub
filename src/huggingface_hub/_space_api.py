@@ -15,7 +15,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional, Union
 
 from huggingface_hub.utils import parse_datetime
 
@@ -100,6 +100,18 @@ class SpaceStorage(str, Enum):
 
 
 @dataclass
+class SpaceHotReloading:
+    status: Literal["created", "canceled"]
+    replica_statuses: list[tuple[str, str]] # See hot_reloading.types.ApiCreateReloadResponse.res.status
+    raw: dict
+
+    def __init__(self, data: dict) -> None:
+        self.status = data["status"]
+        self.replica_statuses = data["replicaStatuses"]
+        self.raw = data
+
+
+@dataclass
 class SpaceRuntime:
     """
     Contains information about the current runtime of a Space.
@@ -128,6 +140,7 @@ class SpaceRuntime:
     requested_hardware: Optional[SpaceHardware]
     sleep_time: Optional[int]
     storage: Optional[SpaceStorage]
+    hot_reloading: Optional[SpaceHotReloading]
     raw: dict
 
     def __init__(self, data: dict) -> None:
@@ -136,6 +149,7 @@ class SpaceRuntime:
         self.requested_hardware = data.get("hardware", {}).get("requested")
         self.sleep_time = data.get("gcTimeout")
         self.storage = data.get("storage")
+        self.hot_reloading = SpaceHotReloading(raw_hr) if (raw_hr := data.get("hotReloading")) is not None else None
         self.raw = data
 
 

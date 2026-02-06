@@ -36,7 +36,7 @@ from packaging import version
 from huggingface_hub.cli import _cli_utils
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
-from huggingface_hub.hf_api import ExpandSpaceProperty_T, SpaceSort_T
+from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
 from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
@@ -210,3 +210,50 @@ def spaces_hot_reload(
         # hot-reloading summary
         # TODO
         pass
+
+
+def _spaces_hot_reloading_summary(
+    api: HfApi,
+    space_id: str,
+    commit_sha: str,
+    token: Optional[str],
+) -> None:
+    from huggingface_hub._hot_reloading_client import ReloadClient
+
+    space_info = api.space_info(space_id)
+    if (runtime := space_info.runtime) is None:
+        raise CLIError(f"Unable to read SpaceRuntime from {space_id} infos")
+    if (hot_reloading := runtime.hot_reloading) is None:
+        raise CLIError(f"Space {space_id} current running version has not been hot-reloaded")
+    if hot_reloading.status != "created":
+        typer.echo("...")
+        return
+
+    if (space_host := space_info.host) is None:
+        raise CLIError(f"Unexpected None host on hotReloaded Space")
+    if (space_subdomain := space_info.subdomain) is None:
+        raise CLIError(f"Unexpected None subdomain on hotReloaded Space")
+
+    clients = [ReloadClient(
+        host=space_host,
+        subdomain=space_subdomain,
+        replica_hash=hash,
+        token=token,
+    ) for hash, _ in hot_reloading.replica_statuses]
+
+    ...
+    # Fetch first client (display replica hash if multiple)
+    # Compare others
+    # Display final info (Success, Hot-reloading contains errors, etc.)
+
+
+
+@spaces_hot_reloading_cli.command("summary")
+def spaces_hot_reloading_summary(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    commit_sha: Annotated[str, typer.Argument(help="...")],
+    token: TokenOpt = None,
+):
+    """ Description """
+    api = get_hf_api(token=token)
+    _spaces_hot_reloading_summary(api, space_id, commit_sha, token)
