@@ -14,6 +14,7 @@
 import datetime
 import os
 import re
+import secrets
 import subprocess
 import tempfile
 import time
@@ -1429,7 +1430,7 @@ class HfApiListRepoTreeTest(HfApiCommonTest):
             commit_message="A first repo",
             operations=[
                 CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="file.md"),
-                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="lfs.bin"),
+                CommitOperationAdd(path_or_fileobj=secrets.token_bytes(64), path_in_repo="lfs.bin"),  # random data
                 CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="1/file_1.md"),
                 CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="1/2/file_1_2.md"),
                 CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="2/file_2.md"),
