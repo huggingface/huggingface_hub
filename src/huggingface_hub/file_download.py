@@ -418,6 +418,14 @@ def http_get(
         retry_on_status_codes=(429,),
     ) as response:
         hf_raise_for_status(response)
+
+        # If we requested a Range but got 200 back, the server ignored our Range header
+        # (e.g. CloudFront with Accept-Encoding: gzip). Reset file to avoid corruption.
+        if resume_size > 0 and response.status_code == 200:
+            temp_file.seek(0)
+            temp_file.truncate()
+            resume_size = 0
+
         total: Optional[int] = _get_file_length_from_http_response(response)
 
         if displayed_filename is None:
