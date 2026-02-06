@@ -158,7 +158,7 @@ def spaces_hot_reload(
     api = get_hf_api(token=token)
 
     if not skip_checks:
-        space_info = api.space_info(space_id, token=token)
+        space_info = api.space_info(space_id)
         if space_info.sdk != "gradio":
             raise CLIError(f"Hot-reloading is only available on Gradio SDK. Found {space_info.sdk} SDK")
         if (card_data := space_info.card_data) is None:
