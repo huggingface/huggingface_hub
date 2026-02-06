@@ -423,8 +423,15 @@ def http_get(
     r = _request_wrapper(
         method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT
     )
-
     hf_raise_for_status(r)
+
+    # If we requested a Range but got 200 back, the server ignored our Range header
+    # (e.g. CloudFront with Accept-Encoding: gzip). Reset file to avoid corruption.
+    if resume_size > 0 and r.status_code == 200:
+        temp_file.seek(0)
+        temp_file.truncate()
+        resume_size = 0
+
     total: Optional[int] = _get_file_length_from_http_response(r)
 
     if displayed_filename is None:
