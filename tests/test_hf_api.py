@@ -1450,12 +1450,15 @@ class HfApiListRepoTreeTest(HfApiCommonTest):
 
     def test_list_tree(self):
         tree = list(self._api.list_repo_tree(repo_id=self.repo_id))
-        self.assertEqual(len(tree), 6)
-        self.assertEqual({tree_obj.path for tree_obj in tree}, {"file.md", "lfs.bin", "1", "2", "3", ".gitattributes"})
+        assert len(tree) == 6
+        assert {tree_obj.path for tree_obj in tree} == {"file.md", "lfs.bin", "1", "2", "3", ".gitattributes"}
+        lfs_bin_entry = next(tree_obj for tree_obj in tree if tree_obj.path == "lfs.bin")
+        assert lfs_bin_entry.lfs is not None
+        assert isinstance(lfs_bin_entry.xet_hash, str)
 
         tree = list(self._api.list_repo_tree(repo_id=self.repo_id, path_in_repo="1"))
-        self.assertEqual(len(tree), 2)
-        self.assertEqual({tree_obj.path for tree_obj in tree}, {"1/file_1.md", "1/2"})
+        assert len(tree) == 2
+        assert {tree_obj.path for tree_obj in tree} == {"1/file_1.md", "1/2"}
 
     def test_list_tree_recursively(self):
         tree = list(self._api.list_repo_tree(repo_id=self.repo_id, recursive=True))
