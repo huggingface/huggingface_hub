@@ -128,7 +128,6 @@ class SpaceRuntime:
     requested_hardware: Optional[SpaceHardware]
     sleep_time: Optional[int]
     storage: Optional[SpaceStorage]
-    pyspaces_version: Optional[str]
     raw: dict
 
     def __init__(self, data: dict) -> None:
@@ -137,7 +136,6 @@ class SpaceRuntime:
         self.requested_hardware = data.get("hardware", {}).get("requested")
         self.sleep_time = data.get("gcTimeout")
         self.storage = data.get("storage")
-        self.pyspaces_version = data.get("pySpacesVersion")
         self.raw = data
 
 
