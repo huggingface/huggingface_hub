@@ -27,13 +27,11 @@ Usage:
 import enum
 import json
 import tempfile
-from collections import defaultdict
 from pathlib import Path
 from typing import Annotated, Any, Optional, get_args
 
 import typer
 from packaging import version
-from typing_extensions import assert_never
 
 from huggingface_hub.cli import _cli_utils
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
@@ -155,10 +153,7 @@ def spaces_hot_reload(
     skip_summary: Annotated[bool, typer.Option(help="Skip summary display after hot-reloaded triggered")] = False,
     token: TokenOpt = None,
 ) -> None:
-    """
-    Perform a hot-reloaded update on any Python file of a Space.
-    Opens an interactive editor unless --local flag or --local-path option is used.
-    """
+    """Perform a hot-reloaded update on any Python file of a Space"""
 
     api = get_hf_api(token=token)
 
@@ -172,18 +167,17 @@ def spaces_hot_reload(
             raise CLIError(f"Unable to read sdk_version from {space_id} cardData")
         if (sdk_version := version.parse(sdk_version)) < version.Version(HOT_RELOADING_MIN_GRADIO):
             raise CLIError(f"Hot-reloading requires Gradio >= {HOT_RELOADING_MIN_GRADIO} (found {sdk_version})")
+        api.auth_check(
+            repo_type="spaces",
+            repo_id=space_id,
+            write=True,
+        )
 
     if local_path:
         filepath = local_path
     elif local:
         filepath = filename
     else:
-        if not skip_checks:
-            api.auth_check(
-                repo_type="spaces",
-                repo_id=space_id,
-                write=True,
-            )
         temp_dir = tempfile.TemporaryDirectory()
         filepath = Path(temp_dir.name) / filename
         if not (pbar_disabled := are_progress_bars_disabled()):
@@ -204,7 +198,7 @@ def spaces_hot_reload(
         if editor_res != 0:
             raise CLIError(f"Editor returned a non-zero exit code while attempting to edit {filepath}")
 
-    commit_info = api.upload_file(
+    api.upload_file(
         repo_type="space",
         repo_id=space_id,
         path_or_fileobj=filepath,
@@ -212,16 +206,10 @@ def spaces_hot_reload(
         hot_reload=True,
     )
 
-    # TODO: Fetch / display post-commit runtime.hotReloading here instead of inside _spaces_hot_reloading_summary?
-    # So this is displayed even with --skip-summary and gives enough information to perorm a `hf spaces hot-reloading get` call
-
     if not skip_summary:
-        _spaces_hot_reloading_summary(
-            api=api,
-            space_id=space_id,
-            commit_sha=commit_info.oid,
-            token=token,
-        )
+        # hot-reloading summary
+        # TODO
+        pass
 
 
 def _spaces_hot_reloading_summary(
@@ -231,7 +219,6 @@ def _spaces_hot_reloading_summary(
     token: Optional[str],
 ) -> None:
     from huggingface_hub._hot_reloading_client import ReloadClient
-    from huggingface_hub._hot_reloading_types import ApiGetReloadEventSourceData
 
     space_info = api.space_info(space_id)
     if (runtime := space_info.runtime) is None:
@@ -254,40 +241,6 @@ def _spaces_hot_reloading_summary(
         token=token,
     ) for hash, _ in hot_reloading.replica_statuses]
 
-    # Quand on fait --local : display local_path:line:col (code region). Comme ça on peut link-click! Sans --local, peu de chances que le fichier existe
-    # Faut que ça marche aussi bien avec la summary command qu'on lancerait éventuellement après un git push -o hot-reload (donc peut-être par défaut afficher code region dans la summary command)
-
-    previous_events: dict[int, ApiGetReloadEventSourceData] = defaultdict()
-    for client in clients:
-        events: dict[int, ApiGetReloadEventSourceData] = defaultdict()
-        full_match = True
-        for index, event in enumerate(client.get_reload(commit_sha)):
-            events[index] = event
-            if full_match and previous_events[index] == event:
-                continue
-            # TODO: replay in case of full_match flip with index > 0
-            full_match = False
-            if False:
-                pass
-            elif event.data.kind == "error":
-                ...
-            elif event.data.kind == "exception":
-                ...
-            elif event.data.kind == "add":
-                ...
-            elif event.data.kind == "delete":
-                ...
-            elif event.data.kind == "update":
-                ...
-            elif event.data.kind == "run":
-                ...
-            elif event.data.kind == "ui":
-                ...
-            else:
-                assert_never(event.data.kind)
-        if full_match:
-            ...
-        previous_events = events
     ...
     # Fetch first client (display replica hash if multiple)
     # Compare others
