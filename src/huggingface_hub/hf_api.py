@@ -673,6 +673,8 @@ class RepoFile:
             The file's git OID.
         lfs (`BlobLfsInfo`, *optional*):
             The file's LFS metadata.
+        xet_hash (`str`, *optional*):
+            The file's Xet hash.
         last_commit (`LastCommitInfo`, *optional*):
             The file's last commit metadata. Only defined if [`list_repo_tree`] and [`get_paths_info`]
             are called with `expand=True`.
@@ -685,6 +687,7 @@ class RepoFile:
     size: int
     blob_id: str
     lfs: Optional[BlobLfsInfo] = None
+    xet_hash: Optional[str] = None
     last_commit: Optional[LastCommitInfo] = None
     security: Optional[BlobSecurityInfo] = None
 
@@ -696,6 +699,7 @@ class RepoFile:
         if lfs is not None:
             lfs = BlobLfsInfo(size=lfs["size"], sha256=lfs["oid"], pointer_size=lfs["pointerSize"])
         self.lfs = lfs
+        self.xet_hash = kwargs.pop("xetHash", None)
         last_commit = kwargs.pop("lastCommit", None) or kwargs.pop("last_commit", None)
         if last_commit is not None:
             last_commit = LastCommitInfo(

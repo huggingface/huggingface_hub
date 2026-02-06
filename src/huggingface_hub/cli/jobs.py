@@ -62,6 +62,7 @@ import json
 import multiprocessing
 import multiprocessing.pool
 import os
+import shutil
 import time
 from dataclasses import asdict
 from fnmatch import fnmatch
@@ -1010,7 +1011,7 @@ def _tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
     - stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
     """
     col_widths = [max(len(str(x)) for x in col) for col in zip(*rows, headers)]
-    terminal_width = max(os.get_terminal_size().columns, len(headers) * 12)
+    terminal_width = max(shutil.get_terminal_size().columns, len(headers) * 12)
     while len(headers) + sum(col_widths) > terminal_width:
         col_to_minimize = col_widths.index(max(col_widths))
         col_widths[col_to_minimize] //= 2

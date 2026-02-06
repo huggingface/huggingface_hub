@@ -14,8 +14,11 @@
 
 import sys
 import traceback
+from typing import Annotated, Optional
 
-from huggingface_hub import constants
+import typer
+
+from huggingface_hub import __version__, constants
 from huggingface_hub.cli._cli_utils import check_cli_update, typer_factory
 from huggingface_hub.cli._errors import format_known_exception
 from huggingface_hub.cli.auth import auth_cli
@@ -41,6 +44,21 @@ from huggingface_hub.utils import ANSI, logging
 
 
 app = typer_factory(help="Hugging Face Hub CLI")
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        print(__version__)
+        raise typer.Exit()
+
+
+@app.callback(invoke_without_command=True)
+def app_callback(
+    version: Annotated[
+        Optional[bool], typer.Option("--version", callback=_version_callback, is_eager=True, hidden=True)
+    ] = None,
+) -> None:
+    pass
 
 
 # top level single commands (defined in their respective files)
