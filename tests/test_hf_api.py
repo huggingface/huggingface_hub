@@ -14,7 +14,6 @@
 import datetime
 import os
 import re
-import secrets
 import subprocess
 import tempfile
 import time
@@ -1430,7 +1429,7 @@ class HfApiListRepoTreeTest(HfApiCommonTest):
             commit_message="A first repo",
             operations=[
                 CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="file.md"),
-                CommitOperationAdd(path_or_fileobj=secrets.token_bytes(64), path_in_repo="lfs.bin"),  # random data
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="lfs.bin"),
                 CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="1/file_1.md"),
                 CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="1/2/file_1_2.md"),
                 CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="2/file_2.md"),
@@ -1453,9 +1452,6 @@ class HfApiListRepoTreeTest(HfApiCommonTest):
         tree = list(self._api.list_repo_tree(repo_id=self.repo_id))
         assert len(tree) == 6
         assert {tree_obj.path for tree_obj in tree} == {"file.md", "lfs.bin", "1", "2", "3", ".gitattributes"}
-        lfs_bin_entry = next(tree_obj for tree_obj in tree if tree_obj.path == "lfs.bin")
-        assert lfs_bin_entry.lfs is not None
-        assert isinstance(lfs_bin_entry.xet_hash, str)
 
         tree = list(self._api.list_repo_tree(repo_id=self.repo_id, path_in_repo="1"))
         assert len(tree) == 2
@@ -1533,6 +1529,12 @@ class HfApiListRepoTreeTest(HfApiCommonTest):
         # check last_commit is missing for a folder
         feature_extractor = next(tree_obj for tree_obj in tree if tree_obj.path == "feature_extractor")
         self.assertIsNone(feature_extractor.last_commit)
+
+    @with_production_testing
+    def test_list_tree_with_xethash(self):
+        tree = list(HfApi().list_repo_tree(repo_id="openai-community/gpt2"))
+        model_entry = next(tree_obj for tree_obj in tree if tree_obj.path == "model.safetensors")
+        assert model_entry.xet_hash == "63bed80836ee0758c8fd4f8975d59bb0b864263ee2753547c358e8a37cde8758"
 
 
 class HfApiTagEndpointTest(HfApiCommonTest):
