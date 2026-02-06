@@ -10111,7 +10111,12 @@ class HfApi:
             yield PaperInfo(**paper)
 
     def auth_check(
-        self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+        write: bool = False,
     ) -> None:
         """
         Check if the provided user token has access to a specific repository on the Hugging Face Hub.
@@ -10171,6 +10176,7 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/auth-check"
+        path = f"{path}/write" if write else path
         r = get_session().get(path, headers=headers)
         hf_raise_for_status(r)
 

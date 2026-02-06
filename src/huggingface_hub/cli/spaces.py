@@ -57,8 +57,7 @@ from ._cli_utils import (
 )
 
 
-HOT_RELOADING_MIN_GRADIO = "6.0.0"
-HOT_RELOADING_MIN_PYSPACES = "0.44.0"
+HOT_RELOADING_MIN_GRADIO = "6.1.0"
 
 
 _EXPAND_PROPERTIES = sorted(get_args(ExpandSpaceProperty_T))
@@ -167,13 +166,13 @@ def spaces_hot_reload(
         if (sdk_version := card_data.sdk_version) is None:
             raise CLIError(f"Unable to read sdk_version from {space_id} cardData")
         if (sdk_version := version.parse(sdk_version)) < version.Version(HOT_RELOADING_MIN_GRADIO):
-            raise CLIError(f"Hot-reloading requires Gradio 6+ (found {sdk_version})")
-        if (runtime := space_info.runtime) is None:
-            raise CLIError(f"Unable to read SpaceRuntime for Space {space_id}")
-        if (spaces_version := runtime.pyspaces_version) is None:
-            raise CLIError(f"Unable to read pySpacesVersion from {space_id} SpaceRuntime")
-        if (spaces_version := version.parse(spaces_version)) < version.Version(HOT_RELOADING_MIN_PYSPACES):
-            raise CLIError(f"Hot-reloading requires spaces >= 0.44.0 (found {spaces_version})")
+            raise CLIError(f"Hot-reloading requires Gradio >= {HOT_RELOADING_MIN_GRADIO} (found {sdk_version})")
+        api.auth_check(
+            repo_type="spaces",
+            repo_id=space_id,
+            write=True,
+        )
+
     if local_path:
         filepath = local_path
     elif local:
