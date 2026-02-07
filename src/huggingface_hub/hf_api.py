@@ -9347,7 +9347,7 @@ class HfApi:
             >>> from huggingface_hub import create_webhook, run_job
             >>> job = run_job(
             ...     image="ubuntu",
-            ...     command=["bash", "-c", r"echo An event occured in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD"],
+            ...     command=["bash", "-c", r"echo An event occurred in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD"],
             ... )
             >>> payload = create_webhook(
             ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
@@ -9362,7 +9362,7 @@ class HfApi:
                 job=JobSpec(
                     docker_image='ubuntu',
                     space_id=None,
-                    command=['bash', '-c', 'echo An event occured in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD'],
+                    command=['bash', '-c', 'echo An event occurred in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD'],
                     arguments=[],
                     environment={},
                     secrets=[],
