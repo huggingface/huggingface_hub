@@ -94,8 +94,16 @@ Entry point: `hf.py` (Typer app). Subcommands split into modules: `auth.py`, `re
 
 - Max line length: 119 chars.
 - Linter/formatter: `ruff`.
-- Type checker: `ty` (+ mypy in CI).
 - Imports sorted by `ruff` (isort-compatible).
+
+### Type checking: local vs CI
+
+Locally, `make quality` runs `ty check src` using whatever version of `ty` is installed in the virtualenv. CI (`.github/workflows/python-quality.yml`) runs `uvx ty check src` (always the latest `ty` release) **and** `mypy src`. This means CI may flag errors that do not appear locally — this is intentional.
+
+- **`ty`**: The local version is whatever the developer has installed — it won't update on its own, so new `ty` releases don't unexpectedly break the workflow. Developers can update it at will. CI always uses the latest version to catch issues early.
+- **`mypy`**: Historically the project's type checker. It is kept in CI (until `ty` reaches a stable release) but not run locally via `make quality` because it takes 1–2 minutes, which slows down the development loop.
+
+If CI fails on type checks that pass locally, the likely cause is a newer `ty` version or a `mypy`-only diagnostic. Fix the reported errors rather than downgrading the checker.
 
 ## Testing notes
 
