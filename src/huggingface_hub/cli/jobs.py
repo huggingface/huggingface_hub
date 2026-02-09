@@ -67,6 +67,7 @@ import multiprocessing.pool
 import os
 import shutil
 import time
+from collections import deque
 from dataclasses import asdict
 from fnmatch import fnmatch
 from pathlib import Path
@@ -352,8 +353,6 @@ def jobs_logs(
     try:
         logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow)
         if tail is not None:
-            from collections import deque
-
             logs = deque(logs, maxlen=tail)
         for log in logs:
             print(log)
