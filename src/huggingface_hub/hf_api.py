@@ -11942,3 +11942,13 @@ delete_scheduled_job = api.delete_scheduled_job
 suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
 create_scheduled_uv_job = api.create_scheduled_uv_job
+
+# Buckets API
+create_bucket = api.create_bucket
+bucket_info = api.bucket_info
+list_buckets = api.list_buckets
+delete_bucket = api.delete_bucket
+list_bucket_tree = api.list_bucket_tree
+batch_bucket_files = api.batch_bucket_files
+get_bucket_file_metadata = api.get_bucket_file_metadata
+download_bucket_files = api.download_bucket_files
