@@ -20,8 +20,11 @@ Usage:
     # List running or completed jobs
     hf jobs ps [-a] [-f key=value] [--format TEMPLATE]
 
-    # Stream logs from a job
+    # Print logs from a job (non-blocking)
     hf jobs logs <job-id>
+
+    # Stream logs from a job (blocking, like `docker logs -f`)
+    hf jobs logs -f <job-id>
 
     # Stream resources usage stats and metrics from a job
     hf jobs stats <job-id>
@@ -64,6 +67,7 @@ import multiprocessing.pool
 import os
 import shutil
 import time
+from collections import deque
 from dataclasses import asdict
 from fnmatch import fnmatch
 from pathlib import Path
@@ -312,20 +316,50 @@ def jobs_run(
     if detach:
         return
     # Now let's stream the logs
-    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name):
+    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
         print(log)
 
 
-@jobs_cli.command("logs", examples=["hf jobs logs <job_id>"])
+@jobs_cli.command(
+    "logs", examples=["hf jobs logs <job_id>", "hf jobs logs -f <job_id>", "hf jobs logs --tail 20 <job_id>"]
+)
 def jobs_logs(
     job_id: JobIdArg,
+    follow: Annotated[
+        bool,
+        typer.Option(
+            "-f",
+            "--follow",
+            help="Follow log output (stream until the job completes). Without this flag, only currently available logs are printed.",
+        ),
+    ] = False,
+    tail: Annotated[
+        Optional[int],
+        typer.Option(
+            "-n",
+            "--tail",
+            help="Number of lines to show from the end of the logs.",
+        ),
+    ] = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Fetch the logs of a Job"""
+    """Fetch the logs of a Job.
+
+    By default, prints currently available logs and exits (non-blocking).
+    Use --follow/-f to stream logs in real-time until the job completes.
+    """
+    if follow and tail is not None:
+        raise CLIError(
+            "Cannot use --follow and --tail together. Use --follow to stream logs or --tail to show recent logs."
+        )
+
     api = get_hf_api(token=token)
     try:
-        for log in api.fetch_job_logs(job_id=job_id, namespace=namespace):
+        logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow)
+        if tail is not None:
+            logs = deque(logs, maxlen=tail)
+        for log in logs:
             print(log)
     except HfHubHTTPError as e:
         status = e.response.status_code if e.response is not None else None
@@ -729,7 +763,7 @@ def jobs_uv_run(
     if detach:
         return
     # Now let's stream the logs
-    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name):
+    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
         print(log)
 
 
