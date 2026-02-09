@@ -349,6 +349,11 @@ def jobs_logs(
     By default, prints currently available logs and exits (non-blocking).
     Use --follow/-f to stream logs in real-time until the job completes.
     """
+    if follow and tail is not None:
+        raise CLIError(
+            "Cannot use --follow and --tail together. Use --follow to stream logs or --tail to show recent logs."
+        )
+
     api = get_hf_api(token=token)
     try:
         logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow)

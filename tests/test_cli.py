@@ -2020,3 +2020,9 @@ class TestJobsCommand:
         assert "line 1" not in result.output
         assert "line 2" not in result.output
         assert "line 3" in result.output
+
+    def test_logs_follow_and_tail_error(self, runner: CliRunner) -> None:
+        """Test that `hf jobs logs -f --tail 5 <id>` raises an error."""
+        result = runner.invoke(app, ["jobs", "logs", "-f", "--tail", "5", "my-job-id"])
+        assert result.exit_code != 0
+        assert "Cannot use --follow and --tail together" in str(result.exception)
