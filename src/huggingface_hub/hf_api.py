@@ -9415,7 +9415,7 @@ class HfApi:
             >>> from huggingface_hub import create_webhook, run_job
             >>> job = run_job(
             ...     image="ubuntu",
-            ...     command=["bash", "-c", r"echo An event occured in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD"],
+            ...     command=["bash", "-c", r"echo An event occurred in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD"],
             ... )
             >>> payload = create_webhook(
             ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
@@ -9430,7 +9430,7 @@ class HfApi:
                 job=JobSpec(
                     docker_image='ubuntu',
                     space_id=None,
-                    command=['bash', '-c', 'echo An event occured in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD'],
+                    command=['bash', '-c', 'echo An event occurred in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD'],
                     arguments=[],
                     environment={},
                     secrets=[],
@@ -10331,6 +10331,7 @@ class HfApi:
         timeout: int,
         skip_previous_events_on_retry: bool,
         double_check_job_has_finished_on_status_code_or_error: tuple[Union[int, Type[Exception]], ...],
+        follow: bool = True,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[dict[str, Any]]:
@@ -10338,7 +10339,7 @@ class HfApi:
             namespace = self.whoami(token=token)["name"]
         # We don't use http_backoff since we need to check ourselves if the job is still running
         nb_tries = 0
-        max_retries = 5
+        max_retries = 5 if follow else 0
         min_wait_time = 1
         max_wait_time = 10
         sleep_time = 0
@@ -10383,7 +10384,9 @@ class HfApi:
                     and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
                 )
                 if is_no_new_line_timeout:
-                    # job is likely finished
+                    if not follow:
+                        break  # no-follow mode: got all buffered events
+                    # follow mode: job is likely finished
                     pass
                 elif type(err) in double_check_job_has_finished_on_status_code_or_error:
                     pass
@@ -10407,6 +10410,7 @@ class HfApi:
         *,
         job_id: str,
         namespace: Optional[str] = None,
+        follow: bool = False,
         token: Union[bool, str, None] = None,
     ) -> Iterable[str]:
         """
@@ -10418,6 +10422,10 @@ class HfApi:
 
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
+
+            follow (`bool`, *optional*):
+                If `True`, stream logs in real-time until the job completes (blocking).
+                If `False` (default), fetch only the currently available logs and return immediately (non-blocking).
 
             token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
@@ -10432,6 +10440,10 @@ class HfApi:
             >>> for log in fetch_job_logs(job_id=job.id):
             ...     print(log)
             Hello from HF compute!
+
+            >>> # Non-blocking: fetch only currently available logs
+            >>> for log in fetch_job_logs(job_id=job.id, follow=False):
+            ...     print(log)
             ```
         """
         # - We need to retry because sometimes the /logs doesn't return logs when the job just started.
@@ -10443,12 +10455,17 @@ class HfApi:
         # - there is a ": keep-alive" every 30 seconds
 
         seconds_between_keep_alive = 30
+        # When not following, use a short timeout: the server replays historical logs
+        # quickly, then pauses waiting for new events (~30s keep-alive). 5 seconds is
+        # enough to receive all buffered logs.
+        timeout = 4 * seconds_between_keep_alive if follow else 5
         for event in self._fetch_running_job_sse(
             job_id=job_id,
             route="logs",
-            timeout=4 * seconds_between_keep_alive,
+            timeout=timeout,
             skip_previous_events_on_retry=True,
             double_check_job_has_finished_on_status_code_or_error=tuple(),
+            follow=follow,
             namespace=namespace,
             token=token,
         ):
