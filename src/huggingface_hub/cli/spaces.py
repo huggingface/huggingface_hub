@@ -26,6 +26,7 @@ Usage:
 
 import enum
 import json
+import os
 import tempfile
 from collections import defaultdict
 from pathlib import Path
@@ -148,9 +149,8 @@ def spaces_info(
 @spaces_cli.command("hot-reload")
 def spaces_hot_reload(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
-    filename: Annotated[str, typer.Argument(help="Path to the Python file in the Space repository.")],
-    local: Annotated[bool, typer.Option(help="Whether file should be taken locally instead of EDITOR open.")] = False,
-    local_path: Annotated[Optional[str], typer.Option(help="Path of local file. Only relevant with --local flag")] = None,
+    filename: Annotated[Optional[str], typer.Argument(help="Path to the Python file in the Space repository. Can be ommited when --local-file if specified and path in repository matches.")] = None,
+    local_file: Annotated[Optional[str], typer.Option("--local-file", "-f", help="Path of local file. Interactive editor mode if not specified")] = None,
     skip_checks: Annotated[bool, typer.Option(help="Skip hot-reload compatibility checks.")] = False,
     skip_summary: Annotated[bool, typer.Option(help="Skip summary display after hot-reloaded triggered")] = False,
     token: TokenOpt = None,
@@ -173,11 +173,10 @@ def spaces_hot_reload(
         if (sdk_version := version.parse(sdk_version)) < version.Version(HOT_RELOADING_MIN_GRADIO):
             raise CLIError(f"Hot-reloading requires Gradio >= {HOT_RELOADING_MIN_GRADIO} (found {sdk_version})")
 
-    if local_path:
-        filepath = local_path
-    elif local:
-        filepath = filename
-    else:
+    if local_file:
+        filepath = local_file
+        filename = local_file if filename is None else filename
+    elif filename:
         if not skip_checks:
             api.auth_check(
                 repo_type="space",
@@ -203,6 +202,8 @@ def spaces_hot_reload(
             raise CLIError("No editor found in local environment. Use --local flag to ho-reload from local path")
         if editor_res != 0:
             raise CLIError(f"Editor returned a non-zero exit code while attempting to edit {filepath}")
+    else:
+        raise CLIError("Either filename or --local-file/-f must be specified")
 
     commit_info = api.upload_file(
         repo_type="space",
@@ -217,7 +218,7 @@ def spaces_hot_reload(
             api=api,
             space_id=space_id,
             commit_sha=commit_info.oid,
-            filepath=str(filepath),
+            filepath=str(filepath if local_file else os.path.basename(filepath)),
             token=token,
         )
 
