@@ -247,7 +247,7 @@ def _spaces_hot_reloading_summary(
     if (hot_reloading := runtime.hot_reloading) is None:
         raise CLIError(f"Space {space_id} current running version has not been hot-reloaded")
     if hot_reloading.status != "created":
-        typer.echo("...")
+        typer.echo(f"Failed creating hot-reloaded commit. {hot_reloading.replica_statuses=}")
         return
 
     if (space_host := space_info.host) is None:
