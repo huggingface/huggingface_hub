@@ -719,6 +719,7 @@ class TestUploadImpl:
             commit_message=None,
             commit_description=None,
             create_pr=True,
+            hot_reload=False,
         )
         print_mock.assert_called_once_with("uploaded")
 
