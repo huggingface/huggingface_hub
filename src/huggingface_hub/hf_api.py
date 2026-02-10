@@ -11329,6 +11329,45 @@ class HfApi:
         exist_ok: bool = False,
         token: Union[bool, str, None] = None,
     ) -> RepoUrl:
+        """Create a bucket on the Hub.
+
+        Args:
+            bucket_id (`str`):
+                A namespace (user or an organization) and a bucket name separated by a `/`.
+                If no namespace is provided, the bucket will be created in the current user's namespace.
+            private (`bool`, *optional*):
+                Whether to make the bucket private. If `None` (default), the bucket will be public unless the
+                organization's default is private.
+            resource_group_id (`str`, *optional*):
+                Resource group in which to create the bucket. Resource groups are only available for Enterprise Hub
+                organizations and allow to define which members of the organization can access the resource. The ID
+                of a resource group can be found in the URL of the resource's page on the Hub
+                (e.g. `"66670e5163145ca562cb1988"`). To learn more about resource groups, see
+                https://huggingface.co/docs/hub/en/security-resource-groups.
+            exist_ok (`bool`, *optional*, defaults to `False`):
+                If `True`, do not raise an error if the bucket already exists.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`RepoUrl`]: URL to the newly created bucket. Value is a subclass of `str` containing
+            attributes like `endpoint` and `repo_id`.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+
+            >>> api.create_bucket(bucket_id="my-bucket")
+            RepoUrl('https://huggingface.co/...')
+
+            >>> api.create_bucket(bucket_id="my-bucket", private=True, exist_ok=True)
+            RepoUrl('https://huggingface.co/...')
+            ```
+        """
         payload: dict[str, Any] = {}
         if private is not None:
             payload["private"] = private
@@ -11371,6 +11410,35 @@ class HfApi:
         *,
         token: Union[bool, str, None] = None,
     ) -> BucketInfo:
+        """Get information about a specific bucket on the Hub.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`BucketInfo`]: The bucket information.
+
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the bucket cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> api.bucket_info(bucket_id="username/my-bucket")
+            BucketInfo(...)
+            ```
+        """
         response = get_session().get(
             f"{self.endpoint}/api/buckets/{bucket_id}",
             headers=self._build_hf_headers(token=token),
@@ -11383,6 +11451,26 @@ class HfApi:
         *,
         token: Union[bool, str, None] = None,
     ) -> Iterable[BucketInfo]:
+        """List buckets accessible by the current user on the Hub.
+
+        Args:
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[BucketInfo]`: An iterable of [`BucketInfo`] objects.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> for bucket in api.list_buckets():
+            ...     print(bucket)
+            ```
+        """
         for item in paginate(f"{self.endpoint}/api/buckets", params={}, headers=self._build_hf_headers(token=token)):
             yield BucketInfo(**item)
 
@@ -11393,6 +11481,34 @@ class HfApi:
         missing_ok: bool = False,
         token: Union[bool, str, None] = None,
     ) -> None:
+        """Delete a bucket from the Hub. CAUTION: this is irreversible.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            missing_ok (`bool`, *optional*, defaults to `False`):
+                If `True`, do not raise an error if the bucket does not exist.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the bucket to delete cannot be found and `missing_ok` is set to `False` (default).
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> api.delete_bucket(bucket_id="username/my-bucket")
+
+            >>> api.delete_bucket(bucket_id="username/my-bucket", missing_ok=True)
+            ```
+        """
         response = get_session().delete(
             f"{self.endpoint}/api/buckets/{bucket_id}",
             headers=self._build_hf_headers(token=token),
@@ -11411,6 +11527,34 @@ class HfApi:
         *,
         token: Union[str, bool, None] = None,
     ) -> Iterable[dict[str, Any]]:
+        """List files in a bucket.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            prefix (`str`, *optional*):
+                Filter results to files whose path starts with this prefix.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[dict]`: An iterable of dictionaries containing file information (path, size, mtime, etc.).
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> for file_info in api.list_bucket_tree(bucket_id="username/my-bucket"):
+            ...     print(file_info["path"])
+
+            >>> # Filter by prefix
+            >>> for file_info in api.list_bucket_tree(bucket_id="username/my-bucket", prefix="models/"):
+            ...     print(file_info["path"])
+            ```
+        """
         encoded_prefix = "/" + quote(prefix, safe="") if prefix else ""
         for item in paginate(
             path=f"{self.endpoint}/api/buckets/{bucket_id}/tree/latest{encoded_prefix}",
@@ -11440,8 +11584,11 @@ class HfApi:
                 and `destination` is the path in the bucket.
             delete (`list` of `str`, *optional*):
                 Paths of files to delete from the bucket.
-            token (`str` or `bool`, *optional*):
-                A valid user access token. Defaults to the stored token.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
         Returns:
             `dict`: The server response as a dictionary.
@@ -11604,14 +11751,29 @@ class HfApi:
 
         Args:
             bucket_id (`str`):
-                The ID of the bucket.
+                The ID of the bucket (e.g. `"username/my-bucket"`).
             remote_path (`str`):
                 The path of the file in the bucket.
-            token (`str` or `bool`, *optional*):
-                A valid user access token. Defaults to the stored token.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
         Returns:
             [`BucketFileMetadata`]: The file metadata containing size and xet information.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> metadata = api.get_bucket_file_metadata(
+            ...     bucket_id="username/my-bucket",
+            ...     remote_path="models/model.safetensors",
+            ... )
+            >>> metadata.size
+            42000
+            ```
         """
         response = get_session().head(
             f"{self.endpoint}/buckets/{bucket_id}/resolve/latest/{quote(remote_path, safe='')}",
@@ -11636,6 +11798,34 @@ class HfApi:
         *,
         token: Union[str, bool, None] = None,
     ) -> None:
+        """Download files from a bucket.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            files (`list` of `tuple`):
+                Files to download. Each element is a `(remote_path, local_path)` tuple where `remote_path` is the
+                path of the file in the bucket and `local_path` is the destination path on the local filesystem.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+
+            >>> api.download_bucket_files(
+            ...     bucket_id="username/my-bucket",
+            ...     files=[
+            ...         ("models/model.safetensors", "./local/model.safetensors"),
+            ...         ("config.json", "./local/config.json"),
+            ...     ],
+            ... )
+            ```
+        """
         from hf_xet import PyXetDownloadInfo, download_files  # type: ignore[no-redef]
 
         headers = self._build_hf_headers(token=token)
