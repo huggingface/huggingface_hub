@@ -1545,8 +1545,79 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `hot-reload`: Perform a hot-reloaded update on any...
+* `hot-reloading`: Low-level hot-reloading commands
 * `info`: Get info about a space on the Hub.
 * `ls`: List spaces on the Hub.
+
+### `hf spaces hot-reload`
+
+Perform a hot-reloaded update on any Python file of a Space.
+Opens an interactive editor unless --local-file/-f option is used.
+
+Usage examples:
+
+
+hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file
+hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo
+hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo
+
+**Usage**:
+
+```console
+$ hf spaces hot-reload [OPTIONS] SPACE_ID [FILENAME]
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `[FILENAME]`: Path to the Python file in the Space repository. Can be ommited when --local-file if specified and path in repository matches.
+
+**Options**:
+
+* `-f, --local-file TEXT`: Path of local file. Interactive editor mode if not specified
+* `--skip-checks / --no-skip-checks`: Skip hot-reload compatibility checks.  [default: no-skip-checks]
+* `--skip-summary / --no-skip-summary`: Skip summary display after hot-reloaded triggered  [default: no-skip-summary]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf spaces hot-reloading`
+
+Low-level hot-reloading commands
+
+**Usage**:
+
+```console
+$ hf spaces hot-reloading [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `summary`: Display code updates summary of a...
+
+#### `hf spaces hot-reloading summary`
+
+Display code updates summary of a hot-reloaded commit
+
+**Usage**:
+
+```console
+$ hf spaces hot-reloading summary [OPTIONS] SPACE_ID COMMIT_SHA
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `COMMIT_SHA`: ...  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
 
 ### `hf spaces info`
 
@@ -1619,6 +1690,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 * `--commit-message TEXT`: The summary / title / first line of the generated commit.
 * `--commit-description TEXT`: The description of the generated commit.
 * `--create-pr / --no-create-pr`: Whether to upload content as a new Pull Request.  [default: no-create-pr]
+* `--hot-reload / --no-hot-reload`: Whether to trigger a hot-reloaded update for Spaces  [default: no-hot-reload]
 * `--every FLOAT`: f set, a background job is scheduled to create commits every `every` minutes.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--quiet / --no-quiet`: Disable progress bars and warnings; print only the returned path.  [default: no-quiet]
