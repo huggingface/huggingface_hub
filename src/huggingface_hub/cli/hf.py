@@ -36,6 +36,7 @@ from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.skills import skills_cli
 from huggingface_hub.cli.spaces import spaces_cli
 from huggingface_hub.cli.system import env, version
+from huggingface_hub.cli.tool import tool_cli
 from huggingface_hub.cli.upload import UPLOAD_EXAMPLES, upload
 from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EXAMPLES, upload_large_folder
 from huggingface_hub.errors import CLIError
@@ -79,6 +80,7 @@ app.add_typer(datasets_cli, name="datasets")
 app.add_typer(jobs_cli, name="jobs")
 app.add_typer(models_cli, name="models")
 app.add_typer(papers_cli, name="papers")
+app.add_typer(tool_cli, name="tool")
 app.add_typer(repo_cli, name="repo")
 app.add_typer(repo_files_cli, name="repo-files")
 app.add_typer(skills_cli, name="skills")
