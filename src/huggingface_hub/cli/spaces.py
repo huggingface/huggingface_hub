@@ -27,11 +27,13 @@ Usage:
 import enum
 import json
 import tempfile
+from collections import defaultdict
 from pathlib import Path
 from typing import Annotated, Any, Optional, get_args
 
 import typer
 from packaging import version
+from typing_extensions import assert_never
 
 from huggingface_hub.cli import _cli_utils
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
@@ -202,7 +204,7 @@ def spaces_hot_reload(
         if editor_res != 0:
             raise CLIError(f"Editor returned a non-zero exit code while attempting to edit {filepath}")
 
-    api.upload_file(
+    commit_info = api.upload_file(
         repo_type="space",
         repo_id=space_id,
         path_or_fileobj=filepath,
@@ -211,18 +213,25 @@ def spaces_hot_reload(
     )
 
     if not skip_summary:
-        # hot-reloading summary
-        # TODO
-        pass
+        _spaces_hot_reloading_summary(
+            api=api,
+            space_id=space_id,
+            commit_sha=commit_info.oid,
+            filepath=str(filepath),
+            token=token,
+        )
 
 
 def _spaces_hot_reloading_summary(
     api: HfApi,
     space_id: str,
     commit_sha: str,
+    filepath: Optional[str],
     token: Optional[str],
 ) -> None:
     from huggingface_hub._hot_reloading_client import ReloadClient
+    from huggingface_hub._hot_reloading_types import ApiGetReloadEventSourceData
+    from huggingface_hub._hot_reloading_types import ReloadRegion
 
     space_info = api.space_info(space_id)
     if (runtime := space_info.runtime) is None:
@@ -245,11 +254,57 @@ def _spaces_hot_reloading_summary(
         token=token,
     ) for hash, _ in hot_reloading.replica_statuses]
 
-    ...
-    # Fetch first client (display replica hash if multiple)
-    # Compare others
-    # Display final info (Success, Hot-reloading contains errors, etc.)
+    def render_region(region: ReloadRegion) -> str:
+        res = ""
+        if filepath is not None:
+            res += f"{filepath}, "
+        if region.startLine == region.endLine:
+            res += f"line {region.startLine}"
+        else:
+            res += f"lines {region.startLine}-{region.endLine}"
+        return res
 
+    def display_event(event: ApiGetReloadEventSourceData) -> None:
+        if False: pass
+        elif event.data.kind == "error":
+            typer.secho(f"✘ Unexpected hot-reloading error", bold=True)
+            typer.echo(event.data.traceback)
+        elif event.data.kind == "exception":
+            typer.secho(f"✘ Exception at {render_region(event.data.region)}", bold=True)
+            typer.echo(event.data.traceback)
+        elif event.data.kind == "add":
+            typer.secho(f"✔︎ Created {event.data.objectName} {event.data.objectType}", bold=True)
+        elif event.data.kind == "delete":
+            typer.secho(f"∅ Deleted {event.data.objectName} {event.data.objectType}", bold=True)
+        elif event.data.kind == "update":
+            typer.secho(f"✔︎ Updated {event.data.objectName} {event.data.objectType}", bold=True)
+        elif event.data.kind == "run":
+            typer.secho(f"▶ Run {render_region(event.data.region)}", bold=True)
+            typer.secho(event.data.codeLines, italic=True)
+        elif event.data.kind == "ui":
+            if event.data.updated:
+                typer.secho("⟳ UI updated", bold=True)
+            else:
+                typer.secho("∅ UI untouched", bold=True)
+        else:
+            assert_never(event.data.kind)
+
+    # TODO: display SHA when needed and full-match feedback
+    first_client_events: dict[int, ApiGetReloadEventSourceData] = defaultdict()
+    for client_index, client in enumerate(clients):
+        full_match = True
+        replay: list[ApiGetReloadEventSourceData] = []
+        for event_index, event in enumerate(client.get_reload(commit_sha)):
+            if client_index == 0:
+                first_client_events[event_index] = event
+            elif (full_match := full_match and first_client_events[event_index] == event):
+                replay += [event]
+                continue
+            if len(replay) >= 0:
+                for replay_event in replay:
+                    display_event(replay_event)
+                replay = []
+            display_event(event)
 
 
 @spaces_hot_reloading_cli.command("summary")
@@ -260,4 +315,10 @@ def spaces_hot_reloading_summary(
 ):
     """ Description """
     api = get_hf_api(token=token)
-    _spaces_hot_reloading_summary(api, space_id, commit_sha, token)
+    _spaces_hot_reloading_summary(
+        api=api,
+        space_id=space_id,
+        commit_sha=commit_sha,
+        filepath=None,
+        token=token,
+    )
