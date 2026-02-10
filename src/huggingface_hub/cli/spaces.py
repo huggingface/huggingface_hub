@@ -153,7 +153,10 @@ def spaces_hot_reload(
     skip_summary: Annotated[bool, typer.Option(help="Skip summary display after hot-reloaded triggered")] = False,
     token: TokenOpt = None,
 ) -> None:
-    """Perform a hot-reloaded update on any Python file of a Space"""
+    """
+    Perform a hot-reloaded update on any Python file of a Space.
+    Opens an interactive editor unless --local flag or --local-path option is used.
+    """
 
     api = get_hf_api(token=token)
 
