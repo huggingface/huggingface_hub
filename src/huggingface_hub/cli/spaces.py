@@ -29,7 +29,6 @@ import json
 import os
 import tempfile
 from collections import defaultdict
-from pathlib import Path
 from typing import Annotated, Optional, get_args
 
 import typer
