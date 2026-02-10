@@ -157,7 +157,14 @@ def spaces_hot_reload(
 ) -> None:
     """
     Perform a hot-reloaded update on any Python file of a Space.
-    Opens an interactive editor unless --local flag or --local-path option is used.
+    Opens an interactive editor unless --local-file/-f option is used.
+
+    Usage examples:
+
+    \b
+    hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file
+    hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo
+    hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo
     """
 
     api = get_hf_api(token=token)
@@ -317,7 +324,7 @@ def spaces_hot_reloading_summary(
     commit_sha: Annotated[str, typer.Argument(help="...")],
     token: TokenOpt = None,
 ):
-    """ Description """
+    """ Display code updates summary of a hot-reloaded commit """
     api = get_hf_api(token=token)
     _spaces_hot_reloading_summary(
         api=api,
