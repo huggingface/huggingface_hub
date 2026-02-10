@@ -148,9 +148,26 @@ def spaces_info(
 
 @spaces_cli.command("hot-reload")
 def spaces_hot_reload(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
-    filename: Annotated[Optional[str], typer.Argument(help="Path to the Python file in the Space repository. Can be ommited when --local-file if specified and path in repository matches.")] = None,
-    local_file: Annotated[Optional[str], typer.Option("--local-file", "-f", help="Path of local file. Interactive editor mode if not specified")] = None,
+    space_id: Annotated[
+        str,
+        typer.Argument(
+            help="The space ID (e.g. `username/repo-name`).",
+        ),
+    ],
+    filename: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="Path to the Python file in the Space repository. Can be ommited when --local-file if specified and path in repository matches."
+        ),
+    ] = None,
+    local_file: Annotated[
+        Optional[str],
+        typer.Option(
+            "--local-file",
+            "-f",
+            help="Path of local file. Interactive editor mode if not specified",
+        ),
+    ] = None,
     skip_checks: Annotated[bool, typer.Option(help="Skip hot-reload compatibility checks.")] = False,
     skip_summary: Annotated[bool, typer.Option(help="Skip summary display after hot-reloaded triggered")] = False,
     token: TokenOpt = None,
@@ -238,8 +255,7 @@ def _spaces_hot_reloading_summary(
     token: Optional[str],
 ) -> None:
     from huggingface_hub._hot_reloading_client import ReloadClient
-    from huggingface_hub._hot_reloading_types import ApiGetReloadEventSourceData
-    from huggingface_hub._hot_reloading_types import ReloadRegion
+    from huggingface_hub._hot_reloading_types import ApiGetReloadEventSourceData, ReloadRegion
 
     space_info = api.space_info(space_id)
     if (runtime := space_info.runtime) is None:
@@ -251,16 +267,19 @@ def _spaces_hot_reloading_summary(
         return
 
     if (space_host := space_info.host) is None:
-        raise CLIError(f"Unexpected None host on hotReloaded Space")
+        raise CLIError("Unexpected None host on hotReloaded Space")
     if (space_subdomain := space_info.subdomain) is None:
-        raise CLIError(f"Unexpected None subdomain on hotReloaded Space")
+        raise CLIError("Unexpected None subdomain on hotReloaded Space")
 
-    clients = [ReloadClient(
-        host=space_host,
-        subdomain=space_subdomain,
-        replica_hash=hash,
-        token=token,
-    ) for hash, _ in hot_reloading.replica_statuses]
+    clients = [
+        ReloadClient(
+            host=space_host,
+            subdomain=space_subdomain,
+            replica_hash=hash,
+            token=token,
+        )
+        for hash, _ in hot_reloading.replica_statuses
+    ]
 
     def render_region(region: ReloadRegion) -> str:
         res = ""
@@ -273,9 +292,10 @@ def _spaces_hot_reloading_summary(
         return res
 
     def display_event(event: ApiGetReloadEventSourceData) -> None:
-        if False: pass
+        if False:
+            pass
         elif event.data.kind == "error":
-            typer.secho(f"✘ Unexpected hot-reloading error", bold=True)
+            typer.secho("✘ Unexpected hot-reloading error", bold=True)
             typer.echo(event.data.traceback)
         elif event.data.kind == "exception":
             typer.secho(f"✘ Exception at {render_region(event.data.region)}", bold=True)
@@ -306,7 +326,7 @@ def _spaces_hot_reloading_summary(
         for event_index, event in enumerate(client.get_reload(commit_sha)):
             if client_index == 0:
                 first_client_events[event_index] = event
-            elif (full_match := full_match and first_client_events[event_index] == event):
+            elif full_match := full_match and first_client_events[event_index] == event:
                 replay += [event]
                 continue
             if len(replay) >= 0:
@@ -315,7 +335,7 @@ def _spaces_hot_reloading_summary(
                 replay = []
             display_event(event)
         if client_index > 0 and full_match:
-            typer.echo(f"✔︎ Same as first replica")
+            typer.echo("✔︎ Same as first replica")
 
 
 @spaces_hot_reloading_cli.command("summary")
@@ -324,7 +344,7 @@ def spaces_hot_reloading_summary(
     commit_sha: Annotated[str, typer.Argument(help="...")],
     token: TokenOpt = None,
 ):
-    """ Display code updates summary of a hot-reloaded commit """
+    """Display code updates summary of a hot-reloaded commit"""
     api = get_hf_api(token=token)
     _spaces_hot_reloading_summary(
         api=api,
