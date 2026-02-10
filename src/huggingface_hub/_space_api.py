@@ -102,7 +102,7 @@ class SpaceStorage(str, Enum):
 @dataclass
 class SpaceHotReloading:
     status: Literal["created", "canceled"]
-    replica_statuses: list[tuple[str, str]]  # See hot_reloading.types.ApiCreateReloadResponse.res.status
+    replica_statuses: list[tuple[str, str]]  # See _hot_reloading_types.ApiCreateReloadResponse.res.status
     raw: dict
 
     def __init__(self, data: dict) -> None:
