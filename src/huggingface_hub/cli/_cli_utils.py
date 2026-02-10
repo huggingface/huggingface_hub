@@ -336,7 +336,7 @@ def _get_transformers_update_command() -> str:
 @functools.cache
 def _get_editor_command() -> Optional[str]:
     for env in ("HF_EDITOR", "VISUAL", "EDITOR"):
-        if (command := os.getenv(env, "").strip()):
+        if command := os.getenv(env, "").strip():
             return command
     for binary_path, editor_command in constants.PREFERRED_EDITORS:
         if shutil.which(binary_path) is not None:

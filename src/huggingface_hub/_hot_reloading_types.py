@@ -1,6 +1,8 @@
 """
+Hot-reloading API types
 """
-from typing import Literal
+
+from typing import Literal, Optional, Union
 
 from pydantic import BaseModel
 
@@ -13,53 +15,53 @@ class ReloadRegion(BaseModel):
 
 
 class ReloadOperationObject(BaseModel):
-    kind: Literal['add', 'update', 'delete']
+    kind: Literal["add", "update", "delete"]
     region: ReloadRegion
     objectType: str
     objectName: str
 
 
 class ReloadOperationRun(BaseModel):
-    kind: Literal['run']
+    kind: Literal["run"]
     region: ReloadRegion
     codeLines: str
-    stdout: str | None = None
-    stderr: str | None = None
+    stdout: Optional[str] = None
+    stderr: Optional[str] = None
 
 
 class ReloadOperationException(BaseModel):
-    kind: Literal['exception']
+    kind: Literal["exception"]
     region: ReloadRegion
     traceback: str
 
 
 class ReloadOperationError(BaseModel):
-    kind: Literal['error']
+    kind: Literal["error"]
     traceback: str
 
 
 class ReloadOperationUI(BaseModel):
-    kind: Literal['ui']
+    kind: Literal["ui"]
     updated: bool
 
 
 class ApiCreateReloadRequest(BaseModel):
     filepath: str
     contents: str
-    reloadId: str | None = None
+    reloadId: Optional[str] = None
 
 
 class ApiCreateReloadResponseSuccess(BaseModel):
-    status: Literal['created']
+    status: Literal["created"]
     reloadId: str
 
 
 class ApiCreateReloadResponseError(BaseModel):
-    status: Literal['alreadyReloading', 'fileNotFound']
+    status: Literal["alreadyReloading", "fileNotFound"]
 
 
 class ApiCreateReloadResponse(BaseModel):
-    res: ApiCreateReloadResponseError | ApiCreateReloadResponseSuccess
+    res: Union[ApiCreateReloadResponseError, ApiCreateReloadResponseSuccess]
 
 
 class ApiGetReloadRequest(BaseModel):
@@ -67,11 +69,13 @@ class ApiGetReloadRequest(BaseModel):
 
 
 class ApiGetReloadEventSourceData(BaseModel):
-    data: ReloadOperationError \
-        | ReloadOperationException \
-        | ReloadOperationObject \
-        | ReloadOperationRun \
-        | ReloadOperationUI \
+    data: Union[
+        ReloadOperationError,
+        ReloadOperationException,
+        ReloadOperationObject,
+        ReloadOperationRun,
+        ReloadOperationUI,
+    ]
 
 
 class ApiGetStatusRequest(BaseModel):
@@ -88,13 +92,13 @@ class ApiFetchContentsRequest(BaseModel):
 
 
 class ApiFetchContentsResponseError(BaseModel):
-    status: Literal['fileNotFound']
+    status: Literal["fileNotFound"]
 
 
 class ApiFetchContentsResponseSuccess(BaseModel):
-    status: Literal['ok']
+    status: Literal["ok"]
     contents: str
 
 
 class ApiFetchContentsResponse(BaseModel):
-    res: ApiFetchContentsResponseError | ApiFetchContentsResponseSuccess
+    res: Union[ApiFetchContentsResponseError, ApiFetchContentsResponseSuccess]
