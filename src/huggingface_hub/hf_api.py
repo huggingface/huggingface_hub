@@ -10310,7 +10310,7 @@ class HfApi:
             except KeyboardInterrupt:
                 break
             except (httpx.HTTPError, httpcore.TimeoutException) as err:
-                is_no_new_line_timeout = (
+                is_no_new_line_timeout = isinstance(err, (httpx.ReadTimeout, httpcore.ReadTimeout)) or (
                     isinstance(err, httpx.NetworkError)
                     and err.__context__
                     and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
