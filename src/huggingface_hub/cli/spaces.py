@@ -287,10 +287,10 @@ def _spaces_hot_reloading_summary(
     def display_event(event: ApiGetReloadEventSourceData) -> None:
         if event.data.kind == "error":
             typer.secho("✘ Unexpected hot-reloading error", bold=True)
-            typer.echo(event.data.traceback)
+            typer.secho(event.data.traceback, italic=True)
         elif event.data.kind == "exception":
             typer.secho(f"✘ Exception at {render_region(event.data.region)}", bold=True)
-            typer.echo(event.data.traceback)
+            typer.secho(event.data.traceback, italic=True)
         elif event.data.kind == "add":
             typer.secho(f"✔︎ Created {event.data.objectName} {event.data.objectType}", bold=True)
         elif event.data.kind == "delete":
