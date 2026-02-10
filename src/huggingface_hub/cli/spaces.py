@@ -151,7 +151,7 @@ def spaces_hot_reload(
     filename: Annotated[
         Optional[str],
         typer.Argument(
-            help="Path to the Python file in the Space repository. Can be ommited when --local-file if specified and path in repository matches."
+            help="Path to the Python file in the Space repository. Can be omitted when --local-file is specified and path in repository matches."
         ),
     ] = None,
     local_file: Annotated[

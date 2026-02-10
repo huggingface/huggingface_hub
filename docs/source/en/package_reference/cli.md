@@ -2295,7 +2295,7 @@ $ hf spaces hot-reload [OPTIONS] SPACE_ID [FILENAME]
 **Arguments**:
 
 * `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
-* `[FILENAME]`: Path to the Python file in the Space repository. Can be ommited when --local-file if specified and path in repository matches.
+* `[FILENAME]`: Path to the Python file in the Space repository. Can be omitted when --local-file is specified and path in repository matches.
 
 **Options**:
 
