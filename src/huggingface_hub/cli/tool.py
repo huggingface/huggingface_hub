@@ -164,9 +164,9 @@ def tool_ls() -> None:
 
 
 @tool_cli.command(
-    "remove",
+    "rm",
     examples=[
-        "hf tool remove agent",
+        "hf tool rm agent",
     ],
 )
 def tool_remove(
