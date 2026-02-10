@@ -259,9 +259,9 @@ def _spaces_hot_reloading_summary(
         if filepath is not None:
             res += f"{filepath}, "
         if region.startLine == region.endLine:
-            res += f"line {region.startLine}"
+            res += f"line {region.startLine - 1}"
         else:
-            res += f"lines {region.startLine}-{region.endLine}"
+            res += f"lines {region.startLine - 1}-{region.endLine - 1}"
         return res
 
     def display_event(event: ApiGetReloadEventSourceData) -> None:
