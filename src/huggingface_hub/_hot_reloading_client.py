@@ -24,6 +24,7 @@ class ReloadClient:
         token: Optional[str],
     ):
         base_host = host.replace(subdomain, f"{subdomain}--{HOT_RELOADING_PORT}")
+        self.replica_hash = replica_hash
         self.client = httpx.Client(
             base_url=f"{base_host}/--replicas/+{replica_hash}",
             headers=build_hf_headers(token=token),

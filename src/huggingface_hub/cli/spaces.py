@@ -290,9 +290,10 @@ def _spaces_hot_reloading_summary(
         else:
             assert_never(event.data.kind)
 
-    # TODO: display SHA when needed and full-match feedback
     first_client_events: dict[int, ApiGetReloadEventSourceData] = defaultdict()
     for client_index, client in enumerate(clients):
+        if len(clients):
+            typer.secho(f"---- Replica {client.replica_hash} ----")
         full_match = True
         replay: list[ApiGetReloadEventSourceData] = []
         for event_index, event in enumerate(client.get_reload(commit_sha)):
@@ -306,6 +307,8 @@ def _spaces_hot_reloading_summary(
                     display_event(replay_event)
                 replay = []
             display_event(event)
+        if client_index > 0 and full_match:
+            typer.echo(f"✔︎ Same as first replica")
 
 
 @spaces_hot_reloading_cli.command("summary")
