@@ -167,17 +167,18 @@ def spaces_hot_reload(
             raise CLIError(f"Unable to read sdk_version from {space_id} cardData")
         if (sdk_version := version.parse(sdk_version)) < version.Version(HOT_RELOADING_MIN_GRADIO):
             raise CLIError(f"Hot-reloading requires Gradio >= {HOT_RELOADING_MIN_GRADIO} (found {sdk_version})")
-        api.auth_check(
-            repo_type="spaces",
-            repo_id=space_id,
-            write=True,
-        )
 
     if local_path:
         filepath = local_path
     elif local:
         filepath = filename
     else:
+        if not skip_checks:
+            api.auth_check(
+                repo_type="space",
+                repo_id=space_id,
+                write=True,
+            )
         temp_dir = tempfile.TemporaryDirectory()
         filepath = Path(temp_dir.name) / filename
         if not (pbar_disabled := are_progress_bars_disabled()):
