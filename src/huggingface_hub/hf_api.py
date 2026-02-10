@@ -1217,6 +1217,35 @@ class SpaceInfo:
 
 
 @dataclass
+class BucketInfo:
+    """
+    Contains information about a bucket on the Hub. This object is returned by [`bucket_info`] and [`list_buckets`].
+
+    Attributes:
+        id (`str`):
+            ID of the bucket.
+        private (`bool`):
+            Is the bucket private.
+        created_at (`datetime`):
+            Date of creation of the bucket on the Hub.
+        size (`int`):
+            Size of the bucket in bytes.
+    """
+
+    id: str
+    private: bool
+    created_at: datetime
+    size: int
+
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.private = kwargs.pop("private")
+        self.created_at = parse_datetime(kwargs.pop("createdAt"))
+        self.size = kwargs.pop("size")
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
 class CollectionItem:
     """
     Contains information about an item of a Collection (model, dataset, Space, paper or collection).
@@ -11316,15 +11345,25 @@ class HfApi:
         else:
             raise ValueError(f"Invalid bucket ID: {bucket_id}")
 
+        response = get_session().post(
+            f"{self.endpoint}/api/buckets/{namespace}/{name}",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
         try:
-            response = get_session().post(
-                f"{self.endpoint}/api/buckets/{namespace}/{name}",
-                headers=self._build_hf_headers(token=token),
-                json=payload,
-            )
             hf_raise_for_status(response)
-        except HfHubHTTPError as e:
-            if e.response.status_code != 409 or not exist_ok:
+        except HfHubHTTPError as err:
+            if exist_ok and err.response.status_code == 409:
+                # Repo already exists and `exist_ok=True`
+                pass
+            elif exist_ok and err.response.status_code == 403:
+                # No write permission on the namespace but repo might already exist
+                try:
+                    self.bucket_info(bucket_id=bucket_id, token=token)
+                    return RepoUrl(f"{self.endpoint}/buckets/{bucket_id}", endpoint=self.endpoint)
+                except HfHubHTTPError:
+                    raise err
+            else:
                 raise
         return RepoUrl(response.json()["url"], endpoint=self.endpoint)
 
@@ -11333,25 +11372,21 @@ class HfApi:
         bucket_id: str,
         *,
         token: Union[bool, str, None] = None,
-    ) -> dict[str, Any]:
+    ) -> BucketInfo:
         response = get_session().get(
             f"{self.endpoint}/api/buckets/{bucket_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        return response.json()
+        return BucketInfo(**response.json())
 
     def list_buckets(
         self,
         *,
         token: Union[bool, str, None] = None,
-    ) -> list[dict[str, Any]]:
-        response = get_session().get(
-            f"{self.endpoint}/api/buckets",
-            headers=self._build_hf_headers(token=token),
-        )
-        hf_raise_for_status(response)
-        return response.json()
+    ) -> Iterable[BucketInfo]:
+        for item in paginate(f"{self.endpoint}/api/buckets", params={}, headers=self._build_hf_headers(token=token)):
+            yield BucketInfo(**item)
 
     def delete_bucket(
         self,

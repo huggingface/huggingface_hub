@@ -162,6 +162,7 @@ _SUBMOD_ATTRS = {
         "BucketAddFile",
         "BucketDeleteFile",
         "BucketFileMetadata",
+        "BucketInfo",
         "Collection",
         "CollectionItem",
         "CommitInfo",
@@ -601,6 +602,7 @@ __all__ = [
     "BucketAddFile",
     "BucketDeleteFile",
     "BucketFileMetadata",
+    "BucketInfo",
     "CLIENT_FACTORY_T",
     "CONFIG_NAME",
     "CacheNotFound",
@@ -1250,6 +1252,7 @@ if TYPE_CHECKING:  # pragma: no cover
         BucketAddFile,  # noqa: F401
         BucketDeleteFile,  # noqa: F401
         BucketFileMetadata,  # noqa: F401
+        BucketInfo,  # noqa: F401
         Collection,  # noqa: F401
         CollectionItem,  # noqa: F401
         CommitInfo,  # noqa: F401
