@@ -12,64 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with buckets via the CLI.
-
-Usage:
-    hf bucket --help
-
-    # Create a bucket
-    hf bucket create user/my-bucket
-    hf bucket create user/my-bucket --private
-    hf bucket create user/my-bucket --exist-ok
-
-    # Delete a bucket
-    hf bucket delete user/my-bucket
-    hf bucket delete user/my-bucket --yes
-    hf bucket delete user/my-bucket --missing-ok
-
-    # List files in a bucket
-    hf bucket ls hf://buckets/user/my-bucket
-    hf bucket ls hf://buckets/user/my-bucket/models
-
-    # List files with human-readable sizes
-    hf bucket ls hf://buckets/user/my-bucket -h
-
-    # List files in tree format
-    hf bucket ls hf://buckets/user/my-bucket --tree
-
-    # Sync files between local and bucket
-    hf bucket sync ./data hf://buckets/user/my-bucket
-    hf bucket sync hf://buckets/user/my-bucket ./data
-
-    # Delete destination files not in source
-    hf bucket sync ./data hf://buckets/user/my-bucket --delete
-
-    # Ignore modification times, compare only sizes
-    hf bucket sync ./data hf://buckets/user/my-bucket --ignore-times
-
-    # Ignore sizes, compare only modification times
-    hf bucket sync ./data hf://buckets/user/my-bucket --ignore-sizes
-
-    # With filters
-    hf bucket sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"
-    hf bucket sync ./data hf://buckets/user/my-bucket --filter-from filters.txt
-
-    # Only update existing files (skip new files)
-    hf bucket sync ./data hf://buckets/user/my-bucket --existing
-
-    # Only create new files (skip existing files)
-    hf bucket sync ./data hf://buckets/user/my-bucket --ignore-existing
-
-    # Safe review workflow
-    hf bucket sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl
-    hf bucket sync --apply sync-plan.jsonl
-
-    # Verbose output with detailed logging
-    hf bucket sync ./data hf://buckets/user/my-bucket --verbose
-
-    # Quiet mode with minimal output
-    hf bucket sync ./data hf://buckets/user/my-bucket --quiet
-"""
+"""Contains commands to interact with buckets via the CLI."""
 
 import fnmatch
 import json
@@ -81,7 +24,6 @@ from typing import Annotated, Any, Iterator, Literal, Optional, Union
 import typer
 
 from huggingface_hub import HfApi, logging
-from huggingface_hub.hf_api import BucketAddFile, BucketDeleteFile
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import TokenOpt, get_hf_api, typer_factory
@@ -121,6 +63,27 @@ def _parse_bucket_path(path: str) -> tuple[str, str]:
     return bucket_id, prefix
 
 
+def _parse_bucket_argument(argument: str) -> tuple[str, str]:
+    """Parse a bucket argument accepting both 'namespace/name(/prefix)' and 'hf://buckets/namespace/name(/prefix)'.
+
+    Returns:
+        tuple: (bucket_id, prefix) where bucket_id is "namespace/bucket_name" and prefix may be empty string.
+    """
+    if argument.startswith(BUCKET_PREFIX):
+        return _parse_bucket_path(argument)
+
+    parts = argument.split("/", 2)
+    if len(parts) < 2:
+        raise ValueError(
+            f"Invalid bucket argument: {argument}. Must be in format namespace/bucket_name"
+            f" or {BUCKET_PREFIX}namespace/bucket_name"
+        )
+
+    bucket_id = f"{parts[0]}/{parts[1]}"
+    prefix = parts[2] if len(parts) > 2 else ""
+    return bucket_id, prefix
+
+
 def _format_size(size: Union[int, float], human_readable: bool = False) -> str:
     """Format a size in bytes."""
     if not human_readable:
@@ -140,12 +103,11 @@ def _format_mtime(mtime_ms: float) -> str:
     return datetime.fromtimestamp(mtime_ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _build_tree(items: list[dict], prefix: str = "") -> list[str]:
+def _build_tree(items: list[dict]) -> list[str]:
     """Build a tree representation of files and directories.
 
     Args:
         items: List of items with 'path', 'type', 'size', 'mtime' keys
-        prefix: Prefix to remove from paths for display
 
     Returns:
         List of formatted tree lines
@@ -155,13 +117,6 @@ def _build_tree(items: list[dict], prefix: str = "") -> list[str]:
 
     for item in items:
         path = item["path"]
-        # Remove prefix from path
-        if prefix:
-            if path.startswith(prefix + "/"):
-                path = path[len(prefix) + 1 :]
-            elif path.startswith(prefix):
-                path = path[len(prefix) :]
-
         parts = path.split("/")
         current = tree
         for i, part in enumerate(parts[:-1]):
@@ -204,12 +159,21 @@ def _render_tree(node: dict, lines: list[str], indent: str) -> None:
             _render_tree(children, lines, child_indent)
 
 
-@bucket_cli.command(name="ls")
-def ls(
+@bucket_cli.command(
+    name="tree",
+    examples=[
+        "hf bucket tree user/my-bucket",
+        "hf bucket tree hf://buckets/user/my-bucket",
+        "hf bucket tree user/my-bucket/models",
+        "hf bucket tree user/my-bucket -h",
+        "hf bucket tree user/my-bucket --tree",
+    ],
+)
+def tree_cmd(
     bucket: Annotated[
         str,
         typer.Argument(
-            help="Bucket path: hf://buckets/namespace/bucket_name(/prefix)",
+            help="Bucket: namespace/bucket_name(/prefix) or hf://buckets/namespace/bucket_name(/prefix)",
         ),
     ],
     human_readable: Annotated[
@@ -220,7 +184,7 @@ def ls(
             help="Show file size in human readable format.",
         ),
     ] = False,
-    tree: Annotated[
+    as_tree: Annotated[
         bool,
         typer.Option(
             "--tree",
@@ -230,13 +194,10 @@ def ls(
     token: TokenOpt = None,
 ) -> None:
     """List files in a bucket."""
-    if not bucket.startswith(BUCKET_PREFIX):
-        raise typer.BadParameter(f"Bucket path must start with {BUCKET_PREFIX}")
-
     api = get_hf_api(token=token)
 
     try:
-        bucket_id, prefix = _parse_bucket_path(bucket)
+        bucket_id, prefix = _parse_bucket_argument(bucket)
     except ValueError as e:
         raise typer.BadParameter(str(e))
 
@@ -253,26 +214,15 @@ def ls(
         print("(empty)")
         return
 
-    if tree:
+    if as_tree:
         # Tree format
-        tree_lines = _build_tree(items, prefix)
+        tree_lines = _build_tree(items)
         for line in tree_lines:
             print(line)
     else:
         # Table format
         for item in items:
-            path = item.get("path", "")
-            # Remove prefix from path for display
-            if prefix:
-                if path.startswith(prefix + "/"):
-                    display_path = path[len(prefix) + 1 :]
-                elif path.startswith(prefix):
-                    display_path = path[len(prefix) :]
-                else:
-                    display_path = path
-            else:
-                display_path = path
-
+            display_path = item.get("path", "")
             item_type = item.get("type", "file")
             size = item.get("size", 0)
             mtime = item.get("mtime", 0)
@@ -287,7 +237,14 @@ def ls(
                 print(f"{size_str:>12}  {mtime_str}  {display_path}")
 
 
-@bucket_cli.command(name="create")
+@bucket_cli.command(
+    name="create",
+    examples=[
+        "hf bucket create user/my-bucket",
+        "hf bucket create user/my-bucket --private",
+        "hf bucket create user/my-bucket --exist-ok",
+    ],
+)
 def create(
     bucket_id: Annotated[
         str,
@@ -327,7 +284,68 @@ def create(
     print(f"Bucket created: {BUCKET_PREFIX}{bucket_id}")
 
 
-@bucket_cli.command(name="delete")
+@bucket_cli.command(
+    name="list",
+    examples=["hf bucket list"],
+)
+def list_cmd(
+    token: TokenOpt = None,
+) -> None:
+    """List all accessible buckets."""
+    api = get_hf_api(token=token)
+    buckets = list(api.list_buckets(token=token))
+
+    if not buckets:
+        print("No buckets found.")
+        return
+
+    for bucket in buckets:
+        visibility = "private" if bucket.private else "public"
+        size_str = _format_size(bucket.size, human_readable=True)
+        print(f"{bucket.id:40}  {visibility:8}  {size_str:>10}  {bucket.created_at:%Y-%m-%d %H:%M:%S}")
+
+
+@bucket_cli.command(
+    name="info",
+    examples=[
+        "hf bucket info user/my-bucket",
+        "hf bucket info hf://buckets/user/my-bucket",
+    ],
+)
+def info(
+    bucket_id: Annotated[
+        str,
+        typer.Argument(
+            help="Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
+        ),
+    ],
+    token: TokenOpt = None,
+) -> None:
+    """Get info about a bucket."""
+    api = get_hf_api(token=token)
+
+    try:
+        parsed_id, _ = _parse_bucket_argument(bucket_id)
+    except ValueError as e:
+        raise typer.BadParameter(str(e))
+
+    bucket = api.bucket_info(parsed_id, token=token)
+    visibility = "private" if bucket.private else "public"
+    size_str = _format_size(bucket.size, human_readable=True)
+    print(f"Bucket:     {bucket.id}")
+    print(f"Visibility: {visibility}")
+    print(f"Size:       {size_str}")
+    print(f"Created:    {bucket.created_at:%Y-%m-%d %H:%M:%S}")
+
+
+@bucket_cli.command(
+    name="delete",
+    examples=[
+        "hf bucket delete user/my-bucket",
+        "hf bucket delete user/my-bucket --yes",
+        "hf bucket delete user/my-bucket --missing-ok",
+    ],
+)
 def delete(
     bucket_id: Annotated[
         str,
@@ -966,8 +984,8 @@ def _execute_plan(plan: SyncPlan, api, token: Optional[str], verbose: bool = Fal
         bucket_id, prefix = _parse_bucket_path(plan.dest)
 
         # Collect operations
-        add_operations = []
-        delete_operations = []
+        add_files = []
+        delete_paths = []
 
         for op in plan.operations:
             if op.action == "upload":
@@ -975,19 +993,23 @@ def _execute_plan(plan: SyncPlan, api, token: Optional[str], verbose: bool = Fal
                 remote_path = f"{prefix}/{op.path}" if prefix else op.path
                 if verbose:
                     print(f"  Uploading: {op.path} ({op.reason})")
-                add_operations.append(BucketAddFile(path_in_repo=remote_path, path_or_fileobj=local_file))
+                add_files.append((local_file, remote_path))
             elif op.action == "delete":
                 remote_path = f"{prefix}/{op.path}" if prefix else op.path
                 if verbose:
                     print(f"  Deleting: {op.path} ({op.reason})")
-                delete_operations.append(BucketDeleteFile(path_in_repo=remote_path))
+                delete_paths.append(remote_path)
             elif op.action == "skip" and verbose:
                 print(f"  Skipping: {op.path} ({op.reason})")
 
         # Execute batch operations
-        all_operations: list[Union[BucketAddFile, BucketDeleteFile]] = add_operations + delete_operations
-        if all_operations:
-            api.batch_bucket_files(bucket_id, all_operations, token=token)
+        if add_files or delete_paths:
+            api.batch_bucket_files(
+                bucket_id,
+                add=add_files or None,
+                delete=delete_paths or None,
+                token=token,
+            )
 
     elif is_download:
         bucket_id, prefix = _parse_bucket_path(plan.source)
@@ -1045,7 +1067,17 @@ def _print_plan_summary(plan: SyncPlan) -> None:
     print(f"  Skips: {summary['skips']}")
 
 
-@bucket_cli.command(name="sync")
+@bucket_cli.command(
+    name="sync",
+    examples=[
+        "hf bucket sync ./data hf://buckets/user/my-bucket",
+        "hf bucket sync hf://buckets/user/my-bucket ./data",
+        "hf bucket sync ./data hf://buckets/user/my-bucket --delete",
+        'hf bucket sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"',
+        "hf bucket sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl",
+        "hf bucket sync --apply sync-plan.jsonl",
+    ],
+)
 def sync(
     source: Annotated[
         Optional[str],

@@ -3,7 +3,7 @@ import string
 import tempfile
 from pathlib import Path
 
-from huggingface_hub import BucketAddFile, BucketDeleteFile, HfApi
+from huggingface_hub import HfApi
 
 
 token = "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"  # local write token
@@ -55,17 +55,15 @@ print(list(api.list_bucket_tree(bucket_id=bucket_id)))
 
 print("\n# Upload file to bucket")
 with tempfile.TemporaryDirectory() as temp_dir:
-    add_operations = []
+    add_files = []
     for i in range(10):
         file_name = "".join(random.choices(string.ascii_letters + string.digits, k=10)) + ".bin"
         file_path = Path(temp_dir) / file_name
         file_path.write_text(
             f"This is a test file {i}" + "".join(random.choices(string.ascii_letters + string.digits, k=100)) * 1000
         )
-        add_operations.append(
-            BucketAddFile(path_in_repo=file_path.relative_to(temp_dir).as_posix(), path_or_fileobj=file_path)
-        )
-    print(api.batch_bucket_files(bucket_id=bucket_id, operations=add_operations))
+        add_files.append((file_path, file_path.relative_to(temp_dir).as_posix()))
+    print(api.batch_bucket_files(bucket_id=bucket_id, add=add_files))
 
 print("\n# List bucket tree (with files)")
 objects = list(api.list_bucket_tree(bucket_id=bucket_id))
@@ -79,8 +77,7 @@ print(f"Size: {metadata.size}, Xet hash: {metadata.xet_file_data.file_hash}")
 
 
 print("\n# Delete first 3 files")
-delete_operations = [BucketDeleteFile(path_in_repo=obj["path"]) for obj in objects[:3]]
-print(api.batch_bucket_files(bucket_id=bucket_id, operations=delete_operations))
+print(api.batch_bucket_files(bucket_id=bucket_id, delete=[obj["path"] for obj in objects[:3]]))
 
 print(f"\n# Get bucket file metadata {bucket_file} (doesn't exist anymore)")
 try:

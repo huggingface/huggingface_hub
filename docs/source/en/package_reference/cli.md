@@ -204,8 +204,10 @@ $ hf bucket [OPTIONS] COMMAND [ARGS]...
 
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
-* `ls`: List files in a bucket.
+* `info`: Get info about a bucket.
+* `list`: List all accessible buckets.
 * `sync`: Sync files between local directory and a...
+* `tree`: List files in a bucket.
 
 ### `hf bucket create`
 
@@ -228,6 +230,16 @@ $ hf bucket create [OPTIONS] BUCKET_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
+Examples
+  $ hf bucket create user/my-bucket
+  $ hf bucket create user/my-bucket --private
+  $ hf bucket create user/my-bucket --exist-ok
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ### `hf bucket delete`
 
 Delete a bucket.
@@ -249,26 +261,66 @@ $ hf bucket delete [OPTIONS] BUCKET_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-### `hf bucket ls`
+Examples
+  $ hf bucket delete user/my-bucket
+  $ hf bucket delete user/my-bucket --yes
+  $ hf bucket delete user/my-bucket --missing-ok
 
-List files in a bucket.
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf bucket info`
+
+Get info about a bucket.
 
 **Usage**:
 
 ```console
-$ hf bucket ls [OPTIONS] BUCKET
+$ hf bucket info [OPTIONS] BUCKET_ID
 ```
 
 **Arguments**:
 
-* `BUCKET`: Bucket path: hf://buckets/namespace/bucket_name(/prefix)  [required]
+* `BUCKET_ID`: Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
 
 **Options**:
 
-* `-h, --human-readable`: Show file size in human readable format.
-* `--tree`: List files in tree format.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
+
+Examples
+  $ hf bucket info user/my-bucket
+  $ hf bucket info hf://buckets/user/my-bucket
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf bucket list`
+
+List all accessible buckets.
+
+**Usage**:
+
+```console
+$ hf bucket list [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf bucket list
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ### `hf bucket sync`
 
@@ -301,6 +353,52 @@ $ hf bucket sync [OPTIONS] [SOURCE] [DEST]
 * `-q, --quiet`: Minimal output.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
+
+Examples
+  $ hf bucket sync ./data hf://buckets/user/my-bucket
+  $ hf bucket sync hf://buckets/user/my-bucket ./data
+  $ hf bucket sync ./data hf://buckets/user/my-bucket --delete
+  $ hf bucket sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"
+  $ hf bucket sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl
+  $ hf bucket sync --apply sync-plan.jsonl
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf bucket tree`
+
+List files in a bucket.
+
+**Usage**:
+
+```console
+$ hf bucket tree [OPTIONS] BUCKET
+```
+
+**Arguments**:
+
+* `BUCKET`: Bucket: namespace/bucket_name(/prefix) or hf://buckets/namespace/bucket_name(/prefix)  [required]
+
+**Options**:
+
+* `-h, --human-readable`: Show file size in human readable format.
+* `--tree`: List files in tree format.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf bucket tree user/my-bucket
+  $ hf bucket tree hf://buckets/user/my-bucket
+  $ hf bucket tree user/my-bucket/models
+  $ hf bucket tree user/my-bucket -h
+  $ hf bucket tree user/my-bucket --tree
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ## `hf cache`
 

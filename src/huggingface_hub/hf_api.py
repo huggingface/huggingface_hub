@@ -1906,9 +1906,9 @@ def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_m
 
 
 @dataclass
-class BucketAddFile:
-    path_in_repo: str
-    path_or_fileobj: Union[str, Path, bytes]
+class _BucketAddFile:
+    source: Union[str, Path, bytes]
+    destination: str
 
     xet_hash: Optional[str] = field(default=None)
     size: Optional[int] = field(default=None)
@@ -1916,19 +1916,17 @@ class BucketAddFile:
     content_type: Optional[str] = field(init=False)
 
     def __post_init__(self) -> None:
-        self.content_type = (
-            mimetypes.guess_type(self.path_or_fileobj)[0] if not isinstance(self.path_or_fileobj, bytes) else None
-        ) or (mimetypes.guess_type(self.path_in_repo)[0])
+        self.content_type = (mimetypes.guess_type(self.source)[0] if not isinstance(self.source, bytes) else None) or (
+            mimetypes.guess_type(self.destination)[0]
+        )
         self.mtime = int(
-            os.path.getmtime(self.path_or_fileobj) * 1000
-            if not isinstance(self.path_or_fileobj, bytes)
-            else time.time() * 1000
+            os.path.getmtime(self.source) * 1000 if not isinstance(self.source, bytes) else time.time() * 1000
         )
 
 
 @dataclass
-class BucketDeleteFile:
-    path_in_repo: str
+class _BucketDeleteFile:
+    path: str
 
 
 @dataclass(frozen=True)
@@ -11426,19 +11424,74 @@ class HfApi:
     def batch_bucket_files(
         self,
         bucket_id: str,
-        operations: list[Union[BucketAddFile, BucketDeleteFile]],
         *,
+        add: Optional[list[tuple[Union[str, Path, bytes], str]]] = None,
+        delete: Optional[list[str]] = None,
         token: Union[str, bool, None] = None,
     ) -> dict[str, Any]:
+        """Add and/or delete files in a bucket in a single batch operation.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            add (`list` of `tuple`, *optional*):
+                Files to upload. Each element is a `(source, destination)` tuple where
+                `source` is a path to a local file (`str` or `Path`) or raw `bytes` content,
+                and `destination` is the path in the bucket.
+            delete (`list` of `str`, *optional*):
+                Paths of files to delete from the bucket.
+            token (`str` or `bool`, *optional*):
+                A valid user access token. Defaults to the stored token.
+
+        Returns:
+            `dict`: The server response as a dictionary.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+
+            # Upload files
+            >>> api.batch_bucket_files(
+            ...     "username/my-bucket",
+            ...     add=[
+            ...         ("./model.safetensors", "models/model.safetensors"),
+            ...         (b'{{"key": "value"}}', "config.json"),
+            ...     ],
+            ... )
+
+            # Delete files
+            >>> api.batch_bucket_files("username/my-bucket", delete=["old-model.bin"])
+
+            # Upload and delete in one batch
+            >>> api.batch_bucket_files(
+            ...     "username/my-bucket",
+            ...     add=[("./new.txt", "new.txt")],
+            ...     delete=["old.txt"],
+            ... )
+            ```
+        """
+        # Convert public API inputs to internal operation objects
+        operations: list[Union[_BucketAddFile, _BucketDeleteFile]] = []
+        if add:
+            for source, destination in add:
+                operations.append(_BucketAddFile(source=source, destination=destination))
+        if delete:
+            for path in delete:
+                operations.append(_BucketDeleteFile(path=path))
+
+        if not operations:
+            return {}
+
         from hf_xet import upload_bytes, upload_files
 
         from .utils._xet_progress_reporting import XetProgressReporter
 
         headers = self._build_hf_headers(token=token)
 
-        add_operations = [op for op in operations if isinstance(op, BucketAddFile)]
-        add_bytes_operations = [op for op in add_operations if isinstance(op.path_or_fileobj, bytes)]
-        add_path_operations = [op for op in add_operations if not isinstance(op.path_or_fileobj, bytes)]
+        add_operations = [op for op in operations if isinstance(op, _BucketAddFile)]
+        add_bytes_operations = [op for op in add_operations if isinstance(op.source, bytes)]
+        add_path_operations = [op for op in add_operations if not isinstance(op.source, bytes)]
 
         if len(add_operations) > 0:
             try:
@@ -11483,7 +11536,7 @@ class HfApi:
             try:
                 # 2.a. Upload path files
                 xet_upload_infos = upload_files(
-                    [str(op.path_or_fileobj) for op in add_path_operations],
+                    [str(op.source) for op in add_path_operations],
                     xet_endpoint,
                     access_token_info,
                     token_refresher,
@@ -11496,7 +11549,7 @@ class HfApi:
 
                 # 2.b. Upload bytes files
                 xet_upload_infos = upload_bytes(
-                    [op.path_or_fileobj for op in add_bytes_operations],
+                    [op.source for op in add_bytes_operations],
                     xet_endpoint,
                     access_token_info,
                     token_refresher,
@@ -11513,10 +11566,10 @@ class HfApi:
         # 3. /batch call
         def _payload_as_ndjson() -> Iterable[bytes]:
             for op in operations:
-                if isinstance(op, BucketAddFile):
+                if isinstance(op, _BucketAddFile):
                     payload = {
                         "type": "addFile",
-                        "path": op.path_in_repo,
+                        "path": op.destination,
                         "xetHash": op.xet_hash,
                         "mtime": op.mtime,
                     }
@@ -11525,7 +11578,7 @@ class HfApi:
                 else:
                     payload = {
                         "type": "deleteFile",
-                        "path": op.path_in_repo,
+                        "path": op.path,
                     }
                 yield json.dumps(payload).encode()
                 yield b"\n"
