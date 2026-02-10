@@ -285,9 +285,7 @@ def _spaces_hot_reloading_summary(
         return res
 
     def display_event(event: ApiGetReloadEventSourceData) -> None:
-        if False:
-            pass
-        elif event.data.kind == "error":
+        if event.data.kind == "error":
             typer.secho("✘ Unexpected hot-reloading error", bold=True)
             typer.echo(event.data.traceback)
         elif event.data.kind == "exception":
