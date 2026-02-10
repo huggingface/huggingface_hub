@@ -26,7 +26,7 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Any, Optional, get_args
+from typing import Annotated, Optional, get_args
 
 import typer
 
@@ -68,7 +68,13 @@ ExpandOpt = Annotated[
 models_cli = typer_factory(help="Interact with models on the Hub.")
 
 
-@models_cli.command("ls")
+@models_cli.command(
+    "ls",
+    examples=[
+        "hf models ls --sort downloads --limit 10",
+        'hf models ls --search "llama" --author meta-llama',
+    ],
+)
 def models_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
@@ -92,29 +98,16 @@ def models_ls(
             filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
-
-    def row_fn(item: dict[str, Any]) -> list[str]:
-        repo_id = str(item.get("id", ""))
-        author = str(item.get("author", "")) or (repo_id.split("/")[0] if "/" in repo_id else "")
-        return [
-            repo_id,
-            author,
-            str(item.get("downloads", "") or ""),
-            str(item.get("likes", "") or ""),
-            str(item.get("pipeline_tag", "") or ""),
-        ]
-
-    print_list_output(
-        items=results,
-        format=format,
-        quiet=quiet,
-        id_key="id",
-        headers=["ID", "AUTHOR", "DOWNLOADS", "LIKES", "TASK"],
-        row_fn=row_fn,
-    )
+    print_list_output(results, format=format, quiet=quiet)
 
 
-@models_cli.command("info")
+@models_cli.command(
+    "info",
+    examples=[
+        "hf models info meta-llama/Llama-3.2-1B-Instruct",
+        "hf models info gpt2 --expand downloads,likes,tags",
+    ],
+)
 def models_info(
     model_id: Annotated[str, typer.Argument(help="The model ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,

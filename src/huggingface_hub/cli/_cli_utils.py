@@ -19,6 +19,7 @@ import functools
 import importlib.metadata
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -31,13 +32,14 @@ from typing import TYPE_CHECKING, Annotated, Any, Callable, Literal, Optional, S
 import click
 import typer
 
-from huggingface_hub import DatasetInfo, ModelInfo, SpaceInfo, __version__, constants
-from huggingface_hub.hf_api import PaperInfo
+from huggingface_hub import __version__, constants
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
 
 
 logger = logging.get_logger()
 
+# Arbitrary maximum length of a cell in a table output
+_MAX_CELL_LENGTH = 35
 
 if TYPE_CHECKING:
     from huggingface_hub.hf_api import HfApi
@@ -52,27 +54,168 @@ def get_hf_api(token: Optional[str] = None) -> "HfApi":
 
 #### TYPER UTILS
 
+CLI_REFERENCE_URL = "https://huggingface.co/docs/huggingface_hub/en/guides/cli"
 
-class AlphabeticalMixedGroup(typer.core.TyperGroup):
+
+def generate_epilog(examples: list[str], docs_anchor: Optional[str] = None) -> str:
+    """Generate an epilog with examples and a Learn More section.
+
+    Args:
+        examples: List of example commands (without the `$ ` prefix).
+        docs_anchor: Optional anchor for the docs URL (e.g., "#hf-download").
+
+    Returns:
+        Formatted epilog string.
     """
-    Typer Group that lists commands and sub-apps mixed and alphabetically.
+    docs_url = f"{CLI_REFERENCE_URL}{docs_anchor}" if docs_anchor else CLI_REFERENCE_URL
+    examples_str = "\n".join(f"  $ {ex}" for ex in examples)
+    return f"""\
+Examples
+{examples_str}
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at {docs_url}
+"""
+
+
+TOPIC_T = Union[Literal["main", "help"], str]
+
+
+def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatter: click.HelpFormatter) -> None:
+    """Write the epilog without indentation."""
+    if epilog:
+        formatter.write_paragraph()
+        for line in epilog.split("\n"):
+            formatter.write_text(line)
+
+
+class HFCliTyperGroup(typer.core.TyperGroup):
     """
+    Typer Group that:
+    - lists commands alphabetically within sections.
+    - separates commands by topic (main, help, etc.).
+    - formats epilog without extra indentation.
+    """
+
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        topics: dict[str, list] = {}
+
+        for name in self.list_commands(ctx):
+            cmd = self.get_command(ctx, name)
+            if cmd is None or cmd.hidden:
+                continue
+            help_text = cmd.get_short_help_str(limit=formatter.width)
+            topic = getattr(cmd, "topic", "main")
+            topics.setdefault(topic, []).append((name, help_text))
+
+        with formatter.section("Main commands"):
+            formatter.write_dl(topics["main"])
+        for topic in sorted(topics.keys()):
+            if topic == "main":
+                continue
+            with formatter.section(f"{topic.capitalize()} commands"):
+                formatter.write_dl(topics[topic])
+
+    def format_epilog(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        # Collect examples from all commands
+        all_examples: list[str] = []
+        for name in self.list_commands(ctx):
+            cmd = self.get_command(ctx, name)
+            if cmd is None or cmd.hidden:
+                continue
+            cmd_examples = getattr(cmd, "examples", [])
+            all_examples.extend(cmd_examples)
+
+        if all_examples:
+            epilog = generate_epilog(all_examples)
+            _format_epilog_no_indent(epilog, ctx, formatter)
+        elif self.epilog:
+            _format_epilog_no_indent(self.epilog, ctx, formatter)
 
     def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
         # click.Group stores both commands and subgroups in `self.commands`
         return sorted(self.commands.keys())
 
 
-def typer_factory(help: str) -> typer.Typer:
-    return typer.Typer(
+def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[typer.core.TyperCommand]:
+    def format_epilog(self: click.Command, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        _format_epilog_no_indent(self.epilog, ctx, formatter)
+
+    return type(
+        f"TyperCommand{topic.capitalize()}",
+        (typer.core.TyperCommand,),
+        {"topic": topic, "examples": examples or [], "format_epilog": format_epilog},
+    )
+
+
+class HFCliApp(typer.Typer):
+    """Custom Typer app for Hugging Face CLI."""
+
+    def command(  # type: ignore[override]
+        self,
+        name: Optional[str] = None,
+        *,
+        topic: TOPIC_T = "main",
+        examples: Optional[list[str]] = None,
+        context_settings: Optional[dict[str, Any]] = None,
+        help: Optional[str] = None,
+        epilog: Optional[str] = None,
+        short_help: Optional[str] = None,
+        options_metavar: str = "[OPTIONS]",
+        add_help_option: bool = True,
+        no_args_is_help: bool = False,
+        hidden: bool = False,
+        deprecated: bool = False,
+        rich_help_panel: Optional[str] = None,
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        # Generate epilog from examples if not explicitly provided
+        if epilog is None and examples:
+            epilog = generate_epilog(examples)
+
+        def _inner(func: Callable[..., Any]) -> Callable[..., Any]:
+            return super(HFCliApp, self).command(
+                name,
+                cls=HFCliCommand(topic, examples),
+                context_settings=context_settings,
+                help=help,
+                epilog=epilog,
+                short_help=short_help,
+                options_metavar=options_metavar,
+                add_help_option=add_help_option,
+                no_args_is_help=no_args_is_help,
+                hidden=hidden,
+                deprecated=deprecated,
+                rich_help_panel=rich_help_panel,
+            )(func)
+
+        return _inner
+
+
+def typer_factory(help: str, epilog: Optional[str] = None) -> "HFCliApp":
+    """Create a Typer app with consistent settings.
+
+    Args:
+        help: Help text for the app.
+        epilog: Optional epilog text (use `generate_epilog` to create one).
+
+    Returns:
+        A configured Typer app.
+    """
+    return HFCliApp(
         help=help,
+        epilog=epilog,
         add_completion=True,
         no_args_is_help=True,
-        cls=AlphabeticalMixedGroup,
+        cls=HFCliTyperGroup,
         # Disable rich completely for consistent experience
         rich_markup_mode=None,
         rich_help_panel=None,
         pretty_exceptions_enable=False,
+        # Increase max content width for better readability
+        context_settings={
+            "max_content_width": 120,
+        },
     )
 
 
@@ -164,6 +307,40 @@ QuietOpt = Annotated[
 ]
 
 
+def _to_header(name: str) -> str:
+    """Convert a camelCase or PascalCase string to SCREAMING_SNAKE_CASE to be used as table header."""
+    s = re.sub(r"([a-z])([A-Z])", r"\1_\2", name)
+    return s.upper()
+
+
+def _format_value(value: Any) -> str:
+    """Convert a value to string for terminal display."""
+    if not value:
+        return ""
+    if isinstance(value, bool):
+        return "✔" if value else ""
+    if isinstance(value, datetime.datetime):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):
+        return value[:10]
+    if isinstance(value, list):
+        return ", ".join(_format_value(v) for v in value)
+    elif isinstance(value, dict):
+        if "name" in value:  # Likely to be a user or org => print name
+            return str(value["name"])
+        # TODO: extend if needed
+        return json.dumps(value)
+    return str(value)
+
+
+def _format_cell(value: Any, max_len: int = _MAX_CELL_LENGTH) -> str:
+    """Format a value + truncate it for table display."""
+    cell = _format_value(value)
+    if len(cell) > max_len:
+        cell = cell[: max_len - 3] + "..."
+    return cell
+
+
 def print_as_table(
     items: Sequence[dict[str, Any]],
     headers: list[str],
@@ -180,16 +357,16 @@ def print_as_table(
         print("No results found.")
         return
     rows = cast(list[list[Union[str, int]]], [row_fn(item) for item in items])
-    print(tabulate(rows, headers=headers))
+    print(tabulate(rows, headers=[_to_header(h) for h in headers]))
 
 
 def print_list_output(
     items: Sequence[dict[str, Any]],
     format: OutputFormat,
     quiet: bool,
-    id_key: str,
-    headers: list[str],
-    row_fn: Callable[[dict[str, Any]], list[str]],
+    id_key: str = "id",
+    headers: Optional[list[str]] = None,
+    row_fn: Optional[Callable[[dict[str, Any]], list[str]]] = None,
 ) -> None:
     """Print list command output in the specified format.
 
@@ -198,8 +375,8 @@ def print_list_output(
         format: Output format (table or json).
         quiet: If True, print only IDs (one per line).
         id_key: Key to use for extracting IDs in quiet mode.
-        headers: List of column headers for table format.
-        row_fn: Function that takes an item dict and returns a list of string values for table columns.
+        headers: Optional list of column names for headers. If not provided, auto-detected from keys.
+        row_fn: Optional function to extract row values. If not provided, uses _format_cell on each column.
     """
     if quiet:
         for item in items:
@@ -208,8 +385,18 @@ def print_list_output(
 
     if format == OutputFormat.json:
         print(json.dumps(list(items), indent=2))
-    else:
-        print_as_table(items, headers=headers, row_fn=row_fn)
+        return
+
+    if headers is None:
+        all_columns = list(items[0].keys()) if items else [id_key]
+        headers = [col for col in all_columns if any(_format_cell(item.get(col)) for item in items)]
+
+    if row_fn is None:
+
+        def row_fn(item: dict[str, Any]) -> list[str]:
+            return [_format_cell(item.get(col)) for col in headers]  # type: ignore[union-attr]
+
+    print_as_table(items, headers=headers, row_fn=row_fn)
 
 
 def _serialize_value(v: object) -> object:
@@ -223,9 +410,7 @@ def _serialize_value(v: object) -> object:
     return v
 
 
-def api_object_to_dict(
-    info: Union[ModelInfo, DatasetInfo, SpaceInfo, PaperInfo],
-) -> dict[str, object]:
+def api_object_to_dict(info: Any) -> dict[str, Any]:
     """Convert repo info dataclasses to json-serializable dicts."""
     return {k: _serialize_value(v) for k, v in dataclasses.asdict(info).items() if v is not None}
 

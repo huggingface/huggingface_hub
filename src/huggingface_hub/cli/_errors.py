@@ -17,6 +17,7 @@ from typing import Callable, Optional
 
 from huggingface_hub.errors import (
     GatedRepoError,
+    HfHubHTTPError,
     LocalTokenNotFoundError,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
@@ -25,11 +26,14 @@ from huggingface_hub.errors import (
 
 
 CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[[Exception], str]] = {
-    RepositoryNotFoundError: lambda e: "Repository not found. Check the `repo_id` and `repo_type` parameters. If the repo is private, make sure you are authenticated.",
+    RepositoryNotFoundError: lambda e: (
+        "Repository not found. Check the `repo_id` and `repo_type` parameters. If the repo is private, make sure you are authenticated."
+    ),
     RevisionNotFoundError: lambda e: "Revision not found. Check the `revision` parameter.",
     GatedRepoError: lambda e: "Access denied. This repository requires approval.",
     LocalTokenNotFoundError: lambda e: "Not logged in. Run 'hf auth login' first.",
     RemoteEntryNotFoundError: lambda e: "File not found in repository.",
+    HfHubHTTPError: lambda e: str(e),
 }
 
 

@@ -84,6 +84,18 @@ class ConfigWithKwargs:
     vocab_size: int = validated_field(validator=positive_int, default=16)
 
 
+@strict(accept_kwargs=True)
+@dataclass
+class ConfigWithKwargsAndPostInit:
+    model_type: str
+    vocab_size: int = validated_field(validator=positive_int, default=16)
+
+    def __post_init__(self, **kwargs: Any) -> None:
+        """Custom __post_init__ that also accepts additional kwargs."""
+        for name, value in kwargs.items():
+            setattr(self, name.upper(), value)  # store additional kwargs in uppercase (just for testing)
+
+
 class DummyClass:
     pass
 
@@ -374,6 +386,13 @@ def test_do_not_accept_kwargs():
 
     with pytest.raises(TypeError):
         Config(model_type="bert", vocab_size=30000)
+
+
+def test_post_init_with_kwargs():
+    config = ConfigWithKwargsAndPostInit(model_type="bert", vocab_size=30000, extra_param="extra_value")
+    assert config.model_type == "bert"
+    assert config.vocab_size == 30000
+    assert config.EXTRA_PARAM == "extra_value"  # stored in uppercase by custom __post_init__
 
 
 def test_is_recognized_as_dataclass():

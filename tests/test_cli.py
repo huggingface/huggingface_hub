@@ -1966,4 +1966,63 @@ class TestJobsCommand:
             api.fetch_job_logs.return_value = iter(["log line 1"])
             result = runner.invoke(app, ["jobs", "run", "ubuntu", "echo", "hello"])
         assert result.exit_code == 0
-        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace="my-username")
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace="my-username", follow=True)
+
+    def test_logs_default_no_follow(self, runner: CliRunner) -> None:
+        """Test that `hf jobs logs <id>` defaults to follow=False (non-blocking, like `docker logs`)."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_job_logs.return_value = iter(["line 1", "line 2"])
+            result = runner.invoke(app, ["jobs", "logs", "my-job-id"])
+        assert result.exit_code == 0
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=False)
+        assert "line 1" in result.output
+        assert "line 2" in result.output
+
+    def test_logs_follow_flag(self, runner: CliRunner) -> None:
+        """Test that `hf jobs logs -f <id>` passes follow=True."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_job_logs.return_value = iter(["streaming line"])
+            result = runner.invoke(app, ["jobs", "logs", "-f", "my-job-id"])
+        assert result.exit_code == 0
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=True)
+        assert "streaming line" in result.output
+
+    def test_logs_follow_long_flag(self, runner: CliRunner) -> None:
+        """Test that `hf jobs logs --follow <id>` passes follow=True."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_job_logs.return_value = iter(["streaming line"])
+            result = runner.invoke(app, ["jobs", "logs", "--follow", "my-job-id"])
+        assert result.exit_code == 0
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=True)
+
+    def test_logs_tail(self, runner: CliRunner) -> None:
+        """Test that `hf jobs logs --tail 2 <id>` shows only the last 2 lines."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_job_logs.return_value = iter(["line 1", "line 2", "line 3", "line 4"])
+            result = runner.invoke(app, ["jobs", "logs", "--tail", "2", "my-job-id"])
+        assert result.exit_code == 0
+        assert "line 1" not in result.output
+        assert "line 2" not in result.output
+        assert "line 3" in result.output
+        assert "line 4" in result.output
+
+    def test_logs_tail_short_flag(self, runner: CliRunner) -> None:
+        """Test that `hf jobs logs -n 1 <id>` shows only the last line."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_job_logs.return_value = iter(["line 1", "line 2", "line 3"])
+            result = runner.invoke(app, ["jobs", "logs", "-n", "1", "my-job-id"])
+        assert result.exit_code == 0
+        assert "line 1" not in result.output
+        assert "line 2" not in result.output
+        assert "line 3" in result.output
+
+    def test_logs_follow_and_tail_error(self, runner: CliRunner) -> None:
+        """Test that `hf jobs logs -f --tail 5 <id>` raises an error."""
+        result = runner.invoke(app, ["jobs", "logs", "-f", "--tail", "5", "my-job-id"])
+        assert result.exit_code != 0
+        assert "Cannot use --follow and --tail together" in str(result.exception)

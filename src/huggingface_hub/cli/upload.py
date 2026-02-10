@@ -58,10 +58,27 @@ from huggingface_hub._commit_scheduler import CommitScheduler
 from huggingface_hub.errors import RevisionNotFoundError
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
-from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api
+from ._cli_utils import (
+    PrivateOpt,
+    RepoIdArg,
+    RepoType,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    get_hf_api,
+)
 
 
 logger = logging.get_logger(__name__)
+
+
+UPLOAD_EXAMPLES = [
+    "hf upload my-cool-model . .",
+    "hf upload Wauplin/my-cool-model ./models/model.safetensors",
+    "hf upload Wauplin/my-cool-dataset ./data /train --repo-type=dataset",
+    'hf upload Wauplin/my-cool-model ./models . --commit-message="Epoch 34/50" --commit-description="Val accuracy: 68%"',
+    "hf upload bigcode/the-stack . . --repo-type dataset --create-pr",
+]
 
 
 def upload(

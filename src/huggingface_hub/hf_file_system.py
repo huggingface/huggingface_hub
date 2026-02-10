@@ -563,6 +563,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                         "type": "file",
                         "blob_id": path_info.blob_id,
                         "lfs": path_info.lfs,
+                        "xet_hash": path_info.xet_hash,
                         "last_commit": path_info.last_commit,
                         "security": path_info.security,
                     }
@@ -830,6 +831,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                         "type": "file",
                         "blob_id": path_info.blob_id,
                         "lfs": path_info.lfs,
+                        "xet_hash": path_info.xet_hash,
                         "last_commit": path_info.last_commit,
                         "security": path_info.security,
                     }

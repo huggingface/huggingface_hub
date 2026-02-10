@@ -61,7 +61,14 @@ def _parse_date(value: Optional[str]) -> Optional[str]:
 papers_cli = typer_factory(help="Interact with papers on the Hub.")
 
 
-@papers_cli.command("ls")
+@papers_cli.command(
+    "ls",
+    examples=[
+        "hf papers ls",
+        "hf papers ls --sort trending",
+        "hf papers ls --date 2025-01-23",
+    ],
+)
 def papers_ls(
     date: Annotated[
         Optional[str],

@@ -133,7 +133,14 @@ def _create_symlink(agent_skills_dir: Path, central_skill_path: Path, force: boo
     return link_path
 
 
-@skills_cli.command("add")
+@skills_cli.command(
+    "add",
+    examples=[
+        "hf skills add --claude",
+        "hf skills add --claude --global",
+        "hf skills add --codex --opencode",
+    ],
+)
 def skills_add(
     claude: Annotated[bool, typer.Option("--claude", help="Install for Claude.")] = False,
     codex: Annotated[bool, typer.Option("--codex", help="Install for Codex.")] = False,

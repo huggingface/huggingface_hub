@@ -20,8 +20,11 @@ Usage:
     # List running or completed jobs
     hf jobs ps [-a] [-f key=value] [--format TEMPLATE]
 
-    # Stream logs from a job
+    # Print logs from a job (non-blocking)
     hf jobs logs <job-id>
+
+    # Stream logs from a job (blocking, like `docker logs -f`)
+    hf jobs logs -f <job-id>
 
     # Stream resources usage stats and metrics from a job
     hf jobs stats <job-id>
@@ -62,7 +65,9 @@ import json
 import multiprocessing
 import multiprocessing.pool
 import os
+import shutil
 import time
+from collections import deque
 from dataclasses import asdict
 from fnmatch import fnmatch
 from pathlib import Path
@@ -72,6 +77,7 @@ from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, 
 import typer
 
 from huggingface_hub import SpaceHardware, get_token
+from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._dotenv import load_dotenv
@@ -255,7 +261,15 @@ ScheduledJobIdArg = Annotated[
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
 
-@jobs_cli.command("run", help="Run a Job", context_settings={"ignore_unknown_options": True})
+@jobs_cli.command(
+    "run",
+    context_settings={"ignore_unknown_options": True},
+    examples=[
+        "hf jobs run python:3.12 python -c 'print(\"Hello!\")'",
+        "hf jobs run -e FOO=foo python:3.12 python script.py",
+        "hf jobs run --secrets HF_TOKEN python:3.12 python script.py",
+    ],
+)
 def jobs_run(
     image: ImageArg,
     command: CommandArg,
@@ -270,6 +284,7 @@ def jobs_run(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Run a Job."""
     env_map: dict[str, Optional[str]] = {}
     if env_file:
         env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
@@ -301,19 +316,59 @@ def jobs_run(
     if detach:
         return
     # Now let's stream the logs
-    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name):
+    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
         print(log)
 
 
-@jobs_cli.command("logs", help="Fetch the logs of a Job")
+@jobs_cli.command(
+    "logs", examples=["hf jobs logs <job_id>", "hf jobs logs -f <job_id>", "hf jobs logs --tail 20 <job_id>"]
+)
 def jobs_logs(
     job_id: JobIdArg,
+    follow: Annotated[
+        bool,
+        typer.Option(
+            "-f",
+            "--follow",
+            help="Follow log output (stream until the job completes). Without this flag, only currently available logs are printed.",
+        ),
+    ] = False,
+    tail: Annotated[
+        Optional[int],
+        typer.Option(
+            "-n",
+            "--tail",
+            help="Number of lines to show from the end of the logs.",
+        ),
+    ] = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Fetch the logs of a Job.
+
+    By default, prints currently available logs and exits (non-blocking).
+    Use --follow/-f to stream logs in real-time until the job completes.
+    """
+    if follow and tail is not None:
+        raise CLIError(
+            "Cannot use --follow and --tail together. Use --follow to stream logs or --tail to show recent logs."
+        )
+
     api = get_hf_api(token=token)
-    for log in api.fetch_job_logs(job_id=job_id, namespace=namespace):
-        print(log)
+    try:
+        logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow)
+        if tail is not None:
+            logs = deque(logs, maxlen=tail)
+        for log in logs:
+            print(log)
+    except HfHubHTTPError as e:
+        status = e.response.status_code if e.response is not None else None
+        if status == 404:
+            raise CLIError("Job not found. Please check the job ID.") from e
+        elif status == 403:
+            raise CLIError("Access denied. You may not have permission to view this job.") from e
+        else:
+            raise CLIError(f"Failed to fetch job logs: {e}") from e
 
 
 def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, str, str]]) -> bool:
@@ -384,12 +439,13 @@ def _get_jobs_stats_rows(
     yield True, job_id, []
 
 
-@jobs_cli.command("stats", help="Fetch the resource usage statistics and metrics of Jobs")
+@jobs_cli.command("stats", examples=["hf jobs stats <job_id>"])
 def jobs_stats(
     job_ids: JobIdsArg = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Fetch the resource usage statistics and metrics of Jobs"""
     api = get_hf_api(token=token)
     if namespace is None:
         namespace = api.whoami()["name"]
@@ -424,38 +480,47 @@ def jobs_stats(
         "gpu_memory_used_bytes_pct",
         "gpu_memory_used_bytes_and_total_bytes",
     ]
-    with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
-        rows_per_job_id: dict[str, list[list[Union[str, int]]]] = {}
-        for job_id in job_ids:
-            row: list[Union[str, int]] = [job_id]
-            row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
-            rows_per_job_id[job_id] = [row]
-        last_update_time = time.time()
-        total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
-        _print_output(total_rows, table_headers, headers_aliases, None)
+    try:
+        with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
+            rows_per_job_id: dict[str, list[list[Union[str, int]]]] = {}
+            for job_id in job_ids:
+                row: list[Union[str, int]] = [job_id]
+                row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
+                rows_per_job_id[job_id] = [row]
+            last_update_time = time.time()
+            total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+            _print_output(total_rows, table_headers, headers_aliases, None)
 
-        kwargs_list = [
-            {
-                "job_id": job_id,
-                "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace),
-                "table_headers": table_headers,
-            }
-            for job_id in job_ids
-        ]
-        for done, job_id, rows in iflatmap_unordered(pool, _get_jobs_stats_rows, kwargs_list=kwargs_list):
-            if done:
-                rows_per_job_id.pop(job_id, None)
-            else:
-                rows_per_job_id[job_id] = rows
-            now = time.time()
-            if now - last_update_time >= STATS_UPDATE_MIN_INTERVAL:
-                _clear_line(2 + len(total_rows))
-                total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
-                _print_output(total_rows, table_headers, headers_aliases, None)
-                last_update_time = now
+            kwargs_list = [
+                {
+                    "job_id": job_id,
+                    "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace),
+                    "table_headers": table_headers,
+                }
+                for job_id in job_ids
+            ]
+            for done, job_id, rows in iflatmap_unordered(pool, _get_jobs_stats_rows, kwargs_list=kwargs_list):
+                if done:
+                    rows_per_job_id.pop(job_id, None)
+                else:
+                    rows_per_job_id[job_id] = rows
+                now = time.time()
+                if now - last_update_time >= STATS_UPDATE_MIN_INTERVAL:
+                    _clear_line(2 + len(total_rows))
+                    total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+                    _print_output(total_rows, table_headers, headers_aliases, None)
+                    last_update_time = now
+    except HfHubHTTPError as e:
+        status = e.response.status_code if e.response is not None else None
+        if status == 404:
+            raise CLIError("Job not found. Please check the job ID.") from e
+        elif status == 403:
+            raise CLIError("Access denied. You may not have permission to view this job.") from e
+        else:
+            raise CLIError(f"Failed to fetch job stats: {e}") from e
 
 
-@jobs_cli.command("ps", help="List Jobs")
+@jobs_cli.command("ps", examples=["hf jobs ps", "hf jobs ps -a"])
 def jobs_ps(
     all: Annotated[
         bool,
@@ -482,6 +547,7 @@ def jobs_ps(
         ),
     ] = None,
 ) -> None:
+    """List Jobs."""
     api = get_hf_api(token=token)
     # Fetch jobs data
     jobs = api.list_jobs(namespace=namespace)
@@ -565,8 +631,9 @@ def jobs_ps(
     _print_output(rows, table_headers, headers_aliases, format)
 
 
-@jobs_cli.command("hardware", help="List available hardware options for Jobs")
+@jobs_cli.command("hardware", examples=["hf jobs hardware"])
 def jobs_hardware() -> None:
+    """List available hardware options for Jobs"""
     api = get_hf_api()
     hardware_list = api.list_jobs_hardware()
     table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
@@ -587,7 +654,7 @@ def jobs_hardware() -> None:
     _print_output(rows, table_headers, headers_aliases, None)
 
 
-@jobs_cli.command("inspect", help="Display detailed information on one or more Jobs")
+@jobs_cli.command("inspect", examples=["hf jobs inspect <job_id>"])
 def jobs_inspect(
     job_ids: Annotated[
         list[str],
@@ -598,29 +665,53 @@ def jobs_inspect(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Display detailed information on one or more Jobs"""
     api = get_hf_api(token=token)
-    jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
-    print(json.dumps([asdict(job) for job in jobs], indent=4, default=str))
+    try:
+        jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
+        print(json.dumps([asdict(job) for job in jobs], indent=4, default=str))
+    except HfHubHTTPError as e:
+        status = e.response.status_code if e.response is not None else None
+        if status == 404:
+            raise CLIError("Job not found. Please check the job ID.") from e
+        elif status == 403:
+            raise CLIError("Access denied. You may not have permission to view this job.") from e
+        else:
+            raise CLIError(f"Failed to inspect job: {e}") from e
 
 
-@jobs_cli.command("cancel", help="Cancel a Job")
+@jobs_cli.command("cancel", examples=["hf jobs cancel <job_id>"])
 def jobs_cancel(
     job_id: JobIdArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Cancel a Job"""
     api = get_hf_api(token=token)
-    api.cancel_job(job_id=job_id, namespace=namespace)
+    try:
+        api.cancel_job(job_id=job_id, namespace=namespace)
+    except HfHubHTTPError as e:
+        status = e.response.status_code if e.response is not None else None
+        if status == 404:
+            raise CLIError("Job not found. Please check the job ID.") from e
+        elif status == 403:
+            raise CLIError("Access denied. You may not have permission to cancel this job.") from e
+        else:
+            raise CLIError(f"Failed to cancel job: {e}") from e
 
 
-uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure")
+uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure.")
 jobs_cli.add_typer(uv_app, name="uv")
 
 
 @uv_app.command(
     "run",
-    help="Run a UV script (local file or URL) on HF infrastructure",
     context_settings={"ignore_unknown_options": True},
+    examples=[
+        "hf jobs uv run my_script.py",
+        "hf jobs uv run ml_training.py --flavor a10g-small",
+        "hf jobs uv run --with transformers train.py",
+    ],
 )
 def jobs_uv_run(
     script: ScriptArg,
@@ -639,6 +730,7 @@ def jobs_uv_run(
     with_: WithOpt = None,
     python: PythonOpt = None,
 ) -> None:
+    """Run a UV script (local file or URL) on HF infrastructure"""
     env_map: dict[str, Optional[str]] = {}
     if env_file:
         env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
@@ -671,7 +763,7 @@ def jobs_uv_run(
     if detach:
         return
     # Now let's stream the logs
-    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name):
+    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
         print(log)
 
 
@@ -679,7 +771,11 @@ scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.
 jobs_cli.add_typer(scheduled_app, name="scheduled")
 
 
-@scheduled_app.command("run", help="Schedule a Job", context_settings={"ignore_unknown_options": True})
+@scheduled_app.command(
+    "run",
+    context_settings={"ignore_unknown_options": True},
+    examples=['hf jobs scheduled run "0 0 * * *" python:3.12 python script.py'],
+)
 def scheduled_run(
     schedule: ScheduleArg,
     image: ImageArg,
@@ -696,6 +792,7 @@ def scheduled_run(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Schedule a Job."""
     env_map: dict[str, Optional[str]] = {}
     if env_file:
         env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
@@ -725,7 +822,7 @@ def scheduled_run(
     print(f"Scheduled Job created with ID: {scheduled_job.id}")
 
 
-@scheduled_app.command("ps", help="List scheduled Jobs")
+@scheduled_app.command("ps", examples=["hf jobs scheduled ps"])
 def scheduled_ps(
     all: Annotated[
         bool,
@@ -753,6 +850,7 @@ def scheduled_ps(
         ),
     ] = None,
 ) -> None:
+    """List scheduled Jobs"""
     api = get_hf_api(token=token)
     scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
     table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
@@ -801,7 +899,7 @@ def scheduled_ps(
     _print_output(rows, table_headers, headers_aliases, format)
 
 
-@scheduled_app.command("inspect", help="Display detailed information on one or more scheduled Jobs")
+@scheduled_app.command("inspect", examples=["hf jobs scheduled inspect <id>"])
 def scheduled_inspect(
     scheduled_job_ids: Annotated[
         list[str],
@@ -812,6 +910,7 @@ def scheduled_inspect(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Display detailed information on one or more scheduled Jobs"""
     api = get_hf_api(token=token)
     scheduled_jobs = [
         api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
@@ -820,44 +919,50 @@ def scheduled_inspect(
     print(json.dumps([asdict(scheduled_job) for scheduled_job in scheduled_jobs], indent=4, default=str))
 
 
-@scheduled_app.command("delete", help="Delete a scheduled Job")
+@scheduled_app.command("delete", examples=["hf jobs scheduled delete <id>"])
 def scheduled_delete(
     scheduled_job_id: ScheduledJobIdArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Delete a scheduled Job."""
     api = get_hf_api(token=token)
     api.delete_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
-@scheduled_app.command("suspend", help="Suspend (pause) a scheduled Job")
+@scheduled_app.command("suspend", examples=["hf jobs scheduled suspend <id>"])
 def scheduled_suspend(
     scheduled_job_id: ScheduledJobIdArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Suspend (pause) a scheduled Job."""
     api = get_hf_api(token=token)
     api.suspend_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
-@scheduled_app.command("resume", help="Resume (unpause) a scheduled Job")
+@scheduled_app.command("resume", examples=["hf jobs scheduled resume <id>"])
 def scheduled_resume(
     scheduled_job_id: ScheduledJobIdArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
+    """Resume (unpause) a scheduled Job."""
     api = get_hf_api(token=token)
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
 
-scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure")
+scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure.")
 scheduled_app.add_typer(scheduled_uv_app, name="uv")
 
 
 @scheduled_uv_app.command(
     "run",
-    help="Run a UV script (local file or URL) on HF infrastructure",
     context_settings={"ignore_unknown_options": True},
+    examples=[
+        'hf jobs scheduled uv run "0 0 * * *" script.py',
+        'hf jobs scheduled uv run "0 0 * * *" script.py --with pandas',
+    ],
 )
 def scheduled_uv_run(
     schedule: ScheduleArg,
@@ -878,6 +983,7 @@ def scheduled_uv_run(
     with_: WithOpt = None,
     python: PythonOpt = None,
 ) -> None:
+    """Run a UV script (local file or URL) on HF infrastructure"""
     env_map: dict[str, Optional[str]] = {}
     if env_file:
         env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
@@ -939,7 +1045,7 @@ def _tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
     - stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
     """
     col_widths = [max(len(str(x)) for x in col) for col in zip(*rows, headers)]
-    terminal_width = max(os.get_terminal_size().columns, len(headers) * 12)
+    terminal_width = max(shutil.get_terminal_size().columns, len(headers) * 12)
     while len(headers) + sum(col_widths) > terminal_width:
         col_to_minimize = col_widths.index(max(col_widths))
         col_widths[col_to_minimize] //= 2

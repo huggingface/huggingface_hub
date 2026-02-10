@@ -43,7 +43,7 @@ def lfs_enable_largefiles(
     ],
 ) -> None:
     """
-    Configure a local git repository to use the multipart transfer agent for large files.
+    Configure your repository to enable upload of files > 5GB.
 
     This command sets up git-lfs to use the custom multipart transfer agent
     which enables efficient uploading of large files in chunks.
