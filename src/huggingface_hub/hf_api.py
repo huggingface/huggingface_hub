@@ -4465,7 +4465,7 @@ class HfApi:
         }
         data = b"".join(_payload_as_ndjson())
 
-        params = {}
+        params: dict[str, Any] = {}
         if create_pr:
             params |= {"create_pr": 1}
         if hot_reload:

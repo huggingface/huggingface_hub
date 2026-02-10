@@ -526,6 +526,7 @@ def _get_editor_command() -> Optional[str]:
     for binary_path, editor_command in constants.PREFERRED_EDITORS:
         if shutil.which(binary_path) is not None:
             return editor_command
+    return None
 
 
 def editor_open(filepath: str) -> Union[int, Literal["no-tty", "no-editor"]]:

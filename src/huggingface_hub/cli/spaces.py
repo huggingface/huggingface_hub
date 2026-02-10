@@ -188,7 +188,7 @@ def spaces_hot_reload(
             raise CLIError(f"Unable to read cardData for Space {space_id}")
         if (sdk_version := card_data.sdk_version) is None:
             raise CLIError(f"Unable to read sdk_version from {space_id} cardData")
-        if (sdk_version := version.parse(sdk_version)) < version.Version(HOT_RELOADING_MIN_GRADIO):
+        if version.parse(sdk_version) < version.Version(HOT_RELOADING_MIN_GRADIO):
             raise CLIError(f"Hot-reloading requires Gradio >= {HOT_RELOADING_MIN_GRADIO} (found {sdk_version})")
 
     if local_file:
@@ -202,7 +202,7 @@ def spaces_hot_reload(
                 write=True,
             )
         temp_dir = tempfile.TemporaryDirectory()
-        filepath = Path(temp_dir.name) / filename
+        filepath = os.path.join(temp_dir.name, filename)
         if not (pbar_disabled := are_progress_bars_disabled()):
             disable_progress_bars()
         hf_hub_download(
@@ -213,7 +213,7 @@ def spaces_hot_reload(
         )
         if not pbar_disabled:
             enable_progress_bars()
-        editor_res = _cli_utils.editor_open(str(filepath))
+        editor_res = _cli_utils.editor_open(filepath)
         if editor_res == "no-tty":
             raise CLIError("Cannot open an editor (no TTY). Use --local flag to ho-reload from local path")
         if editor_res == "no-editor":
@@ -236,7 +236,7 @@ def spaces_hot_reload(
             api=api,
             space_id=space_id,
             commit_sha=commit_info.oid,
-            filepath=str(filepath if local_file else os.path.basename(filepath)),
+            filepath=filepath if local_file else os.path.basename(filepath),
             token=token,
         )
 
