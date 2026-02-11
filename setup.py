@@ -25,7 +25,7 @@ install_requires = [
     "pyyaml>=5.1",
     "shellingham",
     "tqdm>=4.42.1",
-    "typer-slim",
+    "typer",
     "typing-extensions>=4.1.0",  # to be able to import TypeAlias, dataclass_transform
 ]
 
