@@ -2269,15 +2269,21 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `hot-reload`: Perform a hot-reloaded update on any...
+* `hot-reload`: Hot-reload any Python file of a Space...
 * `hot-reloading`: Low-level hot-reloading commands
 * `info`: Get info about a space on the Hub.
 * `ls`: List spaces on the Hub.
 
 ### `hf spaces hot-reload`
 
-Perform a hot-reloaded update on any Python file of a Space.
-Opens an interactive editor unless --local-file/-f option is used.
+Hot-reload any Python file of a Space without a full rebuild + restart.
+
+Only works with Gradio SDK (6.1+)
+Opens an interactive editor unless --local-file/-f is specified.
+
+This command patches the live Python process using https://github.com/breuleux/jurigged
+(AST-based diffing, in-place function updates, etc.), integrated with Gradio's native hot-reload support
+(meaning that Gradio demo object changes are reflected in the UI)
 
 Usage examples:
 
@@ -2432,7 +2438,6 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 * `--commit-message TEXT`: The summary / title / first line of the generated commit.
 * `--commit-description TEXT`: The description of the generated commit.
 * `--create-pr / --no-create-pr`: Whether to upload content as a new Pull Request.  [default: no-create-pr]
-* `--hot-reload / --no-hot-reload`: Whether to trigger a hot-reloaded update for Spaces  [default: no-hot-reload]
 * `--every FLOAT`: f set, a background job is scheduled to create commits every `every` minutes.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--quiet / --no-quiet`: Disable progress bars and warnings; print only the returned path.  [default: no-quiet]

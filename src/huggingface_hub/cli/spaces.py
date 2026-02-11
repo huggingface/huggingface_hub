@@ -168,8 +168,14 @@ def spaces_hot_reload(
     token: TokenOpt = None,
 ) -> None:
     """
-    Perform a hot-reloaded update on any Python file of a Space.
-    Opens an interactive editor unless --local-file/-f option is used.
+    Hot-reload any Python file of a Space without a full rebuild + restart.
+
+    Only works with Gradio SDK (6.1+)
+    Opens an interactive editor unless --local-file/-f is specified.
+
+    This command patches the live Python process using https://github.com/breuleux/jurigged
+    (AST-based diffing, in-place function updates, etc.), integrated with Gradio's native hot-reload support
+    (meaning that Gradio demo object changes are reflected in the UI)
 
     Usage examples:
 
