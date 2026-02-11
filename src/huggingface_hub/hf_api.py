@@ -11557,7 +11557,7 @@ class HfApi:
         """
         encoded_prefix = "/" + quote(prefix, safe="") if prefix else ""
         for item in paginate(
-            path=f"{self.endpoint}/api/buckets/{bucket_id}/tree/latest{encoded_prefix}",
+            path=f"{self.endpoint}/api/buckets/{bucket_id}/tree/{encoded_prefix}",
             headers=self._build_hf_headers(token=token),
             params={},
         ):
@@ -11776,7 +11776,7 @@ class HfApi:
             ```
         """
         response = get_session().head(
-            f"{self.endpoint}/buckets/{bucket_id}/resolve/latest/{quote(remote_path, safe='')}",
+            f"{self.endpoint}/buckets/{bucket_id}/resolve/{quote(remote_path, safe='')}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
