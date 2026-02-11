@@ -2,28 +2,26 @@
 Hot-reloading API types
 """
 
-from dataclasses import dataclass
 from typing import Literal, Optional, Union
 
+from pydantic import BaseModel
 
-@dataclass
-class ReloadRegion:
+
+class ReloadRegion(BaseModel):
     startLine: int
     startCol: int
     endLine: int
     endCol: int
 
 
-@dataclass
-class ReloadOperationObject:
+class ReloadOperationObject(BaseModel):
     kind: Literal["add", "update", "delete"]
     region: ReloadRegion
     objectType: str
     objectName: str
 
 
-@dataclass
-class ReloadOperationRun:
+class ReloadOperationRun(BaseModel):
     kind: Literal["run"]
     region: ReloadRegion
     codeLines: str
@@ -31,55 +29,46 @@ class ReloadOperationRun:
     stderr: Optional[str] = None
 
 
-@dataclass
-class ReloadOperationException:
+class ReloadOperationException(BaseModel):
     kind: Literal["exception"]
     region: ReloadRegion
     traceback: str
 
 
-@dataclass
-class ReloadOperationError:
+class ReloadOperationError(BaseModel):
     kind: Literal["error"]
     traceback: str
 
 
-@dataclass
-class ReloadOperationUI:
+class ReloadOperationUI(BaseModel):
     kind: Literal["ui"]
     updated: bool
 
 
-@dataclass
-class ApiCreateReloadRequest:
+class ApiCreateReloadRequest(BaseModel):
     filepath: str
     contents: str
     reloadId: Optional[str] = None
 
 
-@dataclass
-class ApiCreateReloadResponseSuccess:
+class ApiCreateReloadResponseSuccess(BaseModel):
     status: Literal["created"]
     reloadId: str
 
 
-@dataclass
-class ApiCreateReloadResponseError:
+class ApiCreateReloadResponseError(BaseModel):
     status: Literal["alreadyReloading", "fileNotFound"]
 
 
-@dataclass
-class ApiCreateReloadResponse:
+class ApiCreateReloadResponse(BaseModel):
     res: Union[ApiCreateReloadResponseError, ApiCreateReloadResponseSuccess]
 
 
-@dataclass
-class ApiGetReloadRequest:
+class ApiGetReloadRequest(BaseModel):
     reloadId: str
 
 
-@dataclass
-class ApiGetReloadEventSourceData:
+class ApiGetReloadEventSourceData(BaseModel):
     data: Union[
         ReloadOperationError,
         ReloadOperationException,
@@ -89,33 +78,27 @@ class ApiGetReloadEventSourceData:
     ]
 
 
-@dataclass
-class ApiGetStatusRequest:
+class ApiGetStatusRequest(BaseModel):
     revision: str
 
 
-@dataclass
-class ApiGetStatusResponse:
+class ApiGetStatusResponse(BaseModel):
     reloading: bool
     uncommited: list[str]
 
 
-@dataclass
-class ApiFetchContentsRequest:
+class ApiFetchContentsRequest(BaseModel):
     filepath: str
 
 
-@dataclass
-class ApiFetchContentsResponseError:
+class ApiFetchContentsResponseError(BaseModel):
     status: Literal["fileNotFound"]
 
 
-@dataclass
-class ApiFetchContentsResponseSuccess:
+class ApiFetchContentsResponseSuccess(BaseModel):
     status: Literal["ok"]
     contents: str
 
 
-@dataclass
-class ApiFetchContentsResponse:
+class ApiFetchContentsResponse(BaseModel):
     res: Union[ApiFetchContentsResponseError, ApiFetchContentsResponseSuccess]

@@ -1,5 +1,3 @@
-import json
-from dataclasses import asdict
 from typing import Optional
 
 import httpx
@@ -30,8 +28,8 @@ class ReloadClient:
 
     def get_reload(self, reload_id: str):
         req = ApiGetReloadRequest(reloadId=reload_id)
-        with self.client.stream("POST", "/get-reload", json=asdict(req)) as res:
+        with self.client.stream("POST", "/get-reload", json=req.model_dump()) as res:
             assert res.status_code == 200, res.status_code  # TODO: Raise specific error ? Return ?
             for event in SSEClient(res.iter_bytes()).events():
                 if event.event == "message":
-                    yield ApiGetReloadEventSourceData(**json.loads(event.data))
+                    yield ApiGetReloadEventSourceData.model_validate_json(event.data)
