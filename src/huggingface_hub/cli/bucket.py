@@ -286,15 +286,21 @@ def create(
 
 @bucket_cli.command(
     name="list",
-    examples=["hf bucket list"],
+    examples=[
+        "hf bucket list",
+        "hf bucket list huggingface",
+    ],
 )
 def list_cmd(
     token: TokenOpt = None,
+    namespace: Annotated[
+        Optional[str],
+        typer.Argument(help="Namespace to list buckets from (user or organization). Defaults to user's namespace."),
+    ] = None,
 ) -> None:
     """List all accessible buckets."""
     api = get_hf_api(token=token)
-    buckets = list(api.list_buckets(token=token))
-
+    buckets = list(api.list_buckets(namespace=namespace, token=token))
     if not buckets:
         print("No buckets found.")
         return

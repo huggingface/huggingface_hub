@@ -11448,12 +11448,15 @@ class HfApi:
 
     def list_buckets(
         self,
+        namespace: Optional[str] = None,
         *,
         token: Union[bool, str, None] = None,
     ) -> Iterable[BucketInfo]:
-        """List buckets accessible by the current user on the Hub.
+        """List buckets on the Hub under a certain namespace.
 
         Args:
+            namespace (`str`, *optional*):
+                List buckets under this namespace (user or organization). Defaults to listing user's buckets.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -11467,11 +11470,18 @@ class HfApi:
             ```python
             >>> from huggingface_hub import HfApi
             >>> api = HfApi()
-            >>> for bucket in api.list_buckets():
+            >>> for bucket in api.list_buckets(): # lists buckets in the user's namespace
+            ...     print(bucket)
+
+            >>> for bucket in api.list_buckets(namespace="huggingface"): # lists buckets in the "huggingface" organization
             ...     print(bucket)
             ```
         """
-        for item in paginate(f"{self.endpoint}/api/buckets", params={}, headers=self._build_hf_headers(token=token)):
+        if namespace is None:
+            namespace = "me"
+        for item in paginate(
+            f"{self.endpoint}/api/buckets/{namespace}", params={}, headers=self._build_hf_headers(token=token)
+        ):
             yield BucketInfo(**item)
 
     def delete_bucket(
