@@ -17,7 +17,7 @@ import pytest
 from huggingface_hub import BucketInfo, HfApi
 from huggingface_hub.errors import HfHubHTTPError
 
-from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER
+from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, OTHER_USER, TOKEN, USER
 from .testing_utils import repo_name
 
 
@@ -156,18 +156,23 @@ def test_list_buckets_return_type(api: HfApi, bucket_read: str):
 def test_list_buckets_with_private(
     api: HfApi, api_other: HfApi, api_unauth: HfApi, bucket_read: str, bucket_read_private: str
 ):
-    # List buckets with main user
+    # List buckets with main user (defaults to "me" namespace)
     bucket_ids = {bucket.id for bucket in api.list_buckets()}
     assert bucket_read in bucket_ids
     assert bucket_read_private in bucket_ids
 
-    # List buckets with other user
+    # Other user lists their own buckets by default => doesn't see main user's buckets
     bucket_ids_other = {bucket.id for bucket in api_other.list_buckets()}
-    assert bucket_read in bucket_ids_other
+    assert bucket_read not in bucket_ids_other
     assert bucket_read_private not in bucket_ids_other
 
-    # List buckets with unauthenticated user
-    bucket_ids_unauth = {bucket.id for bucket in api_unauth.list_buckets()}
+    # Other user can list main user's public buckets by passing namespace
+    bucket_ids_other_ns = {bucket.id for bucket in api_other.list_buckets(namespace=USER)}
+    assert bucket_read in bucket_ids_other_ns
+    assert bucket_read_private not in bucket_ids_other_ns
+
+    # Unauthenticated user can list main user's public buckets by passing namespace
+    bucket_ids_unauth = {bucket.id for bucket in api_unauth.list_buckets(namespace=USER)}
     assert bucket_read in bucket_ids_unauth
     assert bucket_read_private not in bucket_ids_unauth
 
