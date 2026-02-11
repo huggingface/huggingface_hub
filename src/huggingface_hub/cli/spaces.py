@@ -35,6 +35,8 @@ import typer
 from packaging import version
 from typing_extensions import assert_never
 
+from huggingface_hub._hot_reloading_client import ReloadClient
+from huggingface_hub._hot_reloading_types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub.cli import _cli_utils
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
@@ -247,9 +249,6 @@ def _spaces_hot_reloading_summary(
     filepath: Optional[str],
     token: Optional[str],
 ) -> None:
-    from huggingface_hub._hot_reloading_client import ReloadClient
-    from huggingface_hub._hot_reloading_types import ApiGetReloadEventSourceData, ReloadRegion
-
     space_info = api.space_info(space_id)
     if (runtime := space_info.runtime) is None:
         raise CLIError(f"Unable to read SpaceRuntime from {space_id} infos")
@@ -278,35 +277,35 @@ def _spaces_hot_reloading_summary(
         res = ""
         if filepath is not None:
             res += f"{filepath}, "
-        if region.startLine == region.endLine:
-            res += f"line {region.startLine - 1}"
+        if region["startLine"] == region["endLine"]:
+            res += f"line {region['startLine'] - 1}"
         else:
-            res += f"lines {region.startLine - 1}-{region.endLine - 1}"
+            res += f"lines {region['startLine'] - 1}-{region['endLine'] - 1}"
         return res
 
     def display_event(event: ApiGetReloadEventSourceData) -> None:
-        if event.data.kind == "error":
+        if event["data"]["kind"] == "error":
             typer.secho("✘ Unexpected hot-reloading error", bold=True)
-            typer.secho(event.data.traceback, italic=True)
-        elif event.data.kind == "exception":
-            typer.secho(f"✘ Exception at {render_region(event.data.region)}", bold=True)
-            typer.secho(event.data.traceback, italic=True)
-        elif event.data.kind == "add":
-            typer.secho(f"✔︎ Created {event.data.objectName} {event.data.objectType}", bold=True)
-        elif event.data.kind == "delete":
-            typer.secho(f"∅ Deleted {event.data.objectName} {event.data.objectType}", bold=True)
-        elif event.data.kind == "update":
-            typer.secho(f"✔︎ Updated {event.data.objectName} {event.data.objectType}", bold=True)
-        elif event.data.kind == "run":
-            typer.secho(f"▶ Run {render_region(event.data.region)}", bold=True)
-            typer.secho(event.data.codeLines, italic=True)
-        elif event.data.kind == "ui":
-            if event.data.updated:
+            typer.secho(event["data"]["traceback"], italic=True)
+        elif event["data"]["kind"] == "exception":
+            typer.secho(f"✘ Exception at {render_region(event['data']['region'])}", bold=True)
+            typer.secho(event["data"]["traceback"], italic=True)
+        elif event["data"]["kind"] == "add":
+            typer.secho(f"✔︎ Created {event['data']['objectName']} {event['data']['objectType']}", bold=True)
+        elif event["data"]["kind"] == "delete":
+            typer.secho(f"∅ Deleted {event['data']['objectName']} {event['data']['objectType']}", bold=True)
+        elif event["data"]["kind"] == "update":
+            typer.secho(f"✔︎ Updated {event['data']['objectName']} {event['data']['objectType']}", bold=True)
+        elif event["data"]["kind"] == "run":
+            typer.secho(f"▶ Run {render_region(event['data']['region'])}", bold=True)
+            typer.secho(event["data"]["codeLines"], italic=True)
+        elif event["data"]["kind"] == "ui":
+            if event["data"]["updated"]:
                 typer.secho("⟳ UI updated", bold=True)
             else:
                 typer.secho("∅ UI untouched", bold=True)
         else:
-            assert_never(event.data.kind)
+            assert_never(event["data"]["kind"])
 
     first_client_events: dict[int, ApiGetReloadEventSourceData] = defaultdict()
     for client_index, client in enumerate(clients):

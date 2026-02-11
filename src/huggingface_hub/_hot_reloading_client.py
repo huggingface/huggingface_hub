@@ -1,4 +1,5 @@
-from typing import Optional
+import json
+from typing import Iterator, Optional
 
 import httpx
 
@@ -26,10 +27,10 @@ class ReloadClient:
             headers=build_hf_headers(token=token),
         )
 
-    def get_reload(self, reload_id: str):
+    def get_reload(self, reload_id: str) -> Iterator[ApiGetReloadEventSourceData]:
         req = ApiGetReloadRequest(reloadId=reload_id)
-        with self.client.stream("POST", "/get-reload", json=req.model_dump()) as res:
+        with self.client.stream("POST", "/get-reload", json=req) as res:
             assert res.status_code == 200, res.status_code  # TODO: Raise specific error ? Return ?
             for event in SSEClient(res.iter_bytes()).events():
                 if event.event == "message":
-                    yield ApiGetReloadEventSourceData.model_validate_json(event.data)
+                    yield json.loads(event.data)
