@@ -160,7 +160,9 @@ def fetch_xet_connection_info_from_repo_info(
             If the Hub API response is improperly formatted.
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-    url = f"{endpoint}/api/{repo_type}s/{repo_id}/xet-{token_type.value}-token/{revision}"
+    url = f"{endpoint}/api/{repo_type}s/{repo_id}/xet-{token_type.value}-token"
+    if revision is not None:
+        url += f"/{revision}"
     return _fetch_xet_connection_info_with_url(url, headers, params)
 
 

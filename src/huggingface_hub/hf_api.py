@@ -11646,7 +11646,6 @@ class HfApi:
                     token_type=XetTokenType.WRITE,
                     repo_id=bucket_id,
                     repo_type="bucket",
-                    revision="latest",
                     headers=headers,
                     endpoint=self.endpoint,
                 )
@@ -11666,7 +11665,6 @@ class HfApi:
                     token_type=XetTokenType.WRITE,
                     repo_id=bucket_id,
                     repo_type="bucket",
-                    revision="latest",
                     headers=headers,
                     endpoint=self.endpoint,
                 )
