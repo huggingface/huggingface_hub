@@ -27,6 +27,9 @@ call-non-callable = "ignore"
 missing-argument = "ignore"
 deprecated = "ignore"
 
+[tool.ty.src]
+exclude = ["src/huggingface_hub/cli/spaces.py"] # TypedDict not yet fully supported by ty
+
 [tool.pytest.ini_options]
 # Add the specified `OPTS` to the set of command line arguments as if they had
 # been specified by the user.
