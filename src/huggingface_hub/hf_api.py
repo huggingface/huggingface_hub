@@ -5630,6 +5630,46 @@ class HfApi:
             dry_run=dry_run,
         )
 
+    @overload
+    def snapshot_download(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+        force_download: bool = False,
+        token: Union[bool, str, None] = None,
+        local_files_only: bool = False,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+        max_workers: int = 8,
+        tqdm_class: Optional[type[base_tqdm]] = None,
+        dry_run: Literal[False] = False,
+    ) -> str: ...
+
+    @overload
+    def snapshot_download(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+        force_download: bool = False,
+        token: Union[bool, str, None] = None,
+        local_files_only: bool = False,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+        max_workers: int = 8,
+        tqdm_class: Optional[type[base_tqdm]] = None,
+        dry_run: Literal[True],
+    ) -> list[DryRunFileInfo]: ...
+
     @validate_hf_hub_args
     def snapshot_download(
         self,
@@ -10310,11 +10350,7 @@ class HfApi:
             except KeyboardInterrupt:
                 break
             except (httpx.HTTPError, httpcore.TimeoutException) as err:
-                is_no_new_line_timeout = (
-                    isinstance(err, httpx.NetworkError)
-                    and err.__context__
-                    and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
-                )
+                is_no_new_line_timeout = isinstance(err, (httpx.ReadTimeout, httpcore.ReadTimeout))
                 if is_no_new_line_timeout:
                     if not follow:
                         break  # no-follow mode: got all buffered events
