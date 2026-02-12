@@ -235,7 +235,7 @@ def spaces_hot_reload(
         repo_id=space_id,
         path_or_fileobj=filepath,
         path_in_repo=filename,
-        hot_reload=True,
+        _hot_reload=True,
     )
 
     if not skip_summary:

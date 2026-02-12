@@ -4179,10 +4179,10 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
-        hot_reload: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[False] = ...,
+        _hot_reload: Optional[bool] = None,
     ) -> CommitInfo: ...
 
     @overload
@@ -4197,10 +4197,10 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
-        hot_reload: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[True] = ...,
+        _hot_reload: Optional[bool] = None,
     ) -> Future[CommitInfo]: ...
 
     @validate_hf_hub_args
@@ -4216,10 +4216,10 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
-        hot_reload: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
         run_as_future: bool = False,
+        _hot_reload: Optional[bool] = None,
     ) -> Union[CommitInfo, Future[CommitInfo]]:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
@@ -4330,7 +4330,7 @@ class HfApi:
         unquoted_revision = revision or constants.DEFAULT_REVISION
         revision = quote(unquoted_revision, safe="")
         create_pr = create_pr if create_pr is not None else False
-        hot_reload = hot_reload if hot_reload is not None else False
+        _hot_reload = _hot_reload if _hot_reload is not None else False
 
         headers = self._build_hf_headers(token=token)
 
@@ -4468,7 +4468,7 @@ class HfApi:
         params: dict[str, Any] = {}
         if create_pr:
             params |= {"create_pr": 1}
-        if hot_reload:
+        if _hot_reload:
             params |= {"hot_reload": 1}
 
         try:
@@ -4666,9 +4666,9 @@ class HfApi:
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
-        hot_reload: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[False] = ...,
+        _hot_reload: Optional[bool] = None,
     ) -> CommitInfo: ...
 
     @overload
@@ -4684,9 +4684,9 @@ class HfApi:
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
-        hot_reload: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[True] = ...,
+        _hot_reload: Optional[bool] = None,
     ) -> Future[CommitInfo]: ...
 
     @validate_hf_hub_args
@@ -4703,9 +4703,9 @@ class HfApi:
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
-        hot_reload: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: bool = False,
+        _hot_reload: Optional[bool] = None,
     ) -> Union[CommitInfo, Future[CommitInfo]]:
         """
         Upload a local file (up to 50 GB) to the given repo. The upload is done
@@ -4829,7 +4829,7 @@ class HfApi:
             token=token,
             revision=revision,
             create_pr=create_pr,
-            hot_reload=hot_reload,
+            _hot_reload=_hot_reload,
             parent_commit=parent_commit,
         )
 
