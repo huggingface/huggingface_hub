@@ -3,9 +3,9 @@ from typing import Iterator, Optional
 
 import httpx
 
-from ._hot_reloading_types import ApiGetReloadEventSourceData, ApiGetReloadRequest
-from .utils._headers import build_hf_headers
-from .utils._sse_client import SSEClient
+from ..utils._headers import build_hf_headers
+from ..utils._sse_client import SSEClient
+from .types import ApiGetReloadEventSourceData, ApiGetReloadRequest
 
 
 HOT_RELOADING_PORT = 7887

@@ -35,8 +35,8 @@ import typer
 from packaging import version
 from typing_extensions import assert_never
 
-from huggingface_hub._hot_reloading_client import ReloadClient
-from huggingface_hub._hot_reloading_types import ApiGetReloadEventSourceData, ReloadRegion
+from huggingface_hub._hot_reload.client import ReloadClient
+from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub.cli import _cli_utils
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
