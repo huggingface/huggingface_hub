@@ -2269,12 +2269,13 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `hot-reload`: Hot-reload any Python file of a Space...
-* `hot-reloading`: Low-level hot-reloading commands
+* `hot-reload`: ⚠ This feature is experimental ⚠
 * `info`: Get info about a space on the Hub.
 * `ls`: List spaces on the Hub.
 
 ### `hf spaces hot-reload`
+
+⚠ This feature is experimental ⚠
 
 Hot-reload any Python file of a Space without a full rebuild + restart.
 
@@ -2308,44 +2309,6 @@ $ hf spaces hot-reload [OPTIONS] SPACE_ID [FILENAME]
 * `-f, --local-file TEXT`: Path of local file. Interactive editor mode if not specified
 * `--skip-checks / --no-skip-checks`: Skip hot-reload compatibility checks.  [default: no-skip-checks]
 * `--skip-summary / --no-skip-summary`: Skip summary display after hot-reloaded triggered  [default: no-skip-summary]
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-### `hf spaces hot-reloading`
-
-Low-level hot-reloading commands
-
-**Usage**:
-
-```console
-$ hf spaces hot-reloading [OPTIONS] COMMAND [ARGS]...
-```
-
-**Options**:
-
-* `--help`: Show this message and exit.
-
-**Commands**:
-
-* `summary`: Display code updates summary of a...
-
-#### `hf spaces hot-reloading summary`
-
-Display code updates summary of a hot-reloaded commit
-
-**Usage**:
-
-```console
-$ hf spaces hot-reloading summary [OPTIONS] SPACE_ID COMMIT_SHA
-```
-
-**Arguments**:
-
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
-* `COMMIT_SHA`: ...  [required]
-
-**Options**:
-
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
