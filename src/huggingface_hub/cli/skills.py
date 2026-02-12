@@ -46,23 +46,6 @@ from ._cli_utils import typer_factory
 
 DEFAULT_SKILL_ID = "hf-cli"
 
-CENTRAL_LOCAL = Path(".agents/skills")
-CENTRAL_GLOBAL = Path("~/.agents/skills")
-
-GLOBAL_TARGETS = {
-    "codex": Path("~/.codex/skills"),
-    "claude": Path("~/.claude/skills"),
-    "opencode": Path("~/.config/opencode/skills"),
-}
-
-LOCAL_TARGETS = {
-    "codex": Path(".codex/skills"),
-    "claude": Path(".claude/skills"),
-    "opencode": Path(".opencode/skills"),
-}
-
-skills_cli = typer_factory(help="Manage skills for AI assistants.")
-
 _SKILL_YAML_PREFIX = """\
 ---
 name: hf-cli
@@ -89,6 +72,23 @@ _SKILL_TIPS = """
 - Authenticate with `--token` or set `HF_TOKEN` env var
 - Use `--repo-type dataset` or `--repo-type space` for non-model repos
 """
+
+CENTRAL_LOCAL = Path(".agents/skills")
+CENTRAL_GLOBAL = Path("~/.agents/skills")
+
+GLOBAL_TARGETS = {
+    "codex": Path("~/.codex/skills"),
+    "claude": Path("~/.claude/skills"),
+    "opencode": Path("~/.config/opencode/skills"),
+}
+
+LOCAL_TARGETS = {
+    "codex": Path(".codex/skills"),
+    "claude": Path(".claude/skills"),
+    "opencode": Path(".opencode/skills"),
+}
+
+skills_cli = typer_factory(help="Manage skills for AI assistants.")
 
 
 def _format_params(cmd) -> str:
