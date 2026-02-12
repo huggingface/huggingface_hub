@@ -79,9 +79,6 @@ ExpandOpt = Annotated[
 
 
 spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
-spaces_hot_reloading_cli = typer_factory(help="Low-level hot-reloading commands")
-
-spaces_cli.add_typer(spaces_hot_reloading_cli, name="hot-reloading")
 
 
 @spaces_cli.command(
@@ -332,20 +329,3 @@ def _spaces_hot_reloading_summary(
             display_event(event)
         if client_index > 0 and full_match:
             typer.echo("✔︎ Same as first replica")
-
-
-@spaces_hot_reloading_cli.command("summary")
-def spaces_hot_reloading_summary(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
-    commit_sha: Annotated[str, typer.Argument(help="...")],
-    token: TokenOpt = None,
-):
-    """Display code updates summary of a hot-reloaded commit"""
-    api = get_hf_api(token=token)
-    _spaces_hot_reloading_summary(
-        api=api,
-        space_id=space_id,
-        commit_sha=commit_sha,
-        filepath=None,
-        token=token,
-    )
