@@ -2026,3 +2026,111 @@ class TestJobsCommand:
         result = runner.invoke(app, ["jobs", "logs", "-f", "--tail", "5", "my-job-id"])
         assert result.exit_code != 0
         assert "Cannot use --follow and --tail together" in str(result.exception)
+
+    def _make_mock_jobs(self):
+        """Create mock JobInfo objects for testing ps output."""
+        from huggingface_hub._jobs_api import JobInfo
+
+        return [
+            JobInfo(
+                id="abc123def456",
+                createdAt="2026-01-15T10:30:00.000Z",
+                dockerImage="python:3.12",
+                command=["python", "-c", "print('hello')"],
+                arguments=[],
+                environment={},
+                secrets={},
+                flavor="cpu-basic",
+                labels={"env": "test"},
+                status={"stage": "RUNNING"},
+                owner={"id": "user-id", "name": "testuser", "type": "user"},
+            ),
+            JobInfo(
+                id="xyz789ghi012",
+                createdAt="2026-01-14T08:00:00.000Z",
+                dockerImage="ubuntu:latest",
+                command=["echo", "done"],
+                arguments=[],
+                environment={},
+                secrets={},
+                flavor="cpu-basic",
+                labels={},
+                status={"stage": "COMPLETED"},
+                owner={"id": "user-id", "name": "testuser", "type": "user"},
+            ),
+        ]
+
+    def test_ps_format_json(self, runner: CliRunner) -> None:
+        """Test that `hf jobs ps -a --format json` outputs valid JSON with all fields."""
+        import json
+
+        jobs = self._make_mock_jobs()
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = jobs
+            result = runner.invoke(app, ["jobs", "ps", "-a", "--format", "json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 2
+        assert data[0]["id"] == "abc123def456"
+        assert data[1]["id"] == "xyz789ghi012"
+        # JSON should include all fields, not just table columns
+        assert "docker_image" in data[0]
+        assert "status" in data[0]
+        assert "owner" in data[0]
+
+    def test_ps_json_hidden_alias(self, runner: CliRunner) -> None:
+        """Test that `hf jobs ps -a --json` works as alias for `--format json`."""
+        import json
+
+        jobs = self._make_mock_jobs()
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = jobs
+            result = runner.invoke(app, ["jobs", "ps", "-a", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 2
+
+    def test_ps_quiet(self, runner: CliRunner) -> None:
+        """Test that `hf jobs ps -a -q` outputs only IDs, one per line."""
+        jobs = self._make_mock_jobs()
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = jobs
+            result = runner.invoke(app, ["jobs", "ps", "-a", "-q"])
+        assert result.exit_code == 0
+        lines = result.output.strip().split("\n")
+        assert lines == ["abc123def456", "xyz789ghi012"]
+
+    def test_ps_table_shows_full_ids(self, runner: CliRunner) -> None:
+        """Test that table output shows full untruncated job IDs."""
+        jobs = self._make_mock_jobs()
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = jobs
+            result = runner.invoke(app, ["jobs", "ps", "-a"])
+        assert result.exit_code == 0
+        assert "abc123def456" in result.output
+        assert "xyz789ghi012" in result.output
+
+    def test_ps_empty_json(self, runner: CliRunner) -> None:
+        """Test that `hf jobs ps --format json` outputs `[]` when no jobs match."""
+        import json
+
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = []
+            result = runner.invoke(app, ["jobs", "ps", "--format", "json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data == []
+
+    def test_ps_empty_quiet(self, runner: CliRunner) -> None:
+        """Test that `hf jobs ps -q` outputs nothing when no jobs match."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = []
+            result = runner.invoke(app, ["jobs", "ps", "-q"])
+        assert result.exit_code == 0
+        assert result.output.strip() == ""
