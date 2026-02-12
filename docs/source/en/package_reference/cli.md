@@ -221,7 +221,7 @@ $ hf bucket create [OPTIONS] BUCKET_ID
 
 **Arguments**:
 
-* `BUCKET_ID`: Bucket ID: namespace/bucket_name (e.g., user/my-bucket)  [required]
+* `BUCKET_ID`: Bucket ID: bucket_name, namespace/bucket_name, or hf://buckets/namespace/bucket_name  [required]
 
 **Options**:
 
@@ -231,7 +231,9 @@ $ hf bucket create [OPTIONS] BUCKET_ID
 * `--help`: Show this message and exit.
 
 Examples
+  $ hf bucket create my-bucket
   $ hf bucket create user/my-bucket
+  $ hf bucket create hf://buckets/user/my-bucket
   $ hf bucket create user/my-bucket --private
   $ hf bucket create user/my-bucket --exist-ok
 
@@ -252,7 +254,7 @@ $ hf bucket delete [OPTIONS] BUCKET_ID
 
 **Arguments**:
 
-* `BUCKET_ID`: Bucket ID: namespace/bucket_name (e.g., user/my-bucket)  [required]
+* `BUCKET_ID`: Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
 
 **Options**:
 
@@ -263,6 +265,7 @@ $ hf bucket delete [OPTIONS] BUCKET_ID
 
 Examples
   $ hf bucket delete user/my-bucket
+  $ hf bucket delete hf://buckets/user/my-bucket
   $ hf bucket delete user/my-bucket --yes
   $ hf bucket delete user/my-bucket --missing-ok
 

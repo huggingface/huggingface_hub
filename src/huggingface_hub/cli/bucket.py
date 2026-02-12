@@ -225,7 +225,9 @@ def tree_cmd(
 @bucket_cli.command(
     name="create",
     examples=[
+        "hf bucket create my-bucket",
         "hf bucket create user/my-bucket",
+        "hf bucket create hf://buckets/user/my-bucket",
         "hf bucket create user/my-bucket --private",
         "hf bucket create user/my-bucket --exist-ok",
     ],
@@ -234,7 +236,7 @@ def create(
     bucket_id: Annotated[
         str,
         typer.Argument(
-            help="Bucket ID: namespace/bucket_name (e.g., user/my-bucket)",
+            help="Bucket ID: bucket_name, namespace/bucket_name, or hf://buckets/namespace/bucket_name",
         ),
     ],
     private: Annotated[
@@ -256,17 +258,25 @@ def create(
     """Create a new bucket."""
     api = get_hf_api(token=token)
 
-    # Validate bucket_id format
-    if "/" not in bucket_id:
-        raise typer.BadParameter(f"Invalid bucket ID: {bucket_id}. Must be in format namespace/bucket_name")
+    if bucket_id.startswith(BUCKET_PREFIX):
+        try:
+            parsed_id, prefix = _parse_bucket_argument(bucket_id)
+        except ValueError as e:
+            raise typer.BadParameter(str(e))
+        if prefix:
+            raise typer.BadParameter(
+                f"Cannot specify a prefix for bucket creation: {bucket_id}."
+                f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+            )
+        bucket_id = parsed_id
 
-    api.create_bucket(
+    bucket_url = api.create_bucket(
         bucket_id,
         private=private if private else None,
         exist_ok=exist_ok,
         token=token,
     )
-    print(f"Bucket created: {BUCKET_PREFIX}{bucket_id}")
+    print(f"Bucket created: {bucket_url.url} (handle: {bucket_url.handle})")
 
 
 @bucket_cli.command(
@@ -333,6 +343,7 @@ def info(
     name="delete",
     examples=[
         "hf bucket delete user/my-bucket",
+        "hf bucket delete hf://buckets/user/my-bucket",
         "hf bucket delete user/my-bucket --yes",
         "hf bucket delete user/my-bucket --missing-ok",
     ],
@@ -341,7 +352,7 @@ def delete(
     bucket_id: Annotated[
         str,
         typer.Argument(
-            help="Bucket ID: namespace/bucket_name (e.g., user/my-bucket)",
+            help="Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
         ),
     ],
     yes: Annotated[
@@ -364,9 +375,22 @@ def delete(
     """Delete a bucket."""
     api = get_hf_api(token=token)
 
-    # Validate bucket_id format
-    if "/" not in bucket_id:
-        raise typer.BadParameter(f"Invalid bucket ID: {bucket_id}. Must be in format namespace/bucket_name")
+    if bucket_id.startswith(BUCKET_PREFIX):
+        try:
+            parsed_id, prefix = _parse_bucket_argument(bucket_id)
+        except ValueError as e:
+            raise typer.BadParameter(str(e))
+        if prefix:
+            raise typer.BadParameter(
+                f"Cannot specify a prefix for bucket deletion: {bucket_id}."
+                f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+            )
+        bucket_id = parsed_id
+    elif "/" not in bucket_id:
+        raise typer.BadParameter(
+            f"Invalid bucket ID: {bucket_id}."
+            f" Must be in format namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+        )
 
     # Confirm deletion unless -y flag is provided
     if not yes:

@@ -638,28 +638,20 @@ class BucketUrl:
     - namespace (`str`)
     - bucket_id (`str`)
     - url (`str`)
+    - handle (`str`)
 
     Args:
         url (`str`):
             String value of the bucket url.
         endpoint (`str`, *optional*):
             Endpoint of the Hub. Defaults to <https://huggingface.co>.
-
-    Attributes:
-        endpoint (`str`):
-            Endpoint of the Hub.
-        url (`str`):
-            String value of the bucket url.
-        namespace (`str`):
-            Namespace of the bucket.
-        bucket_id (`str`):
-            ID of the bucket.
     """
 
     url: str
     endpoint: str = ""
     namespace: str = field(init=False)
     bucket_id: str = field(init=False)
+    handle: str = field(init=False)
 
     def __post_init__(self) -> None:
         self.endpoint = self.endpoint or constants.ENDPOINT
@@ -674,6 +666,8 @@ class BucketUrl:
             raise ValueError(f"Unable to parse bucket URL: {self.url}")
         self.namespace = parts[0]
         self.bucket_id = f"{parts[0]}/{parts[1]}"
+
+        self.handle = f"hf://buckets/{self.bucket_id}"
 
 
 @dataclass
