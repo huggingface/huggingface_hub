@@ -110,8 +110,8 @@ def build_skill_md() -> str:
 
     top_level = []
     groups = []
-    for name in sorted(click_app.list_commands(ctx)):
-        cmd = click_app.get_command(ctx, name)
+    for name in sorted(click_app.list_commands(ctx)):  # type: ignore[attr-defined]
+        cmd = click_app.get_command(ctx, name)  # type: ignore[attr-defined]
         if cmd is None or cmd.hidden:
             continue
         if isinstance(cmd, Group):
