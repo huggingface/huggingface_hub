@@ -26,6 +26,7 @@ from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.collections import collections_cli
 from huggingface_hub.cli.datasets import datasets_cli
 from huggingface_hub.cli.download import DOWNLOAD_EXAMPLES, download
+from huggingface_hub.cli.extensions import _execute_extension_binary, _get_extension_executable_path, extensions_cli
 from huggingface_hub.cli.inference_endpoints import ie_cli
 from huggingface_hub.cli.jobs import jobs_cli
 from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
@@ -36,7 +37,6 @@ from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.skills import skills_cli
 from huggingface_hub.cli.spaces import spaces_cli
 from huggingface_hub.cli.system import env, version
-from huggingface_hub.cli.tool import tool_cli
 from huggingface_hub.cli.upload import UPLOAD_EXAMPLES, upload
 from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EXAMPLES, upload_large_folder
 from huggingface_hub.errors import CLIError
@@ -80,12 +80,41 @@ app.add_typer(datasets_cli, name="datasets")
 app.add_typer(jobs_cli, name="jobs")
 app.add_typer(models_cli, name="models")
 app.add_typer(papers_cli, name="papers")
-app.add_typer(tool_cli, name="tool")
 app.add_typer(repo_cli, name="repo")
 app.add_typer(repo_files_cli, name="repo-files")
 app.add_typer(skills_cli, name="skills")
 app.add_typer(spaces_cli, name="spaces")
 app.add_typer(ie_cli, name="endpoints")
+app.add_typer(extensions_cli, name="extension")
+# TODO: We should probably not hide aliases and have a "Alias" section in --help
+app.add_typer(extensions_cli, name="ext", hidden=True)
+app.add_typer(extensions_cli, name="extensions", hidden=True)
+
+
+def _get_top_level_command_names() -> set[str]:
+    click_app = typer.main.get_command(app)
+    return set(click_app.commands.keys())  # type: ignore[attr-defined]
+
+
+def _dispatch_installed_extension(argv: list[str]) -> Optional[int]:
+    if not argv:
+        return None
+
+    command_name = argv[0]
+    if command_name.startswith("-"):
+        return None
+    if command_name in _get_top_level_command_names():
+        return None
+
+    short_name = command_name[3:] if command_name.startswith("hf-") else command_name
+    if not short_name:
+        return None
+
+    executable_path = _get_extension_executable_path(short_name)
+    if not executable_path.is_file():
+        return None
+
+    return _execute_extension_binary(executable_path=executable_path, args=argv[1:])
 
 
 def main():
@@ -94,6 +123,9 @@ def main():
     check_cli_update("huggingface_hub")
 
     try:
+        extension_exit_code = _dispatch_installed_extension(sys.argv[1:])
+        if extension_exit_code is not None:
+            sys.exit(extension_exit_code)
         app()
     except CLIError as e:
         print(f"Error: {e}", file=sys.stderr)
