@@ -159,6 +159,7 @@ _SUBMOD_ATTRS = {
         "try_to_load_from_cache",
     ],
     "hf_api": [
+        "BucketFile",
         "BucketFileMetadata",
         "BucketInfo",
         "Collection",
@@ -597,6 +598,7 @@ __all__ = [
     "AutomaticSpeechRecognitionOutput",
     "AutomaticSpeechRecognitionOutputChunk",
     "AutomaticSpeechRecognitionParameters",
+    "BucketFile",
     "BucketFileMetadata",
     "BucketInfo",
     "CLIENT_FACTORY_T",
@@ -1245,6 +1247,7 @@ if TYPE_CHECKING:  # pragma: no cover
         try_to_load_from_cache,  # noqa: F401
     )
     from .hf_api import (
+        BucketFile,  # noqa: F401
         BucketFileMetadata,  # noqa: F401
         BucketInfo,  # noqa: F401
         Collection,  # noqa: F401

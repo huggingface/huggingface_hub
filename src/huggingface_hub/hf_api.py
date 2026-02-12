@@ -228,6 +228,8 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
     " Please check the repository ID and your access permissions."
     " If this is a private repository, ensure that your token is correct."
 )
+_BUCKET_PATHS_INFO_BATCH_SIZE = 1000
+
 logger = logging.get_logger(__name__)
 
 
@@ -11605,18 +11607,20 @@ class HfApi:
     def get_bucket_paths_info(
         self,
         bucket_id: str,
-        paths: Union[list[str], str],
+        paths: Iterable[str],
         *,
         token: Union[str, bool, None] = None,
-    ) -> list[BucketFile]:
+    ) -> Iterable[BucketFile]:
         """
         Get information about a bucket's paths.
+
+        Calls are made in batches of 1000 paths. Results are yielded as they are received.
 
         Args:
             bucket_id (`str`):
                 The ID of the bucket (e.g. `"username/my-bucket"`).
-            paths (`Union[list[str], str]`, *optional*):
-                The paths to get information about. If a path do not exist, it is ignored without raising an exception.
+            paths (`Iterable[str]`):
+                The paths to get information about. If a path does not exist, it is ignored without raising an exception.
                 Only file paths are supported.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
@@ -11625,30 +11629,29 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `list[BucketFile]`:
-                The information about the paths, as a list of [`BucketFile`] objects.
+            `Iterable[BucketFile]`:
+                The information about the paths, as an iterable of [`BucketFile`] objects.
 
         Example:
         ```py
         >>> from huggingface_hub import HfApi
         >>> api = HfApi()
         >>> paths_info = api.get_bucket_paths_info("username/my-bucket", ["file.txt", "checkpoints/model.safetensors"])
-        >>> paths_info
-        [
-            BucketFile(type='file', path='file.txt', size=2379, xet_hash='96e637d9665bd35477b1908a23f2e254edfba0618dbd2d62f90a6baee7d139cf', mtime=datetime.datetime(2024, 9, 25, 15, 31, 2, 346000, tzinfo=datetime.timezone.utc)),
-            BucketFile(type='file', path='checkpoints/model.safetensors', size=2408828, xet_hash='3ed0e9fefe788ddd61d1e26eba67057e9740a064b009256fbafadf6bb95785ca', mtime=datetime.datetime(2024, 9, 25, 15, 31, 2, 346000, tzinfo=datetime.timezone.utc))
-        ]
+        >>> for info in paths_info:
+        ...     print(info)
+        BucketFile(type='file', path='file.txt', size=2379, xet_hash='96e637d9665bd35477b1908a23f2e254edfba0618dbd2d62f90a6baee7d139cf', mtime=datetime.datetime(2024, 9, 25, 15, 31, 2, 346000, tzinfo=datetime.timezone.utc))
+        BucketFile(type='file', path='checkpoints/model.safetensors', size=2408828, xet_hash='3ed0e9fefe788ddd61d1e26eba67057e9740a064b009256fbafadf6bb95785ca', mtime=datetime.datetime(2024, 9, 25, 15, 31, 2, 346000, tzinfo=datetime.timezone.utc))
         ```
         """
         headers = self._build_hf_headers(token=token)
 
-        response = get_session().post(
-            f"{self.endpoint}/api/buckets/{bucket_id}/paths-info",
-            json={"paths": paths if isinstance(paths, list) else [paths]},
-            headers=headers,
-        )
-        hf_raise_for_status(response)
-        return [BucketFile(**path_info) for path_info in response.json()]
+        for batch in chunk_iterable(paths, chunk_size=_BUCKET_PATHS_INFO_BATCH_SIZE):
+            response = get_session().post(
+                f"{self.endpoint}/api/buckets/{bucket_id}/paths-info", json={"paths": list(batch)}, headers=headers
+            )
+            hf_raise_for_status(response)
+            for path_info in response.json():
+                yield BucketFile(**path_info)
 
     @validate_hf_hub_args
     def batch_bucket_files(
