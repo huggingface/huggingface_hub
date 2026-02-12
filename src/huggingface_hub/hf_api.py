@@ -1906,6 +1906,29 @@ def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_m
 
 
 @dataclass
+class BucketFile:
+    """
+    Contains information about a file in a bucket on the Hub. This object is returned by [`list_bucket_tree`].
+
+    Similar to [`RepoFile`] but for files in buckets.
+    """
+
+    type: Literal["file"]
+    path: str
+    size: int
+    xet_hash: str
+    mtime: Optional[datetime]
+
+    def __init__(self, **kwargs):
+        self.type = kwargs.pop("type")
+        self.path = kwargs.pop("path")
+        self.size = kwargs.pop("size")
+        self.xet_hash = kwargs.pop("xetHash")
+        mtime = kwargs.pop("mtime", None)
+        self.mtime = parse_datetime(mtime) if mtime else None
+
+
+@dataclass
 class _BucketAddFile:
     source: Union[str, Path, bytes]
     destination: str
@@ -11536,7 +11559,7 @@ class HfApi:
         prefix: Optional[str] = None,
         *,
         token: Union[str, bool, None] = None,
-    ) -> Iterable[dict[str, Any]]:
+    ) -> Iterable[BucketFile]:
         """List files in a bucket.
 
         Args:
@@ -11551,18 +11574,18 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `Iterable[dict]`: An iterable of dictionaries containing file information (path, size, mtime, etc.).
+            `Iterable[BucketFile]`: An iterable of [`BucketFile`] objects containing file information (path, size, mtime, etc.).
 
         Example:
             ```python
             >>> from huggingface_hub import HfApi
             >>> api = HfApi()
             >>> for file_info in api.list_bucket_tree(bucket_id="username/my-bucket"):
-            ...     print(file_info["path"])
+            ...     print(file_info.path)
 
             >>> # Filter by prefix
             >>> for file_info in api.list_bucket_tree(bucket_id="username/my-bucket", prefix="models/"):
-            ...     print(file_info["path"])
+            ...     print(file_info.path)
             ```
         """
         encoded_prefix = "/" + quote(prefix, safe="") if prefix else ""
@@ -11571,9 +11594,7 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
             params={},
         ):
-            if item["mtime"] is not None:
-                item["mtime"] = parse_datetime(item["mtime"]).timestamp() * 1000
-            yield item
+            yield BucketFile(**item)
 
     def batch_bucket_files(
         self,
