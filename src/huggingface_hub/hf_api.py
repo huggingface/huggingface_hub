@@ -630,6 +630,53 @@ class RepoUrl(str):
 
 
 @dataclass
+class BucketUrl:
+    """Describes a bucket URL on the Hub.
+
+    `BucketUrl` is returned by [`create_bucket`]. At initialization, the URL is parsed to populate properties:
+    - endpoint (`str`)
+    - namespace (`str`)
+    - bucket_id (`str`)
+    - url (`str`)
+
+    Args:
+        url (`str`):
+            String value of the bucket url.
+        endpoint (`str`, *optional*):
+            Endpoint of the Hub. Defaults to <https://huggingface.co>.
+
+    Attributes:
+        endpoint (`str`):
+            Endpoint of the Hub.
+        url (`str`):
+            String value of the bucket url.
+        namespace (`str`):
+            Namespace of the bucket.
+        bucket_id (`str`):
+            ID of the bucket.
+    """
+
+    url: str
+    endpoint: str = ""
+    namespace: str = field(init=False)
+    bucket_id: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.endpoint = self.endpoint or constants.ENDPOINT
+
+        # Parse URL: expected format is `{endpoint}/buckets/{namespace}/{bucket_name}`
+        url_path = self.url.replace(self.endpoint, "").strip("/")
+        # Remove leading "buckets/" prefix
+        if url_path.startswith("buckets/"):
+            url_path = url_path[len("buckets/") :]
+        parts = url_path.split("/")
+        if len(parts) != 2:
+            raise ValueError(f"Unable to parse bucket URL: {self.url}")
+        self.namespace = parts[0]
+        self.bucket_id = f"{parts[0]}/{parts[1]}"
+
+
+@dataclass
 class RepoSibling:
     """
     Contains basic information about a repo file inside a repo on the Hub.
@@ -11354,7 +11401,7 @@ class HfApi:
         resource_group_id: Optional[str] = None,
         exist_ok: bool = False,
         token: Union[bool, str, None] = None,
-    ) -> RepoUrl:
+    ) -> BucketUrl:
         """Create a bucket on the Hub.
 
         Args:
@@ -11379,8 +11426,8 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            [`RepoUrl`]: URL to the newly created bucket. Value is a subclass of `str` containing
-            attributes like `endpoint` and `repo_id`.
+            [`BucketUrl`]: URL to the newly created bucket containing
+            attributes like `endpoint`, `namespace`, and `bucket_id`.
 
         Example:
             ```python
@@ -11423,12 +11470,12 @@ class HfApi:
                 # No write permission on the namespace but repo might already exist
                 try:
                     self.bucket_info(bucket_id=bucket_id, token=token)
-                    return RepoUrl(f"{self.endpoint}/buckets/{bucket_id}", endpoint=self.endpoint)
+                    return BucketUrl(f"{self.endpoint}/buckets/{bucket_id}", endpoint=self.endpoint)
                 except HfHubHTTPError:
                     raise err
             else:
                 raise
-        return RepoUrl(response.json()["url"], endpoint=self.endpoint)
+        return BucketUrl(response.json()["url"], endpoint=self.endpoint)
 
     @validate_hf_hub_args
     def bucket_info(
