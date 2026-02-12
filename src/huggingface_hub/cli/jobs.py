@@ -949,26 +949,26 @@ def scheduled_ps(
     items = [api_object_to_dict(sj) for sj in filtered_jobs]
 
     def row_fn(item: dict[str, Any]) -> list[str]:
-          job_spec = item.get("job_spec", {})
-          status = item.get("status", {})
-          last_job = status.get("last_job")
-          cmd = job_spec.get("command") or []
-          last_job_at = "N/A"
-          if last_job and last_job.get("at"):
-              last_job_at = last_job["at"][:19].replace("T", " ")
-          next_run = "N/A"
-          if status.get("next_job_run_at"):
-              next_run = status["next_job_run_at"][:19].replace("T", " ")
-          command_str = " ".join(cmd) if cmd else "N/A"
-          return [
-              str(item.get("id", "")),
-              str(item.get("schedule") or "N/A"),
-              _format_cell(job_spec.get("docker_image") or "N/A"),
-              _format_cell(command_str),
-              last_job_at,
-              next_run,
-              str(item.get("suspend", False)),
-          ]
+        job_spec = item.get("job_spec", {})
+        status = item.get("status", {})
+        last_job = status.get("last_job")
+        cmd = job_spec.get("command") or []
+        last_job_at = "N/A"
+        if last_job and last_job.get("at"):
+            last_job_at = last_job["at"][:19].replace("T", " ")
+        next_run = "N/A"
+        if status.get("next_job_run_at"):
+            next_run = status["next_job_run_at"][:19].replace("T", " ")
+        command_str = " ".join(cmd) if cmd else "N/A"
+        return [
+            str(item.get("id", "")),
+            str(item.get("schedule") or "N/A"),
+            _format_cell(job_spec.get("docker_image") or "N/A"),
+            _format_cell(command_str),
+            last_job_at,
+            next_run,
+            str(item.get("suspend", False)),
+        ]
 
     print_list_output(
         items=items,
