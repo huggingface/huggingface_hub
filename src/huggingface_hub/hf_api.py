@@ -11343,6 +11343,7 @@ class HfApi:
             ]
         return command, env, secrets
 
+    @validate_hf_hub_args
     def create_bucket(
         self,
         bucket_id: str,
@@ -11427,6 +11428,7 @@ class HfApi:
                 raise
         return RepoUrl(response.json()["url"], endpoint=self.endpoint)
 
+    @validate_hf_hub_args
     def bucket_info(
         self,
         bucket_id: str,
@@ -11469,6 +11471,7 @@ class HfApi:
         hf_raise_for_status(response)
         return BucketInfo(**response.json())
 
+    @validate_hf_hub_args
     def list_buckets(
         self,
         namespace: Optional[str] = None,
@@ -11507,6 +11510,7 @@ class HfApi:
         ):
             yield BucketInfo(**item)
 
+    @validate_hf_hub_args
     def delete_bucket(
         self,
         bucket_id: str,
@@ -11553,6 +11557,7 @@ class HfApi:
             if e.response.status_code != 404 or not missing_ok:
                 raise
 
+    @validate_hf_hub_args
     def list_bucket_tree(
         self,
         bucket_id: str,
@@ -11596,6 +11601,56 @@ class HfApi:
         ):
             yield BucketFile(**item)
 
+    @validate_hf_hub_args
+    def get_bucket_paths_info(
+        self,
+        bucket_id: str,
+        paths: Union[list[str], str],
+        *,
+        token: Union[str, bool, None] = None,
+    ) -> list[BucketFile]:
+        """
+        Get information about a bucket's paths.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            paths (`Union[list[str], str]`, *optional*):
+                The paths to get information about. If a path do not exist, it is ignored without raising an exception.
+                Only file paths are supported.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `list[BucketFile]`:
+                The information about the paths, as a list of [`BucketFile`] objects.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> paths_info = api.get_bucket_paths_info("username/my-bucket", ["file.txt", "checkpoints/model.safetensors"])
+        >>> paths_info
+        [
+            BucketFile(type='file', path='file.txt', size=2379, xet_hash='96e637d9665bd35477b1908a23f2e254edfba0618dbd2d62f90a6baee7d139cf', mtime=datetime.datetime(2024, 9, 25, 15, 31, 2, 346000, tzinfo=datetime.timezone.utc)),
+            BucketFile(type='file', path='checkpoints/model.safetensors', size=2408828, xet_hash='3ed0e9fefe788ddd61d1e26eba67057e9740a064b009256fbafadf6bb95785ca', mtime=datetime.datetime(2024, 9, 25, 15, 31, 2, 346000, tzinfo=datetime.timezone.utc))
+        ]
+        ```
+        """
+        headers = self._build_hf_headers(token=token)
+
+        response = get_session().post(
+            f"{self.endpoint}/api/buckets/{bucket_id}/paths-info",
+            json={"paths": paths if isinstance(paths, list) else [paths]},
+            headers=headers,
+        )
+        hf_raise_for_status(response)
+        return [BucketFile(**path_info) for path_info in response.json()]
+
+    @validate_hf_hub_args
     def batch_bucket_files(
         self,
         bucket_id: str,
@@ -11769,6 +11824,7 @@ class HfApi:
         hf_raise_for_status(response)
         return response.json()
 
+    @validate_hf_hub_args
     def get_bucket_file_metadata(
         self,
         bucket_id: str,
@@ -11820,6 +11876,7 @@ class HfApi:
 
         return BucketFileMetadata(size=int(size), xet_file_data=xet_file_data)
 
+    @validate_hf_hub_args
     def download_bucket_files(
         self,
         bucket_id: str,
@@ -11877,22 +11934,23 @@ class HfApi:
         if len(files) == 0:
             return
 
-        # Get or fetch Xet download infos for all files
+        # Resolve all string paths to BucketFile objects in a single batch request
+        str_paths = [path for path, _ in files if not isinstance(path, BucketFile)]
+        if str_paths:
+            bucket_files_by_path = {
+                info.path: info for info in self.get_bucket_paths_info(bucket_id, str_paths, token=token)
+            }
+
         xet_download_infos = []
-
         for remote_file, local_path in files:
-            if isinstance(remote_file, BucketFile):
-                # Is a bucket file? No need to fetch metadata
-                hash = remote_file.xet_hash
-                file_size = remote_file.size
-            else:
-                # Otherwise HEAD /resolve to get xethash + size
-                metadata = self.get_bucket_file_metadata(bucket_id, remote_file, token=token)
-                hash = metadata.xet_file_data.file_hash
-                file_size = metadata.size
-
+            if not isinstance(remote_file, BucketFile):
+                remote_file = bucket_files_by_path[remote_file]
             xet_download_infos.append(
-                PyXetDownloadInfo(destination_path=str(Path(local_path).absolute()), hash=hash, file_size=file_size)
+                PyXetDownloadInfo(
+                    destination_path=str(Path(local_path).absolute()),
+                    hash=remote_file.xet_hash,
+                    file_size=remote_file.size,
+                )
             )
 
         # Fetch Xet connection info (same for all files)
