@@ -165,6 +165,8 @@ def spaces_hot_reload(
     token: TokenOpt = None,
 ) -> None:
     """
+    ⚠ This feature is experimental ⚠
+
     Hot-reload any Python file of a Space without a full rebuild + restart.
 
     Only works with Gradio SDK (6.1+)
@@ -181,6 +183,8 @@ def spaces_hot_reload(
     hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo
     hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo
     """
+
+    typer.secho("This feature is experimental and subject to change", fg=typer.colors.BRIGHT_BLACK)
 
     api = get_hf_api(token=token)
 
