@@ -11823,18 +11823,22 @@ class HfApi:
     def download_bucket_files(
         self,
         bucket_id: str,
-        files: list[tuple[str, Union[str, Path]]],
+        files: list[tuple[Union[str, BucketFile], Union[str, Path]]],
         *,
         token: Union[str, bool, None] = None,
     ) -> None:
         """Download files from a bucket.
 
+        Files input is a list of `(remote file, local file)` tuples where `remote file` is either the path of the file
+        in the bucket or a [`BucketFile`] object, and `local file` is the destination path on the local filesystem.
+        When passing a [`BucketFile`] object (obtained from [`list_bucket_tree`]), the method will skip the metadata
+        fetching step and directly download the files.
+
         Args:
             bucket_id (`str`):
                 The ID of the bucket (e.g. `"username/my-bucket"`).
-            files (`list` of `tuple`):
-                Files to download. Each element is a `(remote_path, local_path)` tuple where `remote_path` is the
-                path of the file in the bucket and `local_path` is the destination path on the local filesystem.
+            files (`list[tuple[Union[str, BucketFile], Union[str, Path]]]`):
+                Files to download as a list of tuple (source, destination). See description above for format details.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -11854,6 +11858,17 @@ class HfApi:
             ...     ],
             ... )
             ```
+
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+
+            >>> parquet_files = [file for file in api.list_bucket_tree(bucket_id="username/my-bucket") if file.path.endswith(".parquet")]
+            >>> api.download_bucket_files(
+            ...     bucket_id="username/my-bucket",
+            ...     files=[(file, f"./local/{file.path}") for file in parquet_files],
+            ... )
+            ```
         """
         from hf_xet import PyXetDownloadInfo, download_files  # type: ignore[no-redef]
 
@@ -11862,8 +11877,27 @@ class HfApi:
         if len(files) == 0:
             return
 
+        # Get or fetch Xet download infos for all files
+        xet_download_infos = []
+
+        for remote_file, local_path in files:
+            if isinstance(remote_file, BucketFile):
+                # Is a bucket file? No need to fetch metadata
+                hash = remote_file.xet_hash
+                file_size = remote_file.size
+            else:
+                # Otherwise HEAD /resolve to get xethash + size
+                metadata = self.get_bucket_file_metadata(bucket_id, remote_file, token=token)
+                hash = metadata.xet_file_data.file_hash
+                file_size = metadata.size
+
+            xet_download_infos.append(
+                PyXetDownloadInfo(destination_path=str(Path(local_path).absolute()), hash=hash, file_size=file_size)
+            )
+
         # Fetch Xet connection info (same for all files)
-        remote_path, local_path = files[0]
+        remote_file = files[0][0]
+        remote_path = remote_file.path if isinstance(remote_file, BucketFile) else remote_file
 
         metadata = self.get_bucket_file_metadata(bucket_id, remote_path, token=token)
         connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers=headers)
@@ -11874,19 +11908,7 @@ class HfApi:
                 raise ValueError("Failed to refresh token using xet metadata.")
             return connection_info.access_token, connection_info.expiration_unix_epoch
 
-        # Fetch Xet download infos for all files
-        xet_download_infos = []
-        for remote_path, local_path in files:
-            metadata = self.get_bucket_file_metadata(bucket_id, remote_path, token=token)
-            xet_download_infos.append(
-                PyXetDownloadInfo(
-                    destination_path=str(Path(local_path).absolute()),
-                    hash=metadata.xet_file_data.file_hash,
-                    file_size=metadata.size,
-                )
-            )
-
-        # Create empty files as needed
+        # Create empty files for zero-size files (no need to download them)
         for download_info in xet_download_infos:
             if download_info.file_size == 0:
                 dest_path = Path(download_info.destination_path)
@@ -11901,6 +11923,7 @@ class HfApi:
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
                     dest_path.touch()
 
+        # Download files
         progress_cm = _get_progress_bar_context(
             desc="Downloading bucket files",
             log_level=logger.getEffectiveLevel(),

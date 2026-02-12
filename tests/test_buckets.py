@@ -17,7 +17,7 @@ import pytest
 from huggingface_hub import BucketInfo, HfApi
 from huggingface_hub.errors import HfHubHTTPError
 
-from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, OTHER_USER, TOKEN, USER
+from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER
 from .testing_utils import repo_name
 
 

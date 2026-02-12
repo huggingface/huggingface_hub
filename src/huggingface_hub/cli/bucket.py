@@ -24,6 +24,7 @@ from typing import Annotated, Any, Iterator, Literal, Optional, Union
 import typer
 
 from huggingface_hub import HfApi, logging
+from huggingface_hub.hf_api import BucketFile
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import TokenOpt, get_hf_api, typer_factory
@@ -105,7 +106,7 @@ def _format_mtime(mtime: Optional[datetime]) -> str:
     return mtime.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _build_tree(items: list[dict]) -> list[str]:
+def _build_tree(items: list[BucketFile]) -> list[str]:
     """Build a tree representation of files and directories.
 
     Args:
@@ -397,6 +398,7 @@ class SyncOperation:
     reason: str = ""
     local_mtime: Optional[str] = None
     remote_mtime: Optional[str] = None
+    bucket_file: Optional[Any] = None  # BucketFile when available (not serialized to plan file)
 
 
 @dataclass
@@ -451,11 +453,12 @@ def _list_local_files(local_path: str) -> Iterator[tuple[str, int, float]]:
 
 def _list_remote_files(
     api: HfApi, bucket_id: str, prefix: str, token: Optional[str]
-) -> Iterator[tuple[str, int, float]]:
+) -> Iterator[tuple[str, int, float, Any]]:
     """List all files in a bucket with a given prefix.
 
     Yields:
-        tuple: (relative_path, size, mtime_ms) for each file
+        tuple: (relative_path, size, mtime_ms, bucket_file) for each file.
+            bucket_file is the BucketFile object from list_bucket_tree.
     """
     for item in api.list_bucket_tree(bucket_id, prefix=prefix or None, token=token):
         path = item.path
@@ -470,7 +473,7 @@ def _list_remote_files(
         else:
             rel_path = path
         mtime_ms = item.mtime.timestamp() * 1000 if item.mtime else 0
-        yield rel_path, item.size, mtime_ms
+        yield rel_path, item.size, mtime_ms, item
 
 
 class FilterMatcher:
@@ -597,7 +600,7 @@ def _compute_sync_plan(
 
         remote_files = {}
         try:
-            for rel_path, size, mtime_ms in _list_remote_files(api, bucket_id, prefix, token):
+            for rel_path, size, mtime_ms, _ in _list_remote_files(api, bucket_id, prefix, token):
                 if filter_matcher.matches(rel_path):
                     remote_files[rel_path] = (size, mtime_ms)
         except Exception as e:
@@ -746,9 +749,11 @@ def _compute_sync_plan(
 
         # Get remote and local file lists
         remote_files = {}
-        for rel_path, size, mtime_ms in _list_remote_files(api, bucket_id, prefix, token):
+        bucket_file_map: dict[str, Any] = {}
+        for rel_path, size, mtime_ms, bucket_file in _list_remote_files(api, bucket_id, prefix, token):
             if filter_matcher.matches(rel_path):
                 remote_files[rel_path] = (size, mtime_ms)
+                bucket_file_map[rel_path] = bucket_file
 
         local_files = {}
         if os.path.isdir(local_path):
@@ -783,6 +788,7 @@ def _compute_sync_plan(
                             size=remote_info[0],
                             reason="new file",
                             remote_mtime=_mtime_to_iso(remote_info[1]),
+                            bucket_file=bucket_file_map.get(path),
                         )
                     )
             elif remote_info and local_info:
@@ -818,6 +824,7 @@ def _compute_sync_plan(
                                 reason="remote newer",
                                 local_mtime=_mtime_to_iso(local_mtime),
                                 remote_mtime=_mtime_to_iso(remote_mtime),
+                                bucket_file=bucket_file_map.get(path),
                             )
                         )
                     else:
@@ -842,6 +849,7 @@ def _compute_sync_plan(
                                 reason="size differs",
                                 local_mtime=_mtime_to_iso(local_mtime),
                                 remote_mtime=_mtime_to_iso(remote_mtime),
+                                bucket_file=bucket_file_map.get(path),
                             )
                         )
                     else:
@@ -866,6 +874,7 @@ def _compute_sync_plan(
                                 reason="size differs" if size_differs else "remote newer",
                                 local_mtime=_mtime_to_iso(local_mtime),
                                 remote_mtime=_mtime_to_iso(remote_mtime),
+                                bucket_file=bucket_file_map.get(path),
                             )
                         )
                     else:
@@ -1012,13 +1021,17 @@ def _execute_plan(plan: SyncPlan, api, token: Optional[str], verbose: bool = Fal
 
         for op in plan.operations:
             if op.action == "download":
-                remote_path = f"{prefix}/{op.path}" if prefix else op.path
                 local_file = os.path.join(local_path, op.path)
                 # Ensure parent directory exists
                 os.makedirs(os.path.dirname(local_file), exist_ok=True)
                 if verbose:
                     print(f"  Downloading: {op.path} ({op.reason})")
-                download_files.append((remote_path, local_file))
+                # Use BucketFile when available (avoids extra metadata fetch per file)
+                if op.bucket_file is not None:
+                    download_files.append((op.bucket_file, local_file))
+                else:
+                    remote_path = f"{prefix}/{op.path}" if prefix else op.path
+                    download_files.append((remote_path, local_file))
             elif op.action == "delete":
                 local_file = os.path.join(local_path, op.path)
                 if verbose:

@@ -306,8 +306,12 @@ List all accessible buckets.
 **Usage**:
 
 ```console
-$ hf bucket list [OPTIONS]
+$ hf bucket list [OPTIONS] [NAMESPACE]
 ```
+
+**Arguments**:
+
+* `[NAMESPACE]`: Namespace to list buckets from (user or organization). Defaults to user's namespace.
 
 **Options**:
 
@@ -316,6 +320,7 @@ $ hf bucket list [OPTIONS]
 
 Examples
   $ hf bucket list
+  $ hf bucket list huggingface
 
 Learn more
   Use `hf <command> --help` for more information about a command.
