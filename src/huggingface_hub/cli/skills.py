@@ -105,7 +105,8 @@ def build_skill_md() -> str:
     click_app = get_command(app)
     ctx = Context(click_app, info_name="hf")
 
-    lines = _SKILL_YAML_PREFIX.splitlines()
+    # wrap in list to widen list[LiteralString] -> list[str] for `ty``
+    lines: list[str] = list(_SKILL_YAML_PREFIX.splitlines())
 
     top_level = []
     groups = []
