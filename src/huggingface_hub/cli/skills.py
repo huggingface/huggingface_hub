@@ -63,7 +63,7 @@ LOCAL_TARGETS = {
 
 skills_cli = typer_factory(help="Manage skills for AI assistants.")
 
-_SKILL_HEADER = """\
+_SKILL_YAML_PREFIX = """\
 ---
 name: hf-cli
 description: >
@@ -103,7 +103,7 @@ def build_skill_md() -> str:
     click_app = get_command(app)
     ctx = Context(click_app, info_name="hf")
 
-    lines = _SKILL_HEADER.splitlines()
+    lines = _SKILL_YAML_PREFIX.splitlines()
 
     top_level = []
     groups = []
@@ -155,7 +155,7 @@ def _remove_existing(path: Path, force: bool) -> None:
 
 
 def _install_to(skills_dir: Path, force: bool) -> Path:
-    """Generate and install the skill files into a skills directory. Returns the installed path."""
+    """Download and install the skill files into a skills directory. Returns the installed path."""
     skills_dir = skills_dir.expanduser().resolve()
     skills_dir.mkdir(parents=True, exist_ok=True)
     dest = skills_dir / DEFAULT_SKILL_ID
