@@ -49,41 +49,41 @@ def api_unauth():
 def bucket_read(api: HfApi) -> str:
     """Bucket for read-only tests."""
     bucket = api.create_bucket(bucket_name())
-    return bucket.repo_id
+    return bucket.bucket_id
 
 
 @pytest.fixture(scope="module")
 def bucket_read_private(api: HfApi) -> str:
     """Private bucket for read-only tests."""
     bucket = api.create_bucket(bucket_name(), private=True)
-    return bucket.repo_id
+    return bucket.bucket_id
 
 
 @pytest.fixture(scope="module")
 def bucket_read_other(api_other: HfApi) -> str:
     """Bucket for read-only tests with other user."""
     bucket = api_other.create_bucket(bucket_name())
-    return bucket.repo_id
+    return bucket.bucket_id
 
 
 @pytest.fixture(scope="module")
 def bucket_read_private_other(api_other: HfApi) -> str:
     """Private bucket for read-only tests with other user."""
     bucket = api_other.create_bucket(bucket_name(), private=True)
-    return bucket.repo_id
+    return bucket.bucket_id
 
 
 @pytest.fixture(scope="function")
 def bucket_write(api: HfApi) -> str:
     """Bucket for read-write tests (rebuilt every test)."""
     bucket = api.create_bucket(bucket_name())
-    return bucket.repo_id
+    return bucket.bucket_id
 
 
 def test_create_bucket(api: HfApi):
     bucket_id = f"{USER}/{bucket_name()}"
     bucket_url = api.create_bucket(bucket_id)
-    assert bucket_url.repo_id == bucket_id
+    assert bucket_url.bucket_id == bucket_id
 
     # Cannot create a bucket with the same name
     with pytest.raises(HfHubHTTPError) as exc_info:
@@ -98,7 +98,7 @@ def test_create_bucket(api: HfApi):
 def test_create_bucket_enterprise_org(api_enterprise: HfApi, api_other: HfApi):
     bucket_id = f"{ENTERPRISE_ORG}/{bucket_name()}"
     bucket_url = api_enterprise.create_bucket(bucket_id)
-    assert bucket_url.repo_id == bucket_id
+    assert bucket_url.bucket_id == bucket_id
 
     # Bucket is private by default in this enterprise org
     bucket = api_enterprise.bucket_info(bucket_id)

@@ -230,6 +230,8 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
     " If this is a private repository, ensure that your token is correct."
 )
 _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
+_BUCKET_BATCH_ADD_CHUNK_SIZE = 100
+_BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
 
 logger = logging.get_logger(__name__)
 
@@ -11749,6 +11751,31 @@ class HfApi:
             ... )
             ```
         """
+        add = add or []
+        delete = delete or []
+
+        # Small batch: do everything in one call
+        if len(add) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
+            return self._batch_bucket_files(bucket_id, add=add or None, delete=delete or None, token=token)
+
+        # Large batch: chunk adds first, then deletes
+        for chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
+            self._batch_bucket_files(bucket_id, add=list(chunk), token=token)
+
+        for chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
+            self._batch_bucket_files(bucket_id, delete=list(chunk), token=token)
+
+        return {}
+
+    def _batch_bucket_files(
+        self,
+        bucket_id: str,
+        *,
+        add: Optional[list[tuple[Union[str, Path, bytes], str]]] = None,
+        delete: Optional[list[str]] = None,
+        token: Union[str, bool, None] = None,
+    ) -> dict[str, Any]:
+        """Internal method: process a single batch of bucket file operations (upload to XET + call /batch)."""
         # Convert public API inputs to internal operation objects
         operations: list[Union[_BucketAddFile, _BucketDeleteFile]] = []
         if add:
