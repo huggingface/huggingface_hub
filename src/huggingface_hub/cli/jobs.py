@@ -652,8 +652,11 @@ def jobs_ps(
         filtered_jobs.append(job)
 
     if not filtered_jobs:
-        filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
-        print(f"No jobs found{filters_msg}")
+        if not quiet and format != OutputFormat.json:
+            filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
+            print(f"No jobs found{filters_msg}")
+        elif format == OutputFormat.json:
+            print("[]")
         return
 
     items = [api_object_to_dict(job) for job in filtered_jobs]
@@ -936,8 +939,11 @@ def scheduled_ps(
         filtered_jobs.append(scheduled_job)
 
     if not filtered_jobs:
-        filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
-        print(f"No scheduled jobs found{filters_msg}")
+        if not quiet and format != OutputFormat.json:
+            filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
+            print(f"No scheduled jobs found{filters_msg}")
+        elif format == OutputFormat.json:
+            print("[]")
         return
 
     items = [api_object_to_dict(sj) for sj in filtered_jobs]
