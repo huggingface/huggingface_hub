@@ -81,6 +81,7 @@ from .community import (
 )
 from .errors import (
     BadRequestError,
+    EntryNotFoundError,
     GatedRepoError,
     HfHubHTTPError,
     LocalTokenNotFoundError,
@@ -11926,6 +11927,7 @@ class HfApi:
         bucket_id: str,
         files: list[tuple[Union[str, BucketFile], Union[str, Path]]],
         *,
+        raise_on_missing_files: bool = False,
         token: Union[str, bool, None] = None,
     ) -> None:
         """Download files from a bucket.
@@ -11940,6 +11942,9 @@ class HfApi:
                 The ID of the bucket (e.g. `"username/my-bucket"`).
             files (`list[tuple[Union[str, BucketFile], Union[str, Path]]]`):
                 Files to download as a list of tuple (source, destination). See description above for format details.
+            raise_on_missing_files (`bool`, *optional*):
+                If `True`, raise an [`EntryNotFoundError`] when a requested file does not exist in the bucket. If
+                `False` (default), missing files are skipped with a warning.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -11985,9 +11990,21 @@ class HfApi:
                 info.path: info for info in self.get_bucket_paths_info(bucket_id, str_paths, token=token)
             }
 
+            # Check for missing files
+            missing_paths = [path for path in str_paths if path not in bucket_files_by_path]
+            if missing_paths:
+                if raise_on_missing_files:
+                    raise EntryNotFoundError(
+                        f"{len(missing_paths)} file(s) not found in bucket '{bucket_id}': {', '.join(missing_paths)}"
+                    )
+                for path in missing_paths:
+                    warnings.warn(f"File '{path}' not found in bucket '{bucket_id}'. Skipping.")
+
         xet_download_infos = []
         for remote_file, local_path in files:
             if not isinstance(remote_file, BucketFile):
+                if remote_file not in bucket_files_by_path:
+                    continue  # skip missing files (already warned above)
                 remote_file = bucket_files_by_path[remote_file]
             xet_download_infos.append(
                 PyXetDownloadInfo(
@@ -11996,6 +12013,9 @@ class HfApi:
                     file_size=remote_file.size,
                 )
             )
+
+        if len(xet_download_infos) == 0:
+            return
 
         # Fetch Xet connection info (same for all files)
         remote_file = files[0][0]
