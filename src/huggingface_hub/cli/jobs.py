@@ -667,7 +667,7 @@ def jobs_ps(
             _format_cell(item.get("docker_image") or "N/A"),
             _format_cell(command_str),
             item["created_at"][:19].replace("T", " ") if item.get("created_at") else "N/A",
-            str(status.get("stage", "UNKNOWN") if isinstance(status, dict) else "UNKNOWN"),
+            str(status.get("stage", "UNKNOWN"),
         ]
 
     print_list_output(
