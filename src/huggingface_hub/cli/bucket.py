@@ -98,9 +98,11 @@ def _format_size(size: Union[int, float], human_readable: bool = False) -> str:
     return f"{size:.1f} PB"
 
 
-def _format_mtime(mtime_ms: float) -> str:
-    """Format mtime in milliseconds to a readable date string."""
-    return datetime.fromtimestamp(mtime_ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+def _format_mtime(mtime: Optional[datetime]) -> str:
+    """Format mtime datetime to a readable date string."""
+    if mtime is None:
+        return ""
+    return mtime.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _build_tree(items: list[dict]) -> list[str]:
@@ -116,8 +118,7 @@ def _build_tree(items: list[dict]) -> list[str]:
     tree: dict = {}
 
     for item in items:
-        path = item["path"]
-        parts = path.split("/")
+        parts = item.path.split("/")
         current = tree
         for i, part in enumerate(parts[:-1]):
             if part not in current:
@@ -126,13 +127,7 @@ def _build_tree(items: list[dict]) -> list[str]:
 
         # Store the item at the final level
         final_part = parts[-1]
-        if item["type"] == "directory":
-            if final_part not in current:
-                current[final_part] = {"__children__": {}, "__item__": item}
-            else:
-                current[final_part]["__item__"] = item
-        else:
-            current[final_part] = {"__item__": item}
+        current[final_part] = {"__item__": item}
 
     # Render tree
     lines: list[str] = []
@@ -147,13 +142,12 @@ def _render_tree(node: dict, lines: list[str], indent: str) -> None:
         is_last = i == len(items) - 1
         connector = "└── " if is_last else "├── "
 
-        item = value.get("__item__", {})
-        if item.get("type") == "directory":
+        children = value.get("__children__", {})
+        if children:
             lines.append(f"{indent}{connector}{name}/")
         else:
             lines.append(f"{indent}{connector}{name}")
 
-        children = value.get("__children__", {})
         if children:
             child_indent = indent + ("    " if is_last else "│   ")
             _render_tree(children, lines, child_indent)
@@ -222,19 +216,9 @@ def tree_cmd(
     else:
         # Table format
         for item in items:
-            display_path = item.get("path", "")
-            item_type = item.get("type", "file")
-            size = item.get("size", 0)
-            mtime = item.get("mtime", 0)
-
-            if item_type == "directory":
-                # Show directory with trailing slash
-                print(f"{'':>12}  {'':>19}  {display_path}/")
-            else:
-                # Show file with size and mtime
-                size_str = _format_size(size, human_readable)
-                mtime_str = _format_mtime(mtime)
-                print(f"{size_str:>12}  {mtime_str}  {display_path}")
+            size_str = _format_size(item.size, human_readable)
+            mtime_str = _format_mtime(item.mtime)
+            print(f"{size_str:>12}  {mtime_str:>19}  {item.path}")
 
 
 @bucket_cli.command(
@@ -474,21 +458,19 @@ def _list_remote_files(
         tuple: (relative_path, size, mtime_ms) for each file
     """
     for item in api.list_bucket_tree(bucket_id, prefix=prefix or None, token=token):
-        if item.get("type") == "file":
-            path = item["path"]
-            # Remove prefix from path to get relative path
-            if prefix:
-                if path.startswith(prefix + "/"):
-                    rel_path = path[len(prefix) + 1 :]
-                elif path.startswith(prefix):
-                    rel_path = path[len(prefix) :]
-                else:
-                    rel_path = path
+        path = item.path
+        # Remove prefix from path to get relative path
+        if prefix:
+            if path.startswith(prefix + "/"):
+                rel_path = path[len(prefix) + 1 :]
+            elif path.startswith(prefix):
+                rel_path = path[len(prefix) :]
             else:
                 rel_path = path
-            size = item.get("size", 0)
-            mtime_ms = item.get("mtime", 0)
-            yield rel_path, size, mtime_ms
+        else:
+            rel_path = path
+        mtime_ms = item.mtime.timestamp() * 1000 if item.mtime else 0
+        yield rel_path, item.size, mtime_ms
 
 
 class FilterMatcher:

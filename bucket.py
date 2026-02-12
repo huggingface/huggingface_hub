@@ -67,9 +67,9 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
 print("\n# List bucket tree (with files)")
 objects = list(api.list_bucket_tree(bucket_id=bucket_id))
-print(f"Found {len(objects)} objects in bucket: {[obj['path'] for obj in objects]}")
+print(f"Found {len(objects)} objects in bucket: {[obj.path for obj in objects]}")
 
-bucket_file = objects[0]["path"]
+bucket_file = objects[0].path
 
 print(f"\n# Get bucket file metadata {bucket_file}")
 metadata = api.get_bucket_file_metadata(bucket_id=bucket_id, remote_path=bucket_file)
@@ -77,7 +77,7 @@ print(f"Size: {metadata.size}, Xet hash: {metadata.xet_file_data.file_hash}")
 
 
 print("\n# Delete first 3 files")
-print(api.batch_bucket_files(bucket_id=bucket_id, delete=[obj["path"] for obj in objects[:3]]))
+print(api.batch_bucket_files(bucket_id=bucket_id, delete=[obj.path for obj in objects[:3]]))
 
 print(f"\n# Get bucket file metadata {bucket_file} (doesn't exist anymore)")
 try:
@@ -87,10 +87,10 @@ except Exception as e:
 
 print("\n# List bucket tree (with files)")
 objects = list(api.list_bucket_tree(bucket_id=bucket_id))
-print(f"Found {len(objects)} objects in bucket: {[obj['path'] for obj in objects]}")
-bucket_file = objects[0]["path"]
-bucket_file_2 = objects[1]["path"]
-bucket_file_3 = objects[2]["path"]
+print(f"Found {len(objects)} objects in bucket: {[obj.path for obj in objects]}")
+bucket_file = objects[0].path
+bucket_file_2 = objects[1].path
+bucket_file_3 = objects[2].path
 
 print("\n# objects[0] details")
 print(objects[0])
