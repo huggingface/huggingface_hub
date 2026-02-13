@@ -877,7 +877,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         expand_info = kwargs.get(
             "expand_info", self.expand_info if self.expand_info is not None else False
         )  # don't expose it as a parameter in the public API to follow the spec
-        if not resolved_path.path_in_repo:
+        if not resolved_path.path:
             # Path is the root directory
             out = (
                 {
@@ -1040,14 +1040,15 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         """
         resolved_path = self.resolve_path(path)
         if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
-            raise NotImplementedError("HTTP URLs are not available for buckets yet")
-        url = hf_hub_url(
-            resolved_path.repo_id,
-            resolved_path.path_in_repo,
-            repo_type=resolved_path.repo_type,
-            revision=resolved_path.revision,
-            endpoint=self.endpoint,
-        )
+            url = f"{self.endpoint}/buckets/{resolved_path.bucket_id}/resolve/{quote(resolved_path.path)}"
+        else:
+            url = hf_hub_url(
+                resolved_path.repo_id,
+                resolved_path.path_in_repo,
+                repo_type=resolved_path.repo_type,
+                revision=resolved_path.revision,
+                endpoint=self.endpoint,
+            )
         if self.isdir(path):
             url = url.replace("/resolve/", "/tree/", 1)
         return url
@@ -1100,13 +1101,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         callback.set_size(expected_size)
         try:
             http_get(
-                url=hf_hub_url(
-                    repo_id=resolve_remote_path.repo_id,
-                    revision=resolve_remote_path.revision,
-                    filename=resolve_remote_path.path_in_repo,
-                    repo_type=resolve_remote_path.repo_type,
-                    endpoint=self.endpoint,
-                ),
+                url=self.url(resolve_remote_path.unresolve()),
                 temp_file=outfile,  # type: ignore[arg-type]
                 displayed_filename=rpath,
                 expected_size=expected_size,
@@ -1177,13 +1172,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             "range": f"bytes={start}-{end - 1}",
             **self.fs._api._build_hf_headers(),
         }
-        url = hf_hub_url(
-            repo_id=self.resolved_path.repo_id,
-            revision=self.resolved_path.revision,
-            filename=self.resolved_path.path_in_repo,
-            repo_type=self.resolved_path.repo_type,
-            endpoint=self.fs.endpoint,
-        )
+        url = self.url()
         r = http_backoff("GET", url, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT)
         hf_raise_for_status(r)
         return r.content
@@ -1197,16 +1186,21 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         self.temp_file.write(block)
         if final:
             self.temp_file.close()
-            self.fs._api.upload_file(
-                path_or_fileobj=self.temp_file.name,
-                path_in_repo=self.resolved_path.path_in_repo,
-                repo_id=self.resolved_path.repo_id,
-                token=self.fs.token,
-                repo_type=self.resolved_path.repo_type,
-                revision=self.resolved_path.revision,
-                commit_message=self.kwargs.get("commit_message"),
-                commit_description=self.kwargs.get("commit_description"),
-            )
+            if isinstance(self.resolved_path, HfFileSystemResolvedBucketPath):
+                self.fs._api.batch_bucket_files(
+                    self.resolved_path.bucket_id, add=[(self.temp_file.name, self.resolved_path.path)]
+                )
+            else:
+                self.fs._api.upload_file(
+                    path_or_fileobj=self.temp_file.name,
+                    path_in_repo=self.resolved_path.path_in_repo,
+                    repo_id=self.resolved_path.repo_id,
+                    token=self.fs.token,
+                    repo_type=self.resolved_path.repo_type,
+                    revision=self.resolved_path.revision,
+                    commit_message=self.kwargs.get("commit_message"),
+                    commit_description=self.kwargs.get("commit_description"),
+                )
             os.remove(self.temp_file.name)
             self.fs.invalidate_cache(
                 path=self.resolved_path.unresolve(),
@@ -1353,13 +1347,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         self._stream_buffer.clear()
         self._stream_iterator = None
 
-        url = hf_hub_url(
-            repo_id=self.resolved_path.repo_id,
-            revision=self.resolved_path.revision,
-            filename=self.resolved_path.path_in_repo,
-            repo_type=self.resolved_path.repo_type,
-            endpoint=self.fs.endpoint,
-        )
+        url = self.url()
         headers = self.fs._api._build_hf_headers()
         if self.loc > 0:
             headers["Range"] = f"bytes={self.loc}-"
