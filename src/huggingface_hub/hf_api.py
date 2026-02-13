@@ -110,6 +110,7 @@ from .utils import (
     get_session,
     get_token,
     hf_raise_for_status,
+    http_backoff,
     logging,
     paginate,
     parse_datetime,
@@ -11695,8 +11696,11 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
 
         for batch in chunk_iterable(paths, chunk_size=_BUCKET_PATHS_INFO_BATCH_SIZE):
-            response = get_session().post(
-                f"{self.endpoint}/api/buckets/{bucket_id}/paths-info", json={"paths": list(batch)}, headers=headers
+            response = http_backoff(
+                "POST",
+                f"{self.endpoint}/api/buckets/{bucket_id}/paths-info",
+                json={"paths": list(batch)},
+                headers=headers,
             )
             hf_raise_for_status(response)
             for path_info in response.json():
@@ -11919,7 +11923,7 @@ class HfApi:
         }
         data = b"".join(_payload_as_ndjson())
 
-        response = get_session().post(f"{self.endpoint}/api/buckets/{bucket_id}/batch", headers=headers, content=data)
+        response = http_backoff("POST", f"{self.endpoint}/api/buckets/{bucket_id}/batch", headers=headers, content=data)
         hf_raise_for_status(response)
         return response.json()
 
@@ -11959,7 +11963,8 @@ class HfApi:
             42000
             ```
         """
-        response = get_session().head(
+        response = http_backoff(
+            "HEAD",
             f"{self.endpoint}/buckets/{bucket_id}/resolve/{quote(remote_path, safe='')}",
             headers=self._build_hf_headers(token=token),
         )
