@@ -1277,18 +1277,22 @@ class BucketInfo:
             Date of creation of the bucket on the Hub.
         size (`int`):
             Size of the bucket in bytes.
+        total_files (`int`):
+            Total number of files in the bucket.
     """
 
     id: str
     private: bool
     created_at: datetime
     size: int
+    total_files: int
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
         self.private = kwargs.pop("private")
         self.created_at = parse_datetime(kwargs.pop("createdAt"))
         self.size = kwargs.pop("size")
+        self.total_files = kwargs.pop("totalFiles")
         self.__dict__.update(**kwargs)
 
 

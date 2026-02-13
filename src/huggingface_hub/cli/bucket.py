@@ -27,7 +27,7 @@ from huggingface_hub import HfApi, logging
 from huggingface_hub.hf_api import BucketFile
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
-from ._cli_utils import TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import StatusLine, TokenOpt, get_hf_api, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -589,6 +589,7 @@ def _compute_sync_plan(
     existing: bool = False,
     ignore_existing: bool = False,
     filter_matcher: Optional[FilterMatcher] = None,
+    status: Optional[StatusLine] = None,
 ) -> SyncPlan:
     """Compute the sync plan by comparing source and destination.
 
@@ -621,18 +622,35 @@ def _compute_sync_plan(
         for rel_path, size, mtime_ms in _list_local_files(local_path):
             if filter_matcher.matches(rel_path):
                 local_files[rel_path] = (size, mtime_ms)
+            if status:
+                status.update(f"Scanning local directory ({len(local_files)} files)")
+        if status:
+            status.done(f"Scanning local directory ({len(local_files)} files)")
 
         remote_files = {}
+        remote_total: Optional[int] = None
+        if status:
+            try:
+                remote_total = api.bucket_info(bucket_id, token=token).total_files
+            except Exception:
+                pass
         try:
             for rel_path, size, mtime_ms, _ in _list_remote_files(api, bucket_id, prefix, token):
                 if filter_matcher.matches(rel_path):
                     remote_files[rel_path] = (size, mtime_ms)
+                if status:
+                    total_str = f"/{remote_total}" if remote_total is not None else ""
+                    status.update(f"Scanning remote bucket ({len(remote_files)}{total_str} files)")
         except Exception as e:
             # Bucket might not exist yet or be empty
             logger.debug(f"Could not list remote files: {e}")
+        if status:
+            status.done(f"Scanning remote bucket ({len(remote_files)} files)")
 
         # Compare files
         all_paths = set(local_files.keys()) | set(remote_files.keys())
+        if status:
+            status.done(f"Comparing files ({len(all_paths)} paths)")
         for path in sorted(all_paths):
             local_info = local_files.get(path)
             remote_info = remote_files.get(path)
@@ -774,19 +792,36 @@ def _compute_sync_plan(
         # Get remote and local file lists
         remote_files = {}
         bucket_file_map: dict[str, Any] = {}
+        remote_total: Optional[int] = None
+        if status:
+            try:
+                remote_total = api.bucket_info(bucket_id, token=token).total_files
+            except Exception:
+                pass
         for rel_path, size, mtime_ms, bucket_file in _list_remote_files(api, bucket_id, prefix, token):
             if filter_matcher.matches(rel_path):
                 remote_files[rel_path] = (size, mtime_ms)
                 bucket_file_map[rel_path] = bucket_file
+            if status:
+                total_str = f"/{remote_total}" if remote_total is not None else ""
+                status.update(f"Scanning remote bucket ({len(remote_files)}{total_str} files)")
+        if status:
+            status.done(f"Scanning remote bucket ({len(remote_files)} files)")
 
         local_files = {}
         if os.path.isdir(local_path):
             for rel_path, size, mtime_ms in _list_local_files(local_path):
                 if filter_matcher.matches(rel_path):
                     local_files[rel_path] = (size, mtime_ms)
+                if status:
+                    status.update(f"Scanning local directory ({len(local_files)} files)")
+        if status:
+            status.done(f"Scanning local directory ({len(local_files)} files)")
 
         # Compare files
         all_paths = set(remote_files.keys()) | set(local_files.keys())
+        if status:
+            status.done(f"Comparing files ({len(all_paths)} paths)")
         for path in sorted(all_paths):
             remote_info = remote_files.get(path)
             local_info = local_files.get(path)
@@ -995,7 +1030,9 @@ def _load_plan(plan_file: str) -> SyncPlan:
     return plan
 
 
-def _execute_plan(plan: SyncPlan, api, token: Optional[str], verbose: bool = False) -> None:
+def _execute_plan(
+    plan: SyncPlan, api, token: Optional[str], verbose: bool = False, status: Optional[StatusLine] = None
+) -> None:
     """Execute a sync plan."""
     is_upload = not _is_bucket_path(plan.source) and _is_bucket_path(plan.dest)
     is_download = _is_bucket_path(plan.source) and not _is_bucket_path(plan.dest)
@@ -1025,6 +1062,13 @@ def _execute_plan(plan: SyncPlan, api, token: Optional[str], verbose: bool = Fal
 
         # Execute batch operations
         if add_files or delete_paths:
+            if status:
+                parts = []
+                if add_files:
+                    parts.append(f"uploading {len(add_files)} files")
+                if delete_paths:
+                    parts.append(f"deleting {len(delete_paths)} files")
+                status.done(", ".join(parts).capitalize())
             api.batch_bucket_files(
                 bucket_id,
                 add=add_files or None,
@@ -1066,9 +1110,13 @@ def _execute_plan(plan: SyncPlan, api, token: Optional[str], verbose: bool = Fal
 
         # Execute downloads
         if download_files:
+            if status:
+                status.done(f"Downloading {len(download_files)} files")
             api.download_bucket_files(bucket_id, download_files, token=token)
 
         # Execute deletes
+        if status and delete_files:
+            status.done(f"Deleting {len(delete_files)} local files")
         for file_path in delete_files:
             if os.path.exists(file_path):
                 os.remove(file_path)
@@ -1227,6 +1275,7 @@ def sync(
             raise typer.BadParameter("Cannot specify --ignore-existing when using --apply")
 
         sync_plan = _load_plan(apply)
+        apply_status = StatusLine(enabled=not quiet)
         if not quiet:
             _print_plan_summary(sync_plan)
             print("Executing plan...")
@@ -1234,7 +1283,7 @@ def sync(
         if quiet:
             disable_progress_bars()
         try:
-            _execute_plan(sync_plan, api, token, verbose=verbose)
+            _execute_plan(sync_plan, api, token, verbose=verbose, status=apply_status)
         finally:
             if quiet:
                 enable_progress_bars()
@@ -1284,6 +1333,9 @@ def sync(
         filter_rules=filter_rules,
     )
 
+    # Status line for TTY feedback (disabled in quiet mode)
+    status = StatusLine(enabled=not quiet)
+
     # Compute sync plan
     if not quiet:
         print(f"Computing sync plan: {source} -> {dest}")
@@ -1299,6 +1351,7 @@ def sync(
         existing=existing,
         ignore_existing=ignore_existing,
         filter_matcher=filter_matcher,
+        status=status,
     )
 
     if plan:
@@ -1326,7 +1379,7 @@ def sync(
     if quiet:
         disable_progress_bars()
     try:
-        _execute_plan(sync_plan, api, token, verbose=verbose)
+        _execute_plan(sync_plan, api, token, verbose=verbose, status=status)
     finally:
         if quiet:
             enable_progress_bars()
