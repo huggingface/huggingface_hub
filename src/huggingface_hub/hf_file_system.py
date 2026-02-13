@@ -935,7 +935,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 if not paths_info:
                     _raise_file_not_found(path, None)
                 path_info = paths_info[0]
-                root_path = HfFileSystemResolvedPath(
+                root_path = HfFileSystemResolvedRepositoryPath(
                     resolved_path.repo_type,
                     resolved_path.repo_id,
                     resolved_path.revision,
