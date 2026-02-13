@@ -17,6 +17,8 @@
 import fnmatch
 import json
 import os
+import sys
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Annotated, Any, Iterator, Literal, Optional, Union
@@ -1416,3 +1418,144 @@ def sync(
 
     if not quiet:
         print("Sync completed.")
+
+
+# =============================================================================
+# Cp command
+# =============================================================================
+
+
+@bucket_cli.command(
+    name="cp",
+    examples=[
+        "hf bucket cp hf://buckets/user/my-bucket/config.json",
+        "hf bucket cp hf://buckets/user/my-bucket/config.json ./data/",
+        "hf bucket cp hf://buckets/user/my-bucket/config.json my-config.json",
+        "hf bucket cp hf://buckets/user/my-bucket/config.json -",
+        "hf bucket cp my-config.json hf://buckets/user/my-bucket",
+        "hf bucket cp my-config.json hf://buckets/user/my-bucket/logs/",
+        "hf bucket cp my-config.json hf://buckets/user/my-bucket/remote-config.json",
+        "hf bucket cp - hf://buckets/user/my-bucket/config.json",
+    ],
+)
+def cp(
+    src: Annotated[str, typer.Argument(help="Source: local file, hf://buckets/... path, or - for stdin")],
+    dst: Annotated[
+        Optional[str], typer.Argument(help="Destination: local path, hf://buckets/... path, or - for stdout")
+    ] = None,
+    quiet: QuietOpt = False,
+    token: TokenOpt = None,
+) -> None:
+    """Copy a single file to or from a bucket."""
+    api = get_hf_api(token=token)
+
+    src_is_bucket = _is_bucket_path(src)
+    dst_is_bucket = dst is not None and _is_bucket_path(dst)
+    src_is_stdin = src == "-"
+    dst_is_stdout = dst == "-"
+
+    # --- Validation ---
+    if src_is_bucket and dst_is_bucket:
+        raise typer.BadParameter("Remote-to-remote copy not supported.")
+
+    if not src_is_bucket and not dst_is_bucket and not src_is_stdin:
+        if dst is None:
+            raise typer.BadParameter("Missing destination. Provide a bucket path as DST.")
+        raise typer.BadParameter("One of SRC or DST must be a bucket path (hf://buckets/...).")
+
+    if src_is_stdin and not dst_is_bucket:
+        raise typer.BadParameter("Stdin upload requires a bucket destination.")
+
+    if src_is_stdin and dst_is_bucket:
+        _, prefix = _parse_bucket_path(dst)
+        if prefix == "" or prefix.endswith("/"):
+            raise typer.BadParameter("Stdin upload requires a full destination path including filename.")
+
+    if dst_is_stdout and not src_is_bucket:
+        raise typer.BadParameter("Cannot pipe to stdout for uploads.")
+
+    if not src_is_bucket and not src_is_stdin and os.path.isdir(src):
+        raise typer.BadParameter("Source must be a file, not a directory. Use `hf bucket sync` for directories.")
+
+    # --- Determine direction and execute ---
+    if src_is_bucket:
+        # Download: remote -> local or stdout
+        bucket_id, prefix = _parse_bucket_path(src)
+        filename = prefix.rsplit("/", 1)[-1]
+
+        if dst_is_stdout:
+            # Download to stdout: always suppress progress bars to avoid polluting output
+            disable_progress_bars()
+            try:
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    tmp_path = os.path.join(tmp_dir, filename)
+                    api.download_bucket_files(bucket_id, [(prefix, tmp_path)])
+                    with open(tmp_path, "rb") as f:
+                        sys.stdout.buffer.write(f.read())
+            finally:
+                enable_progress_bars()
+        else:
+            # Download to file
+            if dst is None:
+                local_path = filename
+            elif os.path.isdir(dst) or dst.endswith(os.sep) or dst.endswith("/"):
+                local_path = os.path.join(dst, filename)
+            else:
+                local_path = dst
+
+            # Ensure parent directory exists
+            parent_dir = os.path.dirname(local_path)
+            if parent_dir:
+                os.makedirs(parent_dir, exist_ok=True)
+
+            if quiet:
+                disable_progress_bars()
+            try:
+                api.download_bucket_files(bucket_id, [(prefix, local_path)])
+            finally:
+                if quiet:
+                    enable_progress_bars()
+
+            if not quiet:
+                print(f"Downloaded: {src} -> {local_path}")
+
+    elif src_is_stdin:
+        # Upload from stdin
+        bucket_id, remote_path = _parse_bucket_path(dst)  # type: ignore[arg-type]
+        data = sys.stdin.buffer.read()
+
+        if quiet:
+            disable_progress_bars()
+        try:
+            api.batch_bucket_files(bucket_id, add=[(data, remote_path)])
+        finally:
+            if quiet:
+                enable_progress_bars()
+
+        if not quiet:
+            print(f"Uploaded: stdin -> {dst}")
+
+    else:
+        # Upload from file
+        if not os.path.isfile(src):
+            raise typer.BadParameter(f"Source file not found: {src}")
+
+        bucket_id, prefix = _parse_bucket_path(dst)  # type: ignore[arg-type]
+
+        if prefix == "":
+            remote_path = os.path.basename(src)
+        elif prefix.endswith("/"):
+            remote_path = prefix + os.path.basename(src)
+        else:
+            remote_path = prefix
+
+        if quiet:
+            disable_progress_bars()
+        try:
+            api.batch_bucket_files(bucket_id, add=[(src, remote_path)])
+        finally:
+            if quiet:
+                enable_progress_bars()
+
+        if not quiet:
+            print(f"Uploaded: {src} -> {BUCKET_PREFIX}{bucket_id}/{remote_path}")

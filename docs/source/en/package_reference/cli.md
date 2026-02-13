@@ -202,12 +202,49 @@ $ hf bucket [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `cp`: Copy a single file to or from a bucket.
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
 * `list`: List all accessible buckets.
 * `sync`: Sync files between local directory and a...
 * `tree`: List files in a bucket.
+
+### `hf bucket cp`
+
+Copy a single file to or from a bucket.
+
+**Usage**:
+
+```console
+$ hf bucket cp [OPTIONS] SRC [DST]
+```
+
+**Arguments**:
+
+* `SRC`: Source: local file, hf://buckets/... path, or - for stdin  [required]
+* `[DST]`: Destination: local path, hf://buckets/... path, or - for stdout
+
+**Options**:
+
+* `-q, --quiet`: Print only IDs (one per line).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf bucket cp hf://buckets/user/my-bucket/config.json
+  $ hf bucket cp hf://buckets/user/my-bucket/config.json ./data/
+  $ hf bucket cp hf://buckets/user/my-bucket/config.json my-config.json
+  $ hf bucket cp hf://buckets/user/my-bucket/config.json -
+  $ hf bucket cp my-config.json hf://buckets/user/my-bucket
+  $ hf bucket cp my-config.json hf://buckets/user/my-bucket/logs/
+  $ hf bucket cp my-config.json hf://buckets/user/my-bucket/remote-config.json
+  $ hf bucket cp - hf://buckets/user/my-bucket/config.json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ### `hf bucket create`
 
