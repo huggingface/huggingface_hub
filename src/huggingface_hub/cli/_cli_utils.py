@@ -212,6 +212,7 @@ def typer_factory(help: str, epilog: Optional[str] = None) -> "HFCliApp":
         # Increase max content width for better readability
         context_settings={
             "max_content_width": 120,
+            "help_option_names": ["-h", "--help"],
         },
     )
 
