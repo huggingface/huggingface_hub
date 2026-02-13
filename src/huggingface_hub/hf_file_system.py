@@ -8,8 +8,8 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
-from pathlib import Path
-from typing import Any, Iterator, NoReturn, Optional, Union
+from pathlib import Path, PurePosixPath
+from typing import Any, Iterable, Iterator, NoReturn, Optional, Union
 from urllib.parse import quote, unquote
 
 import fsspec
@@ -19,9 +19,15 @@ from fsspec.utils import isfilelike
 
 from . import constants
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
-from .errors import EntryNotFoundError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
+from .errors import (
+    BucketNotFoundError,
+    EntryNotFoundError,
+    HfHubHTTPError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+)
 from .file_download import hf_hub_url, http_get
-from .hf_api import HfApi, LastCommitInfo, RepoFile
+from .hf_api import BucketFile, HfApi, LastCommitInfo, RepoFile, RepoFolder
 from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff
 from .utils.insecure_hashlib import md5
 
@@ -39,24 +45,54 @@ SPECIAL_REFS_REVISION_REGEX = re.compile(
 
 @dataclass
 class HfFileSystemResolvedPath:
-    """Data structure containing information about a resolved Hugging Face file system path."""
+    """Top level Data structure containing information about a resolved Hugging Face file system path."""
+
+    root: str
+    path: str
+
+    def unresolve(self) -> str:
+        return f"{self.root}/{self.path}".rstrip("/")
+
+
+@dataclass
+class HfFileSystemResolvedRepositoryPath(HfFileSystemResolvedPath):
+    """Data structure containing information about a resolved path in a repository."""
 
     repo_type: str
     repo_id: str
     revision: str
     path_in_repo: str
+    root: str = field(init=False)
+    path: str = field(init=False)
     # The part placed after '@' in the initial path. It can be a quoted or unquoted refs revision.
     # Used to reconstruct the unresolved path to return to the user.
     _raw_revision: Optional[str] = field(default=None, repr=False)
 
-    def unresolve(self) -> str:
+    def __post_init__(self):
         repo_path = constants.REPO_TYPES_URL_PREFIXES.get(self.repo_type, "") + self.repo_id
         if self._raw_revision:
-            return f"{repo_path}@{self._raw_revision}/{self.path_in_repo}".rstrip("/")
+            self.root = f"{repo_path}@{self._raw_revision}"
         elif self.revision != constants.DEFAULT_REVISION:
-            return f"{repo_path}@{safe_revision(self.revision)}/{self.path_in_repo}".rstrip("/")
+            self.root = f"{repo_path}@{safe_revision(self.revision)}"
         else:
-            return f"{repo_path}/{self.path_in_repo}".rstrip("/")
+            self.root = repo_path
+        self.path = self.path_in_repo
+
+
+@dataclass
+class HfFileSystemResolvedBucketPath(HfFileSystemResolvedPath):
+    """Data structure containing information about a resolved path in a bucket."""
+
+    bucket_id: str
+    root: str = field(init=False)
+
+    def __post_init__(self):
+        self.root = "buckets/" + self.bucket_id
+
+
+@dataclass
+class _BucketFolder:
+    path: str
 
 
 # We need to improve fsspec.spec._Cached which is AbstractFileSystem's metaclass
@@ -181,11 +217,14 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         self.block_size = block_size
         self.expand_info = expand_info
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
-        #  * the 1st element indicating whether the repositoy and the revision exist
+        #  * the 1st element indicating whether the repository and the revision exist
         #  * the 2nd element being the exception raised if the repository or revision doesn't exist
         self._repo_and_revision_exists_cache: dict[
             tuple[str, str, Optional[str]], tuple[bool, Optional[Exception]]
         ] = {}
+        # Same for buckets
+        self._bucket_exists_cache: dict[str, tuple[bool, Optional[Exception]]] = {}
+        # Note: special case for buckets: revision is always None
         # Maps parent directory path to path infos
         self.dircache: dict[str, list[dict[str, Any]]] = {}
 
@@ -220,7 +259,19 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, None)] = True, None
         return self._repo_and_revision_exists_cache[(repo_type, repo_id, revision)]
 
-    def resolve_path(self, path: str, revision: Optional[str] = None) -> HfFileSystemResolvedPath:
+    def _bucket_exists(self, bucket_id: str) -> tuple[bool, Optional[Exception]]:
+        if bucket_id not in self._bucket_exists_cache:
+            try:
+                self._api.bucket_info(bucket_id)
+            except BucketNotFoundError as e:
+                self._bucket_exists_cache[bucket_id] = False, e
+            else:
+                self._bucket_exists_cache[bucket_id] = True, None
+        return self._bucket_exists_cache[bucket_id]
+
+    def resolve_path(
+        self, path: str, revision: Optional[str] = None
+    ) -> Union[HfFileSystemResolvedRepositoryPath, HfFileSystemResolvedBucketPath]:
         """
         Resolve a Hugging Face file system path into its components.
 
@@ -256,7 +307,14 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         path = self._strip_protocol(path)
         if not path:
             # can't list repositories at root
-            raise NotImplementedError("Access to repositories lists is not implemented.")
+            raise NotImplementedError("Access to buckets and repositories lists is not implemented.")
+        elif path.split("/")[0] == "buckets":
+            bucket_id = "/".join(path.split("/")[1:3])
+            path = "/".join(path.split("/")[3:])
+            bucket_exists, err = self._bucket_exists(bucket_id)
+            if not bucket_exists:
+                _raise_file_not_found(path, err)
+            return HfFileSystemResolvedBucketPath(bucket_id=bucket_id, path=path)
         elif path.split("/")[0] + "/" in constants.REPO_TYPES_URL_PREFIXES.values():
             if "/" not in path:
                 # can't list repositories at the repository type level
@@ -313,7 +371,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 raise NotImplementedError("Access to repositories lists is not implemented.")
 
         revision = revision if revision is not None else constants.DEFAULT_REVISION
-        return HfFileSystemResolvedPath(repo_type, repo_id, revision, path_in_repo, _raw_revision=revision_in_path)
+        return HfFileSystemResolvedRepositoryPath(
+            repo_type, repo_id, revision, path_in_repo, _raw_revision=revision_in_path
+        )
 
     def invalidate_cache(self, path: Optional[str] = None) -> None:
         """
@@ -337,11 +397,16 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 path = self._parent(path)
 
             # Only clear repo cache if path is to repo root
-            if not resolved_path.path_in_repo:
-                self._repo_and_revision_exists_cache.pop((resolved_path.repo_type, resolved_path.repo_id, None), None)
-                self._repo_and_revision_exists_cache.pop(
-                    (resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision), None
-                )
+            if not resolved_path.path:
+                if isinstance(resolved_path, HfFileSystemResolvedRepositoryPath):
+                    self._repo_and_revision_exists_cache.pop(
+                        (resolved_path.repo_type, resolved_path.repo_id, None), None
+                    )
+                    self._repo_and_revision_exists_cache.pop(
+                        (resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision), None
+                    )
+                else:
+                    self._bucket_exists_cache.pop(resolved_path.bucket_id)
 
     def _open(  # type: ignore[override]
         self,
@@ -363,15 +428,18 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
 
     def _rm(self, path: str, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path = self.resolve_path(path, revision=revision)
-        self._api.delete_file(
-            path_in_repo=resolved_path.path_in_repo,
-            repo_id=resolved_path.repo_id,
-            token=self.token,
-            repo_type=resolved_path.repo_type,
-            revision=resolved_path.revision,
-            commit_message=kwargs.get("commit_message"),
-            commit_description=kwargs.get("commit_description"),
-        )
+        if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
+            self._api.batch_bucket_files(resolved_path.bucket_id, delete=[resolved_path.path])
+        else:
+            self._api.delete_file(
+                path_in_repo=resolved_path.path_in_repo,
+                repo_id=resolved_path.repo_id,
+                token=self.token,
+                repo_type=resolved_path.repo_type,
+                revision=resolved_path.revision,
+                commit_message=kwargs.get("commit_message"),
+                commit_description=kwargs.get("commit_description"),
+            )
         self.invalidate_cache(path=resolved_path.unresolve())
 
     def rm(
@@ -403,21 +471,25 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         """
         resolved_path = self.resolve_path(path, revision=revision)
         paths = self.expand_path(path, recursive=recursive, maxdepth=maxdepth, revision=revision)
-        paths_in_repo = [self.resolve_path(path).path_in_repo for path in paths if not self.isdir(path)]
-        operations = [CommitOperationDelete(path_in_repo=path_in_repo) for path_in_repo in paths_in_repo]
-        commit_message = f"Delete {path} "
-        commit_message += "recursively " if recursive else ""
-        commit_message += f"up to depth {maxdepth} " if maxdepth is not None else ""
-        # TODO: use `commit_description` to list all the deleted paths?
-        self._api.create_commit(
-            repo_id=resolved_path.repo_id,
-            repo_type=resolved_path.repo_type,
-            token=self.token,
-            operations=operations,
-            revision=resolved_path.revision,
-            commit_message=kwargs.get("commit_message", commit_message),
-            commit_description=kwargs.get("commit_description"),
-        )
+        if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
+            delete = [self.resolve_path(path).path for path in paths]
+            self._api.batch_bucket_files(resolved_path.bucket_id, delete=delete)
+        else:
+            paths_in_repo = [self.resolve_path(path).path for path in paths if not self.isdir(path)]
+            operations = [CommitOperationDelete(path_in_repo=path_in_repo) for path_in_repo in paths_in_repo]
+            commit_message = f"Delete {path} "
+            commit_message += "recursively " if recursive else ""
+            commit_message += f"up to depth {maxdepth} " if maxdepth is not None else ""
+            # TODO: use `commit_description` to list all the deleted paths?
+            self._api.create_commit(
+                repo_id=resolved_path.repo_id,
+                repo_type=resolved_path.repo_type,
+                token=self.token,
+                operations=operations,
+                revision=resolved_path.revision,
+                commit_message=kwargs.get("commit_message", commit_message),
+                commit_description=kwargs.get("commit_description"),
+            )
         self.invalidate_cache(path=resolved_path.unresolve())
 
     def ls(
@@ -452,7 +524,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
             out = self._ls_tree(path, refresh=refresh, revision=revision, **kwargs)
         except EntryNotFoundError:
             # Path could be a file
-            if not resolved_path.path_in_repo:
+            if not resolved_path.path:
                 _raise_file_not_found(path, None)
             out = self._ls_tree(self._parent(path), refresh=refresh, revision=revision, **kwargs)
             out = [o for o in out if o["name"] == path]
@@ -474,13 +546,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         )
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
-        root_path = HfFileSystemResolvedPath(
-            resolved_path.repo_type,
-            resolved_path.repo_id,
-            resolved_path.revision,
-            path_in_repo="",
-            _raw_revision=resolved_path._raw_revision,
-        ).unresolve()
+        root_path = resolved_path.root
+        maxdepth = maxdepth if recursive else 1
 
         out = []
         if path in self.dircache and not refresh:
@@ -546,14 +613,18 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                     )
                 )
         else:
-            tree = self._api.list_repo_tree(
-                resolved_path.repo_id,
-                resolved_path.path_in_repo,
-                recursive=recursive,
-                expand=expand_info,
-                revision=resolved_path.revision,
-                repo_type=resolved_path.repo_type,
-            )
+            tree: Iterable[Union[RepoFile, RepoFolder, BucketFile, _BucketFolder]]
+            if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
+                tree = self._list_bucket_tree_with_folders(resolved_path.bucket_id, prefix=resolved_path.path)
+            else:
+                tree = self._api.list_repo_tree(
+                    resolved_path.repo_id,
+                    resolved_path.path,
+                    recursive=recursive,
+                    expand=expand_info,
+                    revision=resolved_path.revision,
+                    repo_type=resolved_path.repo_type,
+                )
             for path_info in tree:
                 cache_path = root_path + "/" + path_info.path
                 if isinstance(path_info, RepoFile):
@@ -567,7 +638,15 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                         "last_commit": path_info.last_commit,
                         "security": path_info.security,
                     }
-                else:
+                elif isinstance(path_info, BucketFile):
+                    cache_path_info = {
+                        "name": cache_path,
+                        "size": path_info.size,
+                        "type": "file",
+                        "xet_hash": path_info.xet_hash,
+                        "mtime": path_info.mtime,
+                    }
+                elif isinstance(path_info, RepoFolder):
                     cache_path_info = {
                         "name": cache_path,
                         "size": 0,
@@ -575,12 +654,32 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                         "tree_id": path_info.tree_id,
                         "last_commit": path_info.last_commit,
                     }
+                else:
+                    cache_path_info = {
+                        "name": cache_path,
+                        "size": 0,
+                        "type": "directory",
+                    }
                 parent_path = self._parent(cache_path_info["name"])
                 self.dircache.setdefault(parent_path, []).append(cache_path_info)
                 depth = cache_path[len(path) :].count("/")
                 if maxdepth is None or depth <= maxdepth:
                     out.append(cache_path_info)
         return out
+
+    def _list_bucket_tree_with_folders(
+        self, bucket_id: str, prefix: str
+    ) -> Iterable[Union[BucketFile, _BucketFolder]]:
+        """Same as `HfApi.list_bucket_tree` but also includes folders"""
+        bucket_files = self._api.list_bucket_tree(bucket_id, prefix)
+        bucket_folders = set()
+        min_depth = 1 + prefix.count("/") if prefix else 0
+        for bucket_file in bucket_files:
+            for parent_bucket_folder in PurePosixPath(bucket_file.path).parents[: -min_depth - 1]:
+                if parent_bucket_folder not in bucket_folders:
+                    yield _BucketFolder(str(parent_bucket_folder))
+                    bucket_folders.add(parent_bucket_folder)
+            yield bucket_file
 
     def walk(self, path: str, *args, **kwargs) -> Iterator[tuple[str, list[str], list[str]]]:
         """
@@ -651,9 +750,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         try:
-            out = self._ls_tree(
-                path, recursive=True, refresh=refresh, revision=resolved_path.revision, maxdepth=maxdepth, **kwargs
-            )
+            out = self._ls_tree(path, recursive=True, refresh=refresh, maxdepth=maxdepth, **kwargs)
         except EntryNotFoundError:
             # Path could be a file
             try:
@@ -668,7 +765,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 out = [o for o in out if o["type"] != "directory"]
             else:
                 # If `withdirs=True`, include the directory itself to be consistent with the spec
-                path_info = self.info(path, revision=resolved_path.revision, **kwargs)
+                path_info = self.info(path, **kwargs)
                 out = [path_info] + out if path_info["type"] == "directory" else out
             out = {o["name"]: o for o in out}
         names = sorted(out)
@@ -695,6 +792,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         """
         resolved_path1 = self.resolve_path(path1, revision=revision)
         resolved_path2 = self.resolve_path(path2, revision=revision)
+        if isinstance(resolved_path1, HfFileSystemResolvedBucketPath) or isinstance(
+            resolved_path2, HfFileSystemResolvedBucketPath
+        ):
+            raise NotImplementedError("Copy from/to buckets is not available yet")
 
         same_repo = (
             resolved_path1.repo_type == resolved_path2.repo_type and resolved_path1.repo_id == resolved_path2.repo_id
@@ -775,15 +876,27 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         expand_info = kwargs.get(
             "expand_info", self.expand_info if self.expand_info is not None else False
         )  # don't expose it as a parameter in the public API to follow the spec
-        if not resolved_path.path_in_repo:
+        if not resolved_path.path:
             # Path is the root directory
-            out = {
-                "name": path,
-                "size": 0,
-                "type": "directory",
-                "last_commit": None,
-            }
-            if expand_info:
+            out = (
+                {
+                    "name": path,
+                    "size": 0,
+                    "type": "directory",
+                }
+                if isinstance(resolved_path, HfFileSystemResolvedBucketPath)
+                else {
+                    "name": path,
+                    "size": 0,
+                    "type": "directory",
+                    "last_commit": None,
+                }
+            )
+            if (
+                isinstance(resolved_path, HfFileSystemResolvedRepositoryPath)
+                and expand_info
+                and resolved_path.repo_type in constants.REPO_TYPES_MAPPING
+            ):
                 last_commit = self._api.list_repo_commits(
                     resolved_path.repo_id, repo_type=resolved_path.repo_type, revision=resolved_path.revision
                 )[-1]
@@ -794,6 +907,14 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                         oid=last_commit.commit_id, title=last_commit.title, date=last_commit.created_at
                     ),
                 }
+        elif isinstance(resolved_path, HfFileSystemResolvedBucketPath):
+            parent_path = self._parent(path)
+            # Fill the cache with cheap call
+            self.ls(parent_path, refresh=True)
+            out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
+            if not out1:
+                _raise_file_not_found(path, None)
+            out = out1[0]
         else:
             out = None
             parent_path = self._parent(path)
@@ -817,7 +938,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 if not paths_info:
                     _raise_file_not_found(path, None)
                 path_info = paths_info[0]
-                root_path = HfFileSystemResolvedPath(
+                root_path = HfFileSystemResolvedRepositoryPath(
                     resolved_path.repo_type,
                     resolved_path.repo_id,
                     resolved_path.revision,
@@ -921,13 +1042,16 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
             `str`: HTTP URL to access the file or directory on the Hub.
         """
         resolved_path = self.resolve_path(path)
-        url = hf_hub_url(
-            resolved_path.repo_id,
-            resolved_path.path_in_repo,
-            repo_type=resolved_path.repo_type,
-            revision=resolved_path.revision,
-            endpoint=self.endpoint,
-        )
+        if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
+            url = f"{self.endpoint}/buckets/{resolved_path.bucket_id}/resolve/{quote(resolved_path.path)}"
+        else:
+            url = hf_hub_url(
+                resolved_path.repo_id,
+                resolved_path.path_in_repo,
+                repo_type=resolved_path.repo_type,
+                revision=resolved_path.revision,
+                endpoint=self.endpoint,
+            )
         if self.isdir(path):
             url = url.replace("/resolve/", "/tree/", 1)
         return url
@@ -937,7 +1061,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         Copy single remote file to local.
 
         > [!WARNING]
-        > Note: When possible, use `HfApi.hf_hub_download()` for better performance.
+        > Note: When possible, use `HfApi.hf_hub_download()` or `HfApi.download_bucket_files` for better performance.
 
         Args:
             rpath (`str`):
@@ -980,13 +1104,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         callback.set_size(expected_size)
         try:
             http_get(
-                url=hf_hub_url(
-                    repo_id=resolve_remote_path.repo_id,
-                    revision=resolve_remote_path.revision,
-                    filename=resolve_remote_path.path_in_repo,
-                    repo_type=resolve_remote_path.repo_type,
-                    endpoint=self.endpoint,
-                ),
+                url=self.url(resolve_remote_path.unresolve()),
                 temp_file=outfile,  # type: ignore[arg-type]
                 displayed_filename=rpath,
                 expected_size=expected_size,
@@ -1057,13 +1175,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             "range": f"bytes={start}-{end - 1}",
             **self.fs._api._build_hf_headers(),
         }
-        url = hf_hub_url(
-            repo_id=self.resolved_path.repo_id,
-            revision=self.resolved_path.revision,
-            filename=self.resolved_path.path_in_repo,
-            repo_type=self.resolved_path.repo_type,
-            endpoint=self.fs.endpoint,
-        )
+        url = self.url()
         r = http_backoff("GET", url, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT)
         hf_raise_for_status(r)
         return r.content
@@ -1077,16 +1189,21 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         self.temp_file.write(block)
         if final:
             self.temp_file.close()
-            self.fs._api.upload_file(
-                path_or_fileobj=self.temp_file.name,
-                path_in_repo=self.resolved_path.path_in_repo,
-                repo_id=self.resolved_path.repo_id,
-                token=self.fs.token,
-                repo_type=self.resolved_path.repo_type,
-                revision=self.resolved_path.revision,
-                commit_message=self.kwargs.get("commit_message"),
-                commit_description=self.kwargs.get("commit_description"),
-            )
+            if isinstance(self.resolved_path, HfFileSystemResolvedBucketPath):
+                self.fs._api.batch_bucket_files(
+                    self.resolved_path.bucket_id, add=[(self.temp_file.name, self.resolved_path.path)]
+                )
+            else:
+                self.fs._api.upload_file(
+                    path_or_fileobj=self.temp_file.name,
+                    path_in_repo=self.resolved_path.path_in_repo,
+                    repo_id=self.resolved_path.repo_id,
+                    token=self.fs.token,
+                    repo_type=self.resolved_path.repo_type,
+                    revision=self.resolved_path.revision,
+                    commit_message=self.kwargs.get("commit_message"),
+                    commit_description=self.kwargs.get("commit_description"),
+                )
             os.remove(self.temp_file.name)
             self.fs.invalidate_cache(
                 path=self.resolved_path.unresolve(),
@@ -1233,13 +1350,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         self._stream_buffer.clear()
         self._stream_iterator = None
 
-        url = hf_hub_url(
-            repo_id=self.resolved_path.repo_id,
-            revision=self.resolved_path.revision,
-            filename=self.resolved_path.path_in_repo,
-            repo_type=self.resolved_path.repo_type,
-            endpoint=self.fs.endpoint,
-        )
+        url = self.url()
         headers = self.fs._api._build_hf_headers()
         if self.loc > 0:
             headers["Range"] = f"bytes={self.loc}-"
