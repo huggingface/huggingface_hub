@@ -129,6 +129,7 @@ from .utils.tqdm import _get_progress_bar_context
 if TYPE_CHECKING:
     from .inference._providers import PROVIDER_T
     from .utils._verification import FolderVerification
+    from .utils._xet_progress_reporting import XetProgressReporter
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
@@ -11759,11 +11760,22 @@ class HfApi:
             return self._batch_bucket_files(bucket_id, add=add or None, delete=delete or None, token=token)
 
         # Large batch: chunk adds first, then deletes
-        for chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-            self._batch_bucket_files(bucket_id, add=list(chunk), token=token)
+        from .utils._xet_progress_reporting import XetProgressReporter
 
-        for chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
-            self._batch_bucket_files(bucket_id, delete=list(chunk), token=token)
+        if add and not are_progress_bars_disabled():
+            progress = XetProgressReporter(total_files=len(add))
+        else:
+            progress = None
+
+        try:
+            for chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
+                self._batch_bucket_files(bucket_id, add=list(chunk), token=token, _progress=progress)
+
+            for chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
+                self._batch_bucket_files(bucket_id, delete=list(chunk), token=token)
+        finally:
+            if progress is not None:
+                progress.close(False)
 
         return {}
 
@@ -11774,6 +11786,7 @@ class HfApi:
         add: Optional[list[tuple[Union[str, Path, bytes], str]]] = None,
         delete: Optional[list[str]] = None,
         token: Union[str, bool, None] = None,
+        _progress: Optional["XetProgressReporter"] = None,
     ) -> dict[str, Any]:
         """Internal method: process a single batch of bucket file operations (upload to XET + call /batch)."""
         # Convert public API inputs to internal operation objects
@@ -11830,7 +11843,11 @@ class HfApi:
                     raise XetRefreshTokenError("Failed to refresh xet token")
                 return new_xet_connection.access_token, new_xet_connection.expiration_unix_epoch
 
-            if not are_progress_bars_disabled():
+            owns_progress = _progress is None
+            if _progress is not None:
+                progress = _progress
+                progress_callback = progress.update_progress
+            elif not are_progress_bars_disabled():
                 progress = XetProgressReporter()
                 progress_callback = progress.update_progress
             else:
@@ -11850,6 +11867,9 @@ class HfApi:
                     op.xet_hash = upload_info.hash
                     op.size = upload_info.filesize
 
+                if progress is not None:
+                    progress.notify_upload_complete()
+
                 # 2.b. Upload bytes files
                 xet_upload_infos = upload_bytes(
                     [op.source for op in add_bytes_operations],
@@ -11862,8 +11882,11 @@ class HfApi:
                 for upload_info, op in zip(xet_upload_infos, add_bytes_operations):
                     op.xet_hash = upload_info.hash
                     op.size = upload_info.filesize
-            finally:
+
                 if progress is not None:
+                    progress.notify_upload_complete()
+            finally:
+                if owns_progress and progress is not None:
                     progress.close(False)
 
         # 3. /batch call
