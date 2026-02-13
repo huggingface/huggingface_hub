@@ -14,7 +14,7 @@
 """Contains utilities to print stuff to the terminal (styling, helpers)."""
 
 import os
-from typing import Literal, Optional, Union
+from typing import Optional, Union
 
 
 class ANSI:
@@ -65,7 +65,7 @@ class ANSI:
 def tabulate(
     rows: list[list[Union[str, int]]],
     headers: list[str],
-    alignments: Optional[dict[str, Literal["left", "right"]]] = None,
+    alignments: Optional[dict[str, str]] = None,
 ) -> str:
     """
     Inspired by:

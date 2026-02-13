@@ -1467,6 +1467,7 @@ def cp(
         raise typer.BadParameter("Stdin upload requires a bucket destination.")
 
     if src_is_stdin and dst_is_bucket:
+        assert dst is not None
         _, prefix = _parse_bucket_path(dst)
         if prefix == "" or prefix.endswith("/"):
             raise typer.BadParameter("Stdin upload requires a full destination path including filename.")

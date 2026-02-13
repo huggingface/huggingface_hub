@@ -343,7 +343,7 @@ def print_as_table(
     items: Sequence[dict[str, Any]],
     headers: list[str],
     row_fn: Callable[[dict[str, Any]], list[str]],
-    alignments: Optional[dict[str, Literal["left", "right"]]] = None,
+    alignments: Optional[dict[str, str]] = None,
 ) -> None:
     """Print items as a formatted table.
 
@@ -370,7 +370,7 @@ def print_list_output(
     id_key: str = "id",
     headers: Optional[list[str]] = None,
     row_fn: Optional[Callable[[dict[str, Any]], list[str]]] = None,
-    alignments: Optional[dict[str, Literal["left", "right"]]] = None,
+    alignments: Optional[dict[str, str]] = None,
 ) -> None:
     """Print list command output in the specified format.
 
