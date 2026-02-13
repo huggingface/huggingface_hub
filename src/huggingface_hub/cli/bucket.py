@@ -316,6 +316,12 @@ def list_cmd(
     quiet: QuietOpt = False,
 ) -> None:
     """List all accessible buckets."""
+    if namespace is not None and ("/" in namespace or namespace.startswith(BUCKET_PREFIX)):
+        raise typer.BadParameter(
+            f"Expected a namespace (user or organization), not a bucket ID: '{namespace}'."
+            " To list files in a bucket, use: hf bucket tree " + namespace
+        )
+
     api = get_hf_api(token=token)
     results = [api_object_to_dict(bucket) for bucket in api.list_buckets(namespace=namespace)]
     headers = ["id", "private", "size", "total_files", "created_at"]
