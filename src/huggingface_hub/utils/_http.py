@@ -34,6 +34,7 @@ from huggingface_hub.errors import OfflineModeIsEnabled
 from .. import constants
 from ..errors import (
     BadRequestError,
+    BucketNotFoundError,
     DisabledRepoError,
     GatedRepoError,
     HfHubHTTPError,
@@ -153,6 +154,16 @@ REPO_API_REGEX = re.compile(
             # or /repo_id/resolve/revision/...
             /(.+)/resolve/(.+)
         )
+    """,
+    flags=re.VERBOSE,
+)
+
+BUCKET_API_REGEX = re.compile(
+    r"""
+        # staging or production endpoint
+        ^https?://[^/]+
+        # on /api/buckets/...
+        /api/buckets/
     """,
     flags=re.VERBOSE,
 )
@@ -685,6 +696,21 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
                 + "Access to this resource is disabled."
             )
             raise _format(DisabledRepoError, message, response) from e
+
+        elif (
+            error_code == "RepoNotFound"
+            and response.request is not None
+            and response.request.url is not None
+            and BUCKET_API_REGEX.search(str(response.request.url)) is not None
+        ):
+            message = (
+                f"{response.status_code} Client Error."
+                + "\n\n"
+                + f"Bucket Not Found for url: {response.url}."
+                + "\nPlease make sure you specified the correct bucket id (namespace/name)."
+                + "\nIf the bucket is private, make sure you are authenticated."
+            )
+            raise _format(BucketNotFoundError, message, response) from e
 
         elif error_code == "RepoNotFound" or (
             response.status_code == 401
