@@ -4182,6 +4182,7 @@ class HfApi:
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[False] = ...,
+        _hot_reload: Optional[bool] = None,
     ) -> CommitInfo: ...
 
     @overload
@@ -4199,6 +4200,7 @@ class HfApi:
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[True] = ...,
+        _hot_reload: Optional[bool] = None,
     ) -> Future[CommitInfo]: ...
 
     @validate_hf_hub_args
@@ -4217,6 +4219,7 @@ class HfApi:
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
         run_as_future: bool = False,
+        _hot_reload: Optional[bool] = None,
     ) -> Union[CommitInfo, Future[CommitInfo]]:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
@@ -4327,6 +4330,7 @@ class HfApi:
         unquoted_revision = revision or constants.DEFAULT_REVISION
         revision = quote(unquoted_revision, safe="")
         create_pr = create_pr if create_pr is not None else False
+        _hot_reload = _hot_reload if _hot_reload is not None else False
 
         headers = self._build_hf_headers(token=token)
 
@@ -4460,7 +4464,12 @@ class HfApi:
             **headers,
         }
         data = b"".join(_payload_as_ndjson())
-        params = {"create_pr": "1"} if create_pr else None
+
+        params: dict[str, Any] = {}
+        if create_pr:
+            params |= {"create_pr": 1}
+        if _hot_reload:
+            params |= {"hot_reload": 1}
 
         try:
             commit_resp = get_session().post(url=commit_url, headers=headers, content=data, params=params)
@@ -4659,6 +4668,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[False] = ...,
+        _hot_reload: Optional[bool] = None,
     ) -> CommitInfo: ...
 
     @overload
@@ -4676,6 +4686,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[True] = ...,
+        _hot_reload: Optional[bool] = None,
     ) -> Future[CommitInfo]: ...
 
     @validate_hf_hub_args
@@ -4694,6 +4705,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: bool = False,
+        _hot_reload: Optional[bool] = None,
     ) -> Union[CommitInfo, Future[CommitInfo]]:
         """
         Upload a local file (up to 50 GB) to the given repo. The upload is done
@@ -4817,6 +4829,7 @@ class HfApi:
             token=token,
             revision=revision,
             create_pr=create_pr,
+            _hot_reload=_hot_reload,
             parent_commit=parent_commit,
         )
 
@@ -10144,7 +10157,12 @@ class HfApi:
             yield PaperInfo(**paper)
 
     def auth_check(
-        self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+        write: bool = False,
     ) -> None:
         """
         Check if the provided user token has access to a specific repository on the Hugging Face Hub.
@@ -10204,6 +10222,7 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/auth-check"
+        path = f"{path}/write" if write else path
         r = get_session().get(path, headers=headers)
         hf_raise_for_status(r)
 
