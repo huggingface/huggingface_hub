@@ -303,7 +303,10 @@ def list_cmd(
     for bucket in buckets:
         visibility = "private" if bucket.private else "public"
         size_str = _format_size(bucket.size, human_readable=True)
-        print(f"{bucket.id:40}  {visibility:8}  {size_str:>10}  {bucket.created_at:%Y-%m-%d %H:%M:%S}")
+        files_str = f"{bucket.total_files} files"
+        print(
+            f"{bucket.id:40}  {visibility:8}  {size_str:>10}  {files_str:>12}  {bucket.created_at:%Y-%m-%d %H:%M:%S}"
+        )
 
 
 @bucket_cli.command(
@@ -336,6 +339,7 @@ def info(
     print(f"Bucket:     {bucket.id}")
     print(f"Visibility: {visibility}")
     print(f"Size:       {size_str}")
+    print(f"Files:      {bucket.total_files}")
     print(f"Created:    {bucket.created_at:%Y-%m-%d %H:%M:%S}")
 
 
