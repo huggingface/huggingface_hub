@@ -475,7 +475,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
             delete = [self.resolve_path(path).path for path in paths]
             self._api.batch_bucket_files(resolved_path.bucket_id, delete=delete)
         else:
-            paths_in_repo = [self.resolve_path(path).path_in_repo for path in paths if not self.isdir(path)]
+            paths_in_repo = [self.resolve_path(path).path for path in paths if not self.isdir(path)]
             operations = [CommitOperationDelete(path_in_repo=path_in_repo) for path_in_repo in paths_in_repo]
             commit_message = f"Delete {path} "
             commit_message += "recursively " if recursive else ""
@@ -613,6 +613,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                     )
                 )
         else:
+            tree: Iterable[Union[RepoFile, RepoFolder, BucketFile, _BucketFolder]]
             if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
                 tree = self._list_bucket_tree_with_folders(resolved_path.bucket_id, prefix=resolved_path.path)
             else:
@@ -749,9 +750,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         try:
-            out = self._ls_tree(
-                path, recursive=True, refresh=refresh, revision=resolved_path.revision, maxdepth=maxdepth, **kwargs
-            )
+            out = self._ls_tree(path, recursive=True, refresh=refresh, maxdepth=maxdepth, **kwargs)
         except EntryNotFoundError:
             # Path could be a file
             try:
@@ -766,7 +765,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 out = [o for o in out if o["type"] != "directory"]
             else:
                 # If `withdirs=True`, include the directory itself to be consistent with the spec
-                path_info = self.info(path, revision=resolved_path.revision, **kwargs)
+                path_info = self.info(path, **kwargs)
                 out = [path_info] + out if path_info["type"] == "directory" else out
             out = {o["name"]: o for o in out}
         names = sorted(out)
@@ -893,7 +892,11 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                     "last_commit": None,
                 }
             )
-            if expand_info and resolved_path.repo_type in constants.REPO_TYPES_MAPPING:
+            if (
+                isinstance(resolved_path, HfFileSystemResolvedRepositoryPath)
+                and expand_info
+                and resolved_path.repo_type in constants.REPO_TYPES_MAPPING
+            ):
                 last_commit = self._api.list_repo_commits(
                     resolved_path.repo_id, repo_type=resolved_path.repo_type, revision=resolved_path.revision
                 )[-1]
