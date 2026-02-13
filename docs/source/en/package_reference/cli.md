@@ -322,6 +322,7 @@ $ hf bucket list [OPTIONS] [NAMESPACE]
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `-h, --human-readable`: Show sizes in human readable format.
 * `--format [table|json]`: Output format (table or json).  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--help`: Show this message and exit.

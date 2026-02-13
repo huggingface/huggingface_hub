@@ -304,13 +304,35 @@ def list_cmd(
         Optional[str],
         typer.Argument(help="Namespace to list buckets from (user or organization). Defaults to user's namespace."),
     ] = None,
+    human_readable: Annotated[
+        bool,
+        typer.Option(
+            "--human-readable",
+            "-h",
+            help="Show sizes in human readable format.",
+        ),
+    ] = False,
     format: FormatOpt = OutputFormat.table,
     quiet: QuietOpt = False,
 ) -> None:
     """List all accessible buckets."""
     api = get_hf_api(token=token)
     results = [api_object_to_dict(bucket) for bucket in api.list_buckets(namespace=namespace)]
-    print_list_output(results, format=format, quiet=quiet)
+    headers = ["id", "private", "size", "total_files", "created_at"]
+
+    def row_fn(item: dict) -> list[str]:
+        from ._cli_utils import _format_cell
+
+        return [
+            _format_cell(item.get("id")),
+            _format_cell(item.get("private")),
+            _format_size(item.get("size", 0), human_readable=human_readable),
+            _format_cell(item.get("total_files")),
+            _format_cell(item.get("created_at")),
+        ]
+
+    alignments = {"size": "right", "total_files": "right"}
+    print_list_output(results, format=format, quiet=quiet, headers=headers, row_fn=row_fn, alignments=alignments)
 
 
 @bucket_cli.command(
@@ -484,9 +506,7 @@ def _list_local_files(local_path: str) -> Iterator[tuple[str, int, float]]:
             yield rel_path, size, mtime_ms
 
 
-def _list_remote_files(
-    api: HfApi, bucket_id: str, prefix: str
-) -> Iterator[tuple[str, int, float, Any]]:
+def _list_remote_files(api: HfApi, bucket_id: str, prefix: str) -> Iterator[tuple[str, int, float, Any]]:
     """List all files in a bucket with a given prefix.
 
     Yields:
@@ -1038,9 +1058,7 @@ def _load_plan(plan_file: str) -> SyncPlan:
     return plan
 
 
-def _execute_plan(
-    plan: SyncPlan, api, verbose: bool = False, status: Optional[StatusLine] = None
-) -> None:
+def _execute_plan(plan: SyncPlan, api, verbose: bool = False, status: Optional[StatusLine] = None) -> None:
     """Execute a sync plan."""
     is_upload = not _is_bucket_path(plan.source) and _is_bucket_path(plan.dest)
     is_download = _is_bucket_path(plan.source) and not _is_bucket_path(plan.dest)
