@@ -19,6 +19,8 @@ import importlib.metadata
 import json
 import os
 import re
+import shutil
+import sys
 import time
 from enum import Enum
 from pathlib import Path
@@ -341,6 +343,7 @@ def print_as_table(
     items: Sequence[dict[str, Any]],
     headers: list[str],
     row_fn: Callable[[dict[str, Any]], list[str]],
+    alignments: Optional[dict[str, str]] = None,
 ) -> None:
     """Print items as a formatted table.
 
@@ -348,12 +351,16 @@ def print_as_table(
         items: Sequence of dictionaries representing the items to display.
         headers: List of column headers.
         row_fn: Function that takes an item dict and returns a list of string values for each column.
+        alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
     """
     if not items:
         print("No results found.")
         return
     rows = cast(list[list[Union[str, int]]], [row_fn(item) for item in items])
-    print(tabulate(rows, headers=[_to_header(h) for h in headers]))
+    screaming_headers = [_to_header(h) for h in headers]
+    # Remap alignments keys to screaming case to match tabulate headers
+    screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
+    print(tabulate(rows, headers=screaming_headers, alignments=screaming_alignments))
 
 
 def print_list_output(
@@ -363,6 +370,7 @@ def print_list_output(
     id_key: str = "id",
     headers: Optional[list[str]] = None,
     row_fn: Optional[Callable[[dict[str, Any]], list[str]]] = None,
+    alignments: Optional[dict[str, str]] = None,
 ) -> None:
     """Print list command output in the specified format.
 
@@ -373,6 +381,7 @@ def print_list_output(
         id_key: Key to use for extracting IDs in quiet mode.
         headers: Optional list of column names for headers. If not provided, auto-detected from keys.
         row_fn: Optional function to extract row values. If not provided, uses _format_cell on each column.
+        alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
     """
     if quiet:
         for item in items:
@@ -392,7 +401,7 @@ def print_list_output(
         def row_fn(item: dict[str, Any]) -> list[str]:
             return [_format_cell(item.get(col)) for col in headers]  # type: ignore[union-attr]
 
-    print_as_table(items, headers=headers, row_fn=row_fn)
+    print_as_table(items, headers=headers, row_fn=row_fn, alignments=alignments)
 
 
 def _serialize_value(v: object) -> object:
@@ -426,6 +435,45 @@ def make_expand_properties_parser(valid_properties: list[str]):
         return properties
 
     return _parse_expand_properties
+
+
+### STATUS LINE
+
+
+class StatusLine:
+    """Write transient grey status messages on a single line (TTY only).
+
+    Messages are written to stderr using carriage return to overwrite the previous status.
+    Does nothing when stderr is not a TTY (e.g. piped output) to avoid polluting output.
+    """
+
+    def __init__(self, enabled: bool = True):
+        self._active = enabled and sys.stderr.isatty()
+
+    def update(self, msg: str) -> None:
+        if not self._active:
+            return
+        width = shutil.get_terminal_size().columns
+        if len(msg) > width - 1:
+            msg = msg[: width - 4] + "..."
+        sys.stderr.write(f"\r\033[K{ANSI.gray(msg)}")
+        sys.stderr.flush()
+
+    def done(self, msg: str) -> None:
+        """Write a final status message for the current step and move to the next line."""
+        if not self._active:
+            return
+        width = shutil.get_terminal_size().columns
+        if len(msg) > width - 1:
+            msg = msg[: width - 4] + "..."
+        sys.stderr.write(f"\r\033[K{ANSI.gray(msg)}\n")
+        sys.stderr.flush()
+
+    def clear(self) -> None:
+        if not self._active:
+            return
+        sys.stderr.write("\r\033[K")
+        sys.stderr.flush()
 
 
 ### PyPI VERSION CHECKER

@@ -12,7 +12,7 @@ import pytest
 from httpx import ConnectTimeout, HTTPError
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.errors import HfHubHTTPError, OfflineModeIsEnabled
+from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError, OfflineModeIsEnabled, RepositoryNotFoundError
 from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,
@@ -521,6 +521,40 @@ class TestParseRatelimitHeaders:
         info = parse_ratelimit_headers(headers)
         assert info is not None
         assert info.remaining == 10
+
+
+class TestBucketNotFoundError:
+    def _make_response(self, url: str, error_code: str = "RepoNotFound"):
+        request = Mock(spec=httpx.Request)
+        request.url = url
+        response = Mock(spec=httpx.Response)
+        response.status_code = 404
+        response.url = url
+        response.request = request
+        response.headers = httpx.Headers({"X-Error-Code": error_code, "X-Error-Message": "Repository not found"})
+        response.raise_for_status.side_effect = httpx.HTTPStatusError("404", request=request, response=response)
+        response.json.return_value = {"error": "Repository not found"}
+        return response
+
+    def test_bucket_not_found_on_bucket_url(self):
+        """Test that BucketNotFoundError is raised for bucket API URLs."""
+        response = self._make_response("https://huggingface.co/api/buckets/namespace/name")
+        with pytest.raises(BucketNotFoundError) as exc_info:
+            hf_raise_for_status(response)
+        assert "Bucket Not Found" in str(exc_info.value)
+        assert "api/buckets/namespace/name" in str(exc_info.value)
+
+    def test_bucket_not_found_on_bucket_sub_url(self):
+        """Test that BucketNotFoundError is raised for bucket sub-URLs (e.g. tree)."""
+        response = self._make_response("https://huggingface.co/api/buckets/namespace/name/tree/prefix")
+        with pytest.raises(BucketNotFoundError):
+            hf_raise_for_status(response)
+
+    def test_repo_not_found_on_non_bucket_url(self):
+        """Test that RepositoryNotFoundError is still raised for non-bucket URLs."""
+        response = self._make_response("https://huggingface.co/api/models/namespace/name")
+        with pytest.raises(RepositoryNotFoundError):
+            hf_raise_for_status(response)
 
 
 class TestRateLimitErrorMessage:
