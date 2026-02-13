@@ -11644,7 +11644,7 @@ class HfApi:
             ...     print(file_info.path)
             ```
         """
-        encoded_prefix = "/" + quote(prefix, safe="") if prefix else ""
+        encoded_prefix = quote(prefix, safe="") if prefix else ""
         for item in paginate(
             path=f"{self.endpoint}/api/buckets/{bucket_id}/tree/{encoded_prefix}",
             headers=self._build_hf_headers(token=token),
