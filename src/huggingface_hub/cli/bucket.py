@@ -27,7 +27,17 @@ from huggingface_hub import HfApi, logging
 from huggingface_hub.hf_api import BucketFile
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
-from ._cli_utils import StatusLine, TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import (
+    FormatOpt,
+    OutputFormat,
+    QuietOpt,
+    StatusLine,
+    TokenOpt,
+    api_object_to_dict,
+    get_hf_api,
+    print_list_output,
+    typer_factory,
+)
 
 
 logger = logging.get_logger(__name__)
@@ -253,6 +263,7 @@ def create(
             help="Do not raise an error if the bucket already exists.",
         ),
     ] = False,
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """Create a new bucket."""
@@ -276,7 +287,10 @@ def create(
         exist_ok=exist_ok,
         token=token,
     )
-    print(f"Bucket created: {bucket_url.url} (handle: {bucket_url.handle})")
+    if quiet:
+        print(bucket_url.handle)
+    else:
+        print(f"Bucket created: {bucket_url.url} (handle: {bucket_url.handle})")
 
 
 @bucket_cli.command(
@@ -292,21 +306,13 @@ def list_cmd(
         Optional[str],
         typer.Argument(help="Namespace to list buckets from (user or organization). Defaults to user's namespace."),
     ] = None,
+    format: FormatOpt = OutputFormat.table,
+    quiet: QuietOpt = False,
 ) -> None:
     """List all accessible buckets."""
     api = get_hf_api(token=token)
-    buckets = list(api.list_buckets(namespace=namespace, token=token))
-    if not buckets:
-        print("No buckets found.")
-        return
-
-    for bucket in buckets:
-        visibility = "private" if bucket.private else "public"
-        size_str = _format_size(bucket.size, human_readable=True)
-        files_str = f"{bucket.total_files} files"
-        print(
-            f"{bucket.id:40}  {visibility:8}  {size_str:>10}  {files_str:>12}  {bucket.created_at:%Y-%m-%d %H:%M:%S}"
-        )
+    results = [api_object_to_dict(bucket) for bucket in api.list_buckets(namespace=namespace, token=token)]
+    print_list_output(results, format=format, quiet=quiet)
 
 
 @bucket_cli.command(
@@ -323,6 +329,7 @@ def info(
             help="Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
         ),
     ],
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """Get info about a bucket."""
@@ -334,13 +341,10 @@ def info(
         raise typer.BadParameter(str(e))
 
     bucket = api.bucket_info(parsed_id, token=token)
-    visibility = "private" if bucket.private else "public"
-    size_str = _format_size(bucket.size, human_readable=True)
-    print(f"Bucket:     {bucket.id}")
-    print(f"Visibility: {visibility}")
-    print(f"Size:       {size_str}")
-    print(f"Files:      {bucket.total_files}")
-    print(f"Created:    {bucket.created_at:%Y-%m-%d %H:%M:%S}")
+    if quiet:
+        print(bucket.id)
+    else:
+        print(json.dumps(api_object_to_dict(bucket), indent=2))
 
 
 @bucket_cli.command(
@@ -374,6 +378,7 @@ def delete(
             help="Do not raise an error if the bucket does not exist.",
         ),
     ] = False,
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """Delete a bucket."""
@@ -408,7 +413,10 @@ def delete(
         missing_ok=missing_ok,
         token=token,
     )
-    print(f"Bucket deleted: {bucket_id}")
+    if quiet:
+        print(bucket_id)
+    else:
+        print(f"Bucket deleted: {bucket_id}")
 
 
 # =============================================================================

@@ -11959,7 +11959,9 @@ class HfApi:
         }
         data = b"".join(_payload_as_ndjson())
 
-        response = http_backoff("POST", f"{self.endpoint}/api/buckets/{bucket_id}/batch", headers=headers, content=data)
+        response = http_backoff(
+            "POST", f"{self.endpoint}/api/buckets/{bucket_id}/batch", headers=headers, content=data
+        )
         hf_raise_for_status(response)
         return response.json()
 

@@ -227,6 +227,7 @@ $ hf bucket create [OPTIONS] BUCKET_ID
 
 * `--private`: Create a private bucket.
 * `--exist-ok`: Do not raise an error if the bucket already exists.
+* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -260,6 +261,7 @@ $ hf bucket delete [OPTIONS] BUCKET_ID
 
 * `-y, --yes`: Skip confirmation prompt.
 * `--missing-ok`: Do not raise an error if the bucket does not exist.
+* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -290,6 +292,7 @@ $ hf bucket info [OPTIONS] BUCKET_ID
 
 **Options**:
 
+* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -319,6 +322,8 @@ $ hf bucket list [OPTIONS] [NAMESPACE]
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
 * `--help`: Show this message and exit.
 
 Examples
