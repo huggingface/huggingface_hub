@@ -211,7 +211,6 @@ def tree_cmd(
         api.list_bucket_tree(
             bucket_id,
             prefix=prefix or None,
-            token=token,
         )
     )
 
@@ -285,7 +284,6 @@ def create(
         bucket_id,
         private=private if private else None,
         exist_ok=exist_ok,
-        token=token,
     )
     if quiet:
         print(bucket_url.handle)
@@ -311,7 +309,7 @@ def list_cmd(
 ) -> None:
     """List all accessible buckets."""
     api = get_hf_api(token=token)
-    results = [api_object_to_dict(bucket) for bucket in api.list_buckets(namespace=namespace, token=token)]
+    results = [api_object_to_dict(bucket) for bucket in api.list_buckets(namespace=namespace)]
     print_list_output(results, format=format, quiet=quiet)
 
 
@@ -340,7 +338,7 @@ def info(
     except ValueError as e:
         raise typer.BadParameter(str(e))
 
-    bucket = api.bucket_info(parsed_id, token=token)
+    bucket = api.bucket_info(parsed_id)
     if quiet:
         print(bucket.id)
     else:
@@ -411,7 +409,6 @@ def delete(
     api.delete_bucket(
         bucket_id,
         missing_ok=missing_ok,
-        token=token,
     )
     if quiet:
         print(bucket_id)
@@ -488,7 +485,7 @@ def _list_local_files(local_path: str) -> Iterator[tuple[str, int, float]]:
 
 
 def _list_remote_files(
-    api: HfApi, bucket_id: str, prefix: str, token: Optional[str]
+    api: HfApi, bucket_id: str, prefix: str
 ) -> Iterator[tuple[str, int, float, Any]]:
     """List all files in a bucket with a given prefix.
 
@@ -496,7 +493,7 @@ def _list_remote_files(
         tuple: (relative_path, size, mtime_ms, bucket_file) for each file.
             bucket_file is the BucketFile object from list_bucket_tree.
     """
-    for item in api.list_bucket_tree(bucket_id, prefix=prefix or None, token=token):
+    for item in api.list_bucket_tree(bucket_id, prefix=prefix or None):
         path = item.path
         # Remove prefix from path to get relative path
         if prefix:
@@ -594,7 +591,6 @@ def _compute_sync_plan(
     source: str,
     dest: str,
     api,
-    token: Optional[str],
     delete: bool = False,
     ignore_times: bool = False,
     ignore_sizes: bool = False,
@@ -643,11 +639,11 @@ def _compute_sync_plan(
         remote_total: Optional[int] = None
         if status:
             try:
-                remote_total = api.bucket_info(bucket_id, token=token).total_files
+                remote_total = api.bucket_info(bucket_id).total_files
             except Exception:
                 pass
         try:
-            for rel_path, size, mtime_ms, _ in _list_remote_files(api, bucket_id, prefix, token):
+            for rel_path, size, mtime_ms, _ in _list_remote_files(api, bucket_id, prefix):
                 if filter_matcher.matches(rel_path):
                     remote_files[rel_path] = (size, mtime_ms)
                 if status:
@@ -807,10 +803,10 @@ def _compute_sync_plan(
         remote_total: Optional[int] = None
         if status:
             try:
-                remote_total = api.bucket_info(bucket_id, token=token).total_files
+                remote_total = api.bucket_info(bucket_id).total_files
             except Exception:
                 pass
-        for rel_path, size, mtime_ms, bucket_file in _list_remote_files(api, bucket_id, prefix, token):
+        for rel_path, size, mtime_ms, bucket_file in _list_remote_files(api, bucket_id, prefix):
             if filter_matcher.matches(rel_path):
                 remote_files[rel_path] = (size, mtime_ms)
                 bucket_file_map[rel_path] = bucket_file
@@ -1043,7 +1039,7 @@ def _load_plan(plan_file: str) -> SyncPlan:
 
 
 def _execute_plan(
-    plan: SyncPlan, api, token: Optional[str], verbose: bool = False, status: Optional[StatusLine] = None
+    plan: SyncPlan, api, verbose: bool = False, status: Optional[StatusLine] = None
 ) -> None:
     """Execute a sync plan."""
     is_upload = not _is_bucket_path(plan.source) and _is_bucket_path(plan.dest)
@@ -1085,7 +1081,6 @@ def _execute_plan(
                 bucket_id,
                 add=add_files or None,
                 delete=delete_paths or None,
-                token=token,
             )
 
     elif is_download:
@@ -1124,7 +1119,7 @@ def _execute_plan(
         if download_files:
             if status:
                 status.done(f"Downloading {len(download_files)} files")
-            api.download_bucket_files(bucket_id, download_files, token=token)
+            api.download_bucket_files(bucket_id, download_files)
 
         # Execute deletes
         if status and delete_files:
@@ -1295,7 +1290,7 @@ def sync(
         if quiet:
             disable_progress_bars()
         try:
-            _execute_plan(sync_plan, api, token, verbose=verbose, status=apply_status)
+            _execute_plan(sync_plan, api, verbose=verbose, status=apply_status)
         finally:
             if quiet:
                 enable_progress_bars()
@@ -1356,7 +1351,6 @@ def sync(
         source=source,
         dest=dest,
         api=api,
-        token=token,
         delete=delete,
         ignore_times=ignore_times,
         ignore_sizes=ignore_sizes,
@@ -1391,7 +1385,7 @@ def sync(
     if quiet:
         disable_progress_bars()
     try:
-        _execute_plan(sync_plan, api, token, verbose=verbose, status=status)
+        _execute_plan(sync_plan, api, verbose=verbose, status=status)
     finally:
         if quiet:
             enable_progress_bars()
