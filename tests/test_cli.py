@@ -2046,7 +2046,7 @@ class TestJobsCommand:
 
     def test_inspect_with_namespace_in_job_id(self, runner: CliRunner) -> None:
         """Test that `hf jobs inspect namespace/job_id` extracts namespace from job ID."""
-        from huggingface_hub._jobs_api import JobInfo, JobOwner, JobStatus
+        from huggingface_hub._jobs_api import JobInfo
 
         job = JobInfo(
             id="my-job-id",
@@ -2072,5 +2072,11 @@ class TestJobsCommand:
     def test_namespace_in_job_id_conflicts_with_explicit_namespace(self, runner: CliRunner) -> None:
         """Test that conflicting namespace in job ID and --namespace raises an error."""
         result = runner.invoke(app, ["jobs", "logs", "--namespace", "other-user", "my-username/my-job-id"])
+        assert result.exit_code != 0
+        assert "Conflicting namespace" in str(result.exception)
+
+    def test_inspect_mixed_namespaces_in_job_ids_raises_error(self, runner: CliRunner) -> None:
+        """Test that `hf jobs inspect alice/job1 bob/job2` raises a conflict error."""
+        result = runner.invoke(app, ["jobs", "inspect", "alice/job1", "bob/job2"])
         assert result.exit_code != 0
         assert "Conflicting namespace" in str(result.exception)

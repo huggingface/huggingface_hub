@@ -466,13 +466,11 @@ def jobs_stats(
 ) -> None:
     """Fetch the resource usage statistics and metrics of Jobs"""
     if job_ids is not None:
-        parsed = [_parse_namespace_from_job_id(jid, namespace) for jid in job_ids]
-        job_ids = [jid for jid, _ in parsed]
-        # Use namespace extracted from any job ID, or keep explicit one
-        for _, ns in parsed:
-            if ns is not None:
-                namespace = ns
-                break
+        parsed_ids = []
+        for jid in job_ids:
+            jid, namespace = _parse_namespace_from_job_id(jid, namespace)
+            parsed_ids.append(jid)
+        job_ids = parsed_ids
     api = get_hf_api(token=token)
     if namespace is None:
         namespace = api.whoami()["name"]
@@ -693,12 +691,11 @@ def jobs_inspect(
     token: TokenOpt = None,
 ) -> None:
     """Display detailed information on one or more Jobs"""
-    parsed = [_parse_namespace_from_job_id(jid, namespace) for jid in job_ids]
-    job_ids = [jid for jid, _ in parsed]
-    for _, ns in parsed:
-        if ns is not None:
-            namespace = ns
-            break
+    parsed_ids = []
+    for jid in job_ids:
+        jid, namespace = _parse_namespace_from_job_id(jid, namespace)
+        parsed_ids.append(jid)
+    job_ids = parsed_ids
     api = get_hf_api(token=token)
     try:
         jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
@@ -945,12 +942,11 @@ def scheduled_inspect(
     token: TokenOpt = None,
 ) -> None:
     """Display detailed information on one or more scheduled Jobs"""
-    parsed = [_parse_namespace_from_job_id(jid, namespace) for jid in scheduled_job_ids]
-    scheduled_job_ids = [jid for jid, _ in parsed]
-    for _, ns in parsed:
-        if ns is not None:
-            namespace = ns
-            break
+    parsed_ids = []
+    for jid in scheduled_job_ids:
+        jid, namespace = _parse_namespace_from_job_id(jid, namespace)
+        parsed_ids.append(jid)
+    scheduled_job_ids = parsed_ids
     api = get_hf_api(token=token)
     scheduled_jobs = [
         api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
