@@ -695,7 +695,7 @@ def jobs_inspect(
     job_ids: Annotated[
         list[str],
         typer.Argument(
-            help="The jobs to inspect",
+            help="Job IDs to inspect (or 'namespace/job_id')",
         ),
     ],
     namespace: NamespaceOpt = None,
@@ -946,7 +946,7 @@ def scheduled_inspect(
     scheduled_job_ids: Annotated[
         list[str],
         typer.Argument(
-            help="The scheduled jobs to inspect",
+            help="Scheduled Job IDs to inspect (or 'namespace/scheduled_job_id')",
         ),
     ],
     namespace: NamespaceOpt = None,
