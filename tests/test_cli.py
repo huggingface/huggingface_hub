@@ -2026,3 +2026,51 @@ class TestJobsCommand:
         result = runner.invoke(app, ["jobs", "logs", "-f", "--tail", "5", "my-job-id"])
         assert result.exit_code != 0
         assert "Cannot use --follow and --tail together" in str(result.exception)
+
+    def test_logs_with_namespace_in_job_id(self, runner: CliRunner) -> None:
+        """Test that `hf jobs logs namespace/job_id` extracts namespace from job ID."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_job_logs.return_value = iter(["log line"])
+            result = runner.invoke(app, ["jobs", "logs", "my-username/my-job-id"])
+        assert result.exit_code == 0
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace="my-username", follow=False)
+
+    def test_cancel_with_namespace_in_job_id(self, runner: CliRunner) -> None:
+        """Test that `hf jobs cancel namespace/job_id` extracts namespace from job ID."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["jobs", "cancel", "my-username/my-job-id"])
+        assert result.exit_code == 0
+        api.cancel_job.assert_called_once_with(job_id="my-job-id", namespace="my-username")
+
+    def test_inspect_with_namespace_in_job_id(self, runner: CliRunner) -> None:
+        """Test that `hf jobs inspect namespace/job_id` extracts namespace from job ID."""
+        from huggingface_hub._jobs_api import JobInfo, JobOwner, JobStatus
+
+        job = JobInfo(
+            id="my-job-id",
+            createdAt=None,
+            dockerImage="python:3.12",
+            spaceId=None,
+            command=["echo"],
+            arguments=[],
+            environment={},
+            secrets={},
+            flavor="cpu-basic",
+            labels=None,
+            status={"stage": "RUNNING", "message": None},
+            owner={"id": "user-id", "name": "my-username", "type": "user"},
+        )
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.inspect_job.return_value = job
+            result = runner.invoke(app, ["jobs", "inspect", "my-username/my-job-id"])
+        assert result.exit_code == 0
+        api.inspect_job.assert_called_once_with(job_id="my-job-id", namespace="my-username")
+
+    def test_namespace_in_job_id_conflicts_with_explicit_namespace(self, runner: CliRunner) -> None:
+        """Test that conflicting namespace in job ID and --namespace raises an error."""
+        result = runner.invoke(app, ["jobs", "logs", "--namespace", "other-user", "my-username/my-job-id"])
+        assert result.exit_code != 0
+        assert "Conflicting namespace" in str(result.exception)
