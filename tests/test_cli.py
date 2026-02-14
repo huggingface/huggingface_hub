@@ -2080,3 +2080,13 @@ class TestJobsCommand:
         result = runner.invoke(app, ["jobs", "inspect", "alice/job1", "bob/job2"])
         assert result.exit_code != 0
         assert "Conflicting namespace" in str(result.exception)
+
+    @pytest.mark.parametrize(
+        "invalid_id",
+        ["/", "alice/", "/job1", "alice/job1/extra"],
+    )
+    def test_invalid_job_id_format_raises_error(self, runner: CliRunner, invalid_id: str) -> None:
+        """Test that malformed job IDs raise a clear error."""
+        result = runner.invoke(app, ["jobs", "logs", invalid_id])
+        assert result.exit_code != 0
+        assert "Job ID must be in the form" in str(result.exception)

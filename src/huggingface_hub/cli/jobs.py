@@ -95,14 +95,25 @@ def _parse_namespace_from_job_id(job_id: str, namespace: Optional[str]) -> tuple
     instead of only bare job IDs. If the namespace is also provided explicitly via
     --namespace and conflicts, a CLIError is raised.
     """
-    if "/" in job_id:
-        extracted_namespace, job_id = job_id.split("/", 1)
-        if namespace is not None and namespace != extracted_namespace:
-            raise CLIError(
-                f"Conflicting namespace: got --namespace='{namespace}' but job ID implies namespace='{extracted_namespace}'"
-            )
-        namespace = extracted_namespace
-    return job_id, namespace
+    if not job_id:
+        raise CLIError("Job ID cannot be empty.")
+
+    if job_id.count("/") > 1:
+        raise CLIError(f"Job ID must be in the form 'job_id' or 'namespace/job_id': '{job_id}'.")
+
+    if "/" not in job_id:
+        return job_id, namespace
+
+    extracted_namespace, parsed_job_id = job_id.split("/", 1)
+    if not extracted_namespace or not parsed_job_id:
+        raise CLIError(f"Job ID must be in the form 'job_id' or 'namespace/job_id': '{job_id}'.")
+
+    if namespace is not None and namespace != extracted_namespace:
+        raise CLIError(
+            f"Conflicting namespace: got --namespace='{namespace}' but job ID implies namespace='{extracted_namespace}'"
+        )
+
+    return parsed_job_id, extracted_namespace
 
 
 SUGGESTED_FLAVORS = [item.value for item in SpaceHardware if item.value != "zero-a10g"]
