@@ -21,24 +21,31 @@ rendered properly in your Markdown viewer.
 
 ```
 >>> hf --help
-usage: hf <command> [<args>]
+Usage: hf [OPTIONS] COMMAND [ARGS]...
 
-positional arguments:
-  {auth,cache,download,repo,repo-files,upload,upload-large-folder,env,version,lfs-enable-largefiles,lfs-multipart-upload}
-                        hf command helpers
-    auth                Manage authentication (login, logout, etc.).
-    cache               Manage local cache directory.
-    download            Download files from the Hub
-    repo                Manage repos on the Hub.
-    repo-files          Manage files in a repo on the Hub.
-    upload              Upload a file or a folder to the Hub. Recommended for single-commit uploads.
-    upload-large-folder
-                        Upload a large folder to the Hub. Recommended for resumable uploads.
-    env                 Print information about the environment.
-    version             Print information about the hf version.
+  Hugging Face Hub CLI
 
-options:
-  -h, --help            show this help message and exit
+Options:
+  --install-completion  Install completion for the current shell.
+  --show-completion     Show completion for the current shell, to copy it or
+                        customize the installation.
+  --help                Show this message and exit.
+
+Commands:
+  auth                 Manage authentication (login, logout, etc.).
+  cache                Manage local cache directory.
+  datasets             Interact with datasets on the Hub.
+  download             Download files from the Hub.
+  endpoints            Manage Hugging Face Inference Endpoints.
+  env                  Print information about the environment.
+  jobs                 Run and manage Jobs on the Hub.
+  models               Interact with models on the Hub.
+  repo                 Manage repos on the Hub.
+  repo-files           Manage files in a repo on the Hub.
+  spaces               Interact with spaces on the Hub.
+  upload               Upload a file or a folder to the Hub.
+  upload-large-folder  Upload a large folder to the Hub.
+  version              Print information about the hf version.
 ```
 
 CLI가 제대로 설치되었다면 CLI에서 사용 가능한 모든 옵션 목록이 출력됩니다. `command not found: hf`와 같은 오류 메시지가 표시된다면 [설치](../installation) 가이드를 확인하세요.

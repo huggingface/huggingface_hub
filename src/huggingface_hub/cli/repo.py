@@ -26,10 +26,19 @@ from typing import Annotated, Optional
 
 import typer
 
-from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.utils import ANSI
 
-from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import (
+    PrivateOpt,
+    RepoIdArg,
+    RepoType,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    get_hf_api,
+    typer_factory,
+)
 
 
 repo_cli = typer_factory(help="Manage repos on the Hub.")
@@ -45,7 +54,13 @@ class GatedChoices(str, enum.Enum):
     false = "false"
 
 
-@repo_cli.command("create", help="Create a new repo on the Hub.")
+@repo_cli.command(
+    "create",
+    examples=[
+        "hf repo create my-model",
+        "hf repo create my-dataset --repo-type dataset --private",
+    ],
+)
 def repo_create(
     repo_id: RepoIdArg,
     repo_type: RepoTypeOpt = RepoType.model,
@@ -70,6 +85,7 @@ def repo_create(
         ),
     ] = None,
 ) -> None:
+    """Create a new repo on the Hub."""
     api = get_hf_api(token=token)
     repo_url = api.create_repo(
         repo_id=repo_id,
@@ -84,7 +100,7 @@ def repo_create(
     print(f"Your repo is now available at {ANSI.bold(repo_url)}")
 
 
-@repo_cli.command("delete", help="Delete a repo from the Hub. this is an irreversible operation.")
+@repo_cli.command("delete", examples=["hf repo delete my-model"])
 def repo_delete(
     repo_id: RepoIdArg,
     repo_type: RepoTypeOpt = RepoType.model,
@@ -96,6 +112,7 @@ def repo_delete(
         ),
     ] = False,
 ) -> None:
+    """Delete a repo from the Hub. This is an irreversible operation."""
     api = get_hf_api(token=token)
     api.delete_repo(
         repo_id=repo_id,
@@ -105,13 +122,14 @@ def repo_delete(
     print(f"Successfully deleted {ANSI.bold(repo_id)} on the Hub.")
 
 
-@repo_cli.command("move", help="Move a repository from a namespace to another namespace.")
+@repo_cli.command("move", examples=["hf repo move old-namespace/my-model new-namespace/my-model"])
 def repo_move(
     from_id: RepoIdArg,
     to_id: RepoIdArg,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
+    """Move a repository from a namespace to another namespace."""
     api = get_hf_api(token=token)
     api.move_repo(
         from_id=from_id,
@@ -121,7 +139,13 @@ def repo_move(
     print(f"Successfully moved {ANSI.bold(from_id)} to {ANSI.bold(to_id)} on the Hub.")
 
 
-@repo_cli.command("settings", help="Update the settings of a repository.")
+@repo_cli.command(
+    "settings",
+    examples=[
+        "hf repo settings my-model --private",
+        "hf repo settings my-model --gated auto",
+    ],
+)
 def repo_settings(
     repo_id: RepoIdArg,
     gated: Annotated[
@@ -139,6 +163,7 @@ def repo_settings(
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
+    """Update the settings of a repository."""
     api = get_hf_api(token=token)
     api.update_repo_settings(
         repo_id=repo_id,
@@ -149,7 +174,13 @@ def repo_settings(
     print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")
 
 
-@branch_cli.command("create", help="Create a new branch for a repo on the Hub.")
+@branch_cli.command(
+    "create",
+    examples=[
+        "hf repo branch create my-model dev",
+        "hf repo branch create my-model dev --revision abc123",
+    ],
+)
 def branch_create(
     repo_id: RepoIdArg,
     branch: Annotated[
@@ -168,6 +199,7 @@ def branch_create(
         ),
     ] = False,
 ) -> None:
+    """Create a new branch for a repo on the Hub."""
     api = get_hf_api(token=token)
     api.create_branch(
         repo_id=repo_id,
@@ -179,7 +211,7 @@ def branch_create(
     print(f"Successfully created {ANSI.bold(branch)} branch on {repo_type.value} {ANSI.bold(repo_id)}")
 
 
-@branch_cli.command("delete", help="Delete a branch from a repo on the Hub.")
+@branch_cli.command("delete", examples=["hf repo branch delete my-model dev"])
 def branch_delete(
     repo_id: RepoIdArg,
     branch: Annotated[
@@ -191,6 +223,7 @@ def branch_delete(
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
+    """Delete a branch from a repo on the Hub."""
     api = get_hf_api(token=token)
     api.delete_branch(
         repo_id=repo_id,
@@ -200,7 +233,13 @@ def branch_delete(
     print(f"Successfully deleted {ANSI.bold(branch)} branch on {repo_type.value} {ANSI.bold(repo_id)}")
 
 
-@tag_cli.command("create", help="Create a tag for a repo.")
+@tag_cli.command(
+    "create",
+    examples=[
+        "hf repo tag create my-model v1.0",
+        'hf repo tag create my-model v1.0 -m "First release"',
+    ],
+)
 def tag_create(
     repo_id: RepoIdArg,
     tag: Annotated[
@@ -221,42 +260,36 @@ def tag_create(
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
+    """Create a tag for a repo."""
     repo_type_str = repo_type.value
     api = get_hf_api(token=token)
     print(f"You are about to create tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
     try:
         api.create_tag(repo_id=repo_id, tag=tag, tag_message=message, revision=revision, repo_type=repo_type_str)
-    except RepositoryNotFoundError:
-        print(f"{repo_type_str.capitalize()} {ANSI.bold(repo_id)} not found.")
-        raise typer.Exit(code=1)
-    except RevisionNotFoundError:
-        print(f"Revision {ANSI.bold(str(revision))} not found.")
-        raise typer.Exit(code=1)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"{repo_type_str.capitalize()} '{repo_id}' not found.") from e
+    except RevisionNotFoundError as e:
+        raise CLIError(f"Revision '{revision}' not found.") from e
     except HfHubHTTPError as e:
         if e.response.status_code == 409:
-            print(f"Tag {ANSI.bold(tag)} already exists on {ANSI.bold(repo_id)}")
-            raise typer.Exit(code=1)
-        raise e
+            raise CLIError(f"Tag '{tag}' already exists on '{repo_id}'.") from e
+        raise
     print(f"Tag {ANSI.bold(tag)} created on {ANSI.bold(repo_id)}")
 
 
-@tag_cli.command("list", help="List tags for a repo.")
+@tag_cli.command("list", examples=["hf repo tag list my-model"])
 def tag_list(
     repo_id: RepoIdArg,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
+    """List tags for a repo."""
     repo_type_str = repo_type.value
     api = get_hf_api(token=token)
     try:
         refs = api.list_repo_refs(repo_id=repo_id, repo_type=repo_type_str)
-    except RepositoryNotFoundError:
-        print(f"{repo_type_str.capitalize()} {ANSI.bold(repo_id)} not found.")
-        raise typer.Exit(code=1)
-    except HfHubHTTPError as e:
-        print(e)
-        print(ANSI.red(e.response.text))
-        raise typer.Exit(code=1)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"{repo_type_str.capitalize()} '{repo_id}' not found.") from e
     if len(refs.tags) == 0:
         print("No tags found")
         raise typer.Exit(code=0)
@@ -265,7 +298,7 @@ def tag_list(
         print(t.name)
 
 
-@tag_cli.command("delete", help="Delete a tag for a repo.")
+@tag_cli.command("delete", examples=["hf repo tag delete my-model v1.0"])
 def tag_delete(
     repo_id: RepoIdArg,
     tag: Annotated[
@@ -285,6 +318,7 @@ def tag_delete(
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
+    """Delete a tag for a repo."""
     repo_type_str = repo_type.value
     print(f"You are about to delete tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
     if not yes:
@@ -295,10 +329,8 @@ def tag_delete(
     api = get_hf_api(token=token)
     try:
         api.delete_tag(repo_id=repo_id, tag=tag, repo_type=repo_type_str)
-    except RepositoryNotFoundError:
-        print(f"{repo_type_str.capitalize()} {ANSI.bold(repo_id)} not found.")
-        raise typer.Exit(code=1)
-    except RevisionNotFoundError:
-        print(f"Tag {ANSI.bold(tag)} not found on {ANSI.bold(repo_id)}")
-        raise typer.Exit(code=1)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"{repo_type_str.capitalize()} '{repo_id}' not found.") from e
+    except RevisionNotFoundError as e:
+        raise CLIError(f"Tag '{tag}' not found on '{repo_id}'.") from e
     print(f"Tag {ANSI.bold(tag)} deleted on {ANSI.bold(repo_id)}")

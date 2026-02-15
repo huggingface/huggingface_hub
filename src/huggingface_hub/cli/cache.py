@@ -14,7 +14,6 @@
 # limitations under the License.
 """Contains the 'hf cache' command group with cache management subcommands."""
 
-import csv
 import json
 import re
 import sys
@@ -25,6 +24,8 @@ from enum import Enum
 from typing import Annotated, Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 import typer
+
+from huggingface_hub.errors import CLIError
 
 from ..utils import (
     ANSI,
@@ -37,19 +38,21 @@ from ..utils import (
     tabulate,
 )
 from ..utils._parsing import parse_duration, parse_size
-from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import (
+    OutputFormat,
+    RepoIdArg,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    get_hf_api,
+    typer_factory,
+)
 
 
 cache_cli = typer_factory(help="Manage local cache directory.")
 
 
 #### Cache helper utilities
-
-
-class OutputFormat(str, Enum):
-    table = "table"
-    json = "json"
-    csv = "csv"
 
 
 @dataclass(frozen=True)
@@ -328,55 +331,6 @@ def print_cache_entries_json(
     sys.stdout.write("\n")
 
 
-def print_cache_entries_csv(entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap) -> None:
-    """Export cache entries as CSV rows with the shared payload format."""
-    records = _build_cache_export_payload(entries, include_revisions=include_revisions, repo_refs_map=repo_refs_map)
-    writer = csv.writer(sys.stdout)
-
-    if include_revisions:
-        headers = [
-            "repo_id",
-            "repo_type",
-            "revision",
-            "snapshot_path",
-            "size_on_disk",
-            "last_accessed",
-            "last_modified",
-            "refs",
-        ]
-    else:
-        headers = ["repo_id", "repo_type", "size_on_disk", "last_accessed", "last_modified", "refs"]
-
-    writer.writerow(headers)
-
-    if not records:
-        return
-
-    for record in records:
-        refs = record["refs"]
-        if include_revisions:
-            row = [
-                record.get("repo_id", ""),
-                record.get("repo_type", ""),
-                record.get("revision", ""),
-                record.get("snapshot_path", ""),
-                record.get("size_on_disk"),
-                record.get("last_accessed"),
-                record.get("last_modified"),
-                " ".join(refs) if refs else "",
-            ]
-        else:
-            row = [
-                record.get("repo_id", ""),
-                record.get("repo_type", ""),
-                record.get("size_on_disk"),
-                record.get("last_accessed"),
-                record.get("last_modified"),
-                " ".join(refs) if refs else "",
-            ]
-        writer.writerow(row)
-
-
 def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
     """Evaluate numeric comparisons for filters."""
     if left is None:
@@ -495,7 +449,14 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
 #### Cache CLI commands
 
 
-@cache_cli.command()
+@cache_cli.command(
+    examples=[
+        "hf cache ls",
+        "hf cache ls --revisions",
+        'hf cache ls --filter "size>1GB" --limit 20',
+        "hf cache ls --format json",
+    ],
+)
 def ls(
     cache_dir: Annotated[
         Optional[str],
@@ -551,8 +512,7 @@ def ls(
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
-        print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1) from exc
+        raise CLIError(f"Cache directory not found: {exc.cache_dir}") from exc
 
     filters = filter or []
 
@@ -588,12 +548,18 @@ def ls(
     formatters = {
         OutputFormat.table: print_cache_entries_table,
         OutputFormat.json: print_cache_entries_json,
-        OutputFormat.csv: print_cache_entries_csv,
     }
     return formatters[format](entries, include_revisions=revisions, repo_refs_map=repo_refs_map)
 
 
-@cache_cli.command()
+@cache_cli.command(
+    examples=[
+        "hf cache rm model/gpt2",
+        "hf cache rm <revision_hash>",
+        "hf cache rm model/gpt2 --dry-run",
+        "hf cache rm model/gpt2 --yes",
+    ],
+)
 def rm(
     targets: Annotated[
         list[str],
@@ -626,8 +592,7 @@ def rm(
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
-        print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1)
+        raise CLIError(f"Cache directory not found: {exc.cache_dir}") from exc
 
     resolution = _resolve_deletion_targets(hf_cache_info, targets)
 
@@ -670,7 +635,7 @@ def rm(
     )
 
 
-@cache_cli.command()
+@cache_cli.command(examples=["hf cache prune", "hf cache prune --dry-run"])
 def prune(
     cache_dir: Annotated[
         Optional[str],
@@ -697,8 +662,7 @@ def prune(
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
-        print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1)
+        raise CLIError(f"Cache directory not found: {exc.cache_dir}") from exc
 
     selected: dict[CachedRepoInfo, frozenset[CachedRevisionInfo]] = {}
     revisions: set[str] = set()
@@ -738,7 +702,13 @@ def prune(
     print(f"Deleted {counts.total_revision_count} unreferenced revision(s); freed {strategy.expected_freed_size_str}.")
 
 
-@cache_cli.command()
+@cache_cli.command(
+    examples=[
+        "hf cache verify gpt2",
+        "hf cache verify gpt2 --revision refs/pr/1",
+        "hf cache verify my-dataset --repo-type dataset",
+    ],
+)
 def verify(
     repo_id: RepoIdArg,
     repo_type: RepoTypeOpt = RepoTypeOpt.model,

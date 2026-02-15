@@ -25,7 +25,6 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-import huggingface_hub.file_download
 from huggingface_hub import HfApi, RepoUrl, constants
 from huggingface_hub._local_folder import write_download_metadata
 from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntryNotFoundError
@@ -1153,6 +1152,47 @@ class TestHttpGet:
         for i, expected_range in enumerate(expected_ranges):
             assert mock_stream_backoff.call_args_list[i].kwargs["headers"] == {"Range": expected_range}
 
+    def test_http_get_retry_resets_file_when_range_ignored(self, caplog):
+        """Test that http_get resets the file when the server ignores the Range header.
+
+        When a download is interrupted and retried with a Range header, some servers
+        (e.g. CloudFront with Accept-Encoding: gzip) ignore the Range header and return
+        200 with the full file instead of 206. In that case, the code must truncate
+        the file before writing to avoid appending the full content to partial data.
+        """
+
+        def _iter_content_1() -> Iterable[bytes]:
+            yield b"A" * 30
+            raise httpx.TimeoutException("Fake timeout")
+
+        def _iter_content_2() -> Iterable[bytes]:
+            # Server ignores Range, returns full content
+            yield b"B" * 100
+
+        mock_response_1 = Mock()
+        mock_response_1.status_code = 200
+        mock_response_1.headers = {"Content-Length": "100"}
+        mock_response_1.iter_bytes.return_value = _iter_content_1()
+
+        mock_response_2 = Mock()
+        mock_response_2.status_code = 200  # 200, not 206 — Range was ignored
+        mock_response_2.headers = {"Content-Length": "100"}
+        mock_response_2.iter_bytes.return_value = _iter_content_2()
+
+        mock_responses = iter([mock_response_1, mock_response_2])
+
+        @contextmanager
+        def _mock_stream(*args, **kwargs):
+            yield next(mock_responses)
+
+        with patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream):
+            temp_file = io.BytesIO()
+            http_get("fake_url", temp_file=temp_file)
+
+        # File should contain only the full content from retry (100 bytes), not 130
+        assert temp_file.tell() == 100
+        assert temp_file.getvalue() == b"B" * 100
+
 
 class CreateSymlinkTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "No symlinks on Windows")
@@ -1245,65 +1285,6 @@ class TestNormalizeEtag(unittest.TestCase):
         return _normalize_etag(
             response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
         )
-
-
-@with_production_testing
-class TestEtagTimeoutConfig(unittest.TestCase):
-    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 10)
-    def test_etag_timeout_default_value(self):
-        with SoftTemporaryDirectory() as cache_dir:
-            with patch.object(
-                huggingface_hub.file_download,
-                "get_hf_file_metadata",
-                wraps=huggingface_hub.file_download.get_hf_file_metadata,
-            ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
-                kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 10)
-
-    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 10)
-    def test_etag_timeout_parameter_value(self):
-        with SoftTemporaryDirectory() as cache_dir:
-            with patch.object(
-                huggingface_hub.file_download,
-                "get_hf_file_metadata",
-                wraps=huggingface_hub.file_download.get_hf_file_metadata,
-            ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir, etag_timeout=12)
-                kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 12)  # passed as parameter, takes priority
-
-    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 15)  # takes priority
-    def test_etag_timeout_set_as_env_variable(self):
-        with SoftTemporaryDirectory() as cache_dir:
-            with patch.object(
-                huggingface_hub.file_download,
-                "get_hf_file_metadata",
-                wraps=huggingface_hub.file_download.get_hf_file_metadata,
-            ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
-                kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 15)
-
-    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 12)  # takes priority
-    def test_etag_timeout_set_as_env_variable_parameter_ignored(self):
-        with SoftTemporaryDirectory() as cache_dir:
-            with patch.object(
-                huggingface_hub.file_download,
-                "get_hf_file_metadata",
-                wraps=huggingface_hub.file_download.get_hf_file_metadata,
-            ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir, etag_timeout=12)
-                kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 12)  # passed value ignored, HF_HUB_ETAG_TIMEOUT takes priority
 
 
 @with_production_testing

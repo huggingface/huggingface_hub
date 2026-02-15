@@ -1450,12 +1450,12 @@ class HfApiListRepoTreeTest(HfApiCommonTest):
 
     def test_list_tree(self):
         tree = list(self._api.list_repo_tree(repo_id=self.repo_id))
-        self.assertEqual(len(tree), 6)
-        self.assertEqual({tree_obj.path for tree_obj in tree}, {"file.md", "lfs.bin", "1", "2", "3", ".gitattributes"})
+        assert len(tree) == 6
+        assert {tree_obj.path for tree_obj in tree} == {"file.md", "lfs.bin", "1", "2", "3", ".gitattributes"}
 
         tree = list(self._api.list_repo_tree(repo_id=self.repo_id, path_in_repo="1"))
-        self.assertEqual(len(tree), 2)
-        self.assertEqual({tree_obj.path for tree_obj in tree}, {"1/file_1.md", "1/2"})
+        assert len(tree) == 2
+        assert {tree_obj.path for tree_obj in tree} == {"1/file_1.md", "1/2"}
 
     def test_list_tree_recursively(self):
         tree = list(self._api.list_repo_tree(repo_id=self.repo_id, recursive=True))
@@ -1529,6 +1529,12 @@ class HfApiListRepoTreeTest(HfApiCommonTest):
         # check last_commit is missing for a folder
         feature_extractor = next(tree_obj for tree_obj in tree if tree_obj.path == "feature_extractor")
         self.assertIsNone(feature_extractor.last_commit)
+
+    @with_production_testing
+    def test_list_tree_with_xethash(self):
+        tree = list(HfApi().list_repo_tree(repo_id="openai-community/gpt2"))
+        model_entry = next(tree_obj for tree_obj in tree if tree_obj.path == "model.safetensors")
+        assert model_entry.xet_hash == "63bed80836ee0758c8fd4f8975d59bb0b864263ee2753547c358e8a37cde8758"
 
 
 class HfApiTagEndpointTest(HfApiCommonTest):
@@ -2092,10 +2098,22 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert "huggingface" in datasets[0].author
         assert "DataMeasurementsFiles" in datasets[0].id
 
-    def test_filter_datasets_by_benchmark(self):
-        datasets = list(self._api.list_datasets(benchmark="raft"))
+    def test_filter_datasets_by_benchmark_official(self):
+        datasets = list(self._api.list_datasets(benchmark="official", limit=10))
         assert len(datasets) > 0
-        assert "benchmark:raft" in datasets[0].tags
+        assert all("benchmark:official" in dataset.tags for dataset in datasets)
+
+    def test_filter_datasets_by_benchmark_true_alias(self):
+        # benchmark=True should be an alias for benchmark="official"
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(self._api.list_datasets(benchmark=True))
+            list(self._api.list_datasets(benchmark="official"))
+
+        # Exact same calls to paginate
+        assert mock_paginate.call_count == 2
+        assert mock_paginate.call_args_list[0][1]["params"] == {"filter": ["benchmark:official"]}
+        assert mock_paginate.call_args_list[1][1]["params"] == {"filter": ["benchmark:official"]}
 
     def test_filter_datasets_by_language_creator(self):
         datasets = list(self._api.list_datasets(language_creators="crowdsourced"))

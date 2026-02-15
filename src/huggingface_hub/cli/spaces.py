@@ -30,20 +30,23 @@ from typing import Annotated, Optional, get_args
 
 import typer
 
-from huggingface_hub.errors import RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, SpaceSort_T
-from huggingface_hub.utils import ANSI
 
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
+    FormatOpt,
     LimitOpt,
+    OutputFormat,
+    QuietOpt,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
+    api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
-    repo_info_to_dict,
+    print_list_output,
     typer_factory,
 )
 
@@ -65,7 +68,13 @@ ExpandOpt = Annotated[
 spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 
 
-@spaces_cli.command("ls")
+@spaces_cli.command(
+    "ls",
+    examples=[
+        "hf spaces ls --limit 10",
+        'hf spaces ls --search "chatbot" --author huggingface',
+    ],
+)
 def spaces_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
@@ -76,21 +85,29 @@ def spaces_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
+    format: FormatOpt = OutputFormat.table,
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List spaces on the Hub."""
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
-        repo_info_to_dict(space_info)
+        api_object_to_dict(space_info)
         for space_info in api.list_spaces(
             filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
-    print(json.dumps(results, indent=2))
+    print_list_output(results, format=format, quiet=quiet)
 
 
-@spaces_cli.command("info")
+@spaces_cli.command(
+    "info",
+    examples=[
+        "hf spaces info enzostvs/deepsite",
+        "hf spaces info gradio/theme_builder --expand sdk,runtime,likes",
+    ],
+)
 def spaces_info(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
@@ -101,10 +118,8 @@ def spaces_info(
     api = get_hf_api(token=token)
     try:
         info = api.space_info(repo_id=space_id, revision=revision, expand=expand)  # type: ignore[arg-type]
-    except RepositoryNotFoundError:
-        print(f"Space {ANSI.bold(space_id)} not found.")
-        raise typer.Exit(code=1)
-    except RevisionNotFoundError:
-        print(f"Revision {ANSI.bold(str(revision))} not found on {ANSI.bold(space_id)}.")
-        raise typer.Exit(code=1)
-    print(json.dumps(repo_info_to_dict(info), indent=2))
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"Space '{space_id}' not found.") from e
+    except RevisionNotFoundError as e:
+        raise CLIError(f"Revision '{revision}' not found on '{space_id}'.") from e
+    print(json.dumps(api_object_to_dict(info), indent=2))

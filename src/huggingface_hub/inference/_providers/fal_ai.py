@@ -195,6 +195,7 @@ class FalAIImageToImageTask(FalAIQueueTask):
             parameters["image_size"] = parameters.pop("target_size")
         payload: dict[str, Any] = {
             "image_url": image_url,
+            "image_urls": [image_url],
             **filter_none(parameters),
         }
         if provider_mapping_info.adapter_weights_path is not None:

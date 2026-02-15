@@ -166,12 +166,26 @@ def strict(
                 # Call the original __init__ with standard fields
                 original_init(self, **standard_kwargs)
 
-                # Add any additional kwargs as attributes
+                # Pass any additional kwargs to `__post_init__` and let the object
+                # decide whether to set the attr or use for different purposes (e.g. BC checks)
+                additional_kwargs = {}
                 for name, value in kwargs.items():
                     if name not in dataclass_fields:
-                        self.__setattr__(name, value)
+                        additional_kwargs[name] = value
+
+                self.__post_init__(**additional_kwargs)
 
             cls.__init__ = __init__  # type: ignore[method-assign]
+
+            # Define a default __post_init__ if not defined
+            if not hasattr(cls, "__post_init__"):
+
+                def __post_init__(self, **kwargs: Any) -> None:
+                    """Default __post_init__ to accept additional kwargs."""
+                    for name, value in kwargs.items():
+                        setattr(self, name, value)
+
+                cls.__post_init__ = __post_init__  # type: ignore
 
             # (optional) Override __repr__ to include additional kwargs
             original_repr = cls.__repr__

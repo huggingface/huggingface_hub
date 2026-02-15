@@ -17,15 +17,14 @@ def get_version() -> str:
 HF_XET_VERSION = "hf-xet>=1.2.0,<2.0.0"
 
 install_requires = [
-    "filelock",
+    "filelock>=3.10.0",
     "fsspec>=2023.5.0",
     f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
     "httpx>=0.23.0, <1",
     "packaging>=20.9",
     "pyyaml>=5.1",
-    "shellingham",
     "tqdm>=4.42.1",
-    "typer-slim",
+    "typer",
     "typing-extensions>=4.1.0",  # to be able to import TypeAlias, dataclass_transform
 ]
 

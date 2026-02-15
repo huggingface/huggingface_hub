@@ -30,20 +30,23 @@ from typing import Annotated, Optional, get_args
 
 import typer
 
-from huggingface_hub.errors import RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import ExpandModelProperty_T, ModelSort_T
-from huggingface_hub.utils import ANSI
 
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
+    FormatOpt,
     LimitOpt,
+    OutputFormat,
+    QuietOpt,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
+    api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
-    repo_info_to_dict,
+    print_list_output,
     typer_factory,
 )
 
@@ -65,7 +68,13 @@ ExpandOpt = Annotated[
 models_cli = typer_factory(help="Interact with models on the Hub.")
 
 
-@models_cli.command("ls")
+@models_cli.command(
+    "ls",
+    examples=[
+        "hf models ls --sort downloads --limit 10",
+        'hf models ls --search "llama" --author meta-llama',
+    ],
+)
 def models_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
@@ -76,21 +85,29 @@ def models_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
+    format: FormatOpt = OutputFormat.table,
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List models on the Hub."""
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
-        repo_info_to_dict(model_info)
+        api_object_to_dict(model_info)
         for model_info in api.list_models(
             filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
         )
     ]
-    print(json.dumps(results, indent=2))
+    print_list_output(results, format=format, quiet=quiet)
 
 
-@models_cli.command("info")
+@models_cli.command(
+    "info",
+    examples=[
+        "hf models info meta-llama/Llama-3.2-1B-Instruct",
+        "hf models info gpt2 --expand downloads,likes,tags",
+    ],
+)
 def models_info(
     model_id: Annotated[str, typer.Argument(help="The model ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
@@ -101,10 +118,8 @@ def models_info(
     api = get_hf_api(token=token)
     try:
         info = api.model_info(repo_id=model_id, revision=revision, expand=expand)  # type: ignore[arg-type]
-    except RepositoryNotFoundError:
-        print(f"Model {ANSI.bold(model_id)} not found.")
-        raise typer.Exit(code=1)
-    except RevisionNotFoundError:
-        print(f"Revision {ANSI.bold(str(revision))} not found on {ANSI.bold(model_id)}.")
-        raise typer.Exit(code=1)
-    print(json.dumps(repo_info_to_dict(info), indent=2))
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"Model '{model_id}' not found.") from e
+    except RevisionNotFoundError as e:
+        raise CLIError(f"Revision '{revision}' not found on '{model_id}'.") from e
+    print(json.dumps(api_object_to_dict(info), indent=2))

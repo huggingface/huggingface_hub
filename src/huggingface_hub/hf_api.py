@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import base64
 import inspect
+import itertools
 import json
 import re
 import struct
@@ -119,6 +120,7 @@ if TYPE_CHECKING:
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
+CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -200,6 +202,7 @@ ExpandSpaceProperty_T = Literal[
 ModelSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
 DatasetSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
 SpaceSort_T = Literal["created_at", "last_modified", "likes", "trending_score"]
+DailyPapersSort_T = Literal["publishedAt", "trending"]
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
@@ -431,7 +434,7 @@ class CommitInfo(str):
     commit_message: str
     commit_description: str
     oid: str
-    _endpoint: Optional[str] = field(repr=False)
+    _endpoint: Optional[str] = field(default=None, repr=False)
     pr_url: Optional[str] = None
 
     # Computed from `commit_url` in `__post_init__`
@@ -645,6 +648,8 @@ class RepoFile:
             The file's git OID.
         lfs (`BlobLfsInfo`, *optional*):
             The file's LFS metadata.
+        xet_hash (`str`, *optional*):
+            The file's Xet hash.
         last_commit (`LastCommitInfo`, *optional*):
             The file's last commit metadata. Only defined if [`list_repo_tree`] and [`get_paths_info`]
             are called with `expand=True`.
@@ -657,6 +662,7 @@ class RepoFile:
     size: int
     blob_id: str
     lfs: Optional[BlobLfsInfo] = None
+    xet_hash: Optional[str] = None
     last_commit: Optional[LastCommitInfo] = None
     security: Optional[BlobSecurityInfo] = None
 
@@ -668,6 +674,7 @@ class RepoFile:
         if lfs is not None:
             lfs = BlobLfsInfo(size=lfs["size"], sha256=lfs["oid"], pointer_size=lfs["pointerSize"])
         self.lfs = lfs
+        self.xet_hash = kwargs.pop("xetHash", None)
         last_commit = kwargs.pop("lastCommit", None) or kwargs.pop("last_commit", None)
         if last_commit is not None:
             last_commit = LastCommitInfo(
@@ -1428,6 +1435,8 @@ class Organization:
             Number of followers of the organization.
         num_papers (`int`, *optional*):
             Number of papers authored by the organization.
+        plan (`str`, *optional*):
+            The organization's plan (e.g., "enterprise", "team").
     """
 
     avatar_url: str
@@ -1442,6 +1451,7 @@ class Organization:
     num_datasets: Optional[int] = None
     num_followers: Optional[int] = None
     num_papers: Optional[int] = None
+    plan: Optional[str] = None
 
     def __init__(self, **kwargs) -> None:
         self.avatar_url = kwargs.pop("avatarUrl", "")
@@ -1456,6 +1466,7 @@ class Organization:
         self.num_datasets = kwargs.pop("numDatasets", None)
         self.num_followers = kwargs.pop("numFollowers", None)
         self.num_papers = kwargs.pop("numPapers", None)
+        self.plan = kwargs.pop("plan", None)
 
         # forward compatibility
         self.__dict__.update(**kwargs)
@@ -2229,7 +2240,7 @@ class HfApi:
         # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
-        benchmark: Optional[Union[str, list[str]]] = None,
+        benchmark: Optional[Union[Literal[True], Literal["official"], str]] = None,
         dataset_name: Optional[str] = None,
         gated: Optional[bool] = None,
         language_creators: Optional[Union[str, list[str]]] = None,
@@ -2256,9 +2267,9 @@ class HfApi:
                 A string or list of string to filter datasets on the hub.
             author (`str`, *optional*):
                 A string which identify the author of the returned datasets.
-            benchmark (`str` or `List`, *optional*):
-                A string or list of strings that can be used to identify datasets on
-                the Hub by their official benchmark.
+            benchmark (`True`, `"official"`, `str`, *optional*):
+                Filter datasets by benchmark. Can be `True` or `"official"` to return official benchmark datasets.
+                For future-compatibility, can also be a string representing the benchmark name (currently only "official" is supported).
             dataset_name (`str`, *optional*):
                 A string or list of strings that can be used to identify datasets on
                 the Hub by its name, such as `SQAC` or `wikineural`
@@ -2370,7 +2381,6 @@ class HfApi:
             else:
                 filter_list.extend(filter)
         for key, value in (
-            ("benchmark", benchmark),
             ("language_creators", language_creators),
             ("language", language),
             ("multilinguality", multilinguality),
@@ -2384,7 +2394,13 @@ class HfApi:
                 for value_item in value:
                     if not value_item.startswith(f"{key}:"):
                         data = f"{key}:{value_item}"
+                    else:
+                        data = value_item
                     filter_list.append(data)
+        if benchmark is not None:
+            if benchmark is True:  # alias for official benchmark
+                benchmark = "official"
+            filter_list.append(f"benchmark:{benchmark}")
         if len(filter_list) > 0:
             params["filter"] = filter_list
 
@@ -5614,6 +5630,46 @@ class HfApi:
             dry_run=dry_run,
         )
 
+    @overload
+    def snapshot_download(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+        force_download: bool = False,
+        token: Union[bool, str, None] = None,
+        local_files_only: bool = False,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+        max_workers: int = 8,
+        tqdm_class: Optional[type[base_tqdm]] = None,
+        dry_run: Literal[False] = False,
+    ) -> str: ...
+
+    @overload
+    def snapshot_download(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+        force_download: bool = False,
+        token: Union[bool, str, None] = None,
+        local_files_only: bool = False,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+        max_workers: int = 8,
+        tqdm_class: Optional[type[base_tqdm]] = None,
+        dry_run: Literal[True],
+    ) -> list[DryRunFileInfo]: ...
+
     @validate_hf_hub_args
     def snapshot_download(
         self,
@@ -8275,7 +8331,7 @@ class HfApi:
         *,
         owner: Union[list[str], str, None] = None,
         item: Union[list[str], str, None] = None,
-        sort: Optional[Literal["lastModified", "trending", "upvotes"]] = None,
+        sort: Optional[CollectionSort_T] = None,
         limit: Optional[int] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[Collection]:
@@ -9331,7 +9387,7 @@ class HfApi:
             >>> from huggingface_hub import create_webhook, run_job
             >>> job = run_job(
             ...     image="ubuntu",
-            ...     command=["bash", "-c", r"echo An event occured in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD"],
+            ...     command=["bash", "-c", r"echo An event occurred in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD"],
             ... )
             >>> payload = create_webhook(
             ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
@@ -9346,7 +9402,7 @@ class HfApi:
                 job=JobSpec(
                     docker_image='ubuntu',
                     space_id=None,
-                    command=['bash', '-c', 'echo An event occured in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD'],
+                    command=['bash', '-c', 'echo An event occurred in $WEBHOOK_REPO_ID: $WEBHOOK_PAYLOAD'],
                     arguments=[],
                     environment={},
                     secrets=[],
@@ -10026,7 +10082,7 @@ class HfApi:
         week: Optional[str] = None,
         month: Optional[str] = None,
         submitter: Optional[str] = None,
-        sort: Optional[Literal["publishedAt", "trending"]] = None,
+        sort: Optional[DailyPapersSort_T] = None,
         p: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> Iterable[PaperInfo]:
@@ -10160,6 +10216,7 @@ class HfApi:
         secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
+        labels: Optional[dict[str, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> JobInfo:
@@ -10188,6 +10245,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            labels (`dict[str, str]`, *optional*):
+                Labels to attach to the job (key-value pairs).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -10224,6 +10284,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            labels=labels,
         )
         response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}",
@@ -10242,6 +10303,7 @@ class HfApi:
         timeout: int,
         skip_previous_events_on_retry: bool,
         double_check_job_has_finished_on_status_code_or_error: tuple[Union[int, Type[Exception]], ...],
+        follow: bool = True,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[dict[str, Any]]:
@@ -10249,7 +10311,7 @@ class HfApi:
             namespace = self.whoami(token=token)["name"]
         # We don't use http_backoff since we need to check ourselves if the job is still running
         nb_tries = 0
-        max_retries = 5
+        max_retries = 5 if follow else 0
         min_wait_time = 1
         max_wait_time = 10
         sleep_time = 0
@@ -10288,13 +10350,11 @@ class HfApi:
             except KeyboardInterrupt:
                 break
             except (httpx.HTTPError, httpcore.TimeoutException) as err:
-                is_no_new_line_timeout = (
-                    isinstance(err, httpx.NetworkError)
-                    and err.__context__
-                    and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
-                )
+                is_no_new_line_timeout = isinstance(err, (httpx.ReadTimeout, httpcore.ReadTimeout))
                 if is_no_new_line_timeout:
-                    # job is likely finished
+                    if not follow:
+                        break  # no-follow mode: got all buffered events
+                    # follow mode: job is likely finished
                     pass
                 elif type(err) in double_check_job_has_finished_on_status_code_or_error:
                     pass
@@ -10318,6 +10378,7 @@ class HfApi:
         *,
         job_id: str,
         namespace: Optional[str] = None,
+        follow: bool = False,
         token: Union[bool, str, None] = None,
     ) -> Iterable[str]:
         """
@@ -10329,6 +10390,10 @@ class HfApi:
 
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
+
+            follow (`bool`, *optional*):
+                If `True`, stream logs in real-time until the job completes (blocking).
+                If `False` (default), fetch only the currently available logs and return immediately (non-blocking).
 
             token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
@@ -10343,6 +10408,10 @@ class HfApi:
             >>> for log in fetch_job_logs(job_id=job.id):
             ...     print(log)
             Hello from HF compute!
+
+            >>> # Non-blocking: fetch only currently available logs
+            >>> for log in fetch_job_logs(job_id=job.id, follow=False):
+            ...     print(log)
             ```
         """
         # - We need to retry because sometimes the /logs doesn't return logs when the job just started.
@@ -10354,12 +10423,17 @@ class HfApi:
         # - there is a ": keep-alive" every 30 seconds
 
         seconds_between_keep_alive = 30
+        # When not following, use a short timeout: the server replays historical logs
+        # quickly, then pauses waiting for new events (~30s keep-alive). 5 seconds is
+        # enough to receive all buffered logs.
+        timeout = 4 * seconds_between_keep_alive if follow else 5
         for event in self._fetch_running_job_sse(
             job_id=job_id,
             route="logs",
-            timeout=4 * seconds_between_keep_alive,
+            timeout=timeout,
             skip_previous_events_on_retry=True,
             double_check_job_has_finished_on_status_code_or_error=tuple(),
+            follow=follow,
             namespace=namespace,
             token=token,
         ):
@@ -10587,6 +10661,7 @@ class HfApi:
         secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
+        labels: Optional[dict[str, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> JobInfo:
@@ -10622,6 +10697,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            labels (`dict[str, str]`, *optional*):
+                Labels to attach to the job (key-value pairs).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -10683,6 +10761,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            labels=labels,
             namespace=namespace,
             token=token,
         )
@@ -10699,6 +10778,7 @@ class HfApi:
         secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
+        labels: Optional[dict[str, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> ScheduledJobInfo:
@@ -10737,6 +10817,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            labels (`dict[str, str]`, *optional*):
+                Labels to attach to the job (key-value pairs).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -10782,6 +10865,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            labels=labels,
         )
         input_json: dict[str, Any] = {
             "jobSpec": job_spec,
@@ -10975,6 +11059,7 @@ class HfApi:
         secrets: Optional[dict[str, Any]] = None,
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
+        labels: Optional[dict[str, str]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> ScheduledJobInfo:
@@ -11020,6 +11105,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            labels (`dict[str, str]`, *optional*):
+                Labels to attach to the job (key-value pairs).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -11081,6 +11169,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            labels=labels,
             namespace=namespace,
             token=token,
         )
@@ -11112,43 +11201,63 @@ class HfApi:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
 
-        # Find the python script file, e.g.
-        # uv run train.py -> `script``
-        # uv run torchrun train.py -> one of `script_args``
-        if Path(script).is_file():
-            script_file = script
-        elif script.startswith("http://") or script.startswith("https://"):
-            script_file = None
-        elif script.endswith(".py"):
-            raise FileNotFoundError(script)
-        else:
-            # `script` could be a command like "torchrun train.py" or "accelerate launch train.py"
-            # so we look for the python script in the args
-            for script_arg in script_args:
-                if Path(script_arg).is_file() and script_arg.endswith(".py"):
-                    script_file = script_arg
-                    break
-            else:
-                script_file = None
+        # Find the local files to pass to the job
+        local_files_to_include = {candidate for candidate in [script] + script_args if Path(candidate).is_file()}
+        # Fail early for missing scripts or config files
+        missing_local_files = {
+            candidate
+            for candidate in [script] + script_args
+            if not Path(candidate).is_file()
+            and Path(candidate).suffix in [".py", ".sh", ".yaml", ".yml", ".toml"]
+            and not candidate.startswith("https://")
+            and not candidate.startswith("http://")
+        }
+        if missing_local_files:
+            raise FileNotFoundError(", ".join(missing_local_files))
 
-        if script_file is None:
+        if len(local_files_to_include) == 0:
             # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
         else:
-            # Local file - embed as env variable
-            script_content = base64.b64encode(Path(script_file).read_bytes()).decode()
-            env["UV_SCRIPT_ENCODED"] = script_content
-            if script == script_file:
-                script = "/tmp/script.py"
-            else:
-                script_args = [
-                    "/tmp/script.py" if script_arg == script_file else script_arg for script_arg in script_args
-                ]
+            # Find appropriate remote file names
+            remote_to_local_file_names: dict[str, str] = {}
+            for local_file_to_include in local_files_to_include:
+                local_file_path = Path(local_file_to_include)
+                # remove spaces for proper xargs parsing
+                remote_file_path = Path(local_file_path.name.replace(" ", "_"))
+                if remote_file_path.name in remote_to_local_file_names:
+                    for i in itertools.count():
+                        remote_file_name = remote_file_path.with_stem(remote_file_path.stem + f"({i})").name
+                        if remote_file_name not in remote_to_local_file_names:
+                            remote_to_local_file_names[remote_file_name] = local_file_to_include
+                            break
+                else:
+                    remote_to_local_file_names[remote_file_path.name] = local_file_to_include
+            local_to_remote_file_names = dict(
+                (local_file_to_include, remote_file_name)
+                for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
+            )
 
+            # Replace local paths with remote paths in command
+            if script in local_to_remote_file_names:
+                script = local_to_remote_file_names[script]
+            script_args = [
+                local_to_remote_file_names[arg] if arg in local_to_remote_file_names else arg for arg in script_args
+            ]
+
+            # Load content to pass as environment variable with format
+            # file1 base64content1
+            # file2 base64content2
+            # ...
+            env["LOCAL_FILES_ENCODED"] = "\n".join(
+                remote_file_name + " " + base64.b64encode(Path(local_file_to_include).read_bytes()).decode()
+                for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
+            )
             command = [
                 "bash",
                 "-c",
-                f'echo "$UV_SCRIPT_ENCODED" | base64 -d > /tmp/script.py && uv run {" ".join(uv_args)} {script} {" ".join(script_args)}',
+                """echo $LOCAL_FILES_ENCODED | xargs -n 2 bash -c 'echo "$1" | base64 -d > "$0"' && """
+                + f"uv run {' '.join(uv_args)} {script} {' '.join(script_args)}",
             ]
         return command, env, secrets
 

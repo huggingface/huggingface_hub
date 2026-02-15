@@ -35,7 +35,6 @@ from typing import Annotated, Optional
 import typer
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.hf_api import whoami
 
 from .._login import auth_list, auth_switch, login, logout
@@ -49,7 +48,14 @@ logger = logging.get_logger(__name__)
 auth_cli = typer_factory(help="Manage authentication (login, logout, etc.).")
 
 
-@auth_cli.command("login", help="Login using a token from huggingface.co/settings/tokens")
+@auth_cli.command(
+    "login",
+    examples=[
+        "hf auth login",
+        "hf auth login --token $HF_TOKEN",
+        "hf auth login --token $HF_TOKEN --add-to-git-credential",
+    ],
+)
 def auth_login(
     token: TokenOpt = None,
     add_to_git_credential: Annotated[
@@ -59,18 +65,21 @@ def auth_login(
         ),
     ] = False,
 ) -> None:
+    """Login using a token from huggingface.co/settings/tokens."""
     login(token=token, add_to_git_credential=add_to_git_credential)
 
 
-@auth_cli.command("logout", help="Logout from a specific token")
+@auth_cli.command(
+    "logout",
+    examples=["hf auth logout", "hf auth logout --token-name my-token"],
+)
 def auth_logout(
     token_name: Annotated[
         Optional[str],
-        typer.Option(
-            help="Name of token to logout",
-        ),
+        typer.Option(help="Name of token to logout"),
     ] = None,
 ) -> None:
+    """Logout from a specific token."""
     logout(token_name=token_name)
 
 
@@ -98,7 +107,10 @@ def _select_token_name() -> Optional[str]:
             print("Invalid input. Please enter a number or 'q' to quit.")
 
 
-@auth_cli.command("switch", help="Switch between access tokens")
+@auth_cli.command(
+    "switch",
+    examples=["hf auth switch", "hf auth switch --token-name my-token"],
+)
 def auth_switch_cmd(
     token_name: Annotated[
         Optional[str],
@@ -113,6 +125,7 @@ def auth_switch_cmd(
         ),
     ] = False,
 ) -> None:
+    """Switch between access tokens."""
     if token_name is None:
         token_name = _select_token_name()
     if token_name is None:
@@ -121,27 +134,24 @@ def auth_switch_cmd(
     auth_switch(token_name, add_to_git_credential=add_to_git_credential)
 
 
-@auth_cli.command("list", help="List all stored access tokens")
+@auth_cli.command("list", examples=["hf auth list"])
 def auth_list_cmd() -> None:
+    """List all stored access tokens."""
     auth_list()
 
 
-@auth_cli.command("whoami", help="Find out which huggingface.co account you are logged in as.")
+@auth_cli.command("whoami", examples=["hf auth whoami"])
 def auth_whoami() -> None:
+    """Find out which huggingface.co account you are logged in as."""
     token = get_token()
     if token is None:
         print("Not logged in")
         raise typer.Exit()
-    try:
-        info = whoami(token)
-        print(ANSI.bold("user: "), info["name"])
-        orgs = [org["name"] for org in info["orgs"]]
-        if orgs:
-            print(ANSI.bold("orgs: "), ",".join(orgs))
+    info = whoami(token)
+    print(ANSI.bold("user: "), info["name"])
+    orgs = [org["name"] for org in info["orgs"]]
+    if orgs:
+        print(ANSI.bold("orgs: "), ",".join(orgs))
 
-        if ENDPOINT != "https://huggingface.co":
-            print(f"Authenticated through private endpoint: {ENDPOINT}")
-    except HfHubHTTPError as e:
-        print(e)
-        print(ANSI.red(e.response.text))
-        raise typer.Exit(code=1)
+    if ENDPOINT != "https://huggingface.co":
+        print(f"Authenticated through private endpoint: {ENDPOINT}")
