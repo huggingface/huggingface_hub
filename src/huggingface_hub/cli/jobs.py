@@ -478,8 +478,8 @@ def jobs_stats(
     """Fetch the resource usage statistics and metrics of Jobs"""
     if job_ids is not None:
         parsed_ids = []
-        for jid in job_ids:
-            jid, namespace = _parse_namespace_from_job_id(jid, namespace)
+        for job_id in job_ids:
+            job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
             parsed_ids.append(jid)
         job_ids = parsed_ids
     api = get_hf_api(token=token)
