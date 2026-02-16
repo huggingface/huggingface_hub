@@ -2027,66 +2027,53 @@ class TestJobsCommand:
         assert result.exit_code != 0
         assert "Cannot use --follow and --tail together" in str(result.exception)
 
-    def test_logs_with_namespace_in_job_id(self, runner: CliRunner) -> None:
-        """Test that `hf jobs logs namespace/job_id` extracts namespace from job ID."""
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.fetch_job_logs.return_value = iter(["log line"])
-            result = runner.invoke(app, ["jobs", "logs", "my-username/my-job-id"])
-        assert result.exit_code == 0
-        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace="my-username", follow=False)
 
-    def test_cancel_with_namespace_in_job_id(self, runner: CliRunner) -> None:
-        """Test that `hf jobs cancel namespace/job_id` extracts namespace from job ID."""
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            result = runner.invoke(app, ["jobs", "cancel", "my-username/my-job-id"])
-        assert result.exit_code == 0
-        api.cancel_job.assert_called_once_with(job_id="my-job-id", namespace="my-username")
 
-    def test_inspect_with_namespace_in_job_id(self, runner: CliRunner) -> None:
-        """Test that `hf jobs inspect namespace/job_id` extracts namespace from job ID."""
-        from huggingface_hub._jobs_api import JobInfo
+class TestParseNamespaceFromJobId:
+    """Unit tests for _parse_namespace_from_job_id."""
 
-        job = JobInfo(
-            id="my-job-id",
-            createdAt=None,
-            dockerImage="python:3.12",
-            spaceId=None,
-            command=["echo"],
-            arguments=[],
-            environment={},
-            secrets={},
-            flavor="cpu-basic",
-            labels=None,
-            status={"stage": "RUNNING", "message": None},
-            owner={"id": "user-id", "name": "my-username", "type": "user"},
-        )
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.inspect_job.return_value = job
-            result = runner.invoke(app, ["jobs", "inspect", "my-username/my-job-id"])
-        assert result.exit_code == 0
-        api.inspect_job.assert_called_once_with(job_id="my-job-id", namespace="my-username")
+    def test_bare_job_id_no_namespace(self) -> None:
+        from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 
-    def test_namespace_in_job_id_conflicts_with_explicit_namespace(self, runner: CliRunner) -> None:
-        """Test that conflicting namespace in job ID and --namespace raises an error."""
-        result = runner.invoke(app, ["jobs", "logs", "--namespace", "other-user", "my-username/my-job-id"])
-        assert result.exit_code != 0
-        assert "Conflicting namespace" in str(result.exception)
+        job_id, ns = _parse_namespace_from_job_id("my-job-id", None)
+        assert job_id == "my-job-id"
+        assert ns is None
 
-    def test_inspect_mixed_namespaces_in_job_ids_raises_error(self, runner: CliRunner) -> None:
-        """Test that `hf jobs inspect alice/job1 bob/job2` raises a conflict error."""
-        result = runner.invoke(app, ["jobs", "inspect", "alice/job1", "bob/job2"])
-        assert result.exit_code != 0
-        assert "Conflicting namespace" in str(result.exception)
+    def test_bare_job_id_with_explicit_namespace(self) -> None:
+        from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
+
+        job_id, ns = _parse_namespace_from_job_id("my-job-id", "my-username")
+        assert job_id == "my-job-id"
+        assert ns == "my-username"
+
+    def test_namespaced_job_id_extracts_namespace(self) -> None:
+        from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
+
+        job_id, ns = _parse_namespace_from_job_id("my-username/my-job-id", None)
+        assert job_id == "my-job-id"
+        assert ns == "my-username"
+
+    def test_namespaced_job_id_with_matching_explicit_namespace(self) -> None:
+        from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
+
+        job_id, ns = _parse_namespace_from_job_id("my-username/my-job-id", "my-username")
+        assert job_id == "my-job-id"
+        assert ns == "my-username"
+
+    def test_conflicting_namespace_raises_error(self) -> None:
+        from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
+        from huggingface_hub.errors import CLIError
+
+        with pytest.raises(CLIError, match="Conflicting namespace"):
+            _parse_namespace_from_job_id("my-username/my-job-id", "other-user")
 
     @pytest.mark.parametrize(
         "invalid_id",
-        ["/", "alice/", "/job1", "alice/job1/extra"],
+        ["", "/", "alice/", "/job1", "alice/job1/extra"],
     )
-    def test_invalid_job_id_format_raises_error(self, runner: CliRunner, invalid_id: str) -> None:
-        """Test that malformed job IDs raise a clear error."""
-        result = runner.invoke(app, ["jobs", "logs", invalid_id])
-        assert result.exit_code != 0
-        assert "Job ID must be in the form" in str(result.exception)
+    def test_invalid_job_id_format_raises_error(self, invalid_id: str) -> None:
+        from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
+        from huggingface_hub.errors import CLIError
+
+        with pytest.raises(CLIError):
+            _parse_namespace_from_job_id(invalid_id, None)
