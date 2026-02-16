@@ -45,7 +45,7 @@ def api_unauth():
     return HfApi(endpoint=ENDPOINT_STAGING, token=False)
 
 
-def _init_bucket(api: HfApi, bucket_id: str, private: bool = False) -> BucketUrl:
+def _init_bucket(api: HfApi, bucket_id: str, private: bool = False) -> str:
     bucket = api.create_bucket(bucket_id, private=private)
     api.batch_bucket_files(
         bucket.bucket_id,
@@ -56,7 +56,7 @@ def _init_bucket(api: HfApi, bucket_id: str, private: bool = False) -> BucketUrl
             (b"binary", "sub/binary.bin"),
         ],
     )
-    return bucket
+    return bucket.bucket_id
 
 
 @pytest.fixture(scope="module")
@@ -234,11 +234,8 @@ def test_list_bucket_tree_on_private_bucket(api: HfApi, api_other: HfApi, api_un
     assert len(list(api.list_bucket_tree(bucket_read_private))) == 4
 
     with pytest.raises(BucketNotFoundError):
-        api_other.list_bucket_tree(bucket_read_private)
+        list(api_other.list_bucket_tree(bucket_read_private))
 
-    with pytest.raises(BucketNotFoundError):
-        api_unauth.list_bucket_tree(bucket_read_private)
-
-
-def test_list_bucket_tree_recursive():
-    raise NotImplementedError
+    with pytest.raises(HfHubHTTPError) as exc_info:
+        list(api_unauth.list_bucket_tree(bucket_read_private))
+    assert exc_info.value.response.status_code == 401
