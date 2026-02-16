@@ -14,8 +14,8 @@
 # limitations under the License.
 import pytest
 
-from huggingface_hub import BucketInfo, HfApi
-from huggingface_hub.errors import HfHubHTTPError
+from huggingface_hub import BucketInfo, BucketUrl, HfApi
+from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER
 from .testing_utils import repo_name
@@ -45,18 +45,30 @@ def api_unauth():
     return HfApi(endpoint=ENDPOINT_STAGING, token=False)
 
 
+def _init_bucket(api: HfApi, bucket_id: str, private: bool = False) -> BucketUrl:
+    bucket = api.create_bucket(bucket_id, private=private)
+    api.batch_bucket_files(
+        bucket.bucket_id,
+        add=[
+            (b"content", "file.txt"),
+            (b"content", "sub/file.txt"),
+            (b"binary", "binary.bin"),
+            (b"binary", "sub/binary.bin"),
+        ],
+    )
+    return bucket
+
+
 @pytest.fixture(scope="module")
 def bucket_read(api: HfApi) -> str:
     """Bucket for read-only tests."""
-    bucket = api.create_bucket(bucket_name())
-    return bucket.bucket_id
+    return _init_bucket(api, bucket_name())
 
 
 @pytest.fixture(scope="module")
 def bucket_read_private(api: HfApi) -> str:
     """Private bucket for read-only tests."""
-    bucket = api.create_bucket(bucket_name(), private=True)
-    return bucket.bucket_id
+    return _init_bucket(api, bucket_name(), private=True)
 
 
 @pytest.fixture(scope="module")
@@ -186,16 +198,47 @@ def test_list_buckets_with_private(
 def test_delete_bucket(api: HfApi, bucket_write: str):
     api.delete_bucket(bucket_write)
 
-    with pytest.raises(HfHubHTTPError) as exc_info:
+    with pytest.raises(BucketNotFoundError):
         api.bucket_info(bucket_write)
-    assert exc_info.value.response.status_code == 404
 
 
 def test_delete_bucket_missing_ok(api: HfApi):
     # Deleting a non-existing bucket should raise 404
-    with pytest.raises(HfHubHTTPError) as exc_info:
+    with pytest.raises(BucketNotFoundError):
         api.delete_bucket(f"{USER}/{bucket_name()}")
-    assert exc_info.value.response.status_code == 404
 
     # Deleting a non-existing bucket with missing_ok=True should not raise an error
     api.delete_bucket(f"{USER}/{bucket_name()}", missing_ok=True)
+
+
+def test_delete_bucket_cannot_do_implicit_namespace(api: HfApi):
+    with pytest.raises(HfHubHTTPError) as exc_info:
+        api.delete_bucket(bucket_name())
+    assert exc_info.value.response.status_code == 404
+
+
+def test_list_bucket_tree_on_public_bucket(api: HfApi, bucket_read: str):
+    tree = list(api.list_bucket_tree(bucket_read))
+    assert len(tree) == 4
+
+    for entry in tree:
+        assert entry.type == "file"
+        assert entry.size > 0
+        assert entry.xet_hash is not None
+        assert entry.mtime is not None
+
+    assert {entry.path for entry in tree} == {"file.txt", "sub/file.txt", "binary.bin", "sub/binary.bin"}
+
+
+def test_list_bucket_tree_on_private_bucket(api: HfApi, api_other: HfApi, api_unauth: HfApi, bucket_read_private: str):
+    assert len(list(api.list_bucket_tree(bucket_read_private))) == 4
+
+    with pytest.raises(BucketNotFoundError):
+        api_other.list_bucket_tree(bucket_read_private)
+
+    with pytest.raises(BucketNotFoundError):
+        api_unauth.list_bucket_tree(bucket_read_private)
+
+
+def test_list_bucket_tree_recursive():
+    raise NotImplementedError
