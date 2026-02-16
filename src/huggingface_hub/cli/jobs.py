@@ -954,9 +954,9 @@ def scheduled_inspect(
 ) -> None:
     """Display detailed information on one or more scheduled Jobs"""
     parsed_ids = []
-    for jid in scheduled_job_ids:
-        jid, namespace = _parse_namespace_from_job_id(jid, namespace)
-        parsed_ids.append(jid)
+    for job_id in scheduled_job_ids:
+        job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+        parsed_ids.append(job_id)
     scheduled_job_ids = parsed_ids
     api = get_hf_api(token=token)
     scheduled_jobs = [
