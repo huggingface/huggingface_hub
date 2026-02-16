@@ -17,7 +17,7 @@ def get_version() -> str:
 HF_XET_VERSION = "hf-xet>=1.2.0,<2.0.0"
 
 install_requires = [
-    "filelock",
+    "filelock>=3.10.0",
     "fsspec>=2023.5.0",
     f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
     "httpx>=0.23.0, <1",
