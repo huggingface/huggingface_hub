@@ -74,6 +74,9 @@ def tabulate(
     - stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
     """
     _ALIGN_MAP = {"left": "<", "right": ">"}
+    for row in rows:
+        if len(row) < len(headers):
+            raise IndexError(f"Row has {len(row)} values but expected {len(headers)} (headers: {headers})")
     col_widths = [max(len(str(x)) for x in col) for col in zip(*rows, headers)]
     col_aligns = [_ALIGN_MAP.get((alignments or {}).get(h, "left"), "<") for h in headers]
     row_format = " ".join(f"{{:{a}{w}}}" for a, w in zip(col_aligns, col_widths))
