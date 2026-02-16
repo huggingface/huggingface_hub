@@ -910,7 +910,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         elif isinstance(resolved_path, HfFileSystemResolvedBucketPath):
             parent_path = self._parent(path)
             # Fill the cache with cheap call
-            self.ls(parent_path, refresh=True)
+            self.ls(parent_path, refresh=refresh)
             out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
             if not out1:
                 _raise_file_not_found(path, None)
