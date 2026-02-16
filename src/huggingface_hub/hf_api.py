@@ -11813,11 +11813,11 @@ class HfApi:
             progress = None
 
         try:
-            for chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                self._batch_bucket_files(bucket_id, add=list(chunk), token=token, _progress=progress)
+            for add_chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
+                self._batch_bucket_files(bucket_id, add=list(add_chunk), token=token, _progress=progress)
 
-            for chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
-                self._batch_bucket_files(bucket_id, delete=list(chunk), token=token)
+            for delete_chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
+                self._batch_bucket_files(bucket_id, delete=list(delete_chunk), token=token)
         finally:
             if progress is not None:
                 progress.close(False)

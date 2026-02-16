@@ -645,6 +645,7 @@ def _compute_sync_plan(
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
+    remote_total: Optional[int] = None
     if is_upload:
         # Local -> Remote
         local_path = os.path.abspath(source)
@@ -664,7 +665,6 @@ def _compute_sync_plan(
             status.done(f"Scanning local directory ({len(local_files)} files)")
 
         remote_files = {}
-        remote_total: Optional[int] = None
         if status:
             try:
                 remote_total = api.bucket_info(bucket_id).total_files
@@ -828,7 +828,6 @@ def _compute_sync_plan(
         # Get remote and local file lists
         remote_files = {}
         bucket_file_map: dict[str, Any] = {}
-        remote_total: Optional[int] = None
         if status:
             try:
                 remote_total = api.bucket_info(bucket_id).total_files
