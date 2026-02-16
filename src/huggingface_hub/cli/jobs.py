@@ -703,9 +703,9 @@ def jobs_inspect(
 ) -> None:
     """Display detailed information on one or more Jobs"""
     parsed_ids = []
-    for jid in job_ids:
-        jid, namespace = _parse_namespace_from_job_id(jid, namespace)
-        parsed_ids.append(jid)
+    for job_id in job_ids:
+        job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+        parsed_ids.append(job_id)
     job_ids = parsed_ids
     api = get_hf_api(token=token)
     try:
