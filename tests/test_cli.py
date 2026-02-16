@@ -2028,7 +2028,6 @@ class TestJobsCommand:
         assert "Cannot use --follow and --tail together" in str(result.exception)
 
 
-
 class TestParseNamespaceFromJobId:
     """Unit tests for _parse_namespace_from_job_id."""
 
