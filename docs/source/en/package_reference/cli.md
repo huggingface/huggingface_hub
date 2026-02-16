@@ -2237,6 +2237,7 @@ $ hf skills add [OPTIONS]
 
 * `--claude`: Install for Claude.
 * `--codex`: Install for Codex.
+* `--cursor`: Install for Cursor.
 * `--opencode`: Install for OpenCode.
 * `-g, --global`: Install globally (user-level) instead of in the current project directory.
 * `--dest PATH`: Install into a custom destination (path to skills directory).
@@ -2245,8 +2246,9 @@ $ hf skills add [OPTIONS]
 
 Examples
   $ hf skills add --claude
+  $ hf skills add --cursor
   $ hf skills add --claude --global
-  $ hf skills add --codex --opencode
+  $ hf skills add --codex --opencode --cursor
 
 Learn more
   Use `hf <command> --help` for more information about a command.
