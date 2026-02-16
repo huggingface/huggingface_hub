@@ -480,7 +480,7 @@ def jobs_stats(
         parsed_ids = []
         for job_id in job_ids:
             job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
-            parsed_ids.append(jid)
+            parsed_ids.append(job_id)
         job_ids = parsed_ids
     api = get_hf_api(token=token)
     if namespace is None:
