@@ -109,6 +109,12 @@ def test_create_bucket_enterprise_org(api_enterprise: HfApi, api_other: HfApi):
         api_other.bucket_info(bucket_id)
 
 
+def test_create_bucket_implicit_namespace(api: HfApi):
+    name = bucket_name()
+    bucket_url = api.create_bucket(name)
+    assert bucket_url.bucket_id == f"{USER}/{name}"
+
+
 def test_bucket_info(api: HfApi, api_other: HfApi, api_unauth: HfApi, bucket_read: str):
     # Can access bucket
     info = api.bucket_info(bucket_read)
