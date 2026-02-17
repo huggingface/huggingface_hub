@@ -15,8 +15,9 @@ from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
+from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import RevisionNotFoundError
+from huggingface_hub.errors import CLIError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -2026,3 +2027,42 @@ class TestJobsCommand:
         result = runner.invoke(app, ["jobs", "logs", "-f", "--tail", "5", "my-job-id"])
         assert result.exit_code != 0
         assert "Cannot use --follow and --tail together" in str(result.exception)
+
+
+class TestParseNamespaceFromJobId:
+    """Unit tests for _parse_namespace_from_job_id."""
+
+    @pytest.mark.parametrize(
+        "input_job_id, input_namespace, expected_job_id, expected_namespace",
+        [
+            ("my-job-id", None, "my-job-id", None),
+            ("my-job-id", "my-username", "my-job-id", "my-username"),
+            ("my-username/my-job-id", None, "my-job-id", "my-username"),
+            ("my-username/my-job-id", "my-username", "my-job-id", "my-username"),
+        ],
+    )
+    def test_parse_namespace_from_job_id(
+        self,
+        input_job_id: str,
+        input_namespace: Optional[str],
+        expected_job_id: str,
+        expected_namespace: Optional[str],
+    ) -> None:
+        job_id, ns = _parse_namespace_from_job_id(input_job_id, input_namespace)
+        assert job_id == expected_job_id
+        assert ns == expected_namespace
+
+    @pytest.mark.parametrize(
+        "input_job_id, input_namespace",
+        [
+            ("my-username/my-job-id", "other-user"),  # conflicting namespace
+            ("", None),
+            ("/", None),
+            ("alice/", None),
+            ("/job1", None),
+            ("alice/job1/extra", None),
+        ],
+    )
+    def test_parse_namespace_from_job_id_errors(self, input_job_id: str, input_namespace: Optional[str]) -> None:
+        with pytest.raises(CLIError):
+            _parse_namespace_from_job_id(input_job_id, input_namespace)

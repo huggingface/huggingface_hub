@@ -17,8 +17,11 @@ Usage:
     # install the hf-cli skill for Claude (project-level, in current directory)
     hf skills add --claude
 
+    # install for Cursor (project-level, in current directory)
+    hf skills add --cursor
+
     # install for multiple assistants (project-level)
-    hf skills add --claude --codex --opencode
+    hf skills add --claude --codex --opencode --cursor
 
     # install globally (user-level)
     hf skills add --claude --global
@@ -75,12 +78,14 @@ CENTRAL_GLOBAL = Path("~/.agents/skills")
 GLOBAL_TARGETS = {
     "codex": Path("~/.codex/skills"),
     "claude": Path("~/.claude/skills"),
+    "cursor": Path("~/.cursor/skills"),
     "opencode": Path("~/.config/opencode/skills"),
 }
 
 LOCAL_TARGETS = {
     "codex": Path(".codex/skills"),
     "claude": Path(".claude/skills"),
+    "cursor": Path(".cursor/skills"),
     "opencode": Path(".opencode/skills"),
 }
 
@@ -191,13 +196,15 @@ def _create_symlink(agent_skills_dir: Path, central_skill_path: Path, force: boo
     "add",
     examples=[
         "hf skills add --claude",
+        "hf skills add --cursor",
         "hf skills add --claude --global",
-        "hf skills add --codex --opencode",
+        "hf skills add --codex --opencode --cursor",
     ],
 )
 def skills_add(
     claude: Annotated[bool, typer.Option("--claude", help="Install for Claude.")] = False,
     codex: Annotated[bool, typer.Option("--codex", help="Install for Codex.")] = False,
+    cursor: Annotated[bool, typer.Option("--cursor", help="Install for Cursor.")] = False,
     opencode: Annotated[bool, typer.Option("--opencode", help="Install for OpenCode.")] = False,
     global_: Annotated[
         bool,
@@ -221,13 +228,13 @@ def skills_add(
         ),
     ] = False,
 ) -> None:
-    """Install a skill for an AI assistant."""
-    if not (claude or codex or opencode or dest):
-        raise CLIError("Pick a destination via --claude, --codex, --opencode, or --dest.")
+    """Download a skill and install it for an AI assistant."""
+    if not (claude or codex or cursor or opencode or dest):
+        raise CLIError("Pick a destination via --claude, --codex, --cursor, --opencode, or --dest.")
 
     if dest:
-        if claude or codex or opencode or global_:
-            print("--dest cannot be combined with --claude, --codex, --opencode, or --global.")
+        if claude or codex or cursor or opencode or global_:
+            print("--dest cannot be combined with --claude, --codex, --cursor, --opencode, or --global.")
             raise typer.Exit(code=1)
         skill_dest = _install_to(dest, force)
         print(f"Installed '{DEFAULT_SKILL_ID}' to {skill_dest}")
@@ -239,6 +246,8 @@ def skills_add(
         agent_targets.append(targets_dict["claude"])
     if codex:
         agent_targets.append(targets_dict["codex"])
+    if cursor:
+        agent_targets.append(targets_dict["cursor"])
     if opencode:
         agent_targets.append(targets_dict["opencode"])
 
