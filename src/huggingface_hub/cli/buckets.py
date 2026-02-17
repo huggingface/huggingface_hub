@@ -48,7 +48,7 @@ logger = logging.get_logger(__name__)
 BUCKET_PREFIX = "hf://buckets/"
 
 
-bucket_cli = typer_factory(help="Commands to interact with buckets.")
+buckets_cli = typer_factory(help="Commands to interact with buckets.")
 
 
 def _parse_bucket_path(path: str) -> tuple[str, str]:
@@ -166,14 +166,14 @@ def _render_tree(node: dict, lines: list[str], indent: str) -> None:
             _render_tree(children, lines, child_indent)
 
 
-@bucket_cli.command(
+@buckets_cli.command(
     name="tree",
     examples=[
-        "hf bucket tree user/my-bucket",
-        "hf bucket tree hf://buckets/user/my-bucket",
-        "hf bucket tree user/my-bucket/models",
-        "hf bucket tree user/my-bucket -h",
-        "hf bucket tree user/my-bucket --tree",
+        "hf buckets tree user/my-bucket",
+        "hf buckets tree hf://buckets/user/my-bucket",
+        "hf buckets tree user/my-bucket/models",
+        "hf buckets tree user/my-bucket -h",
+        "hf buckets tree user/my-bucket --tree",
     ],
 )
 def tree_cmd(
@@ -233,14 +233,14 @@ def tree_cmd(
             print(f"{size_str:>12}  {mtime_str:>19}  {item.path}")
 
 
-@bucket_cli.command(
+@buckets_cli.command(
     name="create",
     examples=[
-        "hf bucket create my-bucket",
-        "hf bucket create user/my-bucket",
-        "hf bucket create hf://buckets/user/my-bucket",
-        "hf bucket create user/my-bucket --private",
-        "hf bucket create user/my-bucket --exist-ok",
+        "hf buckets create my-bucket",
+        "hf buckets create user/my-bucket",
+        "hf buckets create hf://buckets/user/my-bucket",
+        "hf buckets create user/my-bucket --private",
+        "hf buckets create user/my-bucket --exist-ok",
     ],
 )
 def create(
@@ -293,11 +293,11 @@ def create(
         print(f"Bucket created: {bucket_url.url} (handle: {bucket_url.handle})")
 
 
-@bucket_cli.command(
+@buckets_cli.command(
     name="list",
     examples=[
-        "hf bucket list",
-        "hf bucket list huggingface",
+        "hf buckets list",
+        "hf buckets list huggingface",
     ],
 )
 def list_cmd(
@@ -321,7 +321,7 @@ def list_cmd(
     if namespace is not None and ("/" in namespace or namespace.startswith(BUCKET_PREFIX)):
         raise typer.BadParameter(
             f"Expected a namespace (user or organization), not a bucket ID: '{namespace}'."
-            " To list files in a bucket, use: hf bucket tree " + namespace
+            " To list files in a bucket, use: hf buckets tree " + namespace
         )
 
     api = get_hf_api(token=token)
@@ -343,11 +343,11 @@ def list_cmd(
     print_list_output(results, format=format, quiet=quiet, headers=headers, row_fn=row_fn, alignments=alignments)
 
 
-@bucket_cli.command(
+@buckets_cli.command(
     name="info",
     examples=[
-        "hf bucket info user/my-bucket",
-        "hf bucket info hf://buckets/user/my-bucket",
+        "hf buckets info user/my-bucket",
+        "hf buckets info hf://buckets/user/my-bucket",
     ],
 )
 def info(
@@ -375,13 +375,13 @@ def info(
         print(json.dumps(api_object_to_dict(bucket), indent=2))
 
 
-@bucket_cli.command(
+@buckets_cli.command(
     name="delete",
     examples=[
-        "hf bucket delete user/my-bucket",
-        "hf bucket delete hf://buckets/user/my-bucket",
-        "hf bucket delete user/my-bucket --yes",
-        "hf bucket delete user/my-bucket --missing-ok",
+        "hf buckets delete user/my-bucket",
+        "hf buckets delete hf://buckets/user/my-bucket",
+        "hf buckets delete user/my-bucket --yes",
+        "hf buckets delete user/my-bucket --missing-ok",
     ],
 )
 def delete(
@@ -1172,15 +1172,15 @@ def _print_plan_summary(plan: SyncPlan) -> None:
     print(f"  Skips: {summary['skips']}")
 
 
-@bucket_cli.command(
+@buckets_cli.command(
     name="sync",
     examples=[
-        "hf bucket sync ./data hf://buckets/user/my-bucket",
-        "hf bucket sync hf://buckets/user/my-bucket ./data",
-        "hf bucket sync ./data hf://buckets/user/my-bucket --delete",
-        'hf bucket sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"',
-        "hf bucket sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl",
-        "hf bucket sync --apply sync-plan.jsonl",
+        "hf buckets sync ./data hf://buckets/user/my-bucket",
+        "hf buckets sync hf://buckets/user/my-bucket ./data",
+        "hf buckets sync ./data hf://buckets/user/my-bucket --delete",
+        'hf buckets sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"',
+        "hf buckets sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl",
+        "hf buckets sync --apply sync-plan.jsonl",
     ],
 )
 def sync(
@@ -1424,17 +1424,17 @@ def sync(
 # =============================================================================
 
 
-@bucket_cli.command(
+@buckets_cli.command(
     name="cp",
     examples=[
-        "hf bucket cp hf://buckets/user/my-bucket/config.json",
-        "hf bucket cp hf://buckets/user/my-bucket/config.json ./data/",
-        "hf bucket cp hf://buckets/user/my-bucket/config.json my-config.json",
-        "hf bucket cp hf://buckets/user/my-bucket/config.json -",
-        "hf bucket cp my-config.json hf://buckets/user/my-bucket",
-        "hf bucket cp my-config.json hf://buckets/user/my-bucket/logs/",
-        "hf bucket cp my-config.json hf://buckets/user/my-bucket/remote-config.json",
-        "hf bucket cp - hf://buckets/user/my-bucket/config.json",
+        "hf buckets cp hf://buckets/user/my-bucket/config.json",
+        "hf buckets cp hf://buckets/user/my-bucket/config.json ./data/",
+        "hf buckets cp hf://buckets/user/my-bucket/config.json my-config.json",
+        "hf buckets cp hf://buckets/user/my-bucket/config.json -",
+        "hf buckets cp my-config.json hf://buckets/user/my-bucket",
+        "hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/",
+        "hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json",
+        "hf buckets cp - hf://buckets/user/my-bucket/config.json",
     ],
 )
 def cp(
@@ -1475,7 +1475,7 @@ def cp(
         raise typer.BadParameter("Cannot pipe to stdout for uploads.")
 
     if not src_is_bucket and not src_is_stdin and os.path.isdir(src):
-        raise typer.BadParameter("Source must be a file, not a directory. Use `hf bucket sync` for directories.")
+        raise typer.BadParameter("Source must be a file, not a directory. Use `hf buckets sync` for directories.")
 
     # --- Determine direction and execute ---
     if src_is_bucket:

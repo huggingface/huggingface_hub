@@ -14,7 +14,7 @@
 # limitations under the License.
 import pytest
 
-from huggingface_hub import BucketInfo, BucketUrl, HfApi
+from huggingface_hub import BucketInfo, HfApi
 from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER

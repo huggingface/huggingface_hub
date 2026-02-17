@@ -24,7 +24,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `auth`: Manage authentication (login, logout, etc.).
-* `bucket`: Commands to interact with buckets.
+* `buckets`: Commands to interact with buckets.
 * `cache`: Manage local cache directory.
 * `collections`: Interact with collections on the Hub.
 * `datasets`: Interact with datasets on the Hub.
@@ -186,14 +186,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-## `hf bucket`
+## `hf buckets`
 
 Commands to interact with buckets.
 
 **Usage**:
 
 ```console
-$ hf bucket [OPTIONS] COMMAND [ARGS]...
+$ hf buckets [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -210,14 +210,14 @@ $ hf bucket [OPTIONS] COMMAND [ARGS]...
 * `sync`: Sync files between local directory and a...
 * `tree`: List files in a bucket.
 
-### `hf bucket cp`
+### `hf buckets cp`
 
 Copy a single file to or from a bucket.
 
 **Usage**:
 
 ```console
-$ hf bucket cp [OPTIONS] SRC [DST]
+$ hf buckets cp [OPTIONS] SRC [DST]
 ```
 
 **Arguments**:
@@ -232,28 +232,28 @@ $ hf bucket cp [OPTIONS] SRC [DST]
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf bucket cp hf://buckets/user/my-bucket/config.json
-  $ hf bucket cp hf://buckets/user/my-bucket/config.json ./data/
-  $ hf bucket cp hf://buckets/user/my-bucket/config.json my-config.json
-  $ hf bucket cp hf://buckets/user/my-bucket/config.json -
-  $ hf bucket cp my-config.json hf://buckets/user/my-bucket
-  $ hf bucket cp my-config.json hf://buckets/user/my-bucket/logs/
-  $ hf bucket cp my-config.json hf://buckets/user/my-bucket/remote-config.json
-  $ hf bucket cp - hf://buckets/user/my-bucket/config.json
+  $ hf buckets cp hf://buckets/user/my-bucket/config.json
+  $ hf buckets cp hf://buckets/user/my-bucket/config.json ./data/
+  $ hf buckets cp hf://buckets/user/my-bucket/config.json my-config.json
+  $ hf buckets cp hf://buckets/user/my-bucket/config.json -
+  $ hf buckets cp my-config.json hf://buckets/user/my-bucket
+  $ hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/
+  $ hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json
+  $ hf buckets cp - hf://buckets/user/my-bucket/config.json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf bucket create`
+### `hf buckets create`
 
 Create a new bucket.
 
 **Usage**:
 
 ```console
-$ hf bucket create [OPTIONS] BUCKET_ID
+$ hf buckets create [OPTIONS] BUCKET_ID
 ```
 
 **Arguments**:
@@ -269,25 +269,25 @@ $ hf bucket create [OPTIONS] BUCKET_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf bucket create my-bucket
-  $ hf bucket create user/my-bucket
-  $ hf bucket create hf://buckets/user/my-bucket
-  $ hf bucket create user/my-bucket --private
-  $ hf bucket create user/my-bucket --exist-ok
+  $ hf buckets create my-bucket
+  $ hf buckets create user/my-bucket
+  $ hf buckets create hf://buckets/user/my-bucket
+  $ hf buckets create user/my-bucket --private
+  $ hf buckets create user/my-bucket --exist-ok
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf bucket delete`
+### `hf buckets delete`
 
 Delete a bucket.
 
 **Usage**:
 
 ```console
-$ hf bucket delete [OPTIONS] BUCKET_ID
+$ hf buckets delete [OPTIONS] BUCKET_ID
 ```
 
 **Arguments**:
@@ -303,24 +303,24 @@ $ hf bucket delete [OPTIONS] BUCKET_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf bucket delete user/my-bucket
-  $ hf bucket delete hf://buckets/user/my-bucket
-  $ hf bucket delete user/my-bucket --yes
-  $ hf bucket delete user/my-bucket --missing-ok
+  $ hf buckets delete user/my-bucket
+  $ hf buckets delete hf://buckets/user/my-bucket
+  $ hf buckets delete user/my-bucket --yes
+  $ hf buckets delete user/my-bucket --missing-ok
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf bucket info`
+### `hf buckets info`
 
 Get info about a bucket.
 
 **Usage**:
 
 ```console
-$ hf bucket info [OPTIONS] BUCKET_ID
+$ hf buckets info [OPTIONS] BUCKET_ID
 ```
 
 **Arguments**:
@@ -334,22 +334,22 @@ $ hf bucket info [OPTIONS] BUCKET_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf bucket info user/my-bucket
-  $ hf bucket info hf://buckets/user/my-bucket
+  $ hf buckets info user/my-bucket
+  $ hf buckets info hf://buckets/user/my-bucket
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf bucket list`
+### `hf buckets list`
 
 List all accessible buckets.
 
 **Usage**:
 
 ```console
-$ hf bucket list [OPTIONS] [NAMESPACE]
+$ hf buckets list [OPTIONS] [NAMESPACE]
 ```
 
 **Arguments**:
@@ -365,22 +365,22 @@ $ hf bucket list [OPTIONS] [NAMESPACE]
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf bucket list
-  $ hf bucket list huggingface
+  $ hf buckets list
+  $ hf buckets list huggingface
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf bucket sync`
+### `hf buckets sync`
 
 Sync files between local directory and a bucket.
 
 **Usage**:
 
 ```console
-$ hf bucket sync [OPTIONS] [SOURCE] [DEST]
+$ hf buckets sync [OPTIONS] [SOURCE] [DEST]
 ```
 
 **Arguments**:
@@ -406,26 +406,26 @@ $ hf bucket sync [OPTIONS] [SOURCE] [DEST]
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf bucket sync ./data hf://buckets/user/my-bucket
-  $ hf bucket sync hf://buckets/user/my-bucket ./data
-  $ hf bucket sync ./data hf://buckets/user/my-bucket --delete
-  $ hf bucket sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"
-  $ hf bucket sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl
-  $ hf bucket sync --apply sync-plan.jsonl
+  $ hf buckets sync ./data hf://buckets/user/my-bucket
+  $ hf buckets sync hf://buckets/user/my-bucket ./data
+  $ hf buckets sync ./data hf://buckets/user/my-bucket --delete
+  $ hf buckets sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"
+  $ hf buckets sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl
+  $ hf buckets sync --apply sync-plan.jsonl
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf bucket tree`
+### `hf buckets tree`
 
 List files in a bucket.
 
 **Usage**:
 
 ```console
-$ hf bucket tree [OPTIONS] BUCKET
+$ hf buckets tree [OPTIONS] BUCKET
 ```
 
 **Arguments**:
@@ -440,11 +440,11 @@ $ hf bucket tree [OPTIONS] BUCKET
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf bucket tree user/my-bucket
-  $ hf bucket tree hf://buckets/user/my-bucket
-  $ hf bucket tree user/my-bucket/models
-  $ hf bucket tree user/my-bucket -h
-  $ hf bucket tree user/my-bucket --tree
+  $ hf buckets tree user/my-bucket
+  $ hf buckets tree hf://buckets/user/my-bucket
+  $ hf buckets tree user/my-bucket/models
+  $ hf buckets tree user/my-bucket -h
+  $ hf buckets tree user/my-bucket --tree
 
 Learn more
   Use `hf <command> --help` for more information about a command.
