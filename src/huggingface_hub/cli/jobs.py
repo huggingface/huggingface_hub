@@ -18,7 +18,7 @@ Usage:
     hf jobs run <image> <command>
 
     # List running or completed jobs
-    hf jobs ps [-a] [-f key=value] [--format table|json] [-q]
+    hf jobs ps [-a] [-f key=value] [--format table|json|TEMPLATE] [-q]
 
     # Print logs from a job (non-blocking)
     hf jobs logs <job-id>
@@ -83,7 +83,6 @@ from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._cli_utils import (
-    FormatOpt,
     OutputFormat,
     QuietOpt,
     TokenOpt,
@@ -586,13 +585,16 @@ def jobs_ps(
             help="Filter output based on conditions provided (format: key=value)",
         ),
     ] = None,
-    format: FormatOpt = OutputFormat.table,
+    format: Annotated[
+        Optional[str],
+        typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
+    ] = None,
     quiet: QuietOpt = False,
     json_flag: Annotated[bool, typer.Option("--json", hidden=True, help="")] = False,
 ) -> None:
     """List Jobs."""
     if json_flag:
-        format = OutputFormat.json
+        format = "json"
 
     api = get_hf_api(token=token)
     # Fetch jobs data
@@ -652,13 +654,29 @@ def jobs_ps(
         filtered_jobs.append(job)
 
     if not filtered_jobs:
-        if not quiet and format != OutputFormat.json:
+        if not quiet and format != "json":
             filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
             print(f"No jobs found{filters_msg}")
-        elif format == OutputFormat.json:
+        elif format == "json":
             print("[]")
         return
 
+    # Legacy Go-template mode (e.g. --format '{{.id}}')
+    if format and "{{" in format:
+        table_headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
+        headers_aliases = ["id", "image", "command", "created", "status"]
+        rows: list[list[Union[str, int]]] = []
+        for job in filtered_jobs:
+            status_str = job.status.stage if job.status else "UNKNOWN"
+            image_or_space = job.docker_image or "N/A"
+            cmd = job.command or []
+            command_str = " ".join(cmd) if cmd else "N/A"
+            created = job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else "N/A"
+            rows.append([job.id, image_or_space, command_str, created, status_str])
+        _print_output(rows, table_headers, headers_aliases, format)
+        return
+
+    output_format = OutputFormat.json if format == "json" else OutputFormat.table
     items = [api_object_to_dict(job) for job in filtered_jobs]
 
     def row_fn(item: dict[str, Any]) -> list[str]:
@@ -675,7 +693,7 @@ def jobs_ps(
 
     print_list_output(
         items=items,
-        format=format,
+        format=output_format,
         quiet=quiet,
         id_key="id",
         headers=["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"],
@@ -900,13 +918,16 @@ def scheduled_ps(
             help="Filter output based on conditions provided (format: key=value)",
         ),
     ] = None,
-    format: FormatOpt = OutputFormat.table,
+    format: Annotated[
+        Optional[str],
+        typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
+    ] = None,
     quiet: QuietOpt = False,
     json_flag: Annotated[bool, typer.Option("--json", hidden=True, help="")] = False,
 ) -> None:
     """List scheduled Jobs"""
     if json_flag:
-        format = OutputFormat.json
+        format = "json"
 
     api = get_hf_api(token=token)
     scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
@@ -939,13 +960,47 @@ def scheduled_ps(
         filtered_jobs.append(scheduled_job)
 
     if not filtered_jobs:
-        if not quiet and format != OutputFormat.json:
+        if not quiet and format != "json":
             filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
             print(f"No scheduled jobs found{filters_msg}")
-        elif format == OutputFormat.json:
+        elif format == "json":
             print("[]")
         return
 
+    # Legacy Go-template mode (e.g. --format '{{.id}}')
+    if format and "{{" in format:
+        table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
+        headers_aliases = ["id", "schedule", "image", "command", "last", "next", "suspend"]
+        rows: list[list[Union[str, int]]] = []
+        for sj in filtered_jobs:
+            image_or_space = sj.job_spec.docker_image or "N/A"
+            cmd = sj.job_spec.command or []
+            command_str = " ".join(cmd) if cmd else "N/A"
+            last_job_at = (
+                sj.status.last_job.at.strftime("%Y-%m-%d %H:%M:%S")
+                if sj.status and sj.status.last_job and sj.status.last_job.at
+                else "N/A"
+            )
+            next_run = (
+                sj.status.next_job_run_at.strftime("%Y-%m-%d %H:%M:%S")
+                if sj.status and sj.status.next_job_run_at
+                else "N/A"
+            )
+            rows.append(
+                [
+                    sj.id,
+                    sj.schedule or "N/A",
+                    image_or_space,
+                    command_str,
+                    last_job_at,
+                    next_run,
+                    str(sj.suspend or False),
+                ]
+            )
+        _print_output(rows, table_headers, headers_aliases, format)
+        return
+
+    output_format = OutputFormat.json if format == "json" else OutputFormat.table
     items = [api_object_to_dict(sj) for sj in filtered_jobs]
 
     def row_fn(item: dict[str, Any]) -> list[str]:
@@ -972,7 +1027,7 @@ def scheduled_ps(
 
     print_list_output(
         items=items,
-        format=format,
+        format=output_format,
         quiet=quiet,
         id_key="id",
         headers=["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"],
