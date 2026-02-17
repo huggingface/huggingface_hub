@@ -314,7 +314,7 @@ def _spaces_hot_reloading_summary(
         else:
             assert_never(event["data"]["kind"])
 
-    first_client_events: dict[int, ApiGetReloadEventSourceData] = defaultdict()
+    first_client_events: dict[int, ApiGetReloadEventSourceData] = {}
     for client_index, client in enumerate(clients):
         if len(clients) > 1:
             typer.secho(f"---- Replica {client.replica_hash} ----")
@@ -323,7 +323,7 @@ def _spaces_hot_reloading_summary(
         for event_index, event in enumerate(client.get_reload(commit_sha)):
             if client_index == 0:
                 first_client_events[event_index] = event
-            elif full_match := full_match and first_client_events[event_index] == event:
+            elif full_match := full_match and first_client_events.get(event_index) == event:
                 replay += [event]
                 continue
             if replay:
