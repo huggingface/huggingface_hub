@@ -729,6 +729,16 @@ def test_sync_upload_filter_from(api: HfApi, bucket_write: str, tmp_path: Path):
 # -- Validation errors --
 
 
+def test_sync_top_level_alias(api: HfApi, bucket_write: str, tmp_path: Path):
+    """'hf sync' is an alias for 'hf buckets sync'."""
+    data_dir = _make_local_dir(tmp_path, {"alias.txt": "via top-level"})
+
+    result = cli(f"hf sync {data_dir} hf://buckets/{bucket_write} --quiet")
+    assert result.exit_code == 0
+
+    assert "alias.txt" in _remote_files(api, bucket_write)
+
+
 def test_sync_error_no_args():
     """No source/dest raises an error."""
     result = cli("hf buckets sync")
