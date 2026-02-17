@@ -316,7 +316,7 @@ def _spaces_hot_reloading_summary(
 
     first_client_events: dict[int, ApiGetReloadEventSourceData] = defaultdict()
     for client_index, client in enumerate(clients):
-        if len(clients):
+        if len(clients) > 1:
             typer.secho(f"---- Replica {client.replica_hash} ----")
         full_match = True
         replay: list[ApiGetReloadEventSourceData] = []
