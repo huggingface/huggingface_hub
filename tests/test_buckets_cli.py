@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+from typing import Optional
 
 import pytest
 from typer.testing import CliRunner, Result
@@ -37,7 +38,7 @@ def _setup_env(monkeypatch):
     yield
 
 
-def cli(command: str) -> Result:
+def cli(command: str, input: Optional[str] = None) -> Result:
     """
     Invoke a CLI command.
 
@@ -48,7 +49,7 @@ def cli(command: str) -> Result:
     """
     assert command.startswith("hf ")
     args = command.split(" ")[1:]
-    return CliRunner().invoke(app, [*args])
+    return CliRunner().invoke(app, [*args], input=input)
 
 
 @pytest.fixture(scope="module")
@@ -99,7 +100,7 @@ def test_create_bucket(api: HfApi):
 def test_create_bucket_private(api: HfApi):
     name = bucket_name()
     result = cli(f"hf buckets create {name} --private --quiet")
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0
     bucket_id = _handle_to_bucket_id(result.output.strip())
 
     info = api.bucket_info(bucket_id)
@@ -129,7 +130,7 @@ def test_create_bucket_with_hf_prefix(api: HfApi):
     name = bucket_name()
     hf_handle = f"hf://buckets/{USER}/{name}"
     result = cli(f"hf buckets create {hf_handle} --quiet")
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0
 
     assert result.output.strip() == hf_handle
 
@@ -145,7 +146,7 @@ def test_create_bucket_with_hf_prefix(api: HfApi):
 
 def test_bucket_info(bucket_read: str):
     result = cli(f"hf buckets info {bucket_read}")
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0
 
     data = json.loads(result.output)
     assert data["id"] == bucket_read
@@ -202,7 +203,7 @@ def test_bucket_list_namespace(bucket_read: str):
 
 def test_delete_bucket(api: HfApi, bucket_write: str):
     result = cli(f"hf buckets delete {bucket_write} --yes")
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0
 
     with pytest.raises(BucketNotFoundError):
         api.bucket_info(bucket_write)
@@ -218,3 +219,223 @@ def test_delete_bucket_not_found():
     nonexistent = f"{USER}/{bucket_name()}"
     result = cli(f"hf buckets delete {nonexistent} --yes")
     assert result.exit_code != 0
+
+
+# =============================================================================
+# Cp
+# =============================================================================
+
+
+@pytest.fixture(scope="module")
+def bucket_with_files(api: HfApi) -> str:
+    """Module-scoped bucket pre-populated with files for cp download tests."""
+    bucket_url = api.create_bucket(bucket_name())
+    api.batch_bucket_files(
+        bucket_url.bucket_id,
+        add=[
+            (b"hello", "file.txt"),
+            (b"nested content", "sub/nested.txt"),
+        ],
+    )
+    return bucket_url.bucket_id
+
+
+# -- Upload tests --
+
+
+def test_cp_upload_file_to_bucket_root(api: HfApi, tmp_path):
+    """Upload a local file to a bucket (no prefix)."""
+    bucket_url = api.create_bucket(bucket_name())
+    bucket_id = bucket_url.bucket_id
+
+    local_file = tmp_path / "local.txt"
+    local_file.write_text("upload me")
+
+    result = cli(f"hf buckets cp {local_file} hf://buckets/{bucket_id}")
+    assert result.exit_code == 0
+    assert "Uploaded:" in result.output
+
+    # Verify file exists in bucket with basename as remote path
+    files = {f.path for f in api.list_bucket_tree(bucket_id)}
+    assert "local.txt" in files
+
+
+def test_cp_upload_file_to_bucket_prefix(api: HfApi, tmp_path):
+    """Upload a local file to a bucket subdirectory (trailing slash prefix)."""
+    bucket_url = api.create_bucket(bucket_name())
+    bucket_id = bucket_url.bucket_id
+
+    local_file = tmp_path / "data.csv"
+    local_file.write_text("a,b,c")
+
+    result = cli(f"hf buckets cp {local_file} hf://buckets/{bucket_id}/logs/")
+    assert result.exit_code == 0
+
+    files = {f.path for f in api.list_bucket_tree(bucket_id)}
+    assert "logs/data.csv" in files
+
+
+def test_cp_upload_file_with_remote_name(api: HfApi, tmp_path):
+    """Upload a local file with an explicit remote filename."""
+    bucket_url = api.create_bucket(bucket_name())
+    bucket_id = bucket_url.bucket_id
+
+    local_file = tmp_path / "original.txt"
+    local_file.write_text("renamed upload")
+
+    result = cli(f"hf buckets cp {local_file} hf://buckets/{bucket_id}/remote-name.txt")
+    assert result.exit_code == 0
+
+    files = {f.path for f in api.list_bucket_tree(bucket_id)}
+    assert "remote-name.txt" in files
+
+
+def test_cp_upload_file_quiet(api: HfApi, tmp_path):
+    """Upload with --quiet suppresses output."""
+    bucket_url = api.create_bucket(bucket_name())
+    bucket_id = bucket_url.bucket_id
+
+    local_file = tmp_path / "quiet.txt"
+    local_file.write_text("quiet")
+
+    result = cli(f"hf buckets cp {local_file} hf://buckets/{bucket_id}/quiet.txt --quiet")
+    assert result.exit_code == 0
+    assert "Uploaded:" not in result.output
+
+
+def test_cp_upload_from_stdin(api: HfApi):
+    """Upload file content from stdin."""
+    bucket_url = api.create_bucket(bucket_name())
+    bucket_id = bucket_url.bucket_id
+
+    result = cli(f"hf buckets cp - hf://buckets/{bucket_id}/from-stdin.txt", input="stdin data")
+    assert result.exit_code == 0
+    assert "Uploaded:" in result.output
+
+
+# -- Download tests --
+
+
+def test_cp_download_to_explicit_file(bucket_with_files: str, tmp_path):
+    """Download a bucket file to a specific local path."""
+    output_file = tmp_path / "output.txt"
+    result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt {output_file}")
+    assert result.exit_code == 0
+    assert "Downloaded:" in result.output
+    assert output_file.read_text() == "hello"
+
+
+def test_cp_download_to_directory(bucket_with_files: str, tmp_path):
+    """Download a bucket file to an existing directory (uses original filename)."""
+    result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt {tmp_path}/")
+    assert result.exit_code == 0
+
+    downloaded = tmp_path / "file.txt"
+    assert downloaded.exists()
+    assert downloaded.read_text() == "hello"
+
+
+def test_cp_download_nested_file(bucket_with_files: str, tmp_path):
+    """Download a file from a subdirectory in the bucket."""
+    output_file = tmp_path / "nested.txt"
+    result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/sub/nested.txt {output_file}")
+    assert result.exit_code == 0
+    assert output_file.read_text() == "nested content"
+
+
+def test_cp_download_to_stdout(bucket_with_files: str):
+    """Download a bucket file to stdout."""
+    result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt -")
+    assert result.exit_code == 0
+    assert "hello" in result.output
+    # stdout mode should NOT print "Downloaded:" message
+    assert "Downloaded:" not in result.output
+
+
+def test_cp_download_quiet(bucket_with_files: str, tmp_path):
+    """Download with --quiet suppresses the status message."""
+    output_file = tmp_path / "quiet-download.txt"
+    result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt {output_file} --quiet")
+    assert result.exit_code == 0
+    assert "Downloaded:" not in result.output
+    assert output_file.read_text() == "hello"
+
+
+def test_cp_download_creates_parent_dirs(bucket_with_files: str, tmp_path):
+    """Download creates parent directories when they don't exist."""
+    output_file = tmp_path / "a" / "b" / "c" / "output.txt"
+    result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt {output_file}")
+    assert result.exit_code == 0
+    assert output_file.read_text() == "hello"
+
+
+# -- Validation error tests --
+
+
+def test_cp_error_remote_to_remote():
+    """Both src and dst are bucket paths."""
+    result = cli("hf buckets cp hf://buckets/user/a/file.txt hf://buckets/user/b/file.txt")
+    assert result.exit_code != 0
+
+
+def test_cp_error_both_local(tmp_path):
+    """Both src and dst are local paths."""
+    src = tmp_path / "src.txt"
+    src.write_text("x")
+    dst = tmp_path / "dst.txt"
+    result = cli(f"hf buckets cp {src} {dst}")
+    assert result.exit_code != 0
+    assert "one of src or dst must be a bucket path" in result.output.lower()
+
+
+def test_cp_error_missing_destination(tmp_path):
+    """Local src without a destination."""
+    src = tmp_path / "orphan.txt"
+    src.write_text("x")
+    result = cli(f"hf buckets cp {src}")
+    assert result.exit_code != 0
+    assert "Missing destination" in result.output
+
+
+def test_cp_error_stdin_without_bucket_dest():
+    """Stdin upload requires a bucket destination."""
+    result = cli("hf buckets cp - /tmp/local.txt", input="data")
+    assert result.exit_code != 0
+    assert "Stdin upload requires a bucket destination" in result.output
+
+
+def test_cp_error_stdin_no_filename_empty_prefix():
+    """Stdin upload to a bucket path without a filename (empty prefix)."""
+    result = cli(f"hf buckets cp - hf://buckets/{USER}/some-bucket", input="data")
+    assert result.exit_code != 0
+    assert "full destination path including filename" in result.output
+
+
+def test_cp_error_stdin_no_filename_trailing_slash():
+    """Stdin upload to a bucket path with trailing slash (no filename)."""
+    result = cli(f"hf buckets cp - hf://buckets/{USER}/some-bucket/logs/", input="data")
+    assert result.exit_code != 0
+    assert "full destination path including filename" in result.output
+
+
+def test_cp_error_stdout_with_local_source(tmp_path):
+    """Cannot pipe to stdout when source is not a bucket path."""
+    src = tmp_path / "local.txt"
+    src.write_text("x")
+    result = cli(f"hf buckets cp {src} -")
+    assert result.exit_code != 0
+    assert "one of src or dst must be a bucket path" in result.output.lower()
+
+
+def test_cp_error_source_is_directory(tmp_path):
+    """Source must be a file, not a directory."""
+    result = cli(f"hf buckets cp {tmp_path} hf://buckets/{USER}/some-bucket/file.txt")
+    assert result.exit_code != 0
+    assert "source must be a file, not a directory." in result.output.lower()
+
+
+def test_cp_error_source_file_not_found():
+    """Source file does not exist."""
+    result = cli(f"hf buckets cp /nonexistent/file.txt hf://buckets/{USER}/some-bucket/file.txt")
+    assert result.exit_code != 0
+    assert "not found" in result.output.lower()
