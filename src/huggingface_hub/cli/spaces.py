@@ -212,14 +212,16 @@ def spaces_hot_reload(
         filepath = os.path.join(temp_dir.name, filename)
         if not (pbar_disabled := are_progress_bars_disabled()):
             disable_progress_bars()
-        hf_hub_download(
-            repo_type="space",
-            repo_id=space_id,
-            filename=filename,
-            local_dir=temp_dir.name,
-        )
-        if not pbar_disabled:
-            enable_progress_bars()
+        try:
+            hf_hub_download(
+                repo_type="space",
+                repo_id=space_id,
+                filename=filename,
+                local_dir=temp_dir.name,
+            )
+        finally:
+            if not pbar_disabled:
+                enable_progress_bars()
         editor_res = _cli_utils.editor_open(filepath)
         if editor_res == "no-tty":
             raise CLIError("Cannot open an editor (no TTY). Use -f flag to hot-reload from local path")
