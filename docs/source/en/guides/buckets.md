@@ -241,7 +241,7 @@ You can also delete files while uploading others.
 ```
 
 > [!WARNING]
-> [`batch_bucket_files`] is non-transactional. If an error occurs during the process, some files may have been uploaded or deleted while others haven't.
+> Calls to [`batch_bucket_files`] are non-transactional. If an error occurs during the process, some files may have been uploaded or deleted while others haven't.
 
 ### Upload a single file with the CLI
 
