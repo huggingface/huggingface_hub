@@ -49,7 +49,7 @@ DEFAULT_SKILL_ID = "hf-cli"
 _SKILL_YAML_PREFIX = """\
 ---
 name: hf-cli
-description: "Hugging Face Hub CLI (`hf`) for downloading, uploading, and managing repositories, models, datasets, and Spaces on the Hugging Face Hub."
+description: "Hugging Face Hub CLI (`hf`) for downloading, uploading, and managing repositories, models, datasets, and Spaces on the Hugging Face Hub. Replaces now deprecated `huggingface-cli` command."
 ---
 
 Install: `curl -LsSf https://hf.co/cli/install.sh | bash -s`.
