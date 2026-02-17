@@ -223,7 +223,7 @@ def spaces_hot_reload(
             enable_progress_bars()
         editor_res = _cli_utils.editor_open(filepath)
         if editor_res == "no-tty":
-            raise CLIError("Cannot open an editor (no TTY). Use -f flag to ho-reload from local path")
+            raise CLIError("Cannot open an editor (no TTY). Use -f flag to hot-reload from local path")
         if editor_res == "no-editor":
             raise CLIError("No editor found in local environment. Use -f flag to ho-reload from local path")
         if editor_res != 0:
