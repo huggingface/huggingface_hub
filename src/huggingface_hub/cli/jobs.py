@@ -87,6 +87,35 @@ from ._cli_utils import TokenOpt, get_hf_api, typer_factory
 
 logger = logging.get_logger(__name__)
 
+
+def _parse_namespace_from_job_id(job_id: str, namespace: Optional[str]) -> tuple[str, Optional[str]]:
+    """Extract namespace from job_id if provided in 'namespace/job_id' format.
+
+    Allows users to pass job IDs copied from the Hub UI (e.g. 'username/job_id')
+    instead of only bare job IDs. If the namespace is also provided explicitly via
+    --namespace and conflicts, a CLIError is raised.
+    """
+    if not job_id:
+        raise CLIError("Job ID cannot be empty.")
+
+    if job_id.count("/") > 1:
+        raise CLIError(f"Job ID must be in the form 'job_id' or 'namespace/job_id': '{job_id}'.")
+
+    if "/" not in job_id:
+        return job_id, namespace
+
+    extracted_namespace, parsed_job_id = job_id.split("/", 1)
+    if not extracted_namespace or not parsed_job_id:
+        raise CLIError(f"Job ID must be in the form 'job_id' or 'namespace/job_id': '{job_id}'.")
+
+    if namespace is not None and namespace != extracted_namespace:
+        raise CLIError(
+            f"Conflicting namespace: got --namespace='{namespace}' but job ID implies namespace='{extracted_namespace}'"
+        )
+
+    return parsed_job_id, extracted_namespace
+
+
 SUGGESTED_FLAVORS = [item.value for item in SpaceHardware if item.value != "zero-a10g"]
 STATS_UPDATE_MIN_INTERVAL = 0.1  # we set a limit here since there is one update per second per job
 
@@ -239,21 +268,21 @@ CommandArg = Annotated[
 JobIdArg = Annotated[
     str,
     typer.Argument(
-        help="Job ID",
+        help="Job ID (or 'namespace/job_id')",
     ),
 ]
 
 JobIdsArg = Annotated[
     Optional[list[str]],
     typer.Argument(
-        help="Job IDs",
+        help="Job IDs (or 'namespace/job_id')",
     ),
 ]
 
 ScheduledJobIdArg = Annotated[
     str,
     typer.Argument(
-        help="Scheduled Job ID",
+        help="Scheduled Job ID (or 'namespace/scheduled_job_id')",
     ),
 ]
 
@@ -349,6 +378,7 @@ def jobs_logs(
     By default, prints currently available logs and exits (non-blocking).
     Use --follow/-f to stream logs in real-time until the job completes.
     """
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
     if follow and tail is not None:
         raise CLIError(
             "Cannot use --follow and --tail together. Use --follow to stream logs or --tail to show recent logs."
@@ -446,6 +476,12 @@ def jobs_stats(
     token: TokenOpt = None,
 ) -> None:
     """Fetch the resource usage statistics and metrics of Jobs"""
+    if job_ids is not None:
+        parsed_ids = []
+        for job_id in job_ids:
+            job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+            parsed_ids.append(job_id)
+        job_ids = parsed_ids
     api = get_hf_api(token=token)
     if namespace is None:
         namespace = api.whoami()["name"]
@@ -659,13 +695,18 @@ def jobs_inspect(
     job_ids: Annotated[
         list[str],
         typer.Argument(
-            help="The jobs to inspect",
+            help="Job IDs to inspect (or 'namespace/job_id')",
         ),
     ],
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Display detailed information on one or more Jobs"""
+    parsed_ids = []
+    for job_id in job_ids:
+        job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+        parsed_ids.append(job_id)
+    job_ids = parsed_ids
     api = get_hf_api(token=token)
     try:
         jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
@@ -687,6 +728,7 @@ def jobs_cancel(
     token: TokenOpt = None,
 ) -> None:
     """Cancel a Job"""
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
     api = get_hf_api(token=token)
     try:
         api.cancel_job(job_id=job_id, namespace=namespace)
@@ -904,13 +946,18 @@ def scheduled_inspect(
     scheduled_job_ids: Annotated[
         list[str],
         typer.Argument(
-            help="The scheduled jobs to inspect",
+            help="Scheduled Job IDs to inspect (or 'namespace/scheduled_job_id')",
         ),
     ],
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Display detailed information on one or more scheduled Jobs"""
+    parsed_ids = []
+    for job_id in scheduled_job_ids:
+        job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+        parsed_ids.append(job_id)
+    scheduled_job_ids = parsed_ids
     api = get_hf_api(token=token)
     scheduled_jobs = [
         api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
@@ -926,6 +973,7 @@ def scheduled_delete(
     token: TokenOpt = None,
 ) -> None:
     """Delete a scheduled Job."""
+    scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
     api = get_hf_api(token=token)
     api.delete_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
@@ -937,6 +985,7 @@ def scheduled_suspend(
     token: TokenOpt = None,
 ) -> None:
     """Suspend (pause) a scheduled Job."""
+    scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
     api = get_hf_api(token=token)
     api.suspend_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
@@ -948,6 +997,7 @@ def scheduled_resume(
     token: TokenOpt = None,
 ) -> None:
     """Resume (unpause) a scheduled Job."""
+    scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
     api = get_hf_api(token=token)
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
