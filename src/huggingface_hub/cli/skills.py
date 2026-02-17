@@ -57,9 +57,6 @@ Install: `curl -LsSf https://hf.co/cli/install.sh | bash -s`.
 The Hugging Face Hub CLI tool `hf` is available. IMPORTANT: The `hf` command replaces the deprecated `huggingface_cli` command.
 
 Use `hf --help` to view available functions. Note that auth commands are now all under `hf auth` e.g. `hf auth whoami`.
-
-## Commands
-
 """
 
 _SKILL_TIPS = """
@@ -109,7 +106,10 @@ def build_skill_md() -> str:
 
     # wrap in list to widen list[LiteralString] -> list[str] for `ty``
     lines: list[str] = list(_SKILL_YAML_PREFIX.splitlines())
+    lines.append("")
     lines.append(f"Generated with `huggingface_hub v{__version__}`. Run `hf skills add --force` to regenerate.")
+    lines.append("")
+    lines.append("## Commands")
     lines.append("")
 
     top_level = []
@@ -221,7 +221,7 @@ def skills_add(
         ),
     ] = False,
 ) -> None:
-    """Download a skill and install it for an AI assistant."""
+    """Install a skill for an AI assistant."""
     if not (claude or codex or opencode or dest):
         raise CLIError("Pick a destination via --claude, --codex, --opencode, or --dest.")
 

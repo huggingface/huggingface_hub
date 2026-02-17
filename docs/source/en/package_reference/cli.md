@@ -2221,11 +2221,11 @@ $ hf skills [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `add`: Download a skill and install it for an AI...
+* `add`: Install a skill for an AI assistant.
 
 ### `hf skills add`
 
-Download a skill and install it for an AI assistant.
+Install a skill for an AI assistant.
 
 **Usage**:
 
