@@ -4,12 +4,12 @@ rendered properly in your Markdown viewer.
 
 # Buckets
 
-Buckets are a flat file storage system on the Hugging Face Hub. Unlike regular repositories (models, datasets, Spaces), buckets have no git history, no versioning, and no branches. They are designed for use cases where you need simple, fast, mutable storage — such as storing training checkpoints, logs, intermediate artifacts, or any large collection of files that doesn't need version control.
+Buckets provide S3-like object storage on Hugging Face, powered by the Xet storage backend. Unlike repositories (which are git-based and track file history), buckets are remote object storage containers designed for large-scale files with content-addressable deduplication. They are designed for use cases where you need simple, fast, mutable storage such as storing training checkpoints, logs, intermediate artifacts, or any large collection of files that doesn't need version control.
 
 You can interact with buckets using the Python API ([`HfApi`]) or the CLI (`hf buckets`). In this guide, we will walk through all the operations available.
 
 > [!TIP]
-> All CLI commands are available under `hf buckets <command>`. You can run `hf buckets --help` to see all available subcommands.
+> All CLI commands are available under `hf buckets <command>`. Run `hf buckets --help` to see learn more.
 
 ## Create and manage buckets
 
@@ -49,11 +49,17 @@ Bucket created: https://huggingface.co/buckets/username/my-bucket (handle: hf://
 >>> hf buckets create my-bucket --exist-ok
 ```
 
-You can also specify the full `namespace/bucket_name` format or the `hf://buckets/namespace/bucket_name` handle:
+You can also specify the full `namespace/bucket_name` format to create a bucket under an organization:
+
+```py
+>>> from huggingface_hub import create_bucket
+>>> create_bucket("my-org/shared-bucket")
+```
+
+Or via CLI:
 
 ```bash
 >>> hf buckets create my-org/shared-bucket
->>> hf buckets create hf://buckets/my-org/shared-bucket
 ```
 
 ### Get bucket info
@@ -62,17 +68,15 @@ Use [`bucket_info`] to get metadata about a bucket, including its visibility, to
 
 ```py
 >>> from huggingface_hub import bucket_info
->>> info = bucket_info("username/my-bucket")
->>> info.id
-'username/my-bucket'
->>> info.private
-False
->>> info.size
-551879671
->>> info.total_files
-12
->>> info.created_at
-datetime.datetime(2026, 2, 6, 17, 37, 57, tzinfo=datetime.timezone.utc)
+>>> bucket_info("username/my-bucket")
+BucketInfo(
+  id='username/my-bucket',
+  private=False,
+  created_at=datetime.datetime(2026, 2, 12, 17, 42, 12,
+  tzinfo=datetime.timezone.utc),
+  size=8411791508,
+  total_files=128
+)
 ```
 
 Or via CLI:
@@ -85,10 +89,6 @@ Or via CLI:
   "private": false,
   ...
 }
-
-# Quiet mode: prints only the bucket ID
->>> hf buckets info username/my-bucket --quiet
-username/my-bucket
 ```
 
 ### List buckets
@@ -112,9 +112,6 @@ Or via CLI:
 ```bash
 # Table format (default)
 >>> hf buckets list
-
-# JSON format
->>> hf buckets list --format json
 
 # List buckets in a specific namespace
 >>> hf buckets list huggingface
@@ -152,33 +149,32 @@ Or via CLI:
 
 ### List files
 
-Use [`list_bucket_tree`] to list files and directories in a bucket. By default, it lists only the top-level entries.
+Use [`list_bucket_tree`] to list files and directories in a bucket.
 
 ```py
 >>> from huggingface_hub import list_bucket_tree
 
-# List top-level entries
+# List all files
 >>> for item in list_bucket_tree("username/my-bucket"):
-...     print(item.type, item.path)
-file file.txt
-file big.bin
-directory sub
-
-# List all files recursively
->>> for item in list_bucket_tree("username/my-bucket", recursive=True):
-...     if item.type == "file":
-...         print(item.path, item.size)
+...     print(item.path, item.size)
 file.txt 5
 big.bin 2048
 sub/nested.txt 14
 sub/deep/file.txt 4
+
+# List top-level entries only
+>>> for item in list_bucket_tree("username/my-bucket", recursive=False):
+...     print(item.type, item.path)
+file file.txt
+file big.bin
+directory sub
 
 # Filter by prefix
 >>> for item in list_bucket_tree("username/my-bucket", prefix="sub"):
 ...     print(item.path)
 ```
 
-Or via CLI, with support for table, human-readable, and ASCII tree formats:
+Or via CLI, with support for table, human-readable, and ASCII tree formats. By default the CLI is non-recursive.
 
 ```bash
 # Default table format
@@ -231,7 +227,11 @@ Use [`batch_bucket_files`] to upload files to a bucket. You can upload from loca
 ...         (b'{"key": "value"}', "config.json"),
 ...     ],
 ... )
+```
 
+You can also delete files while uploading others.
+
+```python
 # Upload and delete in one batch
 >>> batch_bucket_files(
 ...     "username/my-bucket",
@@ -256,7 +256,11 @@ Use `hf buckets cp` to upload a single file:
 
 # Upload with a different remote filename
 >>> hf buckets cp ./model.safetensors hf://buckets/username/my-bucket/v2/model.safetensors
+```
 
+You can also pipe the result of a command directly into a new file using `-`:
+
+```
 # Upload from stdin
 >>> echo "hello" | hf buckets cp - hf://buckets/username/my-bucket/hello.txt
 >>> cat model.safetensors | hf buckets cp - hf://buckets/username/my-bucket/model.safetensors
@@ -324,9 +328,13 @@ Use `hf buckets cp` to download a single file:
 
 # Download to current directory (omit destination)
 >>> hf buckets cp hf://buckets/username/my-bucket/config.json
+```
 
-# Download to stdout
->>> hf buckets cp hf://buckets/username/my-bucket/config.json -
+You can also pipe the content of a file directly to `stdout` using `-`:
+
+```bash
+# Download to stdout and pretty-print with jq
+>>> hf buckets cp hf://buckets/username/my-bucket/config.json - | jq .
 ```
 
 ### Download a directory with the CLI
@@ -341,9 +349,11 @@ Use `hf buckets sync` to download all files from a bucket to a local directory:
 >>> hf buckets sync hf://buckets/username/my-bucket/models ./local-models
 ```
 
+See the [Sync directories](#sync-directories) section below for the full set of sync options.
+
 ## Sync directories
 
-The `hf buckets sync` command (also available as the top-level `hf sync` alias) is the most powerful way to transfer files between a local directory and a bucket. It compares source and destination, and only transfers files that have changed.
+The `hf buckets sync` command is the most powerful way to transfer files between a local directory and a bucket. It compares source and destination, and only transfers files that have changed.
 
 ### Basic sync
 
@@ -394,7 +404,7 @@ For more complex filtering, use a filter file with `--filter-from`:
 >>> hf buckets sync ./data hf://buckets/username/my-bucket --filter-from filters.txt
 ```
 
-The filter file uses `+` (include) and `-` (exclude) prefixes. Lines starting with `#` are comments. Rules are evaluated in order — the first matching rule wins:
+The filter file uses `+` (include) and `-` (exclude) prefixes. Lines starting with `#` are comments. Rules are evaluated in order (first matching rule wins):
 
 ```text
 # filters.txt
@@ -444,7 +454,7 @@ Plan saved to: sync-plan.jsonl
 ```
 
 > [!TIP]
-> The plan file is a JSONL file with a header line followed by one line per operation. Each operation includes the action (`upload`, `download`, `delete`, or `skip`), the file path, and the reason for the action.
+> The plan file is a JSONL file with a header line followed by one line per operation. Each operation includes the action (`upload`, `download`, `delete`, or `skip`), the file path, and the reason for the action. You can edit this file manually before applying it but please be careful with the syntax.
 
 ### Verbose and quiet modes
 
