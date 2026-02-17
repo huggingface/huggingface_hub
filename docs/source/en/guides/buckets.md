@@ -456,6 +456,18 @@ Plan saved to: sync-plan.jsonl
 > [!TIP]
 > The plan file is a JSONL file with a header line followed by one line per operation. Each operation includes the action (`upload`, `download`, `delete`, or `skip`), the file path, and the reason for the action. You can edit this file manually before applying it but please be careful with the syntax.
 
+### Dry run
+
+Use `--dry-run` to print the sync plan as JSONL directly to stdout without executing anything. This is convenient for piping into tools like `jq`:
+
+```bash
+# Preview what would be synced
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --dry-run | jq '.action'
+```
+
+> [!TIP]
+> `--dry-run` outputs the same JSONL format as `--plan` but prints to stdout instead of saving to a file. Only the JSONL content is printed, making it safe to pipe.
+
 ### Verbose and quiet modes
 
 ```bash

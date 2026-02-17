@@ -651,6 +651,12 @@ For extra safety, you can generate a plan for review before executing, and then 
 >>> hf buckets sync --apply sync-plan.jsonl
 ```
 
+Use `--dry-run` to print the sync plan as JSONL to stdout without executing anything. This is handy for piping into `jq` or other tools:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --dry-run | jq .
+```
+
 > [!TIP]
 > `hf sync` is a convenient top-level alias for `hf buckets sync`. See the [Buckets guide](./buckets#sync-directories) for full details on all sync options.
 

@@ -847,6 +847,33 @@ def test_sync_plan_then_apply(api: HfApi, bucket_write: str, tmp_path: Path):
     assert _remote_files(api, bucket_write) == {"x.txt", "y.txt"}
 
 
+# -- --dry-run --
+
+
+def test_sync_dry_run(api: HfApi, bucket_write: str, tmp_path: Path):
+    """--dry-run prints JSONL plan to stdout without executing."""
+    data_dir = _make_local_dir(tmp_path, {"a.txt": "aaa", "b.txt": "bbb"})
+
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --dry-run")
+    assert result.exit_code == 0
+
+    lines = result.output.strip().splitlines()
+    assert len(lines) == 3  # header + 2 operations
+
+    header = json.loads(lines[0])
+    assert header["type"] == "header"
+    assert header["summary"]["uploads"] == 2
+
+    ops = [json.loads(line) for line in lines[1:]]
+    assert all(op["type"] == "operation" for op in ops)
+    assert all(op["action"] == "upload" for op in ops)
+    paths = {op["path"] for op in ops}
+    assert paths == {"a.txt", "b.txt"}
+
+    # Verify nothing was actually uploaded
+    assert len(_remote_files(api, bucket_write)) == 0
+
+
 # -- Filtering --
 
 
@@ -976,4 +1003,18 @@ def test_sync_error_apply_with_include():
 def test_sync_error_apply_with_exclude():
     """Cannot specify --exclude when using --apply."""
     result = cli("hf buckets sync --apply plan.jsonl --exclude *.log")
+    assert result.exit_code != 0
+
+
+def test_sync_error_dry_run_with_apply():
+    """Cannot specify --dry-run when using --apply."""
+    result = cli("hf buckets sync --apply plan.jsonl --dry-run")
+    assert result.exit_code != 0
+
+
+def test_sync_error_dry_run_with_plan(tmp_path: Path):
+    """Cannot specify both --dry-run and --plan."""
+    src = tmp_path / "src"
+    src.mkdir()
+    result = cli(f"hf buckets sync {src} hf://buckets/{USER}/b --dry-run --plan out.jsonl")
     assert result.exit_code != 0

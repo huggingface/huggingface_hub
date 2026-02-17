@@ -1023,34 +1023,39 @@ def _compute_sync_plan(
     return plan
 
 
+def _write_plan(plan: SyncPlan, f) -> None:
+    """Write a sync plan as JSONL to a file-like object."""
+    # Write header
+    header = {
+        "type": "header",
+        "source": plan.source,
+        "dest": plan.dest,
+        "timestamp": plan.timestamp,
+        "summary": plan.summary(),
+    }
+    f.write(json.dumps(header) + "\n")
+
+    # Write operations
+    for op in plan.operations:
+        op_dict: dict[str, Any] = {
+            "type": "operation",
+            "action": op.action,
+            "path": op.path,
+            "reason": op.reason,
+        }
+        if op.size is not None:
+            op_dict["size"] = op.size
+        if op.local_mtime is not None:
+            op_dict["local_mtime"] = op.local_mtime
+        if op.remote_mtime is not None:
+            op_dict["remote_mtime"] = op.remote_mtime
+        f.write(json.dumps(op_dict) + "\n")
+
+
 def _save_plan(plan: SyncPlan, plan_file: str) -> None:
     """Save a sync plan to a JSONL file."""
     with open(plan_file, "w") as f:
-        # Write header
-        header = {
-            "type": "header",
-            "source": plan.source,
-            "dest": plan.dest,
-            "timestamp": plan.timestamp,
-            "summary": plan.summary(),
-        }
-        f.write(json.dumps(header) + "\n")
-
-        # Write operations
-        for op in plan.operations:
-            op_dict: dict[str, Any] = {
-                "type": "operation",
-                "action": op.action,
-                "path": op.path,
-                "reason": op.reason,
-            }
-            if op.size is not None:
-                op_dict["size"] = op.size
-            if op.local_mtime is not None:
-                op_dict["local_mtime"] = op.local_mtime
-            if op.remote_mtime is not None:
-                op_dict["remote_mtime"] = op.remote_mtime
-            f.write(json.dumps(op_dict) + "\n")
+        _write_plan(plan, f)
 
 
 def _load_plan(plan_file: str) -> SyncPlan:
@@ -1207,6 +1212,8 @@ def _print_plan_summary(plan: SyncPlan) -> None:
         'hf buckets sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"',
         "hf buckets sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl",
         "hf buckets sync --apply sync-plan.jsonl",
+        "hf buckets sync ./data hf://buckets/user/my-bucket --dry-run",
+        "hf buckets sync ./data hf://buckets/user/my-bucket --dry-run | jq .",
     ],
 )
 def sync(
@@ -1254,6 +1261,13 @@ def sync(
             help="Apply a previously saved plan file.",
         ),
     ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Print sync plan to stdout as JSONL without executing.",
+        ),
+    ] = False,
     include: Annotated[
         Optional[list[str]],
         typer.Option(
@@ -1331,6 +1345,8 @@ def sync(
             raise typer.BadParameter("Cannot specify --existing when using --apply")
         if ignore_existing:
             raise typer.BadParameter("Cannot specify --ignore-existing when using --apply")
+        if dry_run:
+            raise typer.BadParameter("Cannot specify --dry-run when using --apply")
 
         sync_plan = _load_plan(apply)
         apply_status = StatusLine(enabled=not quiet)
@@ -1370,6 +1386,9 @@ def sync(
     if existing and ignore_existing:
         raise typer.BadParameter("Cannot specify both --existing and --ignore-existing")
 
+    if dry_run and plan:
+        raise typer.BadParameter("Cannot specify both --dry-run and --plan")
+
     # Validate local path
     if source_is_bucket:
         # Download: dest is local
@@ -1391,11 +1410,11 @@ def sync(
         filter_rules=filter_rules,
     )
 
-    # Status line for TTY feedback (disabled in quiet mode)
-    status = StatusLine(enabled=not quiet)
+    # Status line for TTY feedback (disabled in quiet or dry-run mode)
+    status = StatusLine(enabled=not quiet and not dry_run)
 
     # Compute sync plan
-    if not quiet:
+    if not quiet and not dry_run:
         print(f"Computing sync plan: {source} -> {dest}")
 
     sync_plan = _compute_sync_plan(
@@ -1410,6 +1429,11 @@ def sync(
         filter_matcher=filter_matcher,
         status=status,
     )
+
+    if dry_run:
+        # Print plan as JSONL to stdout (pipe-friendly, no extra output)
+        _write_plan(sync_plan, sys.stdout)
+        return
 
     if plan:
         # Save plan to file

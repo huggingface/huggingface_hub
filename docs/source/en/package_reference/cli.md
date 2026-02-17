@@ -395,6 +395,7 @@ $ hf buckets sync [OPTIONS] [SOURCE] [DEST]
 * `--ignore-sizes`: Skip files only based on modification times, ignoring sizes.
 * `--plan TEXT`: Save sync plan to JSONL file for review instead of executing.
 * `--apply TEXT`: Apply a previously saved plan file.
+* `--dry-run`: Print sync plan to stdout as JSONL without executing.
 * `--include TEXT`: Include files matching pattern (can specify multiple).
 * `--exclude TEXT`: Exclude files matching pattern (can specify multiple).
 * `--filter-from TEXT`: Read include/exclude patterns from file.
@@ -412,6 +413,8 @@ Examples
   $ hf buckets sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"
   $ hf buckets sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl
   $ hf buckets sync --apply sync-plan.jsonl
+  $ hf buckets sync ./data hf://buckets/user/my-bucket --dry-run
+  $ hf buckets sync ./data hf://buckets/user/my-bucket --dry-run | jq .
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2627,6 +2630,7 @@ $ hf sync [OPTIONS] [SOURCE] [DEST]
 * `--ignore-sizes`: Skip files only based on modification times, ignoring sizes.
 * `--plan TEXT`: Save sync plan to JSONL file for review instead of executing.
 * `--apply TEXT`: Apply a previously saved plan file.
+* `--dry-run`: Print sync plan to stdout as JSONL without executing.
 * `--include TEXT`: Include files matching pattern (can specify multiple).
 * `--exclude TEXT`: Exclude files matching pattern (can specify multiple).
 * `--filter-from TEXT`: Read include/exclude patterns from file.
