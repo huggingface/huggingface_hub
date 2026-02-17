@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+from pathlib import Path
 from typing import Optional
 
 import pytest
@@ -243,7 +244,7 @@ def bucket_with_files(api: HfApi) -> str:
 # -- Upload tests --
 
 
-def test_cp_upload_file_to_bucket_root(api: HfApi, tmp_path):
+def test_cp_upload_file_to_bucket_root(api: HfApi, tmp_path: Path):
     """Upload a local file to a bucket (no prefix)."""
     bucket_url = api.create_bucket(bucket_name())
     bucket_id = bucket_url.bucket_id
@@ -260,7 +261,7 @@ def test_cp_upload_file_to_bucket_root(api: HfApi, tmp_path):
     assert "local.txt" in files
 
 
-def test_cp_upload_file_to_bucket_prefix(api: HfApi, tmp_path):
+def test_cp_upload_file_to_bucket_prefix(api: HfApi, tmp_path: Path):
     """Upload a local file to a bucket subdirectory (trailing slash prefix)."""
     bucket_url = api.create_bucket(bucket_name())
     bucket_id = bucket_url.bucket_id
@@ -275,7 +276,7 @@ def test_cp_upload_file_to_bucket_prefix(api: HfApi, tmp_path):
     assert "logs/data.csv" in files
 
 
-def test_cp_upload_file_with_remote_name(api: HfApi, tmp_path):
+def test_cp_upload_file_with_remote_name(api: HfApi, tmp_path: Path):
     """Upload a local file with an explicit remote filename."""
     bucket_url = api.create_bucket(bucket_name())
     bucket_id = bucket_url.bucket_id
@@ -290,7 +291,7 @@ def test_cp_upload_file_with_remote_name(api: HfApi, tmp_path):
     assert "remote-name.txt" in files
 
 
-def test_cp_upload_file_quiet(api: HfApi, tmp_path):
+def test_cp_upload_file_quiet(api: HfApi, tmp_path: Path):
     """Upload with --quiet suppresses output."""
     bucket_url = api.create_bucket(bucket_name())
     bucket_id = bucket_url.bucket_id
@@ -316,7 +317,7 @@ def test_cp_upload_from_stdin(api: HfApi):
 # -- Download tests --
 
 
-def test_cp_download_to_explicit_file(bucket_with_files: str, tmp_path):
+def test_cp_download_to_explicit_file(bucket_with_files: str, tmp_path: Path):
     """Download a bucket file to a specific local path."""
     output_file = tmp_path / "output.txt"
     result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt {output_file}")
@@ -325,7 +326,7 @@ def test_cp_download_to_explicit_file(bucket_with_files: str, tmp_path):
     assert output_file.read_text() == "hello"
 
 
-def test_cp_download_to_directory(bucket_with_files: str, tmp_path):
+def test_cp_download_to_directory(bucket_with_files: str, tmp_path: Path):
     """Download a bucket file to an existing directory (uses original filename)."""
     result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt {tmp_path}/")
     assert result.exit_code == 0
@@ -335,7 +336,7 @@ def test_cp_download_to_directory(bucket_with_files: str, tmp_path):
     assert downloaded.read_text() == "hello"
 
 
-def test_cp_download_nested_file(bucket_with_files: str, tmp_path):
+def test_cp_download_nested_file(bucket_with_files: str, tmp_path: Path):
     """Download a file from a subdirectory in the bucket."""
     output_file = tmp_path / "nested.txt"
     result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/sub/nested.txt {output_file}")
@@ -352,7 +353,7 @@ def test_cp_download_to_stdout(bucket_with_files: str):
     assert "Downloaded:" not in result.output
 
 
-def test_cp_download_quiet(bucket_with_files: str, tmp_path):
+def test_cp_download_quiet(bucket_with_files: str, tmp_path: Path):
     """Download with --quiet suppresses the status message."""
     output_file = tmp_path / "quiet-download.txt"
     result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt {output_file} --quiet")
@@ -361,7 +362,7 @@ def test_cp_download_quiet(bucket_with_files: str, tmp_path):
     assert output_file.read_text() == "hello"
 
 
-def test_cp_download_creates_parent_dirs(bucket_with_files: str, tmp_path):
+def test_cp_download_creates_parent_dirs(bucket_with_files: str, tmp_path: Path):
     """Download creates parent directories when they don't exist."""
     output_file = tmp_path / "a" / "b" / "c" / "output.txt"
     result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt {output_file}")
@@ -378,7 +379,7 @@ def test_cp_error_remote_to_remote():
     assert result.exit_code != 0
 
 
-def test_cp_error_both_local(tmp_path):
+def test_cp_error_both_local(tmp_path: Path):
     """Both src and dst are local paths."""
     src = tmp_path / "src.txt"
     src.write_text("x")
@@ -388,7 +389,7 @@ def test_cp_error_both_local(tmp_path):
     assert "one of src or dst must be a bucket path" in result.output.lower()
 
 
-def test_cp_error_missing_destination(tmp_path):
+def test_cp_error_missing_destination(tmp_path: Path):
     """Local src without a destination."""
     src = tmp_path / "orphan.txt"
     src.write_text("x")
@@ -418,7 +419,7 @@ def test_cp_error_stdin_no_filename_trailing_slash():
     assert "full destination path including filename" in result.output
 
 
-def test_cp_error_stdout_with_local_source(tmp_path):
+def test_cp_error_stdout_with_local_source(tmp_path: Path):
     """Cannot pipe to stdout when source is not a bucket path."""
     src = tmp_path / "local.txt"
     src.write_text("x")
@@ -427,7 +428,7 @@ def test_cp_error_stdout_with_local_source(tmp_path):
     assert "one of src or dst must be a bucket path" in result.output.lower()
 
 
-def test_cp_error_source_is_directory(tmp_path):
+def test_cp_error_source_is_directory(tmp_path: Path):
     """Source must be a file, not a directory."""
     result = cli(f"hf buckets cp {tmp_path} hf://buckets/{USER}/some-bucket/file.txt")
     assert result.exit_code != 0
@@ -439,3 +440,365 @@ def test_cp_error_source_file_not_found():
     result = cli(f"hf buckets cp /nonexistent/file.txt hf://buckets/{USER}/some-bucket/file.txt")
     assert result.exit_code != 0
     assert "not found" in result.output.lower()
+
+
+# =============================================================================
+# Sync
+# =============================================================================
+
+
+def _make_local_dir(tmp_path: Path, files: dict[str, str]) -> Path:
+    """Create a local directory with files.
+
+    Args:
+        tmp_path: pytest tmp_path fixture
+        files: dict mapping relative path to file content
+
+    Returns:
+        Path to the created directory.
+    """
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    for rel_path, content in files.items():
+        file_path = data_dir / rel_path
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(content)
+    return data_dir
+
+
+def _remote_files(api: HfApi, bucket_id: str) -> set[str]:
+    """Return set of file paths in a bucket."""
+    return {f.path for f in api.list_bucket_tree(bucket_id)}
+
+
+# -- Upload tests --
+
+
+def test_sync_upload_new_files(api: HfApi, bucket_write: str, tmp_path: Path):
+    """Upload a local directory to an empty bucket."""
+    data_dir = _make_local_dir(tmp_path, {"a.txt": "aaa", "b.txt": "bbb"})
+
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --quiet")
+    assert result.exit_code == 0
+
+    assert _remote_files(api, bucket_write) == {"a.txt", "b.txt"}
+
+
+def test_sync_upload_skips_identical(bucket_write: str, tmp_path: Path):
+    """Re-syncing unchanged files with --ignore-times prints 'Nothing to sync.' (sizes match)."""
+    data_dir = _make_local_dir(tmp_path, {"a.txt": "aaa"})
+
+    # First sync
+    result1 = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --quiet")
+    assert result1.exit_code == 0
+
+    # Second sync with --ignore-times (sizes match → skip)
+    result2 = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --ignore-times")
+    assert result2.exit_code == 0
+    assert "Nothing to sync." in result2.output
+
+
+def test_sync_upload_with_prefix(api: HfApi, bucket_write: str, tmp_path: Path):
+    """Upload files under a bucket prefix."""
+    data_dir = _make_local_dir(tmp_path, {"f.txt": "data"})
+
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write}/subdir --quiet")
+    assert result.exit_code == 0
+
+    assert "subdir/f.txt" in _remote_files(api, bucket_write)
+
+
+def test_sync_upload_verbose(bucket_write: str, tmp_path: Path):
+    """--verbose shows per-file operation lines."""
+    data_dir = _make_local_dir(tmp_path, {"v.txt": "verbose"})
+
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --verbose --quiet")
+    assert result.exit_code == 0
+    assert "Uploading: v.txt" in result.output
+
+
+def test_sync_upload_quiet(bucket_write: str, tmp_path: Path):
+    """--quiet produces no output."""
+    data_dir = _make_local_dir(tmp_path, {"q.txt": "quiet"})
+
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --quiet")
+    assert result.exit_code == 0
+    assert result.output.strip() == ""
+
+
+# -- Download tests --
+
+
+def test_sync_download_new_files(api: HfApi, bucket_write: str, tmp_path: Path):
+    """Download bucket files to a local directory."""
+    api.batch_bucket_files(bucket_write, add=[(b"hello", "file.txt"), (b"world", "other.txt")])
+
+    dest = tmp_path / "download"
+    result = cli(f"hf buckets sync hf://buckets/{bucket_write} {dest} --quiet")
+    assert result.exit_code == 0
+
+    assert (dest / "file.txt").read_text() == "hello"
+    assert (dest / "other.txt").read_text() == "world"
+
+
+def test_sync_download_skips_identical(api: HfApi, bucket_write: str, tmp_path: Path):
+    """Re-syncing a download with no changes prints 'Nothing to sync.'."""
+    api.batch_bucket_files(bucket_write, add=[(b"data", "f.txt")])
+
+    dest = tmp_path / "download"
+    # First sync
+    result1 = cli(f"hf buckets sync hf://buckets/{bucket_write} {dest} --quiet")
+    assert result1.exit_code == 0
+
+    # Second sync
+    result2 = cli(f"hf buckets sync hf://buckets/{bucket_write} {dest}")
+    assert result2.exit_code == 0
+    assert "Nothing to sync." in result2.output
+
+
+def test_sync_download_creates_subdirs(api: HfApi, bucket_write: str, tmp_path: Path):
+    """Download creates local subdirectories for nested files."""
+    api.batch_bucket_files(bucket_write, add=[(b"nested", "a/b/c.txt")])
+
+    dest = tmp_path / "download"
+    result = cli(f"hf buckets sync hf://buckets/{bucket_write} {dest} --quiet")
+    assert result.exit_code == 0
+
+    assert (dest / "a" / "b" / "c.txt").read_text() == "nested"
+
+
+# -- --delete option --
+
+
+def test_sync_upload_delete(api: HfApi, bucket_write: str, tmp_path: Path):
+    """Upload with --delete removes remote files not in local."""
+    # Pre-populate remote with an extra file
+    api.batch_bucket_files(bucket_write, add=[(b"old", "old.txt"), (b"keep", "keep.txt")])
+
+    # Local only has keep.txt
+    data_dir = _make_local_dir(tmp_path, {"keep.txt": "keep"})
+
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --delete --quiet")
+    assert result.exit_code == 0
+
+    files = _remote_files(api, bucket_write)
+    assert "keep.txt" in files
+    assert "old.txt" not in files
+
+
+def test_sync_download_delete(api: HfApi, bucket_write: str, tmp_path: Path):
+    """Download with --delete removes local files not in remote."""
+    api.batch_bucket_files(bucket_write, add=[(b"keep", "keep.txt")])
+
+    # Local has an extra file
+    dest = tmp_path / "download"
+    dest.mkdir()
+    (dest / "extra.txt").write_text("should be deleted")
+    (dest / "keep.txt").write_text("keep")
+
+    result = cli(f"hf buckets sync hf://buckets/{bucket_write} {dest} --delete --quiet")
+    assert result.exit_code == 0
+
+    assert (dest / "keep.txt").exists()
+    assert not (dest / "extra.txt").exists()
+
+
+# -- Comparison mode options --
+
+
+def test_sync_upload_ignore_existing(api: HfApi, bucket_write: str, tmp_path: Path):
+    """--ignore-existing skips files already in remote."""
+    # Pre-populate remote with existing.txt (old content)
+    api.batch_bucket_files(bucket_write, add=[(b"old", "existing.txt")])
+
+    # Local has both existing.txt (new content) and new.txt
+    data_dir = _make_local_dir(tmp_path, {"existing.txt": "new", "new.txt": "brand new"})
+
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --ignore-existing --quiet")
+    assert result.exit_code == 0
+
+    # new.txt should be uploaded, existing.txt should be skipped (old content preserved)
+    files = _remote_files(api, bucket_write)
+    assert "new.txt" in files
+    assert "existing.txt" in files
+
+
+def test_sync_upload_existing_only(api: HfApi, bucket_write: str, tmp_path: Path):
+    """--existing skips new files (only updates existing)."""
+    # Pre-populate remote with only existing.txt
+    api.batch_bucket_files(bucket_write, add=[(b"old", "existing.txt")])
+
+    # Local has both existing.txt and new.txt
+    data_dir = _make_local_dir(tmp_path, {"existing.txt": "updated", "new.txt": "should not appear"})
+
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --existing --quiet")
+    assert result.exit_code == 0
+
+    # new.txt should NOT be uploaded
+    files = _remote_files(api, bucket_write)
+    assert "existing.txt" in files
+    assert "new.txt" not in files
+
+
+# -- --plan and --apply workflow --
+
+
+def test_sync_plan_saves_file(bucket_write: str, tmp_path: Path):
+    """--plan saves a JSONL plan file and prints summary."""
+    data_dir = _make_local_dir(tmp_path, {"p.txt": "plan me"})
+    plan_file = tmp_path / "plan.jsonl"
+
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --plan {plan_file}")
+    assert result.exit_code == 0
+    assert "Plan saved to:" in result.output
+
+    # Verify plan file structure
+    lines = plan_file.read_text().strip().splitlines()
+    assert len(lines) == 2  # header + 1 operation
+
+    header = json.loads(lines[0])
+    assert header["type"] == "header"
+    assert header["summary"]["uploads"] == 1
+
+    op = json.loads(lines[1])
+    assert op["type"] == "operation"
+    assert op["action"] == "upload"
+    assert op["path"] == "p.txt"
+
+
+def test_sync_plan_then_apply(api: HfApi, bucket_write: str, tmp_path: Path):
+    """End-to-end: plan → review → apply → verify."""
+    data_dir = _make_local_dir(tmp_path, {"x.txt": "x", "y.txt": "y"})
+    plan_file = tmp_path / "plan.jsonl"
+
+    # Plan (nothing executed)
+    cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --plan {plan_file} --quiet")
+    assert _remote_files(api, bucket_write) == set()  # nothing uploaded yet
+
+    # Apply
+    result = cli(f"hf buckets sync --apply {plan_file} --quiet")
+    assert result.exit_code == 0
+
+    assert _remote_files(api, bucket_write) == {"x.txt", "y.txt"}
+
+
+# -- Filtering --
+
+
+def test_sync_upload_include(api: HfApi, bucket_write: str, tmp_path: Path):
+    """--include only syncs matching files."""
+    data_dir = _make_local_dir(tmp_path, {"keep.txt": "keep", "skip.csv": "skip"})
+
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --include *.txt --quiet")
+    assert result.exit_code == 0
+
+    files = _remote_files(api, bucket_write)
+    assert "keep.txt" in files
+    assert "skip.csv" not in files
+
+
+def test_sync_upload_exclude(api: HfApi, bucket_write: str, tmp_path: Path):
+    """--exclude skips matching files."""
+    data_dir = _make_local_dir(tmp_path, {"keep.txt": "keep", "skip.log": "skip"})
+
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --exclude *.log --quiet")
+    assert result.exit_code == 0
+
+    files = _remote_files(api, bucket_write)
+    assert "keep.txt" in files
+    assert "skip.log" not in files
+
+
+def test_sync_upload_filter_from(api: HfApi, bucket_write: str, tmp_path: Path):
+    """--filter-from reads include/exclude rules from a file."""
+    data_dir = _make_local_dir(tmp_path, {"keep.txt": "keep", "skip.log": "skip", "also.csv": "also"})
+
+    filter_file = tmp_path / "filters.txt"
+    filter_file.write_text("# comment\n- *.log\n+ *.txt\n")
+
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --filter-from {filter_file} --quiet")
+    assert result.exit_code == 0
+
+    files = _remote_files(api, bucket_write)
+    assert "keep.txt" in files
+    assert "skip.log" not in files
+    # also.csv doesn't match any rule → included by default
+    assert "also.csv" in files
+
+
+# -- Validation errors --
+
+
+def test_sync_error_no_args():
+    """No source/dest raises an error."""
+    result = cli("hf buckets sync")
+    assert result.exit_code != 0
+
+
+def test_sync_error_remote_to_remote():
+    """Both paths are bucket paths."""
+    result = cli("hf buckets sync hf://buckets/u/a hf://buckets/u/b")
+    assert result.exit_code != 0
+
+
+def test_sync_error_both_local(tmp_path: Path):
+    """Both paths are local."""
+    src = tmp_path / "src"
+    src.mkdir()
+    dst = tmp_path / "dst"
+    result = cli(f"hf buckets sync {src} {dst}")
+    assert result.exit_code != 0
+
+
+def test_sync_error_source_not_directory(tmp_path: Path):
+    """Local source must be a directory."""
+    src = tmp_path / "file.txt"
+    src.write_text("x")
+    result = cli(f"hf buckets sync {src} hf://buckets/{USER}/some-bucket")
+    assert result.exit_code != 0
+
+
+def test_sync_error_ignore_times_and_sizes(tmp_path: Path):
+    """Cannot specify both --ignore-times and --ignore-sizes."""
+    src = tmp_path / "src"
+    src.mkdir()
+    result = cli(f"hf buckets sync {src} hf://buckets/{USER}/b --ignore-times --ignore-sizes")
+    assert result.exit_code != 0
+
+
+def test_sync_error_existing_and_ignore_existing(tmp_path: Path):
+    """Cannot specify both --existing and --ignore-existing."""
+    src = tmp_path / "src"
+    src.mkdir()
+    result = cli(f"hf buckets sync {src} hf://buckets/{USER}/b --existing --ignore-existing")
+    assert result.exit_code != 0
+
+
+def test_sync_error_apply_with_source():
+    """Cannot specify source when using --apply."""
+    result = cli("hf buckets sync ./data --apply plan.jsonl")
+    assert result.exit_code != 0
+
+
+def test_sync_error_apply_with_plan():
+    """Cannot specify both --apply and --plan."""
+    result = cli("hf buckets sync --apply plan.jsonl --plan other.jsonl")
+    assert result.exit_code != 0
+
+
+def test_sync_error_apply_with_delete():
+    """Cannot specify --delete when using --apply."""
+    result = cli("hf buckets sync --apply plan.jsonl --delete")
+    assert result.exit_code != 0
+
+
+def test_sync_error_apply_with_include():
+    """Cannot specify --include when using --apply."""
+    result = cli("hf buckets sync --apply plan.jsonl --include *.txt")
+    assert result.exit_code != 0
+
+
+def test_sync_error_apply_with_exclude():
+    """Cannot specify --exclude when using --apply."""
+    result = cli("hf buckets sync --apply plan.jsonl --exclude *.log")
+    assert result.exit_code != 0
