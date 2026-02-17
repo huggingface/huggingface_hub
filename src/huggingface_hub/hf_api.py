@@ -1982,6 +1982,24 @@ class BucketFile:
 
 
 @dataclass
+class BucketDirectory:
+    """
+    Contains information about a directory in a bucket on the Hub. This object is returned by [`list_bucket_tree`].
+
+    Similar to [`RepoFolder`] but for directories in buckets.
+    """
+
+    type: Literal["directory"]
+    path: str
+    uploaded_at: datetime
+
+    def __init__(self, **kwargs):
+        self.type = kwargs.pop("type")
+        self.path = kwargs.pop("path")
+        self.uploaded_at = parse_datetime(kwargs.pop("uploadedAt"))
+
+
+@dataclass
 class _BucketAddFile:
     source: Union[str, Path, bytes]
     destination: str
@@ -11655,8 +11673,9 @@ class HfApi:
         bucket_id: str,
         prefix: Optional[str] = None,
         *,
+        recursive: Optional[bool] = None,
         token: Union[str, bool, None] = None,
-    ) -> Iterable[BucketFile]:
+    ) -> Iterable[Union[BucketFile, BucketDirectory]]:
         """List files in a bucket.
 
         Args:
@@ -11671,7 +11690,8 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `Iterable[BucketFile]`: An iterable of [`BucketFile`] objects containing file information (path, size, mtime, etc.).
+            `Iterable[Union[BucketFile, BucketDirectory]]`: An iterable of [`BucketFile`] and [`BucketDirectory`] objects
+             containing file and directory information (path, etc.).
 
         Example:
             ```python
@@ -11685,12 +11705,18 @@ class HfApi:
             ```
         """
         encoded_prefix = "/" + quote(prefix, safe="") if prefix else ""
+        params = {}
+        if recursive is not None:
+            params["recursive"] = recursive
         for item in paginate(
-            path=f"{self.endpoint}/api/buckets/{bucket_id}/tree/{encoded_prefix}",
+            path=f"{self.endpoint}/api/buckets/{bucket_id}/tree{encoded_prefix}",
             headers=self._build_hf_headers(token=token),
-            params={},
+            params=params,
         ):
-            yield BucketFile(**item)
+            if item["type"] == "file":
+                yield BucketFile(**item)
+            elif item["type"] == "directory":
+                yield BucketDirectory(**item)
 
     @validate_hf_hub_args
     def get_bucket_paths_info(

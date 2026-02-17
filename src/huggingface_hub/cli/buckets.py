@@ -26,7 +26,7 @@ from typing import Annotated, Any, Iterator, Literal, Optional, Union
 import typer
 
 from huggingface_hub import HfApi, logging
-from huggingface_hub.hf_api import BucketFile
+from huggingface_hub.hf_api import BucketDirectory, BucketFile
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
@@ -118,7 +118,7 @@ def _format_mtime(mtime: Optional[datetime]) -> str:
     return mtime.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _build_tree(items: list[BucketFile]) -> list[str]:
+def _build_tree(items: list[Union[BucketFile, BucketDirectory]]) -> list[str]:
     """Build a tree representation of files and directories.
 
     Args:
@@ -140,7 +140,11 @@ def _build_tree(items: list[BucketFile]) -> list[str]:
 
         # Store the item at the final level
         final_part = parts[-1]
-        current[final_part] = {"__item__": item}
+        if isinstance(item, BucketDirectory):
+            if final_part not in current:
+                current[final_part] = {"__children__": {}}
+        else:
+            current[final_part] = {"__item__": item}
 
     # Render tree
     lines: list[str] = []
@@ -155,8 +159,9 @@ def _render_tree(node: dict, lines: list[str], indent: str) -> None:
         is_last = i == len(items) - 1
         connector = "└── " if is_last else "├── "
 
+        is_dir = "__children__" in value
         children = value.get("__children__", {})
-        if children:
+        if is_dir:
             lines.append(f"{indent}{connector}{name}/")
         else:
             lines.append(f"{indent}{connector}{name}")
@@ -198,6 +203,14 @@ def tree_cmd(
             help="List files in tree format.",
         ),
     ] = False,
+    recursive: Annotated[
+        bool,
+        typer.Option(
+            "--recursive",
+            "-R",
+            help="List files recursively.",
+        ),
+    ] = False,
     token: TokenOpt = None,
 ) -> None:
     """List files in a bucket."""
@@ -213,12 +226,15 @@ def tree_cmd(
         api.list_bucket_tree(
             bucket_id,
             prefix=prefix or None,
+            recursive=recursive,
         )
     )
 
     if not items:
         print("(empty)")
         return
+
+    has_directories = any(isinstance(item, BucketDirectory) for item in items)
 
     if as_tree:
         # Tree format
@@ -228,9 +244,16 @@ def tree_cmd(
     else:
         # Table format
         for item in items:
-            size_str = _format_size(item.size, human_readable)
-            mtime_str = _format_mtime(item.mtime)
-            print(f"{size_str:>12}  {mtime_str:>19}  {item.path}")
+            if isinstance(item, BucketDirectory):
+                mtime_str = _format_mtime(item.uploaded_at)
+                print(f"{'':>12}  {mtime_str:>19}  {item.path}/")
+            else:
+                size_str = _format_size(item.size, human_readable)
+                mtime_str = _format_mtime(item.mtime)
+                print(f"{size_str:>12}  {mtime_str:>19}  {item.path}")
+
+    if not recursive and has_directories:
+        StatusLine().done("Use -R to list files recursively.")
 
 
 @buckets_cli.command(
@@ -521,7 +544,9 @@ def _list_remote_files(api: HfApi, bucket_id: str, prefix: str) -> Iterator[tupl
         tuple: (relative_path, size, mtime_ms, bucket_file) for each file.
             bucket_file is the BucketFile object from list_bucket_tree.
     """
-    for item in api.list_bucket_tree(bucket_id, prefix=prefix or None):
+    for item in api.list_bucket_tree(bucket_id, prefix=prefix or None, recursive=True):
+        if isinstance(item, BucketDirectory):
+            continue
         path = item.path
         # Remove prefix from path to get relative path
         if prefix:

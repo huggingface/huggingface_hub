@@ -436,6 +436,7 @@ $ hf buckets tree [OPTIONS] BUCKET
 
 * `-h, --human-readable`: Show file size in human readable format.
 * `--tree`: List files in tree format.
+* `-R, --recursive`: List files recursively.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
