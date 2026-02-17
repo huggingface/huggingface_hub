@@ -58,7 +58,7 @@ You can also specify the full `namespace/bucket_name` format or the `hf://bucket
 
 ### Get bucket info
 
-Use [`bucket_info`] to get information about a specific bucket:
+Use [`bucket_info`] to get metadata about a bucket, including its visibility, total size, file count, and creation date.
 
 ```py
 >>> from huggingface_hub import bucket_info
@@ -178,7 +178,7 @@ sub/deep/file.txt 4
 ...     print(item.path)
 ```
 
-Or via CLI:
+Or via CLI, with support for table, human-readable, and ASCII tree formats:
 
 ```bash
 # Default table format

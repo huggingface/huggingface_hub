@@ -233,6 +233,7 @@ _SUBMOD_ATTRS = {
         "fetch_job_metrics",
         "file_exists",
         "get_bucket_file_metadata",
+        "get_bucket_paths_info",
         "get_collection",
         "get_dataset_tags",
         "get_discussion_details",
@@ -923,6 +924,7 @@ __all__ = [
     "from_pretrained_fastai",
     "get_async_session",
     "get_bucket_file_metadata",
+    "get_bucket_paths_info",
     "get_collection",
     "get_dataset_tags",
     "get_discussion_details",
@@ -1323,6 +1325,7 @@ if TYPE_CHECKING:  # pragma: no cover
         fetch_job_metrics,  # noqa: F401
         file_exists,  # noqa: F401
         get_bucket_file_metadata,  # noqa: F401
+        get_bucket_paths_info,  # noqa: F401
         get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
