@@ -1404,7 +1404,7 @@ $ hf jobs cancel [OPTIONS] JOB_ID
 
 **Arguments**:
 
-* `JOB_ID`: Job ID  [required]
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
 
 **Options**:
 
@@ -1454,7 +1454,7 @@ $ hf jobs inspect [OPTIONS] JOB_IDS...
 
 **Arguments**:
 
-* `JOB_IDS...`: The jobs to inspect  [required]
+* `JOB_IDS...`: Job IDs to inspect (or 'namespace/job_id')  [required]
 
 **Options**:
 
@@ -1485,7 +1485,7 @@ $ hf jobs logs [OPTIONS] JOB_ID
 
 **Arguments**:
 
-* `JOB_ID`: Job ID  [required]
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
 
 **Options**:
 
@@ -1608,7 +1608,7 @@ $ hf jobs scheduled delete [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID  [required]
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
 
 **Options**:
 
@@ -1636,7 +1636,7 @@ $ hf jobs scheduled inspect [OPTIONS] SCHEDULED_JOB_IDS...
 
 **Arguments**:
 
-* `SCHEDULED_JOB_IDS...`: The scheduled jobs to inspect  [required]
+* `SCHEDULED_JOB_IDS...`: Scheduled Job IDs to inspect (or 'namespace/scheduled_job_id')  [required]
 
 **Options**:
 
@@ -1691,7 +1691,7 @@ $ hf jobs scheduled resume [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID  [required]
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
 
 **Options**:
 
@@ -1758,7 +1758,7 @@ $ hf jobs scheduled suspend [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID  [required]
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
 
 **Options**:
 
@@ -1847,7 +1847,7 @@ $ hf jobs stats [OPTIONS] [JOB_IDS]...
 
 **Arguments**:
 
-* `[JOB_IDS]...`: Job IDs
+* `[JOB_IDS]...`: Job IDs (or 'namespace/job_id')
 
 **Options**:
 
