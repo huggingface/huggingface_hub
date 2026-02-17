@@ -647,6 +647,22 @@ def test_sync_upload_skips_identical(bucket_write: str, tmp_path: Path):
     assert "Nothing to sync." in result2.output
 
 
+def test_sync_upload_skips_by_mtime(bucket_write: str, tmp_path: Path):
+    """Re-syncing unchanged files uses mtime by default and skips already-uploaded files."""
+    data_dir = _make_local_dir(tmp_path, {"a.txt": "aaa", "b.txt": "bbb"})
+
+    # First sync uploads both files
+    result1 = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --verbose --quiet")
+    assert result1.exit_code == 0
+    assert "Uploading: a.txt" in result1.output
+    assert "Uploading: b.txt" in result1.output
+
+    # Second sync (default mtime comparison) should skip everything
+    result2 = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write}")
+    assert result2.exit_code == 0
+    assert "Nothing to sync." in result2.output
+
+
 def test_sync_upload_with_prefix(api: HfApi, bucket_write: str, tmp_path: Path):
     """Upload files under a bucket prefix."""
     data_dir = _make_local_dir(tmp_path, {"f.txt": "data"})

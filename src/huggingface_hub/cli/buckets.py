@@ -760,7 +760,7 @@ def _compute_sync_plan(
                     continue
 
                 size_differs = local_size != remote_size
-                local_newer = local_mtime > remote_mtime
+                local_newer = (local_mtime - remote_mtime) > 1000  # 1s window to avoid sub-second precision issues
 
                 if ignore_sizes:
                     # Only check mtime
@@ -931,7 +931,7 @@ def _compute_sync_plan(
                     continue
 
                 size_differs = remote_size != local_size
-                remote_newer = remote_mtime > local_mtime
+                remote_newer = (remote_mtime - local_mtime) > 1000  # 1s window to avoid sub-second precision issues
 
                 if ignore_sizes:
                     # Only check mtime
