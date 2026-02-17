@@ -111,7 +111,7 @@ setup(
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     keywords="model-hub machine-learning models natural-language-processing deep-learning pytorch pretrained-models",
-    license="Apache",
+    license="Apache-2.0",
     url="https://github.com/huggingface/huggingface_hub",
     package_dir={"": "src"},
     packages=find_packages("src"),
