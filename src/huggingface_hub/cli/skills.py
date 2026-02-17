@@ -101,6 +101,7 @@ def _format_params(cmd) -> str:
 
 def build_skill_md() -> str:
     # Lazy import to avoid circular dependency (hf.py imports skills_cli from this module)
+    from huggingface_hub import __version__
     from huggingface_hub.cli.hf import app
 
     click_app = get_command(app)
@@ -108,6 +109,8 @@ def build_skill_md() -> str:
 
     # wrap in list to widen list[LiteralString] -> list[str] for `ty``
     lines: list[str] = list(_SKILL_YAML_PREFIX.splitlines())
+    lines.append(f"Generated with `huggingface_hub v{__version__}`. Run `hf skills add --force` to regenerate.")
+    lines.append("")
 
     top_level = []
     groups = []
