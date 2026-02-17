@@ -511,6 +511,150 @@ The command automatically:
 > [!TIP]
 > Use `hf upload-large-folder` when you have very large files or folders that may take a long time to upload. For smaller uploads, prefer `hf upload`.
 
+
+## hf buckets
+
+Use `hf buckets` to manage buckets on the Hugging Face Hub. Buckets provide S3-like object storage on Hugging Face, powered by the Xet storage backend. Unlike repositories (which are git-based and track file history), buckets are remote object storage containers designed for large-scale files with content-addressable deduplication. They are designed for use cases where you need simple, fast, mutable storage such as storing training checkpoints, logs, intermediate artifacts, or any large collection of files that doesn't need version control. In the examples below, we will walk through the most common use cases. For a complete guide, see the [Buckets guide](./buckets).
+
+### Create a bucket
+
+To create a new bucket, use `hf buckets create`. The bucket will be created under your namespace by default:
+
+```bash
+>>> hf buckets create my-bucket
+```
+
+You can also create a private bucket using the `--private` flag:
+
+```bash
+>>> hf buckets create my-bucket --private
+```
+
+### List and inspect buckets
+
+To list all your buckets, use `hf buckets list`. You can also list buckets in a specific organization:
+
+```bash
+>>> hf buckets list
+>>> hf buckets list my-org
+```
+
+To get detailed information about a specific bucket (returned as JSON), use `hf buckets info`:
+
+```bash
+>>> hf buckets info username/my-bucket
+```
+
+### Delete a bucket
+
+To delete a bucket, use `hf buckets delete`. You will be prompted for confirmation unless you pass `--yes`:
+
+```bash
+>>> hf buckets delete username/my-bucket --yes
+```
+
+### Browse files
+
+Use `hf buckets tree` to list files in a bucket:
+
+```bash
+>>> hf buckets tree username/my-bucket
+```
+
+Add `-R` for a recursive listing and `-h` for human-readable file sizes. You can also display an ASCII tree view with `--tree`:
+
+```bash
+>>> hf buckets tree username/my-bucket -R -h
+>>> hf buckets tree username/my-bucket --tree -R
+```
+
+To filter by prefix, append the prefix to the bucket path:
+
+```bash
+>>> hf buckets tree username/my-bucket/sub -R
+```
+
+### Copy single files
+
+Use `hf buckets cp` to copy individual files to and from a bucket. Bucket paths use the `hf://buckets/` prefix.
+
+To upload a file:
+
+```bash
+>>> hf buckets cp ./config.json hf://buckets/username/my-bucket
+```
+
+You can upload to a specific subdirectory:
+
+```bash
+>>> hf buckets cp ./data.csv hf://buckets/username/my-bucket/logs/
+```
+
+To download a file:
+
+```bash
+>>> hf buckets cp hf://buckets/username/my-bucket/config.json ./config.json
+```
+
+You can also stream to stdout or from stdin using `-`:
+
+```bash
+# Download to stdout
+>>> hf buckets cp hf://buckets/username/my-bucket/config.json - | jq .
+
+# Upload from stdin
+>>> echo "hello" | hf buckets cp - hf://buckets/username/my-bucket/hello.txt
+```
+
+### Sync directories
+
+Use `hf buckets sync` to synchronize directories between your local machine and a bucket. It compares source and destination and transfers only changed files.
+
+To upload a local directory to a bucket:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket
+```
+
+To download from a bucket to a local directory:
+
+```bash
+>>> hf buckets sync hf://buckets/username/my-bucket ./data
+```
+
+Use `--delete` to remove destination files that are not present in the source:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --delete
+```
+
+You can filter which files to sync using `--include` and `--exclude` patterns:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --include "*.safetensors" --exclude "*.tmp"
+```
+
+To only update existing files (skip new ones), use `--existing`. To only create new files (skip existing ones), use `--ignore-existing`:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --existing
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --ignore-existing
+```
+
+For extra safety, you can generate a plan for review before executing, and then apply it:
+
+```bash
+# Generate a plan
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --plan sync-plan.jsonl
+
+# Review and apply the plan
+>>> hf buckets sync --apply sync-plan.jsonl
+```
+
+> [!TIP]
+> `hf sync` is a convenient top-level alias for `hf buckets sync`. See the [Buckets guide](./buckets#sync-directories) for full details on all sync options.
+
+
 ## hf models
 
 Use `hf models` to list models on the Hub and get detailed information about a specific model.
@@ -978,148 +1122,6 @@ Copy-and-paste the text below in your GitHub issue.
 - HF_HUB_ETAG_TIMEOUT: 10
 - HF_HUB_DOWNLOAD_TIMEOUT: 10
 ```
-
-## hf buckets
-
-Use `hf buckets` to manage buckets on the Hugging Face Hub. Buckets are a flat file storage system with no git history or versioning — ideal for checkpoints, logs, and large mutable file collections. In the examples below, we will walk through the most common use cases. For a complete guide, see the [Buckets guide](./buckets).
-
-### Create a bucket
-
-To create a new bucket, use `hf buckets create`. The bucket will be created under your namespace by default:
-
-```bash
->>> hf buckets create my-bucket
-```
-
-You can also create a private bucket using the `--private` flag:
-
-```bash
->>> hf buckets create my-bucket --private
-```
-
-### List and inspect buckets
-
-To list all your buckets, use `hf buckets list`. You can also list buckets in a specific organization:
-
-```bash
->>> hf buckets list
->>> hf buckets list my-org
-```
-
-To get detailed information about a specific bucket (returned as JSON), use `hf buckets info`:
-
-```bash
->>> hf buckets info username/my-bucket
-```
-
-### Delete a bucket
-
-To delete a bucket, use `hf buckets delete`. You will be prompted for confirmation unless you pass `--yes`:
-
-```bash
->>> hf buckets delete username/my-bucket --yes
-```
-
-### Browse files
-
-Use `hf buckets tree` to list files in a bucket:
-
-```bash
->>> hf buckets tree username/my-bucket
-```
-
-Add `-R` for a recursive listing and `-h` for human-readable file sizes. You can also display an ASCII tree view with `--tree`:
-
-```bash
->>> hf buckets tree username/my-bucket -R -h
->>> hf buckets tree username/my-bucket --tree -R
-```
-
-To filter by prefix, append the prefix to the bucket path:
-
-```bash
->>> hf buckets tree username/my-bucket/sub -R
-```
-
-### Copy single files
-
-Use `hf buckets cp` to copy individual files to and from a bucket. Bucket paths use the `hf://buckets/` prefix.
-
-To upload a file:
-
-```bash
->>> hf buckets cp ./config.json hf://buckets/username/my-bucket
-```
-
-You can upload to a specific subdirectory:
-
-```bash
->>> hf buckets cp ./data.csv hf://buckets/username/my-bucket/logs/
-```
-
-To download a file:
-
-```bash
->>> hf buckets cp hf://buckets/username/my-bucket/config.json ./config.json
-```
-
-You can also stream to stdout or from stdin using `-`:
-
-```bash
-# Download to stdout
->>> hf buckets cp hf://buckets/username/my-bucket/config.json -
-
-# Upload from stdin
->>> echo "hello" | hf buckets cp - hf://buckets/username/my-bucket/hello.txt
-```
-
-### Sync directories
-
-Use `hf buckets sync` to synchronize directories between your local machine and a bucket. It compares source and destination and transfers only changed files.
-
-To upload a local directory to a bucket:
-
-```bash
->>> hf buckets sync ./data hf://buckets/username/my-bucket
-```
-
-To download from a bucket to a local directory:
-
-```bash
->>> hf buckets sync hf://buckets/username/my-bucket ./data
-```
-
-Use `--delete` to remove destination files that are not present in the source:
-
-```bash
->>> hf buckets sync ./data hf://buckets/username/my-bucket --delete
-```
-
-You can filter which files to sync using `--include` and `--exclude` patterns:
-
-```bash
->>> hf buckets sync ./data hf://buckets/username/my-bucket --include "*.safetensors" --exclude "*.tmp"
-```
-
-To only update existing files (skip new ones), use `--existing`. To only create new files (skip existing ones), use `--ignore-existing`:
-
-```bash
->>> hf buckets sync ./data hf://buckets/username/my-bucket --existing
->>> hf buckets sync ./data hf://buckets/username/my-bucket --ignore-existing
-```
-
-For extra safety, you can generate a plan for review before executing, and then apply it:
-
-```bash
-# Generate a plan
->>> hf buckets sync ./data hf://buckets/username/my-bucket --plan sync-plan.jsonl
-
-# Review and apply the plan
->>> hf buckets sync --apply sync-plan.jsonl
-```
-
-> [!TIP]
-> `hf sync` is a convenient top-level alias for `hf buckets sync`. See the [Buckets guide](./buckets#sync-directories) for full details on all sync options.
 
 ## hf jobs
 
