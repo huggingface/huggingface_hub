@@ -15,7 +15,7 @@
 import json
 
 import pytest
-from typer.testing import CliRunner
+from typer.testing import CliRunner, Result
 
 from huggingface_hub import HfApi
 from huggingface_hub.cli.hf import app
@@ -37,9 +37,18 @@ def _setup_env(monkeypatch):
     yield
 
 
-@pytest.fixture
-def runner() -> CliRunner:
-    return CliRunner()
+def cli(command: str) -> Result:
+    """
+    Invoke a CLI command.
+
+    Example:
+        ```
+        >>> cli("hf buckets create my-bucket")
+        ```
+    """
+    assert command.startswith("hf ")
+    args = command.split(" ")[1:]
+    return CliRunner().invoke(app, [*args])
 
 
 @pytest.fixture(scope="module")
@@ -74,9 +83,9 @@ def _handle_to_bucket_id(handle: str) -> str:
     return handle
 
 
-def test_create_bucket(runner: CliRunner, api: HfApi):
+def test_create_bucket(api: HfApi):
     name = bucket_name()
-    result = runner.invoke(app, ["buckets", "create", name, "--quiet"])
+    result = cli(f"hf buckets create {name} --quiet")
     assert result.exit_code == 0
     handle = result.output.strip()
     assert handle == f"hf://buckets/{USER}/{name}"
@@ -87,9 +96,9 @@ def test_create_bucket(runner: CliRunner, api: HfApi):
     assert info.id == bucket_id
 
 
-def test_create_bucket_private(runner: CliRunner, api: HfApi):
+def test_create_bucket_private(api: HfApi):
     name = bucket_name()
-    result = runner.invoke(app, ["buckets", "create", name, "--private", "--quiet"])
+    result = cli(f"hf buckets create {name} --private --quiet")
     assert result.exit_code == 0, result.output
     bucket_id = _handle_to_bucket_id(result.output.strip())
 
@@ -97,29 +106,29 @@ def test_create_bucket_private(runner: CliRunner, api: HfApi):
     assert info.private is True
 
 
-def test_create_bucket_exist_ok(runner: CliRunner):
+def test_create_bucket_exist_ok():
     name = bucket_name()
 
     # First create succeeds
-    result1 = runner.invoke(app, ["buckets", "create", name, "--quiet"])
+    result1 = cli(f"hf buckets create {name} --quiet")
     assert result1.exit_code == 0, result1.output
 
     # Second create without --exist-ok fails
-    result2 = runner.invoke(app, ["buckets", "create", name, "--quiet"])
+    result2 = cli(f"hf buckets create {name} --quiet")
     assert result2.exit_code != 0
     assert isinstance(result2.exception, HfHubHTTPError)
     assert result2.exception.response.status_code == 409
 
     # Second create with --exist-ok succeeds
-    result3 = runner.invoke(app, ["buckets", "create", name, "--exist-ok", "--quiet"])
+    result3 = cli(f"hf buckets create {name} --exist-ok --quiet")
     assert result3.exit_code == 0
     assert result3.output.strip() == f"hf://buckets/{USER}/{name}"
 
 
-def test_create_bucket_with_hf_prefix(runner: CliRunner, api: HfApi):
+def test_create_bucket_with_hf_prefix(api: HfApi):
     name = bucket_name()
     hf_handle = f"hf://buckets/{USER}/{name}"
-    result = runner.invoke(app, ["buckets", "create", hf_handle, "--quiet"])
+    result = cli(f"hf buckets create {hf_handle} --quiet")
     assert result.exit_code == 0, result.output
 
     assert result.output.strip() == hf_handle
@@ -134,8 +143,8 @@ def test_create_bucket_with_hf_prefix(runner: CliRunner, api: HfApi):
 # =============================================================================
 
 
-def test_bucket_info(runner: CliRunner, bucket_read: str):
-    result = runner.invoke(app, ["buckets", "info", bucket_read])
+def test_bucket_info(bucket_read: str):
+    result = cli(f"hf buckets info {bucket_read}")
     assert result.exit_code == 0, result.output
 
     data = json.loads(result.output)
@@ -143,8 +152,8 @@ def test_bucket_info(runner: CliRunner, bucket_read: str):
     assert data["private"] is False
 
 
-def test_bucket_info_quiet(runner: CliRunner, bucket_read: str):
-    result = runner.invoke(app, ["buckets", "info", bucket_read, "--quiet"])
+def test_bucket_info_quiet(bucket_read: str):
+    result = cli(f"hf buckets info {bucket_read} --quiet")
     assert result.exit_code == 0
     assert result.output.strip() == bucket_read
 
@@ -154,15 +163,15 @@ def test_bucket_info_quiet(runner: CliRunner, bucket_read: str):
 # =============================================================================
 
 
-def test_bucket_list_table(runner: CliRunner, bucket_read: str):
+def test_bucket_list_table(bucket_read: str):
     # Table format: just verify the command succeeds (table truncates IDs)
-    result = runner.invoke(app, ["buckets", "list"])
+    result = cli("hf buckets list")
     assert result.exit_code == 0
     assert len(result.output.splitlines()) > 2  # return as table, ids are truncated
 
 
-def test_bucket_list_json(runner: CliRunner, bucket_read: str):
-    result = runner.invoke(app, ["buckets", "list", "--format", "json"])
+def test_bucket_list_json(bucket_read: str):
+    result = cli("hf buckets list --format json")
     assert result.exit_code == 0
 
     buckets = json.loads(result.output)
@@ -170,16 +179,16 @@ def test_bucket_list_json(runner: CliRunner, bucket_read: str):
     assert bucket_read in {bucket["id"] for bucket in buckets}
 
 
-def test_bucket_list_quiet(runner: CliRunner, bucket_read: str):
-    result = runner.invoke(app, ["buckets", "list", "--quiet"])
+def test_bucket_list_quiet(bucket_read: str):
+    result = cli("hf buckets list --quiet")
     assert result.exit_code == 0
 
     ids = result.output.strip().splitlines()  # 1 id per line
     assert bucket_read in ids
 
 
-def test_bucket_list_namespace(runner: CliRunner, bucket_read: str):
-    result = runner.invoke(app, ["buckets", "list", USER, "--quiet"])
+def test_bucket_list_namespace(bucket_read: str):
+    result = cli(f"hf buckets list {USER} --quiet")
     assert result.exit_code == 0
 
     ids = result.output.strip().splitlines()
@@ -191,21 +200,21 @@ def test_bucket_list_namespace(runner: CliRunner, bucket_read: str):
 # =============================================================================
 
 
-def test_delete_bucket(runner: CliRunner, api: HfApi, bucket_write: str):
-    result = runner.invoke(app, ["buckets", "delete", bucket_write, "--yes"])
+def test_delete_bucket(api: HfApi, bucket_write: str):
+    result = cli(f"hf buckets delete {bucket_write} --yes")
     assert result.exit_code == 0, result.output
 
     with pytest.raises(BucketNotFoundError):
         api.bucket_info(bucket_write)
 
 
-def test_delete_bucket_missing_ok(runner: CliRunner):
+def test_delete_bucket_missing_ok():
     nonexistent = f"{USER}/{bucket_name()}"
-    result = runner.invoke(app, ["buckets", "delete", nonexistent, "--yes", "--missing-ok"])
+    result = cli(f"hf buckets delete {nonexistent} --yes --missing-ok")
     assert result.exit_code == 0
 
 
-def test_delete_bucket_not_found(runner: CliRunner):
+def test_delete_bucket_not_found():
     nonexistent = f"{USER}/{bucket_name()}"
-    result = runner.invoke(app, ["buckets", "delete", nonexistent, "--yes"])
+    result = cli(f"hf buckets delete {nonexistent} --yes")
     assert result.exit_code != 0
