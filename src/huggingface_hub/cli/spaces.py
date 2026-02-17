@@ -326,7 +326,7 @@ def _spaces_hot_reloading_summary(
             elif full_match := full_match and first_client_events[event_index] == event:
                 replay += [event]
                 continue
-            if len(replay) >= 0:
+            if replay:
                 for replay_event in replay:
                     display_event(replay_event)
                 replay = []
