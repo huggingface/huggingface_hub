@@ -179,6 +179,7 @@ def _render_tree(node: dict, lines: list[str], indent: str) -> None:
         "hf buckets tree user/my-bucket/models",
         "hf buckets tree user/my-bucket -h",
         "hf buckets tree user/my-bucket --tree",
+        "hf buckets tree user/my-bucket --recursive",
     ],
 )
 def tree_cmd(

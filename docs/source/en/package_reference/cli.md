@@ -446,6 +446,7 @@ Examples
   $ hf buckets tree user/my-bucket/models
   $ hf buckets tree user/my-bucket -h
   $ hf buckets tree user/my-bucket --tree
+  $ hf buckets tree user/my-bucket --recursive
 
 Learn more
   Use `hf <command> --help` for more information about a command.

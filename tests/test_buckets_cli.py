@@ -223,6 +223,155 @@ def test_delete_bucket_not_found():
 
 
 # =============================================================================
+# Tree
+# =============================================================================
+
+
+@pytest.fixture(scope="module")
+def bucket_with_tree_files(api: HfApi) -> str:
+    """Module-scoped bucket with files for tree tests (root files, nested dirs)."""
+    bucket_url = api.create_bucket(bucket_name())
+    api.batch_bucket_files(
+        bucket_url.bucket_id,
+        add=[
+            (b"hello", "file.txt"),
+            (b"x" * 2048, "big.bin"),
+            (b"nested content", "sub/nested.txt"),
+            (b"deep", "sub/deep/file.txt"),
+        ],
+    )
+    return bucket_url.bucket_id
+
+
+def test_tree_default(bucket_with_tree_files: str):
+    """Default (non-recursive) table output shows root files and directories."""
+    result = cli(f"hf buckets tree {bucket_with_tree_files}")
+    assert result.exit_code == 0
+
+    output = result.output
+    # Root-level files are listed
+    assert "big.bin" in output
+    assert "file.txt" in output
+    # Directory entry with trailing slash
+    assert "sub/" in output
+    # Nested files should NOT appear (non-recursive)
+    assert "nested.txt" not in output
+    assert "deep/file.txt" not in output
+
+
+def test_tree_recursive(bucket_with_tree_files: str):
+    """Recursive listing shows all files including nested ones."""
+    result = cli(f"hf buckets tree {bucket_with_tree_files} -R")
+    assert result.exit_code == 0
+
+    output = result.output
+    assert "big.bin" in output
+    assert "file.txt" in output
+    assert "sub/nested.txt" in output
+    assert "sub/deep/file.txt" in output
+
+
+def test_tree_human_readable(bucket_with_tree_files: str):
+    """Human-readable sizes are shown with -h flag."""
+    result = cli(f"hf buckets tree {bucket_with_tree_files} -h -R")
+    assert result.exit_code == 0
+
+    output = result.output
+    # big.bin is 2048 bytes → "2.0 KB"
+    assert "2.0 KB" in output
+    # file.txt is 5 bytes → "5 B"
+    assert "5 B" in output
+
+
+def test_tree_as_tree(bucket_with_tree_files: str):
+    """--tree -R renders ASCII tree with connectors."""
+    result = cli(f"hf buckets tree {bucket_with_tree_files} --tree -R")
+    assert result.exit_code == 0
+
+    assert (
+        result.output.strip()
+        == "\n".join(
+            [
+                "├── big.bin",
+                "├── file.txt",
+                "└── sub/",
+                "    ├── deep/",
+                "    │   └── file.txt",
+                "    └── nested.txt",
+            ]
+        ).strip()
+    )
+
+
+def test_tree_as_tree_non_recursive(bucket_with_tree_files: str):
+    """--tree without -R only shows top-level entries."""
+    result = cli(f"hf buckets tree {bucket_with_tree_files} --tree")
+    assert result.exit_code == 0
+
+    output = result.output
+    assert "big.bin" in output
+    assert "file.txt" in output
+    assert "sub/" in output
+    # Nested files should NOT appear
+    assert "nested.txt" not in output
+    assert "deep" not in output
+
+
+def test_tree_with_prefix(bucket_with_tree_files: str):
+    """Passing a prefix only lists files under that prefix."""
+    result = cli(f"hf buckets tree {bucket_with_tree_files}/sub -R")
+    assert result.exit_code == 0
+
+    output = result.output
+    assert "nested.txt" in output
+    assert "deep/file.txt" in output
+    # Root-level files should NOT appear
+    assert "big.bin" not in output
+
+
+def test_tree_with_hf_prefix(bucket_with_tree_files: str):
+    """hf://buckets/ format works the same as short format."""
+    result = cli(f"hf buckets tree hf://buckets/{bucket_with_tree_files} -R")
+    assert result.exit_code == 0
+
+    output = result.output
+    assert "big.bin" in output
+    assert "file.txt" in output
+    assert "sub/nested.txt" in output
+    assert "sub/deep/file.txt" in output
+
+
+def test_tree_with_hf_prefix_and_subprefix(bucket_with_tree_files: str):
+    """hf://buckets/ format with a sub-prefix filters to that prefix."""
+    result = cli(f"hf buckets tree hf://buckets/{bucket_with_tree_files}/sub -R")
+    assert result.exit_code == 0
+
+    output = result.output
+    assert "nested.txt" in output
+    assert "deep/file.txt" in output
+    assert "big.bin" not in output
+
+
+def test_tree_empty_bucket(api: HfApi):
+    """Empty bucket prints '(empty)'."""
+    bucket_url = api.create_bucket(bucket_name())
+    result = cli(f"hf buckets tree {bucket_url.bucket_id}")
+    assert result.exit_code == 0
+    assert "(empty)" in result.output
+
+
+def test_tree_non_recursive_shows_directories(bucket_with_tree_files: str):
+    """Non-recursive listing includes directory entries with trailing slash."""
+    result = cli(f"hf buckets tree {bucket_with_tree_files}")
+    assert result.exit_code == 0
+
+    lines = result.output.strip().splitlines()
+    # At least one line should end with "/" (the sub/ directory)
+    dir_lines = [line for line in lines if line.rstrip().endswith("/")]
+    assert len(dir_lines) > 0
+
+
+# =============================================================================
 # Cp
 # =============================================================================
 
