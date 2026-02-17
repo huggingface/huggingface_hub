@@ -28,7 +28,6 @@ import enum
 import json
 import os
 import tempfile
-from collections import defaultdict
 from typing import Annotated, Optional, get_args
 
 import typer
