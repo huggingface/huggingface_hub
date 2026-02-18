@@ -12121,11 +12121,14 @@ class HfApi:
                     warnings.warn(f"File '{path}' not found in bucket '{bucket_id}'. Skipping.")
 
         xet_download_infos = []
+        first_valid_bucket_file: Optional[BucketFile] = None
         for remote_file, local_path in files:
             if not isinstance(remote_file, BucketFile):
                 if remote_file not in bucket_files_by_path:
                     continue  # skip missing files (already warned above)
                 remote_file = bucket_files_by_path[remote_file]
+            if first_valid_bucket_file is None:
+                first_valid_bucket_file = remote_file
             xet_download_infos.append(
                 PyXetDownloadInfo(
                     destination_path=str(Path(local_path).absolute()),
@@ -12134,12 +12137,11 @@ class HfApi:
                 )
             )
 
-        if len(xet_download_infos) == 0:
+        if len(xet_download_infos) == 0 or first_valid_bucket_file is None:
             return
 
         # Fetch Xet connection info (same for all files)
-        remote_file = files[0][0]
-        remote_path = remote_file.path if isinstance(remote_file, BucketFile) else remote_file
+        remote_path = first_valid_bucket_file.path
 
         metadata = self.get_bucket_file_metadata(bucket_id, remote_path, token=token)
         connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers=headers)
