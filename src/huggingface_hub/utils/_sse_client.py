@@ -1,5 +1,13 @@
 """
-Server Side Events (SSE) client for Python.
+Vendored file: Server Side Events (SSE) client for Python.
+
+Source:
+- Author: Maxime Petazzoni <maxime.petazzoni@bulix.org>
+- Repository: https://github.com/mpetazzoni/sseclient
+- File: https://github.com/mpetazzoni/sseclient/blob/main/sseclient/__init__.py
+
+License:
+- Apache-2.0 (from upstream project)
 
 Provides a generator of SSE received through an existing HTTP response.
 """
