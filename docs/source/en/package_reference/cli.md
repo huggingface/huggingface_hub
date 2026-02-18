@@ -1260,7 +1260,7 @@ $ hf jobs cancel [OPTIONS] JOB_ID
 
 **Arguments**:
 
-* `JOB_ID`: Job ID  [required]
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
 
 **Options**:
 
@@ -1310,7 +1310,7 @@ $ hf jobs inspect [OPTIONS] JOB_IDS...
 
 **Arguments**:
 
-* `JOB_IDS...`: The jobs to inspect  [required]
+* `JOB_IDS...`: Job IDs to inspect (or 'namespace/job_id')  [required]
 
 **Options**:
 
@@ -1341,7 +1341,7 @@ $ hf jobs logs [OPTIONS] JOB_ID
 
 **Arguments**:
 
-* `JOB_ID`: Job ID  [required]
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
 
 **Options**:
 
@@ -1377,7 +1377,8 @@ $ hf jobs ps [OPTIONS]
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
-* `--format TEXT`: Format output using a custom template
+* `--format TEXT`: Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')
+* `-q, --quiet`: Print only IDs (one per line).
 * `--help`: Show this message and exit.
 
 Examples
@@ -1464,7 +1465,7 @@ $ hf jobs scheduled delete [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID  [required]
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
 
 **Options**:
 
@@ -1492,7 +1493,7 @@ $ hf jobs scheduled inspect [OPTIONS] SCHEDULED_JOB_IDS...
 
 **Arguments**:
 
-* `SCHEDULED_JOB_IDS...`: The scheduled jobs to inspect  [required]
+* `SCHEDULED_JOB_IDS...`: Scheduled Job IDs to inspect (or 'namespace/scheduled_job_id')  [required]
 
 **Options**:
 
@@ -1524,7 +1525,8 @@ $ hf jobs scheduled ps [OPTIONS]
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
-* `--format TEXT`: Format output using a custom template
+* `--format TEXT`: Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')
+* `-q, --quiet`: Print only IDs (one per line).
 * `--help`: Show this message and exit.
 
 Examples
@@ -1547,7 +1549,7 @@ $ hf jobs scheduled resume [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID  [required]
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
 
 **Options**:
 
@@ -1614,7 +1616,7 @@ $ hf jobs scheduled suspend [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID  [required]
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
 
 **Options**:
 
@@ -1703,7 +1705,7 @@ $ hf jobs stats [OPTIONS] [JOB_IDS]...
 
 **Arguments**:
 
-* `[JOB_IDS]...`: Job IDs
+* `[JOB_IDS]...`: Job IDs (or 'namespace/job_id')
 
 **Options**:
 
@@ -2362,6 +2364,7 @@ $ hf skills add [OPTIONS]
 
 * `--claude`: Install for Claude.
 * `--codex`: Install for Codex.
+* `--cursor`: Install for Cursor.
 * `--opencode`: Install for OpenCode.
 * `-g, --global`: Install globally (user-level) instead of in the current project directory.
 * `--dest PATH`: Install into a custom destination (path to skills directory).
@@ -2370,8 +2373,9 @@ $ hf skills add [OPTIONS]
 
 Examples
   $ hf skills add --claude
+  $ hf skills add --cursor
   $ hf skills add --claude --global
-  $ hf skills add --codex --opencode
+  $ hf skills add --codex --opencode --cursor
 
 Learn more
   Use `hf <command> --help` for more information about a command.
