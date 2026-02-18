@@ -1,5 +1,5 @@
 import json
-from typing import Iterator, Optional
+from typing import Iterator, Literal, Optional, TypedDict, Union
 
 import httpx
 
@@ -10,6 +10,20 @@ from .types import ApiGetReloadEventSourceData, ApiGetReloadRequest
 
 
 HOT_RELOADING_PORT = 7887
+
+
+class MultiReplicaStreamEvent(TypedDict):
+    kind: Literal["event"]
+    event: ApiGetReloadEventSourceData
+
+
+class MultiReplicaStreamReplicaHash(TypedDict):
+    kind: Literal["replicaHash"]
+    hash: str
+
+
+class MultiReplicaStreamFullMatch(TypedDict):
+    kind: Literal["fullMatch"]
 
 
 class ReloadClient:
@@ -35,3 +49,41 @@ class ReloadClient:
             for event in SSEClient(res.iter_bytes()).events():
                 if event.event == "message":
                     yield json.loads(event.data)
+
+
+def multi_replica_reload_events(
+    commit_sha: str,
+    host: str,
+    subdomain: str,
+    replica_hashes: list[str],
+    token: Optional[str],
+) -> Iterator[Union[MultiReplicaStreamEvent, MultiReplicaStreamReplicaHash, MultiReplicaStreamFullMatch]]:
+    clients = [
+        ReloadClient(
+            host=host,
+            subdomain=subdomain,
+            replica_hash=hash,
+            token=token,
+        )
+        for hash in replica_hashes
+    ]
+
+    first_client_events: dict[int, ApiGetReloadEventSourceData] = {}
+    for client_index, client in enumerate(clients):
+        if len(clients) > 1:
+            yield {"kind": "replicaHash", "hash": client.replica_hash}
+        full_match = True
+        replay: list[ApiGetReloadEventSourceData] = []
+        for event_index, event in enumerate(client.get_reload(commit_sha)):
+            if client_index == 0:
+                first_client_events[event_index] = event
+            elif full_match := full_match and first_client_events.get(event_index) == event:
+                replay += [event]
+                continue
+            if replay:
+                for replay_event in replay:
+                    yield {"kind": "event", "event": replay_event}
+                replay = []
+            yield {"kind": "event", "event": event}
+        if client_index > 0 and full_match:
+            yield {"kind": "fullMatch"}

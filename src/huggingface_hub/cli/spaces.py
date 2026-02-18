@@ -40,7 +40,7 @@ from packaging import version
 from typing_extensions import assert_never
 
 from huggingface_hub import constants
-from huggingface_hub._hot_reload.client import ReloadClient
+from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
@@ -276,16 +276,6 @@ def _spaces_hot_reload_summary(
     if (space_subdomain := space_info.subdomain) is None:
         raise CLIError("Unexpected None subdomain on hotReloaded Space")
 
-    clients = [
-        ReloadClient(
-            host=space_host,
-            subdomain=space_subdomain,
-            replica_hash=hash,
-            token=token,
-        )
-        for hash, _ in hot_reloading.replica_statuses
-    ]
-
     def render_region(region: ReloadRegion) -> str:
         res = ""
         if filepath is not None:
@@ -320,25 +310,21 @@ def _spaces_hot_reload_summary(
         else:
             assert_never(event["data"]["kind"])
 
-    first_client_events: dict[int, ApiGetReloadEventSourceData] = {}
-    for client_index, client in enumerate(clients):
-        if len(clients) > 1:
-            typer.secho(f"---- Replica {client.replica_hash} ----")
-        full_match = True
-        replay: list[ApiGetReloadEventSourceData] = []
-        for event_index, event in enumerate(client.get_reload(commit_sha)):
-            if client_index == 0:
-                first_client_events[event_index] = event
-            elif full_match := full_match and first_client_events.get(event_index) == event:
-                replay += [event]
-                continue
-            if replay:
-                for replay_event in replay:
-                    display_event(replay_event)
-                replay = []
-            display_event(event)
-        if client_index > 0 and full_match:
+    for replica_stream_event in multi_replica_reload_events(
+        commit_sha=commit_sha,
+        host=space_host,
+        subdomain=space_subdomain,
+        replica_hashes=[hash for hash, _ in hot_reloading.replica_statuses],
+        token=token,
+    ):
+        if replica_stream_event["kind"] == "event":
+            display_event(replica_stream_event["event"])
+        elif replica_stream_event["kind"] == "replicaHash":
+            typer.secho(f"---- Replica {replica_stream_event['hash']} ----")
+        elif replica_stream_event["kind"] == "fullMatch":
             typer.echo("✔︎ Same as first replica")
+        else:
+            assert_never(replica_stream_event)
 
 
 @functools.cache
