@@ -79,7 +79,7 @@ def multi_replica_reload_events(
             if client_index == 0:
                 first_client_events[event_index] = event
             elif full_match := full_match and first_client_events.get(event_index) == event:
-                replay += [event]
+                replay.append(event)
                 continue
             while replay:
                 yield {"kind": "event", "event": replay.popleft()}
