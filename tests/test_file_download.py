@@ -41,7 +41,7 @@ from huggingface_hub.file_download import (
     http_get,
     try_to_load_from_cache,
 )
-from huggingface_hub.utils import SoftTemporaryDirectory, get_session, hf_raise_for_status
+from huggingface_hub.utils import SoftTemporaryDirectory, WeakFileLock, get_session, hf_raise_for_status
 from huggingface_hub.utils._headers import build_hf_headers
 from huggingface_hub.utils._http import _http_backoff_base
 
@@ -561,19 +561,45 @@ class CachedDownloadTests(unittest.TestCase):
             # Download must not fail
             hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir)
 
-    @unittest.skipIf(os.name == "nt", "Lock files are always deleted on Windows.")
     def test_keep_lock_file(self):
-        """Lock files should not be deleted on Linux."""
+        """Downloading should acquire locks under `.locks`."""
         with SoftTemporaryDirectory() as tmpdir:
-            hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir)
-            lock_file_exist = False
-            locks_dir = os.path.join(tmpdir, ".locks")
-            for subdir, dirs, files in os.walk(locks_dir):
-                for file in files:
-                    if file.endswith(".lock"):
-                        lock_file_exist = True
-                        break
-            self.assertTrue(lock_file_exist, "no lock file can be found")
+            original_weak_file_lock = WeakFileLock
+            acquired_lock_paths = []
+
+            @contextmanager
+            def tracked_weak_file_lock(lock_file, **kwargs):
+                acquired_lock_paths.append(Path(lock_file))
+                with original_weak_file_lock(lock_file, **kwargs):
+                    yield
+
+            with patch("huggingface_hub.file_download.WeakFileLock", tracked_weak_file_lock):
+                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir)
+
+            def _normalize_lock_path(path: Path) -> str:
+                normalized = str(path)
+                # Windows long-path prefix can appear in lock paths.
+                if normalized.startswith("\\\\?\\"):
+                    normalized = normalized[4:]
+                return os.path.normcase(os.path.normpath(normalized))
+
+            locks_dir = _normalize_lock_path(Path(tmpdir) / ".locks")
+
+            def _is_lock_under_cache_locks(path: Path) -> bool:
+                normalized = _normalize_lock_path(path)
+                if not normalized.endswith(".lock"):
+                    return False
+                try:
+                    return os.path.commonpath([normalized, locks_dir]) == locks_dir
+                except ValueError:
+                    # Happens on Windows if drives differ.
+                    return False
+
+            self.assertGreater(len(acquired_lock_paths), 0, "no lock acquisition was recorded")
+            self.assertTrue(
+                any(_is_lock_under_cache_locks(path) for path in acquired_lock_paths),
+                "expected at least one lock acquisition in cache `.locks`",
+            )
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
