@@ -65,10 +65,10 @@ Use `hf --help` to view available functions. Note that auth commands are now all
 _SKILL_TIPS = """
 ## Tips
 
-- Use `hf <command> --help` for full options and usage
+- Use `hf <command> --help` for full options, usage, and real-world examples
 - Use `--format json` for machine-readable output on list commands
 - Use `-q` / `--quiet` to print only IDs
-- Authenticate with `--token` or set `HF_TOKEN` env var
+- Authenticate with `HF_TOKEN` env var (recommended) or with `--token`
 - Use `--repo-type dataset` or `--repo-type space` for non-model repos
 """
 
