@@ -112,12 +112,45 @@ Or via CLI (`hf buckets ls` is a shorthand for `hf buckets list`):
 ```bash
 # Table format (default)
 >>> hf buckets list
+ID                   PRIVATE      SIZE TOTAL_FILES CREATED_AT
+-------------------- ------- --------- ----------- ----------
+username/my-bucket                  32           5 2026-02-16
+username/checkpoints         117609095         700 2026-02-13
+username/logs                321757477        2000 2026-02-13
+
+# Human-readable sizes
+>>> hf buckets list -h
+ID                   PRIVATE     SIZE TOTAL_FILES CREATED_AT
+-------------------- ------- -------- ----------- ----------
+username/my-bucket               32 B           5 2026-02-16
+username/checkpoints         117.6 MB         700 2026-02-13
+username/logs                321.8 MB        2000 2026-02-13
 
 # List buckets in a specific namespace
 >>> hf buckets ls huggingface
+```
 
+You can use the `--quiet` and `--format json` options to get different output format. This is particularly interesting if you to pipe the output to another tool like `grep` or `jq`.
+
+```bash
 # Quiet mode: prints one bucket ID per line
 >>> hf buckets list --quiet
+username/my-bucket
+username/checkpoints
+username/logs
+
+# JSON format
+>>> hf buckets list --format json
+[
+  {
+    "id": "username/my-bucket",
+    "private": false,
+    "created_at": "2026-02-16T15:28:32+00:00",
+    "size": 32,
+    "total_files": 5
+  },
+  ...
+]
 ```
 
 ### Delete a bucket
@@ -177,14 +210,25 @@ directory sub
 Or via CLI, with support for table, human-readable, and ASCII tree formats. By default the CLI is non-recursive.
 
 ```bash
-# Default table format
+# Default table format (non-recursive, directories shown as entries)
 >>> hf buckets list username/my-bucket
+        2048  2026-01-15 10:30:00  big.bin
+           5  2026-01-15 10:30:00  file.txt
+              2026-01-15 10:30:00  sub/
 
-# Recursive listing
+# Recursive listing (all files, including nested)
 >>> hf buckets list username/my-bucket -R
+        2048  2026-01-15 10:30:00  big.bin
+           5  2026-01-15 10:30:00  file.txt
+          14  2026-01-15 10:30:00  sub/nested.txt
+           4  2026-01-15 10:30:00  sub/deep/file.txt
 
-# Human-readable sizes
->>> hf buckets list username/my-bucket -h -R
+# Human-readable sizes and short dates
+>>> hf buckets list username/my-bucket -R -h
+      2.0 KB         Jan 15 10:30  big.bin
+         5 B         Jan 15 10:30  file.txt
+        14 B         Jan 15 10:30  sub/nested.txt
+         4 B         Jan 15 10:30  sub/deep/file.txt
 
 # ASCII tree format
 >>> hf buckets list username/my-bucket --tree -h -R
@@ -192,11 +236,23 @@ Or via CLI, with support for table, human-readable, and ASCII tree formats. By d
    5 B  Jan 15 10:30  ├── file.txt
                       └── sub/
                           ├── deep/
-   4 B  Jan 15 10:30      │   └── file.txt
-  14 B  Jan 15 10:30      └── nested.txt
+   4 B  Jan 15 10:30  │       └── file.txt
+  14 B  Jan 15 10:30  └── nested.txt
 
 # Tree structure only (no sizes/dates)
 >>> hf buckets list username/my-bucket --tree --quiet -R
+├── big.bin
+├── file.txt
+└── sub/
+    ├── deep/
+    │   └── file.txt
+    └── nested.txt
+
+# Quiet mode: one path per line
+>>> hf buckets list username/my-bucket -q
+big.bin
+file.txt
+sub/
 
 # Filter by prefix
 >>> hf buckets list username/my-bucket/sub -R

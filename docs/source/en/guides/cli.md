@@ -536,6 +536,21 @@ To list all your buckets, use `hf buckets list` (or its shorthand `hf buckets ls
 
 ```bash
 >>> hf buckets list
+ID                   PRIVATE       SIZE TOTAL_FILES CREATED_AT
+-------------------- ------- ---------- ----------- ----------
+username/my-bucket                   32           5 2026-02-16
+username/checkpoints         117609095         700 2026-02-13
+username/logs                321757477        2000 2026-02-13
+
+# Human-readable sizes
+>>> hf buckets list -h
+ID                   PRIVATE     SIZE TOTAL_FILES CREATED_AT
+-------------------- ------- -------- ----------- ----------
+username/my-bucket               32 B           5 2026-02-16
+username/checkpoints         117.6 MB         700 2026-02-13
+username/logs                321.8 MB        2000 2026-02-13
+
+# List buckets in a specific namespace
 >>> hf buckets ls my-org
 ```
 
@@ -543,6 +558,13 @@ To get detailed information about a specific bucket (returned as JSON), use `hf 
 
 ```bash
 >>> hf buckets info username/my-bucket
+{
+  "id": "username/my-bucket",
+  "private": false,
+  "created_at": "2026-02-16T15:28:32+00:00",
+  "size": 32,
+  "total_files": 5
+}
 ```
 
 ### Delete a bucket
@@ -559,14 +581,38 @@ Use `hf buckets list` with a bucket ID to list files in a bucket:
 
 ```bash
 >>> hf buckets list username/my-bucket
+        2048  2026-01-15 10:30:00  big.bin
+           5  2026-01-15 10:30:00  file.txt
+              2026-01-15 10:30:00  sub/
 ```
 
 Add `-R` for a recursive listing and `-h` for human-readable file sizes and short dates. You can also display an ASCII tree view with `--tree`, or use `--tree --quiet` for a clean tree without metadata:
 
 ```bash
+# Recursive with human-readable sizes
 >>> hf buckets list username/my-bucket -R -h
+      2.0 KB         Jan 15 10:30  big.bin
+         5 B         Jan 15 10:30  file.txt
+        14 B         Jan 15 10:30  sub/nested.txt
+         4 B         Jan 15 10:30  sub/deep/file.txt
+
+# Tree with human-readable sizes
 >>> hf buckets list username/my-bucket --tree -h -R
+2.0 KB  Jan 15 10:30  ├── big.bin
+   5 B  Jan 15 10:30  ├── file.txt
+                      └── sub/
+                          ├── deep/
+   4 B  Jan 15 10:30  │       └── file.txt
+  14 B  Jan 15 10:30  └── nested.txt
+
+# Clean tree without metadata
 >>> hf buckets list username/my-bucket --tree --quiet -R
+├── big.bin
+├── file.txt
+└── sub/
+    ├── deep/
+    │   └── file.txt
+    └── nested.txt
 ```
 
 To filter by prefix, append the prefix to the bucket path:
