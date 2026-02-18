@@ -1120,3 +1120,34 @@ def test_sync_error_dry_run_with_plan(tmp_path: Path):
     src.mkdir()
     result = cli(f"hf buckets sync {src} hf://buckets/{USER}/b --dry-run --plan out.jsonl")
     assert result.exit_code != 0
+
+
+def test_sync_upload_to_nonexistent_bucket_plans_all_files(tmp_path: Path):
+    """Syncing to a non-existent bucket should treat remote as empty.
+
+    This is a regression test for a bug where the sync code caught
+    RepositoryNotFoundError instead of BucketNotFoundError, causing syncs
+    to non-existent buckets to crash instead of gracefully treating the
+    remote as empty.
+    """
+    data_dir = _make_local_dir(tmp_path, {"new.txt": "content", "other.txt": "data"})
+
+    # Use --dry-run to avoid actually creating the bucket
+    # The key is that the sync should not crash with BucketNotFoundError
+    nonexistent_bucket = f"{USER}/{bucket_name()}"
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{nonexistent_bucket} --dry-run")
+
+    # Should succeed (exit code 0) and plan to upload all files
+    assert result.exit_code == 0
+
+    # Should have a header + 2 file operations in the output
+    import json
+
+    lines = result.output.strip().splitlines()
+    assert len(lines) == 3  # header + 2 operations
+
+    operations = [json.loads(line) for line in lines[1:]]
+    paths = {op["path"] for op in operations}
+    assert paths == {"new.txt", "other.txt"}
+    assert all(op["action"] == "upload" for op in operations)
+    assert all(op["reason"] == "new file" for op in operations)
