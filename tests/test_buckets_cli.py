@@ -222,6 +222,15 @@ def test_bucket_list_namespace(bucket_read: str):
     assert bucket_read in ids
 
 
+def test_bucket_ls_alias(bucket_read: str):
+    """'hf buckets ls' is an alias for 'hf buckets list'."""
+    result = cli("hf buckets ls --quiet")
+    assert result.exit_code == 0
+
+    ids = result.output.strip().splitlines()
+    assert bucket_read in ids
+
+
 def test_bucket_list_namespace_with_hf_prefix(bucket_read: str):
     """hf://buckets/namespace format is treated as listing buckets."""
     result = cli(f"hf buckets list hf://buckets/{USER} --quiet")

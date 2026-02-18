@@ -532,11 +532,11 @@ You can also create a private bucket using the `--private` flag:
 
 ### List and inspect buckets
 
-To list all your buckets, use `hf buckets list`. You can also list buckets in a specific organization:
+To list all your buckets, use `hf buckets list` (or its shorthand `hf buckets ls`). You can also list buckets in a specific organization:
 
 ```bash
 >>> hf buckets list
->>> hf buckets list my-org
+>>> hf buckets ls my-org
 ```
 
 To get detailed information about a specific bucket (returned as JSON), use `hf buckets info`:

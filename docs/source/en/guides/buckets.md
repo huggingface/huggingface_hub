@@ -107,14 +107,14 @@ Use [`list_buckets`] to list all buckets in a namespace. By default, it lists bu
 ...     print(bucket.id)
 ```
 
-Or via CLI:
+Or via CLI (`hf buckets ls` is a shorthand for `hf buckets list`):
 
 ```bash
 # Table format (default)
 >>> hf buckets list
 
 # List buckets in a specific namespace
->>> hf buckets list huggingface
+>>> hf buckets ls huggingface
 
 # Quiet mode: prints one bucket ID per line
 >>> hf buckets list --quiet

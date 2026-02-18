@@ -483,6 +483,9 @@ def _list_files(
         StatusLine().done("Use -R to list files recursively.")
 
 
+buckets_cli.command(name="ls", hidden=True)(list_cmd)
+
+
 @buckets_cli.command(
     name="info",
     examples=[
