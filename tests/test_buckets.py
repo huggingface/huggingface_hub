@@ -12,13 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import warnings
+
 import pytest
 
 from huggingface_hub import BucketInfo, HfApi
-from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError
+from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER
-from .testing_utils import repo_name
+from .testing_utils import repo_name, requires
 
 
 def bucket_name() -> str:
@@ -239,3 +241,48 @@ def test_list_bucket_tree_on_private_bucket(api: HfApi, api_other: HfApi, api_un
     with pytest.raises(HfHubHTTPError) as exc_info:
         list(api_unauth.list_bucket_tree(bucket_read_private))
     assert exc_info.value.response.status_code == 401
+
+
+@requires("hf_xet")
+def test_download_bucket_files_skips_missing_first_file(api: HfApi, bucket_read: str, tmp_path):
+    """Test that download_bucket_files works when the first file in the list is missing.
+
+    This is a regression test for a bug where the code used files[0][0] to fetch
+    Xet connection metadata, which would fail if that file was missing (and skipped).
+    """
+    # Request a non-existent file first, followed by a valid file
+    files = [
+        ("non_existent_file.txt", str(tmp_path / "non_existent.txt")),
+        ("file.txt", str(tmp_path / "file.txt")),
+    ]
+
+    # Should emit a warning for the missing file but not raise an error
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        api.download_bucket_files(bucket_read, files)
+
+        # Verify warning was issued for missing file
+        assert len(w) == 1
+        assert "non_existent_file.txt" in str(w[0].message)
+        assert "not found" in str(w[0].message).lower()
+
+    # Valid file should be downloaded
+    assert (tmp_path / "file.txt").exists()
+    assert (tmp_path / "file.txt").read_bytes() == b"content"
+
+    # Missing file should not be created
+    assert not (tmp_path / "non_existent.txt").exists()
+
+
+@requires("hf_xet")
+def test_download_bucket_files_raises_on_missing_when_requested(api: HfApi, bucket_read: str, tmp_path):
+    """Test that download_bucket_files raises when raise_on_missing_files=True."""
+    files = [
+        ("non_existent_file.txt", str(tmp_path / "non_existent.txt")),
+        ("file.txt", str(tmp_path / "file.txt")),
+    ]
+
+    with pytest.raises(EntryNotFoundError) as exc_info:
+        api.download_bucket_files(bucket_read, files, raise_on_missing_files=True)
+
+    assert "non_existent_file.txt" in str(exc_info.value)
