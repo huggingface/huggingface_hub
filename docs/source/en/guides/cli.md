@@ -555,23 +555,24 @@ To delete a bucket, use `hf buckets delete`. You will be prompted for confirmati
 
 ### Browse files
 
-Use `hf buckets tree` to list files in a bucket:
+Use `hf buckets list` with a bucket ID to list files in a bucket:
 
 ```bash
->>> hf buckets tree username/my-bucket
+>>> hf buckets list username/my-bucket
 ```
 
-Add `-R` for a recursive listing and `-h` for human-readable file sizes. You can also display an ASCII tree view with `--tree`:
+Add `-R` for a recursive listing and `-h` for human-readable file sizes and short dates. You can also display an ASCII tree view with `--tree`, or use `--tree --quiet` for a clean tree without metadata:
 
 ```bash
->>> hf buckets tree username/my-bucket -R -h
->>> hf buckets tree username/my-bucket --tree -R
+>>> hf buckets list username/my-bucket -R -h
+>>> hf buckets list username/my-bucket --tree -h -R
+>>> hf buckets list username/my-bucket --tree --quiet -R
 ```
 
 To filter by prefix, append the prefix to the bucket path:
 
 ```bash
->>> hf buckets tree username/my-bucket/sub -R
+>>> hf buckets list username/my-bucket/sub -R
 ```
 
 ### Copy single files

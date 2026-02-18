@@ -178,29 +178,32 @@ Or via CLI, with support for table, human-readable, and ASCII tree formats. By d
 
 ```bash
 # Default table format
->>> hf buckets tree username/my-bucket
+>>> hf buckets list username/my-bucket
 
 # Recursive listing
->>> hf buckets tree username/my-bucket -R
+>>> hf buckets list username/my-bucket -R
 
 # Human-readable sizes
->>> hf buckets tree username/my-bucket -h -R
+>>> hf buckets list username/my-bucket -h -R
 
 # ASCII tree format
->>> hf buckets tree username/my-bucket --tree -R
-├── big.bin
-├── file.txt
-└── sub/
-    ├── deep/
-    │   └── file.txt
-    └── nested.txt
+>>> hf buckets list username/my-bucket --tree -h -R
+2.0 KB  Jan 15 10:30  ├── big.bin
+   5 B  Jan 15 10:30  ├── file.txt
+                      └── sub/
+                          ├── deep/
+   4 B  Jan 15 10:30      │   └── file.txt
+  14 B  Jan 15 10:30      └── nested.txt
+
+# Tree structure only (no sizes/dates)
+>>> hf buckets list username/my-bucket --tree --quiet -R
 
 # Filter by prefix
->>> hf buckets tree username/my-bucket/sub -R
+>>> hf buckets list username/my-bucket/sub -R
 ```
 
 > [!TIP]
-> The `hf buckets tree` command accepts both short format (`username/my-bucket/sub`) and full handle (`hf://buckets/username/my-bucket/sub`) as arguments.
+> The `hf buckets list` command accepts both short format (`username/my-bucket/sub`) and full handle (`hf://buckets/username/my-bucket/sub`) as arguments.
 
 ## Upload files
 

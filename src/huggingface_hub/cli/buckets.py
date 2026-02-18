@@ -103,26 +103,37 @@ def _format_size(size: Union[int, float], human_readable: bool = False) -> str:
         return str(size)
 
     for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if size < 1024:
+        if size < 1000:
             if unit == "B":
                 return f"{size} {unit}"
             return f"{size:.1f} {unit}"
-        size /= 1024
+        size /= 1000
     return f"{size:.1f} PB"
 
 
-def _format_mtime(mtime: Optional[datetime]) -> str:
+def _format_mtime(mtime: Optional[datetime], human_readable: bool = False) -> str:
     """Format mtime datetime to a readable date string."""
     if mtime is None:
         return ""
+    if human_readable:
+        return mtime.strftime("%b %d %H:%M")
     return mtime.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _build_tree(items: list[Union[BucketFile, BucketDirectory]]) -> list[str]:
+def _build_tree(
+    items: list[Union[BucketFile, BucketDirectory]],
+    human_readable: bool = False,
+    quiet: bool = False,
+) -> list[str]:
     """Build a tree representation of files and directories.
 
+    Produces ASCII tree with size and date columns before the tree connector.
+    When quiet=True, only the tree structure is shown (no size/date).
+
     Args:
-        items: List of items with 'path', 'type', 'size', 'mtime' keys
+        items: List of BucketFile/BucketDirectory items
+        human_readable: Whether to show human-readable sizes and short dates
+        quiet: If True, show only the tree structure without sizes/dates
 
     Returns:
         List of formatted tree lines
@@ -133,12 +144,11 @@ def _build_tree(items: list[Union[BucketFile, BucketDirectory]]) -> list[str]:
     for item in items:
         parts = item.path.split("/")
         current = tree
-        for i, part in enumerate(parts[:-1]):
+        for part in parts[:-1]:
             if part not in current:
                 current[part] = {"__children__": {}}
             current = current[part]["__children__"]
 
-        # Store the item at the final level
         final_part = parts[-1]
         if isinstance(item, BucketDirectory):
             if final_part not in current:
@@ -146,14 +156,42 @@ def _build_tree(items: list[Union[BucketFile, BucketDirectory]]) -> list[str]:
         else:
             current[final_part] = {"__item__": item}
 
+    # Compute prefix width for alignment (size + date columns)
+    prefix_width = 0
+    max_size_width = 0
+    max_date_width = 0
+    if not quiet:
+        for item in items:
+            if isinstance(item, BucketFile):
+                size_str = _format_size(item.size, human_readable)
+                max_size_width = max(max_size_width, len(size_str))
+                date_str = _format_mtime(item.mtime, human_readable)
+                max_date_width = max(max_date_width, len(date_str))
+        if max_size_width > 0:
+            prefix_width = max_size_width + 2 + max_date_width
+
     # Render tree
     lines: list[str] = []
-    _render_tree(tree, lines, "")
+    _render_tree(
+        tree,
+        lines,
+        "",
+        prefix_width=prefix_width,
+        max_size_width=max_size_width,
+        human_readable=human_readable,
+    )
     return lines
 
 
-def _render_tree(node: dict, lines: list[str], indent: str) -> None:
-    """Recursively render a tree structure."""
+def _render_tree(
+    node: dict,
+    lines: list[str],
+    indent: str,
+    prefix_width: int = 0,
+    max_size_width: int = 0,
+    human_readable: bool = False,
+) -> None:
+    """Recursively render a tree structure with size+date prefix."""
     items = sorted(node.items())
     for i, (name, value) in enumerate(items):
         is_last = i == len(items) - 1
@@ -161,100 +199,32 @@ def _render_tree(node: dict, lines: list[str], indent: str) -> None:
 
         is_dir = "__children__" in value
         children = value.get("__children__", {})
-        if is_dir:
-            lines.append(f"{indent}{connector}{name}/")
+
+        if prefix_width > 0:
+            if is_dir:
+                prefix = " " * prefix_width
+            else:
+                item = value.get("__item__")
+                if item is not None:
+                    size_str = _format_size(item.size, human_readable)
+                    date_str = _format_mtime(item.mtime, human_readable)
+                    prefix = f"{size_str:>{max_size_width}}  {date_str}"
+                else:
+                    prefix = " " * prefix_width
+            lines.append(f"{prefix}  {indent}{connector}{name}{'/' if is_dir else ''}")
         else:
-            lines.append(f"{indent}{connector}{name}")
+            lines.append(f"{indent}{connector}{name}{'/' if is_dir else ''}")
 
         if children:
             child_indent = indent + ("    " if is_last else "│   ")
-            _render_tree(children, lines, child_indent)
-
-
-@buckets_cli.command(
-    name="tree",
-    examples=[
-        "hf buckets tree user/my-bucket",
-        "hf buckets tree hf://buckets/user/my-bucket",
-        "hf buckets tree user/my-bucket/models",
-        "hf buckets tree user/my-bucket -h",
-        "hf buckets tree user/my-bucket --tree",
-        "hf buckets tree user/my-bucket --recursive",
-    ],
-)
-def tree_cmd(
-    bucket: Annotated[
-        str,
-        typer.Argument(
-            help="Bucket: namespace/bucket_name(/prefix) or hf://buckets/namespace/bucket_name(/prefix)",
-        ),
-    ],
-    human_readable: Annotated[
-        bool,
-        typer.Option(
-            "--human-readable",
-            "-h",
-            help="Show file size in human readable format.",
-        ),
-    ] = False,
-    as_tree: Annotated[
-        bool,
-        typer.Option(
-            "--tree",
-            help="List files in tree format.",
-        ),
-    ] = False,
-    recursive: Annotated[
-        bool,
-        typer.Option(
-            "--recursive",
-            "-R",
-            help="List files recursively.",
-        ),
-    ] = False,
-    token: TokenOpt = None,
-) -> None:
-    """List files in a bucket."""
-    api = get_hf_api(token=token)
-
-    try:
-        bucket_id, prefix = _parse_bucket_argument(bucket)
-    except ValueError as e:
-        raise typer.BadParameter(str(e))
-
-    # Fetch items from the bucket
-    items = list(
-        api.list_bucket_tree(
-            bucket_id,
-            prefix=prefix or None,
-            recursive=recursive,
-        )
-    )
-
-    if not items:
-        print("(empty)")
-        return
-
-    has_directories = any(isinstance(item, BucketDirectory) for item in items)
-
-    if as_tree:
-        # Tree format
-        tree_lines = _build_tree(items)
-        for line in tree_lines:
-            print(line)
-    else:
-        # Table format
-        for item in items:
-            if isinstance(item, BucketDirectory):
-                mtime_str = _format_mtime(item.uploaded_at)
-                print(f"{'':>12}  {mtime_str:>19}  {item.path}/")
-            else:
-                size_str = _format_size(item.size, human_readable)
-                mtime_str = _format_mtime(item.mtime)
-                print(f"{size_str:>12}  {mtime_str:>19}  {item.path}")
-
-    if not recursive and has_directories:
-        StatusLine().done("Use -R to list files recursively.")
+            _render_tree(
+                children,
+                lines,
+                child_indent,
+                prefix_width=prefix_width,
+                max_size_width=max_size_width,
+                human_readable=human_readable,
+            )
 
 
 @buckets_cli.command(
@@ -317,18 +287,38 @@ def create(
         print(f"Bucket created: {bucket_url.url} (handle: {bucket_url.handle})")
 
 
+def _is_bucket_id(argument: str) -> bool:
+    """Check if argument is a bucket ID (namespace/name) vs just a namespace."""
+    if argument.startswith(BUCKET_PREFIX):
+        path = argument[len(BUCKET_PREFIX) :]
+    else:
+        path = argument
+    return "/" in path
+
+
 @buckets_cli.command(
     name="list",
     examples=[
         "hf buckets list",
         "hf buckets list huggingface",
+        "hf buckets list user/my-bucket",
+        "hf buckets list user/my-bucket -R",
+        "hf buckets list user/my-bucket -h",
+        "hf buckets list user/my-bucket --tree",
+        "hf buckets list user/my-bucket --tree -h",
+        "hf buckets list hf://buckets/user/my-bucket",
+        "hf buckets list user/my-bucket/sub -R",
     ],
 )
 def list_cmd(
-    token: TokenOpt = None,
-    namespace: Annotated[
+    argument: Annotated[
         Optional[str],
-        typer.Argument(help="Namespace to list buckets from (user or organization). Defaults to user's namespace."),
+        typer.Argument(
+            help=(
+                "Namespace (user or org) to list buckets, or bucket ID"
+                " (namespace/bucket_name(/prefix) or hf://buckets/...) to list files."
+            ),
+        ),
     ] = None,
     human_readable: Annotated[
         bool,
@@ -338,15 +328,76 @@ def list_cmd(
             help="Show sizes in human readable format.",
         ),
     ] = False,
+    as_tree: Annotated[
+        bool,
+        typer.Option(
+            "--tree",
+            help="List files in tree format (only for listing files).",
+        ),
+    ] = False,
+    recursive: Annotated[
+        bool,
+        typer.Option(
+            "--recursive",
+            "-R",
+            help="List files recursively (only for listing files).",
+        ),
+    ] = False,
     format: FormatOpt = OutputFormat.table,
     quiet: QuietOpt = False,
+    token: TokenOpt = None,
 ) -> None:
-    """List all accessible buckets."""
-    if namespace is not None and ("/" in namespace or namespace.startswith(BUCKET_PREFIX)):
-        raise typer.BadParameter(
-            f"Expected a namespace (user or organization), not a bucket ID: '{namespace}'."
-            " To list files in a bucket, use: hf buckets tree " + namespace
+    """List buckets or files in a bucket.
+
+    When called with no argument or a namespace, lists buckets.
+    When called with a bucket ID (namespace/bucket_name), lists files in the bucket.
+    """
+    # Determine mode: listing buckets or listing files
+    is_file_mode = argument is not None and _is_bucket_id(argument)
+
+    if is_file_mode:
+        _list_files(
+            argument=argument,  # type: ignore[arg-type]
+            human_readable=human_readable,
+            as_tree=as_tree,
+            recursive=recursive,
+            format=format,
+            quiet=quiet,
+            token=token,
         )
+    else:
+        _list_buckets(
+            namespace=argument,
+            human_readable=human_readable,
+            as_tree=as_tree,
+            recursive=recursive,
+            format=format,
+            quiet=quiet,
+            token=token,
+        )
+
+
+def _list_buckets(
+    namespace: Optional[str],
+    human_readable: bool,
+    as_tree: bool,
+    recursive: bool,
+    format: OutputFormat,
+    quiet: bool,
+    token: Optional[str],
+) -> None:
+    """List buckets in a namespace."""
+    # Validate incompatible flags
+    if as_tree:
+        raise typer.BadParameter("Cannot use --tree when listing buckets.")
+    if recursive:
+        raise typer.BadParameter("Cannot use --recursive when listing buckets.")
+
+    # Handle hf://buckets/namespace format
+    if namespace is not None and namespace.startswith(BUCKET_PREFIX):
+        namespace = namespace[len(BUCKET_PREFIX) :]
+        # Strip trailing slash if any
+        namespace = namespace.rstrip("/")
 
     api = get_hf_api(token=token)
     results = [api_object_to_dict(bucket) for bucket in api.list_buckets(namespace=namespace)]
@@ -365,6 +416,71 @@ def list_cmd(
 
     alignments = {"size": "right", "total_files": "right"}
     print_list_output(results, format=format, quiet=quiet, headers=headers, row_fn=row_fn, alignments=alignments)
+
+
+def _list_files(
+    argument: str,
+    human_readable: bool,
+    as_tree: bool,
+    recursive: bool,
+    format: OutputFormat,
+    quiet: bool,
+    token: Optional[str],
+) -> None:
+    """List files in a bucket."""
+    # Validate incompatible flags
+    if as_tree and format == OutputFormat.json:
+        raise typer.BadParameter("Cannot use --tree with --format json.")
+
+    api = get_hf_api(token=token)
+
+    try:
+        bucket_id, prefix = _parse_bucket_argument(argument)
+    except ValueError as e:
+        raise typer.BadParameter(str(e))
+
+    # Fetch items from the bucket
+    items = list(
+        api.list_bucket_tree(
+            bucket_id,
+            prefix=prefix or None,
+            recursive=recursive,
+        )
+    )
+
+    if not items:
+        print("(empty)")
+        return
+
+    has_directories = any(isinstance(item, BucketDirectory) for item in items)
+
+    if format == OutputFormat.json:
+        results = [api_object_to_dict(item) for item in items]
+        print(json.dumps(results, indent=2))
+    elif as_tree:
+        # Tree format with size+date prefix, or quiet for structure only
+        tree_lines = _build_tree(items, human_readable=human_readable, quiet=quiet)
+        for line in tree_lines:
+            print(line)
+    elif quiet:
+        for item in items:
+            if isinstance(item, BucketDirectory):
+                print(f"{item.path}/")
+            else:
+                print(item.path)
+    else:
+        # Flat table format
+        for item in items:
+            if isinstance(item, BucketDirectory):
+                mtime_str = _format_mtime(item.uploaded_at, human_readable)
+                print(f"{'':>12}  {mtime_str:>19}  {item.path}/")
+            else:
+                size_str = _format_size(item.size, human_readable)
+                mtime_str = _format_mtime(item.mtime, human_readable)
+                print(f"{size_str:>12}  {mtime_str:>19}  {item.path}")
+
+    if not recursive and has_directories:
+        StatusLine().done("Use -R to list files recursively.")
 
 
 @buckets_cli.command(

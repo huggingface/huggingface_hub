@@ -206,9 +206,8 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
-* `list`: List all accessible buckets.
+* `list`: List buckets or files in a bucket.
 * `sync`: Sync files between local directory and a...
-* `tree`: List files in a bucket.
 
 ### `hf buckets cp`
 
@@ -344,29 +343,41 @@ Learn more
 
 ### `hf buckets list`
 
-List all accessible buckets.
+List buckets or files in a bucket.
+
+When called with no argument or a namespace, lists buckets.
+When called with a bucket ID (namespace/bucket_name), lists files in the bucket.
 
 **Usage**:
 
 ```console
-$ hf buckets list [OPTIONS] [NAMESPACE]
+$ hf buckets list [OPTIONS] [ARGUMENT]
 ```
 
 **Arguments**:
 
-* `[NAMESPACE]`: Namespace to list buckets from (user or organization). Defaults to user's namespace.
+* `[ARGUMENT]`: Namespace (user or org) to list buckets, or bucket ID (namespace/bucket_name(/prefix) or hf://buckets/...) to list files.
 
 **Options**:
 
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-h, --human-readable`: Show sizes in human readable format.
+* `--tree`: List files in tree format (only for listing files).
+* `-R, --recursive`: List files recursively (only for listing files).
 * `--format [table|json]`: Output format (table or json).  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf buckets list
   $ hf buckets list huggingface
+  $ hf buckets list user/my-bucket
+  $ hf buckets list user/my-bucket -R
+  $ hf buckets list user/my-bucket -h
+  $ hf buckets list user/my-bucket --tree
+  $ hf buckets list user/my-bucket --tree -h
+  $ hf buckets list hf://buckets/user/my-bucket
+  $ hf buckets list user/my-bucket/sub -R
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -415,41 +426,6 @@ Examples
   $ hf buckets sync --apply sync-plan.jsonl
   $ hf buckets sync ./data hf://buckets/user/my-bucket --dry-run
   $ hf buckets sync ./data hf://buckets/user/my-bucket --dry-run | jq .
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-### `hf buckets tree`
-
-List files in a bucket.
-
-**Usage**:
-
-```console
-$ hf buckets tree [OPTIONS] BUCKET
-```
-
-**Arguments**:
-
-* `BUCKET`: Bucket: namespace/bucket_name(/prefix) or hf://buckets/namespace/bucket_name(/prefix)  [required]
-
-**Options**:
-
-* `-h, --human-readable`: Show file size in human readable format.
-* `--tree`: List files in tree format.
-* `-R, --recursive`: List files recursively.
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf buckets tree user/my-bucket
-  $ hf buckets tree hf://buckets/user/my-bucket
-  $ hf buckets tree user/my-bucket/models
-  $ hf buckets tree user/my-bucket -h
-  $ hf buckets tree user/my-bucket --tree
-  $ hf buckets tree user/my-bucket --recursive
 
 Learn more
   Use `hf <command> --help` for more information about a command.
