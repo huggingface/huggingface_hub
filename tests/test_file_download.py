@@ -561,7 +561,6 @@ class CachedDownloadTests(unittest.TestCase):
             # Download must not fail
             hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir)
 
-    @unittest.skipIf(os.name == "nt", "Lock files are always deleted on Windows.")
     def test_keep_lock_file(self):
         """Downloading should acquire locks under `.locks`."""
         with SoftTemporaryDirectory() as tmpdir:
@@ -577,12 +576,28 @@ class CachedDownloadTests(unittest.TestCase):
             with patch("huggingface_hub.file_download.WeakFileLock", tracked_weak_file_lock):
                 hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir)
 
+            def _normalize_lock_path(path: Path) -> str:
+                normalized = str(path)
+                # Windows long-path prefix can appear in lock paths.
+                if normalized.startswith("\\\\?\\"):
+                    normalized = normalized[4:]
+                return os.path.normcase(os.path.normpath(normalized))
+
+            locks_dir = _normalize_lock_path(Path(tmpdir) / ".locks")
+
+            def _is_lock_under_cache_locks(path: Path) -> bool:
+                normalized = _normalize_lock_path(path)
+                if not normalized.endswith(".lock"):
+                    return False
+                try:
+                    return os.path.commonpath([normalized, locks_dir]) == locks_dir
+                except ValueError:
+                    # Happens on Windows if drives differ.
+                    return False
+
             self.assertGreater(len(acquired_lock_paths), 0, "no lock acquisition was recorded")
             self.assertTrue(
-                any(
-                    str(path).startswith(str(Path(tmpdir) / ".locks")) and path.suffix == ".lock"
-                    for path in acquired_lock_paths
-                ),
+                any(_is_lock_under_cache_locks(path) for path in acquired_lock_paths),
                 "expected at least one lock acquisition in cache `.locks`",
             )
 
