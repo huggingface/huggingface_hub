@@ -246,7 +246,7 @@ def spaces_hot_reload(
     )
 
     if not skip_summary:
-        _spaces_hot_reloading_summary(
+        _spaces_hot_reload_summary(
             api=api,
             space_id=space_id,
             commit_sha=commit_info.oid,
@@ -255,7 +255,7 @@ def spaces_hot_reload(
         )
 
 
-def _spaces_hot_reloading_summary(
+def _spaces_hot_reload_summary(
     api: HfApi,
     space_id: str,
     commit_sha: str,
