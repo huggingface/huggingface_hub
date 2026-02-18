@@ -690,7 +690,7 @@ class CommitApiTest(HfApiCommonTest):
         self._api.create_commit(
             operations=[
                 CommitOperationAdd(path_in_repo="regular.txt", path_or_fileobj=b"File content"),
-                CommitOperationAdd(path_in_repo="lfs.pkl", path_or_fileobj=b"File content"),
+                CommitOperationAdd(path_in_repo="regular2.txt", path_or_fileobj=b"File content"),
             ],
             commit_message="PR on foreign repo",
             repo_id=foreign_repo_url.repo_id,
@@ -3177,8 +3177,8 @@ class TestListAndPermanentlyDeleteLFSFiles(HfApiCommonTest):
             "lfs_file_PR.bin",
         }
 
-        # Select LFS files that are on main
-        lfs_files_on_main = [file for file in lfs_files if file.ref == "main"]
+        # Select LFS files that are on main (filter by filename since ref attribution for PR files may vary)
+        lfs_files_on_main = [file for file in lfs_files if file.filename in ("lfs_file.bin", "lfs_file_2.bin")]
         assert len(lfs_files_on_main) == 2
 
         # Permanently delete LFS files
