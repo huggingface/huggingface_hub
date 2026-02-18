@@ -15,15 +15,10 @@
 
 import dataclasses
 import datetime
-import functools
 import importlib.metadata
 import json
 import os
 import re
-import shlex
-import shutil
-import subprocess
-import sys
 import time
 from enum import Enum
 from pathlib import Path
@@ -517,24 +512,3 @@ def _get_transformers_update_command() -> str:
         return "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"
     else:  # brew/unknown => likely pip
         return "pip install -U transformers"
-
-
-@functools.cache
-def _get_editor_command() -> Optional[str]:
-    for env in ("HF_EDITOR", "VISUAL", "EDITOR"):
-        if command := os.getenv(env, "").strip():
-            return command
-    for binary_path, editor_command in constants.PREFERRED_EDITORS:
-        if shutil.which(binary_path) is not None:
-            return editor_command
-    return None
-
-
-def editor_open(filepath: str) -> Union[int, Literal["no-tty", "no-editor"]]:
-    if not (sys.stdin.isatty() and sys.stdout.isatty()):
-        return "no-tty"
-    if (editor_command := _get_editor_command()) is None:
-        return "no-editor"
-    command = [*shlex.split(editor_command), filepath]
-    res = subprocess.run(command, start_new_session=True)
-    return res.returncode

@@ -25,18 +25,23 @@ Usage:
 """
 
 import enum
+import functools
 import json
 import os
+import shlex
+import shutil
+import subprocess
+import sys
 import tempfile
-from typing import Annotated, Optional, get_args
+from typing import Annotated, Literal, Optional, Union, get_args
 
 import typer
 from packaging import version
 from typing_extensions import assert_never
 
+from huggingface_hub import constants
 from huggingface_hub._hot_reload.client import ReloadClient
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
-from huggingface_hub.cli import _cli_utils
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
@@ -222,7 +227,7 @@ def spaces_hot_reload(
         finally:
             if not pbar_disabled:
                 enable_progress_bars()
-        editor_res = _cli_utils.editor_open(filepath)
+        editor_res = _editor_open(filepath)
         if editor_res == "no-tty":
             raise CLIError("Cannot open an editor (no TTY). Use -f flag to hot-reload from local path")
         if editor_res == "no-editor":
@@ -334,3 +339,24 @@ def _spaces_hot_reloading_summary(
             display_event(event)
         if client_index > 0 and full_match:
             typer.echo("✔︎ Same as first replica")
+
+
+@functools.cache
+def _get_editor_command() -> Optional[str]:
+    for env in ("HF_EDITOR", "VISUAL", "EDITOR"):
+        if command := os.getenv(env, "").strip():
+            return command
+    for binary_path, editor_command in constants.PREFERRED_EDITORS:
+        if shutil.which(binary_path) is not None:
+            return editor_command
+    return None
+
+
+def _editor_open(filepath: str) -> Union[int, Literal["no-tty", "no-editor"]]:
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        return "no-tty"
+    if (editor_command := _get_editor_command()) is None:
+        return "no-editor"
+    command = [*shlex.split(editor_command), filepath]
+    res = subprocess.run(command, start_new_session=True)
+    return res.returncode
