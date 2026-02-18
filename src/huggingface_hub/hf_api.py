@@ -12153,6 +12153,8 @@ class HfApi:
             return connection_info.access_token, connection_info.expiration_unix_epoch
 
         # Create empty files for zero-size files (no need to download them)
+        # and filter them out from xet_download_infos to avoid passing to xet library
+        non_zero_download_infos = []
         for download_info in xet_download_infos:
             if download_info.file_size == 0:
                 dest_path = Path(download_info.destination_path)
@@ -12166,12 +12168,18 @@ class HfApi:
                     # doesn't exist => create it
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
                     dest_path.touch()
+            else:
+                non_zero_download_infos.append(download_info)
+
+        # If only zero-size files, nothing more to download
+        if len(non_zero_download_infos) == 0:
+            return
 
         # Download files
         progress_cm = _get_progress_bar_context(
             desc="Downloading bucket files",
             log_level=logger.getEffectiveLevel(),
-            total=sum(info.file_size for info in xet_download_infos),
+            total=sum(info.file_size for info in non_zero_download_infos),
             initial=0,
             name="huggingface_hub.download_bucket_files",
         )
@@ -12182,11 +12190,11 @@ class HfApi:
                 progress.update(progress_bytes)
 
             download_files(
-                xet_download_infos,
+                non_zero_download_infos,
                 endpoint=connection_info.endpoint,
                 token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
                 token_refresher=token_refresher,
-                progress_updater=[progress_updater] * len(xet_download_infos),
+                progress_updater=[progress_updater] * len(non_zero_download_infos),
             )
 
 
