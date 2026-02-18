@@ -2310,7 +2310,7 @@ $ hf spaces hot-reload [OPTIONS] SPACE_ID [FILENAME]
 
 * `-f, --local-file TEXT`: Path of local file. Interactive editor mode if not specified
 * `--skip-checks / --no-skip-checks`: Skip hot-reload compatibility checks.  [default: no-skip-checks]
-* `--skip-summary / --no-skip-summary`: Skip summary display after hot-reloaded triggered  [default: no-skip-summary]
+* `--skip-summary / --no-skip-summary`: Skip summary display after hot-reload is triggered  [default: no-skip-summary]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
