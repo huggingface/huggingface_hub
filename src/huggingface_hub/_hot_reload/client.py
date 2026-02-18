@@ -1,4 +1,5 @@
 import json
+from collections import deque
 from typing import Iterator, Literal, Optional, TypedDict, Union
 
 import httpx
@@ -73,17 +74,15 @@ def multi_replica_reload_events(
         if len(clients) > 1:
             yield {"kind": "replicaHash", "hash": client.replica_hash}
         full_match = True
-        replay: list[ApiGetReloadEventSourceData] = []
+        replay: deque[ApiGetReloadEventSourceData] = deque()
         for event_index, event in enumerate(client.get_reload(commit_sha)):
             if client_index == 0:
                 first_client_events[event_index] = event
             elif full_match := full_match and first_client_events.get(event_index) == event:
                 replay += [event]
                 continue
-            if replay:
-                for replay_event in replay:
-                    yield {"kind": "event", "event": replay_event}
-                replay = []
+            while replay:
+                yield {"kind": "event", "event": replay.popleft()}
             yield {"kind": "event", "event": event}
         if client_index > 0 and full_match:
             yield {"kind": "fullMatch"}
