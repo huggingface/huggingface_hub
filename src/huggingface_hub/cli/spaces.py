@@ -204,7 +204,7 @@ def spaces_hot_reload(
             raise CLIError(f"Hot-reloading requires Gradio >= {HOT_RELOADING_MIN_GRADIO} (found {sdk_version})")
 
     if local_file:
-        filepath = local_file
+        local_path = local_file
         filename = local_file if filename is None else filename
     elif filename:
         if not skip_checks:
@@ -214,7 +214,7 @@ def spaces_hot_reload(
                 write=True,
             )
         temp_dir = tempfile.TemporaryDirectory()
-        filepath = os.path.join(temp_dir.name, filename)
+        local_path = os.path.join(temp_dir.name, filename)
         if not (pbar_disabled := are_progress_bars_disabled()):
             disable_progress_bars()
         try:
@@ -227,20 +227,20 @@ def spaces_hot_reload(
         finally:
             if not pbar_disabled:
                 enable_progress_bars()
-        editor_res = _editor_open(filepath)
+        editor_res = _editor_open(local_path)
         if editor_res == "no-tty":
             raise CLIError("Cannot open an editor (no TTY). Use -f flag to hot-reload from local path")
         if editor_res == "no-editor":
             raise CLIError("No editor found in local environment. Use -f flag to hot-reload from local path")
         if editor_res != 0:
-            raise CLIError(f"Editor returned a non-zero exit code while attempting to edit {filepath}")
+            raise CLIError(f"Editor returned a non-zero exit code while attempting to edit {local_path}")
     else:
         raise CLIError("Either filename or --local-file/-f must be specified")
 
     commit_info = api.upload_file(
         repo_type="space",
         repo_id=space_id,
-        path_or_fileobj=filepath,
+        path_or_fileobj=local_path,
         path_in_repo=filename,
         _hot_reload=True,
     )
@@ -250,7 +250,7 @@ def spaces_hot_reload(
             api=api,
             space_id=space_id,
             commit_sha=commit_info.oid,
-            filepath=filepath if local_file else os.path.basename(filepath),
+            local_path=local_path if local_file else os.path.basename(local_path),
             token=token,
         )
 
@@ -259,7 +259,7 @@ def _spaces_hot_reload_summary(
     api: HfApi,
     space_id: str,
     commit_sha: str,
-    filepath: Optional[str],
+    local_path: Optional[str],
     token: Optional[str],
 ) -> None:
     space_info = api.space_info(space_id)
@@ -278,8 +278,8 @@ def _spaces_hot_reload_summary(
 
     def render_region(region: ReloadRegion) -> str:
         res = ""
-        if filepath is not None:
-            res += f"{filepath}, "
+        if local_path is not None:
+            res += f"{local_path}, "
         if region["startLine"] == region["endLine"]:
             res += f"line {region['startLine'] - 1}"
         else:
@@ -338,11 +338,11 @@ def _get_editor_command() -> Optional[str]:
     return None
 
 
-def _editor_open(filepath: str) -> Union[int, Literal["no-tty", "no-editor"]]:
+def _editor_open(local_path: str) -> Union[int, Literal["no-tty", "no-editor"]]:
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
         return "no-tty"
     if (editor_command := _get_editor_command()) is None:
         return "no-editor"
-    command = [*shlex.split(editor_command), filepath]
+    command = [*shlex.split(editor_command), local_path]
     res = subprocess.run(command, start_new_session=True)
     return res.returncode
