@@ -17,6 +17,7 @@ import errno
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 from dataclasses import asdict, dataclass
@@ -219,7 +220,12 @@ def _get_extensions_root() -> Path:
 
 
 def _get_extension_dir(short_name: str) -> Path:
-    return _get_extensions_root() / f"hf-{short_name}"
+    safe_name = _validate_extension_short_name(short_name, original_input=short_name)
+    root = _get_extensions_root().resolve()
+    target = (root / f"hf-{safe_name}").resolve()
+    if root not in target.parents:
+        raise CLIError(f"Invalid extension name '{short_name}'.")
+    return target
 
 
 def _get_executable_name(short_name: str) -> str:
@@ -231,6 +237,24 @@ def _get_executable_name(short_name: str) -> str:
 
 def _get_extension_executable_path(short_name: str) -> Path:
     return _get_extension_dir(short_name) / _get_executable_name(short_name)
+
+
+_ALLOWED_EXTENSION_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def _validate_extension_short_name(short_name: str, *, original_input: str) -> str:
+    name = short_name.strip()
+    if not name:
+        raise CLIError("Extension name cannot be empty.")
+    if any(sep in name for sep in ("/", "\\")):
+        raise CLIError(f"Invalid extension name '{original_input}'.")
+    if ".." in name or ":" in name:
+        raise CLIError(f"Invalid extension name '{original_input}'.")
+    if not _ALLOWED_EXTENSION_NAME.fullmatch(name):
+        raise CLIError(
+            f"Invalid extension name '{original_input}'. Allowed characters: letters, digits, '.', '_' and '-'."
+        )
+    return name
 
 
 def _normalize_repo_id(repo_id: str) -> tuple[str, str, str]:
@@ -252,6 +276,7 @@ def _normalize_repo_id(repo_id: str) -> tuple[str, str, str]:
     short_name = repo_name[3:]
     if not short_name:
         raise CLIError("Invalid extension repository name 'hf-'.")
+    _validate_extension_short_name(short_name, original_input=repo_id)
 
     return owner, repo_name, short_name
 
@@ -260,12 +285,8 @@ def _normalize_extension_name(name: str) -> str:
     candidate = name.strip()
     if not candidate:
         raise CLIError("Extension name cannot be empty.")
-    if "/" in candidate or "\\" in candidate:
-        raise CLIError(f"Invalid extension name '{name}'.")
     normalized = candidate[3:] if candidate.startswith("hf-") else candidate
-    if not normalized:
-        raise CLIError("Extension name cannot be empty.")
-    return normalized
+    return _validate_extension_short_name(normalized, original_input=name)
 
 
 def _execute_extension_binary(executable_path: Path, args: list[str]) -> int:
