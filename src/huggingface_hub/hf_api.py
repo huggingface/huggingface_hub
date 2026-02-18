@@ -10180,10 +10180,14 @@ class HfApi:
                 The type of the repository. Should be one of `"model"`, `"dataset"`, or `"space"`.
                 If not specified, the default is `"model"`.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+            write (`bool`, *optional*):
+                If `True`, checks whether the user has content write permission on the repository.
+                If `False` (default), only checks for read access.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:
