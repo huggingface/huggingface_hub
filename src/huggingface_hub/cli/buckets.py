@@ -1221,6 +1221,7 @@ def _execute_plan(plan: SyncPlan, api, verbose: bool = False, status: Optional[S
     if is_upload:
         local_path = os.path.abspath(plan.source)
         bucket_id, prefix = _parse_bucket_path(plan.dest)
+        prefix = prefix.rstrip("/")  # Avoid double slashes in remote paths
 
         # Collect operations
         add_files = []
@@ -1258,6 +1259,7 @@ def _execute_plan(plan: SyncPlan, api, verbose: bool = False, status: Optional[S
 
     elif is_download:
         bucket_id, prefix = _parse_bucket_path(plan.source)
+        prefix = prefix.rstrip("/")  # Avoid double slashes in remote paths
         local_path = os.path.abspath(plan.dest)
 
         # Ensure local directory exists

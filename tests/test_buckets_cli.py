@@ -775,6 +775,24 @@ def test_sync_upload_with_prefix(api: HfApi, bucket_write: str, tmp_path: Path):
     assert "subdir/f.txt" in _remote_files(api, bucket_write)
 
 
+def test_sync_upload_prefix_with_trailing_slash(api: HfApi, bucket_write: str, tmp_path: Path):
+    """Trailing slash in prefix should not cause double slashes in remote paths.
+
+    This is a regression test for a bug where paths like 'hf://buckets/user/bucket/sub/'
+    would result in remote paths like 'sub//file.txt' instead of 'sub/file.txt'.
+    """
+    data_dir = _make_local_dir(tmp_path, {"trailing.txt": "data"})
+
+    # Use trailing slash in destination path
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write}/sub/ --quiet")
+    assert result.exit_code == 0
+
+    # Verify file is at correct path (no double slashes)
+    remote = _remote_files(api, bucket_write)
+    assert "sub/trailing.txt" in remote
+    assert "sub//trailing.txt" not in remote
+
+
 def test_sync_upload_verbose(bucket_write: str, tmp_path: Path):
     """--verbose shows per-file operation lines."""
     data_dir = _make_local_dir(tmp_path, {"v.txt": "verbose"})
