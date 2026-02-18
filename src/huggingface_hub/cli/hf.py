@@ -86,9 +86,6 @@ app.add_typer(skills_cli, name="skills")
 app.add_typer(spaces_cli, name="spaces")
 app.add_typer(ie_cli, name="endpoints")
 app.add_typer(extensions_cli, name="extension")
-# TODO: We should probably not hide aliases and have a "Alias" section in --help
-app.add_typer(extensions_cli, name="ext", hidden=True)
-app.add_typer(extensions_cli, name="extensions", hidden=True)
 
 
 def _get_top_level_command_names() -> set[str]:
