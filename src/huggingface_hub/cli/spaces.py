@@ -165,7 +165,7 @@ def spaces_hot_reload(
         ),
     ] = None,
     skip_checks: Annotated[bool, typer.Option(help="Skip hot-reload compatibility checks.")] = False,
-    skip_summary: Annotated[bool, typer.Option(help="Skip summary display after hot-reloaded triggered")] = False,
+    skip_summary: Annotated[bool, typer.Option(help="Skip summary display after hot-reload is triggered")] = False,
     token: TokenOpt = None,
 ) -> None:
     """
