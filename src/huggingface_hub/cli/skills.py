@@ -69,7 +69,6 @@ _SKILL_TIPS = """
 - Use `--format json` for machine-readable output on list commands
 - Use `-q` / `--quiet` to print only IDs
 - Authenticate with `HF_TOKEN` env var (recommended) or with `--token`
-- Use `--repo-type dataset` or `--repo-type space` for non-model repos
 """
 
 CENTRAL_LOCAL = Path(".agents/skills")
