@@ -30,7 +30,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `download`: Download files from the Hub.
 * `endpoints`: Manage Hugging Face Inference Endpoints.
 * `env`: Print information about the environment.
-* `extension`: Manage hf CLI extensions.
+* `extensions`: Manage hf CLI extensions.
 * `jobs`: Run and manage Jobs on the Hub.
 * `lfs-enable-largefiles`: Configure your repository to enable upload...
 * `lfs-multipart-upload`: Internal git-lfs custom transfer agent for...
@@ -1098,14 +1098,14 @@ $ hf env [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-## `hf extension`
+## `hf extensions`
 
 Manage hf CLI extensions.
 
 **Usage**:
 
 ```console
-$ hf extension [OPTIONS] COMMAND [ARGS]...
+$ hf extensions [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -1117,18 +1117,16 @@ $ hf extension [OPTIONS] COMMAND [ARGS]...
 * `exec`: Execute an installed extension.
 * `install`: Install an extension from a public GitHub...
 * `list`: List installed extension commands.
-* `ls`: List installed extension commands.
 * `remove`: Remove an installed extension.
-* `rm`: Remove an installed extension.
 
-### `hf extension exec`
+### `hf extensions exec`
 
 Execute an installed extension.
 
 **Usage**:
 
 ```console
-$ hf extension exec [OPTIONS] NAME
+$ hf extensions exec [OPTIONS] NAME
 ```
 
 **Arguments**:
@@ -1140,22 +1138,22 @@ $ hf extension exec [OPTIONS] NAME
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf extension exec claude -- --help
-  $ hf extension exec claude --model zai-org/GLM-5
+  $ hf extensions exec claude -- --help
+  $ hf extensions exec claude --model zai-org/GLM-5
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extension install`
+### `hf extensions install`
 
 Install an extension from a public GitHub repository.
 
 **Usage**:
 
 ```console
-$ hf extension install [OPTIONS] REPO_ID
+$ hf extensions install [OPTIONS] REPO_ID
 ```
 
 **Arguments**:
@@ -1168,22 +1166,22 @@ $ hf extension install [OPTIONS] REPO_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf extension install hf-claude
-  $ hf extension install hanouticelina/hf-claude
+  $ hf extensions install hf-claude
+  $ hf extensions install hanouticelina/hf-claude
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extension list`
+### `hf extensions list`
 
 List installed extension commands.
 
 **Usage**:
 
 ```console
-$ hf extension list [OPTIONS]
+$ hf extensions list [OPTIONS]
 ```
 
 **Options**:
@@ -1191,35 +1189,21 @@ $ hf extension list [OPTIONS]
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf extension list
+  $ hf extensions list
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extension ls`
-
-List installed extension commands.
-
-**Usage**:
-
-```console
-$ hf extension ls [OPTIONS]
-```
-
-**Options**:
-
-* `--help`: Show this message and exit.
-
-### `hf extension remove`
+### `hf extensions remove`
 
 Remove an installed extension.
 
 **Usage**:
 
 ```console
-$ hf extension remove [OPTIONS] NAME
+$ hf extensions remove [OPTIONS] NAME
 ```
 
 **Arguments**:
@@ -1231,30 +1215,12 @@ $ hf extension remove [OPTIONS] NAME
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf extension remove claude
+  $ hf extensions remove claude
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
-
-### `hf extension rm`
-
-Remove an installed extension.
-
-**Usage**:
-
-```console
-$ hf extension rm [OPTIONS] NAME
-```
-
-**Arguments**:
-
-* `NAME`: Extension name to remove (with or without `hf-` prefix).  [required]
-
-**Options**:
-
-* `--help`: Show this message and exit.
 
 ## `hf jobs`
 

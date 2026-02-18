@@ -16,6 +16,7 @@
 import errno
 import json
 import os
+import platform
 import shutil
 import subprocess
 from dataclasses import asdict, dataclass
@@ -54,8 +55,8 @@ class ExtensionManifest:
 @extensions_cli.command(
     "install",
     examples=[
-        "hf extension install hf-claude",
-        "hf extension install hanouticelina/hf-claude",
+        "hf extensions install hf-claude",
+        "hf extensions install hanouticelina/hf-claude",
     ],
 )
 def extension_install(
@@ -81,7 +82,7 @@ def extension_install(
             raise CLIError(f"Extension '{short_name}' is already installed. Use --force to overwrite.")
         shutil.rmtree(extension_dir)
 
-    executable_name = f"hf-{short_name}"
+    executable_name = _get_executable_name(short_name)
     raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/main/{executable_name}"
     try:
         response = get_session().get(raw_url, follow_redirects=True)
@@ -92,7 +93,8 @@ def extension_install(
     with TemporaryDirectory() as tmp_dir:
         tmp_executable = Path(tmp_dir) / executable_name
         tmp_executable.write_bytes(response.content)
-        os.chmod(tmp_executable, 0o755)
+        if platform.system() != "Windows":
+            os.chmod(tmp_executable, 0o755)
 
         manifest = ExtensionManifest(
             owner=owner,
@@ -113,15 +115,15 @@ def extension_install(
 
     print(f"Installed extension '{owner}/{repo_name}'.")
     print(f"Run it with: hf {short_name}")
-    print(f"Or with: hf extension exec {short_name}")
+    print(f"Or with: hf extensions exec {short_name}")
 
 
 @extensions_cli.command(
     "exec",
     context_settings={"allow_extra_args": True, "allow_interspersed_args": False, "ignore_unknown_options": True},
     examples=[
-        "hf extension exec claude -- --help",
-        "hf extension exec claude --model zai-org/GLM-5",
+        "hf extensions exec claude -- --help",
+        "hf extensions exec claude --model zai-org/GLM-5",
     ],
 )
 def extension_exec(
@@ -142,8 +144,7 @@ def extension_exec(
     raise typer.Exit(code=exit_code)
 
 
-@extensions_cli.command("list", examples=["hf extension list"])
-@extensions_cli.command("ls", hidden=True)
+@extensions_cli.command("list", examples=["hf extensions list"])
 def extension_list() -> None:
     """List installed extension commands."""
     root_dir = _get_extensions_root()
@@ -175,8 +176,7 @@ def extension_list() -> None:
     print(tabulate(rows, headers=["COMMAND", "REPOSITORY", "INSTALLED_AT"]))  # type: ignore[arg-type]
 
 
-@extensions_cli.command("remove", examples=["hf extension remove claude"])
-@extensions_cli.command("rm", hidden=True)
+@extensions_cli.command("remove", examples=["hf extensions remove claude"])
 def extension_remove(
     name: Annotated[
         str,
@@ -204,7 +204,8 @@ def _persist_installed_extension(extension_dir: Path, source_executable: Path, m
     try:
         extension_dir.mkdir(parents=True, exist_ok=False)
         shutil.copy2(source_executable, executable_path)
-        os.chmod(executable_path, 0o755)
+        if platform.system() != "Windows":
+            os.chmod(executable_path, 0o755)
         manifest_path.write_text(json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n", encoding="utf-8")
     except Exception:
         shutil.rmtree(extension_dir, ignore_errors=True)
@@ -221,8 +222,15 @@ def _get_extension_dir(short_name: str) -> Path:
     return _get_extensions_root() / f"hf-{short_name}"
 
 
+def _get_executable_name(short_name: str) -> str:
+    name = f"hf-{short_name}"
+    if platform.system() == "Windows":
+        name += ".exe"
+    return name
+
+
 def _get_extension_executable_path(short_name: str) -> Path:
-    return _get_extension_dir(short_name) / f"hf-{short_name}"
+    return _get_extension_dir(short_name) / _get_executable_name(short_name)
 
 
 def _normalize_repo_id(repo_id: str) -> tuple[str, str, str]:
@@ -264,6 +272,6 @@ def _execute_extension_binary(executable_path: Path, args: list[str]) -> int:
     try:
         return subprocess.call([str(executable_path)] + args)
     except OSError as e:
-        if e.errno != errno.ENOEXEC:
+        if platform.system() == "Windows" or e.errno != errno.ENOEXEC:
             raise
         return subprocess.call(["sh", str(executable_path)] + args)

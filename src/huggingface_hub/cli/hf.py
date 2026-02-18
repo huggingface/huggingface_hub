@@ -85,7 +85,7 @@ app.add_typer(repo_files_cli, name="repo-files")
 app.add_typer(skills_cli, name="skills")
 app.add_typer(spaces_cli, name="spaces")
 app.add_typer(ie_cli, name="endpoints")
-app.add_typer(extensions_cli, name="extension")
+app.add_typer(extensions_cli, name="extensions")
 
 
 def _get_top_level_command_names() -> set[str]:
