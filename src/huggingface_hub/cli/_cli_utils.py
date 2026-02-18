@@ -87,22 +87,51 @@ def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatte
             formatter.write_text(line)
 
 
+_ALIAS_SPLIT = re.compile(r"\s*\|\s*")
+
+
 class HFCliTyperGroup(typer.core.TyperGroup):
     """
     Typer Group that:
     - lists commands alphabetically within sections.
     - separates commands by topic (main, help, etc.).
     - formats epilog without extra indentation.
+    - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
     """
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
+        # Try exact match first
+        cmd = super().get_command(ctx, cmd_name)
+        if cmd is not None:
+            return cmd
+        # Fall back to alias lookup: check if cmd_name matches any alias
+        for registered_name, registered_cmd in self.commands.items():
+            aliases = _ALIAS_SPLIT.split(registered_name)
+            if cmd_name in aliases:
+                return registered_cmd
+        return None
+
+    def _alias_map(self) -> dict[str, list[str]]:
+        """Build a mapping from primary command name to its aliases (if any)."""
+        result: dict[str, list[str]] = {}
+        for registered_name in self.commands:
+            parts = _ALIAS_SPLIT.split(registered_name)
+            primary = parts[0]
+            result[primary] = parts[1:]
+        return result
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         topics: dict[str, list] = {}
+        alias_map = self._alias_map()
 
         for name in self.list_commands(ctx):
             cmd = self.get_command(ctx, name)
             if cmd is None or cmd.hidden:
                 continue
             help_text = cmd.get_short_help_str(limit=formatter.width)
+            aliases = alias_map.get(name, [])
+            if aliases:
+                help_text = f"(alias: {', '.join(aliases)}) {help_text}"
             topic = getattr(cmd, "topic", "main")
             topics.setdefault(topic, []).append((name, help_text))
 
@@ -131,8 +160,12 @@ class HFCliTyperGroup(typer.core.TyperGroup):
             _format_epilog_no_indent(self.epilog, ctx, formatter)
 
     def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
-        # click.Group stores both commands and subgroups in `self.commands`
-        return sorted(self.commands.keys())
+        # For aliased commands ("list | ls"), use the primary name (first entry).
+        primary_names: list[str] = []
+        for name in self.commands:
+            primary = _ALIAS_SPLIT.split(name)[0]
+            primary_names.append(primary)
+        return sorted(primary_names)
 
 
 def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[typer.core.TyperCommand]:

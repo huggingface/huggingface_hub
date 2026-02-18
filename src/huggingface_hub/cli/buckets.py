@@ -297,7 +297,7 @@ def _is_bucket_id(argument: str) -> bool:
 
 
 @buckets_cli.command(
-    name="list",
+    name="list | ls",
     examples=[
         "hf buckets list",
         "hf buckets list huggingface",
@@ -481,9 +481,6 @@ def _list_files(
 
     if not recursive and has_directories:
         StatusLine().done("Use -R to list files recursively.")
-
-
-buckets_cli.command(name="ls", hidden=True)(list_cmd)
 
 
 @buckets_cli.command(

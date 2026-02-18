@@ -206,8 +206,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
-* `list`: List buckets or files in a bucket.
-* `ls`: List buckets or files in a bucket.
+* `list | ls`: List buckets or files in a bucket.
 * `sync`: Sync files between local directory and a...
 
 ### `hf buckets cp`
@@ -342,7 +341,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf buckets list`
+### `hf buckets list | ls`
 
 List buckets or files in a bucket.
 
@@ -352,7 +351,7 @@ When called with a bucket ID (namespace/bucket_name), lists files in the bucket.
 **Usage**:
 
 ```console
-$ hf buckets list [OPTIONS] [ARGUMENT]
+$ hf buckets list | ls [OPTIONS] [ARGUMENT]
 ```
 
 **Arguments**:
@@ -384,33 +383,6 @@ Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
-
-### `hf buckets ls`
-
-List buckets or files in a bucket.
-
-When called with no argument or a namespace, lists buckets.
-When called with a bucket ID (namespace/bucket_name), lists files in the bucket.
-
-**Usage**:
-
-```console
-$ hf buckets ls [OPTIONS] [ARGUMENT]
-```
-
-**Arguments**:
-
-* `[ARGUMENT]`: Namespace (user or org) to list buckets, or bucket ID (namespace/bucket_name(/prefix) or hf://buckets/...) to list files.
-
-**Options**:
-
-* `-h, --human-readable`: Show sizes in human readable format.
-* `--tree`: List files in tree format (only for listing files).
-* `-R, --recursive`: List files recursively (only for listing files).
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
 
 ### `hf buckets sync`
 
