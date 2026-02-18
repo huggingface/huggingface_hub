@@ -26,7 +26,7 @@ from typing import Annotated, Any, Iterator, Literal, Optional, Union
 import typer
 
 from huggingface_hub import HfApi, logging
-from huggingface_hub.errors import RepositoryNotFoundError
+from huggingface_hub.errors import BucketNotFoundError
 from huggingface_hub.hf_api import BucketDirectory, BucketFile
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
@@ -820,7 +820,7 @@ def _compute_sync_plan(
                 if status:
                     total_str = f"/{remote_total}" if remote_total is not None else ""
                     status.update(f"Scanning remote bucket ({len(remote_files)}{total_str} files)")
-        except RepositoryNotFoundError:
+        except BucketNotFoundError:
             # Bucket doesn't exist yet - this is expected for new uploads
             logger.debug(f"Bucket '{bucket_id}' not found, treating as empty.")
         if status:
