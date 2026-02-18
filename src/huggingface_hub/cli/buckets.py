@@ -1648,6 +1648,8 @@ def cp(
     if src_is_bucket:
         # Download: remote -> local or stdout
         bucket_id, prefix = _parse_bucket_path(src)
+        if prefix == "" or prefix.endswith("/"):
+            raise typer.BadParameter("Source path must include a file name, not just a bucket or directory path.")
         filename = prefix.rsplit("/", 1)[-1]
 
         if dst_is_stdout:
