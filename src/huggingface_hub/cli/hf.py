@@ -16,10 +16,11 @@ import sys
 import traceback
 from typing import Annotated, Optional
 
+import click
 import typer
 
 from huggingface_hub import __version__, constants
-from huggingface_hub.cli._cli_utils import check_cli_update, typer_factory
+from huggingface_hub.cli._cli_utils import HFCliTyperGroup, check_cli_update, typer_factory
 from huggingface_hub.cli._errors import format_known_exception
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.cache import cache_cli
@@ -43,7 +44,37 @@ from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import ANSI, logging
 
 
-app = typer_factory(help="Hugging Face Hub CLI")
+class ExtensionAwareTyperGroup(HFCliTyperGroup):
+    """TyperGroup that dispatches unknown commands to installed extensions."""
+
+    def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
+        extension_exit_code = self._maybe_dispatch_extension(args)
+        if extension_exit_code is not None:
+            raise SystemExit(extension_exit_code)
+        return super().resolve_command(ctx, args)
+
+    def _maybe_dispatch_extension(self, args: list[str]) -> Optional[int]:
+        if not args:
+            return None
+
+        command_name = args[0]
+        if command_name.startswith("-"):
+            return None
+        if command_name in self.commands:
+            return None
+
+        short_name = command_name[3:] if command_name.startswith("hf-") else command_name
+        if not short_name:
+            return None
+
+        executable_path = _get_extension_executable_path(short_name)
+        if not executable_path.is_file():
+            return None
+
+        return _execute_extension_binary(executable_path=executable_path, args=list(args[1:]))
+
+
+app = typer_factory(help="Hugging Face Hub CLI", cls=ExtensionAwareTyperGroup)
 
 
 def _version_callback(value: bool) -> None:
@@ -88,41 +119,12 @@ app.add_typer(ie_cli, name="endpoints")
 app.add_typer(extensions_cli, name="extensions")
 
 
-def _get_top_level_command_names() -> set[str]:
-    click_app = typer.main.get_command(app)
-    return set(click_app.commands.keys())  # type: ignore[attr-defined]
-
-
-def _dispatch_installed_extension(argv: list[str]) -> Optional[int]:
-    if not argv:
-        return None
-
-    command_name = argv[0]
-    if command_name.startswith("-"):
-        return None
-    if command_name in _get_top_level_command_names():
-        return None
-
-    short_name = command_name[3:] if command_name.startswith("hf-") else command_name
-    if not short_name:
-        return None
-
-    executable_path = _get_extension_executable_path(short_name)
-    if not executable_path.is_file():
-        return None
-
-    return _execute_extension_binary(executable_path=executable_path, args=argv[1:])
-
-
 def main():
     if not constants.HF_DEBUG:
         logging.set_verbosity_info()
     check_cli_update("huggingface_hub")
 
     try:
-        extension_exit_code = _dispatch_installed_extension(sys.argv[1:])
-        if extension_exit_code is not None:
-            sys.exit(extension_exit_code)
         app()
     except CLIError as e:
         print(f"Error: {e}", file=sys.stderr)
