@@ -39,7 +39,6 @@ import typer
 from packaging import version
 from typing_extensions import assert_never
 
-from huggingface_hub import constants
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
@@ -327,12 +326,21 @@ def _spaces_hot_reload_summary(
             assert_never(replica_stream_event)
 
 
+PREFERRED_EDITORS = (
+    ("code", "code --wait"),
+    ("nvim", "nvim"),
+    ("nano", "nano"),
+    ("vim", "vim"),
+    ("vi", "vi"),
+)
+
+
 @functools.cache
 def _get_editor_command() -> Optional[str]:
     for env in ("HF_EDITOR", "VISUAL", "EDITOR"):
         if command := os.getenv(env, "").strip():
             return command
-    for binary_path, editor_command in constants.PREFERRED_EDITORS:
+    for binary_path, editor_command in PREFERRED_EDITORS:
         if shutil.which(binary_path) is not None:
             return editor_command
     return None
