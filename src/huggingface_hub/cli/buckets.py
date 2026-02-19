@@ -897,12 +897,15 @@ def _compute_sync_plan(
                             )
                         )
                     else:
+                        # Determine accurate skip reason: is remote actually newer or are they the same?
+                        remote_newer = (remote_mtime - local_mtime) > 1000
+                        skip_reason = "remote newer" if remote_newer else "same mtime"
                         plan.operations.append(
                             SyncOperation(
                                 action="skip",
                                 path=path,
                                 size=local_size,
-                                reason="same mtime",
+                                reason=skip_reason,
                                 local_mtime=_mtime_to_iso(local_mtime),
                                 remote_mtime=_mtime_to_iso(remote_mtime),
                             )
@@ -1069,12 +1072,15 @@ def _compute_sync_plan(
                             )
                         )
                     else:
+                        # Determine accurate skip reason: is local actually newer or are they the same?
+                        local_newer = (local_mtime - remote_mtime) > 1000
+                        skip_reason = "local newer" if local_newer else "same mtime"
                         plan.operations.append(
                             SyncOperation(
                                 action="skip",
                                 path=path,
                                 size=remote_size,
-                                reason="same mtime",
+                                reason=skip_reason,
                                 local_mtime=_mtime_to_iso(local_mtime),
                                 remote_mtime=_mtime_to_iso(remote_mtime),
                             )
