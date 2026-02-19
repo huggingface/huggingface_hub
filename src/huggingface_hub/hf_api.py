@@ -10226,7 +10226,8 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/auth-check"
-        path = f"{path}/write" if write else path
+        if write:
+            path = f"{path}/write"
         r = get_session().get(path, headers=headers)
         hf_raise_for_status(r)
 
