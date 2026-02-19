@@ -36,7 +36,12 @@ from ._cli_utils import typer_factory
 DEFAULT_EXTENSION_OWNER = "huggingface"
 EXTENSIONS_ROOT = Path("~/.local/share/hf/extensions")
 MANIFEST_FILENAME = "manifest.json"
-extensions_cli = typer_factory(help="Manage hf CLI extensions.")
+EXTENSIONS_HELP = (
+    "Manage hf CLI extensions.\n\n"
+    "Security Warning: extensions are third-party executables. "
+    "Install only from sources you trust."
+)
+extensions_cli = typer_factory(help=EXTENSIONS_HELP)
 
 
 @dataclass
@@ -67,7 +72,10 @@ def extension_install(
     ],
     force: Annotated[bool, typer.Option("--force", help="Overwrite if already installed.")] = False,
 ) -> None:
-    """Install an extension from a public GitHub repository."""
+    """Install an extension from a public GitHub repository.
+
+    Security warning: this installs a third-party executable. Install only from sources you trust.
+    """
     owner, repo_name, short_name = _normalize_repo_id(repo_id)
     root_ctx = ctx.find_root()
     reserved_commands = set(getattr(root_ctx.command, "commands", {}).keys())

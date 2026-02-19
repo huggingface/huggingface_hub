@@ -1102,6 +1102,8 @@ $ hf env [OPTIONS]
 
 Manage hf CLI extensions.
 
+Security Warning: extensions are third-party executables. Install only from sources you trust.
+
 **Usage**:
 
 ```console
@@ -1149,6 +1151,8 @@ Learn more
 ### `hf extensions install`
 
 Install an extension from a public GitHub repository.
+
+Security warning: this installs a third-party executable. Install only from sources you trust.
 
 **Usage**:
 
