@@ -765,7 +765,7 @@ def _mtime_to_iso(mtime_ms: float) -> str:
 def _compare_files_for_sync(
     *,
     path: str,
-    action: str,
+    action: Literal["upload", "download"],
     source_size: int,
     source_mtime: float,
     dest_size: int,
