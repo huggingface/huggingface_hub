@@ -7899,6 +7899,7 @@ class HfApi:
         repo_id: str,
         *,
         name: Optional[str] = None,
+        accelerator: Union[Literal["cpu", "gpu", "neuron"], str, None] = None,
         token: Union[bool, str, None] = None,
         namespace: Optional[str] = None,
     ) -> InferenceEndpoint:
@@ -7913,6 +7914,9 @@ class HfApi:
                 The ID of the model in the catalog to deploy as an Inference Endpoint.
             name (`str`, *optional*):
                 The unique name for the new Inference Endpoint. If not provided, a random name will be generated.
+            accelerator (`str`, *optional*):
+                The hardware accelerator to be used for inference. Possible values include `"cpu"`, `"gpu"`, and
+                `"neuron"`. If not provided, the server will use a default appropriate for the model.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -7934,6 +7938,8 @@ class HfApi:
         }
         if name is not None:
             payload["endpointName"] = name
+        if accelerator is not None:
+            payload["accelerator"] = accelerator
 
         response = get_session().post(
             f"{constants.INFERENCE_CATALOG_ENDPOINT}/deploy",

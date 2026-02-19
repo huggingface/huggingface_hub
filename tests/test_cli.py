@@ -1502,6 +1502,7 @@ class TestInferenceEndpointsCommands:
         api.create_inference_endpoint_from_catalog.assert_called_once_with(
             repo_id="catalog/model",
             name=None,
+            accelerator=None,
             namespace=None,
             token=None,
         )
