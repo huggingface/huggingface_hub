@@ -4467,9 +4467,9 @@ class HfApi:
 
         params: dict[str, Any] = {}
         if create_pr:
-            params |= {"create_pr": 1}
+            params["create_pr"] = "1"
         if _hot_reload:
-            params |= {"hot_reload": 1}
+            params["hot_reload"] = "1"
 
         try:
             commit_resp = get_session().post(url=commit_url, headers=headers, content=data, params=params)
