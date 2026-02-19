@@ -1,3 +1,4 @@
+import collections.abc
 import inspect
 import sys
 import types
@@ -571,6 +572,24 @@ def _validate_set(name: str, value: Any, args: tuple[Any, ...]) -> None:
             raise TypeError(f"Invalid item in set '{name}'") from e
 
 
+def _validate_sequence(name: str, value: Any, args: tuple[Any, ...]) -> None:
+    """Validate Sequence or Sequence[T] type."""
+    if not isinstance(value, collections.abc.Sequence):
+        raise TypeError(f"Field '{name}' expected a Sequence, got {type(value).__name__}")
+
+    # If no type argument is provided (i.e., just `Sequence`), skip item validation
+    if not args:
+        return
+
+    # Validate each item in the sequence
+    item_type = args[0]
+    for i, item in enumerate(value):
+        try:
+            type_validator(f"{name}[{i}]", item, item_type)
+        except TypeError as e:
+            raise TypeError(f"Invalid item at index {i} in sequence '{name}'") from e
+
+
 def _validate_simple_type(name: str, value: Any, expected_type: type) -> None:
     """Validate simple type (int, str, etc.)."""
     if not isinstance(value, expected_type):
@@ -628,6 +647,7 @@ _BASIC_TYPE_VALIDATORS = {
     dict: _validate_dict,
     tuple: _validate_tuple,
     set: _validate_set,
+    collections.abc.Sequence: _validate_sequence,
 }
 
 if sys.version_info >= (3, 10):
