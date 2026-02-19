@@ -717,6 +717,7 @@ Examples
   $ hf download meta-llama/Llama-3.2-1B-Instruct config.json tokenizer.json
   $ hf download meta-llama/Llama-3.2-1B-Instruct --include "*.safetensors" --exclude "*.bin"
   $ hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama
+  $ hf download HuggingFaceM4/FineVision art/ --repo-type dataset
 
 Learn more
   Use `hf <command> --help` for more information about a command.
