@@ -226,6 +226,11 @@ def test_custom_validator_must_be_callable():
         ("abc", Sequence[str]),  # str is a Sequence of str
         ([1, 2, "3"], Sequence[Union[int, str]]),
         ((1, 2, "3"), Sequence[Union[int, str]]),
+        # Sequence without type parameter (accepts any sequence)
+        ([1, 2, 3], Sequence),
+        ((1, 2, "3"), Sequence),
+        ("abc", Sequence),
+        ([], Sequence),
         # Custom classes
         (DummyClass(), DummyClass),
         # Any
@@ -293,6 +298,9 @@ def test_type_validator_valid(value, type_annotation):
         ({1, 2, 3}, Sequence[int]),  # set is not a sequence
         ([1, 2, "3"], Sequence[int]),  # wrong item type
         ((1, 2, "3"), Sequence[int]),  # wrong item type in tuple
+        # Sequence without type parameter
+        (5, Sequence),  # not a sequence
+        ({1, 2, 3}, Sequence),  # set is not a sequence
         # Custom classes
         (5, DummyClass),
         ("John", DummyClass),
