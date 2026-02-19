@@ -43,11 +43,10 @@ from .utils._http import (
     _DEFAULT_RETRY_ON_EXCEPTIONS,
     _DEFAULT_RETRY_ON_STATUS_CODES,
     _adjust_range_header,
-    http_backoff,
+    _httpx_follow_relative_redirects_with_backoff,
     http_stream_backoff,
 )
 from .utils._runtime import is_xet_available
-from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
 
@@ -271,55 +270,6 @@ def hf_hub_url(
     if endpoint is not None and url.startswith(constants.ENDPOINT):
         url = endpoint + url[len(constants.ENDPOINT) :]
     return url
-
-
-def _httpx_follow_relative_redirects(
-    method: HTTP_METHOD_T, url: str, *, retry_on_errors: bool = False, **httpx_kwargs
-) -> httpx.Response:
-    """Perform an HTTP request with backoff and follow relative redirects only.
-
-    This is useful to follow a redirection to a renamed repository without following redirection to a CDN.
-
-    A backoff mechanism retries the HTTP call on errors (429, 5xx, timeout, network errors).
-
-    Args:
-        method (`str`):
-            HTTP method, such as 'GET' or 'HEAD'.
-        url (`str`):
-            The URL of the resource to fetch.
-        retry_on_errors (`bool`, *optional*, defaults to `False`):
-            Whether to retry on errors. If False, no retry is performed (fast fallback to local cache).
-            If True, uses default retry behavior (429, 5xx, timeout, network errors).
-        **httpx_kwargs (`dict`, *optional*):
-            Params to pass to `httpx.request`.
-    """
-    # if `retry_on_errors=False`, disable all retries for fast fallback to cache
-    no_retry_kwargs: dict[str, Any] = (
-        {} if retry_on_errors else {"retry_on_exceptions": (), "retry_on_status_codes": ()}
-    )
-
-    while True:
-        response = http_backoff(
-            method=method,
-            url=url,
-            **httpx_kwargs,
-            follow_redirects=False,
-            **no_retry_kwargs,
-        )
-        hf_raise_for_status(response)
-
-        # Check if response is a relative redirect
-        if 300 <= response.status_code <= 399:
-            parsed_target = urlparse(response.headers["Location"])
-            if parsed_target.netloc == "":
-                # Relative redirect -> update URL and retry
-                url = urlparse(url)._replace(path=parsed_target.path).geturl()
-                continue
-
-        # Break if no relative redirect
-        break
-
-    return response
 
 
 def _get_file_length_from_http_response(response: httpx.Response) -> Optional[int]:
@@ -1619,7 +1569,7 @@ def get_hf_file_metadata(
     hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
-    response = _httpx_follow_relative_redirects(
+    response = _httpx_follow_relative_redirects_with_backoff(
         method="HEAD", url=url, headers=hf_headers, timeout=timeout, retry_on_errors=retry_on_errors
     )
     hf_raise_for_status(response)

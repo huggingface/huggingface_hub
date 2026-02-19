@@ -110,6 +110,7 @@ from .utils import (
     get_session,
     get_token,
     hf_raise_for_status,
+    http_backoff,
     logging,
     paginate,
     parse_datetime,
@@ -120,6 +121,7 @@ from .utils import (
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments
+from .utils._http import _httpx_follow_relative_redirects_with_backoff
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -1977,6 +1979,24 @@ class BucketFile:
         self.xet_hash = kwargs.pop("xetHash")
         mtime = kwargs.pop("mtime", None)
         self.mtime = parse_datetime(mtime) if mtime else None
+
+
+@dataclass
+class BucketDirectory:
+    """
+    Contains information about a directory in a bucket on the Hub. This object is returned by [`list_bucket_tree`].
+
+    Similar to [`RepoFolder`] but for directories in buckets.
+    """
+
+    type: Literal["directory"]
+    path: str
+    uploaded_at: datetime
+
+    def __init__(self, **kwargs):
+        self.type = kwargs.pop("type")
+        self.path = kwargs.pop("path")
+        self.uploaded_at = parse_datetime(kwargs.pop("uploadedAt"))
 
 
 @dataclass
@@ -4805,7 +4825,7 @@ class HfApi:
             # If `create_pr`, we don't want to check user permission on the revision as users with read permission
             # should still be able to create PRs even if they don't have write permission on the target branch of the
             # PR (i.e. `revision`).
-            "revision": revision if not create_pr else None,
+            "revision": revision or constants.DEFAULT_REVISION if not create_pr else constants.DEFAULT_REVISION,
         }
         _upload_files(**upload_kwargs, num_threads=num_threads, create_pr=create_pr)  # type: ignore [arg-type]
         for addition in new_lfs_additions_to_upload:
@@ -5798,6 +5818,46 @@ class HfApi:
             tqdm_class=tqdm_class,
             dry_run=dry_run,
         )
+
+    @overload
+    def snapshot_download(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+        force_download: bool = False,
+        token: Union[bool, str, None] = None,
+        local_files_only: bool = False,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+        max_workers: int = 8,
+        tqdm_class: Optional[type[base_tqdm]] = None,
+        dry_run: Literal[False] = False,
+    ) -> str: ...
+
+    @overload
+    def snapshot_download(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+        force_download: bool = False,
+        token: Union[bool, str, None] = None,
+        local_files_only: bool = False,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+        max_workers: int = 8,
+        tqdm_class: Optional[type[base_tqdm]] = None,
+        dry_run: Literal[True],
+    ) -> list[DryRunFileInfo]: ...
 
     @validate_hf_hub_args
     def snapshot_download(
@@ -10479,11 +10539,7 @@ class HfApi:
             except KeyboardInterrupt:
                 break
             except (httpx.HTTPError, httpcore.TimeoutException) as err:
-                is_no_new_line_timeout = (
-                    isinstance(err, httpx.NetworkError)
-                    and err.__context__
-                    and isinstance(getattr(err.__context__, "__cause__", None), TimeoutError)
-                )
+                is_no_new_line_timeout = isinstance(err, (httpx.ReadTimeout, httpcore.ReadTimeout))
                 if is_no_new_line_timeout:
                     if not follow:
                         break  # no-follow mode: got all buffered events
@@ -11433,14 +11489,18 @@ class HfApi:
 
         Example:
             ```python
-            >>> from huggingface_hub import HfApi
-            >>> api = HfApi()
+            >>> from huggingface_hub import create_bucket
 
-            >>> api.create_bucket(bucket_id="my-bucket")
-            RepoUrl('https://huggingface.co/...')
+            >>> url = create_bucket(bucket_id="my-bucket")
+            >>> url.bucket_id
+            'user/my-bucket'
+            >>> url.url
+            'https://huggingface.co/user/my-bucket'
+            >>> url.handle
+            'hf://buckets/user/my-bucket'
 
-            >>> api.create_bucket(bucket_id="my-bucket", private=True, exist_ok=True)
-            RepoUrl('https://huggingface.co/...')
+            >>> create_bucket(bucket_id="my-bucket", private=True, exist_ok=True)
+            BucketUrl(...)
             ```
         """
         payload: dict[str, Any] = {}
@@ -11500,19 +11560,24 @@ class HfApi:
         Returns:
             [`BucketInfo`]: The bucket information.
 
-        > [!TIP]
-        > Raises the following errors:
-        >
-        >     - [`~utils.RepositoryNotFoundError`]
-        >       If the bucket cannot be found. This may be because it doesn't exist,
-        >       or because it is set to `private` and you do not have access.
+        Raises:
+            [`~errors.BucketNotFoundError`]: If the bucket cannot be found. This may be because it doesn't exist,
+            or because it is set to `private` and you do not have access.
 
         Example:
             ```python
-            >>> from huggingface_hub import HfApi
-            >>> api = HfApi()
-            >>> api.bucket_info(bucket_id="username/my-bucket")
-            BucketInfo(...)
+            >>> from huggingface_hub import bucket_info
+            >>> info = bucket_info(bucket_id="Wauplin/first-bucket")
+            >>> info.id
+            'Wauplin/first-bucket'
+            >>> info.private
+            False
+            >>> info.created_at
+            datetime.datetime(2026, 2, 6, 17, 37, 57, tzinfo=datetime.timezone.utc)
+            >>> info.size
+            551879671
+            >>> info.total_files
+            12
             ```
         """
         response = get_session().get(
@@ -11545,12 +11610,11 @@ class HfApi:
 
         Example:
             ```python
-            >>> from huggingface_hub import HfApi
-            >>> api = HfApi()
-            >>> for bucket in api.list_buckets(): # lists buckets in the user's namespace
+            >>> from huggingface_hub import list_buckets
+            >>> for bucket in list_buckets(): # lists buckets in the user's namespace
             ...     print(bucket)
 
-            >>> for bucket in api.list_buckets(namespace="huggingface"): # lists buckets in the "huggingface" organization
+            >>> for bucket in list_buckets(namespace="huggingface"): # lists buckets in the "huggingface" organization
             ...     print(bucket)
             ```
         """
@@ -11569,7 +11633,7 @@ class HfApi:
         missing_ok: bool = False,
         token: Union[bool, str, None] = None,
     ) -> None:
-        """Delete a bucket from the Hub. CAUTION: this is irreversible.
+        """Delete a bucket from the Hub.
 
         Args:
             bucket_id (`str`):
@@ -11582,19 +11646,14 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
-        > [!TIP]
-        > Raises the following errors:
-        >
-        >     - [`~utils.RepositoryNotFoundError`]
-        >       If the bucket to delete cannot be found and `missing_ok` is set to `False` (default).
+        Raises:
+            [`~errors.BucketNotFoundError`]: If the bucket cannot be found and `missing_ok` is set to `False` (default).
 
         Example:
             ```python
-            >>> from huggingface_hub import HfApi
-            >>> api = HfApi()
-            >>> api.delete_bucket(bucket_id="username/my-bucket")
-
-            >>> api.delete_bucket(bucket_id="username/my-bucket", missing_ok=True)
+            >>> from huggingface_hub import delete_bucket
+            >>> delete_bucket(bucket_id="Wauplin/first-bucket")
+            >>> delete_bucket(bucket_id="Wauplin/first-bucket", missing_ok=True)
             ```
         """
         response = get_session().delete(
@@ -11614,8 +11673,9 @@ class HfApi:
         bucket_id: str,
         prefix: Optional[str] = None,
         *,
+        recursive: Optional[bool] = None,
         token: Union[str, bool, None] = None,
-    ) -> Iterable[BucketFile]:
+    ) -> Iterable[Union[BucketFile, BucketDirectory]]:
         """List files in a bucket.
 
         Args:
@@ -11630,27 +11690,33 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `Iterable[BucketFile]`: An iterable of [`BucketFile`] objects containing file information (path, size, mtime, etc.).
+            `Iterable[Union[BucketFile, BucketDirectory]]`: An iterable of [`BucketFile`] and [`BucketDirectory`] objects
+             containing file and directory information (path, etc.).
 
         Example:
             ```python
-            >>> from huggingface_hub import HfApi
-            >>> api = HfApi()
-            >>> for file_info in api.list_bucket_tree(bucket_id="username/my-bucket"):
+            >>> from huggingface_hub import list_bucket_tree
+            >>> for file_info in list_bucket_tree(bucket_id="username/my-bucket"):
             ...     print(file_info.path)
 
             >>> # Filter by prefix
-            >>> for file_info in api.list_bucket_tree(bucket_id="username/my-bucket", prefix="models/"):
+            >>> for file_info in list_bucket_tree(bucket_id="username/my-bucket", prefix="models/"):
             ...     print(file_info.path)
             ```
         """
-        encoded_prefix = quote(prefix, safe="") if prefix else ""
+        encoded_prefix = "/" + quote(prefix, safe="") if prefix else ""
+        params = {}
+        if recursive is not None:
+            params["recursive"] = recursive
         for item in paginate(
-            path=f"{self.endpoint}/api/buckets/{bucket_id}/tree/{encoded_prefix}",
+            path=f"{self.endpoint}/api/buckets/{bucket_id}/tree{encoded_prefix}",
             headers=self._build_hf_headers(token=token),
-            params={},
+            params=params,
         ):
-            yield BucketFile(**item)
+            if item["type"] == "file":
+                yield BucketFile(**item)
+            elif item["type"] == "directory":
+                yield BucketDirectory(**item)
 
     @validate_hf_hub_args
     def get_bucket_paths_info(
@@ -11683,9 +11749,8 @@ class HfApi:
 
         Example:
         ```py
-        >>> from huggingface_hub import HfApi
-        >>> api = HfApi()
-        >>> paths_info = api.get_bucket_paths_info("username/my-bucket", ["file.txt", "checkpoints/model.safetensors"])
+        >>> from huggingface_hub import get_bucket_paths_info
+        >>> paths_info = get_bucket_paths_info("username/my-bucket", ["file.txt", "checkpoints/model.safetensors"])
         >>> for info in paths_info:
         ...     print(info)
         BucketFile(type='file', path='file.txt', size=2379, xet_hash='96e637d9665bd35477b1908a23f2e254edfba0618dbd2d62f90a6baee7d139cf', mtime=datetime.datetime(2024, 9, 25, 15, 31, 2, 346000, tzinfo=datetime.timezone.utc))
@@ -11695,8 +11760,11 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
 
         for batch in chunk_iterable(paths, chunk_size=_BUCKET_PATHS_INFO_BATCH_SIZE):
-            response = get_session().post(
-                f"{self.endpoint}/api/buckets/{bucket_id}/paths-info", json={"paths": list(batch)}, headers=headers
+            response = http_backoff(
+                "POST",
+                f"{self.endpoint}/api/buckets/{bucket_id}/paths-info",
+                json={"paths": list(batch)},
+                headers=headers,
             )
             hf_raise_for_status(response)
             for path_info in response.json():
@@ -11710,16 +11778,17 @@ class HfApi:
         add: Optional[list[tuple[Union[str, Path, bytes], str]]] = None,
         delete: Optional[list[str]] = None,
         token: Union[str, bool, None] = None,
-    ) -> dict[str, Any]:
-        """Add and/or delete files in a bucket in a single batch operation.
+    ):
+        """Add and/or delete files in a bucket.
+
+        This is a non-transactional operation. If an error occurs in the process, some files may have been uploaded or deleted,
 
         Args:
             bucket_id (`str`):
                 The ID of the bucket (e.g. `"username/my-bucket"`).
             add (`list` of `tuple`, *optional*):
-                Files to upload. Each element is a `(source, destination)` tuple where
-                `source` is a path to a local file (`str` or `Path`) or raw `bytes` content,
-                and `destination` is the path in the bucket.
+                Files to upload. Each element is a `(source, destination)` tuple where `source` is a path to a local
+                file (`str` or `Path`) or raw `bytes` content, and `destination` is the path in the bucket.
             delete (`list` of `str`, *optional*):
                 Paths of files to delete from the bucket.
             token (`bool` or `str`, *optional*):
@@ -11728,16 +11797,12 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
-        Returns:
-            `dict`: The server response as a dictionary.
-
         Example:
             ```python
-            >>> from huggingface_hub import HfApi
-            >>> api = HfApi()
+            >>> from huggingface_hub import batch_bucket_files
 
             # Upload files
-            >>> api.batch_bucket_files(
+            >>> batch_bucket_files(
             ...     "username/my-bucket",
             ...     add=[
             ...         ("./model.safetensors", "models/model.safetensors"),
@@ -11746,10 +11811,10 @@ class HfApi:
             ... )
 
             # Delete files
-            >>> api.batch_bucket_files("username/my-bucket", delete=["old-model.bin"])
+            >>> batch_bucket_files("username/my-bucket", delete=["old-model.bin"])
 
             # Upload and delete in one batch
-            >>> api.batch_bucket_files(
+            >>> batch_bucket_files(
             ...     "username/my-bucket",
             ...     add=[("./new.txt", "new.txt")],
             ...     delete=["old.txt"],
@@ -11761,7 +11826,8 @@ class HfApi:
 
         # Small batch: do everything in one call
         if len(add) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
-            return self._batch_bucket_files(bucket_id, add=add or None, delete=delete or None, token=token)
+            self._batch_bucket_files(bucket_id, add=add or None, delete=delete or None, token=token)
+            return
 
         # Large batch: chunk adds first, then deletes
         from .utils._xet_progress_reporting import XetProgressReporter
@@ -11772,16 +11838,16 @@ class HfApi:
             progress = None
 
         try:
-            for chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                self._batch_bucket_files(bucket_id, add=list(chunk), token=token, _progress=progress)
+            for add_chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
+                self._batch_bucket_files(bucket_id, add=list(add_chunk), token=token, _progress=progress)
 
-            for chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
-                self._batch_bucket_files(bucket_id, delete=list(chunk), token=token)
+            for delete_chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
+                self._batch_bucket_files(bucket_id, delete=list(delete_chunk), token=token)
         finally:
             if progress is not None:
                 progress.close(False)
 
-        return {}
+        return
 
     def _batch_bucket_files(
         self,
@@ -11791,7 +11857,7 @@ class HfApi:
         delete: Optional[list[str]] = None,
         token: Union[str, bool, None] = None,
         _progress: Optional["XetProgressReporter"] = None,
-    ) -> dict[str, Any]:
+    ):
         """Internal method: process a single batch of bucket file operations (upload to XET + call /batch)."""
         # Convert public API inputs to internal operation objects
         operations: list[Union[_BucketAddFile, _BucketDeleteFile]] = []
@@ -11803,7 +11869,7 @@ class HfApi:
                 operations.append(_BucketDeleteFile(path=path))
 
         if not operations:
-            return {}
+            return
 
         from hf_xet import upload_bytes, upload_files
 
@@ -11919,9 +11985,10 @@ class HfApi:
         }
         data = b"".join(_payload_as_ndjson())
 
-        response = get_session().post(f"{self.endpoint}/api/buckets/{bucket_id}/batch", headers=headers, content=data)
+        response = http_backoff(
+            "POST", f"{self.endpoint}/api/buckets/{bucket_id}/batch", headers=headers, content=data
+        )
         hf_raise_for_status(response)
-        return response.json()
 
     @validate_hf_hub_args
     def get_bucket_file_metadata(
@@ -11949,9 +12016,8 @@ class HfApi:
 
         Example:
             ```python
-            >>> from huggingface_hub import HfApi
-            >>> api = HfApi()
-            >>> metadata = api.get_bucket_file_metadata(
+            >>> from huggingface_hub import get_bucket_file_metadata
+            >>> metadata = get_bucket_file_metadata(
             ...     bucket_id="username/my-bucket",
             ...     remote_path="models/model.safetensors",
             ... )
@@ -11959,9 +12025,11 @@ class HfApi:
             42000
             ```
         """
-        response = get_session().head(
+        response = _httpx_follow_relative_redirects_with_backoff(
+            "HEAD",
             f"{self.endpoint}/buckets/{bucket_id}/resolve/{quote(remote_path, safe='')}",
             headers=self._build_hf_headers(token=token),
+            retry_on_errors=True,
         )
         hf_raise_for_status(response)
 
@@ -12007,10 +12075,9 @@ class HfApi:
 
         Example:
             ```python
-            >>> from huggingface_hub import HfApi
-            >>> api = HfApi()
+            >>> from huggingface_hub import download_bucket_files
 
-            >>> api.download_bucket_files(
+            >>> download_bucket_files(
             ...     bucket_id="username/my-bucket",
             ...     files=[
             ...         ("models/model.safetensors", "./local/model.safetensors"),
@@ -12020,11 +12087,10 @@ class HfApi:
             ```
 
             ```python
-            >>> from huggingface_hub import HfApi
-            >>> api = HfApi()
+            >>> from huggingface_hub import download_bucket_files
 
-            >>> parquet_files = [file for file in api.list_bucket_tree(bucket_id="username/my-bucket") if file.path.endswith(".parquet")]
-            >>> api.download_bucket_files(
+            >>> parquet_files = [file for file in list_bucket_tree(bucket_id="username/my-bucket") if file.path.endswith(".parquet")]
+            >>> download_bucket_files(
             ...     bucket_id="username/my-bucket",
             ...     files=[(file, f"./local/{file.path}") for file in parquet_files],
             ... )
@@ -12055,11 +12121,14 @@ class HfApi:
                     warnings.warn(f"File '{path}' not found in bucket '{bucket_id}'. Skipping.")
 
         xet_download_infos = []
+        first_valid_bucket_file: Optional[BucketFile] = None
         for remote_file, local_path in files:
             if not isinstance(remote_file, BucketFile):
                 if remote_file not in bucket_files_by_path:
                     continue  # skip missing files (already warned above)
                 remote_file = bucket_files_by_path[remote_file]
+            if first_valid_bucket_file is None:
+                first_valid_bucket_file = remote_file
             xet_download_infos.append(
                 PyXetDownloadInfo(
                     destination_path=str(Path(local_path).absolute()),
@@ -12068,12 +12137,11 @@ class HfApi:
                 )
             )
 
-        if len(xet_download_infos) == 0:
+        if len(xet_download_infos) == 0 or first_valid_bucket_file is None:
             return
 
         # Fetch Xet connection info (same for all files)
-        remote_file = files[0][0]
-        remote_path = remote_file.path if isinstance(remote_file, BucketFile) else remote_file
+        remote_path = first_valid_bucket_file.path
 
         metadata = self.get_bucket_file_metadata(bucket_id, remote_path, token=token)
         connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers=headers)
@@ -12085,6 +12153,8 @@ class HfApi:
             return connection_info.access_token, connection_info.expiration_unix_epoch
 
         # Create empty files for zero-size files (no need to download them)
+        # and filter them out from xet_download_infos to avoid passing to xet library
+        non_zero_download_infos = []
         for download_info in xet_download_infos:
             if download_info.file_size == 0:
                 dest_path = Path(download_info.destination_path)
@@ -12098,12 +12168,18 @@ class HfApi:
                     # doesn't exist => create it
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
                     dest_path.touch()
+            else:
+                non_zero_download_infos.append(download_info)
+
+        # If only zero-size files, nothing more to download
+        if len(non_zero_download_infos) == 0:
+            return
 
         # Download files
         progress_cm = _get_progress_bar_context(
             desc="Downloading bucket files",
             log_level=logger.getEffectiveLevel(),
-            total=sum(info.file_size for info in xet_download_infos),
+            total=sum(info.file_size for info in non_zero_download_infos),
             initial=0,
             name="huggingface_hub.download_bucket_files",
         )
@@ -12114,11 +12190,11 @@ class HfApi:
                 progress.update(progress_bytes)
 
             download_files(
-                xet_download_infos,
+                non_zero_download_infos,
                 endpoint=connection_info.endpoint,
                 token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
                 token_refresher=token_refresher,
-                progress_updater=[progress_updater] * len(xet_download_infos),
+                progress_updater=[progress_updater] * len(non_zero_download_infos),
             )
 
 
@@ -12455,6 +12531,7 @@ bucket_info = api.bucket_info
 list_buckets = api.list_buckets
 delete_bucket = api.delete_bucket
 list_bucket_tree = api.list_bucket_tree
+get_bucket_paths_info = api.get_bucket_paths_info
 batch_bucket_files = api.batch_bucket_files
 get_bucket_file_metadata = api.get_bucket_file_metadata
 download_bucket_files = api.download_bucket_files

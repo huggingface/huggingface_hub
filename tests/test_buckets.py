@@ -12,13 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import warnings
+
 import pytest
 
 from huggingface_hub import BucketInfo, HfApi
-from huggingface_hub.errors import HfHubHTTPError
+from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER
-from .testing_utils import repo_name
+from .testing_utils import repo_name, requires
 
 
 def bucket_name() -> str:
@@ -45,18 +47,30 @@ def api_unauth():
     return HfApi(endpoint=ENDPOINT_STAGING, token=False)
 
 
+def _init_bucket(api: HfApi, bucket_id: str, private: bool = False) -> str:
+    bucket = api.create_bucket(bucket_id, private=private)
+    api.batch_bucket_files(
+        bucket.bucket_id,
+        add=[
+            (b"content", "file.txt"),
+            (b"content", "sub/file.txt"),
+            (b"binary", "binary.bin"),
+            (b"binary", "sub/binary.bin"),
+        ],
+    )
+    return bucket.bucket_id
+
+
 @pytest.fixture(scope="module")
 def bucket_read(api: HfApi) -> str:
     """Bucket for read-only tests."""
-    bucket = api.create_bucket(bucket_name())
-    return bucket.bucket_id
+    return _init_bucket(api, bucket_name())
 
 
 @pytest.fixture(scope="module")
 def bucket_read_private(api: HfApi) -> str:
     """Private bucket for read-only tests."""
-    bucket = api.create_bucket(bucket_name(), private=True)
-    return bucket.bucket_id
+    return _init_bucket(api, bucket_name(), private=True)
 
 
 @pytest.fixture(scope="module")
@@ -107,6 +121,12 @@ def test_create_bucket_enterprise_org(api_enterprise: HfApi, api_other: HfApi):
     # Cannot access it from other user
     with pytest.raises(HfHubHTTPError):
         api_other.bucket_info(bucket_id)
+
+
+def test_create_bucket_implicit_namespace(api: HfApi):
+    name = bucket_name()
+    bucket_url = api.create_bucket(name)
+    assert bucket_url.bucket_id == f"{USER}/{name}"
 
 
 def test_bucket_info(api: HfApi, api_other: HfApi, api_unauth: HfApi, bucket_read: str):
@@ -180,16 +200,89 @@ def test_list_buckets_with_private(
 def test_delete_bucket(api: HfApi, bucket_write: str):
     api.delete_bucket(bucket_write)
 
-    with pytest.raises(HfHubHTTPError) as exc_info:
+    with pytest.raises(BucketNotFoundError):
         api.bucket_info(bucket_write)
-    assert exc_info.value.response.status_code == 404
 
 
 def test_delete_bucket_missing_ok(api: HfApi):
     # Deleting a non-existing bucket should raise 404
-    with pytest.raises(HfHubHTTPError) as exc_info:
+    with pytest.raises(BucketNotFoundError):
         api.delete_bucket(f"{USER}/{bucket_name()}")
-    assert exc_info.value.response.status_code == 404
 
     # Deleting a non-existing bucket with missing_ok=True should not raise an error
     api.delete_bucket(f"{USER}/{bucket_name()}", missing_ok=True)
+
+
+def test_delete_bucket_cannot_do_implicit_namespace(api: HfApi):
+    with pytest.raises(HfHubHTTPError) as exc_info:
+        api.delete_bucket(bucket_name())
+    assert exc_info.value.response.status_code == 404
+
+
+def test_list_bucket_tree_on_public_bucket(api: HfApi, bucket_read: str):
+    tree = list(api.list_bucket_tree(bucket_read))
+    assert len(tree) == 4
+
+    for entry in tree:
+        assert entry.type == "file"
+        assert entry.size > 0
+        assert entry.xet_hash is not None
+        assert entry.mtime is not None
+
+    assert {entry.path for entry in tree} == {"file.txt", "sub/file.txt", "binary.bin", "sub/binary.bin"}
+
+
+def test_list_bucket_tree_on_private_bucket(api: HfApi, api_other: HfApi, api_unauth: HfApi, bucket_read_private: str):
+    assert len(list(api.list_bucket_tree(bucket_read_private))) == 4
+
+    with pytest.raises(BucketNotFoundError):
+        list(api_other.list_bucket_tree(bucket_read_private))
+
+    with pytest.raises(HfHubHTTPError) as exc_info:
+        list(api_unauth.list_bucket_tree(bucket_read_private))
+    assert exc_info.value.response.status_code == 401
+
+
+@requires("hf_xet")
+def test_download_bucket_files_skips_missing_first_file(api: HfApi, bucket_read: str, tmp_path):
+    """Test that download_bucket_files works when the first file in the list is missing.
+
+    This is a regression test for a bug where the code used files[0][0] to fetch
+    Xet connection metadata, which would fail if that file was missing (and skipped).
+    """
+    # Request a non-existent file first, followed by a valid file
+    files = [
+        ("non_existent_file.txt", str(tmp_path / "non_existent.txt")),
+        ("file.txt", str(tmp_path / "file.txt")),
+    ]
+
+    # Should emit a warning for the missing file but not raise an error
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        api.download_bucket_files(bucket_read, files)
+
+        # Verify warning was issued for missing file
+        assert len(w) == 1
+        assert "non_existent_file.txt" in str(w[0].message)
+        assert "not found" in str(w[0].message).lower()
+
+    # Valid file should be downloaded
+    assert (tmp_path / "file.txt").exists()
+    assert (tmp_path / "file.txt").read_bytes() == b"content"
+
+    # Missing file should not be created
+    assert not (tmp_path / "non_existent.txt").exists()
+
+
+@requires("hf_xet")
+def test_download_bucket_files_raises_on_missing_when_requested(api: HfApi, bucket_read: str, tmp_path):
+    """Test that download_bucket_files raises when raise_on_missing_files=True."""
+    files = [
+        ("non_existent_file.txt", str(tmp_path / "non_existent.txt")),
+        ("file.txt", str(tmp_path / "file.txt")),
+    ]
+
+    with pytest.raises(EntryNotFoundError) as exc_info:
+        api.download_bucket_files(bucket_read, files, raise_on_missing_files=True)
+
+    assert "non_existent_file.txt" in str(exc_info.value)

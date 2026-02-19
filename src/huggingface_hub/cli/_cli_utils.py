@@ -87,22 +87,51 @@ def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatte
             formatter.write_text(line)
 
 
+_ALIAS_SPLIT = re.compile(r"\s*\|\s*")
+
+
 class HFCliTyperGroup(typer.core.TyperGroup):
     """
     Typer Group that:
     - lists commands alphabetically within sections.
     - separates commands by topic (main, help, etc.).
     - formats epilog without extra indentation.
+    - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
     """
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
+        # Try exact match first
+        cmd = super().get_command(ctx, cmd_name)
+        if cmd is not None:
+            return cmd
+        # Fall back to alias lookup: check if cmd_name matches any alias
+        for registered_name, registered_cmd in self.commands.items():
+            aliases = _ALIAS_SPLIT.split(registered_name)
+            if cmd_name in aliases:
+                return registered_cmd
+        return None
+
+    def _alias_map(self) -> dict[str, list[str]]:
+        """Build a mapping from primary command name to its aliases (if any)."""
+        result: dict[str, list[str]] = {}
+        for registered_name in self.commands:
+            parts = _ALIAS_SPLIT.split(registered_name)
+            primary = parts[0]
+            result[primary] = parts[1:]
+        return result
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         topics: dict[str, list] = {}
+        alias_map = self._alias_map()
 
         for name in self.list_commands(ctx):
             cmd = self.get_command(ctx, name)
             if cmd is None or cmd.hidden:
                 continue
             help_text = cmd.get_short_help_str(limit=formatter.width)
+            aliases = alias_map.get(name, [])
+            if aliases:
+                help_text = f"(alias: {', '.join(aliases)}) {help_text}"
             topic = getattr(cmd, "topic", "main")
             topics.setdefault(topic, []).append((name, help_text))
 
@@ -131,8 +160,12 @@ class HFCliTyperGroup(typer.core.TyperGroup):
             _format_epilog_no_indent(self.epilog, ctx, formatter)
 
     def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
-        # click.Group stores both commands and subgroups in `self.commands`
-        return sorted(self.commands.keys())
+        # For aliased commands ("list | ls"), use the primary name (first entry).
+        primary_names: list[str] = []
+        for name in self.commands:
+            primary = _ALIAS_SPLIT.split(name)[0]
+            primary_names.append(primary)
+        return sorted(primary_names)
 
 
 def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[typer.core.TyperCommand]:
@@ -212,6 +245,7 @@ def typer_factory(help: str, epilog: Optional[str] = None) -> "HFCliApp":
         # Increase max content width for better readability
         context_settings={
             "max_content_width": 120,
+            "help_option_names": ["-h", "--help"],
         },
     )
 
@@ -342,6 +376,7 @@ def print_as_table(
     items: Sequence[dict[str, Any]],
     headers: list[str],
     row_fn: Callable[[dict[str, Any]], list[str]],
+    alignments: Optional[dict[str, str]] = None,
 ) -> None:
     """Print items as a formatted table.
 
@@ -349,12 +384,16 @@ def print_as_table(
         items: Sequence of dictionaries representing the items to display.
         headers: List of column headers.
         row_fn: Function that takes an item dict and returns a list of string values for each column.
+        alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
     """
     if not items:
         print("No results found.")
         return
     rows = cast(list[list[Union[str, int]]], [row_fn(item) for item in items])
-    print(tabulate(rows, headers=[_to_header(h) for h in headers]))
+    screaming_headers = [_to_header(h) for h in headers]
+    # Remap alignments keys to screaming case to match tabulate headers
+    screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
+    print(tabulate(rows, headers=screaming_headers, alignments=screaming_alignments))
 
 
 def print_list_output(
@@ -364,6 +403,7 @@ def print_list_output(
     id_key: str = "id",
     headers: Optional[list[str]] = None,
     row_fn: Optional[Callable[[dict[str, Any]], list[str]]] = None,
+    alignments: Optional[dict[str, str]] = None,
 ) -> None:
     """Print list command output in the specified format.
 
@@ -374,6 +414,7 @@ def print_list_output(
         id_key: Key to use for extracting IDs in quiet mode.
         headers: Optional list of column names for headers. If not provided, auto-detected from keys.
         row_fn: Optional function to extract row values. If not provided, uses _format_cell on each column.
+        alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
     """
     if quiet:
         for item in items:
@@ -393,7 +434,7 @@ def print_list_output(
         def row_fn(item: dict[str, Any]) -> list[str]:
             return [_format_cell(item.get(col)) for col in headers]  # type: ignore[union-attr]
 
-    print_as_table(items, headers=headers, row_fn=row_fn)
+    print_as_table(items, headers=headers, row_fn=row_fn, alignments=alignments)
 
 
 def _serialize_value(v: object) -> object:

@@ -24,7 +24,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `auth`: Manage authentication (login, logout, etc.).
-* `bucket`: Commands to interact with buckets.
+* `buckets`: Commands to interact with buckets.
 * `cache`: Manage local cache directory.
 * `collections`: Interact with collections on the Hub.
 * `datasets`: Interact with datasets on the Hub.
@@ -186,14 +186,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-## `hf bucket`
+## `hf buckets`
 
 Commands to interact with buckets.
 
 **Usage**:
 
 ```console
-$ hf bucket [OPTIONS] COMMAND [ARGS]...
+$ hf buckets [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -202,21 +202,57 @@ $ hf bucket [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `cp`: Copy a single file to or from a bucket.
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
-* `list`: List all accessible buckets.
+* `list | ls`: List buckets or files in a bucket.
 * `sync`: Sync files between local directory and a...
-* `tree`: List files in a bucket.
 
-### `hf bucket create`
+### `hf buckets cp`
+
+Copy a single file to or from a bucket.
+
+**Usage**:
+
+```console
+$ hf buckets cp [OPTIONS] SRC [DST]
+```
+
+**Arguments**:
+
+* `SRC`: Source: local file, hf://buckets/... path, or - for stdin  [required]
+* `[DST]`: Destination: local path, hf://buckets/... path, or - for stdout
+
+**Options**:
+
+* `-q, --quiet`: Print only IDs (one per line).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets cp hf://buckets/user/my-bucket/config.json
+  $ hf buckets cp hf://buckets/user/my-bucket/config.json ./data/
+  $ hf buckets cp hf://buckets/user/my-bucket/config.json my-config.json
+  $ hf buckets cp hf://buckets/user/my-bucket/config.json -
+  $ hf buckets cp my-config.json hf://buckets/user/my-bucket
+  $ hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/
+  $ hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json
+  $ hf buckets cp - hf://buckets/user/my-bucket/config.json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets create`
 
 Create a new bucket.
 
 **Usage**:
 
 ```console
-$ hf bucket create [OPTIONS] BUCKET_ID
+$ hf buckets create [OPTIONS] BUCKET_ID
 ```
 
 **Arguments**:
@@ -227,29 +263,30 @@ $ hf bucket create [OPTIONS] BUCKET_ID
 
 * `--private`: Create a private bucket.
 * `--exist-ok`: Do not raise an error if the bucket already exists.
+* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf bucket create my-bucket
-  $ hf bucket create user/my-bucket
-  $ hf bucket create hf://buckets/user/my-bucket
-  $ hf bucket create user/my-bucket --private
-  $ hf bucket create user/my-bucket --exist-ok
+  $ hf buckets create my-bucket
+  $ hf buckets create user/my-bucket
+  $ hf buckets create hf://buckets/user/my-bucket
+  $ hf buckets create user/my-bucket --private
+  $ hf buckets create user/my-bucket --exist-ok
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf bucket delete`
+### `hf buckets delete`
 
 Delete a bucket.
 
 **Usage**:
 
 ```console
-$ hf bucket delete [OPTIONS] BUCKET_ID
+$ hf buckets delete [OPTIONS] BUCKET_ID
 ```
 
 **Arguments**:
@@ -260,28 +297,29 @@ $ hf bucket delete [OPTIONS] BUCKET_ID
 
 * `-y, --yes`: Skip confirmation prompt.
 * `--missing-ok`: Do not raise an error if the bucket does not exist.
+* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf bucket delete user/my-bucket
-  $ hf bucket delete hf://buckets/user/my-bucket
-  $ hf bucket delete user/my-bucket --yes
-  $ hf bucket delete user/my-bucket --missing-ok
+  $ hf buckets delete user/my-bucket
+  $ hf buckets delete hf://buckets/user/my-bucket
+  $ hf buckets delete user/my-bucket --yes
+  $ hf buckets delete user/my-bucket --missing-ok
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf bucket info`
+### `hf buckets info`
 
 Get info about a bucket.
 
 **Usage**:
 
 ```console
-$ hf bucket info [OPTIONS] BUCKET_ID
+$ hf buckets info [OPTIONS] BUCKET_ID
 ```
 
 **Arguments**:
@@ -290,54 +328,70 @@ $ hf bucket info [OPTIONS] BUCKET_ID
 
 **Options**:
 
+* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf bucket info user/my-bucket
-  $ hf bucket info hf://buckets/user/my-bucket
+  $ hf buckets info user/my-bucket
+  $ hf buckets info hf://buckets/user/my-bucket
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf bucket list`
+### `hf buckets list | ls`
 
-List all accessible buckets.
+List buckets or files in a bucket.
+
+When called with no argument or a namespace, lists buckets.
+When called with a bucket ID (namespace/bucket_name), lists files in the bucket.
 
 **Usage**:
 
 ```console
-$ hf bucket list [OPTIONS] [NAMESPACE]
+$ hf buckets list | ls [OPTIONS] [ARGUMENT]
 ```
 
 **Arguments**:
 
-* `[NAMESPACE]`: Namespace to list buckets from (user or organization). Defaults to user's namespace.
+* `[ARGUMENT]`: Namespace (user or org) to list buckets, or bucket ID (namespace/bucket_name(/prefix) or hf://buckets/...) to list files.
 
 **Options**:
 
+* `-h, --human-readable`: Show sizes in human readable format.
+* `--tree`: List files in tree format (only for listing files).
+* `-R, --recursive`: List files recursively (only for listing files).
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf bucket list
-  $ hf bucket list huggingface
+  $ hf buckets list
+  $ hf buckets list huggingface
+  $ hf buckets list user/my-bucket
+  $ hf buckets list user/my-bucket -R
+  $ hf buckets list user/my-bucket -h
+  $ hf buckets list user/my-bucket --tree
+  $ hf buckets list user/my-bucket --tree -h
+  $ hf buckets list hf://buckets/user/my-bucket
+  $ hf buckets list user/my-bucket/sub -R
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf bucket sync`
+### `hf buckets sync`
 
 Sync files between local directory and a bucket.
 
 **Usage**:
 
 ```console
-$ hf bucket sync [OPTIONS] [SOURCE] [DEST]
+$ hf buckets sync [OPTIONS] [SOURCE] [DEST]
 ```
 
 **Arguments**:
@@ -352,6 +406,7 @@ $ hf bucket sync [OPTIONS] [SOURCE] [DEST]
 * `--ignore-sizes`: Skip files only based on modification times, ignoring sizes.
 * `--plan TEXT`: Save sync plan to JSONL file for review instead of executing.
 * `--apply TEXT`: Apply a previously saved plan file.
+* `--dry-run`: Print sync plan to stdout as JSONL without executing.
 * `--include TEXT`: Include files matching pattern (can specify multiple).
 * `--exclude TEXT`: Exclude files matching pattern (can specify multiple).
 * `--filter-from TEXT`: Read include/exclude patterns from file.
@@ -363,45 +418,14 @@ $ hf bucket sync [OPTIONS] [SOURCE] [DEST]
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf bucket sync ./data hf://buckets/user/my-bucket
-  $ hf bucket sync hf://buckets/user/my-bucket ./data
-  $ hf bucket sync ./data hf://buckets/user/my-bucket --delete
-  $ hf bucket sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"
-  $ hf bucket sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl
-  $ hf bucket sync --apply sync-plan.jsonl
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-### `hf bucket tree`
-
-List files in a bucket.
-
-**Usage**:
-
-```console
-$ hf bucket tree [OPTIONS] BUCKET
-```
-
-**Arguments**:
-
-* `BUCKET`: Bucket: namespace/bucket_name(/prefix) or hf://buckets/namespace/bucket_name(/prefix)  [required]
-
-**Options**:
-
-* `-h, --human-readable`: Show file size in human readable format.
-* `--tree`: List files in tree format.
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf bucket tree user/my-bucket
-  $ hf bucket tree hf://buckets/user/my-bucket
-  $ hf bucket tree user/my-bucket/models
-  $ hf bucket tree user/my-bucket -h
-  $ hf bucket tree user/my-bucket --tree
+  $ hf buckets sync ./data hf://buckets/user/my-bucket
+  $ hf buckets sync hf://buckets/user/my-bucket ./data
+  $ hf buckets sync ./data hf://buckets/user/my-bucket --delete
+  $ hf buckets sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"
+  $ hf buckets sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl
+  $ hf buckets sync --apply sync-plan.jsonl
+  $ hf buckets sync ./data hf://buckets/user/my-bucket --dry-run
+  $ hf buckets sync ./data hf://buckets/user/my-bucket --dry-run | jq .
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1359,7 +1383,7 @@ $ hf jobs cancel [OPTIONS] JOB_ID
 
 **Arguments**:
 
-* `JOB_ID`: Job ID  [required]
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
 
 **Options**:
 
@@ -1409,7 +1433,7 @@ $ hf jobs inspect [OPTIONS] JOB_IDS...
 
 **Arguments**:
 
-* `JOB_IDS...`: The jobs to inspect  [required]
+* `JOB_IDS...`: Job IDs to inspect (or 'namespace/job_id')  [required]
 
 **Options**:
 
@@ -1440,7 +1464,7 @@ $ hf jobs logs [OPTIONS] JOB_ID
 
 **Arguments**:
 
-* `JOB_ID`: Job ID  [required]
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
 
 **Options**:
 
@@ -1476,7 +1500,8 @@ $ hf jobs ps [OPTIONS]
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
-* `--format TEXT`: Format output using a custom template
+* `--format TEXT`: Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')
+* `-q, --quiet`: Print only IDs (one per line).
 * `--help`: Show this message and exit.
 
 Examples
@@ -1563,7 +1588,7 @@ $ hf jobs scheduled delete [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID  [required]
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
 
 **Options**:
 
@@ -1591,7 +1616,7 @@ $ hf jobs scheduled inspect [OPTIONS] SCHEDULED_JOB_IDS...
 
 **Arguments**:
 
-* `SCHEDULED_JOB_IDS...`: The scheduled jobs to inspect  [required]
+* `SCHEDULED_JOB_IDS...`: Scheduled Job IDs to inspect (or 'namespace/scheduled_job_id')  [required]
 
 **Options**:
 
@@ -1623,7 +1648,8 @@ $ hf jobs scheduled ps [OPTIONS]
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
-* `--format TEXT`: Format output using a custom template
+* `--format TEXT`: Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')
+* `-q, --quiet`: Print only IDs (one per line).
 * `--help`: Show this message and exit.
 
 Examples
@@ -1646,7 +1672,7 @@ $ hf jobs scheduled resume [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID  [required]
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
 
 **Options**:
 
@@ -1713,7 +1739,7 @@ $ hf jobs scheduled suspend [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID  [required]
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
 
 **Options**:
 
@@ -1802,7 +1828,7 @@ $ hf jobs stats [OPTIONS] [JOB_IDS]...
 
 **Arguments**:
 
-* `[JOB_IDS]...`: Job IDs
+* `[JOB_IDS]...`: Job IDs (or 'namespace/job_id')
 
 **Options**:
 
@@ -2461,6 +2487,7 @@ $ hf skills add [OPTIONS]
 
 * `--claude`: Install for Claude.
 * `--codex`: Install for Codex.
+* `--cursor`: Install for Cursor.
 * `--opencode`: Install for OpenCode.
 * `-g, --global`: Install globally (user-level) instead of in the current project directory.
 * `--dest PATH`: Install into a custom destination (path to skills directory).
@@ -2469,8 +2496,9 @@ $ hf skills add [OPTIONS]
 
 Examples
   $ hf skills add --claude
+  $ hf skills add --cursor
   $ hf skills add --claude --global
-  $ hf skills add --codex --opencode
+  $ hf skills add --codex --opencode --cursor
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2580,6 +2608,7 @@ $ hf sync [OPTIONS] [SOURCE] [DEST]
 * `--ignore-sizes`: Skip files only based on modification times, ignoring sizes.
 * `--plan TEXT`: Save sync plan to JSONL file for review instead of executing.
 * `--apply TEXT`: Apply a previously saved plan file.
+* `--dry-run`: Print sync plan to stdout as JSONL without executing.
 * `--include TEXT`: Include files matching pattern (can specify multiple).
 * `--exclude TEXT`: Exclude files matching pattern (can specify multiple).
 * `--filter-from TEXT`: Read include/exclude patterns from file.
