@@ -8,7 +8,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any, Iterable, Iterator, NoReturn, Optional, Union
 from urllib.parse import quote, unquote
 
@@ -27,7 +27,7 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .file_download import hf_hub_url, http_get
-from .hf_api import BucketFile, HfApi, LastCommitInfo, RepoFile, RepoFolder
+from .hf_api import BucketDirectory, BucketFile, HfApi, LastCommitInfo, RepoFile, RepoFolder
 from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff
 from .utils.insecure_hashlib import md5
 
@@ -88,11 +88,6 @@ class HfFileSystemResolvedBucketPath(HfFileSystemResolvedPath):
 
     def __post_init__(self):
         self.root = "buckets/" + self.bucket_id
-
-
-@dataclass
-class _BucketFolder:
-    path: str
 
 
 # We need to improve fsspec.spec._Cached which is AbstractFileSystem's metaclass
@@ -578,8 +573,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                             )
 
             dirs_not_expanded = []
-            if expand_info:
-                # Check if there are directories with non-expanded entries
+            if expand_info and isinstance(resolved_path, HfFileSystemResolvedRepositoryPath):
+                # Check if there are directories in repos with non-expanded entries
                 dirs_not_expanded = [self._parent(o["name"]) for o in out if o["last_commit"] is None]
 
             if (recursive and dirs_not_in_dircache) or (expand_info and dirs_not_expanded):
@@ -613,9 +608,13 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                     )
                 )
         else:
-            tree: Iterable[Union[RepoFile, RepoFolder, BucketFile, _BucketFolder]]
+            tree: Iterable[Union[RepoFile, RepoFolder, BucketFile, BucketDirectory]]
             if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
-                tree = self._list_bucket_tree_with_folders(resolved_path.bucket_id, prefix=resolved_path.path)
+                tree = self._api.list_bucket_tree(
+                    resolved_path.bucket_id,
+                    prefix=resolved_path.path,
+                    recursive=recursive,
+                )
             else:
                 tree = self._api.list_repo_tree(
                     resolved_path.repo_id,
@@ -659,6 +658,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                         "name": cache_path,
                         "size": 0,
                         "type": "directory",
+                        "uploaded_at": path_info.uploaded_at,
                     }
                 parent_path = self._parent(cache_path_info["name"])
                 self.dircache.setdefault(parent_path, []).append(cache_path_info)
@@ -666,20 +666,6 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 if maxdepth is None or depth <= maxdepth:
                     out.append(cache_path_info)
         return out
-
-    def _list_bucket_tree_with_folders(
-        self, bucket_id: str, prefix: str
-    ) -> Iterable[Union[BucketFile, _BucketFolder]]:
-        """Same as `HfApi.list_bucket_tree` but also includes folders"""
-        bucket_files = self._api.list_bucket_tree(bucket_id, prefix)
-        bucket_folders = set()
-        min_depth = 1 + prefix.count("/") if prefix else 0
-        for bucket_file in bucket_files:
-            for parent_bucket_folder in PurePosixPath(bucket_file.path).parents[: -min_depth - 1]:
-                if parent_bucket_folder not in bucket_folders:
-                    yield _BucketFolder(str(parent_bucket_folder))
-                    bucket_folders.add(parent_bucket_folder)
-            yield bucket_file
 
     def walk(self, path: str, *args, **kwargs) -> Iterator[tuple[str, list[str], list[str]]]:
         """
@@ -845,10 +831,17 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 Path to the file.
 
         Returns:
-            `datetime`: Last commit date of the file.
+            `datetime`: Last modified time of the file.
         """
         info = self.info(path, **{**kwargs, "expand_info": True})  # type: ignore
-        return info["last_commit"]["date"]
+        if "last_commit" in info:
+            if info["last_commit"] is None:
+                raise NotImplementedError(f"'modified' is not implemented for repository paths like '{path}'")
+            return info["last_commit"].date
+        elif "mtime" in info:
+            return info["mtime"]
+        else:
+            raise NotImplementedError(f"'modified' is not implemented for bucket directories like '{path}'")
 
     def info(self, path: str, refresh: bool = False, revision: Optional[str] = None, **kwargs) -> dict[str, Any]:
         """
@@ -857,7 +850,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.info).
 
         > [!WARNING]
-        > Note: When possible, use `HfApi.get_paths_info()` or `HfApi.repo_info()`  for better performance.
+        > Note: When possible, use `HfApi.get_paths_info()` or `HfApi.repo_info()`  for better performance
+        > (or `HfApi.get_bucket_paths_info()` or `HfApi.bucket_info()` for buckets)
 
         Args:
             path (`str`):
