@@ -96,6 +96,24 @@ class ConfigWithKwargsAndPostInit:
             setattr(self, name.upper(), value)  # store additional kwargs in uppercase (just for testing)
 
 
+@strict(accept_kwargs=True)
+@dataclass
+class ConfigWithRequiresKwargsInPostInit:
+    model_type: str
+    vocab_size: int = validated_field(validator=positive_int, default=16)
+
+    def __post_init__(self, **kwargs: Any) -> None:
+        """
+        Custom __post_init__ that accepts additional kwargs and expects `encoder` to be in kwargs.
+        """
+        if kwargs.get("encoder") is None:
+            raise ValueError("Encoder must be present to init a config class!")
+
+        self.encoder = kwargs.pop("encoder")["model_type"]
+        for name, value in kwargs.items():
+            setattr(self, name, value)  # store additional kwargs in uppercase (just for testing)
+
+
 class DummyClass:
     pass
 
@@ -393,6 +411,16 @@ def test_post_init_with_kwargs():
     assert config.model_type == "bert"
     assert config.vocab_size == 30000
     assert config.EXTRA_PARAM == "extra_value"  # stored in uppercase by custom __post_init__
+
+
+def test_post_init_with_required_kwargs():
+    config = ConfigWithRequiresKwargsInPostInit(model_type="bert", vocab_size=30000, encoder={"model_type": "t5"})
+    assert config.model_type == "bert"
+    assert config.vocab_size == 30000
+    assert config.encoder == "t5"
+
+    with pytest.raises(ValueError):
+        ConfigWithRequiresKwargsInPostInit(model_type="bert", vocab_size=30000)
 
 
 def test_is_recognized_as_dataclass():
