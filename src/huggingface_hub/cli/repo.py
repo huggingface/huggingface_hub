@@ -29,7 +29,6 @@ from typing import Annotated, Optional
 
 import typer
 
-from huggingface_hub import logging
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.utils import ANSI
 
