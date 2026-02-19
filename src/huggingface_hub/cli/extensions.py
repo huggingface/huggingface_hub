@@ -16,7 +16,6 @@
 import errno
 import json
 import os
-import platform
 import re
 import shutil
 import subprocess
@@ -24,7 +23,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 
@@ -94,7 +93,7 @@ def extension_install(
     with TemporaryDirectory() as tmp_dir:
         tmp_executable = Path(tmp_dir) / executable_name
         tmp_executable.write_bytes(response.content)
-        if platform.system() != "Windows":
+        if os.name != "nt":
             os.chmod(tmp_executable, 0o755)
 
         manifest = ExtensionManifest(
@@ -198,6 +197,27 @@ def extension_remove(
 ### HELPER FUNCTIONS
 
 
+def _dispatch_unknown_top_level_extension(args: list[str], known_commands: set[str]) -> Optional[int]:
+    if not args:
+        return None
+
+    command_name = args[0]
+    if command_name.startswith("-"):
+        return None
+    if command_name in known_commands:
+        return None
+
+    short_name = command_name[3:] if command_name.startswith("hf-") else command_name
+    if not short_name:
+        return None
+
+    executable_path = _get_extension_executable_path(short_name)
+    if not executable_path.is_file():
+        return None
+
+    return _execute_extension_binary(executable_path=executable_path, args=list(args[1:]))
+
+
 def _persist_installed_extension(extension_dir: Path, source_executable: Path, manifest: ExtensionManifest) -> None:
     executable_path = extension_dir / manifest.executable_name
     manifest_path = extension_dir / MANIFEST_FILENAME
@@ -205,7 +225,7 @@ def _persist_installed_extension(extension_dir: Path, source_executable: Path, m
     try:
         extension_dir.mkdir(parents=True, exist_ok=False)
         shutil.copy2(source_executable, executable_path)
-        if platform.system() != "Windows":
+        if os.name != "nt":
             os.chmod(executable_path, 0o755)
         manifest_path.write_text(json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n", encoding="utf-8")
     except Exception:
@@ -230,7 +250,7 @@ def _get_extension_dir(short_name: str) -> Path:
 
 def _get_executable_name(short_name: str) -> str:
     name = f"hf-{short_name}"
-    if platform.system() == "Windows":
+    if os.name == "nt":
         name += ".exe"
     return name
 
@@ -293,6 +313,6 @@ def _execute_extension_binary(executable_path: Path, args: list[str]) -> int:
     try:
         return subprocess.call([str(executable_path)] + args)
     except OSError as e:
-        if platform.system() == "Windows" or e.errno != errno.ENOEXEC:
+        if os.name == "nt" or e.errno != errno.ENOEXEC:
             raise
         return subprocess.call(["sh", str(executable_path)] + args)

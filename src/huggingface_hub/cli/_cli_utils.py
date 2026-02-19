@@ -75,6 +75,7 @@ Learn more
 
 
 TOPIC_T = Union[Literal["main", "help"], str]
+FallbackHandlerT = Callable[[list[str], set[str]], Optional[int]]
 
 
 def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -131,6 +132,19 @@ class HFCliTyperGroup(typer.core.TyperGroup):
     def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
         # click.Group stores both commands and subgroups in `self.commands`
         return sorted(self.commands.keys())
+
+
+def fallback_typer_group_factory(fallback_handler: FallbackHandlerT) -> type[HFCliTyperGroup]:
+    """Return a Typer group class that runs a fallback handler before command resolution."""
+
+    class FallbackTyperGroup(HFCliTyperGroup):
+        def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
+            fallback_exit_code = fallback_handler(args, set(self.commands.keys()))
+            if fallback_exit_code is not None:
+                raise SystemExit(fallback_exit_code)
+            return super().resolve_command(ctx, args)
+
+    return FallbackTyperGroup
 
 
 def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[typer.core.TyperCommand]:

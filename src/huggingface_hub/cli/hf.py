@@ -16,18 +16,17 @@ import sys
 import traceback
 from typing import Annotated, Optional
 
-import click
 import typer
 
 from huggingface_hub import __version__, constants
-from huggingface_hub.cli._cli_utils import HFCliTyperGroup, check_cli_update, typer_factory
+from huggingface_hub.cli._cli_utils import check_cli_update, fallback_typer_group_factory, typer_factory
 from huggingface_hub.cli._errors import format_known_exception
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.collections import collections_cli
 from huggingface_hub.cli.datasets import datasets_cli
 from huggingface_hub.cli.download import DOWNLOAD_EXAMPLES, download
-from huggingface_hub.cli.extensions import _execute_extension_binary, _get_extension_executable_path, extensions_cli
+from huggingface_hub.cli.extensions import _dispatch_unknown_top_level_extension, extensions_cli
 from huggingface_hub.cli.inference_endpoints import ie_cli
 from huggingface_hub.cli.jobs import jobs_cli
 from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
@@ -44,37 +43,10 @@ from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import ANSI, logging
 
 
-class ExtensionAwareTyperGroup(HFCliTyperGroup):
-    """TyperGroup that dispatches unknown commands to installed extensions."""
-
-    def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
-        extension_exit_code = self._maybe_dispatch_extension(args)
-        if extension_exit_code is not None:
-            raise SystemExit(extension_exit_code)
-        return super().resolve_command(ctx, args)
-
-    def _maybe_dispatch_extension(self, args: list[str]) -> Optional[int]:
-        if not args:
-            return None
-
-        command_name = args[0]
-        if command_name.startswith("-"):
-            return None
-        if command_name in self.commands:
-            return None
-
-        short_name = command_name[3:] if command_name.startswith("hf-") else command_name
-        if not short_name:
-            return None
-
-        executable_path = _get_extension_executable_path(short_name)
-        if not executable_path.is_file():
-            return None
-
-        return _execute_extension_binary(executable_path=executable_path, args=list(args[1:]))
-
-
-app = typer_factory(help="Hugging Face Hub CLI", cls=ExtensionAwareTyperGroup)
+app = typer_factory(
+    help="Hugging Face Hub CLI",
+    cls=fallback_typer_group_factory(_dispatch_unknown_top_level_extension),
+)
 
 
 def _version_callback(value: bool) -> None:
