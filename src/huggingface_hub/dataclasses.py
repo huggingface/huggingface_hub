@@ -163,7 +163,7 @@ def strict(
                 dataclass_fields = {f.name for f in fields(cls)}  # type: ignore [arg-type]
                 standard_kwargs = {k: v for k, v in kwargs.items() if k in dataclass_fields}
 
-                # User shoulldn't define custom `__init__` when `accepts_kwargs`, and instead
+                # User shouldn't define custom `__init__` when `accepts_kwargs`, and instead
                 # are adviced to move field manipulation to `__post_init__` (e.g., derive new field from existing ones)
                 # We need to call bare `__init__` here without `__post_init__` but the``original_init`` would call
                 # post-init right away with no kwargs.
@@ -224,7 +224,7 @@ def strict(
                 # Combine both representations
                 return f"{standard_repr[:-1]}, {additional_repr})" if additional_kwargs else standard_repr
 
-            # cls.__repr__ = __repr__  # type: ignore [method-assign]
+            cls.__repr__ = __repr__  # type: ignore [method-assign]
 
         # List all public methods starting with `validate_` => class validators.
         class_validators = []
