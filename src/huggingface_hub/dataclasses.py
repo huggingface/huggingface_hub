@@ -159,13 +159,30 @@ def strict(
             original_init = cls.__init__
 
             @wraps(original_init)
-            def __init__(self, **kwargs: Any) -> None:
+            def __init__(self, *args, **kwargs: Any) -> None:
                 # Extract only the fields that are part of the dataclass
                 dataclass_fields = {f.name for f in fields(cls)}  # type: ignore [arg-type]
                 standard_kwargs = {k: v for k, v in kwargs.items() if k in dataclass_fields}
 
-                # Call the original __init__ with standard fields
-                original_init(self, **standard_kwargs)
+                # User shouldn't define custom `__init__` when `accepts_kwargs`, and instead
+                # are advised to move field manipulation to `__post_init__` (e.g., derive new field from existing ones)
+                # We need to call bare `__init__` here without `__post_init__` but the``original_init`` would call
+                # post-init right away with no kwargs.
+                if len(args) > 0:
+                    raise ValueError(
+                        f"When `accept_kwargs=True`, {cls.__name__} accepts only keyword arguments, "
+                        f"but found `{len(args)}` positional args."
+                    )
+
+                for f in fields(cls):  # type: ignore
+                    if f.name in standard_kwargs:
+                        setattr(self, f.name, standard_kwargs[f.name])
+                    elif f.default is not MISSING:
+                        setattr(self, f.name, f.default)
+                    elif f.default_factory is not MISSING:
+                        setattr(self, f.name, f.default_factory())
+                    else:
+                        raise TypeError(f"Missing required field - '{f.name}'")
 
                 # Pass any additional kwargs to `__post_init__` and let the object
                 # decide whether to set the attr or use for different purposes (e.g. BC checks)
