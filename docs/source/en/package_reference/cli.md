@@ -2522,15 +2522,15 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `hot-reload`: ⚠ This feature is experimental ⚠
+* `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
 * `ls`: List spaces on the Hub.
 
 ### `hf spaces hot-reload`
 
-⚠ This feature is experimental ⚠
-
 Hot-reload any Python file of a Space without a full rebuild + restart.
+
+⚠ This feature is experimental ⚠
 
 Only works with Gradio SDK (6.1+)
 Opens an interactive editor unless --local-file/-f is specified.
@@ -2541,6 +2541,7 @@ This command patches the live Python process using https://github.com/breuleux/j
 
 Usage examples:
 
+    
     hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file
     hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo
     hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo
