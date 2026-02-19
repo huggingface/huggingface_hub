@@ -174,7 +174,7 @@ def strict(
                         f"but found `{len(args)}` positional args."
                     )
 
-                for f in fields(cls):
+                for f in fields(cls):  # type: ignore
                     if f.name in standard_kwargs:
                         setattr(self, f.name, standard_kwargs[f.name])
                     elif f.default is not MISSING:
