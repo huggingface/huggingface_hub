@@ -168,9 +168,9 @@ def spaces_hot_reload(
     token: TokenOpt = None,
 ) -> None:
     """
-    ⚠ This feature is experimental ⚠
-
     Hot-reload any Python file of a Space without a full rebuild + restart.
+
+    ⚠ This feature is experimental ⚠
 
     Only works with Gradio SDK (6.1+)
     Opens an interactive editor unless --local-file/-f is specified.
