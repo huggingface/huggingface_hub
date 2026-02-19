@@ -1,6 +1,7 @@
 import argparse
 import html
 import io
+import re
 import tempfile
 from contextlib import redirect_stdout
 from difflib import unified_diff
@@ -10,6 +11,9 @@ from typer.cli import app as typer_main
 
 
 PACKAGE_REFERENCE_PATH = Path(__file__).parents[1] / "docs" / "source" / "en" / "package_reference" / "cli.md"
+
+# Hidden (deprecated) commands that should not appear in the generated reference.
+HIDDEN_COMMANDS = ["repo-files"]
 
 WARNING_HEADER = """<!--
 # WARNING
@@ -47,6 +51,29 @@ def print_colored_diff(expected: str, current: str) -> None:
             print(line)  # Default color for context
 
 
+def _strip_hidden_commands(content: str, hidden_commands: list[str]) -> str:
+    """Remove hidden/deprecated commands from the generated CLI reference.
+
+    Typer's `utils docs` generates documentation for all commands including hidden
+    ones. This function strips them from the output so they don't appear in the
+    published reference.
+    """
+    for cmd in hidden_commands:
+        # Remove bullet entry from top-level command list: `* `repo-files`: ...`
+        content = re.sub(rf"^\* `{re.escape(cmd)}`:.*\n", "", content, flags=re.MULTILINE)
+
+        # Remove the full section (## `hf <cmd>`) and any sub-sections (### `hf <cmd> ...`)
+        # up to the next section at the same or higher level (##).
+        content = re.sub(
+            rf"^## `hf {re.escape(cmd)}`\n(?:(?!^## ).*\n)*",
+            "",
+            content,
+            flags=re.MULTILINE,
+        )
+
+    return content
+
+
 def generate_cli_reference() -> str:
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_file = Path(tmpdir) / "cli.md"
@@ -71,6 +98,7 @@ def generate_cli_reference() -> str:
         content = tmp_file.read_text()
         # Decode HTML entities that Typer generates
         content = html.unescape(content)
+        content = _strip_hidden_commands(content, HIDDEN_COMMANDS)
         return f"{WARNING_HEADER}\n\n{content}"
 
 

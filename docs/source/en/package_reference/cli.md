@@ -36,7 +36,6 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `models`: Interact with models on the Hub.
 * `papers`: Interact with papers on the Hub.
 * `repo`: Manage repos on the Hub.
-* `repo-files`: (Deprecated) Manage files in a repo on the...
 * `skills`: Manage skills for AI assistants.
 * `spaces`: Interact with spaces on the Hub.
 * `upload`: Upload a file or a folder to the Hub.
@@ -2192,47 +2191,6 @@ Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
-
-## `hf repo-files`
-
-(Deprecated) Manage files in a repo on the Hub. Use `hf repo delete-files` instead.
-
-**Usage**:
-
-```console
-$ hf repo-files [OPTIONS] COMMAND [ARGS]...
-```
-
-**Options**:
-
-* `--help`: Show this message and exit.
-
-**Commands**:
-
-* `delete`
-
-### `hf repo-files delete`
-
-**Usage**:
-
-```console
-$ hf repo-files delete [OPTIONS] REPO_ID PATTERNS...
-```
-
-**Arguments**:
-
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
-* `PATTERNS...`: Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.  [required]
-
-**Options**:
-
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
-* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--commit-message TEXT`: The summary / title / first line of the generated commit.
-* `--commit-description TEXT`: The description of the generated commit.
-* `--create-pr / --no-create-pr`: Whether to create a new Pull Request for these changes.  [default: no-create-pr]
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
 
 ## `hf skills`
 
