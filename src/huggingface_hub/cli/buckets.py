@@ -762,6 +762,78 @@ def _mtime_to_iso(mtime_ms: float) -> str:
     return datetime.fromtimestamp(mtime_ms / 1000, tz=timezone.utc).isoformat()
 
 
+def _compare_files_for_sync(
+    *,
+    path: str,
+    action: str,
+    source_size: int,
+    source_mtime: float,
+    dest_size: int,
+    dest_mtime: float,
+    source_newer_label: str,
+    dest_newer_label: str,
+    ignore_sizes: bool,
+    ignore_times: bool,
+    ignore_existing: bool,
+    bucket_file: Optional[Any] = None,
+) -> SyncOperation:
+    """Compare source and dest files and return the appropriate sync operation.
+
+    This is a unified helper for both upload and download directions.
+
+    Args:
+        path: Relative file path
+        action: "upload" or "download"
+        source_size: Size of the source file (bytes)
+        source_mtime: Mtime of the source file (milliseconds)
+        dest_size: Size of the destination file (bytes)
+        dest_mtime: Mtime of the destination file (milliseconds)
+        source_newer_label: Label when source is newer (e.g., "local newer" or "remote newer")
+        dest_newer_label: Label when dest is newer (e.g., "remote newer" or "local newer")
+        ignore_sizes: Only compare mtime
+        ignore_times: Only compare size
+        ignore_existing: Skip files that exist on receiver
+        bucket_file: BucketFile object (for downloads only)
+
+    Returns:
+        SyncOperation describing the action to take
+    """
+    local_mtime_iso = _mtime_to_iso(source_mtime if action == "upload" else dest_mtime)
+    remote_mtime_iso = _mtime_to_iso(dest_mtime if action == "upload" else source_mtime)
+
+    base_kwargs: dict[str, Any] = {
+        "path": path,
+        "size": source_size,
+        "local_mtime": local_mtime_iso,
+        "remote_mtime": remote_mtime_iso,
+    }
+
+    if ignore_existing:
+        return SyncOperation(action="skip", reason="exists on receiver (--ignore-existing)", **base_kwargs)
+
+    size_differs = source_size != dest_size
+    source_newer = (source_mtime - dest_mtime) > 1000  # 1s window for precision
+
+    if ignore_sizes:
+        if source_newer:
+            return SyncOperation(action=action, reason=source_newer_label, bucket_file=bucket_file, **base_kwargs)
+        else:
+            dest_newer = (dest_mtime - source_mtime) > 1000
+            skip_reason = dest_newer_label if dest_newer else "same mtime"
+            return SyncOperation(action="skip", reason=skip_reason, **base_kwargs)
+    elif ignore_times:
+        if size_differs:
+            return SyncOperation(action=action, reason="size differs", bucket_file=bucket_file, **base_kwargs)
+        else:
+            return SyncOperation(action="skip", reason="same size", **base_kwargs)
+    else:
+        if size_differs or source_newer:
+            reason = "size differs" if size_differs else source_newer_label
+            return SyncOperation(action=action, reason=reason, bucket_file=bucket_file, **base_kwargs)
+        else:
+            return SyncOperation(action="skip", reason="identical", **base_kwargs)
+
+
 def _compute_sync_plan(
     source: str,
     dest: str,
@@ -862,102 +934,24 @@ def _compute_sync_plan(
                         )
                     )
             elif local_info and remote_info:
-                # File exists in both
+                # File exists in both - use helper to determine action
                 local_size, local_mtime = local_info
                 remote_size, remote_mtime = remote_info
-
-                if ignore_existing:
-                    # --ignore-existing: skip files that exist on receiver
-                    plan.operations.append(
-                        SyncOperation(
-                            action="skip",
-                            path=path,
-                            size=local_size,
-                            reason="exists on receiver (--ignore-existing)",
-                            local_mtime=_mtime_to_iso(local_mtime),
-                            remote_mtime=_mtime_to_iso(remote_mtime),
-                        )
+                plan.operations.append(
+                    _compare_files_for_sync(
+                        path=path,
+                        action="upload",
+                        source_size=local_size,
+                        source_mtime=local_mtime,
+                        dest_size=remote_size,
+                        dest_mtime=remote_mtime,
+                        source_newer_label="local newer",
+                        dest_newer_label="remote newer",
+                        ignore_sizes=ignore_sizes,
+                        ignore_times=ignore_times,
+                        ignore_existing=ignore_existing,
                     )
-                    continue
-
-                size_differs = local_size != remote_size
-                local_newer = (local_mtime - remote_mtime) > 1000  # 1s window to avoid sub-second precision issues
-
-                if ignore_sizes:
-                    # Only check mtime
-                    if local_newer:
-                        plan.operations.append(
-                            SyncOperation(
-                                action="upload",
-                                path=path,
-                                size=local_size,
-                                reason="local newer",
-                                local_mtime=_mtime_to_iso(local_mtime),
-                                remote_mtime=_mtime_to_iso(remote_mtime),
-                            )
-                        )
-                    else:
-                        # Determine accurate skip reason: is remote actually newer or are they the same?
-                        remote_newer = (remote_mtime - local_mtime) > 1000
-                        skip_reason = "remote newer" if remote_newer else "same mtime"
-                        plan.operations.append(
-                            SyncOperation(
-                                action="skip",
-                                path=path,
-                                size=local_size,
-                                reason=skip_reason,
-                                local_mtime=_mtime_to_iso(local_mtime),
-                                remote_mtime=_mtime_to_iso(remote_mtime),
-                            )
-                        )
-                elif ignore_times:
-                    # Only check size
-                    if size_differs:
-                        plan.operations.append(
-                            SyncOperation(
-                                action="upload",
-                                path=path,
-                                size=local_size,
-                                reason="size differs",
-                                local_mtime=_mtime_to_iso(local_mtime),
-                                remote_mtime=_mtime_to_iso(remote_mtime),
-                            )
-                        )
-                    else:
-                        plan.operations.append(
-                            SyncOperation(
-                                action="skip",
-                                path=path,
-                                size=local_size,
-                                reason="same size",
-                                local_mtime=_mtime_to_iso(local_mtime),
-                                remote_mtime=_mtime_to_iso(remote_mtime),
-                            )
-                        )
-                else:
-                    # Check both size and mtime
-                    if size_differs or local_newer:
-                        plan.operations.append(
-                            SyncOperation(
-                                action="upload",
-                                path=path,
-                                size=local_size,
-                                reason="size differs" if size_differs else "local newer",
-                                local_mtime=_mtime_to_iso(local_mtime),
-                                remote_mtime=_mtime_to_iso(remote_mtime),
-                            )
-                        )
-                    else:
-                        plan.operations.append(
-                            SyncOperation(
-                                action="skip",
-                                path=path,
-                                size=local_size,
-                                reason="identical",
-                                local_mtime=_mtime_to_iso(local_mtime),
-                                remote_mtime=_mtime_to_iso(remote_mtime),
-                            )
-                        )
+                )
             elif not local_info and remote_info and delete:
                 # File only in remote and --delete mode
                 plan.operations.append(
@@ -1036,105 +1030,25 @@ def _compute_sync_plan(
                         )
                     )
             elif remote_info and local_info:
-                # File exists in both
+                # File exists in both - use helper to determine action
                 remote_size, remote_mtime = remote_info
                 local_size, local_mtime = local_info
-
-                if ignore_existing:
-                    # --ignore-existing: skip files that exist on receiver
-                    plan.operations.append(
-                        SyncOperation(
-                            action="skip",
-                            path=path,
-                            size=remote_size,
-                            reason="exists on receiver (--ignore-existing)",
-                            local_mtime=_mtime_to_iso(local_mtime),
-                            remote_mtime=_mtime_to_iso(remote_mtime),
-                        )
+                plan.operations.append(
+                    _compare_files_for_sync(
+                        path=path,
+                        action="download",
+                        source_size=remote_size,
+                        source_mtime=remote_mtime,
+                        dest_size=local_size,
+                        dest_mtime=local_mtime,
+                        source_newer_label="remote newer",
+                        dest_newer_label="local newer",
+                        ignore_sizes=ignore_sizes,
+                        ignore_times=ignore_times,
+                        ignore_existing=ignore_existing,
+                        bucket_file=bucket_file_map.get(path),
                     )
-                    continue
-
-                size_differs = remote_size != local_size
-                remote_newer = (remote_mtime - local_mtime) > 1000  # 1s window to avoid sub-second precision issues
-
-                if ignore_sizes:
-                    # Only check mtime
-                    if remote_newer:
-                        plan.operations.append(
-                            SyncOperation(
-                                action="download",
-                                path=path,
-                                size=remote_size,
-                                reason="remote newer",
-                                local_mtime=_mtime_to_iso(local_mtime),
-                                remote_mtime=_mtime_to_iso(remote_mtime),
-                                bucket_file=bucket_file_map.get(path),
-                            )
-                        )
-                    else:
-                        # Determine accurate skip reason: is local actually newer or are they the same?
-                        local_newer = (local_mtime - remote_mtime) > 1000
-                        skip_reason = "local newer" if local_newer else "same mtime"
-                        plan.operations.append(
-                            SyncOperation(
-                                action="skip",
-                                path=path,
-                                size=remote_size,
-                                reason=skip_reason,
-                                local_mtime=_mtime_to_iso(local_mtime),
-                                remote_mtime=_mtime_to_iso(remote_mtime),
-                            )
-                        )
-                elif ignore_times:
-                    # Only check size
-                    if size_differs:
-                        plan.operations.append(
-                            SyncOperation(
-                                action="download",
-                                path=path,
-                                size=remote_size,
-                                reason="size differs",
-                                local_mtime=_mtime_to_iso(local_mtime),
-                                remote_mtime=_mtime_to_iso(remote_mtime),
-                                bucket_file=bucket_file_map.get(path),
-                            )
-                        )
-                    else:
-                        plan.operations.append(
-                            SyncOperation(
-                                action="skip",
-                                path=path,
-                                size=remote_size,
-                                reason="same size",
-                                local_mtime=_mtime_to_iso(local_mtime),
-                                remote_mtime=_mtime_to_iso(remote_mtime),
-                            )
-                        )
-                else:
-                    # Check both size and mtime
-                    if size_differs or remote_newer:
-                        plan.operations.append(
-                            SyncOperation(
-                                action="download",
-                                path=path,
-                                size=remote_size,
-                                reason="size differs" if size_differs else "remote newer",
-                                local_mtime=_mtime_to_iso(local_mtime),
-                                remote_mtime=_mtime_to_iso(remote_mtime),
-                                bucket_file=bucket_file_map.get(path),
-                            )
-                        )
-                    else:
-                        plan.operations.append(
-                            SyncOperation(
-                                action="skip",
-                                path=path,
-                                size=remote_size,
-                                reason="identical",
-                                local_mtime=_mtime_to_iso(local_mtime),
-                                remote_mtime=_mtime_to_iso(remote_mtime),
-                            )
-                        )
+                )
             elif not remote_info and local_info and delete:
                 # File only in local and --delete mode
                 plan.operations.append(
