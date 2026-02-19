@@ -228,7 +228,6 @@ def repo_delete_files(
         create_pr=create_pr,
     )
     print(f"Files correctly deleted from repo. Commit: {url}.")
-    logging.set_verbosity_warning()
 
 
 @branch_cli.command(
