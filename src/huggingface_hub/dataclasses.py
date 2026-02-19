@@ -164,7 +164,7 @@ def strict(
                 standard_kwargs = {k: v for k, v in kwargs.items() if k in dataclass_fields}
 
                 # User shouldn't define custom `__init__` when `accepts_kwargs`, and instead
-                # are adviced to move field manipulation to `__post_init__` (e.g., derive new field from existing ones)
+                # are advised to move field manipulation to `__post_init__` (e.g., derive new field from existing ones)
                 # We need to call bare `__init__` here without `__post_init__` but the``original_init`` would call
                 # post-init right away with no kwargs.
                 if len(args) > 0:
@@ -176,12 +176,12 @@ def strict(
                 for f in fields(cls):
                     if f.name in standard_kwargs:
                         setattr(self, f.name, standard_kwargs[f.name])
-                    elif f.default is not f.default_factory:
+                    elif f.default is not MISSING:
                         setattr(self, f.name, f.default)
-                    elif f.default_factory is not None:
+                    elif f.default_factory is not MISSING:
                         setattr(self, f.name, f.default_factory())
                     else:
-                        raise TypeError(f"Missing required field {f.name}")
+                        raise TypeError(f"Missing required field - '{f.name}'")
 
                 # Pass any additional kwargs to `__post_init__` and let the object
                 # decide whether to set the attr or use for different purposes (e.g. BC checks)

@@ -422,6 +422,12 @@ def test_post_init_with_required_kwargs():
     with pytest.raises(ValueError):
         ConfigWithRequiresKwargsInPostInit(model_type="bert", vocab_size=30000)
 
+    config = ConfigWithRequiresKwargsInPostInit(model_type="bert", encoder={"model_type": "t5"})
+    assert config.vocab_size == 16  # default value
+
+    with pytest.raises(TypeError, match="Missing required field - 'model_type'"):
+        config = ConfigWithRequiresKwargsInPostInit(encoder={"model_type": "t5"})
+
 
 def test_is_recognized_as_dataclass():
     # Check that dataclasses module recognizes it as a dataclass
