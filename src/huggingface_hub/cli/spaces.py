@@ -230,7 +230,7 @@ def dev_mode(
     except RepositoryNotFoundError as e:
         raise CLIError(f"Space '{space_id}' not found.") from e
     info = api.space_info(space_id)
-    folder = getattr(info.card_data, "dev-mode-folder", "")
+    folder = getattr(info.card_data, "dev-mode-folder", "" if info.sdk == "docker" else "/home/user/app")
     folder_query_param = f"folder={folder}" if folder else ""
     print(f"Dev mode is currently building, track the progress here: https://huggingface.co/spaces/{info.id}")
     intermediate_statuses_and_messages = {
