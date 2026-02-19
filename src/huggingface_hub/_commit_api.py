@@ -636,6 +636,10 @@ def _upload_xet_files(
         all_bytes_ops = [op for op in additions if isinstance(op.path_or_fileobj, bytes)]
         all_paths_ops = [op for op in additions if isinstance(op.path_or_fileobj, (str, Path))]
 
+        xet_headers = headers.copy()
+        xet_headers.pop("authorization", None)
+
+
         if len(all_paths_ops) > 0:
             all_paths = [str(op.path_or_fileobj) for op in all_paths_ops]
             upload_files(
@@ -645,6 +649,7 @@ def _upload_xet_files(
                 token_refresher,
                 progress_callback,
                 repo_type,
+                request_headers=xet_headers,
             )
 
         if len(all_bytes_ops) > 0:
@@ -656,6 +661,7 @@ def _upload_xet_files(
                 token_refresher,
                 progress_callback,
                 repo_type,
+                request_headers=xet_headers,
             )
 
     finally:

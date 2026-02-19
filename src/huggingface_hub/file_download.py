@@ -588,6 +588,9 @@ def xet_get(
         _tqdm_bar=_tqdm_bar,
     )
 
+    xet_headers = headers.copy()
+    xet_headers.pop("authorization", None)
+
     with progress_cm as progress:
 
         def progress_updater(progress_bytes: float):
@@ -599,6 +602,7 @@ def xet_get(
             token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
             token_refresher=token_refresher,
             progress_updater=[progress_updater],
+            request_headers=xet_headers,
         )
 
 
