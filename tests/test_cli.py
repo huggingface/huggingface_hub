@@ -1101,6 +1101,28 @@ class TestDownloadImpl:
             dry_run=False,
         )
 
+    def test_download_subfolder_with_include_raises_error(self) -> None:
+        """Test that combining subfolder with --include raises an error."""
+        with pytest.raises(CLIError, match="Cannot combine subfolder argument"):
+            download(
+                repo_id="author/model",
+                filenames=["art/"],
+                repo_type=RepoType.model,
+                include=["*.json"],
+                quiet=True,
+            )
+
+    def test_download_subfolder_with_exclude_raises_error(self) -> None:
+        """Test that combining subfolder with --exclude raises an error."""
+        with pytest.raises(CLIError, match="Cannot combine subfolder argument"):
+            download(
+                repo_id="author/model",
+                filenames=["art/"],
+                repo_type=RepoType.model,
+                exclude=["*.bin"],
+                quiet=True,
+            )
+
 
 class TestTagCommands:
     def test_tag_create_basic(self, runner: CliRunner) -> None:

@@ -46,6 +46,7 @@ import typer
 
 from huggingface_hub import logging
 from huggingface_hub._snapshot_download import snapshot_download
+from huggingface_hub.errors import CLIError
 from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
 from huggingface_hub.utils import _format_size, disable_progress_bars, enable_progress_bars, tabulate
 
@@ -131,8 +132,23 @@ def download(
 
         # Separate subfolder patterns (ending with '/') from regular filenames
         # Subfolders like "art/" are converted to include patterns like "art/**"
-        subfolder_patterns = [f"{f.rstrip('/')}/**" for f in filenames_list if f.endswith("/")]
+        subfolders = [f for f in filenames_list if f.endswith("/")]
+        subfolder_patterns = [f"{f.rstrip('/')}/**" for f in subfolders]
         regular_filenames = [f for f in filenames_list if not f.endswith("/")]
+
+        # Error if subfolder patterns are combined with --include/--exclude
+        # Guide user to use --include instead of subfolder argument
+        if len(subfolder_patterns) > 0:
+            if include is not None and len(include) > 0:
+                raise CLIError(
+                    f"Cannot combine subfolder argument ('{subfolders[0]}') with `--include`. "
+                    f'Please use `--include "{subfolders[0]}*"` instead.'
+                )
+            if exclude is not None and len(exclude) > 0:
+                raise CLIError(
+                    f"Cannot combine subfolder argument ('{subfolders[0]}') with `--exclude`. "
+                    f'Please use `--include "{subfolders[0]}*"` with `--exclude` instead.'
+                )
 
         # Warn user if patterns are ignored (only if regular filenames are provided)
         if len(regular_filenames) > 0:
