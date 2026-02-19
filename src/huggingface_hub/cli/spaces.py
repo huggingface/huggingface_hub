@@ -207,11 +207,16 @@ def spaces_hot_reload(
         filename = local_file if filename is None else filename
     elif filename:
         if not skip_checks:
-            api.auth_check(
-                repo_type="space",
-                repo_id=space_id,
-                write=True,
-            )
+            try:
+                api.auth_check(
+                    repo_type="space",
+                    repo_id=space_id,
+                    write=True,
+                )
+            except RepositoryNotFoundError as e:
+                raise CLIError(
+                    f"Write access check to {space_id} repository failed. Make sure that you are authenticated"
+                ) from e
         temp_dir = tempfile.TemporaryDirectory()
         local_path = os.path.join(temp_dir.name, filename)
         if not (pbar_disabled := are_progress_bars_disabled()):
