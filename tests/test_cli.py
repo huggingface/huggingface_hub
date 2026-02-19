@@ -1657,12 +1657,14 @@ def tmp_current_directory() -> Generator[str, None, None]:
             os.chdir(cwd)
 
 
-class TestRepoFilesCommand:
+class TestRepoDeleteFilesCommand:
+    """Tests for `hf repo delete-files` (the new primary command)."""
+
     @pytest.mark.parametrize(
         "cli_args, expected_kwargs",
         [
             (
-                ["repo-files", "delete", DUMMY_MODEL_ID, "*"],
+                ["repo", "delete-files", DUMMY_MODEL_ID, "*"],
                 {
                     "delete_patterns": ["*"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -1674,7 +1676,7 @@ class TestRepoFilesCommand:
                 },
             ),
             (
-                ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"],
+                ["repo", "delete-files", DUMMY_MODEL_ID, "file.txt"],
                 {
                     "delete_patterns": ["file.txt"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -1686,7 +1688,7 @@ class TestRepoFilesCommand:
                 },
             ),
             (
-                ["repo-files", "delete", DUMMY_MODEL_ID, "folder/"],
+                ["repo", "delete-files", DUMMY_MODEL_ID, "folder/"],
                 {
                     "delete_patterns": ["folder/"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -1698,7 +1700,7 @@ class TestRepoFilesCommand:
                 },
             ),
             (
-                ["repo-files", "delete", DUMMY_MODEL_ID, "file1.txt", "folder/", "file2.txt"],
+                ["repo", "delete-files", DUMMY_MODEL_ID, "file1.txt", "folder/", "file2.txt"],
                 {
                     "delete_patterns": [
                         "file1.txt",
@@ -1715,8 +1717,8 @@ class TestRepoFilesCommand:
             ),
             (
                 [
-                    "repo-files",
-                    "delete",
+                    "repo",
+                    "delete-files",
                     DUMMY_MODEL_ID,
                     "file.txt *",
                     "*.json",
@@ -1738,8 +1740,8 @@ class TestRepoFilesCommand:
             ),
             (
                 [
-                    "repo-files",
-                    "delete",
+                    "repo",
+                    "delete-files",
                     DUMMY_MODEL_ID,
                     "file.txt *",
                     "--revision",
@@ -1764,12 +1766,37 @@ class TestRepoFilesCommand:
             ),
         ],
     )
-    def test_delete(self, runner: CliRunner, cli_args: list[str], expected_kwargs: dict[str, object]) -> None:
-        with patch("huggingface_hub.cli.repo_files.get_hf_api") as api_cls:
+    def test_delete_files(self, runner: CliRunner, cli_args: list[str], expected_kwargs: dict[str, object]) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, cli_args)
         assert result.exit_code == 0
         api.delete_files.assert_called_once_with(**expected_kwargs)
+
+
+class TestRepoFilesCommand:
+    """Tests for legacy `hf repo-files delete` (deprecated, kept for backward compatibility)."""
+
+    def test_legacy_delete_still_works(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo_files.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"])
+        assert result.exit_code == 0
+        api.delete_files.assert_called_once_with(
+            delete_patterns=["file.txt"],
+            repo_id=DUMMY_MODEL_ID,
+            repo_type="model",
+            revision=None,
+            commit_message=None,
+            commit_description=None,
+            create_pr=False,
+        )
+
+    def test_legacy_delete_emits_deprecation_warning(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo_files.get_hf_api"):
+            result = runner.invoke(app, ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"])
+        assert result.exit_code == 0
+        assert "hf repo delete-files" in result.output
 
 
 class TestJobsCommand:

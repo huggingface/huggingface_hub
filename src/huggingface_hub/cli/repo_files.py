@@ -12,33 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains command to update or delete files in a repository using the CLI.
+"""Legacy `hf repo-files` command.
 
-Usage:
-    # delete all
-    hf repo-files delete <repo_id> "*"
-
-    # delete single file
-    hf repo-files delete <repo_id> file.txt
-
-    # delete single folder
-    hf repo-files delete <repo_id> folder/
-
-    # delete multiple
-    hf repo-files delete <repo_id> file.txt folder/ file2.txt
-
-    # delete multiple patterns
-    hf repo-files delete <repo_id> file.txt "*.json" "folder/*.parquet"
-
-    # delete from different revision / repo-type
-    hf repo-files delete <repo_id> file.txt --revision=refs/pr/1 --repo-type=dataset
+Kept for backward compatibility. Users are nudged to use `hf repo delete-files` instead.
 """
 
+import sys
 from typing import Annotated, Optional
 
 import typer
 
 from huggingface_hub import logging
+from huggingface_hub.utils import ANSI
 
 from ._cli_utils import RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 
@@ -46,16 +31,13 @@ from ._cli_utils import RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt,
 logger = logging.get_logger(__name__)
 
 
-repo_files_cli = typer_factory(help="Manage files in a repo on the Hub.")
+repo_files_cli = typer_factory(
+    help="(Deprecated) Manage files in a repo on the Hub. Use `hf repo delete-files` instead."
+)
 
 
 @repo_files_cli.command(
     "delete",
-    examples=[
-        "hf repo-files delete my-model file.txt",
-        'hf repo-files delete my-model "*.json"',
-        "hf repo-files delete my-model folder/",
-    ],
 )
 def repo_files_delete(
     repo_id: RepoIdArg,
@@ -87,6 +69,10 @@ def repo_files_delete(
     ] = False,
     token: TokenOpt = None,
 ) -> None:
+    print(
+        ANSI.yellow("FutureWarning: `hf repo-files delete` is deprecated. Use `hf repo delete-files` instead."),
+        file=sys.stderr,
+    )
     api = get_hf_api(token=token)
     url = api.delete_files(
         delete_patterns=patterns,

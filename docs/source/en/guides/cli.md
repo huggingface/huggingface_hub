@@ -52,7 +52,6 @@ Commands:
   jobs                 Run and manage Jobs on the Hub.
   models               Interact with models on the Hub.
   repo                 Manage repos on the Hub.
-  repo-files           Manage files in a repo on the Hub.
   spaces               Interact with spaces on the Hub.
   upload               Upload a file or a folder to the Hub.
   upload-large-folder  Upload a large folder to the Hub.
@@ -610,7 +609,7 @@ Use `hf papers` to list daily papers on the Hub.
 
 ## hf repo
 
-`hf repo` lets you create, delete, move repositories and update their settings on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
+`hf repo` lets you create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
 
 ### Create a repo
 
@@ -659,6 +658,41 @@ Datasets and Spaces:
 - `--gated`: one of `auto`, `manual`, `false`
 - `--private true|false`: set repository privacy
 
+### Delete files from a repo
+
+The `hf repo delete-files <repo_id>` sub-command allows you to delete files from a repository. Here are some usage examples.
+
+Delete a folder:
+```bash
+>>> hf repo delete-files Wauplin/my-cool-model folder/
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+Delete multiple files:
+```bash
+>>> hf repo delete-files Wauplin/my-cool-model file.txt folder/pytorch_model.bin
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+Use wildcard patterns to delete sets of files. Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). The pattern matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
+
+<Tip warning={true}>
+
+Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix shell globbing. For example, `"data/*.json"` will match both `data/file.json` **and** `data/subdir/file.json`. To match only files in the immediate directory, you need to list them explicitly or use more specific patterns.
+
+</Tip>
+
+```bash
+>>> hf repo delete-files Wauplin/my-cool-model "*.txt" "folder/*.bin"
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+To delete files from a repo you must be authenticated and authorized. By default, the token saved locally (using `hf auth login`) will be used. If you want to authenticate explicitly, use the `--token` option:
+
+```bash
+>>> hf repo delete-files --token=hf_**** Wauplin/my-cool-model file.txt
+```
+
 ## hf repo branch
 
 Use `hf repo branch` to create and delete branches for repositories on the Hub.
@@ -676,47 +710,6 @@ Use `hf repo branch` to create and delete branches for repositories on the Hub.
 
 > [!TIP]
 > All commands accept `--repo-type` (one of `model`, `dataset`, `space`) and `--token` if you need to authenticate explicitly. Use `--help` on any command to see all options.
-
-## hf repo-files
-
-If you want to delete files from a Hugging Face repository, use the `hf repo-files` command.
-
-### Delete files
-
-The `hf repo-files delete <repo_id>` sub-command allows you to delete files from a repository. Here are some usage examples.
-
-Delete a folder :
-```bash
->>> hf repo-files delete Wauplin/my-cool-model folder/
-Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
-```
-
-Delete multiple files:
-```bash
->>> hf repo-files delete Wauplin/my-cool-model file.txt folder/pytorch_model.bin
-Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
-```
-
-Use wildcard patterns to delete sets of files. Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). The pattern matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
-
-<Tip warning={true}>
-
-Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix shell globbing. For example, `"data/*.json"` will match both `data/file.json` **and** `data/subdir/file.json`. To match only files in the immediate directory, you need to list them explicitly or use more specific patterns.
-
-</Tip>
-
-```bash
->>> hf repo-files delete Wauplin/my-cool-model "*.txt" "folder/*.bin"
-Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
-```
-
-### Specify a token
-
-To delete files from a repo you must be authenticated and authorized. By default, the token saved locally (using `hf auth login`) will be used. If you want to authenticate explicitly, use the `--token` option:
-
-```bash
->>> hf repo-files delete --token=hf_**** Wauplin/my-cool-model file.txt
-```
 
 ## hf cache
 
