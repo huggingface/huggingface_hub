@@ -2541,10 +2541,9 @@ This command patches the live Python process using https://github.com/breuleux/j
 
 Usage examples:
 
-
-hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file
-hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo
-hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo
+    hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file
+    hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo
+    hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo
 
 **Usage**:
 
