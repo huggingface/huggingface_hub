@@ -675,9 +675,9 @@ def _list_remote_files(api: HfApi, bucket_id: str, prefix: str) -> Iterator[tupl
                 # Exact match: the file IS the prefix (e.g., single file download)
                 rel_path = path.rsplit("/", 1)[-1] if "/" in path else path
             else:
-                # Path doesn't start with prefix+"/", keep full path to avoid
-                # incorrectly stripping partial matches (e.g., "sub" from "submarine.txt")
-                rel_path = path
+                # Path doesn't match prefix pattern (e.g., "submarine.txt" for prefix "sub")
+                # Skip this file - it was returned by the API but doesn't belong to this prefix
+                continue
         else:
             rel_path = path
         mtime_ms = item.mtime.timestamp() * 1000 if item.mtime else 0
