@@ -64,7 +64,7 @@ exclude = [
     "build",
     "dist",
     "venv",
-    "src/huggingface_hub/utils/_sse_client.py",
+    "src/huggingface_hub/_hot_reload/sse_client.py", # Vendored
 ]
 line-length = 119
 # Ignored rules:

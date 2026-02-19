@@ -6,7 +6,7 @@ import httpx
 
 from ..utils._headers import build_hf_headers
 from ..utils._http import hf_raise_for_status
-from ..utils._sse_client import SSEClient
+from .sse_client import SSEClient
 from .types import ApiGetReloadEventSourceData, ApiGetReloadRequest
 
 
