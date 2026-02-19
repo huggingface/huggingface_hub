@@ -1982,7 +1982,7 @@ class BucketFile:
 
 
 @dataclass
-class BucketDirectory:
+class BucketFolder:
     """
     Contains information about a directory in a bucket on the Hub. This object is returned by [`list_bucket_tree`].
 
@@ -11705,7 +11705,7 @@ class HfApi:
         *,
         recursive: Optional[bool] = None,
         token: Union[str, bool, None] = None,
-    ) -> Iterable[Union[BucketFile, BucketDirectory]]:
+    ) -> Iterable[Union[BucketFile, BucketFolder]]:
         """List files in a bucket.
 
         Args:
@@ -11720,7 +11720,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `Iterable[Union[BucketFile, BucketDirectory]]`: An iterable of [`BucketFile`] and [`BucketDirectory`] objects
+            `Iterable[Union[BucketFile, BucketFolder]]`: An iterable of [`BucketFile`] and [`BucketFolder`] objects
              containing file and directory information (path, etc.).
 
         Example:
@@ -11746,7 +11746,7 @@ class HfApi:
             if item["type"] == "file":
                 yield BucketFile(**item)
             elif item["type"] == "directory":
-                yield BucketDirectory(**item)
+                yield BucketFolder(**item)
 
     @validate_hf_hub_args
     def get_bucket_paths_info(

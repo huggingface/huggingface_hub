@@ -27,7 +27,7 @@ import typer
 
 from huggingface_hub import HfApi, logging
 from huggingface_hub.errors import BucketNotFoundError
-from huggingface_hub.hf_api import BucketDirectory, BucketFile
+from huggingface_hub.hf_api import BucketFile, BucketFolder
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
@@ -122,7 +122,7 @@ def _format_mtime(mtime: Optional[datetime], human_readable: bool = False) -> st
 
 
 def _build_tree(
-    items: list[Union[BucketFile, BucketDirectory]],
+    items: list[Union[BucketFile, BucketFolder]],
     human_readable: bool = False,
     quiet: bool = False,
 ) -> list[str]:
@@ -132,7 +132,7 @@ def _build_tree(
     When quiet=True, only the tree structure is shown (no size/date).
 
     Args:
-        items: List of BucketFile/BucketDirectory items
+        items: List of BucketFile/BucketFolder items
         human_readable: Whether to show human-readable sizes and short dates
         quiet: If True, show only the tree structure without sizes/dates
 
@@ -151,7 +151,7 @@ def _build_tree(
             current = current[part]["__children__"]
 
         final_part = parts[-1]
-        if isinstance(item, BucketDirectory):
+        if isinstance(item, BucketFolder):
             if final_part not in current:
                 current[final_part] = {"__children__": {}}
         else:
@@ -453,7 +453,7 @@ def _list_files(
         print("(empty)")
         return
 
-    has_directories = any(isinstance(item, BucketDirectory) for item in items)
+    has_directories = any(isinstance(item, BucketFolder) for item in items)
 
     if format == OutputFormat.json:
         results = [api_object_to_dict(item) for item in items]
@@ -465,14 +465,14 @@ def _list_files(
             print(line)
     elif quiet:
         for item in items:
-            if isinstance(item, BucketDirectory):
+            if isinstance(item, BucketFolder):
                 print(f"{item.path}/")
             else:
                 print(item.path)
     else:
         # Flat table format
         for item in items:
-            if isinstance(item, BucketDirectory):
+            if isinstance(item, BucketFolder):
                 mtime_str = _format_mtime(item.uploaded_at, human_readable)
                 print(f"{'':>12}  {mtime_str:>19}  {item.path}/")
             else:
@@ -663,7 +663,7 @@ def _list_remote_files(api: HfApi, bucket_id: str, prefix: str) -> Iterator[tupl
             bucket_file is the BucketFile object from list_bucket_tree.
     """
     for item in api.list_bucket_tree(bucket_id, prefix=prefix or None, recursive=True):
-        if isinstance(item, BucketDirectory):
+        if isinstance(item, BucketFolder):
             continue
         path = item.path
         # Remove prefix from path to get relative path
