@@ -793,6 +793,38 @@ def test_sync_upload_prefix_with_trailing_slash(api: HfApi, bucket_write: str, t
     assert "sub//trailing.txt" not in remote
 
 
+def test_sync_download_prefix_does_not_match_similar_names(api: HfApi, bucket_write: str, tmp_path: Path):
+    """Sync with prefix should not match files that share prefix string without directory boundary.
+
+    This is a regression test for a bug where prefix stripping used path.startswith(prefix)
+    which would incorrectly match "submarine.txt" when prefix="sub", yielding "marine.txt"
+    as the relative path instead of keeping the full path.
+    """
+    # Upload files: one under sub/ directory, one with similar prefix at root
+    api.batch_bucket_files(
+        bucket_write,
+        add=[
+            (b"in subdir", "sub/file.txt"),
+            (b"similar name", "submarine.txt"),
+        ],
+    )
+
+    download_dir = tmp_path / "download"
+    download_dir.mkdir()
+
+    # Sync only the sub/ prefix
+    result = cli(f"hf buckets sync hf://buckets/{bucket_write}/sub {download_dir} --quiet")
+    assert result.exit_code == 0
+
+    # Should download file.txt (from sub/)
+    assert (download_dir / "file.txt").exists()
+    assert (download_dir / "file.txt").read_text() == "in subdir"
+
+    # Should NOT download submarine.txt or incorrectly-named marine.txt
+    assert not (download_dir / "marine.txt").exists()
+    assert not (download_dir / "submarine.txt").exists()
+
+
 def test_sync_upload_verbose(bucket_write: str, tmp_path: Path):
     """--verbose shows per-file operation lines."""
     data_dir = _make_local_dir(tmp_path, {"v.txt": "verbose"})

@@ -667,12 +667,16 @@ def _list_remote_files(api: HfApi, bucket_id: str, prefix: str) -> Iterator[tupl
             continue
         path = item.path
         # Remove prefix from path to get relative path
+        # Only strip prefix if it's followed by "/" (directory boundary) or is exact match
         if prefix:
             if path.startswith(prefix + "/"):
                 rel_path = path[len(prefix) + 1 :]
-            elif path.startswith(prefix):
-                rel_path = path[len(prefix) :]
+            elif path == prefix:
+                # Exact match: the file IS the prefix (e.g., single file download)
+                rel_path = path.rsplit("/", 1)[-1] if "/" in path else path
             else:
+                # Path doesn't start with prefix+"/", keep full path to avoid
+                # incorrectly stripping partial matches (e.g., "sub" from "submarine.txt")
                 rel_path = path
         else:
             rel_path = path
