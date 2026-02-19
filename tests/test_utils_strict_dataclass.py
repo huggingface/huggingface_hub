@@ -1,7 +1,7 @@
 import inspect
 import sys
 from dataclasses import asdict, astuple, dataclass, is_dataclass
-from typing import Annotated, Any, Literal, Optional, TypedDict, Union, get_type_hints
+from typing import Annotated, Any, Literal, Optional, Sequence, TypedDict, Union, get_type_hints
 
 import jedi
 import pytest
@@ -220,6 +220,12 @@ def test_custom_validator_must_be_callable():
         # Set
         ({1, 2, 3}, set[int]),
         ({1, 2, "3"}, set[Union[int, str]]),
+        # Sequence (accepts list, tuple, str, etc.)
+        ([1, 2, 3], Sequence[int]),
+        ((1, 2, 3), Sequence[int]),
+        ("abc", Sequence[str]),  # str is a Sequence of str
+        ([1, 2, "3"], Sequence[Union[int, str]]),
+        ((1, 2, "3"), Sequence[Union[int, str]]),
         # Custom classes
         (DummyClass(), DummyClass),
         # Any
@@ -282,6 +288,11 @@ def test_type_validator_valid(value, type_annotation):
         # Set
         (5, set[int]),
         ({1, 2, "3"}, set[int]),
+        # Sequence
+        (5, Sequence[int]),  # not a sequence
+        ({1, 2, 3}, Sequence[int]),  # set is not a sequence
+        ([1, 2, "3"], Sequence[int]),  # wrong item type
+        ((1, 2, "3"), Sequence[int]),  # wrong item type in tuple
         # Custom classes
         (5, DummyClass),
         ("John", DummyClass),
