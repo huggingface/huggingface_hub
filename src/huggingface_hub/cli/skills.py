@@ -39,30 +39,36 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
+from click import Context, Group
+from typer.main import get_command
 
 from huggingface_hub.errors import CLIError
-from huggingface_hub.utils import get_session
 
 from ._cli_utils import typer_factory
 
 
 DEFAULT_SKILL_ID = "hf-cli"
 
-_GITHUB_RAW_BASE = "https://raw.githubusercontent.com/huggingface/huggingface_hub/main/docs/source/en"
-_SKILL_MD_URL = f"{_GITHUB_RAW_BASE}/guides/cli.md"
-_REFERENCE_URL = f"{_GITHUB_RAW_BASE}/package_reference/cli.md"
-
 _SKILL_YAML_PREFIX = """\
 ---
 name: hf-cli
-description: >
-  Hugging Face Hub CLI (`hf`) for downloading, uploading, and managing
-  repositories, models, datasets, and Spaces on the Hugging Face Hub.
+description: "Hugging Face Hub CLI (`hf`) for downloading, uploading, and managing repositories, models, datasets, and Spaces on the Hugging Face Hub. Replaces now deprecated `huggingface-cli` command."
 ---
+
+Install: `curl -LsSf https://hf.co/cli/install.sh | bash -s`.
 
 The Hugging Face Hub CLI tool `hf` is available. IMPORTANT: The `hf` command replaces the deprecated `huggingface_cli` command.
 
 Use `hf --help` to view available functions. Note that auth commands are now all under `hf auth` e.g. `hf auth whoami`.
+"""
+
+_SKILL_TIPS = """
+## Tips
+
+- Use `hf <command> --help` for full options, usage, and real-world examples
+- Use `--format json` for machine-readable output on list commands
+- Use `-q` / `--quiet` to print only IDs
+- Authenticate with `HF_TOKEN` env var (recommended) or with `--token`
 """
 
 CENTRAL_LOCAL = Path(".agents/skills")
@@ -85,11 +91,66 @@ LOCAL_TARGETS = {
 skills_cli = typer_factory(help="Manage skills for AI assistants.")
 
 
-def _download(url: str) -> str:
-    """Download text content from a URL."""
-    response = get_session().get(url)
-    response.raise_for_status()
-    return response.text
+def _format_params(cmd) -> str:
+    """Format required params for a command as uppercase placeholders."""
+    parts = []
+    for p in cmd.params:
+        if p.required and not p.name.startswith("_") and p.human_readable_name != "--help":
+            parts.append(p.human_readable_name)
+    return " ".join(parts)
+
+
+def build_skill_md() -> str:
+    # Lazy import to avoid circular dependency (hf.py imports skills_cli from this module)
+    from huggingface_hub import __version__
+    from huggingface_hub.cli.hf import app
+
+    click_app = get_command(app)
+    ctx = Context(click_app, info_name="hf")
+
+    # wrap in list to widen list[LiteralString] -> list[str] for `ty``
+    lines: list[str] = list(_SKILL_YAML_PREFIX.splitlines())
+    lines.append("")
+    lines.append(f"Generated with `huggingface_hub v{__version__}`. Run `hf skills add --force` to regenerate.")
+    lines.append("")
+    lines.append("## Commands")
+    lines.append("")
+
+    top_level = []
+    groups = []
+    for name in sorted(click_app.list_commands(ctx)):  # type: ignore[attr-defined]
+        cmd = click_app.get_command(ctx, name)  # type: ignore[attr-defined]
+        if cmd is None or cmd.hidden:
+            continue
+        if isinstance(cmd, Group):
+            groups.append((name, cmd))
+        else:
+            top_level.append((name, cmd))
+
+    for name, cmd in top_level:
+        help_text = (cmd.help or "").split("\n")[0].strip()
+        params = _format_params(cmd)
+        parts = ["hf", name] + ([params] if params else [])
+        lines.append(f"- `{' '.join(parts)}` — {help_text}")
+
+    for name, cmd in groups:
+        help_text = (cmd.help or "").split("\n")[0].strip()
+        lines.append("")
+        lines.append(f"### `hf {name}` — {help_text}")
+        lines.append("")
+        sub_ctx = Context(cmd, parent=ctx, info_name=name)
+        for sub_name in cmd.list_commands(sub_ctx):
+            sub_cmd = cmd.get_command(sub_ctx, sub_name)
+            if sub_cmd is None or sub_cmd.hidden:
+                continue
+            sub_help = (sub_cmd.help or "").split("\n")[0].strip()
+            params = _format_params(sub_cmd)
+            parts = ["hf", name, sub_name] + ([params] if params else [])
+            lines.append(f"- `{' '.join(parts)}` — {sub_help}")
+
+    lines.extend(_SKILL_TIPS.splitlines())
+
+    return "\n".join(lines)
 
 
 def _remove_existing(path: Path, force: bool) -> None:
@@ -113,15 +174,7 @@ def _install_to(skills_dir: Path, force: bool) -> Path:
     _remove_existing(dest, force)
     dest.mkdir()
 
-    # SKILL.md – the main guide, prefixed with YAML metadata
-    skill_content = _download(_SKILL_MD_URL)
-    (dest / "SKILL.md").write_text(_SKILL_YAML_PREFIX + skill_content, encoding="utf-8")
-
-    # references/cli.md – the full CLI reference
-    ref_dir = dest / "references"
-    ref_dir.mkdir()
-    ref_content = _download(_REFERENCE_URL)
-    (ref_dir / "cli.md").write_text(ref_content, encoding="utf-8")
+    (dest / "SKILL.md").write_text(build_skill_md(), encoding="utf-8")
 
     return dest
 

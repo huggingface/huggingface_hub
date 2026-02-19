@@ -1031,6 +1031,7 @@ $ hf endpoints catalog deploy [OPTIONS]
 
 * `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').  [required]
 * `--name TEXT`: Endpoint name.
+* `--accelerator TEXT`: The hardware accelerator to be used for inference (e.g. 'cpu', 'gpu', 'neuron').
 * `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -2521,8 +2522,48 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `hot-reload`: ⚠ This feature is experimental ⚠
 * `info`: Get info about a space on the Hub.
 * `ls`: List spaces on the Hub.
+
+### `hf spaces hot-reload`
+
+⚠ This feature is experimental ⚠
+
+Hot-reload any Python file of a Space without a full rebuild + restart.
+
+Only works with Gradio SDK (6.1+)
+Opens an interactive editor unless --local-file/-f is specified.
+
+This command patches the live Python process using https://github.com/breuleux/jurigged
+(AST-based diffing, in-place function updates, etc.), integrated with Gradio's native hot-reload support
+(meaning that Gradio demo object changes are reflected in the UI)
+
+Usage examples:
+
+
+hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file
+hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo
+hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo
+
+**Usage**:
+
+```console
+$ hf spaces hot-reload [OPTIONS] SPACE_ID [FILENAME]
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `[FILENAME]`: Path to the Python file in the Space repository. Can be omitted when --local-file is specified and path in repository matches.
+
+**Options**:
+
+* `-f, --local-file TEXT`: Path of local file. Interactive editor mode if not specified
+* `--skip-checks / --no-skip-checks`: Skip hot-reload compatibility checks.  [default: no-skip-checks]
+* `--skip-summary / --no-skip-summary`: Skip summary display after hot-reload is triggered  [default: no-skip-summary]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
 
 ### `hf spaces info`
 
