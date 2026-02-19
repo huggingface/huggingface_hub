@@ -28,7 +28,7 @@ import typer
 from huggingface_hub import HfApi, logging
 from huggingface_hub.errors import BucketNotFoundError
 from huggingface_hub.hf_api import BucketFile, BucketFolder
-from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
     FormatOpt,
@@ -1660,7 +1660,10 @@ def cp(
 
         if dst_is_stdout:
             # Download to stdout: always suppress progress bars to avoid polluting output
-            disable_progress_bars()
+            # Only re-enable if they weren't already disabled by the caller
+            pbar_was_disabled = are_progress_bars_disabled()
+            if not pbar_was_disabled:
+                disable_progress_bars()
             try:
                 with tempfile.TemporaryDirectory() as tmp_dir:
                     tmp_path = os.path.join(tmp_dir, filename)
@@ -1668,7 +1671,8 @@ def cp(
                     with open(tmp_path, "rb") as f:
                         sys.stdout.buffer.write(f.read())
             finally:
-                enable_progress_bars()
+                if not pbar_was_disabled:
+                    enable_progress_bars()
         else:
             # Download to file
             if dst is None:
