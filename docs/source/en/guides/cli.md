@@ -663,12 +663,14 @@ Datasets and Spaces:
 The `hf repo delete-files <repo_id>` sub-command allows you to delete files from a repository. Here are some usage examples.
 
 Delete a folder:
+
 ```bash
 >>> hf repo delete-files Wauplin/my-cool-model folder/
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
 Delete multiple files:
+
 ```bash
 >>> hf repo delete-files Wauplin/my-cool-model file.txt folder/pytorch_model.bin
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
