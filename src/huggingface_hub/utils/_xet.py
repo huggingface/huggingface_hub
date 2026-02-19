@@ -161,7 +161,9 @@ def fetch_xet_connection_info_from_repo_info(
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
     url = f"{endpoint}/api/{repo_type}s/{repo_id}/xet-{token_type.value}-token"
-    if revision is not None:
+    if repo_type != "bucket" or revision is not None:
+        # on "bucket" repo type, the revision never needed => don't use it
+        # otherwise, use the revision
         url += f"/{revision}"
     return _fetch_xet_connection_info_with_url(url, headers, params)
 
