@@ -60,6 +60,10 @@ from .testing_utils import with_production_testing
 
 # Avoid calling APIs in VCRed tests
 _RECOMMENDED_MODELS_FOR_VCR = {
+    "alphaneural": {
+        "conversational": "qwen/qwen3",
+        "text-generation": "qwen/qwen3",
+    },
     "black-forest-labs": {
         "text-to-image": "black-forest-labs/FLUX.1-dev",
     },
