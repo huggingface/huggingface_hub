@@ -511,6 +511,203 @@ The command automatically:
 > [!TIP]
 > Use `hf upload-large-folder` when you have very large files or folders that may take a long time to upload. For smaller uploads, prefer `hf upload`.
 
+
+## hf buckets
+
+Use `hf buckets` to manage buckets on the Hugging Face Hub. Buckets provide S3-like object storage on Hugging Face, powered by the Xet storage backend. Unlike repositories (which are git-based and track file history), buckets are remote object storage containers designed for large-scale files with content-addressable deduplication. They are designed for use cases where you need simple, fast, mutable storage such as storing training checkpoints, logs, intermediate artifacts, or any large collection of files that doesn't need version control. In the examples below, we will walk through the most common use cases. For a complete guide, see the [Buckets guide](./buckets).
+
+### Create a bucket
+
+To create a new bucket, use `hf buckets create`. The bucket will be created under your namespace by default:
+
+```bash
+>>> hf buckets create my-bucket
+```
+
+You can also create a private bucket using the `--private` flag:
+
+```bash
+>>> hf buckets create my-bucket --private
+```
+
+### List and inspect buckets
+
+To list all your buckets, use `hf buckets list` (or its shorthand `hf buckets ls`). You can also list buckets in a specific organization:
+
+```bash
+>>> hf buckets list
+ID                   PRIVATE       SIZE TOTAL_FILES CREATED_AT
+-------------------- ------- ---------- ----------- ----------
+username/my-bucket                   32           5 2026-02-16
+username/checkpoints         117609095         700 2026-02-13
+username/logs                321757477        2000 2026-02-13
+
+# Human-readable sizes
+>>> hf buckets list -h
+ID                   PRIVATE     SIZE TOTAL_FILES CREATED_AT
+-------------------- ------- -------- ----------- ----------
+username/my-bucket               32 B           5 2026-02-16
+username/checkpoints         117.6 MB         700 2026-02-13
+username/logs                321.8 MB        2000 2026-02-13
+
+# List buckets in a specific namespace
+>>> hf buckets ls my-org
+```
+
+To get detailed information about a specific bucket (returned as JSON), use `hf buckets info`:
+
+```bash
+>>> hf buckets info username/my-bucket
+{
+  "id": "username/my-bucket",
+  "private": false,
+  "created_at": "2026-02-16T15:28:32+00:00",
+  "size": 32,
+  "total_files": 5
+}
+```
+
+### Delete a bucket
+
+To delete a bucket, use `hf buckets delete`. You will be prompted for confirmation unless you pass `--yes`:
+
+```bash
+>>> hf buckets delete username/my-bucket --yes
+```
+
+### Browse files
+
+Use `hf buckets list` with a bucket ID to list files in a bucket:
+
+```bash
+>>> hf buckets list username/my-bucket
+        2048  2026-01-15 10:30:00  big.bin
+           5  2026-01-15 10:30:00  file.txt
+              2026-01-15 10:30:00  sub/
+```
+
+Add `-R` for a recursive listing and `-h` for human-readable file sizes and short dates. You can also display an ASCII tree view with `--tree`, or use `--tree --quiet` for a clean tree without metadata:
+
+```bash
+# Recursive with human-readable sizes
+>>> hf buckets list username/my-bucket -R -h
+      2.0 KB         Jan 15 10:30  big.bin
+         5 B         Jan 15 10:30  file.txt
+        14 B         Jan 15 10:30  sub/nested.txt
+         4 B         Jan 15 10:30  sub/deep/file.txt
+
+# Tree with human-readable sizes
+>>> hf buckets list username/my-bucket --tree -h -R
+2.0 KB  Jan 15 10:30  ├── big.bin
+   5 B  Jan 15 10:30  ├── file.txt
+                      └── sub/
+                          ├── deep/
+   4 B  Jan 15 10:30  │       └── file.txt
+  14 B  Jan 15 10:30  └── nested.txt
+
+# Clean tree without metadata
+>>> hf buckets list username/my-bucket --tree --quiet -R
+├── big.bin
+├── file.txt
+└── sub/
+    ├── deep/
+    │   └── file.txt
+    └── nested.txt
+```
+
+To filter by prefix, append the prefix to the bucket path:
+
+```bash
+>>> hf buckets list username/my-bucket/sub -R
+```
+
+### Copy single files
+
+Use `hf buckets cp` to copy individual files to and from a bucket. Bucket paths use the `hf://buckets/` prefix.
+
+To upload a file:
+
+```bash
+>>> hf buckets cp ./config.json hf://buckets/username/my-bucket
+```
+
+You can upload to a specific subdirectory:
+
+```bash
+>>> hf buckets cp ./data.csv hf://buckets/username/my-bucket/logs/
+```
+
+To download a file:
+
+```bash
+>>> hf buckets cp hf://buckets/username/my-bucket/config.json ./config.json
+```
+
+You can also stream to stdout or from stdin using `-`:
+
+```bash
+# Download to stdout
+>>> hf buckets cp hf://buckets/username/my-bucket/config.json - | jq .
+
+# Upload from stdin
+>>> echo "hello" | hf buckets cp - hf://buckets/username/my-bucket/hello.txt
+```
+
+### Sync directories
+
+Use `hf buckets sync` to synchronize directories between your local machine and a bucket. It compares source and destination and transfers only changed files.
+
+To upload a local directory to a bucket:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket
+```
+
+To download from a bucket to a local directory:
+
+```bash
+>>> hf buckets sync hf://buckets/username/my-bucket ./data
+```
+
+Use `--delete` to remove destination files that are not present in the source:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --delete
+```
+
+You can filter which files to sync using `--include` and `--exclude` patterns:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --include "*.safetensors" --exclude "*.tmp"
+```
+
+To only update existing files (skip new ones), use `--existing`. To only create new files (skip existing ones), use `--ignore-existing`:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --existing
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --ignore-existing
+```
+
+For extra safety, you can generate a plan for review before executing, and then apply it:
+
+```bash
+# Generate a plan
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --plan sync-plan.jsonl
+
+# Review and apply the plan
+>>> hf buckets sync --apply sync-plan.jsonl
+```
+
+Use `--dry-run` to print the sync plan as JSONL to stdout without executing anything. This is handy for piping into `jq` or other tools:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --dry-run | jq .
+```
+
+> [!TIP]
+> `hf sync` is a convenient top-level alias for `hf buckets sync`. See the [Buckets guide](./buckets#sync-directories) for full details on all sync options.
+
+
 ## hf models
 
 Use `hf models` to list models on the Hub and get detailed information about a specific model.

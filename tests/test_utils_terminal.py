@@ -59,11 +59,11 @@ class TestCLIUtils(unittest.TestCase):
         headers = ["Header 1", "something else", "a third column"]
         self.assertEqual(
             tabulate(rows=rows, headers=headers),
-            "Header 1          something else a third column \n"
-            "----------------- -------------- -------------- \n"
-            "                1              2              3 \n"
-            "a very long value foo            bar            \n"
-            "                             123            456 ",
+            "Header 1          something else a third column\n"
+            "----------------- -------------- --------------\n"
+            "1                 2              3             \n"
+            "a very long value foo            bar           \n"
+            "                  123            456           ",
         )
 
     def test_tabulate_utility_with_too_short_row(self) -> None:
