@@ -2563,7 +2563,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_inference_provider_mapping_list_models(self):
         models = list(
-            self._api.list_models(author="deepseek-ai", expand="inferenceProviderMapping", limit=1, inference="warm")
+            self._api.list_models(
+                author="deepseek-ai", expand="inferenceProviderMapping", limit=1, inference_provider="all"
+            )
         )
         assert len(models) > 0
         mapping = models[0].inference_provider_mapping
