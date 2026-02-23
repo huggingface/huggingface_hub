@@ -620,6 +620,7 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 * `info`: Get info about a dataset on the Hub.
 * `ls`: List datasets on the Hub.
 * `parquet`: List parquet file paths available for a...
+* `sql`: Execute a raw SQL query with DuckDB and...
 
 ### `hf datasets info`
 
@@ -686,7 +687,7 @@ Learn more
 
 ### `hf datasets parquet`
 
-List parquet file paths available for a dataset.
+List parquet file URLs available for a dataset.
 
 **Usage**:
 
@@ -715,6 +716,35 @@ Examples
   $ hf datasets parquet cfahlgren1/hub-stats --status
   $ hf datasets parquet cfahlgren1/hub-stats --require-complete
   $ hf datasets parquet cfahlgren1/hub-stats --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf datasets sql`
+
+Execute a raw SQL query with DuckDB and hf:// dataset paths.
+
+**Usage**:
+
+```console
+$ hf datasets sql [OPTIONS] SQL
+```
+
+**Arguments**:
+
+* `SQL`: Raw SQL query to execute.  [required]
+
+**Options**:
+
+* `--format [table|json]`: Output format.  [default: table]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf datasets sql "SELECT COUNT(*) AS rows FROM read_parquet('hf://datasets/cfahlgren1/hub-stats@~parquet/**/*.parquet')"
+  $ hf datasets sql "SELECT * FROM read_parquet('hf://datasets/cfahlgren1/hub-stats@~parquet/**/*.parquet') LIMIT 5" --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.

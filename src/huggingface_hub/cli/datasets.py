@@ -35,6 +35,7 @@ from huggingface_hub._datasets_parquet import (
     fetch_dataset_parquet_status,
     list_dataset_parquet_entries,
 )
+from huggingface_hub._datasets_sql import execute_raw_sql_query, format_sql_result
 from huggingface_hub.errors import CLIError, EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import DatasetSort_T, ExpandDatasetProperty_T
 from huggingface_hub.utils import tabulate
@@ -60,11 +61,6 @@ from ._cli_utils import (
 _EXPAND_PROPERTIES = sorted(get_args(ExpandDatasetProperty_T))
 _SORT_OPTIONS = get_args(DatasetSort_T)
 DatasetSortEnum = enum.Enum("DatasetSortEnum", {s: s for s in _SORT_OPTIONS}, type=str)  # type: ignore[misc]
-
-
-class ParquetOutputFormat(str, enum.Enum):
-    table = "table"
-    json = "json"
 
 
 ExpandOpt = Annotated[
@@ -158,12 +154,12 @@ def datasets_parquet(
         typer.Option(help="Exit non-zero if parquet conversion is partial."),
     ] = False,
     format: Annotated[
-        ParquetOutputFormat,
+        OutputFormat,
         typer.Option(help="Output format.", case_sensitive=False),
-    ] = ParquetOutputFormat.table,
+    ] = OutputFormat.table,
     token: TokenOpt = None,
 ) -> None:
-    """List parquet file paths available for a dataset."""
+    """List parquet file URLs available for a dataset."""
     api = get_hf_api(token=token)
     effective_token = api.token
 
@@ -181,16 +177,16 @@ def datasets_parquet(
         entries = list_dataset_parquet_entries(repo_id=dataset_id, token=effective_token, config=subset, split=split)
     except EntryNotFoundError as e:
         raise CLIError(str(e)) from e
-    rows = [[entry.config, entry.split, entry.parquet_file_path] for entry in entries]
+    rows = [[entry.config, entry.split, entry.url] for entry in entries]
 
-    if format == ParquetOutputFormat.table:
-        typer.echo(tabulate(rows=rows, headers=["SUBSET", "SPLIT", "PATH"]))
+    if format == OutputFormat.table:
+        typer.echo(tabulate(rows=rows, headers=["SUBSET", "SPLIT", "URL"]))
         return
 
-    if format == ParquetOutputFormat.json:
+    if format == OutputFormat.json:
         typer.echo(
             json.dumps(
-                [{"subset": entry.config, "split": entry.split, "path": entry.parquet_file_path} for entry in entries],
+                [{"subset": entry.config, "split": entry.split, "url": entry.url} for entry in entries],
                 indent=2,
             )
         )
@@ -201,3 +197,28 @@ def _echo_status(status: DatasetParquetStatus) -> None:
     summary = f"Parquet conversion status: {'partial' if status.partial else 'complete'}"
     details = f"pending={list(status.pending)} failed={list(status.failed)}"
     typer.echo(f"{summary} ({details})", err=True)
+
+
+@datasets_cli.command(
+    "sql",
+    examples=[
+        "hf datasets sql \"SELECT COUNT(*) AS rows FROM read_parquet('hf://datasets/cfahlgren1/hub-stats@~parquet/**/*.parquet')\"",
+        "hf datasets sql \"SELECT * FROM read_parquet('hf://datasets/cfahlgren1/hub-stats@~parquet/**/*.parquet') LIMIT 5\" --format json",
+    ],
+)
+def datasets_sql(
+    sql: Annotated[str, typer.Argument(help="Raw SQL query to execute.")],
+    format: Annotated[
+        OutputFormat,
+        typer.Option(help="Output format.", case_sensitive=False),
+    ] = OutputFormat.table,
+    token: TokenOpt = None,
+) -> None:
+    """Execute a raw SQL query with DuckDB and hf:// dataset paths."""
+    api = get_hf_api(token=token)
+    effective_token = api.token
+    try:
+        result = execute_raw_sql_query(sql_query=sql, token=effective_token)
+    except (ImportError, ValueError) as e:
+        raise CLIError(str(e)) from e
+    typer.echo(format_sql_result(result=result, output_format=format.value))

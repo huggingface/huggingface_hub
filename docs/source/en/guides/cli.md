@@ -562,9 +562,9 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 >>> hf datasets info HuggingFaceFW/fineweb
 ```
 
-### List parquet paths for SQL
+### List parquet URLs
 
-Use `hf datasets parquet` to discover parquet file paths for a dataset before writing SQL queries.
+Use `hf datasets parquet` to discover parquet file URLs for a dataset before writing SQL queries.
 
 ```bash
 >>> hf datasets parquet cfahlgren1/hub-stats
@@ -575,8 +575,24 @@ Use `hf datasets parquet` to discover parquet file paths for a dataset before wr
 >>> hf datasets parquet cfahlgren1/hub-stats --format json
 ```
 
-The default table output includes subset, split, and `hf://` parquet file path. Use `--status` to print conversion
+The default table output includes subset, split, and parquet file URL from the Hub API. Use `--status` to print conversion
 status and `--require-complete` to exit non-zero when conversion is still partial.
+
+### Run SQL on dataset parquet
+
+Use `hf datasets sql` to execute raw SQL queries with DuckDB against `hf://` parquet paths.
+Discover file paths first with `hf datasets parquet`, then query them directly with `read_parquet(...)`.
+
+```bash
+>>> hf datasets sql "SELECT COUNT(*) AS rows FROM read_parquet('hf://datasets/cfahlgren1/hub-stats@~parquet/**/*.parquet')"
+>>> hf datasets sql "SELECT * FROM read_parquet('hf://datasets/cfahlgren1/hub-stats@~parquet/models/train/*.parquet') LIMIT 5" --format json
+```
+
+Install DuckDB first if needed:
+
+```bash
+>>> pip install duckdb
+```
 
 ## hf spaces
 

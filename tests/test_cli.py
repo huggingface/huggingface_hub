@@ -12,6 +12,7 @@ import typer
 from typer.testing import CliRunner
 
 from huggingface_hub._datasets_parquet import DatasetParquetEntry, DatasetParquetStatus
+from huggingface_hub._datasets_sql import DatasetSqlQueryResult
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
@@ -1511,7 +1512,7 @@ class TestDatasetsParquetCommand:
                 DatasetParquetEntry(
                     config="datasets",
                     split="train",
-                    parquet_file_path="hf://datasets/cfahlgren1/hub-stats@~parquet/datasets/train/0.parquet",
+                    url="https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/datasets/train/0.parquet",
                 )
             ],
         ):
@@ -1519,9 +1520,10 @@ class TestDatasetsParquetCommand:
 
         assert result.exit_code == 0
         assert "SUBSET" in result.stdout
+        assert "URL" in result.stdout
         assert "datasets" in result.stdout
         assert "train" in result.stdout
-        assert "hf://datasets/cfahlgren1/hub-stats@~parquet/datasets/train/0.parquet" in result.stdout
+        assert "https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/datasets/train/0.parquet" in result.stdout
 
     def test_datasets_parquet_json_output(self, runner: CliRunner) -> None:
         with patch(
@@ -1530,7 +1532,7 @@ class TestDatasetsParquetCommand:
                 DatasetParquetEntry(
                     config="models",
                     split="train",
-                    parquet_file_path="hf://datasets/cfahlgren1/hub-stats@~parquet/models/train/0.parquet",
+                    url="https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet",
                 )
             ],
         ):
@@ -1542,7 +1544,7 @@ class TestDatasetsParquetCommand:
             {
                 "subset": "models",
                 "split": "train",
-                "path": "hf://datasets/cfahlgren1/hub-stats@~parquet/models/train/0.parquet",
+                "url": "https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet",
             }
         ]
 
@@ -1554,7 +1556,7 @@ class TestDatasetsParquetCommand:
                     DatasetParquetEntry(
                         config="datasets",
                         split="train",
-                        parquet_file_path="hf://datasets/cfahlgren1/hub-stats@~parquet/datasets/train/0.parquet",
+                        url="https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/datasets/train/0.parquet",
                     )
                 ],
             ),
@@ -1578,7 +1580,7 @@ class TestDatasetsParquetCommand:
                     DatasetParquetEntry(
                         config="datasets",
                         split="train",
-                        parquet_file_path="hf://datasets/cfahlgren1/hub-stats@~parquet/datasets/train/0.parquet",
+                        url="https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/datasets/train/0.parquet",
                     )
                 ],
             ),
@@ -1601,6 +1603,54 @@ class TestDatasetsParquetCommand:
         assert result.exit_code == 1
         assert isinstance(result.exception, CLIError)
         assert str(result.exception) == "No parquet entries found for dataset 'cfahlgren1/hub-stats'."
+
+
+class TestDatasetsSqlCommand:
+    def test_datasets_sql_table_output(self, runner: CliRunner) -> None:
+        table_str = "┌───────┐\n│ count │\n├───────┤\n│     5 │\n└───────┘"
+        with patch(
+            "huggingface_hub.cli.datasets.execute_raw_sql_query",
+            return_value=DatasetSqlQueryResult(columns=("count",), rows=((5,),), table=table_str),
+        ):
+            result = runner.invoke(
+                app,
+                ["datasets", "sql", "SELECT COUNT(*) AS count"],
+            )
+
+        assert result.exit_code == 0
+        assert "count" in result.stdout
+        assert "5" in result.stdout
+
+    def test_datasets_sql_json_output(self, runner: CliRunner) -> None:
+        with patch(
+            "huggingface_hub.cli.datasets.execute_raw_sql_query",
+            return_value=DatasetSqlQueryResult(columns=("subset",), rows=(("models",),), table=""),
+        ):
+            result = runner.invoke(
+                app,
+                [
+                    "datasets",
+                    "sql",
+                    "SELECT 'models' AS subset",
+                    "--format",
+                    "json",
+                ],
+            )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert payload == [{"subset": "models"}]
+
+    def test_datasets_sql_error_is_cli_error(self, runner: CliRunner) -> None:
+        with patch(
+            "huggingface_hub.cli.datasets.execute_raw_sql_query",
+            side_effect=ValueError("SQL query cannot be empty."),
+        ):
+            result = runner.invoke(app, ["datasets", "sql", " "])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert str(result.exception) == "SQL query cannot be empty."
 
 
 class TestSpacesLsCommand:

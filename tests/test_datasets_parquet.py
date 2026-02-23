@@ -45,10 +45,7 @@ def test_list_dataset_parquet_entries_from_root_api(monkeypatch: pytest.MonkeyPa
         ("models", "test"),
         ("models", "train"),
     ]
-    assert (
-        entries[0].parquet_file_path
-        == "hf://datasets/cfahlgren1/hub-stats@~parquet/datasets/train/datasets-train-0000.parquet"
-    )
+    assert entries[0].url == "https://example.com/datasets-train-0000.parquet"
 
 
 def test_list_dataset_parquet_entries_returns_all_parquet_files(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -68,9 +65,9 @@ def test_list_dataset_parquet_entries_returns_all_parquet_files(monkeypatch: pyt
         repo_id="cfahlgren1/hub-stats", token="token", config="datasets", split="train"
     )
 
-    assert [entry.parquet_file_path for entry in entries] == [
-        "hf://datasets/cfahlgren1/hub-stats@~parquet/datasets/train/datasets-train-0000.parquet",
-        "hf://datasets/cfahlgren1/hub-stats@~parquet/datasets/train/datasets-train-0001.parquet",
+    assert [entry.url for entry in entries] == [
+        "https://example.com/datasets-train-0000.parquet",
+        "https://example.com/datasets-train-0001.parquet",
     ]
 
 
