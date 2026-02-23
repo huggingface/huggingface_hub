@@ -27,7 +27,7 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .file_download import hf_hub_url, http_get
-from .hf_api import BucketDirectory, BucketFile, HfApi, LastCommitInfo, RepoFile, RepoFolder
+from .hf_api import BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
 from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff
 from .utils.insecure_hashlib import md5
 
@@ -608,7 +608,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                     )
                 )
         else:
-            tree: Iterable[Union[RepoFile, RepoFolder, BucketFile, BucketDirectory]]
+            tree: Iterable[Union[RepoFile, RepoFolder, BucketFile, BucketFolder]]
             if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
                 tree = self._api.list_bucket_tree(
                     resolved_path.bucket_id,
