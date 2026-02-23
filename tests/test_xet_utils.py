@@ -5,8 +5,11 @@ from _pytest.monkeypatch import MonkeyPatch
 
 from huggingface_hub import constants
 from huggingface_hub.utils._xet import (
+    XET_CONNECTION_INFO_CACHE,
     XetFileData,
+    XetTokenType,
     _fetch_xet_connection_info_with_url,
+    fetch_xet_connection_info_from_repo_info,
     parse_xet_connection_info_from_headers,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
@@ -286,3 +289,75 @@ def test_env_var_hf_hub_disable_xet() -> None:
     monkeypatch.setattr("huggingface_hub.constants.HF_HUB_DISABLE_XET", True)
 
     assert not is_xet_available()
+
+
+def test_fetch_xet_write_token_not_cached(mocker) -> None:
+    XET_CONNECTION_INFO_CACHE.clear()
+    try:
+        mock_response_1 = MagicMock()
+        mock_response_1.headers = {
+            "X-Xet-Cas-Url": "https://example.xethub.hf.co",
+            "X-Xet-Access-Token": "write_token_1",
+            "X-Xet-Token-Expiration": "4102444800",
+        }
+        mock_response_2 = MagicMock()
+        mock_response_2.headers = {
+            "X-Xet-Cas-Url": "https://example.xethub.hf.co",
+            "X-Xet-Access-Token": "write_token_2",
+            "X-Xet-Token-Expiration": "4102444800",
+        }
+
+        http_backoff_mock = mocker.patch(
+            "huggingface_hub.utils._xet.http_backoff", side_effect=[mock_response_1, mock_response_2]
+        )
+
+        headers = {"authorization": "Bearer token", "user-agent": "user-agent-example"}
+        kwargs = {
+            "token_type": XetTokenType.WRITE,
+            "repo_id": "username/repo_name",
+            "repo_type": "dataset",
+            "revision": "main",
+            "headers": headers,
+            "endpoint": constants.ENDPOINT,
+        }
+
+        metadata_1 = fetch_xet_connection_info_from_repo_info(**kwargs)
+        metadata_2 = fetch_xet_connection_info_from_repo_info(**kwargs)
+
+        assert http_backoff_mock.call_count == 2
+        assert metadata_1.access_token == "write_token_1"
+        assert metadata_2.access_token == "write_token_2"
+    finally:
+        XET_CONNECTION_INFO_CACHE.clear()
+
+
+def test_fetch_xet_read_token_cached(mocker) -> None:
+    XET_CONNECTION_INFO_CACHE.clear()
+    try:
+        mock_response = MagicMock()
+        mock_response.headers = {
+            "X-Xet-Cas-Url": "https://example.xethub.hf.co",
+            "X-Xet-Access-Token": "read_token_1",
+            "X-Xet-Token-Expiration": "4102444800",
+        }
+
+        http_backoff_mock = mocker.patch("huggingface_hub.utils._xet.http_backoff", return_value=mock_response)
+
+        headers = {"authorization": "Bearer token", "user-agent": "user-agent-example"}
+        kwargs = {
+            "token_type": XetTokenType.READ,
+            "repo_id": "username/repo_name",
+            "repo_type": "dataset",
+            "revision": "main",
+            "headers": headers,
+            "endpoint": constants.ENDPOINT,
+        }
+
+        metadata_1 = fetch_xet_connection_info_from_repo_info(**kwargs)
+        metadata_2 = fetch_xet_connection_info_from_repo_info(**kwargs)
+
+        assert http_backoff_mock.call_count == 1
+        assert metadata_1.access_token == "read_token_1"
+        assert metadata_2.access_token == "read_token_1"
+    finally:
+        XET_CONNECTION_INFO_CACHE.clear()

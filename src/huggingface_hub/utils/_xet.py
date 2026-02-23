@@ -161,7 +161,10 @@ def fetch_xet_connection_info_from_repo_info(
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
     url = f"{endpoint}/api/{repo_type}s/{repo_id}/xet-{token_type.value}-token/{revision}"
-    return _fetch_xet_connection_info_with_url(url, headers, params)
+    # Write tokens must not be reused from cache as a repo can be deleted and recreated with
+    # the same id in a long-lived process.
+    use_cache = token_type == XetTokenType.READ
+    return _fetch_xet_connection_info_with_url(url, headers, params, use_cache=use_cache)
 
 
 @validate_hf_hub_args
@@ -169,6 +172,7 @@ def _fetch_xet_connection_info_with_url(
     url: str,
     headers: dict[str, str],
     params: Optional[dict[str, str]] = None,
+    use_cache: bool = True,
 ) -> XetConnectionInfo:
     """
     Requests the xet connection info from the supplied URL. This includes the
@@ -183,6 +187,8 @@ def _fetch_xet_connection_info_with_url(
             Headers to use for the request, including authorization headers and user agent.
         params (`dict[str, str]`, `optional`):
             Additional parameters to pass with the request.
+        use_cache (`bool`, defaults to `True`):
+            Whether to read/write from the in-memory connection-info cache.
     Returns:
         `XetConnectionInfo`:
             The connection information needed to make the request to the xet storage service.
@@ -192,12 +198,13 @@ def _fetch_xet_connection_info_with_url(
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the Hub API response is improperly formatted.
     """
-    # Check cache first
-    cache_key = _cache_key(url, headers, params)
-    cached_info = XET_CONNECTION_INFO_CACHE.get(cache_key)
-    if cached_info is not None:
-        if not _is_expired(cached_info):
-            return cached_info
+    if use_cache:
+        # Check cache first
+        cache_key = _cache_key(url, headers, params)
+        cached_info = XET_CONNECTION_INFO_CACHE.get(cache_key)
+        if cached_info is not None:
+            if not _is_expired(cached_info):
+                return cached_info
 
     # Fetch from server
     resp = http_backoff("GET", url, headers=headers, params=params)
@@ -207,17 +214,18 @@ def _fetch_xet_connection_info_with_url(
     if metadata is None:
         raise ValueError("Xet headers have not been correctly set by the server.")
 
-    # Delete expired cache entries
-    for k, v in list(XET_CONNECTION_INFO_CACHE.items()):
-        if _is_expired(v):
-            XET_CONNECTION_INFO_CACHE.pop(k, None)
+    if use_cache:
+        # Delete expired cache entries
+        for k, v in list(XET_CONNECTION_INFO_CACHE.items()):
+            if _is_expired(v):
+                XET_CONNECTION_INFO_CACHE.pop(k, None)
 
-    # Enforce cache size limit
-    if len(XET_CONNECTION_INFO_CACHE) >= XET_CONNECTION_INFO_CACHE_SIZE:
-        XET_CONNECTION_INFO_CACHE.pop(next(iter(XET_CONNECTION_INFO_CACHE)))
+        # Enforce cache size limit
+        if len(XET_CONNECTION_INFO_CACHE) >= XET_CONNECTION_INFO_CACHE_SIZE:
+            XET_CONNECTION_INFO_CACHE.pop(next(iter(XET_CONNECTION_INFO_CACHE)))
 
-    # Update cache
-    XET_CONNECTION_INFO_CACHE[cache_key] = metadata
+        # Update cache
+        XET_CONNECTION_INFO_CACHE[cache_key] = metadata
 
     return metadata
 
