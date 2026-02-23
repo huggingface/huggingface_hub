@@ -722,7 +722,7 @@ Learn more
 
 ### `hf datasets sql`
 
-Execute a raw SQL query with DuckDB and hf:// dataset paths.
+Execute a raw SQL query with DuckDB against dataset parquet URLs.
 
 **Usage**:
 
@@ -741,8 +741,8 @@ $ hf datasets sql [OPTIONS] SQL
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf datasets sql "SELECT COUNT(*) AS rows FROM read_parquet('hf://datasets/cfahlgren1/hub-stats@~parquet/**/*.parquet')"
-  $ hf datasets sql "SELECT * FROM read_parquet('hf://datasets/cfahlgren1/hub-stats@~parquet/**/*.parquet') LIMIT 5" --format json
+  $ hf datasets sql "SELECT COUNT(*) AS rows FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet')"
+  $ hf datasets sql "SELECT * FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet') LIMIT 5" --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
