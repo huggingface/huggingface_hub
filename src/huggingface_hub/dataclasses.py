@@ -1,3 +1,4 @@
+import collections.abc
 import inspect
 import sys
 import types
@@ -158,13 +159,30 @@ def strict(
             original_init = cls.__init__
 
             @wraps(original_init)
-            def __init__(self, **kwargs: Any) -> None:
+            def __init__(self, *args, **kwargs: Any) -> None:
                 # Extract only the fields that are part of the dataclass
                 dataclass_fields = {f.name for f in fields(cls)}  # type: ignore [arg-type]
                 standard_kwargs = {k: v for k, v in kwargs.items() if k in dataclass_fields}
 
-                # Call the original __init__ with standard fields
-                original_init(self, **standard_kwargs)
+                # User shouldn't define custom `__init__` when `accepts_kwargs`, and instead
+                # are advised to move field manipulation to `__post_init__` (e.g., derive new field from existing ones)
+                # We need to call bare `__init__` here without `__post_init__` but the``original_init`` would call
+                # post-init right away with no kwargs.
+                if len(args) > 0:
+                    raise ValueError(
+                        f"When `accept_kwargs=True`, {cls.__name__} accepts only keyword arguments, "
+                        f"but found `{len(args)}` positional args."
+                    )
+
+                for f in fields(cls):  # type: ignore
+                    if f.name in standard_kwargs:
+                        setattr(self, f.name, standard_kwargs[f.name])
+                    elif f.default is not MISSING:
+                        setattr(self, f.name, f.default)
+                    elif f.default_factory is not MISSING:
+                        setattr(self, f.name, f.default_factory())
+                    else:
+                        raise TypeError(f"Missing required field - '{f.name}'")
 
                 # Pass any additional kwargs to `__post_init__` and let the object
                 # decide whether to set the attr or use for different purposes (e.g. BC checks)
@@ -554,6 +572,24 @@ def _validate_set(name: str, value: Any, args: tuple[Any, ...]) -> None:
             raise TypeError(f"Invalid item in set '{name}'") from e
 
 
+def _validate_sequence(name: str, value: Any, args: tuple[Any, ...]) -> None:
+    """Validate Sequence or Sequence[T] type."""
+    if not isinstance(value, collections.abc.Sequence):
+        raise TypeError(f"Field '{name}' expected a Sequence, got {type(value).__name__}")
+
+    # If no type argument is provided (i.e., just `Sequence`), skip item validation
+    if not args:
+        return
+
+    # Validate each item in the sequence
+    item_type = args[0]
+    for i, item in enumerate(value):
+        try:
+            type_validator(f"{name}[{i}]", item, item_type)
+        except TypeError as e:
+            raise TypeError(f"Invalid item at index {i} in sequence '{name}'") from e
+
+
 def _validate_simple_type(name: str, value: Any, expected_type: type) -> None:
     """Validate simple type (int, str, etc.)."""
     if not isinstance(value, expected_type):
@@ -611,6 +647,7 @@ _BASIC_TYPE_VALIDATORS = {
     dict: _validate_dict,
     tuple: _validate_tuple,
     set: _validate_set,
+    collections.abc.Sequence: _validate_sequence,
 }
 
 if sys.version_info >= (3, 10):

@@ -206,6 +206,12 @@ def deploy_from_catalog(
         ),
     ],
     name: NameOpt = None,
+    accelerator: Annotated[
+        Optional[str],
+        typer.Option(
+            help="The hardware accelerator to be used for inference (e.g. 'cpu', 'gpu', 'neuron').",
+        ),
+    ] = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -215,6 +221,7 @@ def deploy_from_catalog(
         endpoint = api.create_inference_endpoint_from_catalog(
             repo_id=repo,
             name=name,
+            accelerator=accelerator,
             namespace=namespace,
             token=token,
         )

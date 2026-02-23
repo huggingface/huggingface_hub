@@ -793,6 +793,38 @@ def test_sync_upload_prefix_with_trailing_slash(api: HfApi, bucket_write: str, t
     assert "sub//trailing.txt" not in remote
 
 
+def test_sync_download_prefix_does_not_match_similar_names(api: HfApi, bucket_write: str, tmp_path: Path):
+    """Sync with prefix should not match files that share prefix string without directory boundary.
+
+    This is a regression test for a bug where prefix stripping used path.startswith(prefix)
+    which would incorrectly match "submarine.txt" when prefix="sub", yielding "marine.txt"
+    as the relative path instead of keeping the full path.
+    """
+    # Upload files: one under sub/ directory, one with similar prefix at root
+    api.batch_bucket_files(
+        bucket_write,
+        add=[
+            (b"in subdir", "sub/file.txt"),
+            (b"similar name", "submarine.txt"),
+        ],
+    )
+
+    download_dir = tmp_path / "download"
+    download_dir.mkdir()
+
+    # Sync only the sub/ prefix
+    result = cli(f"hf buckets sync hf://buckets/{bucket_write}/sub {download_dir} --quiet")
+    assert result.exit_code == 0
+
+    # Should download file.txt (from sub/)
+    assert (download_dir / "file.txt").exists()
+    assert (download_dir / "file.txt").read_text() == "in subdir"
+
+    # Should NOT download submarine.txt or incorrectly-named marine.txt
+    assert not (download_dir / "marine.txt").exists()
+    assert not (download_dir / "submarine.txt").exists()
+
+
 def test_sync_upload_verbose(bucket_write: str, tmp_path: Path):
     """--verbose shows per-file operation lines."""
     data_dir = _make_local_dir(tmp_path, {"v.txt": "verbose"})
@@ -1169,3 +1201,82 @@ def test_sync_upload_to_nonexistent_bucket_plans_all_files(tmp_path: Path):
     assert paths == {"new.txt", "other.txt"}
     assert all(op["action"] == "upload" for op in operations)
     assert all(op["reason"] == "new file" for op in operations)
+
+
+def test_sync_ignore_sizes_skip_reason_shows_dest_newer(api: HfApi, bucket_write: str, tmp_path: Path):
+    """Sync skip reason should accurately say 'remote newer' or 'local newer' instead of 'same mtime'.
+
+    This is a regression test for a bug where the skip reason when using --ignore-sizes
+    always said "same mtime" even when the destination was actually newer than the source.
+    """
+    import os
+    import time
+
+    # Upload a file to the bucket
+    data_dir = _make_local_dir(tmp_path, {"file.txt": "content"})
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --quiet")
+    assert result.exit_code == 0
+
+    # Wait a bit to ensure remote mtime is set
+    time.sleep(1.5)
+
+    # Set local file mtime to be significantly older than remote (more than 1s window)
+    local_file = data_dir / "file.txt"
+    old_mtime = time.time() - 10  # 10 seconds in the past
+    os.utime(local_file, (old_mtime, old_mtime))
+
+    # Sync with --ignore-sizes --dry-run (upload direction)
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --ignore-sizes --dry-run")
+    assert result.exit_code == 0
+
+    # Parse the dry-run output
+    lines = result.output.strip().splitlines()
+    assert len(lines) >= 2  # header + at least 1 operation
+
+    op = json.loads(lines[1])
+    assert op["action"] == "skip"
+    assert op["path"] == "file.txt"
+    # The reason should be "remote newer", not "same mtime"
+    assert op["reason"] == "remote newer", f"Expected 'remote newer' but got '{op['reason']}'"
+
+
+def test_sync_ignore_sizes_download_skip_reason_shows_dest_newer(api: HfApi, bucket_write: str, tmp_path: Path):
+    """Download sync skip reason should accurately say 'local newer' instead of 'same mtime'.
+
+    This is a regression test for the download direction of the same bug where skip reason
+    always said "same mtime" even when local file was actually newer than remote.
+    """
+    import os
+    import time
+
+    # Upload a file to the bucket
+    data_dir = _make_local_dir(tmp_path, {"file.txt": "content"})
+    result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --quiet")
+    assert result.exit_code == 0
+
+    # Wait for remote to be stable
+    time.sleep(1.5)
+
+    # Create download directory with a file that has a newer mtime
+    download_dir = tmp_path / "download"
+    download_dir.mkdir()
+    local_file = download_dir / "file.txt"
+    local_file.write_text("content")
+
+    # Set local file mtime to be significantly newer than remote (more than 1s window)
+    new_mtime = time.time() + 10  # 10 seconds in the future
+    os.utime(local_file, (new_mtime, new_mtime))
+
+    # Sync with --ignore-sizes --dry-run (download direction)
+    result = cli(f"hf buckets sync hf://buckets/{bucket_write} {download_dir} --ignore-sizes --dry-run")
+    assert result.exit_code == 0
+
+    # Parse the dry-run output
+    lines = result.output.strip().splitlines()
+    assert len(lines) >= 2  # header + at least 1 operation
+
+    op = json.loads(lines[1])
+    assert op["action"] == "skip"
+    assert op["path"] == "file.txt"
+    # The reason should be "local newer", not "same mtime"
+    assert op["reason"] == "local newer", f"Expected 'local newer' but got '{op['reason']}'"

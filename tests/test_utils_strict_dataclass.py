@@ -1,7 +1,7 @@
 import inspect
 import sys
 from dataclasses import asdict, astuple, dataclass, is_dataclass
-from typing import Annotated, Any, Literal, Optional, TypedDict, Union, get_type_hints
+from typing import Annotated, Any, Literal, Optional, Sequence, TypedDict, Union, get_type_hints
 
 import jedi
 import pytest
@@ -94,6 +94,24 @@ class ConfigWithKwargsAndPostInit:
         """Custom __post_init__ that also accepts additional kwargs."""
         for name, value in kwargs.items():
             setattr(self, name.upper(), value)  # store additional kwargs in uppercase (just for testing)
+
+
+@strict(accept_kwargs=True)
+@dataclass
+class ConfigWithRequiresKwargsInPostInit:
+    model_type: str
+    vocab_size: int = validated_field(validator=positive_int, default=16)
+
+    def __post_init__(self, **kwargs: Any) -> None:
+        """
+        Custom __post_init__ that accepts additional kwargs and expects `encoder` to be in kwargs.
+        """
+        if kwargs.get("encoder") is None:
+            raise ValueError("Encoder must be present to init a config class!")
+
+        self.encoder = kwargs.pop("encoder")["model_type"]
+        for name, value in kwargs.items():
+            setattr(self, name, value)  # store additional kwargs in uppercase (just for testing)
 
 
 class DummyClass:
@@ -220,6 +238,17 @@ def test_custom_validator_must_be_callable():
         # Set
         ({1, 2, 3}, set[int]),
         ({1, 2, "3"}, set[Union[int, str]]),
+        # Sequence (accepts list, tuple, str, etc.)
+        ([1, 2, 3], Sequence[int]),
+        ((1, 2, 3), Sequence[int]),
+        ("abc", Sequence[str]),  # str is a Sequence of str
+        ([1, 2, "3"], Sequence[Union[int, str]]),
+        ((1, 2, "3"), Sequence[Union[int, str]]),
+        # Sequence without type parameter (accepts any sequence)
+        ([1, 2, 3], Sequence),
+        ((1, 2, "3"), Sequence),
+        ("abc", Sequence),
+        ([], Sequence),
         # Custom classes
         (DummyClass(), DummyClass),
         # Any
@@ -282,6 +311,14 @@ def test_type_validator_valid(value, type_annotation):
         # Set
         (5, set[int]),
         ({1, 2, "3"}, set[int]),
+        # Sequence
+        (5, Sequence[int]),  # not a sequence
+        ({1, 2, 3}, Sequence[int]),  # set is not a sequence
+        ([1, 2, "3"], Sequence[int]),  # wrong item type
+        ((1, 2, "3"), Sequence[int]),  # wrong item type in tuple
+        # Sequence without type parameter
+        (5, Sequence),  # not a sequence
+        ({1, 2, 3}, Sequence),  # set is not a sequence
         # Custom classes
         (5, DummyClass),
         ("John", DummyClass),
@@ -393,6 +430,22 @@ def test_post_init_with_kwargs():
     assert config.model_type == "bert"
     assert config.vocab_size == 30000
     assert config.EXTRA_PARAM == "extra_value"  # stored in uppercase by custom __post_init__
+
+
+def test_post_init_with_required_kwargs():
+    config = ConfigWithRequiresKwargsInPostInit(model_type="bert", vocab_size=30000, encoder={"model_type": "t5"})
+    assert config.model_type == "bert"
+    assert config.vocab_size == 30000
+    assert config.encoder == "t5"
+
+    with pytest.raises(ValueError):
+        ConfigWithRequiresKwargsInPostInit(model_type="bert", vocab_size=30000)
+
+    config = ConfigWithRequiresKwargsInPostInit(model_type="bert", encoder={"model_type": "t5"})
+    assert config.vocab_size == 16  # default value
+
+    with pytest.raises(TypeError, match="Missing required field - 'model_type'"):
+        config = ConfigWithRequiresKwargsInPostInit(encoder={"model_type": "t5"})
 
 
 def test_is_recognized_as_dataclass():
