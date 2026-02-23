@@ -11,13 +11,14 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from huggingface_hub._datasets_parquet import DatasetParquetEntry, DatasetParquetStatus
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, EntryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -1500,6 +1501,106 @@ class TestDatasetsLsCommand:
         assert result.exit_code == 0
         _, kwargs = api.list_datasets.call_args
         assert kwargs["sort"] == "downloads"
+
+
+class TestDatasetsParquetCommand:
+    def test_datasets_parquet_table_output(self, runner: CliRunner) -> None:
+        with patch(
+            "huggingface_hub.cli.datasets.list_dataset_parquet_entries",
+            return_value=[
+                DatasetParquetEntry(
+                    config="datasets",
+                    split="train",
+                    parquet_file_path="hf://datasets/cfahlgren1/hub-stats@~parquet/datasets/train/0.parquet",
+                )
+            ],
+        ):
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
+
+        assert result.exit_code == 0
+        assert "SUBSET" in result.stdout
+        assert "datasets" in result.stdout
+        assert "train" in result.stdout
+        assert "hf://datasets/cfahlgren1/hub-stats@~parquet/datasets/train/0.parquet" in result.stdout
+
+    def test_datasets_parquet_json_output(self, runner: CliRunner) -> None:
+        with patch(
+            "huggingface_hub.cli.datasets.list_dataset_parquet_entries",
+            return_value=[
+                DatasetParquetEntry(
+                    config="models",
+                    split="train",
+                    parquet_file_path="hf://datasets/cfahlgren1/hub-stats@~parquet/models/train/0.parquet",
+                )
+            ],
+        ):
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats", "--format", "json"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert payload == [
+            {
+                "subset": "models",
+                "split": "train",
+                "path": "hf://datasets/cfahlgren1/hub-stats@~parquet/models/train/0.parquet",
+            }
+        ]
+
+    def test_datasets_parquet_status(self, runner: CliRunner) -> None:
+        with (
+            patch(
+                "huggingface_hub.cli.datasets.list_dataset_parquet_entries",
+                return_value=[
+                    DatasetParquetEntry(
+                        config="datasets",
+                        split="train",
+                        parquet_file_path="hf://datasets/cfahlgren1/hub-stats@~parquet/datasets/train/0.parquet",
+                    )
+                ],
+            ),
+            patch(
+                "huggingface_hub.cli.datasets.fetch_dataset_parquet_status",
+                return_value=DatasetParquetStatus(partial=True, pending=("models",), failed=("datasets",)),
+            ),
+        ):
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats", "--status"])
+
+        assert result.exit_code == 0
+        assert "Parquet conversion status: partial" in result.output
+        assert "pending=['models']" in result.output
+        assert "failed=['datasets']" in result.output
+
+    def test_datasets_parquet_require_complete_fails_on_partial(self, runner: CliRunner) -> None:
+        with (
+            patch(
+                "huggingface_hub.cli.datasets.list_dataset_parquet_entries",
+                return_value=[
+                    DatasetParquetEntry(
+                        config="datasets",
+                        split="train",
+                        parquet_file_path="hf://datasets/cfahlgren1/hub-stats@~parquet/datasets/train/0.parquet",
+                    )
+                ],
+            ),
+            patch(
+                "huggingface_hub.cli.datasets.fetch_dataset_parquet_status",
+                return_value=DatasetParquetStatus(partial=True, pending=("models",), failed=()),
+            ),
+        ):
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats", "--require-complete"])
+
+        assert result.exit_code == 1
+
+    def test_datasets_parquet_no_entries_returns_cli_error(self, runner: CliRunner) -> None:
+        with patch(
+            "huggingface_hub.cli.datasets.list_dataset_parquet_entries",
+            side_effect=EntryNotFoundError("No parquet entries found for dataset 'cfahlgren1/hub-stats'."),
+        ):
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert str(result.exception) == "No parquet entries found for dataset 'cfahlgren1/hub-stats'."
 
 
 class TestSpacesLsCommand:

@@ -30,8 +30,14 @@ from typing import Annotated, Optional, get_args
 
 import typer
 
-from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub._datasets_parquet import (
+    DatasetParquetStatus,
+    fetch_dataset_parquet_status,
+    list_dataset_parquet_entries,
+)
+from huggingface_hub.errors import CLIError, EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import DatasetSort_T, ExpandDatasetProperty_T
+from huggingface_hub.utils import tabulate
 
 from ._cli_utils import (
     AuthorOpt,
@@ -54,6 +60,11 @@ from ._cli_utils import (
 _EXPAND_PROPERTIES = sorted(get_args(ExpandDatasetProperty_T))
 _SORT_OPTIONS = get_args(DatasetSort_T)
 DatasetSortEnum = enum.Enum("DatasetSortEnum", {s: s for s in _SORT_OPTIONS}, type=str)  # type: ignore[misc]
+
+
+class ParquetOutputFormat(str, enum.Enum):
+    table = "table"
+    json = "json"
 
 
 ExpandOpt = Annotated[
@@ -124,3 +135,69 @@ def datasets_info(
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{dataset_id}'.") from e
     print(json.dumps(api_object_to_dict(info), indent=2))
+
+
+@datasets_cli.command(
+    "parquet",
+    examples=[
+        "hf datasets parquet cfahlgren1/hub-stats",
+        "hf datasets parquet cfahlgren1/hub-stats --subset models",
+        "hf datasets parquet cfahlgren1/hub-stats --split train",
+        "hf datasets parquet cfahlgren1/hub-stats --status",
+        "hf datasets parquet cfahlgren1/hub-stats --require-complete",
+        "hf datasets parquet cfahlgren1/hub-stats --format json",
+    ],
+)
+def datasets_parquet(
+    dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
+    subset: Annotated[Optional[str], typer.Option("--subset", help="Filter parquet entries by subset/config.")] = None,
+    split: Annotated[Optional[str], typer.Option(help="Filter parquet entries by split.")] = None,
+    status: Annotated[bool, typer.Option(help="Print parquet conversion status to stderr.")] = False,
+    require_complete: Annotated[
+        bool,
+        typer.Option(help="Exit non-zero if parquet conversion is partial."),
+    ] = False,
+    format: Annotated[
+        ParquetOutputFormat,
+        typer.Option(help="Output format.", case_sensitive=False),
+    ] = ParquetOutputFormat.table,
+    token: TokenOpt = None,
+) -> None:
+    """List parquet file paths available for a dataset."""
+    api = get_hf_api(token=token)
+    effective_token = api.token
+
+    parquet_status = None
+    if status or require_complete:
+        parquet_status = fetch_dataset_parquet_status(repo_id=dataset_id, token=effective_token)
+        if status:
+            _echo_status(parquet_status)
+        if require_complete and parquet_status.partial:
+            raise CLIError(
+                f"Parquet conversion is not complete for '{dataset_id}'. Pending: {', '.join(parquet_status.pending) or 'none'}."
+            )
+
+    try:
+        entries = list_dataset_parquet_entries(repo_id=dataset_id, token=effective_token, config=subset, split=split)
+    except EntryNotFoundError as e:
+        raise CLIError(str(e)) from e
+    rows = [[entry.config, entry.split, entry.parquet_file_path] for entry in entries]
+
+    if format == ParquetOutputFormat.table:
+        typer.echo(tabulate(rows=rows, headers=["SUBSET", "SPLIT", "PATH"]))
+        return
+
+    if format == ParquetOutputFormat.json:
+        typer.echo(
+            json.dumps(
+                [{"subset": entry.config, "split": entry.split, "path": entry.parquet_file_path} for entry in entries],
+                indent=2,
+            )
+        )
+        return
+
+
+def _echo_status(status: DatasetParquetStatus) -> None:
+    summary = f"Parquet conversion status: {'partial' if status.partial else 'complete'}"
+    details = f"pending={list(status.pending)} failed={list(status.failed)}"
+    typer.echo(f"{summary} ({details})", err=True)

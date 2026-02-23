@@ -562,6 +562,22 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 >>> hf datasets info HuggingFaceFW/fineweb
 ```
 
+### List parquet paths for SQL
+
+Use `hf datasets parquet` to discover parquet file paths for a dataset before writing SQL queries.
+
+```bash
+>>> hf datasets parquet cfahlgren1/hub-stats
+>>> hf datasets parquet cfahlgren1/hub-stats --subset models
+>>> hf datasets parquet cfahlgren1/hub-stats --split train
+>>> hf datasets parquet cfahlgren1/hub-stats --status
+>>> hf datasets parquet cfahlgren1/hub-stats --require-complete
+>>> hf datasets parquet cfahlgren1/hub-stats --format json
+```
+
+The default table output includes subset, split, and `hf://` parquet file path. Use `--status` to print conversion
+status and `--require-complete` to exit non-zero when conversion is still partial.
+
 ## hf spaces
 
 Use `hf spaces` to list Spaces on the Hub and get detailed information about a specific Space.
