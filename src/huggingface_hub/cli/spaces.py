@@ -33,18 +33,21 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Annotated, Literal, Optional, Union, get_args
+import time
+from typing import Annotated, Dict, Literal, Optional, Union, get_args
 
 import typer
 from packaging import version
 from typing_extensions import assert_never
 
+from huggingface_hub import SpaceHardware, get_token
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
 from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._cli_utils import (
     AuthorOpt,
@@ -77,6 +80,31 @@ ExpandOpt = Annotated[
     typer.Option(
         help=f"Comma-separated properties to expand. Example: '--expand=likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
+    ),
+]
+
+EnvOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-e",
+        "--env",
+        help="Set environment variables. E.g. --env ENV=value",
+    ),
+]
+
+SecretsOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-s",
+        "--secrets",
+        help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
+    ),
+]
+
+FlavorOpt = Annotated[
+    Optional[SpaceHardware],
+    typer.Option(
+        help="Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`.",
     ),
 ]
 
@@ -139,6 +167,108 @@ def spaces_info(
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{space_id}'.") from e
     print(json.dumps(api_object_to_dict(info), indent=2))
+
+
+@spaces_cli.command(
+    "duplicate",
+    examples=[
+        "hf spaces duplicate enzostvs/deepsite my-user-name/deepsite",
+    ],
+)
+def spaces_duplicate(
+    from_id: Annotated[str, typer.Argument(help="The space ID to duplicate (e.g. `username/src-repo-name`).")],
+    to_id: Annotated[str, typer.Argument(help="The space ID of the new space (e.g. `username/dst-repo-name`).")],
+    private: Annotated[bool, typer.Option(help="Set the new Space private.")] = False,
+    env: EnvOpt = None,
+    secrets: SecretsOpt = None,
+    flavor: FlavorOpt = SpaceHardware.CPU_BASIC,
+    token: TokenOpt = None,
+) -> None:
+    """Duplicate a Space."""
+    api = get_hf_api(token=token)
+    env_map: dict[str, str] = {}
+    for env_value in env or []:
+        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
+    secrets_map: dict[str, str] = {}
+    extended_environ = _get_extended_environ()
+    for secret in secrets or []:
+        secrets_map.update(load_dotenv(secret, environ=extended_environ))
+    try:
+        repo_url = api.duplicate_space(
+            from_id=from_id,
+            to_id=to_id,
+            private=private,
+            secrets=[{"key": key, "value": value} for key, value in secrets_map.items()],
+            variables=[{"key": key, "value": value} for key, value in env_map.items()],
+            hardware=flavor,
+        )
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"Space '{from_id}' not found.") from e
+    print(f"Space '{from_id}' duplicated at {repo_url.url}")
+
+
+@spaces_cli.command(
+    "dev-mode",
+    examples=[
+        "hf spaces dev-mode my-user-name/deepsite",
+    ],
+)
+def dev_mode(
+    space_id: Annotated[str, typer.Argument(help="The space ID to duplicate (e.g. `username/src-repo-name`).")],
+    stop: Annotated[bool, typer.Option(help="Stop dev mode.")] = False,
+    token: TokenOpt = None,
+):
+    """Enable or disable dev mode."""
+    api = get_hf_api(token=token)
+    try:
+        if stop:
+            api.disable_space_dev_mode(space_id)
+            print(f"Dev mode disabled for '{space_id}'")
+            return
+        else:
+            api.enable_space_dev_mode(space_id)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"Space '{space_id}' not found.") from e
+    info = api.space_info(space_id)
+    folder = getattr(info.card_data, "dev-mode-folder", "" if info.sdk == "docker" else "/home/user/app")
+    folder_query_param = f"folder={folder}" if folder else ""
+    print(f"Dev mode is currently building, track the progress here: https://huggingface.co/spaces/{info.id}")
+    intermediate_statuses_and_messages = {
+        "BUILDING": "building...",
+        "RUNNING_BUILDING": "building...",
+        "APP_STARTING": "app starting...",
+        "RUNNING_APP_STARTING": "app starting...",
+    }
+    prev_msg = None
+    while True:
+        info = api.space_info(space_id)
+        if info.runtime is None:
+            print("Runtime of the space unavailable")
+            return
+        if info.runtime.stage not in intermediate_statuses_and_messages:
+            break
+        msg = intermediate_statuses_and_messages[info.runtime.stage]
+        if prev_msg != msg:
+            print(msg)
+        prev_msg = msg
+        time.sleep(10)
+    if info.runtime.stage != "RUNNING":
+        print(f"Dev mode is not ready (stage='{info.runtime.stage}')")
+        return
+    print("Dev mode ready !")
+    print("Connect to dev environment:")
+    print("")
+    print("Web:")
+    print(f"  * VSCode: https://huggingface.co/spaces/{info.id}/dev-mode/vscode-web?{folder_query_param}".rstrip("?"))
+    print("")
+    print("Local:")
+    print("1. Add your SSH key to https://huggingface.co/settings/keys")
+    print(f"2. SSH with `ssh -i <your_key> {info.subdomain}@ssh.hf.space`")
+    print("   Or open")
+    print(f"  * VSCode: vscode://vscode-remote/ssh-remote+{info.subdomain}@ssh.hf.space/{folder}".rstrip("/"))
+    print(f"  * Cursor: cursor://vscode-remote/ssh-remote+{info.subdomain}@ssh.hf.space/{folder}".rstrip("/"))
+    print("")
+    print("PS: Dev mode stops after 48h of inactivity, don't forget to save your changes regularly.")
 
 
 @spaces_cli.command("hot-reload")
@@ -359,3 +489,10 @@ def _editor_open(local_path: str) -> Union[int, Literal["no-tty", "no-editor"]]:
     command = [*shlex.split(editor_command), local_path]
     res = subprocess.run(command, start_new_session=True)
     return res.returncode
+
+
+def _get_extended_environ() -> Dict[str, str]:
+    extended_environ = os.environ.copy()
+    if (token := get_token()) is not None:
+        extended_environ["HF_TOKEN"] = token
+    return extended_environ

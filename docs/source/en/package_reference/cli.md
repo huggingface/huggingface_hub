@@ -2388,9 +2388,71 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `dev-mode`: Enable or disable dev mode.
+* `duplicate`: Duplicate a Space.
 * `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
 * `ls`: List spaces on the Hub.
+
+### `hf spaces dev-mode`
+
+Enable or disable dev mode.
+
+**Usage**:
+
+```console
+$ hf spaces dev-mode [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID to duplicate (e.g. `username/src-repo-name`).  [required]
+
+**Options**:
+
+* `--stop / --no-stop`: Stop dev mode.  [default: no-stop]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces dev-mode my-user-name/deepsite
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces duplicate`
+
+Duplicate a Space.
+
+**Usage**:
+
+```console
+$ hf spaces duplicate [OPTIONS] FROM_ID TO_ID
+```
+
+**Arguments**:
+
+* `FROM_ID`: The space ID to duplicate (e.g. `username/src-repo-name`).  [required]
+* `TO_ID`: The space ID of the new space (e.g. `username/dst-repo-name`).  [required]
+
+**Options**:
+
+* `--private / --no-private`: Set the new Space private.  [default: no-private]
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--flavor [cpu-basic|cpu-upgrade|cpu-xl|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`.  [default: cpu-basic]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces duplicate enzostvs/deepsite my-user-name/deepsite
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ### `hf spaces hot-reload`
 
