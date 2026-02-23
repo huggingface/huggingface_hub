@@ -161,8 +161,6 @@ def fetch_xet_connection_info_from_repo_info(
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
     url = f"{endpoint}/api/{repo_type}s/{repo_id}/xet-{token_type.value}-token/{revision}"
-    # Write tokens must not be reused from cache as a repo can be deleted and recreated with
-    # the same id in a long-lived process.
     use_cache = token_type == XetTokenType.READ
     return _fetch_xet_connection_info_with_url(url, headers, params, use_cache=use_cache)
 
