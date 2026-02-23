@@ -1523,7 +1523,10 @@ class TestDatasetsParquetCommand:
         assert "URL" in result.stdout
         assert "datasets" in result.stdout
         assert "train" in result.stdout
-        assert "https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/datasets/train/0.parquet" in result.stdout
+        assert (
+            "https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/datasets/train/0.parquet"
+            in result.stdout
+        )
 
     def test_datasets_parquet_json_output(self, runner: CliRunner) -> None:
         with patch(
@@ -1590,7 +1593,7 @@ class TestDatasetsSqlCommand:
         with patch(
             "huggingface_hub.cli.datasets.execute_raw_sql_query",
             return_value=DatasetSqlQueryResult(columns=("count",), rows=((5,),), table=table_str),
-        ):
+        ) as execute_sql:
             result = runner.invoke(
                 app,
                 ["datasets", "sql", "SELECT COUNT(*) AS count"],
@@ -1599,12 +1602,13 @@ class TestDatasetsSqlCommand:
         assert result.exit_code == 0
         assert "count" in result.stdout
         assert "5" in result.stdout
+        assert execute_sql.call_args.kwargs["output_format"] == "table"
 
     def test_datasets_sql_json_output(self, runner: CliRunner) -> None:
         with patch(
             "huggingface_hub.cli.datasets.execute_raw_sql_query",
             return_value=DatasetSqlQueryResult(columns=("subset",), rows=(("models",),), table=""),
-        ):
+        ) as execute_sql:
             result = runner.invoke(
                 app,
                 [
@@ -1619,6 +1623,7 @@ class TestDatasetsSqlCommand:
         assert result.exit_code == 0
         payload = json.loads(result.stdout)
         assert payload == [{"subset": "models"}]
+        assert execute_sql.call_args.kwargs["output_format"] == "json"
 
     def test_datasets_sql_error_is_cli_error(self, runner: CliRunner) -> None:
         with patch(

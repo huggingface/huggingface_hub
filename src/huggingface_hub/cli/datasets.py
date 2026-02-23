@@ -207,7 +207,7 @@ def datasets_sql(
     api = get_hf_api(token=token)
     effective_token = api.token
     try:
-        result = execute_raw_sql_query(sql_query=sql, token=effective_token)
+        result = execute_raw_sql_query(sql_query=sql, token=effective_token, output_format=format.value)
     except (ImportError, ValueError) as e:
         raise CLIError(str(e)) from e
     typer.echo(format_sql_result(result=result, output_format=format.value))

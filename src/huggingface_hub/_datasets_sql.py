@@ -20,6 +20,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Union
 
+from . import constants
 from .hf_file_system import HfFileSystem
 
 
@@ -33,8 +34,11 @@ class DatasetSqlQueryResult:
 def execute_raw_sql_query(
     sql_query: str,
     token: Union[str, bool, None],
+    output_format: str = "json",
 ) -> DatasetSqlQueryResult:
     normalized_query = _normalize_query(sql_query)
+    if output_format not in {"table", "json"}:
+        raise ValueError(f"Unsupported SQL output format: {output_format!r}")
 
     connection = _get_duckdb_connection(token=token)
     try:
@@ -43,7 +47,7 @@ def execute_raw_sql_query(
             raise ValueError("SQL query must return rows.")
         table = str(relation)
         columns = tuple(column[0] for column in relation.description)
-        rows = tuple(tuple(row) for row in relation.fetchall())
+        rows = tuple(tuple(row) for row in relation.fetchall()) if output_format == "json" else ()
         return DatasetSqlQueryResult(columns=columns, rows=rows, table=table)
     except ValueError:
         raise
@@ -84,4 +88,11 @@ def _get_duckdb_connection(token: Union[str, bool, None]):
 
     connection = duckdb.connect()
     connection.register_filesystem(HfFileSystem(token=token))
+    if isinstance(token, str) and token:
+        escaped_token = token.replace("'", "''")
+        escaped_endpoint = constants.ENDPOINT.replace("'", "''")
+        connection.execute(
+            f"CREATE OR REPLACE SECRET hf_hub_token (TYPE HTTP, BEARER_TOKEN '{escaped_token}', "
+            f"SCOPE '{escaped_endpoint}')"
+        )
     return connection

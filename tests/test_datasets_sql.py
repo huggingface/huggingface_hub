@@ -92,9 +92,13 @@ def test_get_duckdb_connection_registers_hf_filesystem(monkeypatch: pytest.Monke
     class FakeConnection:
         def __init__(self):
             self.registered = []
+            self.executed = []
 
         def register_filesystem(self, fs):
             self.registered.append(fs)
+
+        def execute(self, statement):
+            self.executed.append(statement)
 
     fake_connection = FakeConnection()
     fake_duckdb = types.SimpleNamespace(connect=lambda: fake_connection)
@@ -106,3 +110,28 @@ def test_get_duckdb_connection_registers_hf_filesystem(monkeypatch: pytest.Monke
 
     assert connection is fake_connection
     assert fake_connection.registered == ["fs:abc"]
+
+
+def test_get_duckdb_connection_configures_http_bearer_token_for_https_reads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeConnection:
+        def __init__(self):
+            self.registered = []
+            self.executed = []
+
+        def register_filesystem(self, fs):
+            self.registered.append(fs)
+
+        def execute(self, statement):
+            self.executed.append(statement)
+
+    fake_connection = FakeConnection()
+    fake_duckdb = types.SimpleNamespace(connect=lambda: fake_connection)
+
+    monkeypatch.setattr("huggingface_hub._datasets_sql.importlib.import_module", lambda name: fake_duckdb)
+    monkeypatch.setattr("huggingface_hub._datasets_sql.HfFileSystem", lambda token: f"fs:{token}")
+
+    _get_duckdb_connection(token="abc")
+
+    assert any("BEARER_TOKEN 'abc'" in statement for statement in fake_connection.executed)
