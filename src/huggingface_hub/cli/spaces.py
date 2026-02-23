@@ -181,15 +181,15 @@ def spaces_duplicate(
     private: Annotated[bool, typer.Option(help="Set the new Space private.")] = False,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
-    flavor: FlavorOpt = "cpu-basic",
+    flavor: FlavorOpt = SpaceHardware.CPU_BASIC,
     token: TokenOpt = None,
 ) -> None:
     """Duplicate a Space."""
     api = get_hf_api(token=token)
-    env_map: dict[str, Optional[str]] = {}
+    env_map: dict[str, str] = {}
     for env_value in env or []:
         env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
-    secrets_map: dict[str, Optional[str]] = {}
+    secrets_map: dict[str, str] = {}
     extended_environ = _get_extended_environ()
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
@@ -242,6 +242,9 @@ def dev_mode(
     prev_msg = None
     while True:
         info = api.space_info(space_id)
+        if info.runtime is None:
+            print("Runtime of the space unavailable")
+            return
         if info.runtime.stage not in intermediate_statuses_and_messages:
             break
         msg = intermediate_statuses_and_messages[info.runtime.stage]
