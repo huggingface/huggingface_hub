@@ -570,12 +570,10 @@ Use `hf datasets parquet` to discover parquet file URLs for a dataset before wri
 >>> hf datasets parquet cfahlgren1/hub-stats
 >>> hf datasets parquet cfahlgren1/hub-stats --subset models
 >>> hf datasets parquet cfahlgren1/hub-stats --split train
->>> hf datasets parquet cfahlgren1/hub-stats --status
 >>> hf datasets parquet cfahlgren1/hub-stats --format json
 ```
 
-The default table output includes subset, split, and parquet file URL from the Hub API. Use `--status` to print conversion
-status to stderr.
+The default table output includes subset, split, and parquet file URL from the Hub API.
 
 ### Run SQL on dataset parquet
 

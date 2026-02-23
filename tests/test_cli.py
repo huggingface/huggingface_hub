@@ -11,7 +11,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from huggingface_hub._datasets_parquet import DatasetParquetEntry, DatasetParquetStatus
+from huggingface_hub._datasets_parquet import DatasetParquetEntry
 from huggingface_hub._datasets_sql import DatasetSqlQueryResult
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import CacheDeletionCounts
@@ -1550,30 +1550,6 @@ class TestDatasetsParquetCommand:
                 "url": "https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet",
             }
         ]
-
-    def test_datasets_parquet_status(self, runner: CliRunner) -> None:
-        with (
-            patch(
-                "huggingface_hub.cli.datasets.list_dataset_parquet_entries",
-                return_value=[
-                    DatasetParquetEntry(
-                        config="datasets",
-                        split="train",
-                        url="https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/datasets/train/0.parquet",
-                    )
-                ],
-            ),
-            patch(
-                "huggingface_hub.cli.datasets.fetch_dataset_parquet_status",
-                return_value=DatasetParquetStatus(partial=True, pending=("models",), failed=("datasets",)),
-            ),
-        ):
-            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats", "--status"])
-
-        assert result.exit_code == 0
-        assert "Parquet conversion status: partial" in result.output
-        assert "pending=['models']" in result.output
-        assert "failed=['datasets']" in result.output
 
     def test_datasets_parquet_no_entries_returns_cli_error(self, runner: CliRunner) -> None:
         with patch(

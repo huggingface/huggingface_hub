@@ -21,7 +21,6 @@ from dataclasses import dataclass
 from typing import Any, Union
 
 from . import constants
-from .hf_file_system import HfFileSystem
 
 
 @dataclass(frozen=True)
@@ -60,19 +59,15 @@ def execute_raw_sql_query(
 def format_sql_result(result: DatasetSqlQueryResult, output_format: str) -> str:
     if output_format == "table":
         return result.table
-    if output_format == "json":
-        return json.dumps(
-            [{column: value for column, value in zip(result.columns, row)} for row in result.rows],
-            indent=2,
-            default=str,
-        )
-    raise ValueError(f"Unsupported SQL output format: {output_format!r}")
+    return json.dumps(
+        [{column: value for column, value in zip(result.columns, row)} for row in result.rows],
+        indent=2,
+        default=str,
+    )
 
 
 def _normalize_query(sql_query: str) -> str:
-    normalized_query = sql_query.strip()
-    while normalized_query.endswith(";"):
-        normalized_query = normalized_query[:-1].rstrip()
+    normalized_query = sql_query.strip().rstrip(";").strip()
     if not normalized_query:
         raise ValueError("SQL query cannot be empty.")
     return normalized_query
@@ -87,7 +82,6 @@ def _get_duckdb_connection(token: Union[str, bool, None]):
         ) from error
 
     connection = duckdb.connect()
-    connection.register_filesystem(HfFileSystem(token=token))
     if isinstance(token, str) and token:
         escaped_token = token.replace("'", "''")
         escaped_endpoint = constants.ENDPOINT.replace("'", "''")
@@ -95,4 +89,5 @@ def _get_duckdb_connection(token: Union[str, bool, None]):
             f"CREATE OR REPLACE SECRET hf_hub_token (TYPE HTTP, BEARER_TOKEN '{escaped_token}', "
             f"SCOPE '{escaped_endpoint}')"
         )
+        connection.execute(f"CREATE OR REPLACE SECRET hf_token (TYPE HUGGINGFACE, TOKEN '{escaped_token}')")
     return connection

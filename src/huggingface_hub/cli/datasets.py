@@ -26,15 +26,11 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Optional, get_args
+from typing import Annotated, Optional, Union, get_args
 
 import typer
 
-from huggingface_hub._datasets_parquet import (
-    DatasetParquetStatus,
-    fetch_dataset_parquet_status,
-    list_dataset_parquet_entries,
-)
+from huggingface_hub._datasets_parquet import list_dataset_parquet_entries
 from huggingface_hub._datasets_sql import execute_raw_sql_query, format_sql_result
 from huggingface_hub.errors import CLIError, EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import DatasetSort_T, ExpandDatasetProperty_T
@@ -139,7 +135,6 @@ def datasets_info(
         "hf datasets parquet cfahlgren1/hub-stats",
         "hf datasets parquet cfahlgren1/hub-stats --subset models",
         "hf datasets parquet cfahlgren1/hub-stats --split train",
-        "hf datasets parquet cfahlgren1/hub-stats --status",
         "hf datasets parquet cfahlgren1/hub-stats --format json",
     ],
 )
@@ -147,7 +142,6 @@ def datasets_parquet(
     dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
     subset: Annotated[Optional[str], typer.Option("--subset", help="Filter parquet entries by subset/config.")] = None,
     split: Annotated[Optional[str], typer.Option(help="Filter parquet entries by split.")] = None,
-    status: Annotated[bool, typer.Option(help="Print parquet conversion status to stderr.")] = False,
     format: Annotated[
         OutputFormat,
         typer.Option(help="Output format.", case_sensitive=False),
@@ -158,15 +152,11 @@ def datasets_parquet(
     api = get_hf_api(token=token)
     effective_token = api.token
 
-    if status:
-        parquet_status = fetch_dataset_parquet_status(repo_id=dataset_id, token=effective_token)
-        _echo_status(parquet_status)
-
     try:
         entries = list_dataset_parquet_entries(repo_id=dataset_id, token=effective_token, config=subset, split=split)
     except EntryNotFoundError as e:
         raise CLIError(str(e)) from e
-    rows = [[entry.config, entry.split, entry.url] for entry in entries]
+    rows: list[list[Union[str, int]]] = [[entry.config, entry.split, entry.url] for entry in entries]
 
     if format == OutputFormat.table:
         typer.echo(tabulate(rows=rows, headers=["SUBSET", "SPLIT", "URL"]))
@@ -180,12 +170,6 @@ def datasets_parquet(
             )
         )
         return
-
-
-def _echo_status(status: DatasetParquetStatus) -> None:
-    summary = f"Parquet conversion status: {'partial' if status.partial else 'complete'}"
-    details = f"pending={list(status.pending)} failed={list(status.failed)}"
-    typer.echo(f"{summary} ({details})", err=True)
 
 
 @datasets_cli.command(
