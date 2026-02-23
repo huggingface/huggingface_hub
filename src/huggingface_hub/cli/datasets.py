@@ -140,7 +140,6 @@ def datasets_info(
         "hf datasets parquet cfahlgren1/hub-stats --subset models",
         "hf datasets parquet cfahlgren1/hub-stats --split train",
         "hf datasets parquet cfahlgren1/hub-stats --status",
-        "hf datasets parquet cfahlgren1/hub-stats --require-complete",
         "hf datasets parquet cfahlgren1/hub-stats --format json",
     ],
 )
@@ -149,10 +148,6 @@ def datasets_parquet(
     subset: Annotated[Optional[str], typer.Option("--subset", help="Filter parquet entries by subset/config.")] = None,
     split: Annotated[Optional[str], typer.Option(help="Filter parquet entries by split.")] = None,
     status: Annotated[bool, typer.Option(help="Print parquet conversion status to stderr.")] = False,
-    require_complete: Annotated[
-        bool,
-        typer.Option(help="Exit non-zero if parquet conversion is partial."),
-    ] = False,
     format: Annotated[
         OutputFormat,
         typer.Option(help="Output format.", case_sensitive=False),
@@ -163,15 +158,9 @@ def datasets_parquet(
     api = get_hf_api(token=token)
     effective_token = api.token
 
-    parquet_status = None
-    if status or require_complete:
+    if status:
         parquet_status = fetch_dataset_parquet_status(repo_id=dataset_id, token=effective_token)
-        if status:
-            _echo_status(parquet_status)
-        if require_complete and parquet_status.partial:
-            raise CLIError(
-                f"Parquet conversion is not complete for '{dataset_id}'. Pending: {', '.join(parquet_status.pending) or 'none'}."
-            )
+        _echo_status(parquet_status)
 
     try:
         entries = list_dataset_parquet_entries(repo_id=dataset_id, token=effective_token, config=subset, split=split)

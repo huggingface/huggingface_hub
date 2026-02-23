@@ -704,7 +704,6 @@ $ hf datasets parquet [OPTIONS] DATASET_ID
 * `--subset TEXT`: Filter parquet entries by subset/config.
 * `--split TEXT`: Filter parquet entries by split.
 * `--status / --no-status`: Print parquet conversion status to stderr.  [default: no-status]
-* `--require-complete / --no-require-complete`: Exit non-zero if parquet conversion is partial.  [default: no-require-complete]
 * `--format [table|json]`: Output format.  [default: table]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -714,7 +713,6 @@ Examples
   $ hf datasets parquet cfahlgren1/hub-stats --subset models
   $ hf datasets parquet cfahlgren1/hub-stats --split train
   $ hf datasets parquet cfahlgren1/hub-stats --status
-  $ hf datasets parquet cfahlgren1/hub-stats --require-complete
   $ hf datasets parquet cfahlgren1/hub-stats --format json
 
 Learn more
