@@ -872,6 +872,26 @@ class TestDownloadCommand:
         assert kwargs["library_name"] == "huggingface-cli"
         assert kwargs["max_workers"] == 4
 
+    def test_download_subfolder_via_cli(self, runner: CliRunner) -> None:
+        """Test that `hf download repo_id subfolder/` works via CLI."""
+        with (
+            patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock,
+            patch("huggingface_hub.cli.download.hf_hub_download") as download_mock,
+        ):
+            result = runner.invoke(
+                app,
+                ["download", DUMMY_MODEL_ID, "art/", "--repo-type", "dataset"],
+            )
+        assert result.exit_code == 0
+        assert "path" in result.stdout
+        download_mock.assert_not_called()
+        snapshot_mock.assert_called_once()
+        kwargs = snapshot_mock.call_args.kwargs
+        assert kwargs["repo_id"] == DUMMY_MODEL_ID
+        assert kwargs["repo_type"] == "dataset"
+        assert kwargs["allow_patterns"] == ["art/**"]
+        assert kwargs["ignore_patterns"] is None
+
 
 class TestDownloadImpl:
     @patch("huggingface_hub.cli.download.snapshot_download")
@@ -993,6 +1013,115 @@ class TestDownloadImpl:
             max_workers=8,
             dry_run=False,
         )
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_subfolder(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        """Test that a subfolder path (ending with /) is converted to an include pattern."""
+        mock_snapshot.return_value = "folder-path"
+        with patch("builtins.print") as print_mock:
+            download(
+                repo_id="author/dataset",
+                filenames=["art/"],
+                repo_type=RepoType.dataset,
+                quiet=True,
+            )
+        print_mock.assert_called_once_with("folder-path")
+        mock_download.assert_not_called()
+        mock_snapshot.assert_called_once_with(
+            repo_id="author/dataset",
+            repo_type="dataset",
+            revision=None,
+            allow_patterns=["art/**"],
+            ignore_patterns=None,
+            force_download=False,
+            cache_dir=None,
+            token=None,
+            local_dir=None,
+            library_name="huggingface-cli",
+            max_workers=8,
+            dry_run=False,
+        )
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_subfolder_with_files(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        """Test downloading a subfolder along with specific files."""
+        mock_snapshot.return_value = "folder-path"
+        with patch("builtins.print") as print_mock:
+            download(
+                repo_id="author/model",
+                filenames=["art/", "config.json"],
+                repo_type=RepoType.model,
+                quiet=True,
+            )
+        print_mock.assert_called_once_with("folder-path")
+        mock_download.assert_not_called()
+        mock_snapshot.assert_called_once_with(
+            repo_id="author/model",
+            repo_type="model",
+            revision=None,
+            allow_patterns=["config.json", "art/**"],
+            ignore_patterns=None,
+            force_download=False,
+            cache_dir=None,
+            token=None,
+            local_dir=None,
+            library_name="huggingface-cli",
+            max_workers=8,
+            dry_run=False,
+        )
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_multiple_subfolders(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        """Test downloading multiple subfolders at once."""
+        mock_snapshot.return_value = "folder-path"
+        with patch("builtins.print") as print_mock:
+            download(
+                repo_id="author/model",
+                filenames=["art/", "data/images/"],
+                repo_type=RepoType.model,
+                quiet=True,
+            )
+        print_mock.assert_called_once_with("folder-path")
+        mock_download.assert_not_called()
+        mock_snapshot.assert_called_once_with(
+            repo_id="author/model",
+            repo_type="model",
+            revision=None,
+            allow_patterns=["art/**", "data/images/**"],
+            ignore_patterns=None,
+            force_download=False,
+            cache_dir=None,
+            token=None,
+            local_dir=None,
+            library_name="huggingface-cli",
+            max_workers=8,
+            dry_run=False,
+        )
+
+    def test_download_subfolder_with_include_raises_error(self) -> None:
+        """Test that combining subfolder with --include raises an error."""
+        with pytest.raises(CLIError, match="Cannot combine subfolder argument"):
+            download(
+                repo_id="author/model",
+                filenames=["art/"],
+                repo_type=RepoType.model,
+                include=["*.json"],
+                quiet=True,
+            )
+
+    def test_download_subfolder_with_exclude_raises_error(self) -> None:
+        """Test that combining subfolder with --exclude raises an error."""
+        with pytest.raises(CLIError, match="Cannot combine subfolder argument"):
+            download(
+                repo_id="author/model",
+                filenames=["art/"],
+                repo_type=RepoType.model,
+                exclude=["*.bin"],
+                quiet=True,
+            )
 
 
 class TestTagCommands:
@@ -1657,12 +1786,14 @@ def tmp_current_directory() -> Generator[str, None, None]:
             os.chdir(cwd)
 
 
-class TestRepoFilesCommand:
+class TestRepoDeleteFilesCommand:
+    """Tests for `hf repo delete-files` (the new primary command)."""
+
     @pytest.mark.parametrize(
         "cli_args, expected_kwargs",
         [
             (
-                ["repo-files", "delete", DUMMY_MODEL_ID, "*"],
+                ["repo", "delete-files", DUMMY_MODEL_ID, "*"],
                 {
                     "delete_patterns": ["*"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -1674,7 +1805,7 @@ class TestRepoFilesCommand:
                 },
             ),
             (
-                ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"],
+                ["repo", "delete-files", DUMMY_MODEL_ID, "file.txt"],
                 {
                     "delete_patterns": ["file.txt"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -1686,7 +1817,7 @@ class TestRepoFilesCommand:
                 },
             ),
             (
-                ["repo-files", "delete", DUMMY_MODEL_ID, "folder/"],
+                ["repo", "delete-files", DUMMY_MODEL_ID, "folder/"],
                 {
                     "delete_patterns": ["folder/"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -1698,7 +1829,7 @@ class TestRepoFilesCommand:
                 },
             ),
             (
-                ["repo-files", "delete", DUMMY_MODEL_ID, "file1.txt", "folder/", "file2.txt"],
+                ["repo", "delete-files", DUMMY_MODEL_ID, "file1.txt", "folder/", "file2.txt"],
                 {
                     "delete_patterns": [
                         "file1.txt",
@@ -1715,8 +1846,8 @@ class TestRepoFilesCommand:
             ),
             (
                 [
-                    "repo-files",
-                    "delete",
+                    "repo",
+                    "delete-files",
                     DUMMY_MODEL_ID,
                     "file.txt *",
                     "*.json",
@@ -1738,8 +1869,8 @@ class TestRepoFilesCommand:
             ),
             (
                 [
-                    "repo-files",
-                    "delete",
+                    "repo",
+                    "delete-files",
                     DUMMY_MODEL_ID,
                     "file.txt *",
                     "--revision",
@@ -1764,12 +1895,37 @@ class TestRepoFilesCommand:
             ),
         ],
     )
-    def test_delete(self, runner: CliRunner, cli_args: list[str], expected_kwargs: dict[str, object]) -> None:
-        with patch("huggingface_hub.cli.repo_files.get_hf_api") as api_cls:
+    def test_delete_files(self, runner: CliRunner, cli_args: list[str], expected_kwargs: dict[str, object]) -> None:
+        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, cli_args)
         assert result.exit_code == 0
         api.delete_files.assert_called_once_with(**expected_kwargs)
+
+
+class TestRepoFilesCommand:
+    """Tests for legacy `hf repo-files delete` (deprecated, kept for backward compatibility)."""
+
+    def test_legacy_delete_still_works(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo_files.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"])
+        assert result.exit_code == 0
+        api.delete_files.assert_called_once_with(
+            delete_patterns=["file.txt"],
+            repo_id=DUMMY_MODEL_ID,
+            repo_type="model",
+            revision=None,
+            commit_message=None,
+            commit_description=None,
+            create_pr=False,
+        )
+
+    def test_legacy_delete_emits_deprecation_warning(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo_files.get_hf_api"):
+            result = runner.invoke(app, ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"])
+        assert result.exit_code == 0
+        assert "hf repo delete-files" in result.output
 
 
 class TestJobsCommand:

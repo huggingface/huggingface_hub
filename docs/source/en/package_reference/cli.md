@@ -31,13 +31,13 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `download`: Download files from the Hub.
 * `endpoints`: Manage Hugging Face Inference Endpoints.
 * `env`: Print information about the environment.
+* `extensions`: Manage hf CLI extensions.
 * `jobs`: Run and manage Jobs on the Hub.
 * `lfs-enable-largefiles`: Configure your repository to enable upload...
 * `lfs-multipart-upload`: Internal git-lfs custom transfer agent for...
 * `models`: Interact with models on the Hub.
 * `papers`: Interact with papers on the Hub.
 * `repo`: Manage repos on the Hub.
-* `repo-files`: Manage files in a repo on the Hub.
 * `skills`: Manage skills for AI assistants.
 * `spaces`: Interact with spaces on the Hub.
 * `sync`: Sync files between local directory and a...
@@ -965,6 +965,7 @@ Examples
   $ hf download meta-llama/Llama-3.2-1B-Instruct config.json tokenizer.json
   $ hf download meta-llama/Llama-3.2-1B-Instruct --include "*.safetensors" --exclude "*.bin"
   $ hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama
+  $ hf download HuggingFaceM4/FineVision art/ --repo-type dataset
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1345,6 +1346,134 @@ $ hf env [OPTIONS]
 **Options**:
 
 * `--help`: Show this message and exit.
+
+## `hf extensions`
+
+Manage hf CLI extensions.
+
+Security Warning: extensions are third-party executables. Install only from sources you trust.
+
+**Usage**:
+
+```console
+$ hf extensions [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `exec`: Execute an installed extension.
+* `install`: Install an extension from a public GitHub...
+* `list`: List installed extension commands.
+* `remove`: Remove an installed extension.
+
+### `hf extensions exec`
+
+Execute an installed extension.
+
+**Usage**:
+
+```console
+$ hf extensions exec [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Extension name (with or without `hf-` prefix).  [required]
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions exec claude -- --help
+  $ hf extensions exec claude --model zai-org/GLM-5
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions install`
+
+Install an extension from a public GitHub repository.
+
+Security warning: this installs a third-party executable. Install only from sources you trust.
+
+**Usage**:
+
+```console
+$ hf extensions install [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: GitHub extension repository in `[OWNER/]hf-<name>` format.  [required]
+
+**Options**:
+
+* `--force`: Overwrite if already installed.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions install hf-claude
+  $ hf extensions install hanouticelina/hf-claude
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions list`
+
+List installed extension commands.
+
+**Usage**:
+
+```console
+$ hf extensions list [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions list
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions remove`
+
+Remove an installed extension.
+
+**Usage**:
+
+```console
+$ hf extensions remove [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Extension name to remove (with or without `hf-` prefix).  [required]
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions remove claude
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ## `hf jobs`
 
@@ -2089,6 +2218,7 @@ $ hf repo [OPTIONS] COMMAND [ARGS]...
 * `branch`: Manage branches for a repo on the Hub.
 * `create`: Create a new repo on the Hub.
 * `delete`: Delete a repo from the Hub.
+* `delete-files`: Delete files from a repo on the Hub.
 * `move`: Move a repository from a namespace to...
 * `settings`: Update the settings of a repository.
 * `tag`: Manage tags for a repo on the Hub.
@@ -2229,6 +2359,41 @@ $ hf repo delete [OPTIONS] REPO_ID
 
 Examples
   $ hf repo delete my-model
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repo delete-files`
+
+Delete files from a repo on the Hub.
+
+**Usage**:
+
+```console
+$ hf repo delete-files [OPTIONS] REPO_ID PATTERNS...
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `PATTERNS...`: Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.  [required]
+
+**Options**:
+
+* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--commit-message TEXT`: The summary / title / first line of the generated commit.
+* `--commit-description TEXT`: The description of the generated commit.
+* `--create-pr / --no-create-pr`: Whether to create a new Pull Request for these changes.  [default: no-create-pr]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repo delete-files my-model file.txt
+  $ hf repo delete-files my-model "*.json"
+  $ hf repo delete-files my-model folder/
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2399,57 +2564,6 @@ $ hf repo tag list [OPTIONS] REPO_ID
 
 Examples
   $ hf repo tag list my-model
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-## `hf repo-files`
-
-Manage files in a repo on the Hub.
-
-**Usage**:
-
-```console
-$ hf repo-files [OPTIONS] COMMAND [ARGS]...
-```
-
-**Options**:
-
-* `--help`: Show this message and exit.
-
-**Commands**:
-
-* `delete`
-
-### `hf repo-files delete`
-
-**Usage**:
-
-```console
-$ hf repo-files delete [OPTIONS] REPO_ID PATTERNS...
-```
-
-**Arguments**:
-
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
-* `PATTERNS...`: Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.  [required]
-
-**Options**:
-
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
-* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--commit-message TEXT`: The summary / title / first line of the generated commit.
-* `--commit-description TEXT`: The description of the generated commit.
-* `--create-pr / --no-create-pr`: Whether to create a new Pull Request for these changes.  [default: no-create-pr]
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf repo-files delete my-model file.txt
-  $ hf repo-files delete my-model "*.json"
-  $ hf repo-files delete my-model folder/
 
 Learn more
   Use `hf <command> --help` for more information about a command.

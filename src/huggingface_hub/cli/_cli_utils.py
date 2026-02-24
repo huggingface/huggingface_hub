@@ -77,6 +77,7 @@ Learn more
 
 
 TOPIC_T = Union[Literal["main", "help"], str]
+FallbackHandlerT = Callable[[list[str], set[str]], Optional[int]]
 
 
 def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -168,6 +169,19 @@ class HFCliTyperGroup(typer.core.TyperGroup):
         return sorted(primary_names)
 
 
+def fallback_typer_group_factory(fallback_handler: FallbackHandlerT) -> type[HFCliTyperGroup]:
+    """Return a Typer group class that runs a fallback handler before command resolution."""
+
+    class FallbackTyperGroup(HFCliTyperGroup):
+        def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
+            fallback_exit_code = fallback_handler(args, set(self.commands.keys()))
+            if fallback_exit_code is not None:
+                raise SystemExit(fallback_exit_code)
+            return super().resolve_command(ctx, args)
+
+    return FallbackTyperGroup
+
+
 def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[typer.core.TyperCommand]:
     def format_epilog(self: click.Command, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_epilog_no_indent(self.epilog, ctx, formatter)
@@ -222,22 +236,27 @@ class HFCliApp(typer.Typer):
         return _inner
 
 
-def typer_factory(help: str, epilog: Optional[str] = None) -> "HFCliApp":
+def typer_factory(
+    help: str, epilog: Optional[str] = None, cls: Optional[type[typer.core.TyperGroup]] = None
+) -> "HFCliApp":
     """Create a Typer app with consistent settings.
 
     Args:
         help: Help text for the app.
         epilog: Optional epilog text (use `generate_epilog` to create one).
+        cls: Optional Click group class to use (defaults to `HFCliTyperGroup`).
 
     Returns:
         A configured Typer app.
     """
+    if cls is None:
+        cls = HFCliTyperGroup
     return HFCliApp(
         help=help,
         epilog=epilog,
         add_completion=True,
         no_args_is_help=True,
-        cls=HFCliTyperGroup,
+        cls=cls,
         # Disable rich completely for consistent experience
         rich_markup_mode=None,
         rich_help_panel=None,

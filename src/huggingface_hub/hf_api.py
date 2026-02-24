@@ -1340,7 +1340,8 @@ class CollectionItem:
             self.item_id = slug  # collection slug
         self.item_type: CollectionItemType_T = type
         self.position: int = position
-        self.note: str = note["text"] if note is not None else None
+        note_text = note.get("text") if note is not None else None
+        self.note = note_text if isinstance(note_text, str) else None
 
 
 @dataclass
