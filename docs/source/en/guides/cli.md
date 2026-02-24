@@ -1115,7 +1115,7 @@ Inside the job container, the following environment variables are automatically 
 
 ```bash
 # Access job environment information
->>> hf jobs run python:3.12 python -c 'import os; print(f"Job: {os.environ.get(\"JOB_ID\")}, CPU: {os.environ.get(\"CPU_CORES\")}, Mem: {os.environ.get(\"MEMORY\")}")'
+>>> hf jobs run python:3.12 python -c "import os; print(f'Job: {os.environ.get(\"JOB_ID\")}, CPU: {os.environ.get(\"CPU_CORES\")}, Mem: {os.environ.get(\"MEMORY\")}')"
 ```
 
 ### Job Timeout
