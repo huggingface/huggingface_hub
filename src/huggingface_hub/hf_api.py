@@ -12154,6 +12154,7 @@ class HfApi:
 
         # Resolve all string paths to BucketFile objects in a single batch request
         str_paths = [path for path, _ in files if not isinstance(path, BucketFile)]
+        bucket_files_by_path: dict[str, BucketFile] = {}
         if str_paths:
             bucket_files_by_path = {
                 info.path: info for info in self.get_bucket_paths_info(bucket_id, str_paths, token=token)
