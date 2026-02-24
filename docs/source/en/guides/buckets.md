@@ -130,7 +130,7 @@ username/logs                321.8 MB        2000 2026-02-13
 >>> hf buckets ls huggingface
 ```
 
-You can use the `--quiet` and `--format json` options to get different output format. This is particularly interesting if you to pipe the output to another tool like `grep` or `jq`.
+You can use the `--quiet` and `--format json` options to get different output format. This is particularly interesting if you want to pipe the output to another tool like `grep` or `jq`.
 
 ```bash
 # Quiet mode: prints one bucket ID per line
