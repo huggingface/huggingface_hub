@@ -319,6 +319,34 @@ You can pass environment variables to your job using `env` and `secrets`:
 ... )
 ```
 
+### Built-in Environment Variables
+
+Inside the job container, the following environment variables are automatically available:
+
+| Variable | Description |
+|----------|-------------|
+| `JOB_ID` | The unique identifier of the current job. Use this to reference the job programmatically, for example to store outputs in a dataset with a unique name. |
+| `ACCELERATOR` | The type of accelerator available (e.g., `t4-medium`, `a10g-small`, `a100x4`). Empty if no accelerator. |
+| `CPU_CORES` | The number of CPU cores available to the job (e.g., `2`, `4`, `8`). |
+| `MEMORY` | The amount of memory available to the job (e.g., `16Gi`, `32Gi`). |
+
+```python
+# Access job environment information
+>>> from huggingface_hub import run_job
+>>> run_job(
+...     image="python:3.12",
+...     command=["python", "-c", """
+... import os
+... print(f"Job ID: {os.environ.get('JOB_ID')}")
+... print(f"Accelerator: {os.environ.get('ACCELERATOR', 'none')}")
+... print(f"CPU cores: {os.environ.get('CPU_CORES')}")
+... print(f"Memory: {os.environ.get('MEMORY')}")
+... """],
+... )
+```
+
+These variables are useful when you need to create unique identifiers for outputs, adapt your code based on available hardware, or log resource information.
+
 ## Labels
 
 Labels are a key=value pairs that applies metadata to a Job:
