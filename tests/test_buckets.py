@@ -286,3 +286,36 @@ def test_download_bucket_files_raises_on_missing_when_requested(api: HfApi, buck
         api.download_bucket_files(bucket_read, files, raise_on_missing_files=True)
 
     assert "non_existent_file.txt" in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "source, destination, expected_content_type",
+    [
+        # Source path determines content type
+        ("photo.jpg", "data/img001", "image/jpeg"),
+        ("document.pdf", "blob", "application/pdf"),
+        # Fallback to destination when source is bytes
+        (b"raw", "output.png", "image/png"),
+        (b"raw", "data.json", "application/json"),
+        # Fallback to destination when source has no extension
+        ("no_ext_file", "target.html", "text/html"),
+        # Source takes priority over destination
+        ("audio.mp3", "target.wav", "audio/mpeg"),
+        # None when neither source nor destination have a guessable type
+        (b"raw", "blob", None),
+        ("no_ext", "no_ext_dest", None),
+    ],
+)
+def test_bucket_add_file_content_type(source, destination, expected_content_type, tmp_path):
+    """Test that _BucketAddFile resolves content_type correctly."""
+    from huggingface_hub.hf_api import _BucketAddFile
+
+    # If source is a str path, create a temp file so os.path.getmtime works
+    if isinstance(source, str):
+        path = tmp_path / source
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"test")
+        source = str(path)
+
+    entry = _BucketAddFile(source=source, destination=destination)
+    assert entry.content_type == expected_content_type
