@@ -34,28 +34,38 @@ class DatasetSqlQueryResult:
 def execute_raw_sql_query(
     sql_query: str,
     token: Union[str, bool, None],
-    output_format: str = "json",
+    output_format: str = "table",
 ) -> DatasetSqlQueryResult:
     normalized_query = _normalize_query(sql_query)
     if output_format not in {"table", "json"}:
         raise ValueError(f"Unsupported SQL output format: {output_format!r}")
 
     effective_token = get_token_to_send(token)
-    connection = _get_duckdb_connection(token=effective_token)
+    connection = None
     try:
+        connection = _get_duckdb_connection(token=effective_token)
         relation = connection.sql(normalized_query)
         if relation is None or relation.description is None:
             raise ValueError("SQL query must return rows.")
-        table = str(relation)
         columns = tuple(column[0] for column in relation.description)
-        rows = tuple(tuple(row) for row in relation.fetchall()) if output_format == "json" else ()
+        table: str
+        rows: tuple[tuple[Any, ...], ...]
+        if output_format == "table":
+            table = str(relation)
+            rows = ()
+        else:
+            table = ""
+            rows = tuple(tuple(row) for row in relation.fetchall())
         return DatasetSqlQueryResult(columns=columns, rows=rows, table=table)
     except ValueError:
+        raise
+    except ImportError:
         raise
     except Exception as e:
         raise ValueError(str(e)) from e
     finally:
-        connection.close()
+        if connection is not None:
+            connection.close()
 
 
 def format_sql_result(result: DatasetSqlQueryResult, output_format: str) -> str:
@@ -84,12 +94,16 @@ def _get_duckdb_connection(token: Union[str, bool, None]):
         ) from error
 
     connection = duckdb.connect()
-    if isinstance(token, str) and token:
-        escaped_token = token.replace("'", "''")
-        escaped_endpoint = constants.ENDPOINT.replace("'", "''")
-        connection.execute(
-            f"CREATE OR REPLACE SECRET hf_hub_token (TYPE HTTP, BEARER_TOKEN '{escaped_token}', "
-            f"SCOPE '{escaped_endpoint}')"
-        )
-        connection.execute(f"CREATE OR REPLACE SECRET hf_token (TYPE HUGGINGFACE, TOKEN '{escaped_token}')")
-    return connection
+    try:
+        if isinstance(token, str) and token:
+            escaped_token = token.replace("'", "''")
+            escaped_endpoint = constants.ENDPOINT.replace("'", "''")
+            connection.execute(
+                f"CREATE OR REPLACE SECRET hf_hub_token (TYPE HTTP, BEARER_TOKEN '{escaped_token}', "
+                f"SCOPE '{escaped_endpoint}')"
+            )
+            connection.execute(f"CREATE OR REPLACE SECRET hf_token (TYPE HUGGINGFACE, TOKEN '{escaped_token}')")
+        return connection
+    except Exception:
+        connection.close()
+        raise

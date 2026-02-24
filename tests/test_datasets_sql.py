@@ -68,11 +68,12 @@ def test_execute_raw_sql_query_runs_normalized_query(monkeypatch: pytest.MonkeyP
     result = execute_raw_sql_query(
         sql_query="SELECT COUNT(*) AS count;",
         token="token",
+        output_format="json",
     )
 
     assert result.columns == ("count",)
     assert result.rows == ((123,),)
-    assert "123" in result.table
+    assert result.table == ""
     assert "SELECT COUNT(*) AS count" in fake_connection.executed_queries
     assert fake_connection.closed is True
 
