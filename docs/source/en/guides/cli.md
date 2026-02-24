@@ -1109,7 +1109,7 @@ Inside the job container, the following environment variables are automatically 
 | Variable | Description |
 |----------|-------------|
 | `JOB_ID` | The unique identifier of the current job. Use this to reference the job programmatically. |
-| `ACCELERATOR` | The type of accelerator available (e.g., `nvidia-a10g`, `nvidia-l4`). Empty if no accelerator. |
+| `ACCELERATOR` | The type of accelerator available (e.g., `t4-medium`, `a10g-small`, `a100x4`). Empty if no accelerator. |
 | `CPU_CORES` | The number of CPU cores available to the job (e.g., `2`, `4`, `8`). |
 | `MEMORY` | The amount of memory available to the job (e.g., `16Gi`, `32Gi`). |
 
