@@ -602,7 +602,7 @@ class SyncOperation:
     reason: str = ""
     local_mtime: Optional[str] = None
     remote_mtime: Optional[str] = None
-    bucket_file: Optional[Any] = None  # BucketFile when available (not serialized to plan file)
+    bucket_file: Optional[BucketFile] = None  # BucketFile when available (not serialized to plan file)
 
 
 @dataclass
