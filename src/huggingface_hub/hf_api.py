@@ -12061,7 +12061,6 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
             retry_on_errors=True,
         )
-        hf_raise_for_status(response)
 
         xet_file_data = parse_xet_file_data_from_response(response)
         if xet_file_data is None:
