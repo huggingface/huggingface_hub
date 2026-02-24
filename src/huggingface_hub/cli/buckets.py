@@ -47,7 +47,7 @@ logger = logging.get_logger(__name__)
 
 
 BUCKET_PREFIX = "hf://buckets/"
-
+_SYNC_TIME_WINDOW_MS = 1000  # 1s safety-window for file modification time comparisons
 
 buckets_cli = typer_factory(help="Commands to interact with buckets.")
 
@@ -812,13 +812,13 @@ def _compare_files_for_sync(
         return SyncOperation(action="skip", reason="exists on receiver (--ignore-existing)", **base_kwargs)
 
     size_differs = source_size != dest_size
-    source_newer = (source_mtime - dest_mtime) > 1000  # 1s window for precision
+    source_newer = (source_mtime - dest_mtime) > _SYNC_TIME_WINDOW_MS
 
     if ignore_sizes:
         if source_newer:
             return SyncOperation(action=action, reason=source_newer_label, bucket_file=bucket_file, **base_kwargs)
         else:
-            dest_newer = (dest_mtime - source_mtime) > 1000
+            dest_newer = (dest_mtime - source_mtime) > _SYNC_TIME_WINDOW_MS
             skip_reason = dest_newer_label if dest_newer else "same mtime"
             return SyncOperation(action="skip", reason=skip_reason, **base_kwargs)
     elif ignore_times:
