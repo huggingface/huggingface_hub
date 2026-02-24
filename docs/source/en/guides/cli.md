@@ -1109,10 +1109,13 @@ Inside the job container, the following environment variables are automatically 
 | Variable | Description |
 |----------|-------------|
 | `JOB_ID` | The unique identifier of the current job. Use this to reference the job programmatically. |
+| `ACCELERATOR` | The type of accelerator available (e.g., `nvidia-a10g`, `nvidia-l4`). Empty if no accelerator. |
+| `CPU_CORES` | The number of CPU cores available to the job (e.g., `2`, `4`, `8`). |
+| `MEMORY` | The amount of memory available to the job (e.g., `16Gi`, `32Gi`). |
 
 ```bash
-# Access the job ID from within your job
->>> hf jobs run python:3.12 python -c 'import os; print(f"Running job: {os.environ[\"JOB_ID\"]}")'
+# Access job environment information
+>>> hf jobs run python:3.12 python -c 'import os; print(f"Job: {os.environ.get(\"JOB_ID\")}, CPU: {os.environ.get(\"CPU_CORES\")}, Mem: {os.environ.get(\"MEMORY\")}")'
 ```
 
 ### Job Timeout

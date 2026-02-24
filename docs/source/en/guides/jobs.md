@@ -326,17 +326,26 @@ Inside the job container, the following environment variables are automatically 
 | Variable | Description |
 |----------|-------------|
 | `JOB_ID` | The unique identifier of the current job. Use this to reference the job programmatically, for example to store outputs in a dataset with a unique name. |
+| `ACCELERATOR` | The type of accelerator available (e.g., `nvidia-a10g`, `nvidia-l4`, `google-tpu-v5-lite-podslice`). Empty if no accelerator. |
+| `CPU_CORES` | The number of CPU cores available to the job (e.g., `2`, `4`, `8`). |
+| `MEMORY` | The amount of memory available to the job (e.g., `16Gi`, `32Gi`). |
 
 ```python
-# Access the job ID from within your job
+# Access job environment information
 >>> from huggingface_hub import run_job
 >>> run_job(
 ...     image="python:3.12",
-...     command=["python", "-c", "import os; print(f'Running job: {os.environ[\"JOB_ID\"]}')"],
+...     command=["python", "-c", """
+... import os
+... print(f"Job ID: {os.environ.get('JOB_ID')}")
+... print(f"Accelerator: {os.environ.get('ACCELERATOR', 'none')}")
+... print(f"CPU cores: {os.environ.get('CPU_CORES')}")
+... print(f"Memory: {os.environ.get('MEMORY')}")
+... """],
 ... )
 ```
 
-This is useful when you need to create unique identifiers for outputs or track which job produced specific results.
+These variables are useful when you need to create unique identifiers for outputs, adapt your code based on available hardware, or log resource information.
 
 ## Labels
 
