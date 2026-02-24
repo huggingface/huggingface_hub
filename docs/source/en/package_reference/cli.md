@@ -31,7 +31,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `download`: Download files from the Hub.
 * `endpoints`: Manage Hugging Face Inference Endpoints.
 * `env`: Print information about the environment.
-* `extensions`: Manage hf CLI extensions.
+* `extensions | ext`: Manage hf CLI extensions.
 * `jobs`: Run and manage Jobs on the Hub.
 * `lfs-enable-largefiles`: Configure your repository to enable upload...
 * `lfs-multipart-upload`: Internal git-lfs custom transfer agent for...
@@ -1347,7 +1347,7 @@ $ hf env [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-## `hf extensions`
+## `hf extensions | ext`
 
 Manage hf CLI extensions.
 
@@ -1356,7 +1356,7 @@ Security Warning: extensions are third-party executables. Install only from sour
 **Usage**:
 
 ```console
-$ hf extensions [OPTIONS] COMMAND [ARGS]...
+$ hf extensions | ext [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -1370,14 +1370,14 @@ $ hf extensions [OPTIONS] COMMAND [ARGS]...
 * `list`: List installed extension commands.
 * `remove`: Remove an installed extension.
 
-### `hf extensions exec`
+### `hf extensions | ext exec`
 
 Execute an installed extension.
 
 **Usage**:
 
 ```console
-$ hf extensions exec [OPTIONS] NAME
+$ hf extensions | ext exec [OPTIONS] NAME
 ```
 
 **Arguments**:
@@ -1397,7 +1397,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions install`
+### `hf extensions | ext install`
 
 Install an extension from a public GitHub repository.
 
@@ -1406,7 +1406,7 @@ Security warning: this installs a third-party executable. Install only from sour
 **Usage**:
 
 ```console
-$ hf extensions install [OPTIONS] REPO_ID
+$ hf extensions | ext install [OPTIONS] REPO_ID
 ```
 
 **Arguments**:
@@ -1427,14 +1427,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions list`
+### `hf extensions | ext list`
 
 List installed extension commands.
 
 **Usage**:
 
 ```console
-$ hf extensions list [OPTIONS]
+$ hf extensions | ext list [OPTIONS]
 ```
 
 **Options**:
@@ -1449,14 +1449,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions remove`
+### `hf extensions | ext remove`
 
 Remove an installed extension.
 
 **Usage**:
 
 ```console
-$ hf extensions remove [OPTIONS] NAME
+$ hf extensions | ext remove [OPTIONS] NAME
 ```
 
 **Arguments**:

@@ -91,7 +91,7 @@ app.add_typer(repo_files_cli, name="repo-files", hidden=True)
 app.add_typer(skills_cli, name="skills")
 app.add_typer(spaces_cli, name="spaces")
 app.add_typer(ie_cli, name="endpoints")
-app.add_typer(extensions_cli, name="extensions")
+app.add_typer(extensions_cli, name="extensions | ext")
 
 
 def main():
