@@ -1172,8 +1172,8 @@ def _execute_plan(plan: SyncPlan, api, verbose: bool = False, status: Optional[S
         os.makedirs(local_path, exist_ok=True)
 
         # Collect download operations
-        download_files = []
-        delete_files = []
+        download_files: list[tuple[Union[str, BucketFile], str]] = []
+        delete_files: list[str] = []
 
         for op in plan.operations:
             if op.action == "download":
