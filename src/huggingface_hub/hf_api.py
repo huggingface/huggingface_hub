@@ -11715,6 +11715,8 @@ class HfApi:
                 The ID of the bucket (e.g. `"username/my-bucket"`).
             prefix (`str`, *optional*):
                 Filter results to files whose path starts with this prefix.
+            recursive (`bool`, *optional*):
+                If `True`, list files recursively. If `False` (default), list files and directories only at root.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
