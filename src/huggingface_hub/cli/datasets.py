@@ -32,7 +32,13 @@ import typer
 
 from huggingface_hub._datasets_parquet import list_dataset_parquet_entries
 from huggingface_hub._datasets_sql import execute_raw_sql_query, format_sql_result
-from huggingface_hub.errors import CLIError, EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import (
+    CLIError,
+    EntryNotFoundError,
+    HfHubHTTPError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+)
 from huggingface_hub.hf_api import DatasetSort_T, ExpandDatasetProperty_T
 from huggingface_hub.utils import tabulate
 
@@ -154,7 +160,11 @@ def datasets_parquet(
 
     try:
         entries = list_dataset_parquet_entries(repo_id=dataset_id, token=effective_token, config=subset, split=split)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"Dataset '{dataset_id}' not found.") from e
     except EntryNotFoundError as e:
+        raise CLIError(str(e)) from e
+    except HfHubHTTPError as e:
         raise CLIError(str(e)) from e
     rows: list[list[Union[str, int]]] = [[entry.config, entry.split, entry.url] for entry in entries]
 
@@ -188,10 +198,8 @@ def datasets_sql(
     token: TokenOpt = None,
 ) -> None:
     """Execute a raw SQL query with DuckDB against dataset parquet URLs."""
-    api = get_hf_api(token=token)
-    effective_token = api.token
     try:
-        result = execute_raw_sql_query(sql_query=sql, token=effective_token, output_format=format.value)
+        result = execute_raw_sql_query(sql_query=sql, token=token, output_format=format.value)
     except (ImportError, ValueError) as e:
         raise CLIError(str(e)) from e
     typer.echo(format_sql_result(result=result, output_format=format.value))

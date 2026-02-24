@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Any, Union
 
 from . import constants
+from .utils import get_token_to_send
 
 
 @dataclass(frozen=True)
@@ -39,10 +40,11 @@ def execute_raw_sql_query(
     if output_format not in {"table", "json"}:
         raise ValueError(f"Unsupported SQL output format: {output_format!r}")
 
-    connection = _get_duckdb_connection(token=token)
+    effective_token = get_token_to_send(token)
+    connection = _get_duckdb_connection(token=effective_token)
     try:
         relation = connection.sql(normalized_query)
-        if relation.description is None:
+        if relation is None or relation.description is None:
             raise ValueError("SQL query must return rows.")
         table = str(relation)
         columns = tuple(column[0] for column in relation.description)
