@@ -1102,6 +1102,19 @@ You can pass environment variables to your job using
 > With this syntax, the secret is retrieved from the environment variable.
 > For `HF_TOKEN`, it may read the token file located in the Hugging Face home folder if the environment variable is unset.
 
+#### Built-in Environment Variables
+
+Inside the job container, the following environment variables are automatically available:
+
+| Variable | Description |
+|----------|-------------|
+| `JOB_ID` | The unique identifier of the current job. Use this to reference the job programmatically. |
+
+```bash
+# Access the job ID from within your job
+>>> hf jobs run python:3.12 python -c 'import os; print(f"Running job: {os.environ[\"JOB_ID\"]}")'
+```
+
 ### Job Timeout
 
 Jobs have a default timeout of 30 mins, after which they automatically stop. For long-running tasks like model training, set a custom timeout using the `--timeout` option:

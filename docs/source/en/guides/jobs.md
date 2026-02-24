@@ -319,6 +319,25 @@ You can pass environment variables to your job using `env` and `secrets`:
 ... )
 ```
 
+### Built-in Environment Variables
+
+Inside the job container, the following environment variables are automatically available:
+
+| Variable | Description |
+|----------|-------------|
+| `JOB_ID` | The unique identifier of the current job. Use this to reference the job programmatically, for example to store outputs in a dataset with a unique name. |
+
+```python
+# Access the job ID from within your job
+>>> from huggingface_hub import run_job
+>>> run_job(
+...     image="python:3.12",
+...     command=["python", "-c", "import os; print(f'Running job: {os.environ[\"JOB_ID\"]}')"],
+... )
+```
+
+This is useful when you need to create unique identifiers for outputs or track which job produced specific results.
+
 ## Labels
 
 Labels are a key=value pairs that applies metadata to a Job:
