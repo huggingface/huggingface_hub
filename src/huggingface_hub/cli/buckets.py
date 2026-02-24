@@ -27,7 +27,7 @@ import typer
 
 from huggingface_hub import HfApi, logging
 from huggingface_hub.errors import BucketNotFoundError
-from huggingface_hub.hf_api import BucketFile, BucketFolder
+from huggingface_hub.hf_api import BucketFile, BucketFolder, _split_bucket_id_and_prefix
 from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
@@ -60,21 +60,7 @@ def _parse_bucket_path(path: str) -> tuple[str, str]:
     """
     if not path.startswith(BUCKET_PREFIX):
         raise ValueError(f"Invalid bucket path: {path}. Must start with {BUCKET_PREFIX}")
-
-    path_without_prefix = path[len(BUCKET_PREFIX) :]
-    parts = path_without_prefix.split("/", 2)
-
-    if len(parts) < 2:
-        raise ValueError(
-            f"Invalid bucket path: {path}. Must be in format {BUCKET_PREFIX}namespace/bucket_name(/prefix)"
-        )
-
-    namespace = parts[0]
-    bucket_name = parts[1]
-    bucket_id = f"{namespace}/{bucket_name}"
-    prefix = parts[2] if len(parts) > 2 else ""
-
-    return bucket_id, prefix
+    return _split_bucket_id_and_prefix(path.removeprefix(BUCKET_PREFIX))
 
 
 def _parse_bucket_argument(argument: str) -> tuple[str, str]:
@@ -85,17 +71,13 @@ def _parse_bucket_argument(argument: str) -> tuple[str, str]:
     """
     if argument.startswith(BUCKET_PREFIX):
         return _parse_bucket_path(argument)
-
-    parts = argument.split("/", 2)
-    if len(parts) < 2:
+    try:
+        return _split_bucket_id_and_prefix(argument)
+    except ValueError:
         raise ValueError(
             f"Invalid bucket argument: {argument}. Must be in format namespace/bucket_name"
             f" or {BUCKET_PREFIX}namespace/bucket_name"
         )
-
-    bucket_id = f"{parts[0]}/{parts[1]}"
-    prefix = parts[2] if len(parts) > 2 else ""
-    return bucket_id, prefix
 
 
 def _format_size(size: Union[int, float], human_readable: bool = False) -> str:

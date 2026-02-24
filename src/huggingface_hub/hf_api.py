@@ -667,13 +667,27 @@ class BucketUrl:
         # Remove leading "buckets/" prefix
         if url_path.startswith("buckets/"):
             url_path = url_path[len("buckets/") :]
-        parts = url_path.split("/")
-        if len(parts) != 2:
+        bucket_id, prefix = _split_bucket_id_and_prefix(url_path)
+        if prefix:
             raise ValueError(f"Unable to parse bucket URL: {self.url}")
-        self.namespace = parts[0]
-        self.bucket_id = f"{parts[0]}/{parts[1]}"
+        self.namespace = bucket_id.split("/")[0]
+        self.bucket_id = bucket_id
 
         self.handle = f"hf://buckets/{self.bucket_id}"
+
+
+def _split_bucket_id_and_prefix(path: str) -> tuple[str, str]:
+    """Split 'namespace/name(/optional/prefix)' into ('namespace/name', 'prefix').
+
+    Returns (bucket_id, prefix) where prefix may be empty string.
+    Raises ValueError if path doesn't contain at least namespace/name.
+    """
+    parts = path.split("/", 2)
+    if len(parts) < 2 or not parts[0] or not parts[1]:
+        raise ValueError(f"Invalid bucket path: '{path}'. Expected format: namespace/bucket_name")
+    bucket_id = f"{parts[0]}/{parts[1]}"
+    prefix = parts[2] if len(parts) > 2 else ""
+    return bucket_id, prefix
 
 
 @dataclass
@@ -11543,13 +11557,13 @@ class HfApi:
         if resource_group_id is not None:
             payload["resourceGroupId"] = resource_group_id
 
-        parts = bucket_id.split("/")
-        if len(parts) == 1:
-            namespace, name = "me", parts[0]  # "me" namespace refers to the current user
-        elif len(parts) == 2:
-            namespace, name = parts
+        if "/" not in bucket_id:
+            namespace, name = "me", bucket_id  # "me" namespace refers to the current user
         else:
-            raise ValueError(f"Invalid bucket ID: {bucket_id}")
+            bucket_id_parsed, prefix = _split_bucket_id_and_prefix(bucket_id)
+            if prefix:
+                raise ValueError(f"Invalid bucket ID: {bucket_id}")
+            namespace, name = bucket_id_parsed.split("/")
 
         response = get_session().post(
             f"{self.endpoint}/api/buckets/{namespace}/{name}",
