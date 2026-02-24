@@ -154,6 +154,8 @@ def datasets_parquet(
 
     try:
         entries = list_dataset_parquet_entries(repo_id=dataset_id, token=effective_token, config=subset, split=split)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"Dataset '{dataset_id}' not found.") from e
     except EntryNotFoundError as e:
         raise CLIError(str(e)) from e
     rows: list[list[Union[str, int]]] = [[entry.config, entry.split, entry.url] for entry in entries]

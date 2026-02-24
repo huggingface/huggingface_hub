@@ -19,7 +19,7 @@ from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, EntryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -1561,6 +1561,17 @@ class TestDatasetsParquetCommand:
         assert result.exit_code == 1
         assert isinstance(result.exception, CLIError)
         assert str(result.exception) == "No parquet entries found for dataset 'cfahlgren1/hub-stats'."
+
+    def test_datasets_parquet_missing_repo_returns_cli_error(self, runner: CliRunner) -> None:
+        with patch(
+            "huggingface_hub.cli.datasets.list_dataset_parquet_entries",
+            side_effect=RepositoryNotFoundError("not found", response=Mock()),
+        ):
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert str(result.exception) == "Dataset 'cfahlgren1/hub-stats' not found."
 
 
 class TestDatasetsSqlCommand:

@@ -42,7 +42,7 @@ def execute_raw_sql_query(
     connection = _get_duckdb_connection(token=token)
     try:
         relation = connection.sql(normalized_query)
-        if relation.description is None:
+        if relation is None or relation.description is None:
             raise ValueError("SQL query must return rows.")
         table = str(relation)
         columns = tuple(column[0] for column in relation.description)

@@ -77,6 +77,29 @@ def test_execute_raw_sql_query_runs_normalized_query(monkeypatch: pytest.MonkeyP
     assert fake_connection.closed is True
 
 
+def test_execute_raw_sql_query_requires_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeConnection:
+        def __init__(self):
+            self.closed = False
+
+        def sql(self, query):
+            return None
+
+        def close(self):
+            self.closed = True
+
+    fake_connection = FakeConnection()
+    monkeypatch.setattr(
+        "huggingface_hub._datasets_sql._get_duckdb_connection",
+        lambda token: fake_connection,
+    )
+
+    with pytest.raises(ValueError, match="SQL query must return rows."):
+        execute_raw_sql_query(sql_query="CREATE TABLE x (a int)", token="token")
+
+    assert fake_connection.closed is True
+
+
 def test_get_duckdb_connection_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     def import_module(name):
         if name == "duckdb":
