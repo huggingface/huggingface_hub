@@ -16,12 +16,15 @@
 
 import warnings
 from functools import wraps
-from typing import Callable
+from typing import Callable, TypeVar
 
 from .. import constants
 
 
-def experimental(fn: Callable) -> Callable:
+C = TypeVar("C", bound=Callable)
+
+
+def experimental(fn: C) -> C:
     """Decorator to flag a feature as experimental.
 
     An experimental feature triggers a warning when used as it might be subject to breaking changes without prior notice
